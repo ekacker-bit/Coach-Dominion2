@@ -1,15 +1,17 @@
-# Coach Dominion — Clean Foundation
+# Coach Dominion — Step 2 Authentication Foundation
 
-This first deployment intentionally has no package.json and no dependency installation.
+Still zero npm dependencies.
 
-Repository root should contain:
-- index.html
-- vercel.json
-- README.md
+Vercel environment variables required:
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-Vercel:
-- Framework Preset: Other
-- Root Directory: ./
-- Build Command: leave blank
-- Output Directory: leave blank
-- Install Command: leave blank
+Supabase Authentication URL Configuration:
+- Site URL: your production Vercel URL
+- Redirect URL: https://YOUR-VERCEL-DOMAIN.vercel.app/app
+
+Tests:
+- /
+- /app
+- /api/health
+- /api/config

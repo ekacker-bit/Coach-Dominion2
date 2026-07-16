@@ -8,17 +8,27 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <main>
-    <div class="topbar">
+  <main class="war-room-shell">
+    <header class="command-header">
       <div>
-        <div class="kicker">CLOSED ALPHA</div>
+        <div class="kicker">DOMINION // CLOSED ALPHA</div>
         <h1>War Room</h1>
+        <p class="muted" id="identity">Verifying session…</p>
       </div>
       <button id="logout" class="ghost">Sign out</button>
-    </div>
-    <p class="muted" id="identity">Verifying session…</p>
+    </header>
+
+    <section class="status-bar" aria-label="Current status bar">
+      <div><span>Sleep</span><strong id="status-sleep">—</strong></div>
+      <div><span>Weight</span><strong id="status-weight">—</strong></div>
+      <div><span>Steps</span><strong id="status-steps">—</strong></div>
+      <div><span>RHR</span><strong id="status-rhr">—</strong></div>
+      <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
+      <div><span>Build</span><strong>0.2.0</strong></div>
+    </section>
+
     <p class="status" id="status"></p>
-    <p class="muted" id="loading">Loading today's Daily State…</p>
+    <p class="muted loading" id="loading">Loading today's Daily State…</p>
 
     <div id="app-content" hidden>
       <section id="roll-call-required" class="card alert" hidden>
@@ -27,63 +37,110 @@
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
       </section>
 
-      <section class="grid">
-        <article class="card">
-          <div class="kicker">PRIMARY MISSION</div>
-          <h2 id="mission">Morning Roll Call Required.</h2>
-          <p id="mission-detail" class="muted">No mission will be generated until today's state is saved.</p>
-          <p id="mission-restrictions" class="muted">Restrictions: Awaiting roll call.</p>
+      <section class="command-grid" aria-label="War Room command center">
+        <article class="card mission-board">
+          <div class="section-heading">
+            <div>
+              <div class="kicker">MISSION BOARD</div>
+              <h2 id="mission">Morning Roll Call Required.</h2>
+            </div>
+            <span id="mission-status" class="state-pill neutral">PENDING</span>
+          </div>
+          <p id="mission-detail" class="mission-detail">No mission will be generated until today's state is saved.</p>
+          <dl class="mission-data">
+            <div><dt>Restrictions</dt><dd id="mission-restrictions">Awaiting roll call.</dd></div>
+            <div><dt>Readiness Source</dt><dd id="mission-source">No Daily State evidence.</dd></div>
+            <div><dt>Confidence</dt><dd id="mission-confidence">—</dd></div>
+            <div><dt>Context</dt><dd id="mission-context">Generated/current-state context unavailable.</dd></div>
+          </dl>
         </article>
-        <article class="card">
-          <div class="kicker">READINESS</div>
+
+        <article class="card readiness-card">
+          <div class="kicker">READINESS INTELLIGENCE</div>
           <div id="readiness" class="metric">—</div>
           <p id="readiness-detail">Submit Energy, Soreness, and Pain to calculate readiness.</p>
-          <div class="kicker">CONFIDENCE</div>
-          <div id="confidence" class="metric small-metric">0%</div>
+          <div class="readiness-factors">
+            <div><span>Confidence</span><strong id="confidence">0%</strong></div>
+            <div><span>Energy</span><strong id="readiness-energy">—</strong></div>
+            <div><span>Soreness</span><strong id="readiness-soreness">—</strong></div>
+            <div><span>Pain</span><strong id="readiness-pain">—</strong></div>
+          </div>
+          <div class="evidence-grid">
+            <div>
+              <h3>Evidence available</h3>
+              <ul id="evidence-available"><li>None yet.</li></ul>
+            </div>
+            <div>
+              <h3>Evidence missing</h3>
+              <ul id="evidence-missing"><li>Daily State required.</li></ul>
+            </div>
+          </div>
           <p id="confidence-detail" class="muted">No Daily State evidence available yet.</p>
         </article>
-        <article class="card">
-          <div class="kicker">COMMAND FEED</div>
+
+        <article class="card command-feed-card">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">COMMAND FEED</div>
+              <h2>Today’s events</h2>
+            </div>
+          </div>
           <ul id="command-feed" class="feed">
             <li>Awaiting Morning Roll Call.</li>
           </ul>
         </article>
+
+        <article class="card daily-intelligence">
+          <div class="kicker">DAILY INTELLIGENCE</div>
+          <h2 id="daily-intel-title">Awaiting signal</h2>
+          <dl>
+            <div><dt>Primary condition</dt><dd id="daily-primary">Daily State not submitted.</dd></div>
+            <div><dt>Instruction</dt><dd id="daily-instruction">Complete Morning Roll Call.</dd></div>
+            <div><dt>Risk</dt><dd id="daily-risk">Operating without current readiness.</dd></div>
+          </dl>
+        </article>
       </section>
 
-      <section id="roll-call-card" class="card roll-call-card">
-        <div class="kicker">MORNING ROLL CALL</div>
-        <h2>Report current state.</h2>
-        <form id="roll-call-form">
-          <label>Energy (1-10)
-            <input name="energy" type="number" min="1" max="10" step="1" required>
-          </label>
-          <label>Soreness (1-10)
-            <input name="soreness" type="number" min="1" max="10" step="1" required>
-          </label>
-          <fieldset>
-            <legend>Pain</legend>
-            <label class="radio"><input type="radio" name="pain" value="no" required> No</label>
-            <label class="radio"><input type="radio" name="pain" value="yes" required> Yes</label>
-          </fieldset>
-          <label>Comments (optional, 250 characters)
-            <textarea name="comments" maxlength="250" rows="3" placeholder="Travel, illness, poor sleep, unusual soreness…"></textarea>
-          </label>
-          <button id="save-roll-call" type="submit">Submit Morning Roll Call</button>
-        </form>
-      </section>
+      <section class="lower-grid" aria-label="Daily operations modules">
+        <section id="roll-call-card" class="card roll-call-card">
+          <div class="kicker">MORNING ROLL CALL</div>
+          <h2>Report current state.</h2>
+          <form id="roll-call-form">
+            <label>Energy (1-10)
+              <input name="energy" type="number" min="1" max="10" step="1" required>
+            </label>
+            <label>Soreness (1-10)
+              <input name="soreness" type="number" min="1" max="10" step="1" required>
+            </label>
+            <fieldset>
+              <legend>Pain</legend>
+              <label class="radio"><input type="radio" name="pain" value="no" required> No</label>
+              <label class="radio"><input type="radio" name="pain" value="yes" required> Yes</label>
+            </fieldset>
+            <label>Comments (optional, 250 characters)
+              <textarea name="comments" maxlength="250" rows="3" placeholder="Travel, illness, poor sleep, unusual soreness…"></textarea>
+            </label>
+            <button id="save-roll-call" type="submit">Submit Morning Roll Call</button>
+          </form>
+        </section>
 
-      <section id="daily-state-summary" class="card summary" hidden>
-        <div class="kicker">TODAY'S DAILY STATE</div>
-        <dl>
-          <div><dt>Date</dt><dd id="summary-date">—</dd></div>
-          <div><dt>Energy</dt><dd id="summary-energy">—</dd></div>
-          <div><dt>Soreness</dt><dd id="summary-soreness">—</dd></div>
-          <div><dt>Pain</dt><dd id="summary-pain">—</dd></div>
-          <div><dt>Confidence</dt><dd id="summary-confidence">—</dd></div>
-        </dl>
-        <dl class="comments-summary">
-          <div><dt>Comments</dt><dd id="summary-comments">—</dd></div>
-        </dl>
+        <section id="daily-state-summary" class="card summary" hidden>
+          <div class="kicker">TODAY'S DAILY STATE</div>
+          <dl>
+            <div><dt>Date</dt><dd id="summary-date">—</dd></div>
+            <div><dt>Energy</dt><dd id="summary-energy">—</dd></div>
+            <div><dt>Soreness</dt><dd id="summary-soreness">—</dd></div>
+            <div><dt>Pain</dt><dd id="summary-pain">—</dd></div>
+            <div><dt>Confidence</dt><dd id="summary-confidence">—</dd></div>
+          </dl>
+          <dl class="comments-summary">
+            <div><dt>Comments</dt><dd id="summary-comments">—</dd></div>
+          </dl>
+        </section>
+
+        <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training module</h2><p class="muted">Placeholder for prescribed work.</p></article>
+        <article class="card module-placeholder"><div class="kicker">NUTRITION</div><h2>Fuel module</h2><p class="muted">Placeholder for nutrition guidance.</p></article>
+        <article class="card module-placeholder"><div class="kicker">RECOVERY</div><h2>Recovery module</h2><p class="muted">Placeholder for recovery actions.</p></article>
       </section>
     </div>
   </main>

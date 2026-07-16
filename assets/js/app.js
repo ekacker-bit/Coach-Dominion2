@@ -93,26 +93,91 @@ function clearElement(element) {
   while (element.firstChild) element.removeChild(element.firstChild);
 }
 
+function valueOrDash(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "—";
+  return `${value}${suffix}`;
+}
+
+function setList(id, values, emptyText) {
+  const list = document.getElementById(id);
+  clearElement(list);
+  const items = values.length ? values : [emptyText];
+  items.forEach((value) => {
+    const item = document.createElement("li");
+    item.textContent = value;
+    list.appendChild(item);
+  });
+}
+
+function evidenceForState(state) {
+  if (!state) return { available: [], missing: ["Daily State required."] };
+  const checks = [
+    ["Energy", state.energy],
+    ["Soreness", state.soreness],
+    ["Pain status", typeof state.pain === "boolean" ? state.pain : null],
+    ["Sleep", state.sleep],
+    ["Weight", state.weight],
+    ["Steps", state.steps],
+    ["Resting heart rate", state.resting_heart_rate]
+  ];
+  return {
+    available: checks.filter(([, value]) => value !== null && value !== undefined).map(([label]) => label),
+    missing: checks.filter(([, value]) => value === null || value === undefined).map(([label]) => label)
+  };
+}
+
+function dailyIntelligence(readiness) {
+  if (readiness === "GREEN") {
+    return ["GREEN protocol", "Recovery capacity acceptable", "Execute prescribed mission", "Unauthorized additional volume"];
+  }
+  if (readiness === "YELLOW") {
+    return ["YELLOW protocol", "Reduced readiness", "Complete primary work only", "Excess intensity or volume"];
+  }
+  if (readiness === "RED") {
+    return ["RED protocol", "Pain reported", "Recovery mission", "Hard training"];
+  }
+  return ["Awaiting signal", "Daily State not submitted", "Complete Morning Roll Call", "Operating without current readiness"];
+}
+
+function renderStatusBar(state) {
+  setText("status-sleep", state ? valueOrDash(state.sleep, "h") : "—");
+  setText("status-weight", state ? valueOrDash(state.weight) : "—");
+  setText("status-steps", state ? valueOrDash(state.steps) : "—");
+  setText("status-rhr", state ? valueOrDash(state.resting_heart_rate, " bpm") : "—");
+  setText("status-confidence", state ? confidencePercent(state.confidence) : "—");
+}
+
 function renderCommandFeed(events) {
   const feed = document.getElementById("command-feed");
   clearElement(feed);
 
   if (!events.length) {
     const item = document.createElement("li");
-    item.textContent = "Awaiting Morning Roll Call.";
+    item.className = "feed-empty";
+    item.textContent = "No command events yet. Submit Morning Roll Call to initialize today’s feed.";
     feed.appendChild(item);
     return;
   }
 
   events.forEach((event) => {
     const item = document.createElement("li");
-    const message = document.createElement("span");
-    const time = document.createElement("small");
+    const meta = document.createElement("div");
+    const type = document.createElement("strong");
+    const severity = document.createElement("span");
+    const message = document.createElement("p");
+    const time = document.createElement("time");
 
     item.className = `feed-event ${String(event.severity).toLowerCase()}`;
+    meta.className = "feed-meta";
+    type.textContent = String(event.event_type || "EVENT").replaceAll("_", " ");
+    severity.textContent = event.severity || "INFO";
     message.textContent = event.message;
+    time.dateTime = event.occurred_at;
     time.textContent = new Date(event.occurred_at).toLocaleString();
 
+    meta.appendChild(type);
+    meta.appendChild(severity);
+    item.appendChild(meta);
     item.appendChild(message);
     item.appendChild(time);
     feed.appendChild(item);
@@ -151,6 +216,22 @@ function renderWarRoom(state) {
     setText("mission-detail", "No mission will be generated until today's state is saved.");
     setText("mission-restrictions", "Restrictions: Awaiting roll call.");
     setText("summary-comments", "—");
+    setText("mission-status", "PENDING");
+    document.getElementById("mission-status").className = "state-pill neutral";
+    setText("mission-source", "No Daily State evidence.");
+    setText("mission-confidence", "—");
+    setText("mission-context", "Generated/current-state context unavailable.");
+    setText("readiness-energy", "—");
+    setText("readiness-soreness", "—");
+    setText("readiness-pain", "—");
+    renderStatusBar(null);
+    setList("evidence-available", [], "None yet.");
+    setList("evidence-missing", ["Daily State required."], "None.");
+    const intel = dailyIntelligence(null);
+    setText("daily-intel-title", intel[0]);
+    setText("daily-primary", intel[1]);
+    setText("daily-instruction", intel[2]);
+    setText("daily-risk", intel[3]);
     return;
   }
 
@@ -167,7 +248,24 @@ function renderWarRoom(state) {
   setText("confidence-detail", "Based on available Daily State evidence.");
   setText("mission", mission.title);
   setText("mission-detail", mission.detail);
-  setText("mission-restrictions", `Restrictions: ${mission.restrictions}`);
+  setText("mission-restrictions", mission.restrictions);
+  setText("mission-status", derivedReadiness);
+  document.getElementById("mission-status").className = `state-pill ${readinessClass[derivedReadiness]}`;
+  setText("mission-source", `Daily State: Energy ${state.energy}/10, Soreness ${state.soreness}/10, Pain ${state.pain ? "Yes" : "No"}`);
+  setText("mission-confidence", confidencePercent(state.confidence));
+  setText("mission-context", `Current state ${derivedReadiness}; mission generated from existing readiness calculation.`);
+  setText("readiness-energy", `${state.energy}/10`);
+  setText("readiness-soreness", `${state.soreness}/10`);
+  setText("readiness-pain", state.pain ? "Yes" : "No");
+  renderStatusBar(state);
+  const evidence = evidenceForState(state);
+  setList("evidence-available", evidence.available, "None yet.");
+  setList("evidence-missing", evidence.missing, "None.");
+  const intel = dailyIntelligence(derivedReadiness);
+  setText("daily-intel-title", intel[0]);
+  setText("daily-primary", intel[1]);
+  setText("daily-instruction", intel[2]);
+  setText("daily-risk", intel[3]);
 
   setText("summary-date", state.date);
   setText("summary-energy", `${state.energy}/10`);

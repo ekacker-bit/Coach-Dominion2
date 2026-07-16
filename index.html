@@ -12,14 +12,28 @@
     <section class="card auth-card">
       <div class="kicker">COACH DOMINION</div>
       <h1>Enter the War Room</h1>
-      <p class="muted">Secure email magic-link access.</p>
-      <form id="login-form">
+      <p class="muted">Use your password for immediate access. Magic link remains available as a fallback.</p>
+
+      <form id="password-form">
         <label>Email
-          <input id="email" type="email" required placeholder="you@example.com">
+          <input id="password-email" type="email" autocomplete="email" required placeholder="you@example.com">
         </label>
-        <button id="submit" type="submit">Send Magic Link</button>
+        <label>Password
+          <input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Your password">
+        </label>
+        <button id="password-submit" type="submit">Sign in with Password</button>
       </form>
-      <p id="status" class="status"></p>
+
+      <p class="muted" style="margin-top:18px">—or—</p>
+
+      <form id="magic-link-form">
+        <label>Email
+          <input id="magic-email" type="email" autocomplete="email" required placeholder="you@example.com">
+        </label>
+        <button id="magic-submit" class="ghost" type="submit">Send Magic Link</button>
+      </form>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
     </section>
   </div>
 
@@ -35,38 +49,65 @@ async function getClient() {
   return client;
 }
 
+function setStatus(message) {
+  document.getElementById("status").textContent = message || "";
+}
+
+function setButtonState(button, isLoading, loadingText, idleText) {
+  button.disabled = isLoading;
+  button.textContent = isLoading ? loadingText : idleText;
+}
+
 (async () => {
   try {
     const supabase = await getClient();
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
     if (data.session) window.location.replace("/app");
   } catch (error) {
-    document.getElementById("status").textContent = error.message;
+    setStatus(error.message);
   }
 })();
 
-document.getElementById("login-form").addEventListener("submit", async (event) => {
+document.getElementById("password-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const button = document.getElementById("submit");
-  const status = document.getElementById("status");
-  button.disabled = true;
-  button.textContent = "Sending…";
-  status.textContent = "";
+  const button = document.getElementById("password-submit");
+  setButtonState(button, true, "Signing in…", "Sign in with Password");
+  setStatus("");
 
   try {
     const supabase = await getClient();
-    const email = document.getElementById("email").value.trim();
+    const email = document.getElementById("password-email").value.trim();
+    const password = document.getElementById("password").value;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    window.location.replace("/app");
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    setButtonState(button, false, "Signing in…", "Sign in with Password");
+  }
+});
+
+document.getElementById("magic-link-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = document.getElementById("magic-submit");
+  setButtonState(button, true, "Sending…", "Send Magic Link");
+  setStatus("");
+
+  try {
+    const supabase = await getClient();
+    const email = document.getElementById("magic-email").value.trim();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin + "/app" }
     });
     if (error) throw error;
-    status.textContent = "Magic link sent. Check your email.";
+    setStatus("Magic link sent. Check your email.");
   } catch (error) {
-    status.textContent = error.message;
+    setStatus(error.message);
   } finally {
-    button.disabled = false;
-    button.textContent = "Send Magic Link";
+    setButtonState(button, false, "Sending…", "Send Magic Link");
   }
 });
 </script>

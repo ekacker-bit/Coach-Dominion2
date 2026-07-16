@@ -17,59 +17,77 @@
       <button id="logout" class="ghost">Sign out</button>
     </div>
     <p class="muted" id="identity">Verifying session…</p>
+    <p class="status" id="status"></p>
+    <p class="muted" id="loading">Loading today's Daily State…</p>
 
-    <section class="grid">
-      <article class="card">
-        <div class="kicker">PRIMARY MISSION</div>
-        <h2>Execute the prescribed session exactly.</h2>
-        <p class="muted">No unauthorized volume.</p>
-      </article>
-      <article class="card">
-        <div class="kicker">READINESS</div>
-        <div class="metric green">GREEN</div>
-        <p>Sleep 7.3 h · RHR 51 · Soreness 3/10</p>
-      </article>
-      <article class="card">
-        <div class="kicker">NUTRITION</div>
-        <div class="metric">2350</div>
-        <p>175 g protein · 30 g fiber</p>
-      </article>
-    </section>
+    <div id="app-content" hidden>
+      <section id="roll-call-required" class="card alert" hidden>
+        <div class="kicker">DAILY STATE</div>
+        <h2>Morning Roll Call Required.</h2>
+        <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <div class="kicker">PRIMARY MISSION</div>
+          <h2 id="mission">Morning Roll Call Required.</h2>
+          <p id="mission-detail" class="muted">No mission will be generated until today's state is saved.</p>
+          <p id="mission-restrictions" class="muted">Restrictions: Awaiting roll call.</p>
+        </article>
+        <article class="card">
+          <div class="kicker">READINESS</div>
+          <div id="readiness" class="metric">—</div>
+          <p id="readiness-detail">Submit Energy, Soreness, and Pain to calculate readiness.</p>
+          <div class="kicker">CONFIDENCE</div>
+          <div id="confidence" class="metric small-metric">0%</div>
+          <p id="confidence-detail" class="muted">No Daily State evidence available yet.</p>
+        </article>
+        <article class="card">
+          <div class="kicker">COMMAND FEED</div>
+          <ul id="command-feed" class="feed">
+            <li>Awaiting Morning Roll Call.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="roll-call-card" class="card roll-call-card">
+        <div class="kicker">MORNING ROLL CALL</div>
+        <h2>Report current state.</h2>
+        <form id="roll-call-form">
+          <label>Energy (1-10)
+            <input name="energy" type="number" min="1" max="10" step="1" required>
+          </label>
+          <label>Soreness (1-10)
+            <input name="soreness" type="number" min="1" max="10" step="1" required>
+          </label>
+          <fieldset>
+            <legend>Pain</legend>
+            <label class="radio"><input type="radio" name="pain" value="no" required> No</label>
+            <label class="radio"><input type="radio" name="pain" value="yes" required> Yes</label>
+          </fieldset>
+          <label>Comments (optional, 250 characters)
+            <textarea name="comments" maxlength="250" rows="3" placeholder="Travel, illness, poor sleep, unusual soreness…"></textarea>
+          </label>
+          <button id="save-roll-call" type="submit">Submit Morning Roll Call</button>
+        </form>
+      </section>
+
+      <section id="daily-state-summary" class="card summary" hidden>
+        <div class="kicker">TODAY'S DAILY STATE</div>
+        <dl>
+          <div><dt>Date</dt><dd id="summary-date">—</dd></div>
+          <div><dt>Energy</dt><dd id="summary-energy">—</dd></div>
+          <div><dt>Soreness</dt><dd id="summary-soreness">—</dd></div>
+          <div><dt>Pain</dt><dd id="summary-pain">—</dd></div>
+          <div><dt>Confidence</dt><dd id="summary-confidence">—</dd></div>
+        </dl>
+        <dl class="comments-summary">
+          <div><dt>Comments</dt><dd id="summary-comments">—</dd></div>
+        </dl>
+      </section>
+    </div>
   </main>
 
-<script>
-let client;
-
-async function getClient() {
-  if (client) return client;
-  const response = await fetch("/api/config");
-  const config = await response.json();
-  if (!config.ok) throw new Error(config.error || "Configuration unavailable.");
-  client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-  return client;
-}
-
-(async () => {
-  try {
-    const supabase = await getClient();
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    if (!data.session) {
-      window.location.replace("/");
-      return;
-    }
-    document.getElementById("identity").textContent =
-      "Signed in as " + data.session.user.email;
-  } catch (error) {
-    document.getElementById("identity").textContent = error.message;
-  }
-})();
-
-document.getElementById("logout").addEventListener("click", async () => {
-  const supabase = await getClient();
-  await supabase.auth.signOut();
-  window.location.replace("/");
-});
-</script>
+<script src="/assets/js/app.js"></script>
 </body>
 </html>

@@ -24,7 +24,7 @@
       <div><span>Steps</span><strong id="status-steps">—</strong></div>
       <div><span>RHR</span><strong id="status-rhr">—</strong></div>
       <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
-      <div><span>Build</span><strong>0.2.0</strong></div>
+      <div><span>Build</span><strong>0.3.0</strong></div>
     </section>
 
     <p class="status" id="status"></p>
@@ -65,17 +65,25 @@
             <div><span>Soreness</span><strong id="readiness-soreness">—</strong></div>
             <div><span>Pain</span><strong id="readiness-pain">—</strong></div>
           </div>
-          <div class="evidence-grid">
-            <div>
-              <h3>Evidence available</h3>
-              <ul id="evidence-available"><li>None yet.</li></ul>
-            </div>
-            <div>
-              <h3>Evidence missing</h3>
-              <ul id="evidence-missing"><li>Daily State required.</li></ul>
-            </div>
-          </div>
-          <p id="confidence-detail" class="muted">No Daily State evidence available yet.</p>
+          <dl class="readiness-actions">
+            <div><dt>Primary risk</dt><dd id="readiness-risk">Operating without current readiness.</dd></div>
+            <div><dt>Instruction</dt><dd id="readiness-instruction">Complete Morning Roll Call.</dd></div>
+          </dl>
+          <details class="readiness-details" open>
+            <summary>Why this state?</summary>
+            <ul id="readiness-rationale"><li>Submit Daily State evidence.</li></ul>
+          </details>
+          <details class="readiness-details">
+            <summary>Evidence and confidence</summary>
+            <div id="readiness-evidence" class="evidence-list"></div>
+            <h3>Missing evidence</h3>
+            <ul id="evidence-missing"><li>Daily State required.</li></ul>
+            <p id="confidence-detail" class="muted">No Daily State evidence available yet.</p>
+          </details>
+          <details class="readiness-details">
+            <summary>Restrictions</summary>
+            <ul id="readiness-restrictions"><li>Awaiting roll call.</li></ul>
+          </details>
         </article>
 
         <article class="card command-feed-card">

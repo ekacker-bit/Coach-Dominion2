@@ -20,27 +20,148 @@ function todayISODate() {
   return new Date().toLocaleDateString("en-CA");
 }
 
-function calculateReadiness(state) {
-  if (state.pain) return "RED";
-  if (state.energy >= 7 && state.soreness <= 4) return "GREEN";
-  return "YELLOW";
+const READINESS_EVIDENCE_WEIGHTS = {
+  energy: 0.20,
+  soreness: 0.20,
+  pain: 0.20,
+  sleep: 0.15,
+  resting_heart_rate: 0.15,
+  weight: 0.05,
+  steps: 0.05
+};
+
+const evidenceLabels = {
+  energy: "Energy",
+  soreness: "Soreness",
+  pain: "Pain",
+  sleep: "Sleep",
+  resting_heart_rate: "Resting heart rate",
+  weight: "Weight",
+  steps: "Steps"
+};
+
+function isAvailable(value) {
+  return value !== null && value !== undefined && value !== "";
 }
 
 function calculateConfidence(state) {
-  let confidence = 0;
-  if (state.energy && state.soreness && typeof state.pain === "boolean") confidence += 0.55;
-  if (state.sleep !== null && state.sleep !== undefined) confidence += 0.15;
-  if (state.weight !== null && state.weight !== undefined) confidence += 0.10;
-  if (state.resting_heart_rate !== null && state.resting_heart_rate !== undefined) confidence += 0.15;
-  if (state.steps !== null && state.steps !== undefined) confidence += 0.05;
-  return Math.min(1, Number(confidence.toFixed(2)));
+  if (!state) return 0;
+  const total = Object.entries(READINESS_EVIDENCE_WEIGHTS).reduce((sum, [key, weight]) => {
+    if (key === "pain") return sum + (typeof state.pain === "boolean" ? weight : 0);
+    return sum + (isAvailable(state[key]) ? weight : 0);
+  }, 0);
+  return Math.max(0, Math.min(1, Number(total.toFixed(2))));
 }
 
-function generateMission(readiness) {
+function evidenceValue(key, state) {
+  if (!state || (key === "pain" && typeof state.pain !== "boolean") || (key !== "pain" && !isAvailable(state[key]))) {
+    return "Not available";
+  }
+  if (key === "pain") return state.pain ? "Yes" : "No";
+  if (key === "energy" || key === "soreness") return `${state[key]}/10`;
+  if (key === "sleep") return `${state[key]}h`;
+  if (key === "resting_heart_rate") return `${state[key]} bpm`;
+  return String(state[key]);
+}
+
+function evaluateReadiness(state) {
+  if (!state) {
+    return {
+      state: null,
+      confidence: 0,
+      headline: "Daily State not submitted.",
+      rationale: ["Submit Energy, Soreness, and Pain to calculate readiness."],
+      evidence: Object.keys(READINESS_EVIDENCE_WEIGHTS).map((key) => ({
+        key,
+        label: evidenceLabels[key],
+        status: "missing",
+        value: "Not available",
+        impact: `Confidence reduced by ${Math.round(READINESS_EVIDENCE_WEIGHTS[key] * 100)}%.`
+      })),
+      missingEvidence: Object.keys(READINESS_EVIDENCE_WEIGHTS).map((key) => evidenceLabels[key]),
+      primaryRisk: "Operating without current readiness.",
+      instruction: "Complete Morning Roll Call.",
+      restrictions: ["Awaiting roll call"]
+    };
+  }
+
+  const painAvailable = typeof state.pain === "boolean";
+  const energyAvailable = isAvailable(state.energy);
+  const sorenessAvailable = isAvailable(state.soreness);
+  const painReported = painAvailable && state.pain;
+  const energyGreen = energyAvailable && Number(state.energy) >= 7;
+  const sorenessGreen = sorenessAvailable && Number(state.soreness) <= 4;
+  let readinessState = "YELLOW";
+
+  if (painReported) readinessState = "RED";
+  else if (energyGreen && sorenessGreen && painAvailable) readinessState = "GREEN";
+
+  const copy = {
+    GREEN: {
+      headline: "Recovery capacity acceptable.",
+      primaryRisk: "Unauthorized additional volume.",
+      instruction: "Execute the prescribed mission exactly.",
+      restrictions: ["No unplanned extra volume", "Do not add intensity outside the mission"]
+    },
+    YELLOW: {
+      headline: "Readiness is reduced.",
+      primaryRisk: "Excess intensity or volume.",
+      instruction: "Complete primary work only.",
+      restrictions: ["Remove optional intensity", "No additional volume", "Stop if symptoms worsen"]
+    },
+    RED: {
+      headline: "Pain overrides performance goals.",
+      primaryRisk: "Aggravating pain or injury.",
+      instruction: "Execute recovery protocol.",
+      restrictions: ["No hard training", "No testing pain", "Seek professional assessment if pain is significant, worsening, or persistent"]
+    }
+  }[readinessState];
+
+  const rationale = [];
+  if (readinessState === "RED") {
+    rationale.push("Pain was reported.", "Hard training is not authorized.");
+  } else {
+    rationale.push("No pain reported.");
+    if (energyGreen) rationale.push("Energy is at or above the GREEN threshold.");
+    else rationale.push("Energy is below the GREEN threshold.");
+    if (sorenessGreen) rationale.push("Soreness is at or below the GREEN ceiling.");
+    else rationale.push("Soreness is above the GREEN ceiling.");
+  }
+
+  const evidence = Object.keys(READINESS_EVIDENCE_WEIGHTS).map((key) => {
+    const missing = key === "pain" ? !painAvailable : !isAvailable(state[key]);
+    if (missing) {
+      return { key, label: evidenceLabels[key], status: "missing", value: "Not available", impact: `Confidence reduced by ${Math.round(READINESS_EVIDENCE_WEIGHTS[key] * 100)}%.` };
+    }
+    if (key === "energy") return { key, label: evidenceLabels[key], status: energyGreen ? "positive" : "negative", value: evidenceValue(key, state), impact: energyGreen ? "Meets GREEN threshold." : "Below GREEN threshold." };
+    if (key === "soreness") return { key, label: evidenceLabels[key], status: sorenessGreen ? "positive" : "negative", value: evidenceValue(key, state), impact: sorenessGreen ? "Below GREEN ceiling." : "Above GREEN ceiling." };
+    if (key === "pain") return { key, label: evidenceLabels[key], status: painReported ? "negative" : "positive", value: evidenceValue(key, state), impact: painReported ? "Pain override selected RED." : "No pain override." };
+    return { key, label: evidenceLabels[key], status: "neutral", value: evidenceValue(key, state), impact: `Available; adds ${Math.round(READINESS_EVIDENCE_WEIGHTS[key] * 100)}% confidence only.` };
+  });
+
+  return {
+    state: readinessState,
+    confidence: calculateConfidence(state),
+    headline: copy.headline,
+    rationale,
+    evidence,
+    missingEvidence: evidence.filter((item) => item.status === "missing").map((item) => item.label),
+    primaryRisk: copy.primaryRisk,
+    instruction: copy.instruction,
+    restrictions: copy.restrictions
+  };
+}
+
+function calculateReadiness(state) {
+  return evaluateReadiness(state).state;
+}
+
+function generateMission(readinessResultOrState) {
+  const readiness = typeof readinessResultOrState === "string" ? readinessResultOrState : readinessResultOrState.state;
   if (readiness === "RED") {
     return {
       title: "Recovery mission",
-      detail: "Remove hard training and protect recovery",
+      detail: "Remove hard training and protect recovery. Execute recovery protocol.",
       restrictions: "No hard training, no testing pain",
       generatedFromReadiness: readiness
     };
@@ -49,7 +170,7 @@ function generateMission(readiness) {
   if (readiness === "YELLOW") {
     return {
       title: "Reduced mission",
-      detail: "Complete primary work only and remove optional intensity",
+      detail: "Complete primary work only and remove optional intensity.",
       restrictions: "No extra volume",
       generatedFromReadiness: readiness
     };
@@ -57,7 +178,7 @@ function generateMission(readiness) {
 
   return {
     title: "Execute prescribed session",
-    detail: "Proceed exactly as written",
+    detail: "Proceed exactly as written. Execute the prescribed mission exactly.",
     restrictions: "No unauthorized volume",
     generatedFromReadiness: readiness
   };
@@ -109,34 +230,35 @@ function setList(id, values, emptyText) {
   });
 }
 
-function evidenceForState(state) {
-  if (!state) return { available: [], missing: ["Daily State required."] };
-  const checks = [
-    ["Energy", state.energy],
-    ["Soreness", state.soreness],
-    ["Pain status", typeof state.pain === "boolean" ? state.pain : null],
-    ["Sleep", state.sleep],
-    ["Weight", state.weight],
-    ["Steps", state.steps],
-    ["Resting heart rate", state.resting_heart_rate]
-  ];
-  return {
-    available: checks.filter(([, value]) => value !== null && value !== undefined).map(([label]) => label),
-    missing: checks.filter(([, value]) => value === null || value === undefined).map(([label]) => label)
-  };
+function setEvidenceTable(id, evidence) {
+  const table = document.getElementById(id);
+  clearElement(table);
+  evidence.forEach((item) => {
+    const row = document.createElement("div");
+    const label = document.createElement("strong");
+    const value = document.createElement("span");
+    const status = document.createElement("span");
+    const impact = document.createElement("p");
+    row.className = `evidence-row ${item.status}`;
+    label.textContent = item.label;
+    value.textContent = item.value;
+    status.textContent = item.status;
+    impact.textContent = item.impact;
+    row.append(label, value, status, impact);
+    table.appendChild(row);
+  });
 }
 
-function dailyIntelligence(readiness) {
-  if (readiness === "GREEN") {
-    return ["GREEN protocol", "Recovery capacity acceptable", "Execute prescribed mission", "Unauthorized additional volume"];
+function dailyIntelligence(readinessResult) {
+  if (!readinessResult || !readinessResult.state) {
+    return ["Awaiting signal", "Daily State not submitted", "Complete Morning Roll Call", "Operating without current readiness"];
   }
-  if (readiness === "YELLOW") {
-    return ["YELLOW protocol", "Reduced readiness", "Complete primary work only", "Excess intensity or volume"];
-  }
-  if (readiness === "RED") {
-    return ["RED protocol", "Pain reported", "Recovery mission", "Hard training"];
-  }
-  return ["Awaiting signal", "Daily State not submitted", "Complete Morning Roll Call", "Operating without current readiness"];
+  return [
+    `${readinessResult.state} protocol`,
+    readinessResult.headline,
+    readinessResult.instruction,
+    readinessResult.primaryRisk
+  ];
 }
 
 function renderStatusBar(state) {
@@ -211,7 +333,7 @@ function renderWarRoom(state) {
     readiness.className = "metric";
     setText("readiness-detail", "Submit Energy, Soreness, and Pain to calculate readiness.");
     setText("confidence", "0%");
-    setText("confidence-detail", "No Daily State evidence available yet.");
+    setText("confidence-detail", "Confidence: Energy 20%, Soreness 20%, Pain 20%, Sleep 15%, Resting heart rate 15%, Weight 5%, Steps 5%.");
     setText("mission", "Morning Roll Call Required.");
     setText("mission-detail", "No mission will be generated until today's state is saved.");
     setText("mission-restrictions", "Restrictions: Awaiting roll call.");
@@ -225,9 +347,14 @@ function renderWarRoom(state) {
     setText("readiness-soreness", "—");
     setText("readiness-pain", "—");
     renderStatusBar(null);
-    setList("evidence-available", [], "None yet.");
-    setList("evidence-missing", ["Daily State required."], "None.");
-    const intel = dailyIntelligence(null);
+    const readinessResult = evaluateReadiness(null);
+    setList("readiness-rationale", readinessResult.rationale, "Awaiting Daily State.");
+    setEvidenceTable("readiness-evidence", readinessResult.evidence);
+    setList("evidence-missing", readinessResult.missingEvidence, "None.");
+    setList("readiness-restrictions", readinessResult.restrictions, "None.");
+    setText("readiness-risk", readinessResult.primaryRisk);
+    setText("readiness-instruction", readinessResult.instruction);
+    const intel = dailyIntelligence(readinessResult);
     setText("daily-intel-title", intel[0]);
     setText("daily-primary", intel[1]);
     setText("daily-instruction", intel[2]);
@@ -235,33 +362,37 @@ function renderWarRoom(state) {
     return;
   }
 
-  const derivedReadiness = calculateReadiness(state);
-  const mission = generateMission(derivedReadiness);
+  const readinessResult = evaluateReadiness(state);
+  const derivedReadiness = readinessResult.state;
+  const mission = generateMission(readinessResult);
 
   required.hidden = true;
   summary.hidden = false;
   formCard.hidden = true;
   readiness.textContent = derivedReadiness;
   readiness.className = `metric ${readinessClass[derivedReadiness]}`;
-  setText("readiness-detail", `Energy ${state.energy}/10 · Soreness ${state.soreness}/10 · Pain ${state.pain ? "Yes" : "No"}`);
-  setText("confidence", confidencePercent(state.confidence));
-  setText("confidence-detail", "Based on available Daily State evidence.");
+  setText("readiness-detail", readinessResult.headline);
+  setText("confidence", confidencePercent(readinessResult.confidence));
+  setText("confidence-detail", "Confidence: Energy 20%, Soreness 20%, Pain 20%, Sleep 15%, Resting heart rate 15%, Weight 5%, Steps 5%.");
   setText("mission", mission.title);
   setText("mission-detail", mission.detail);
   setText("mission-restrictions", mission.restrictions);
   setText("mission-status", derivedReadiness);
   document.getElementById("mission-status").className = `state-pill ${readinessClass[derivedReadiness]}`;
   setText("mission-source", `Daily State: Energy ${state.energy}/10, Soreness ${state.soreness}/10, Pain ${state.pain ? "Yes" : "No"}`);
-  setText("mission-confidence", confidencePercent(state.confidence));
-  setText("mission-context", `Current state ${derivedReadiness}; mission generated from existing readiness calculation.`);
+  setText("mission-confidence", confidencePercent(readinessResult.confidence));
+  setText("mission-context", `${readinessResult.headline} ${readinessResult.instruction}`);
   setText("readiness-energy", `${state.energy}/10`);
   setText("readiness-soreness", `${state.soreness}/10`);
   setText("readiness-pain", state.pain ? "Yes" : "No");
-  renderStatusBar(state);
-  const evidence = evidenceForState(state);
-  setList("evidence-available", evidence.available, "None yet.");
-  setList("evidence-missing", evidence.missing, "None.");
-  const intel = dailyIntelligence(derivedReadiness);
+  renderStatusBar({ ...state, confidence: readinessResult.confidence });
+  setList("readiness-rationale", readinessResult.rationale, "None.");
+  setEvidenceTable("readiness-evidence", readinessResult.evidence);
+  setList("evidence-missing", readinessResult.missingEvidence, "None.");
+  setList("readiness-restrictions", readinessResult.restrictions, "None.");
+  setText("readiness-risk", readinessResult.primaryRisk);
+  setText("readiness-instruction", readinessResult.instruction);
+  const intel = dailyIntelligence(readinessResult);
   setText("daily-intel-title", intel[0]);
   setText("daily-primary", intel[1]);
   setText("daily-instruction", intel[2]);
@@ -271,7 +402,7 @@ function renderWarRoom(state) {
   setText("summary-energy", `${state.energy}/10`);
   setText("summary-soreness", `${state.soreness}/10`);
   setText("summary-pain", state.pain ? "Yes" : "No");
-  setText("summary-confidence", confidencePercent(state.confidence));
+  setText("summary-confidence", confidencePercent(readinessResult.confidence));
   setText("summary-comments", state.comments || "—");
 }
 
@@ -298,17 +429,20 @@ function missionsMatch(previousMission, newMission) {
 }
 
 function buildCommandEvents(newState, previousState) {
-  const newReadiness = calculateReadiness(newState);
-  const previousReadiness = previousState ? calculateReadiness(previousState) : null;
-  const newMission = generateMission(newReadiness);
-  const previousMission = previousReadiness ? generateMission(previousReadiness) : null;
+  const newResult = evaluateReadiness(newState);
+  const previousResult = previousState ? evaluateReadiness(previousState) : null;
+  const newReadiness = newResult.state;
+  const previousReadiness = previousResult ? previousResult.state : null;
+  const newMission = generateMission(newResult);
+  const previousMission = previousResult ? generateMission(previousResult) : null;
   const metadata = {
     date: newState.date,
     readiness: newReadiness,
     previousReadiness,
     missionTitle: newMission.title,
     previousMissionTitle: previousMission ? previousMission.title : null,
-    confidence: newState.confidence
+    confidence: newResult.confidence,
+    rationaleSummary: newResult.rationale.join(" ")
   };
   const events = [
     {
@@ -374,7 +508,7 @@ async function saveMorningRollCall(event) {
       pain: form.get("pain") === "yes",
       comments: comments || null
     };
-    payload.confidence = calculateConfidence(payload);
+    payload.confidence = evaluateReadiness(payload).confidence;
 
     const previousState = dailyState;
     const supabase = await getClient();
@@ -420,11 +554,17 @@ async function init() {
   }
 }
 
-document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
-document.getElementById("logout").addEventListener("click", async () => {
-  const supabase = await getClient();
-  await supabase.auth.signOut();
-  window.location.replace("/");
-});
+if (typeof document !== "undefined") {
+  document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
+  document.getElementById("logout").addEventListener("click", async () => {
+    const supabase = await getClient();
+    await supabase.auth.signOut();
+    window.location.replace("/");
+  });
 
-init();
+  init();
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+}

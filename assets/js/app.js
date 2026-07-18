@@ -184,6 +184,74 @@ function generateMission(readinessResultOrState) {
   };
 }
 
+function generateMorningBrief(readinessResult) {
+  const result = readinessResult || evaluateReadiness(null);
+  const commandState = result.state === "GREEN"
+    ? "MISSION AUTHORIZED"
+    : result.state === "YELLOW"
+      ? "MISSION REDUCED"
+      : result.state === "RED"
+        ? "HARD TRAINING DENIED"
+        : "ROLL CALL REQUIRED";
+  const mission = result.state ? generateMission(result) : null;
+  const missingEvidence = Array.isArray(result.missingEvidence) ? result.missingEvidence : [];
+  const restrictions = Array.isArray(result.restrictions) ? result.restrictions : [];
+  const primaryReason = Array.isArray(result.rationale) && result.rationale.length
+    ? result.rationale[0]
+    : result.headline;
+  const authorization = result.state === "GREEN"
+    ? "AUTHORIZED"
+    : result.state === "YELLOW"
+      ? "AUTHORIZED WITH REDUCTIONS"
+      : "NOT AUTHORIZED";
+
+  return {
+    title: "ATLAS // MORNING BRIEF",
+    commandState,
+    authorization,
+    readiness: result.state || "NOT ESTABLISHED",
+    confidence: result.confidence || 0,
+    primaryReason,
+    risk: result.primaryRisk,
+    missingEvidence,
+    directive: result.instruction,
+    commandNote: result.headline,
+    orders: mission
+      ? [mission.title, mission.detail]
+      : ["Complete Morning Roll Call before mission generation."],
+    restrictions,
+    mission
+  };
+}
+
+function formatAtlasBriefVoice(brief) {
+  const confidence = `${Math.round(Number(brief.confidence || 0) * 100)}%`;
+  const missing = brief.missingEvidence.length ? brief.missingEvidence.join(", ") : "None";
+  const orders = brief.orders.map((order) => `- ${order}`).join("\n");
+  const restrictions = brief.restrictions.map((restriction) => `- ${restriction}`).join("\n");
+
+  return [
+    brief.title,
+    "",
+    "STATUS",
+    `${brief.commandState} // Mission: ${brief.authorization}`,
+    `Readiness: ${brief.readiness} // Confidence: ${confidence}`,
+    `Primary reason: ${brief.primaryReason}`,
+    "",
+    "DIRECTIVE",
+    brief.directive,
+    "",
+    "COMMAND NOTE",
+    `${brief.commandNote} Risk: ${brief.risk} Missing evidence: ${missing}.`,
+    "",
+    "ORDERS",
+    orders,
+    "",
+    "RESTRICTIONS",
+    restrictions || "- None"
+  ].join("\n");
+}
+
 async function getClient() {
   if (client) return client;
   const response = await fetch("/api/config");
@@ -348,6 +416,10 @@ function renderWarRoom(state) {
     setText("readiness-pain", "—");
     renderStatusBar(null);
     const readinessResult = evaluateReadiness(null);
+    const morningBrief = generateMorningBrief(readinessResult);
+    setText("atlas-brief-state", morningBrief.commandState);
+    document.getElementById("atlas-brief-state").className = "state-pill neutral";
+    setText("atlas-brief-output", formatAtlasBriefVoice(morningBrief));
     setList("readiness-rationale", readinessResult.rationale, "Awaiting Daily State.");
     setEvidenceTable("readiness-evidence", readinessResult.evidence);
     setList("evidence-missing", readinessResult.missingEvidence, "None.");
@@ -365,6 +437,7 @@ function renderWarRoom(state) {
   const readinessResult = evaluateReadiness(state);
   const derivedReadiness = readinessResult.state;
   const mission = generateMission(readinessResult);
+  const morningBrief = generateMorningBrief(readinessResult);
 
   required.hidden = true;
   summary.hidden = false;
@@ -382,6 +455,9 @@ function renderWarRoom(state) {
   setText("mission-source", `Daily State: Energy ${state.energy}/10, Soreness ${state.soreness}/10, Pain ${state.pain ? "Yes" : "No"}`);
   setText("mission-confidence", confidencePercent(readinessResult.confidence));
   setText("mission-context", `${readinessResult.headline} ${readinessResult.instruction}`);
+  setText("atlas-brief-state", morningBrief.commandState);
+  document.getElementById("atlas-brief-state").className = `state-pill ${readinessClass[derivedReadiness]}`;
+  setText("atlas-brief-output", formatAtlasBriefVoice(morningBrief));
   setText("readiness-energy", `${state.energy}/10`);
   setText("readiness-soreness", `${state.soreness}/10`);
   setText("readiness-pain", state.pain ? "Yes" : "No");
@@ -566,5 +642,5 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
 }

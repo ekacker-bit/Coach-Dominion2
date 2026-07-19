@@ -1,8 +1,26 @@
 let client;
 let session;
 let dailyState;
+let dailyCompliance;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
+const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
+const COMPLIANCE_DOMAIN_LABELS = {
+  mission: "Mission Compliance",
+  strength: "Strength Compliance",
+  cardio: "Running/Cardio Compliance",
+  recovery: "Recovery Compliance",
+  nutrition: "Nutrition Compliance"
+};
+const COMPLIANCE_STATUS_SCORES = { completed: 100, partial: 50, missed: 0 };
+const COMPLIANCE_EXCLUDED_STATUSES = new Set(["excused", "not_applicable"]);
+const COMPLIANCE_COLUMNS = [
+  "compliance_date", "discipline_score", "score_evidence", "updated_at",
+  ...COMPLIANCE_DOMAINS.flatMap((domain) => [
+    `${domain}_status`, `${domain}_target`, `${domain}_actual`, `${domain}_note`,
+    `${domain}_restriction`, `${domain}_approved_modification`
+  ])
+].join(",");
 
 const readinessClass = {
   RED: "red",
@@ -250,6 +268,77 @@ function formatAtlasBriefVoice(brief) {
     "RESTRICTIONS",
     restrictions || "- None"
   ].join("\n");
+}
+
+function normalizeComplianceStatus(status) {
+  if (typeof status !== "string") return null;
+  const normalized = status.trim().toLowerCase().replaceAll(" ", "_").replaceAll("n/a", "not_applicable");
+  return Object.hasOwn(COMPLIANCE_STATUS_SCORES, normalized) || COMPLIANCE_EXCLUDED_STATUSES.has(normalized)
+    ? normalized
+    : null;
+}
+
+function scoreComplianceDomain(domain = {}) {
+  const status = normalizeComplianceStatus(domain.status);
+  if (status && Object.hasOwn(COMPLIANCE_STATUS_SCORES, status)) {
+    return { status, included: true, score: COMPLIANCE_STATUS_SCORES[status], reason: "Included in equal-weight score." };
+  }
+  if (status === "excused") {
+    return { status, included: false, score: null, reason: domain.restriction ? `Excused: ${domain.restriction}` : "Excused; excluded from score." };
+  }
+  if (status === "not_applicable") {
+    return { status, included: false, score: null, reason: "Not applicable; excluded from score." };
+  }
+  return { status: null, included: false, score: null, reason: "Not assessed; no completion credit assigned." };
+}
+
+function calculateDisciplineScore(domains = {}) {
+  const evidence = COMPLIANCE_DOMAINS.map((key) => {
+    const domain = domains[key] || {};
+    const weight = Number.isFinite(domain.weight) && domain.weight > 0 ? domain.weight : 1;
+    return { key, label: COMPLIANCE_DOMAIN_LABELS[key], weight, ...scoreComplianceDomain(domain) };
+  });
+  const included = evidence.filter((item) => item.included);
+  const totalWeight = included.reduce((total, item) => total + item.weight, 0);
+  const score = included.length
+    ? included.reduce((total, item) => total + (item.score * item.weight), 0) / totalWeight
+    : null;
+  return { score, includedCount: included.length, excludedCount: evidence.length - included.length, totalWeight, evidence };
+}
+
+function formatDisciplineScore(score) {
+  return score === null || score === undefined ? "UNSCORED" : `${Math.round(score)}%`;
+}
+
+function buildComplianceExplanation(calculation) {
+  const included = calculation.evidence
+    .filter((item) => item.included)
+    .map((item) => `${item.label}: ${item.status} (${item.score})`);
+  const excluded = calculation.evidence
+    .filter((item) => !item.included)
+    .map((item) => `${item.label}: ${item.status || "not assessed"} — ${item.reason}`);
+  const formula = included.length
+    ? `Applicable weighted average (current weights are 1): (${calculation.evidence.filter((item) => item.included).map((item) => `${item.score} × ${item.weight}`).join(" + ")}) / ${calculation.totalWeight} = ${calculation.score}`
+    : "No applicable assessed domains; no Discipline Score calculated.";
+  return { formula, included, excluded };
+}
+
+function deriveDailyComplianceState(domains = {}) {
+  const calculation = calculateDisciplineScore(domains);
+  const complianceStatus = calculation.score === null
+    ? "UNSCORED"
+    : calculation.score === 100
+      ? "FULL COMPLIANCE"
+      : calculation.score === 0
+        ? "NO RECORDED COMPLETION"
+        : "PARTIAL COMPLIANCE";
+  return {
+    ...calculation,
+    displayScore: formatDisciplineScore(calculation.score),
+    complianceStatus,
+    explanation: buildComplianceExplanation(calculation),
+    violations: []
+  };
 }
 
 async function getClient() {
@@ -623,6 +712,7 @@ async function init() {
     setText("identity", "Signed in as " + session.user.email);
     await loadDailyState();
     await loadCommandFeed();
+    await loadDailyCompliance();
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -631,7 +721,10 @@ async function init() {
 }
 
 if (typeof document !== "undefined") {
+  initializeComplianceForm();
   document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
+  document.getElementById("compliance-form").addEventListener("submit", saveDailyCompliance);
+  document.getElementById("compliance-form").addEventListener("input", () => renderComplianceScore(readComplianceForm()));
   document.getElementById("logout").addEventListener("click", async () => {
     const supabase = await getClient();
     await supabase.auth.signOut();
@@ -642,5 +735,206 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+}
+
+function emptyComplianceDomains() {
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => [key, {
+    status: null,
+    target: "",
+    actual: "",
+    note: "",
+    restriction: "",
+    approvedModification: false
+  }]));
+}
+
+function complianceDomainsFromRecord(record) {
+  const domains = emptyComplianceDomains();
+  if (!record) return domains;
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    domains[key] = {
+      status: normalizeComplianceStatus(record[`${key}_status`]),
+      target: record[`${key}_target`] || "",
+      actual: record[`${key}_actual`] || "",
+      note: record[`${key}_note`] || "",
+      restriction: record[`${key}_restriction`] || "",
+      approvedModification: Boolean(record[`${key}_approved_modification`])
+    };
+  });
+  return domains;
+}
+
+function complianceDomainRow(key) {
+  return `
+    <fieldset class="compliance-domain" data-domain="${key}">
+      <legend>${COMPLIANCE_DOMAIN_LABELS[key]}</legend>
+      <div class="compliance-domain-grid">
+        <label>Assigned target
+          <input name="${key}_target" maxlength="500" placeholder="What was assigned?">
+        </label>
+        <label>Completion status
+          <select name="${key}_status">
+            <option value="">NOT ASSESSED</option>
+            <option value="completed">COMPLETE</option>
+            <option value="partial">PARTIAL</option>
+            <option value="missed">MISSED</option>
+            <option value="excused">EXCUSED</option>
+            <option value="not_applicable">N/A</option>
+          </select>
+        </label>
+        <label>Actual result
+          <input name="${key}_actual" maxlength="500" placeholder="What was completed or modified?">
+        </label>
+        <label>User note
+          <input name="${key}_note" maxlength="500" placeholder="Optional execution context">
+        </label>
+        <label class="compliance-restriction">Restriction or approved modification
+          <input name="${key}_restriction" maxlength="500" placeholder="Readiness, medical, or approved adjustment">
+        </label>
+        <label class="compliance-check"><input name="${key}_approved_modification" type="checkbox"> Approved modification</label>
+      </div>
+    </fieldset>`;
+}
+
+function initializeComplianceForm() {
+  const container = document.getElementById("compliance-domains");
+  container.innerHTML = COMPLIANCE_DOMAINS.map(complianceDomainRow).join("");
+}
+
+function applyMissionComplianceDefaults(domains) {
+  if (!dailyState || domains.mission.target) return domains;
+  const readinessResult = evaluateReadiness(dailyState);
+  const mission = generateMission(readinessResult);
+  domains.mission.target = `${mission.title}: ${mission.detail}`;
+  domains.mission.restriction = readinessResult.restrictions.join("; ");
+  domains.mission.approvedModification = readinessResult.state !== "GREEN";
+  return domains;
+}
+
+function readComplianceForm() {
+  const form = document.getElementById("compliance-form");
+  const values = new FormData(form);
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => [key, {
+    status: normalizeComplianceStatus(values.get(`${key}_status`)),
+    target: String(values.get(`${key}_target`) || "").trim(),
+    actual: String(values.get(`${key}_actual`) || "").trim(),
+    note: String(values.get(`${key}_note`) || "").trim(),
+    restriction: String(values.get(`${key}_restriction`) || "").trim(),
+    approvedModification: values.get(`${key}_approved_modification`) === "on"
+  }]));
+}
+
+function renderComplianceScore(domains) {
+  const state = deriveDailyComplianceState(domains);
+  setText("discipline-score", state.displayScore);
+  setText("compliance-status", state.complianceStatus);
+  setText("compliance-formula", state.explanation.formula);
+  setList("compliance-included", state.explanation.included, "No domains included.");
+  setList("compliance-excluded", state.explanation.excluded, "No domains excluded.");
+}
+
+function renderComplianceRecord(record, storageMode = "SUPABASE") {
+  const domains = applyMissionComplianceDefaults(complianceDomainsFromRecord(record));
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    const domain = domains[key];
+    const form = document.getElementById("compliance-form");
+    form.elements[`${key}_status`].value = domain.status || "";
+    form.elements[`${key}_target`].value = domain.target;
+    form.elements[`${key}_actual`].value = domain.actual;
+    form.elements[`${key}_note`].value = domain.note;
+    form.elements[`${key}_restriction`].value = domain.restriction;
+    form.elements[`${key}_approved_modification`].checked = domain.approvedModification;
+  });
+  setText("compliance-date", record?.compliance_date || todayISODate());
+  renderComplianceScore(domains);
+  setText("compliance-storage", storageMode === "LOCAL" ? "LOCAL FALLBACK — Supabase record unavailable" : "SUPABASE RECORD");
+  setText("compliance-updated", record?.updated_at ? `Last saved ${new Date(record.updated_at).toLocaleString()}` : "Not saved yet");
+}
+
+function complianceStorageKey() {
+  return `coach-dominion:daily-compliance:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function loadLocalCompliance() {
+  try {
+    const stored = window.localStorage.getItem(complianceStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveLocalCompliance(record) {
+  try {
+    window.localStorage.setItem(complianceStorageKey(), JSON.stringify(record));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadDailyCompliance() {
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("daily_compliance")
+      .select(COMPLIANCE_COLUMNS)
+      .eq("user_id", session.user.id)
+      .eq("compliance_date", todayISODate())
+      .maybeSingle();
+    if (error) throw error;
+    dailyCompliance = data;
+    renderComplianceRecord(dailyCompliance, "SUPABASE");
+  } catch (_) {
+    dailyCompliance = loadLocalCompliance();
+    renderComplianceRecord(dailyCompliance, "LOCAL");
+  }
+}
+
+function compliancePayload(domains) {
+  const state = deriveDailyComplianceState(domains);
+  const payload = {
+    user_id: session?.user?.id || null,
+    compliance_date: todayISODate(),
+    discipline_score: state.score,
+    score_evidence: { evidence: state.evidence, explanation: state.explanation, complianceStatus: state.complianceStatus }
+  };
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    payload[`${key}_status`] = domains[key].status;
+    payload[`${key}_target`] = domains[key].target || null;
+    payload[`${key}_actual`] = domains[key].actual || null;
+    payload[`${key}_note`] = domains[key].note || null;
+    payload[`${key}_restriction`] = domains[key].restriction || null;
+    payload[`${key}_approved_modification`] = domains[key].approvedModification;
+  });
+  return payload;
+}
+
+async function saveDailyCompliance(event) {
+  event.preventDefault();
+  const button = document.getElementById("save-compliance");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  const payload = compliancePayload(readComplianceForm());
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("daily_compliance")
+      .upsert(payload, { onConflict: "user_id,compliance_date" })
+      .select(COMPLIANCE_COLUMNS)
+      .single();
+    if (error) throw error;
+    dailyCompliance = data;
+    renderComplianceRecord(data, "SUPABASE");
+  } catch (_) {
+    const localRecord = { ...payload, updated_at: new Date().toISOString() };
+    dailyCompliance = localRecord;
+    const saved = saveLocalCompliance(localRecord);
+    renderComplianceRecord(localRecord, "LOCAL");
+    if (!saved) setText("compliance-storage", "UNSAVED — local storage unavailable");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save Dominion Record";
+  }
 }

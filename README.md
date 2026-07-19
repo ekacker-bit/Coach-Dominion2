@@ -4,7 +4,7 @@ Coach Dominion is a browser-based AI coaching operating system with a discipline
 
 ## Release status
 
-The repository is complete through **Release 0.3.1 — Atlas Morning Brief**. Release history is recorded in [CHANGELOG.md](CHANGELOG.md). The next planned release is 0.4.0; work should remain on a feature branch until reviewed and validated.
+The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Build 004A — Dominion Record: Compliance Foundation** is unreleased work toward Release 0.4.0; it does not represent the complete 0.4.0 release. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Architecture
 
@@ -16,6 +16,8 @@ The repository is complete through **Release 0.3.1 — Atlas Morning Brief**. Re
 - `supabase/migrations/` contains the tracked PostgreSQL schema, constraints, row-level security policies, and trigger definitions.
 - `tests/` contains dependency-free Node.js assertion tests.
 - `vercel.json` defines clean URLs and the `/app` rewrite.
+
+Build 004A adds a daily Dominion Record with five equal-weight compliance domains: mission, strength, running/cardio, recovery, and nutrition. Completed, partial, and missed domains score 100, 50, and 0. Excused and not-applicable domains are excluded. Blank or invalid assessments receive no credit and are excluded as unassessed; when nothing applicable has been assessed, the record remains unscored. Restriction and approved-modification evidence is stored independently, and no Build 004A status automatically creates a violation.
 
 The browser loads Supabase JS v2 from jsDelivr. `/api/config` passes the configured Supabase project URL and anonymous client key to the browser. Supabase provides authentication and PostgreSQL persistence; row-level security restricts users to their own Daily State and command-feed records.
 
@@ -82,6 +84,7 @@ Run suites individually:
 ```sh
 npm run test:readiness
 npm run test:atlas
+npm run test:compliance
 ```
 
 The underlying direct commands are:
@@ -89,7 +92,10 @@ The underlying direct commands are:
 ```sh
 node tests/readiness-engine.test.js
 node tests/atlas-morning-brief.test.js
+node tests/compliance-foundation.test.js
 ```
+
+The compliance panel persists to Supabase after `002_daily_compliance.sql` has been explicitly reviewed and applied through the approved database workflow. Until that table is available, the authenticated browser falls back to user/date-scoped local storage for compliance data only. Local fallback records are device/browser-specific and are not synchronized to Supabase automatically.
 
 ## Branch and pull-request workflow
 

@@ -1,0 +1,11 @@
+{
+  "name": "coach-dominion",
+  "version": "0.3.1",
+  "private": true,
+  "description": "Deterministic coaching readiness and command-center application.",
+  "scripts": {
+    "test": "node tests/readiness-engine.test.js && node tests/atlas-morning-brief.test.js",
+    "test:readiness": "node tests/readiness-engine.test.js",
+    "test:atlas": "node tests/atlas-morning-brief.test.js"
+  }
+}

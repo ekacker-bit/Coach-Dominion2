@@ -120,6 +120,41 @@
         </article>
       </section>
 
+      <section class="card dominion-record" aria-labelledby="dominion-record-heading">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">LONGITUDINAL EXECUTION RECORD</div>
+            <h2 id="dominion-record-heading">Dominion Record</h2>
+            <p class="muted">Record what was assigned, completed, modified, excused, or missed. Restrictions are evidence, not misconduct.</p>
+          </div>
+          <div class="compliance-scoreboard">
+            <span id="compliance-date">—</span>
+            <strong id="discipline-score">UNSCORED</strong>
+            <span id="compliance-status">UNSCORED</span>
+          </div>
+        </div>
+
+        <form id="compliance-form">
+          <div id="compliance-domains" class="compliance-domains"></div>
+          <div class="compliance-save-row">
+            <div>
+              <strong id="compliance-storage">RECORD NOT LOADED</strong>
+              <span id="compliance-updated" class="muted">Not saved yet</span>
+            </div>
+            <button id="save-compliance" type="submit">Save Dominion Record</button>
+          </div>
+        </form>
+
+        <details class="readiness-details compliance-explanation" open>
+          <summary>Score explanation and evidence</summary>
+          <p id="compliance-formula">No applicable assessed domains; no Discipline Score calculated.</p>
+          <div class="evidence-grid">
+            <div><h3>Included domains</h3><ul id="compliance-included"><li>No domains included.</li></ul></div>
+            <div><h3>Excluded domains</h3><ul id="compliance-excluded"><li>No domains excluded.</li></ul></div>
+          </div>
+        </details>
+      </section>
+
       <section class="lower-grid" aria-label="Daily operations modules">
         <section id="roll-call-card" class="card roll-call-card">
           <div class="kicker">MORNING ROLL CALL</div>

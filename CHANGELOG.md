@@ -2,6 +2,15 @@
 
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
+## Unreleased — Build 004A: Dominion Record Compliance Foundation
+
+- Added five-domain daily execution records for mission, strength, running/cardio, recovery, and nutrition compliance.
+- Added deterministic equal-weight Discipline Score calculation with transparent included/excluded evidence and an unscored state.
+- Added non-punitive excused, not-applicable, restriction, and approved-modification representation without creating violations.
+- Added an editable Dominion Record panel with Supabase persistence and isolated browser-local fallback behavior.
+- Added the owner-scoped `daily_compliance` migration and deterministic Node assertion coverage.
+- This is foundation work toward Release 0.4.0; Weekly Inspection and a full violations system remain out of scope.
+
 ## Release 0.3.1 — Atlas Morning Brief
 
 - Added a deterministic Atlas command-voice layer driven by the existing readiness result.

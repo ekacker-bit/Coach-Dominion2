@@ -2,6 +2,15 @@
 
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
+## Unreleased — Build 004C: Dominion Record Trends & Analytics
+
+- Added deterministic four-week finalized-inspection trajectories, evidence-quality precedence, five domain directions, historical summaries, and calendar-contiguous compliance streaks.
+- Added responsive dependency-free SVG discipline and evidence charts with finalized/provisional distinctions, fixed axes, limited-evidence flags, accessible text equivalents, and empty states.
+- Added a rule-based Atlas Trend Report that distinguishes insufficient evidence from documented poor performance.
+- Added user-scoped Supabase/local history derivation without storing redundant analytics state or recalculating finalized snapshots.
+- Added dependency-free trend analytics tests and included them in the full test command.
+- This remains unreleased Build 004C work toward Release 0.4.0; it does not mark the release complete.
+
 ## Unreleased — Build 004B: Weekly Inspection & After Action Report
 
 - Added deterministic Monday-through-Sunday aggregation of Build 004A Dominion Record observations, including five domain scores, observation/day counts, evidence coverage, tie-aware rankings, safety signals, and rule-based next-week priorities.

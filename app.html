@@ -15,7 +15,7 @@
         <h1>War Room</h1>
         <p class="muted" id="identity">Verifying session…</p>
       </div>
-      <button id="logout" class="ghost">Sign out</button>
+      <div class="header-actions"><a class="btn ghost" href="#weekly-inspection">Weekly Inspection</a><button id="logout" class="ghost">Sign out</button></div>
     </header>
 
     <section class="status-bar" aria-label="Current status bar">
@@ -153,6 +153,47 @@
             <div><h3>Excluded domains</h3><ul id="compliance-excluded"><li>No domains excluded.</li></ul></div>
           </div>
         </details>
+      </section>
+
+      <section id="weekly-inspection" class="card weekly-inspection" aria-labelledby="weekly-inspection-heading">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 004B // SEVEN-DAY REVIEW</div>
+            <h2 id="weekly-inspection-heading">Weekly Inspection</h2>
+            <p class="muted">Monday through Sunday. Discipline and evidence are measured separately.</p>
+          </div>
+          <span id="weekly-status" class="state-pill neutral">NOT READY</span>
+        </div>
+        <div class="weekly-controls">
+          <label>Inspect week containing <input id="weekly-date" type="date"></label>
+          <button id="inspect-week" type="button" class="ghost">Refresh Inspection</button>
+          <button id="finalize-week" type="button">Finalize Inspection</button>
+        </div>
+        <p id="weekly-warning" class="status"></p>
+        <div class="weekly-score-grid">
+          <div><span>Week</span><strong id="weekly-range">—</strong></div>
+          <div><span>Discipline</span><strong id="weekly-score">UNSCORED</strong></div>
+          <div><span>Evidence</span><strong id="weekly-coverage">0%</strong></div>
+          <div><span>Storage</span><strong id="weekly-storage">NOT LOADED</strong></div>
+        </div>
+        <div id="weekly-domain-scores" class="weekly-domain-scores"></div>
+        <dl class="weekly-facts">
+          <div><dt>Assessed / fully assessed days</dt><dd id="weekly-assessed-days">0 / 0</dd></div>
+          <div><dt>Unscored days</dt><dd id="weekly-unscored-days">7</dd></div>
+          <div><dt>Complete / partial / missed</dt><dd id="weekly-result-counts">0 / 0 / 0</dd></div>
+          <div><dt>Excused / N/A</dt><dd id="weekly-excluded-counts">0 / 0</dd></div>
+          <div><dt>Approved modifications</dt><dd id="weekly-modification-count">0</dd></div>
+          <div><dt>Strongest domain</dt><dd id="weekly-strongest">UNSCORED</dd></div>
+          <div><dt>Weakest domain</dt><dd id="weekly-weakest">UNSCORED</dd></div>
+          <div><dt>Missed requirements</dt><dd id="weekly-missed">None recorded.</dd></div>
+          <div><dt>Excused conditions</dt><dd id="weekly-excused">None recorded.</dd></div>
+        </dl>
+        <details class="readiness-details" open>
+          <summary>Calculation evidence</summary>
+          <div id="weekly-evidence" class="evidence-list"></div>
+        </details>
+        <h3>Atlas After Action Report</h3>
+        <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">

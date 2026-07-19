@@ -2,6 +2,14 @@
 
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
+## Unreleased — Build 004B: Weekly Inspection & After Action Report
+
+- Added deterministic Monday-through-Sunday aggregation of Build 004A Dominion Record observations, including five domain scores, observation/day counts, evidence coverage, tie-aware rankings, safety signals, and rule-based next-week priorities.
+- Added the Weekly Inspection War Room panel with week selection, evidence review, Atlas After Action Report, finalization controls, and read-only historical snapshots.
+- Added owner-scoped `weekly_inspections` persistence with finalized-snapshot protection and user/week-scoped browser-local fallback.
+- Added dependency-free weekly inspection tests and included them in the complete test command.
+- This remains unreleased Build 004B work toward Release 0.4.0; it does not mark the release complete.
+
 ## Unreleased — Build 004A: Dominion Record Compliance Foundation
 
 - Added five-domain daily execution records for mission, strength, running/cardio, recovery, and nutrition compliance.

@@ -4,7 +4,7 @@ Coach Dominion is a browser-based AI coaching operating system with a discipline
 
 ## Release status
 
-The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Build 004A — Dominion Record: Compliance Foundation** is unreleased work toward Release 0.4.0; it does not represent the complete 0.4.0 release. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
+The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Build 004B — Weekly Inspection & After Action Report** is unreleased work toward Release 0.4.0; it builds on 004A but does not represent the complete 0.4.0 release. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Architecture
 
@@ -18,6 +18,21 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Bui
 - `vercel.json` defines clean URLs and the `/app` rewrite.
 
 Build 004A adds a daily Dominion Record with five equal-weight compliance domains: mission, strength, running/cardio, recovery, and nutrition. Completed, partial, and missed domains score 100, 50, and 0. Excused and not-applicable domains are excluded. Blank or invalid assessments receive no credit and are excluded as unassessed; when nothing applicable has been assessed, the record remains unscored. Restriction and approved-modification evidence is stored independently, and no Build 004A status automatically creates a violation.
+
+## Build 004B weekly inspection
+
+The Weekly Inspection reviews a normalized Monday-through-Sunday period and can move backward across prior weeks. It aggregates the underlying included domain observations: completed = 100, partial = 50, and missed = 0. Excused and intentionally not-applicable observations are excluded from the score denominator. Missing or invalid observations receive no credit and remain unassessed. Scores retain full precision internally and round only in the interface.
+
+Evidence Coverage is separate from discipline: `(valid assessed observations excluding N/A) / (35 expected observations minus intentional N/A) × 100`. Missing and invalid observations reduce coverage; excused observations support coverage without affecting discipline. An all-N/A week is fully documented but remains `UNSCORED`.
+
+Inspection states use a configurable 60% evidence threshold:
+
+- `NOT READY`: no valid assessment exists.
+- `LIMITED EVIDENCE`: some evidence exists below 60%.
+- `READY FOR INSPECTION`: evidence is at least 60% and the inspection is not finalized.
+- `INSPECTION COMPLETE`: the evidence and Atlas report snapshot were finalized.
+
+Finalization is blocked below the threshold. A finalized inspection is loaded from its stored snapshot and is read-only; later daily-record changes do not rewrite it. Drafts recalculate from current daily evidence. Supabase persistence uses `weekly_inspections` after migration `003_weekly_inspections.sql` is reviewed and applied. If Supabase is unavailable, weekly drafts and snapshots use user/week-scoped local storage and are labeled `LOCAL FALLBACK`; they are browser-specific and are not automatically synchronized.
 
 The browser loads Supabase JS v2 from jsDelivr. `/api/config` passes the configured Supabase project URL and anonymous client key to the browser. Supabase provides authentication and PostgreSQL persistence; row-level security restricts users to their own Daily State and command-feed records.
 
@@ -85,6 +100,7 @@ Run suites individually:
 npm run test:readiness
 npm run test:atlas
 npm run test:compliance
+npm run test:weekly
 ```
 
 The underlying direct commands are:
@@ -93,6 +109,7 @@ The underlying direct commands are:
 node tests/readiness-engine.test.js
 node tests/atlas-morning-brief.test.js
 node tests/compliance-foundation.test.js
+node tests/weekly-inspection.test.js
 ```
 
 The compliance panel persists to Supabase after `002_daily_compliance.sql` has been explicitly reviewed and applied through the approved database workflow. Until that table is available, the authenticated browser falls back to user/date-scoped local storage for compliance data only. Local fallback records are device/browser-specific and are not synchronized to Supabase automatically.

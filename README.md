@@ -4,7 +4,7 @@ Coach Dominion is a browser-based AI coaching operating system with a discipline
 
 ## Release status
 
-The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Build 004B — Weekly Inspection & After Action Report** is unreleased work toward Release 0.4.0; it builds on 004A but does not represent the complete 0.4.0 release. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
+The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Build 004C — Dominion Record: Trends & Analytics** is unreleased work toward Release 0.4.0; it builds on 004A and 004B but does not represent the complete 0.4.0 release. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Architecture
 
@@ -33,6 +33,18 @@ Inspection states use a configurable 60% evidence threshold:
 - `INSPECTION COMPLETE`: the evidence and Atlas report snapshot were finalized.
 
 Finalization is blocked below the threshold. A finalized inspection is loaded from its stored snapshot and is read-only; later daily-record changes do not rewrite it. Drafts recalculate from current daily evidence. Supabase persistence uses `weekly_inspections` after migration `003_weekly_inspections.sql` is reviewed and applied. If Supabase is unavailable, weekly drafts and snapshots use user/week-scoped local storage and are labeled `LOCAL FALLBACK`; they are browser-specific and are not automatically synchronized.
+
+## Build 004C trends and analytics
+
+Trends are derived at runtime; no analytics table or redundant state is stored. Finalized `weekly_inspections` snapshots are the authoritative historical source. The meaningful current week is added to charts as a clearly labeled provisional point, while `daily_compliance` drives calendar-day streaks. Finalized history is never recalculated from later daily changes.
+
+The trajectory window contains the most recent four finalized scored inspections, using two or three when that is all the available history. Fewer than two yields `INSUFFICIENT HISTORY`. An ordinary least-squares slope uses actual week spacing: at least +2 score points per week is `IMPROVING`, at most −2 is `DECLINING`, and smaller movement is `STABLE`. Missing and UNSCORED weeks are omitted rather than converted to zero or interpolated. Average window evidence below 60% yields `LIMITED EVIDENCE` before any score conclusion.
+
+Each domain uses the same four-week, ±2-point slope method. It reports `UP`, `FLAT`, `DOWN`, `LIMITED EVIDENCE`, or `NO DATA`. Domain ties preserve the fixed order mission, strength, running/cardio, recovery, then nutrition.
+
+An assessed day has at least one valid compliance status. A fully assessed day has all five domains intentionally marked completed, partial, missed, excused, or N/A. Current streaks must reach today; longest assessed streak uses exact calendar continuity. Future and missing dates are ignored and never inferred.
+
+The charts are dependency-free responsive SVG with fixed 0–100 axes, actual week labels, accessible text equivalents, solid finalized values, yellow/dashed provisional treatment, and a yellow outline when a score has evidence below 60%. Empty histories render an explicit empty state.
 
 The browser loads Supabase JS v2 from jsDelivr. `/api/config` passes the configured Supabase project URL and anonymous client key to the browser. Supabase provides authentication and PostgreSQL persistence; row-level security restricts users to their own Daily State and command-feed records.
 
@@ -101,6 +113,7 @@ npm run test:readiness
 npm run test:atlas
 npm run test:compliance
 npm run test:weekly
+npm run test:trends
 ```
 
 The underlying direct commands are:
@@ -110,6 +123,7 @@ node tests/readiness-engine.test.js
 node tests/atlas-morning-brief.test.js
 node tests/compliance-foundation.test.js
 node tests/weekly-inspection.test.js
+node tests/trends-analytics.test.js
 ```
 
 The compliance panel persists to Supabase after `002_daily_compliance.sql` has been explicitly reviewed and applied through the approved database workflow. Until that table is available, the authenticated browser falls back to user/date-scoped local storage for compliance data only. Local fallback records are device/browser-specific and are not synchronized to Supabase automatically.

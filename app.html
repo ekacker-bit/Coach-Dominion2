@@ -15,7 +15,7 @@
         <h1>War Room</h1>
         <p class="muted" id="identity">Verifying session…</p>
       </div>
-      <div class="header-actions"><a class="btn ghost" href="#weekly-inspection">Weekly Inspection</a><button id="logout" class="ghost">Sign out</button></div>
+      <div class="header-actions"><a class="btn ghost" href="#weekly-inspection">Weekly Inspection</a><a class="btn ghost" href="#trends-analytics">Trends</a><button id="logout" class="ghost">Sign out</button></div>
     </header>
 
     <section class="status-bar" aria-label="Current status bar">
@@ -194,6 +194,37 @@
         </details>
         <h3>Atlas After Action Report</h3>
         <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
+        <p><a href="#trends-analytics">Continue to Trends &amp; Analytics</a></p>
+      </section>
+
+      <section id="trends-analytics" class="card trends-analytics" aria-labelledby="trends-heading">
+        <div class="section-heading">
+          <div><div class="kicker">BUILD 004C // LONGITUDINAL INTELLIGENCE</div><h2 id="trends-heading">Trends &amp; Analytics</h2><p id="trend-window" class="muted">Most recent four finalized scored inspections.</p></div>
+          <span id="trajectory-status" class="state-pill neutral">INSUFFICIENT HISTORY</span>
+        </div>
+        <p id="analytics-storage" class="muted">ANALYTICS NOT LOADED</p>
+        <div class="analytics-summary-grid">
+          <div><span>Latest finalized</span><strong id="trend-latest-score">UNSCORED</strong></div>
+          <div><span>Recent average</span><strong id="trend-average-score">UNSCORED</strong></div>
+          <div><span>Score change</span><strong id="trend-score-change">—</strong></div>
+          <div><span>Evidence change</span><strong id="trend-evidence-change">—</strong></div>
+          <div><span>Best finalized week</span><strong id="trend-best-week">—</strong></div>
+          <div><span>Lowest finalized week</span><strong id="trend-lowest-week">—</strong></div>
+          <div><span>Finalized inspections</span><strong id="trend-finalized-count">0</strong></div>
+          <div><span>Recent completion rate</span><strong id="trend-completion-rate">—</strong></div>
+        </div>
+        <div class="chart-grid">
+          <figure><figcaption>Weekly Discipline Score</figcaption><div id="discipline-trend-chart" class="trend-chart"></div></figure>
+          <figure><figcaption>Weekly Evidence Coverage</figcaption><div id="evidence-trend-chart" class="trend-chart"></div></figure>
+        </div>
+        <div id="trend-domain-grid" class="trend-domain-grid"></div>
+        <div class="streak-grid">
+          <div><span>Current assessed streak</span><strong id="current-assessed-streak">0 days</strong></div>
+          <div><span>Current fully assessed streak</span><strong id="current-full-streak">0 days</strong></div>
+          <div><span>Longest assessed streak</span><strong id="longest-assessed-streak">0 days</strong></div>
+        </div>
+        <h3>Atlas Trend Report</h3>
+        <pre id="atlas-trend-report" class="atlas-brief-output" aria-live="polite">Historical analytics are loading.</pre>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">

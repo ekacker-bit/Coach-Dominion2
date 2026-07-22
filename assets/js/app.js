@@ -17,6 +17,9 @@ const COMPLIANCE_DOMAIN_LABELS = {
 const COMPLIANCE_STATUS_SCORES = { completed: 100, partial: 50, missed: 0 };
 const COMPLIANCE_EXCLUDED_STATUSES = new Set(["excused", "not_applicable"]);
 const WEEKLY_EVIDENCE_THRESHOLD = 60;
+const TREND_WINDOW_SIZE = 4;
+const TREND_SLOPE_THRESHOLD = 2;
+const TREND_EVIDENCE_THRESHOLD = 60;
 const COMPLIANCE_COLUMNS = [
   "compliance_date", "discipline_score", "score_evidence", "updated_at",
   ...COMPLIANCE_DOMAINS.flatMap((domain) => [
@@ -526,6 +529,167 @@ function finalizeWeeklyInspectionSnapshot(aggregate, finalizedAt = new Date().to
   return snapshot;
 }
 
+function inspectionValue(record, camel, snake) {
+  return record?.[camel] ?? record?.[snake] ?? null;
+}
+
+function normalizeInspectionForAnalytics(record = {}) {
+  const domainScores = inspectionValue(record, "domainScores", "domain_scores") || {};
+  return {
+    weekStartDate: inspectionValue(record, "weekStartDate", "week_start_date"),
+    weekEndDate: inspectionValue(record, "weekEndDate", "week_end_date"),
+    score: inspectionValue(record, "score", "weekly_discipline_score"),
+    evidenceCoverage: inspectionValue(record, "evidenceCoverage", "evidence_coverage"),
+    domainScores,
+    finalizedAt: inspectionValue(record, "finalizedAt", "finalized_at"),
+    inspectionStatus: inspectionValue(record, "inspectionStatus", "inspection_status")
+  };
+}
+
+function sortInspectionHistory(records = []) {
+  return records.map(normalizeInspectionForAnalytics).sort((a, b) => String(a.weekStartDate).localeCompare(String(b.weekStartDate)));
+}
+
+function isFiniteMetric(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function selectTrendWindow(records = [], size = TREND_WINDOW_SIZE) {
+  return sortInspectionHistory(records).filter((item) => item.finalizedAt && isFiniteMetric(item.score)).slice(-size);
+}
+
+function calculateLinearTrend(points = []) {
+  const usable = points.filter((point) => isFiniteMetric(point.value) && parseISODateUTC(point.date));
+  if (usable.length < 2) return null;
+  const origin = parseISODateUTC(usable[0].date);
+  const coordinates = usable.map((point) => ({ x: (parseISODateUTC(point.date) - origin) / 604800000, y: Number(point.value) }));
+  const meanX = coordinates.reduce((sum, point) => sum + point.x, 0) / coordinates.length;
+  const meanY = coordinates.reduce((sum, point) => sum + point.y, 0) / coordinates.length;
+  const denominator = coordinates.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0);
+  return denominator === 0 ? 0 : coordinates.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0) / denominator;
+}
+
+function deriveTrajectoryState(records = [], options = {}) {
+  const window = selectTrendWindow(records, options.windowSize || TREND_WINDOW_SIZE);
+  if (window.length < 2) return { state: "INSUFFICIENT HISTORY", slope: null, averageEvidence: window.length ? Number(window[0].evidenceCoverage) : null, window };
+  const averageEvidence = window.reduce((sum, item) => sum + Number(item.evidenceCoverage || 0), 0) / window.length;
+  const slope = calculateLinearTrend(window.map((item) => ({ date: item.weekStartDate, value: item.score })));
+  if (averageEvidence < (options.evidenceThreshold || TREND_EVIDENCE_THRESHOLD)) return { state: "LIMITED EVIDENCE", slope, averageEvidence, window };
+  const threshold = options.slopeThreshold || TREND_SLOPE_THRESHOLD;
+  return { state: slope >= threshold ? "IMPROVING" : slope <= -threshold ? "DECLINING" : "STABLE", slope, averageEvidence, window };
+}
+
+function domainScoreValue(inspection, key) {
+  const entry = inspection.domainScores?.[key];
+  return entry && typeof entry === "object" ? entry.score : entry;
+}
+
+function calculateDomainTrends(records = [], options = {}) {
+  const window = selectTrendWindow(records, options.windowSize || TREND_WINDOW_SIZE);
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => {
+    const points = window.map((item) => ({ date: item.weekStartDate, value: domainScoreValue(item, key), evidence: Number(item.evidenceCoverage || 0) })).filter((item) => isFiniteMetric(item.value));
+    if (!points.length) return [key, { direction: "NO DATA", slope: null, points }];
+    const averageEvidence = points.reduce((sum, item) => sum + item.evidence, 0) / points.length;
+    if (points.length < 2 || averageEvidence < (options.evidenceThreshold || TREND_EVIDENCE_THRESHOLD)) return [key, { direction: "LIMITED EVIDENCE", slope: null, averageEvidence, points }];
+    const slope = calculateLinearTrend(points);
+    const threshold = options.slopeThreshold || TREND_SLOPE_THRESHOLD;
+    return [key, { direction: slope >= threshold ? "UP" : slope <= -threshold ? "DOWN" : "FLAT", slope, averageEvidence, points }];
+  }));
+}
+
+function validDailyAssessment(record = {}) {
+  const domains = domainsFromDailyRecord(record);
+  const statuses = COMPLIANCE_DOMAINS.map((key) => normalizeComplianceStatus(domains[key]?.status));
+  return { assessed: statuses.some(Boolean), fullyAssessed: statuses.every(Boolean) };
+}
+
+function calculateComplianceStreaks(records = [], today = todayISODate()) {
+  const todayDate = parseISODateUTC(today);
+  if (!todayDate) throw new TypeError("Streak reference date must use YYYY-MM-DD.");
+  const byDate = new Map();
+  records.forEach((record) => {
+    const date = parseISODateUTC(record?.compliance_date);
+    if (date && date <= todayDate) byDate.set(record.compliance_date, validDailyAssessment(record));
+  });
+  const assessedDates = [...byDate].filter(([, value]) => value.assessed).map(([date]) => date).sort();
+  let longestAssessedDayStreak = 0;
+  let running = 0;
+  let previous = null;
+  assessedDates.forEach((date) => {
+    const current = parseISODateUTC(date);
+    running = previous && (current - previous) === 86400000 ? running + 1 : 1;
+    longestAssessedDayStreak = Math.max(longestAssessedDayStreak, running);
+    previous = current;
+  });
+  const countBackward = (property) => {
+    let count = 0;
+    for (let date = todayDate; ; date = addUTCDays(date, -1)) {
+      const value = byDate.get(formatISODateUTC(date));
+      if (!value?.[property]) break;
+      count += 1;
+    }
+    return count;
+  };
+  return { currentAssessedDayStreak: countBackward("assessed"), currentFullyAssessedDayStreak: countBackward("fullyAssessed"), longestAssessedDayStreak };
+}
+
+function identifyBestAndLowestWeeks(records = []) {
+  const finalized = sortInspectionHistory(records).filter((item) => item.finalizedAt && isFiniteMetric(item.score));
+  if (!finalized.length) return { bestWeek: null, lowestWeek: null };
+  const byScoreThenDate = [...finalized].sort((a, b) => Number(b.score) - Number(a.score) || a.weekStartDate.localeCompare(b.weekStartDate));
+  const lowest = [...finalized].sort((a, b) => Number(a.score) - Number(b.score) || a.weekStartDate.localeCompare(b.weekStartDate))[0];
+  return { bestWeek: byScoreThenDate[0], lowestWeek: lowest };
+}
+
+function summarizeInspectionHistory(records = [], recentSize = TREND_WINDOW_SIZE) {
+  const sorted = sortInspectionHistory(records);
+  const finalized = sorted.filter((item) => item.finalizedAt);
+  const scored = finalized.filter((item) => isFiniteMetric(item.score));
+  const recent = scored.slice(-recentSize);
+  const latest = scored.at(-1) || null;
+  const prior = scored.at(-2) || null;
+  const recentInspections = sorted.slice(-recentSize);
+  return {
+    finalizedCount: finalized.length,
+    recentAverageScore: recent.length ? recent.reduce((sum, item) => sum + Number(item.score), 0) / recent.length : null,
+    mostRecentFinalized: latest,
+    scoreChange: latest && prior ? Number(latest.score) - Number(prior.score) : null,
+    evidenceChange: latest && prior ? Number(latest.evidenceCoverage) - Number(prior.evidenceCoverage) : null,
+    recentInspectionCompletionRate: recentInspections.length ? recentInspections.filter((item) => item.finalizedAt).length / recentInspections.length * 100 : null,
+    ...identifyBestAndLowestWeeks(finalized)
+  };
+}
+
+function buildChartSeries(records = [], provisional = null) {
+  const finalized = sortInspectionHistory(records).filter((item) => item.finalizedAt).map((item) => ({ ...item, kind: "FINALIZED" }));
+  const provisionalItem = provisional ? { ...normalizeInspectionForAnalytics(provisional), kind: "PROVISIONAL" } : null;
+  return [...finalized, ...(provisionalItem && provisionalItem.weekStartDate ? [provisionalItem] : [])].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
+}
+
+function generateAtlasTrendReport(analytics) {
+  const directions = analytics.domainTrends || {};
+  const ranked = COMPLIANCE_DOMAINS.filter((key) => isFiniteMetric(directions[key]?.slope)).sort((a, b) => directions[b].slope - directions[a].slope || COMPLIANCE_DOMAINS.indexOf(a) - COMPLIANCE_DOMAINS.indexOf(b));
+  const strongest = ranked[0] || null;
+  const risk = [...ranked].reverse()[0] || null;
+  const trajectory = analytics.trajectory.state;
+  const evidenceText = trajectory === "LIMITED EVIDENCE" ? "Evidence is below the trend threshold; performance conclusions are constrained." : analytics.trajectory.averageEvidence === null ? "No finalized evidence window is available." : `Average finalized evidence coverage is ${Math.round(analytics.trajectory.averageEvidence)}%.`;
+  const poorPerformance = analytics.summary.mostRecentFinalized && Number(analytics.summary.mostRecentFinalized.score) < 60;
+  const priority = trajectory === "LIMITED EVIDENCE" || trajectory === "INSUFFICIENT HISTORY" ? "Build complete daily evidence before escalating conclusions." : risk && directions[risk].direction === "DOWN" ? `Stabilize ${COMPLIANCE_DOMAIN_LABELS[risk]} with authorized, consistent execution.` : trajectory === "DECLINING" ? "Restore consistent execution without compensatory training." : "Maintain the standard and preserve complete evidence.";
+  const report = {
+    title: "ATLAS // TREND REPORT",
+    trajectory,
+    disciplineTrend: analytics.trajectory.slope === null ? "No reliable score direction established." : `${analytics.trajectory.slope.toFixed(2)} score points per week across the finalized window.`,
+    evidenceQuality: evidenceText,
+    strongestTrend: strongest ? `${COMPLIANCE_DOMAIN_LABELS[strongest]}: ${directions[strongest].direction}.` : "No reliable domain trend.",
+    domainAtRisk: risk && directions[risk].direction === "DOWN" ? `${COMPLIANCE_DOMAIN_LABELS[risk]} is trending down.` : "No declining domain established.",
+    consistency: `${analytics.streaks.currentAssessedDayStreak}-day current assessed streak; ${analytics.streaks.longestAssessedDayStreak}-day longest streak.`,
+    priority,
+    commandNote: trajectory === "LIMITED EVIDENCE" ? "Weak evidence is not proof of strong or poor execution." : poorPerformance ? "Performance is below standard, but unsafe compensation is not authorized." : "Continue disciplined execution and complete reporting."
+  };
+  report.text = [report.title, "", "TRAJECTORY", report.trajectory, "", "DISCIPLINE TREND", report.disciplineTrend, "", "EVIDENCE QUALITY", report.evidenceQuality, "", "STRONGEST TREND", report.strongestTrend, "", "DOMAIN AT RISK", report.domainAtRisk, "", "CONSISTENCY", report.consistency, "", "PRIORITY", report.priority, "", "COMMAND NOTE", report.commandNote].join("\n");
+  return report;
+}
+
 async function getClient() {
   if (client) return client;
   const response = await fetch("/api/config");
@@ -900,6 +1064,7 @@ async function init() {
     await loadDailyCompliance();
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
+    await loadTrendsAnalytics();
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -925,7 +1090,7 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, WEEKLY_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
 }
 
 function emptyComplianceDomains() {
@@ -1127,6 +1292,7 @@ async function saveDailyCompliance(event) {
     button.disabled = false;
     button.textContent = "Save Dominion Record";
   }
+  await loadTrendsAnalytics();
 }
 
 function weeklyInspectionStorageKey(weekStartDate) {
@@ -1274,8 +1440,113 @@ async function finalizeWeeklyInspection() {
       saveLocalWeeklyInspection(payload);
       renderWeeklyInspection(finalized, "LOCAL");
     }
+    await loadTrendsAnalytics();
   } catch (error) {
     setText("weekly-warning", error.message);
     button.disabled = false;
+  }
+}
+
+function loadLocalAnalyticsHistory() {
+  const user = session?.user?.id || "local";
+  const dailyPrefix = `coach-dominion:daily-compliance:${user}:`;
+  const weeklyPrefix = `coach-dominion:weekly-inspection:${user}:`;
+  const dailyRecords = [];
+  const inspections = [];
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key) continue;
+      const parsed = JSON.parse(window.localStorage.getItem(key));
+      if (key.startsWith(dailyPrefix)) dailyRecords.push(parsed);
+      if (key.startsWith(weeklyPrefix)) inspections.push(parsed);
+    }
+  } catch (_) {
+    return { dailyRecords, inspections };
+  }
+  return { dailyRecords, inspections };
+}
+
+function signedDisplay(value, suffix = "%") {
+  if (!Number.isFinite(Number(value))) return "—";
+  const rounded = Math.round(Number(value));
+  return `${rounded > 0 ? "+" : ""}${rounded}${suffix}`;
+}
+
+function renderTrendChart(elementId, series, valueKey, label) {
+  const element = document.getElementById(elementId);
+  const points = series.filter((item) => isFiniteMetric(item[valueKey]));
+  if (!points.length) {
+    element.innerHTML = `<div class="chart-empty">No ${label.toLowerCase()} data available.</div>`;
+    return;
+  }
+  const width = 640;
+  const height = 230;
+  const left = 42;
+  const right = 18;
+  const top = 18;
+  const bottom = 48;
+  const x = (index) => points.length === 1 ? width / 2 : left + index * ((width - left - right) / (points.length - 1));
+  const y = (value) => top + (100 - Math.max(0, Math.min(100, Number(value)))) / 100 * (height - top - bottom);
+  const finalized = points.filter((item) => item.kind === "FINALIZED");
+  const finalizedCoordinates = finalized.map((item) => `${x(points.indexOf(item))},${y(item[valueKey])}`).join(" ");
+  const provisional = points.find((item) => item.kind === "PROVISIONAL");
+  const prior = provisional ? points.slice(0, points.indexOf(provisional)).at(-1) : null;
+  const provisionalLine = provisional && prior ? `<line class="chart-line chart-provisional-line" x1="${x(points.indexOf(prior))}" y1="${y(prior[valueKey])}" x2="${x(points.indexOf(provisional))}" y2="${y(provisional[valueKey])}"></line>` : "";
+  const grid = [0, 25, 50, 75, 100].map((value) => `<line class="chart-gridline" x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}"></line><text class="chart-label" x="4" y="${y(value) + 4}">${value}</text>`).join("");
+  const marks = points.map((item, index) => {
+    const weakEvidence = valueKey === "score" && Number(item.evidenceCoverage) < TREND_EVIDENCE_THRESHOLD;
+    return `<circle class="chart-point ${item.kind === "PROVISIONAL" ? "provisional" : ""} ${weakEvidence ? "weak-evidence" : ""}" cx="${x(index)}" cy="${y(item[valueKey])}" r="5"><title>${item.weekStartDate}: ${item[valueKey]}% ${item.kind.toLowerCase()}${weakEvidence ? "; limited evidence" : ""}</title></circle><text class="chart-label" text-anchor="middle" x="${x(index)}" y="${height - 25}">${item.weekStartDate.slice(5)}</text><text class="chart-label" text-anchor="middle" x="${x(index)}" y="${y(item[valueKey]) - 9}">${Math.round(item[valueKey])}</text>`;
+  }).join("");
+  const equivalent = points.map((item) => `${item.weekStartDate}: ${item[valueKey]}% (${item.kind.toLowerCase()}${valueKey === "score" && Number(item.evidenceCoverage) < TREND_EVIDENCE_THRESHOLD ? ", limited evidence" : ""})`).join("; ");
+  element.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${label}. Fixed axis from zero to one hundred percent.">${grid}${finalizedCoordinates ? `<polyline class="chart-line" points="${finalizedCoordinates}"></polyline>` : ""}${provisionalLine}${marks}</svg><p class="chart-equivalent">${equivalent}</p>`;
+}
+
+function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
+  const currentRange = getInspectionWeekRange(todayISODate());
+  const currentAggregate = aggregateWeeklyCompliance(dailyRecords, currentRange.weekStartDate);
+  const hasFinalizedCurrentWeek = sortInspectionHistory(inspections).some((item) => item.weekStartDate === currentRange.weekStartDate && item.finalizedAt);
+  const provisional = currentAggregate.counts.assessedObservations > 0 && !hasFinalizedCurrentWeek ? currentAggregate : null;
+  const trajectory = deriveTrajectoryState(inspections);
+  const domainTrends = calculateDomainTrends(inspections);
+  const streaks = calculateComplianceStreaks(dailyRecords, todayISODate());
+  const summary = summarizeInspectionHistory(inspections);
+  const chartSeries = buildChartSeries(inspections, provisional);
+  const report = generateAtlasTrendReport({ trajectory, domainTrends, streaks, summary, chartSeries });
+  setText("trajectory-status", trajectory.state);
+  document.getElementById("trajectory-status").className = `state-pill ${trajectory.state === "IMPROVING" ? "green" : trajectory.state === "DECLINING" ? "red" : trajectory.state === "LIMITED EVIDENCE" ? "yellow" : "neutral"}`;
+  setText("analytics-storage", `${storageMode} ANALYTICS — derived, not stored`);
+  const windowDates = trajectory.window.map((item) => item.weekStartDate);
+  setText("trend-window", windowDates.length ? `Finalized trend window: ${windowDates[0]} through ${windowDates.at(-1)} (${windowDates.length} scored weeks).` : "No finalized scored trend window available.");
+  setText("trend-latest-score", summary.mostRecentFinalized ? formatDisciplineScore(summary.mostRecentFinalized.score) : "UNSCORED");
+  setText("trend-average-score", formatDisciplineScore(summary.recentAverageScore));
+  setText("trend-score-change", signedDisplay(summary.scoreChange));
+  setText("trend-evidence-change", signedDisplay(summary.evidenceChange));
+  setText("trend-best-week", summary.bestWeek ? `${summary.bestWeek.weekStartDate} // ${formatDisciplineScore(summary.bestWeek.score)}` : "—");
+  setText("trend-lowest-week", summary.lowestWeek ? `${summary.lowestWeek.weekStartDate} // ${formatDisciplineScore(summary.lowestWeek.score)}` : "—");
+  setText("trend-finalized-count", summary.finalizedCount);
+  setText("trend-completion-rate", Number.isFinite(summary.recentInspectionCompletionRate) ? `${Math.round(summary.recentInspectionCompletionRate)}%` : "—");
+  setText("current-assessed-streak", `${streaks.currentAssessedDayStreak} days`);
+  setText("current-full-streak", `${streaks.currentFullyAssessedDayStreak} days`);
+  setText("longest-assessed-streak", `${streaks.longestAssessedDayStreak} days`);
+  document.getElementById("trend-domain-grid").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div class="trend-domain-card ${domainTrends[key].direction.toLowerCase().replaceAll(" ", "-")}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${domainTrends[key].direction}</strong><small>${domainTrends[key].slope === null ? "No reliable slope" : `${domainTrends[key].slope.toFixed(2)} pts/week`}</small></div>`).join("");
+  renderTrendChart("discipline-trend-chart", chartSeries, "score", "Weekly Discipline Score");
+  renderTrendChart("evidence-trend-chart", chartSeries, "evidenceCoverage", "Weekly Evidence Coverage");
+  setText("atlas-trend-report", report.text);
+}
+
+async function loadTrendsAnalytics() {
+  try {
+    const supabase = await getClient();
+    const results = await Promise.all([
+      supabase.from("weekly_inspections").select("week_start_date,week_end_date,weekly_discipline_score,evidence_coverage,domain_scores,inspection_status,finalized_at").eq("user_id", session.user.id).order("week_start_date", { ascending: true }),
+      supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).lte("compliance_date", todayISODate()).order("compliance_date", { ascending: true })
+    ]);
+    if (results[0].error) throw results[0].error;
+    if (results[1].error) throw results[1].error;
+    renderTrendsAnalytics(results[0].data || [], results[1].data || [], "SUPABASE");
+  } catch (_) {
+    const local = loadLocalAnalyticsHistory();
+    renderTrendsAnalytics(local.inspections, local.dailyRecords, "LOCAL FALLBACK");
   }
 }

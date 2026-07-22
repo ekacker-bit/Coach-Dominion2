@@ -4,6 +4,12 @@ let dailyState;
 let dailyCompliance;
 let weeklyInspection;
 let weeklyDailyRecords = [];
+let activeSection = "today";
+let complianceDirtyState = false;
+let compliancePreviousState = null;
+let onboardingDismissed = false;
+let lastSavedComplianceState = null;
+let currentSaveState = "empty";
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -39,6 +45,76 @@ const readinessSeverity = {
   YELLOW: "WARNING",
   GREEN: "SUCCESS"
 };
+
+const SECTION_ORDER = ["today", "record", "inspection", "trends"];
+const SECTION_LABELS = {
+  today: "Today",
+  record: "Record",
+  inspection: "Inspection",
+  trends: "Trends"
+};
+
+function normalizeSectionKey(section = "today") {
+  if (typeof section !== "string") return "today";
+  const normalized = section.trim().toLowerCase();
+  if (SECTION_ORDER.includes(normalized)) return normalized;
+  if (normalized === "weekly" || normalized === "inspection" || normalized === "weekly-inspection") return "inspection";
+  if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
+  if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
+  return "today";
+}
+
+function shouldWarnBeforeNavigation(section = "today", hasDirtyChanges = false) {
+  return Boolean(hasDirtyChanges) && normalizeSectionKey(section) !== "today";
+}
+
+function deriveDirtyState(previousState = {}, currentState = {}) {
+  return JSON.stringify(previousState) !== JSON.stringify(currentState);
+}
+
+function deriveFinalizeConfirmationState(isFinalized = false, evidenceCoverage = 0) {
+  const hasEnoughEvidence = Number(evidenceCoverage) >= WEEKLY_EVIDENCE_THRESHOLD;
+  return {
+    confirmationRequired: hasEnoughEvidence,
+    readOnlyMessage: "Finalization creates a read-only historical snapshot for the selected week.",
+    canFinalize: hasEnoughEvidence && !isFinalized
+  };
+}
+
+function isFinalizedReadOnlyInspection(inspection = {}) {
+  return Boolean(inspection?.finalizedAt || inspection?.inspectionStatus === "INSPECTION COMPLETE");
+}
+
+function deriveOnboardingVisibility(hasViewed = false) {
+  return {
+    visible: Boolean(hasViewed),
+    dismissLabel: "Dismiss onboarding"
+  };
+}
+
+function getStatusMessage(state = "empty") {
+  const messages = {
+    loading: "Loading…",
+    saving: "Saving…",
+    saved: "Saved",
+    "locally saved": "Locally saved",
+    failed: "Failed",
+    empty: "No data yet",
+    "limited evidence": "Limited evidence",
+    finalized: "Finalized / read-only",
+    "authentication required": "Authentication required"
+  };
+  return messages[state] || messages.empty;
+}
+
+function deriveSaveState(state = "empty") {
+  const tone = state === "saving" ? "saving" : state === "saved" ? "saved" : state === "locally saved" ? "locally-saved" : state === "failed" ? "failed" : "empty";
+  return { label: getStatusMessage(state), tone };
+}
+
+function deriveInputImmutabilityState(isImmutable = false) {
+  return { readOnly: Boolean(isImmutable), disabled: Boolean(isImmutable) };
+}
 
 function todayISODate() {
   return new Date().toLocaleDateString("en-CA");
@@ -700,7 +776,9 @@ async function getClient() {
 }
 
 function setStatus(message) {
-  document.getElementById("status").textContent = message || "";
+  const statusElement = document.getElementById("status");
+  statusElement.textContent = message || "";
+  statusElement.setAttribute("aria-live", "polite");
 }
 
 function setLoading(isLoading) {
@@ -765,6 +843,68 @@ function dailyIntelligence(readinessResult) {
     readinessResult.instruction,
     readinessResult.primaryRisk
   ];
+}
+
+function deriveCommandCenterOverview(readinessResultOrState = null, weeklyInspectionAggregate = {}, trajectoryState = "INSUFFICIENT HISTORY") {
+  const readiness = readinessResultOrState && typeof readinessResultOrState === "object" && Object.hasOwn(readinessResultOrState, "state")
+    ? readinessResultOrState
+    : evaluateReadiness(readinessResultOrState);
+  const weeklyStatus = weeklyInspectionAggregate?.inspectionStatus || "NOT READY";
+  const trendStatus = trajectoryState || "INSUFFICIENT HISTORY";
+  const readinessLabel = readiness?.state || "NOT ESTABLISHED";
+
+  let focus = "Morning roll call";
+  let summary = "The command center is waiting for the first Daily State signal.";
+  let action = "Submit Morning Roll Call to initialize the operating picture.";
+
+  if (readinessLabel === "RED") {
+    focus = "Recovery protocol";
+    summary = "Pain overrides performance goals. Protect recovery and avoid any hard training.";
+    action = "Execute recovery protocol and preserve the next recovery window.";
+  } else if (readinessLabel === "YELLOW") {
+    focus = "Primary work only";
+    summary = "Readiness is reduced. Complete primary work only and remove optional intensity.";
+    action = "Reduce volume and protect the standard.";
+  } else if (readinessLabel === "GREEN") {
+    focus = "Prescribed mission";
+    summary = "Readiness is acceptable. Execute the assigned mission exactly.";
+    action = "Maintain execution quality and complete the day's evidence.";
+  }
+
+  if (weeklyStatus === "INSPECTION COMPLETE") {
+    action = `${action} The latest weekly inspection is finalized.`;
+  } else if (weeklyStatus === "READY FOR INSPECTION") {
+    action = `${action} The weekly review is ready for finalization.`;
+  } else if (weeklyStatus === "LIMITED EVIDENCE") {
+    action = `${action} Improve daily evidence coverage before drawing firm conclusions.`;
+  }
+
+  if (trendStatus === "DECLINING") {
+    action = `${action} Trend signals are declining; tighten execution and preserve evidence.`;
+  } else if (trendStatus === "IMPROVING") {
+    action = `${action} Trend signals are improving; maintain the standard.`;
+  }
+
+  return {
+    readinessLabel,
+    weeklyLabel: weeklyStatus,
+    trendLabel: trendStatus,
+    focus,
+    summary,
+    action
+  };
+}
+
+function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspectionAggregate = {}, trajectoryState = "INSUFFICIENT HISTORY") {
+  const overview = deriveCommandCenterOverview(readinessResultOrState, weeklyInspectionAggregate, trajectoryState);
+  setText("overview-readiness", overview.readinessLabel || "—");
+  setText("overview-weekly", overview.weeklyLabel || "NOT READY");
+  setText("overview-trend", overview.trendLabel || "INSUFFICIENT HISTORY");
+  setText("overview-focus", overview.focus);
+  setText("overview-summary", overview.summary);
+  const stateElement = document.getElementById("command-center-overview-state");
+  stateElement.textContent = overview.action;
+  stateElement.className = `state-pill ${overview.readinessLabel === "GREEN" ? "green" : overview.readinessLabel === "RED" ? "red" : overview.readinessLabel === "YELLOW" ? "yellow" : "neutral"}`;
 }
 
 function renderStatusBar(state) {
@@ -911,6 +1051,7 @@ function renderWarRoom(state) {
   setText("daily-primary", intel[1]);
   setText("daily-instruction", intel[2]);
   setText("daily-risk", intel[3]);
+  renderCommandCenterOverview(readinessResult, weeklyInspection || {}, "INSUFFICIENT HISTORY");
 
   setText("summary-date", state.date);
   setText("summary-energy", `${state.energy}/10`);
@@ -1047,6 +1188,51 @@ async function saveMorningRollCall(event) {
   }
 }
 
+function setActiveSection(section = "today") {
+  const normalized = normalizeSectionKey(section);
+  activeSection = normalized;
+  document.querySelectorAll(".nav-link").forEach((link) => {
+    const isActive = link.dataset.section === normalized;
+    link.classList.toggle("active", isActive);
+    link.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+  document.querySelectorAll(".scroll-anchor").forEach((element) => {
+    const isMatch = element.id === normalized || element.dataset.section === normalized;
+    element.classList.toggle("is-active", isMatch);
+  });
+  const target = document.getElementById(normalized) || document.querySelector(`[data-section="${normalized}"]`);
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function restoreSectionFromHash() {
+  const hash = window.location.hash ? window.location.hash.replace("#", "") : "";
+  setActiveSection(hash || "today");
+}
+
+function persistOnboardingState() {
+  window.localStorage.setItem("coach-dominion:onboarding-dismissed", onboardingDismissed ? "true" : "false");
+}
+
+function renderOnboarding() {
+  const panel = document.getElementById("onboarding");
+  if (!panel) return;
+  panel.hidden = onboardingDismissed;
+  panel.setAttribute("aria-hidden", onboardingDismissed ? "true" : "false");
+}
+
+function handleSectionNavigation(link) {
+  const nextSection = link?.dataset?.section || normalizeSectionKey(link?.hash?.replace("#", ""));
+  if (shouldWarnBeforeNavigation(nextSection, complianceDirtyState)) {
+    const proceed = window.confirm("You have unsaved Dominion Record changes. Leave this section anyway?");
+    if (!proceed) return false;
+  }
+  setActiveSection(nextSection);
+  window.history.replaceState(null, "", `#${nextSection}`);
+  return true;
+}
+
 async function init() {
   try {
     setLoading(true);
@@ -1059,6 +1245,9 @@ async function init() {
     }
     session = data.session;
     setText("identity", "Signed in as " + session.user.email);
+    onboardingDismissed = window.localStorage.getItem("coach-dominion:onboarding-dismissed") === "true";
+    renderOnboarding();
+    restoreSectionFromHash();
     await loadDailyState();
     await loadCommandFeed();
     await loadDailyCompliance();
@@ -1076,10 +1265,34 @@ if (typeof document !== "undefined") {
   initializeComplianceForm();
   document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
   document.getElementById("compliance-form").addEventListener("submit", saveDailyCompliance);
-  document.getElementById("compliance-form").addEventListener("input", () => renderComplianceScore(readComplianceForm()));
+  document.getElementById("compliance-form").addEventListener("input", () => {
+    renderComplianceScore(readComplianceForm());
+    setComplianceDirtyState(readComplianceForm());
+    updateComplianceStatusMessage();
+  });
   document.getElementById("inspect-week").addEventListener("click", loadWeeklyInspection);
   document.getElementById("weekly-date").addEventListener("change", loadWeeklyInspection);
   document.getElementById("finalize-week").addEventListener("click", finalizeWeeklyInspection);
+  document.querySelectorAll(".nav-link").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (handleSectionNavigation(link)) {
+        window.location.hash = `#${normalizeSectionKey(link.dataset.section)}`;
+      }
+    });
+  });
+  document.getElementById("help-onboarding").addEventListener("click", () => {
+    onboardingDismissed = false;
+    persistOnboardingState();
+    renderOnboarding();
+    setActiveSection("today");
+  });
+  document.getElementById("dismiss-onboarding").addEventListener("click", () => {
+    onboardingDismissed = true;
+    persistOnboardingState();
+    renderOnboarding();
+  });
+  window.addEventListener("hashchange", restoreSectionFromHash);
   document.getElementById("logout").addEventListener("click", async () => {
     const supabase = await getClient();
     await supabase.auth.signOut();
@@ -1090,7 +1303,7 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, deriveCommandCenterOverview, normalizeSectionKey, shouldWarnBeforeNavigation, deriveDirtyState, deriveFinalizeConfirmationState, isFinalizedReadOnlyInspection, deriveOnboardingVisibility, getStatusMessage, deriveSaveState, deriveInputImmutabilityState, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
 }
 
 function emptyComplianceDomains() {
@@ -1123,13 +1336,13 @@ function complianceDomainsFromRecord(record) {
 function complianceDomainRow(key) {
   return `
     <fieldset class="compliance-domain" data-domain="${key}">
-      <legend>${COMPLIANCE_DOMAIN_LABELS[key]}</legend>
-      <div class="compliance-domain-grid">
-        <label>Assigned target
-          <input name="${key}_target" maxlength="500" placeholder="What was assigned?">
+      <legend><button class="domain-toggle" type="button" aria-expanded="true" data-domain-toggle="${key}">${COMPLIANCE_DOMAIN_LABELS[key]}</button></legend>
+      <div class="compliance-domain-grid" data-domain-content="${key}">
+        <label for="${key}_target">Assigned target
+          <input id="${key}_target" name="${key}_target" maxlength="500" placeholder="What was assigned?">
         </label>
-        <label>Completion status
-          <select name="${key}_status">
+        <label for="${key}_status">Completion status
+          <select id="${key}_status" name="${key}_status">
             <option value="">NOT ASSESSED</option>
             <option value="completed">COMPLETE</option>
             <option value="partial">PARTIAL</option>
@@ -1138,16 +1351,16 @@ function complianceDomainRow(key) {
             <option value="not_applicable">N/A</option>
           </select>
         </label>
-        <label>Actual result
-          <input name="${key}_actual" maxlength="500" placeholder="What was completed or modified?">
+        <label for="${key}_actual">Actual result
+          <input id="${key}_actual" name="${key}_actual" maxlength="500" placeholder="What was completed or modified?">
         </label>
-        <label>User note
-          <input name="${key}_note" maxlength="500" placeholder="Optional execution context">
+        <label for="${key}_note">User note
+          <input id="${key}_note" name="${key}_note" maxlength="500" placeholder="Optional execution context">
         </label>
-        <label class="compliance-restriction">Restriction or approved modification
-          <input name="${key}_restriction" maxlength="500" placeholder="Readiness, medical, or approved adjustment">
+        <label class="compliance-restriction" for="${key}_restriction">Restriction or approved modification
+          <input id="${key}_restriction" name="${key}_restriction" maxlength="500" placeholder="Readiness, medical, or approved adjustment">
         </label>
-        <label class="compliance-check"><input name="${key}_approved_modification" type="checkbox"> Approved modification</label>
+        <label class="compliance-check" for="${key}_approved_modification"><input id="${key}_approved_modification" name="${key}_approved_modification" type="checkbox"> Approved modification</label>
       </div>
     </fieldset>`;
 }
@@ -1155,6 +1368,17 @@ function complianceDomainRow(key) {
 function initializeComplianceForm() {
   const container = document.getElementById("compliance-domains");
   container.innerHTML = COMPLIANCE_DOMAINS.map(complianceDomainRow).join("");
+  container.querySelectorAll(".domain-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      const domain = button.dataset.domainToggle;
+      const fieldset = container.querySelector(`[data-domain="${domain}"]`);
+      const content = fieldset?.querySelector(`[data-domain-content="${domain}"]`);
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", String(!expanded));
+      fieldset?.classList.toggle("collapsed", expanded);
+      if (content) content.hidden = expanded;
+    });
+  });
 }
 
 function applyMissionComplianceDefaults(domains) {
@@ -1189,8 +1413,44 @@ function renderComplianceScore(domains) {
   setList("compliance-excluded", state.explanation.excluded, "No domains excluded.");
 }
 
-function renderComplianceRecord(record, storageMode = "SUPABASE") {
+function updateComplianceStatusMessage() {
+  const saveState = deriveSaveState(currentSaveState);
+  const storageLabel = document.getElementById("compliance-storage");
+  storageLabel.textContent = saveState.label.toUpperCase();
+  storageLabel.className = `compliance-storage ${saveState.tone}`;
+  const updatedLabel = document.getElementById("compliance-updated");
+  updatedLabel.textContent = currentSaveState === "failed"
+    ? "Save failed. Retry when connection is available."
+    : currentSaveState === "locally saved"
+      ? "Saved locally while remote sync is unavailable."
+      : currentSaveState === "saving"
+        ? "Saving record…"
+        : currentSaveState === "saved"
+          ? "Saved successfully."
+          : "Not saved yet";
+}
+
+function setComplianceDirtyState(nextState = null) {
+  const form = document.getElementById("compliance-form");
+  if (!form) return;
+  const values = nextState || readComplianceForm();
+  complianceDirtyState = deriveDirtyState(compliancePreviousState || emptyComplianceDomains(), values);
+  const saveButton = document.getElementById("save-compliance");
+  if (saveButton) saveButton.disabled = !complianceDirtyState;
+  form.dataset.dirty = complianceDirtyState ? "true" : "false";
+}
+
+function setComplianceDefaultsFromState(record) {
   const domains = applyMissionComplianceDefaults(complianceDomainsFromRecord(record));
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    const fieldset = document.querySelector(`[data-domain="${key}"]`);
+    if (fieldset) fieldset.classList.toggle("collapsed", false);
+  });
+  return domains;
+}
+
+function renderComplianceRecord(record, storageMode = "SUPABASE") {
+  const domains = setComplianceDefaultsFromState(record);
   COMPLIANCE_DOMAINS.forEach((key) => {
     const domain = domains[key];
     const form = document.getElementById("compliance-form");
@@ -1201,10 +1461,13 @@ function renderComplianceRecord(record, storageMode = "SUPABASE") {
     form.elements[`${key}_restriction`].value = domain.restriction;
     form.elements[`${key}_approved_modification`].checked = domain.approvedModification;
   });
+  compliancePreviousState = readComplianceForm();
+  setComplianceDirtyState(compliancePreviousState);
   setText("compliance-date", record?.compliance_date || todayISODate());
   renderComplianceScore(domains);
-  setText("compliance-storage", storageMode === "LOCAL" ? "LOCAL FALLBACK — Supabase record unavailable" : "SUPABASE RECORD");
-  setText("compliance-updated", record?.updated_at ? `Last saved ${new Date(record.updated_at).toLocaleString()}` : "Not saved yet");
+  currentSaveState = storageMode === "LOCAL" ? "locally saved" : "saved";
+  updateComplianceStatusMessage();
+  lastSavedComplianceState = structuredClone(compliancePreviousState);
 }
 
 function complianceStorageKey() {
@@ -1271,6 +1534,8 @@ async function saveDailyCompliance(event) {
   const button = document.getElementById("save-compliance");
   button.disabled = true;
   button.textContent = "Saving…";
+  currentSaveState = "saving";
+  updateComplianceStatusMessage();
   const payload = compliancePayload(readComplianceForm());
   try {
     const supabase = await getClient();
@@ -1281,16 +1546,19 @@ async function saveDailyCompliance(event) {
       .single();
     if (error) throw error;
     dailyCompliance = data;
+    currentSaveState = "saved";
     renderComplianceRecord(data, "SUPABASE");
   } catch (_) {
     const localRecord = { ...payload, updated_at: new Date().toISOString() };
     dailyCompliance = localRecord;
     const saved = saveLocalCompliance(localRecord);
+    currentSaveState = saved ? "locally saved" : "failed";
     renderComplianceRecord(localRecord, "LOCAL");
     if (!saved) setText("compliance-storage", "UNSAVED — local storage unavailable");
   } finally {
     button.disabled = false;
     button.textContent = "Save Dominion Record";
+    updateComplianceStatusMessage();
   }
   await loadTrendsAnalytics();
 }
@@ -1364,6 +1632,7 @@ function aggregateFromStoredInspection(record) {
 function renderWeeklyInspection(aggregate, storageMode) {
   weeklyInspection = aggregate;
   const finalized = Boolean(aggregate.finalizedAt);
+  const finalizeState = deriveFinalizeConfirmationState(finalized, aggregate.evidenceCoverage);
   const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
   setText("weekly-status", aggregate.inspectionStatus);
   document.getElementById("weekly-status").className = `state-pill ${aggregate.inspectionStatus === "INSPECTION COMPLETE" ? "green" : aggregate.inspectionStatus === "READY FOR INSPECTION" ? "yellow" : "neutral"}`;
@@ -1381,12 +1650,18 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
   setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
-  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<div class="evidence-row weekly-evidence-day ${day.assessedCount ? "neutral" : "missing"}"><strong>${day.date}</strong><span>${day.assessedCount}/5 ASSESSED</span><p>${day.includedCount} applicable scoring observations</p></div>`).join("");
+  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.assessedCount}/5 ASSESSED</span></summary><p>${day.includedCount} applicable scoring observations</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
   const warning = finalized ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.` : aggregate.evidenceLimitation ? `Finalization requires ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage. Current evidence is limited.` : "";
   setText("weekly-warning", warning);
-  document.getElementById("finalize-week").disabled = finalized || aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD;
-  document.getElementById("finalize-week").textContent = finalized ? "Inspection Finalized" : "Finalize Inspection";
+  const finalizeButton = document.getElementById("finalize-week");
+  finalizeButton.disabled = finalized || aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD;
+  finalizeButton.textContent = finalized ? "Inspection Finalized" : "Finalize Inspection";
+  finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
+  const finalizeHint = document.getElementById("weekly-finalize-hint");
+  if (finalizeHint) finalizeHint.textContent = finalized ? "This inspection is finalized and read-only." : finalizeState.readOnlyMessage;
+  document.getElementById("weekly-inspection").dataset.finalized = finalized ? "true" : "false";
+  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
 }
 
 async function loadWeeklyInspection() {
@@ -1426,6 +1701,13 @@ async function loadWeeklyInspection() {
 
 async function finalizeWeeklyInspection() {
   if (!weeklyInspection) return;
+  const finalizeState = deriveFinalizeConfirmationState(Boolean(weeklyInspection.finalizedAt), weeklyInspection.evidenceCoverage);
+  if (!finalizeState.canFinalize) {
+    setText("weekly-warning", "Finalization requires sufficient evidence coverage.");
+    return;
+  }
+  const confirmed = window.confirm(`${finalizeState.readOnlyMessage}\n\nFinalize this inspection now?`);
+  if (!confirmed) return;
   const button = document.getElementById("finalize-week");
   button.disabled = true;
   try {
@@ -1480,8 +1762,8 @@ function renderTrendChart(elementId, series, valueKey, label) {
     element.innerHTML = `<div class="chart-empty">No ${label.toLowerCase()} data available.</div>`;
     return;
   }
-  const width = 640;
-  const height = 230;
+  const width = window.innerWidth < 640 ? 320 : 640;
+  const height = window.innerWidth < 640 ? 210 : 230;
   const left = 42;
   const right = 18;
   const top = 18;
@@ -1516,6 +1798,12 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
   setText("trajectory-status", trajectory.state);
   document.getElementById("trajectory-status").className = `state-pill ${trajectory.state === "IMPROVING" ? "green" : trajectory.state === "DECLINING" ? "red" : trajectory.state === "LIMITED EVIDENCE" ? "yellow" : "neutral"}`;
   setText("analytics-storage", `${storageMode} ANALYTICS — derived, not stored`);
+  setText("trend-summary-trajectory", trajectory.state || "INSUFFICIENT HISTORY");
+  setText("trend-summary-score-change", signedDisplay(summary.scoreChange));
+  setText("trend-summary-evidence", trajectory.averageEvidence === null ? "—" : `${Math.round(trajectory.averageEvidence)}%`);
+  const domainAtRisk = report.domainAtRisk === "No declining domain established." ? "—" : report.domainAtRisk;
+  setText("trend-summary-domain", domainAtRisk);
+  setText("trend-summary-consistency", report.consistency || "—");
   const windowDates = trajectory.window.map((item) => item.weekStartDate);
   setText("trend-window", windowDates.length ? `Finalized trend window: ${windowDates[0]} through ${windowDates.at(-1)} (${windowDates.length} scored weeks).` : "No finalized scored trend window available.");
   setText("trend-latest-score", summary.mostRecentFinalized ? formatDisciplineScore(summary.mostRecentFinalized.score) : "UNSCORED");
@@ -1533,6 +1821,7 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
   renderTrendChart("discipline-trend-chart", chartSeries, "score", "Weekly Discipline Score");
   renderTrendChart("evidence-trend-chart", chartSeries, "evidenceCoverage", "Weekly Evidence Coverage");
   setText("atlas-trend-report", report.text);
+  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || {}, trajectory.state);
 }
 
 async function loadTrendsAnalytics() {

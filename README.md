@@ -36,7 +36,7 @@ Finalization is blocked below the threshold. A finalized inspection is loaded fr
 
 ## Build 004D UX command center pass
 
-The War Room now supports a structured command-center experience with top-level navigation for Today, Record, Inspection, and Trends. The app preserves section state through hash-based navigation, supports desktop and mobile navigation, and adds onboarding guidance that can be dismissed and reopened. Dominion Record now supports progressive disclosure, dirty-state tracking, save-state messaging, and unsaved-change warnings, while Weekly Inspection adds draft/finalized distinction, confirmation before finalization, read-only snapshot messaging, collapsible daily evidence, and clearer visual treatment for missed, excused, and approved-modification outcomes. Trends now lead with trajectory, score change, evidence quality, domain-at-risk context, and consistency, while preserving the existing scoring and analytics calculations.
+The War Room now supports a structured command-center experience with top-level navigation for Today, Record, Inspection, Trends, and Standards. The app preserves section state through hash-based navigation, supports desktop and mobile navigation, and adds onboarding guidance that can be dismissed and reopened. Dominion Record now supports progressive disclosure, dirty-state tracking, save-state messaging, and unsaved-change warnings, while Weekly Inspection adds draft/finalized distinction, confirmation before finalization, read-only snapshot messaging, collapsible daily evidence, and clearer visual treatment for missed, excused, and approved-modification outcomes. Trends now lead with trajectory, score change, evidence quality, domain-at-risk context, and consistency, while preserving the existing scoring and analytics calculations.
 
 Trends are derived at runtime; no analytics table or redundant state is stored. Finalized `weekly_inspections` snapshots are the authoritative historical source. The meaningful current week is added to charts as a clearly labeled provisional point, while `daily_compliance` drives calendar-day streaks. Finalized history is never recalculated from later daily changes.
 
@@ -48,7 +48,19 @@ An assessed day has at least one valid compliance status. A fully assessed day h
 
 The charts are dependency-free responsive SVG with fixed 0–100 axes, actual week labels, accessible text equivalents, solid finalized values, yellow/dashed provisional treatment, and a yellow outline when a score has evidence below 60%. Empty histories render an explicit empty state.
 
-The browser loads Supabase JS v2 from jsDelivr. `/api/config` passes the configured Supabase project URL and anonymous client key to the browser. Supabase provides authentication and PostgreSQL persistence; row-level security restricts users to their own Daily State and command-feed records.
+The browser loads Supabase JS v2 from jsDelivr. `/api/config` passes the configured Supabase project URL and anonymous client key to the browser. Supabase provides authentication and PostgreSQL persistence; row-level security restricts users to their own Daily State, command-feed, standards, and standards-audit records.
+
+## Build 004E standards & violations
+
+Build 004E adds a deterministic standards-and-violations layer that remains supplemental to the existing Dominion Record and Weekly Inspection scoring formulas. It does not alter readiness, discipline scoring, inspection aggregation, or finalized-inspection snapshots.
+
+The standards catalog covers mission execution, strength completion, cardio completion, recovery restrictions, nutrition targets, reporting/evidence quality, safety restrictions, and program-conduct integrity. Protected exceptions include excused statuses, not-applicable statuses, approved modifications, readiness restrictions, illness, injury, and insufficient evidence. A single missed entry does not create confirmed misconduct; it becomes a candidate for review. Repeated unexcused misses can escalate severity, and deliberate falsification or knowingly unsafe behavior can move to Level III.
+
+Review state is a lifecycle from `CANDIDATE` to `UNDER REVIEW`, `CONFIRMED`, `CORRECTED`, `RESOLVED`, `DISMISSED`, or `EXCUSED`. Confirmation, dismissal, excuse, correction, and resolution all require explicit workflow actions and are blocked by invalid transitions. Corrective actions are non-punitive and never include punishment exercise, food restriction, deprivation, or unsafe compensation.
+
+Supabase persistence uses the new migration [supabase/migrations/004_standards_violations.sql](supabase/migrations/004_standards_violations.sql). The browser also supports user-scoped browser-local fallback for standards review state and audit events, and the UI clearly labels remote versus local persistence.
+
+The Standards & Violations section in the War Room displays the catalog size, open candidates, confirmed count, and resolved count; it also shows a review queue, a deterministic Atlas Standards Review, and the persisted audit trail.
 
 ## Routes
 
@@ -116,6 +128,7 @@ npm run test:atlas
 npm run test:compliance
 npm run test:weekly
 npm run test:trends
+npm run test:standards
 ```
 
 The underlying direct commands are:
@@ -126,6 +139,7 @@ node tests/atlas-morning-brief.test.js
 node tests/compliance-foundation.test.js
 node tests/weekly-inspection.test.js
 node tests/trends-analytics.test.js
+node tests/standards-violations.test.js
 ```
 
 The compliance panel persists to Supabase after `002_daily_compliance.sql` has been explicitly reviewed and applied through the approved database workflow. Until that table is available, the authenticated browser falls back to user/date-scoped local storage for compliance data only. Local fallback records are device/browser-specific and are not synchronized to Supabase automatically.

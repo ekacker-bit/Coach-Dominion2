@@ -10,6 +10,7 @@ let compliancePreviousState = null;
 let onboardingDismissed = false;
 let lastSavedComplianceState = null;
 let currentSaveState = "empty";
+let standardsReviewState = [];
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -46,12 +47,24 @@ const readinessSeverity = {
   GREEN: "SUCCESS"
 };
 
-const SECTION_ORDER = ["today", "record", "inspection", "trends"];
+const STANDARDS_CATALOG = [
+  { code: "MISSION-EXECUTION-01", category: "Mission Execution", title: "Mission execution target", description: "A planned mission target is expected to be executed without unauthorized compensation.", evidenceRule: "A missed mission target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "STRENGTH-01", category: "Strength Compliance", title: "Strength completion target", description: "Strength work should follow the assigned target unless a protected exception applies.", evidenceRule: "A missed strength target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "CARDIO-01", category: "Running/Cardio Compliance", title: "Cardio completion target", description: "Assigned cardio work should be completed unless a protected exception applies.", evidenceRule: "A missed cardio target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "RECOVERY-01", category: "Recovery", title: "Recovery restriction", description: "Recovery restrictions must be respected and not ignored.", evidenceRule: "Ignoring a recovery restriction or training through pain may warrant review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "NUTRITION-01", category: "Nutrition", title: "Nutrition target", description: "Nutrition targets should be followed unless a protected exception applies.", evidenceRule: "A missed nutrition target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "REPORTING-01", category: "Reporting and Evidence", title: "Required evidence", description: "Required evidence and note quality should be recorded.", evidenceRule: "Missing evidence or contradictory reporting may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "SAFETY-01", category: "Safety", title: "Safety restriction", description: "Safety restrictions must be followed.", evidenceRule: "A deliberate or repeated safety breach may be serious.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "CONDUCT-01", category: "Program Conduct", title: "Integrity and reporting", description: "Reporting must be honest and consistent.", evidenceRule: "Deliberate falsification or contradictory reporting may warrant serious review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true }
+];
+
+const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards"];
 const SECTION_LABELS = {
   today: "Today",
   record: "Record",
   inspection: "Inspection",
-  trends: "Trends"
+  trends: "Trends",
+  standards: "Standards"
 };
 
 function normalizeSectionKey(section = "today") {
@@ -114,6 +127,265 @@ function deriveSaveState(state = "empty") {
 
 function deriveInputImmutabilityState(isImmutable = false) {
   return { readOnly: Boolean(isImmutable), disabled: Boolean(isImmutable) };
+}
+
+function getStandardsCatalog() {
+  return STANDARDS_CATALOG.map((standard) => ({ ...standard }));
+}
+
+function detectProtectedException(entry = {}) {
+  const exception = entry?.protectedException || entry?.protected_exceptions || entry?.protected_exception || null;
+  if (!exception) return null;
+  if (typeof exception === "string") return exception;
+  if (Array.isArray(exception)) return exception[0] || null;
+  return null;
+}
+
+function dedupeViolationCandidates(entries = []) {
+  const seen = new Set();
+  return entries.reduce((results, entry) => {
+    const key = [entry.sourceType || entry.source_type || "daily_compliance", entry.standardCode || entry.standard_code || entry.domain || "reporting", entry.sourceDate || entry.source_date || todayISODate(), entry.evidence || ""].join(":");
+    if (seen.has(key)) return results;
+    seen.add(key);
+    return [...results, { ...entry }];
+  }, []);
+}
+
+function deriveViolationCandidates(entries = [], previousCandidates = []) {
+  const seen = new Set();
+  return entries.reduce((results, entry) => {
+    const protectedException = detectProtectedException(entry);
+    const normalized = {
+      id: entry.id || `${entry.sourceType || 'daily_compliance'}:${entry.domain || 'unknown'}:${entry.sourceDate || entry.source_date || todayISODate()}`,
+      standardCode: entry.standardCode || entry.standard_code || null,
+      domain: entry.domain || entry.standardCode || "reporting",
+      category: entry.category || "Reporting and Evidence",
+      title: entry.title || "Standards review candidate",
+      sourceType: entry.sourceType || entry.source_type || "daily_compliance",
+      sourceId: entry.sourceId || entry.source_id || null,
+      sourceDate: entry.sourceDate || entry.source_date || todayISODate(),
+      evidence: entry.evidence || entry.candidateReason || "",
+      protectedException,
+      status: "CANDIDATE",
+      classification: "CANDIDATE",
+      severity: { level: "LEVEL I", explanation: "Initial candidate requiring review." },
+      correctiveAction: null,
+      repeatCount: entry.repeatCount || entry.repeat_count || 0,
+      deliberate: Boolean(entry.deliberate),
+      safety: Boolean(entry.safety)
+    };
+    if (protectedException || !entry.evidence || entry.status === "excused" || entry.status === "not_applicable" || entry.status === "not_applicable" || entry.status === "approved_modification") {
+      return results;
+    }
+    if (entry.status === "missed" && entry.domain && entry.evidence) {
+      const candidateKey = `${normalized.sourceType}:${normalized.domain}:${normalized.sourceDate}:${normalized.evidence}`;
+      if (seen.has(candidateKey)) return results;
+      seen.add(candidateKey);
+      return [...results, normalized];
+    }
+    if (entry.status === "missed" && !entry.domain && entry.evidence) {
+      return [...results, normalized];
+    }
+    return results;
+  }, previousCandidates.map((candidate) => ({ ...candidate })));
+}
+
+function calculateViolationSeverity(input = {}) {
+  const repeatCount = Number(input.repeatCount || input.repeat_count || 0);
+  const deliberate = Boolean(input.deliberate);
+  const safety = Boolean(input.safety);
+  const currentSeverity = input.currentSeverity || input.current_severity || "LEVEL I";
+  if (deliberate && safety) return { level: "LEVEL III", explanation: "Deliberate safety breach." };
+  if (deliberate) return { level: "LEVEL III", explanation: "Deliberate falsification or serious misconduct." };
+  if (repeatCount >= 2 && currentSeverity === "LEVEL I") return { level: "LEVEL II", explanation: "Repeated behavior escalated to material severity." };
+  if (safety) return { level: "LEVEL II", explanation: "Safety concern requires material review." };
+  return { level: currentSeverity || "LEVEL I", explanation: currentSeverity === "LEVEL II" ? "Material severity applied." : "Initial severity applied." };
+}
+
+function classifyViolationCandidate(candidate = {}) {
+  const protectedException = detectProtectedException(candidate);
+  const severity = calculateViolationSeverity({
+    currentSeverity: candidate.currentSeverity || candidate.current_severity || "LEVEL I",
+    repeatCount: candidate.repeatCount || candidate.repeat_count || 0,
+    deliberate: candidate.deliberate,
+    safety: candidate.safety
+  });
+  return {
+    ...candidate,
+    classification: protectedException ? "EXCUSED" : candidate.status === "UNDER REVIEW" ? "UNDER REVIEW" : "CANDIDATE",
+    severity,
+    protectedException,
+    correctiveAction: candidate.correctiveAction || selectCorrectiveAction({ classification: protectedException ? "EXCUSED" : "CANDIDATE", severity: severity.level, domain: candidate.domain })
+  };
+}
+
+function validateViolationTransition(fromStatus = "CANDIDATE", toStatus = "CONFIRMED") {
+  const allowed = {
+    CANDIDATE: ["UNDER REVIEW", "DISMISSED", "EXCUSED"],
+    "UNDER REVIEW": ["CONFIRMED", "DISMISSED", "EXCUSED", "CANDIDATE"],
+    CONFIRMED: ["CORRECTED", "RESOLVED", "DISMISSED"],
+    CORRECTED: ["RESOLVED", "DISMISSED"],
+    RESOLVED: [],
+    DISMISSED: ["UNDER REVIEW"],
+    EXCUSED: []
+  };
+  if (fromStatus === "CANDIDATE" && toStatus === "CONFIRMED") {
+    return { valid: true, fromStatus, toStatus };
+  }
+  const valid = allowed[fromStatus]?.includes(toStatus) || false;
+  return { valid, fromStatus, toStatus };
+}
+
+function selectCorrectiveAction(input = {}) {
+  const domain = input.domain || "reporting";
+  const severity = input.severity || "LEVEL I";
+  if (input.classification === "EXCUSED") return { type: "review_the_standard", description: "Protected exception preserved; no violation action required.", dueDate: null, completionNote: "Protected exception documented.", correctedAt: null, resolvedAt: null };
+  if (severity === "LEVEL III") return { type: "review_the_standard", description: "Complete a written after-action note and review the applicable safety standard before resuming work.", dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
+  if (severity === "LEVEL II") return { type: "review_the_standard", description: `Review the applicable ${domain} standard and submit any missing evidence or clarification.`, dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
+  return { type: "submit_missing_evidence", description: "Submit the missing evidence and acknowledge the review requirement.", dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
+}
+
+function generateAtlasStandardsReview(item = {}) {
+  const risk = item.status === "CONFIRMED" ? "Execution failure" : item.status === "EXCUSED" ? "Approved exception" : item.status === "DISMISSED" ? "No violation established" : "Review required";
+  const text = [
+    "ATLAS // STANDARDS REVIEW",
+    "",
+    "STATUS",
+    item.status || "CANDIDATE",
+    "",
+    "STANDARD",
+    item.standardCode || "UNKNOWN",
+    "",
+    "EVIDENCE",
+    item.evidence || "No evidence recorded.",
+    "",
+    "PROTECTED EXCEPTIONS",
+    item.protectedException || "None",
+    "",
+    "CLASSIFICATION",
+    item.classification || "CANDIDATE",
+    "",
+    "SEVERITY",
+    item.severity?.level || "LEVEL I",
+    "",
+    "CORRECTIVE ACTION",
+    item.correctiveAction?.description || "Review required.",
+    "",
+    "DUE STATUS",
+    item.correctiveAction?.dueDate ? "Pending" : "No due date",
+    "",
+    "COMMAND NOTE",
+    `${risk}; safety and evidence are reviewed before any correction is applied.`
+  ].join("\n");
+  return { text, status: item.status || "CANDIDATE", classification: item.classification || "CANDIDATE", severity: item.severity || { level: "LEVEL I", explanation: "Initial severity" } };
+}
+
+function buildViolationAuditEvent(violationId = "", priorStatus = "CANDIDATE", newStatus = "CONFIRMED", note = "") {
+  return { violationId, priorStatus, newStatus, note, createdAt: new Date().toISOString(), eventType: "status_changed" };
+}
+
+function summarizeWeeklyViolationHistory(items = []) {
+  const confirmedCount = items.filter((item) => item.status === "CONFIRMED").length;
+  const resolvedCount = items.filter((item) => item.status === "RESOLVED").length;
+  const dismissedCount = items.filter((item) => item.status === "DISMISSED").length;
+  const excusedCount = items.filter((item) => item.status === "EXCUSED").length;
+  return { confirmedCount, resolvedCount, dismissedCount, excusedCount };
+}
+
+function deriveStandardsState(item = {}, storageMode = "SUPABASE") {
+  const stateLabel = item.status === "CONFIRMED" ? "Confirmed" : item.status === "RESOLVED" ? "Resolved" : item.status === "DISMISSED" ? "Dismissed" : item.status === "EXCUSED" ? "Excused" : item.status === "CORRECTED" ? "Corrected" : "Candidate";
+  const normalizedStorageMode = String(storageMode || "SUPABASE").toUpperCase();
+  return { stateLabel, storageLabel: normalizedStorageMode === "LOCAL" || normalizedStorageMode === "LOCAL FALLBACK" ? "LOCAL FALLBACK" : "SUPABASE" };
+}
+
+function buildStandardsReviewState(source = {}, sourceDate = todayISODate()) {
+  const protectedException = detectProtectedException(source);
+  const evidence = source.evidence || source.candidateReason || "";
+  return [{
+    id: source.id || `${source.sourceType || "daily_compliance"}:${source.domain || "reporting"}:${sourceDate}`,
+    standardCode: source.standardCode || source.standard_code || null,
+    domain: source.domain || source.standardCode || "reporting",
+    category: source.category || "Reporting and Evidence",
+    title: source.title || "Standards review candidate",
+    sourceType: source.sourceType || source.source_type || "daily_compliance",
+    sourceId: source.sourceId || source.source_id || null,
+    sourceDate: source.sourceDate || source.source_date || sourceDate,
+    evidence,
+    protectedException,
+    candidateReason: source.candidateReason || source.candidate_reason || null,
+    classification: protectedException ? "EXCUSED" : "CANDIDATE",
+    severity: { level: source.severity?.level || source.severity || "LEVEL I", explanation: source.severity?.explanation || "Initial severity applied." },
+    status: source.status || "CANDIDATE",
+    correctiveAction: source.correctiveAction || null,
+    repeatCount: source.repeatCount || source.repeat_count || 0,
+    deliberate: Boolean(source.deliberate),
+    safety: Boolean(source.safety)
+  }];
+}
+
+function deriveStandardsReviewStateFromRecord(record = {}, domain = "mission") {
+  if (!record) return [];
+  const status = normalizeComplianceStatus(record[`${domain}_status`]);
+  const evidence = [record[`${domain}_actual`] || "", record[`${domain}_note`] || "", record[`${domain}_restriction`] || ""].filter(Boolean).join(" | ");
+  if (!evidence || status !== "missed") return [];
+  return buildStandardsReviewState({
+    id: `${record.compliance_date || todayISODate()}:${domain}`,
+    domain,
+    category: COMPLIANCE_DOMAIN_LABELS[domain],
+    title: `${COMPLIANCE_DOMAIN_LABELS[domain]} review`,
+    sourceType: "daily_compliance",
+    sourceDate: record.compliance_date || todayISODate(),
+    evidence,
+    status: "CANDIDATE",
+    protectedException: record[`${domain}_approved_modification`] ? "approved_modification" : null,
+    repeatCount: 1,
+    deliberate: false,
+    safety: false
+  }, record.compliance_date || todayISODate());
+}
+
+function sanitizeStandardsReviewState(items = []) {
+  return (items || []).map((item) => ({
+    ...item,
+    id: item.id || `${item.sourceType || "daily_compliance"}:${item.domain || "reporting"}:${item.sourceDate || todayISODate()}`,
+    status: item.status || "CANDIDATE",
+    classification: item.classification || "CANDIDATE",
+    severity: item.severity && typeof item.severity === "object" ? item.severity : { level: item.severity || "LEVEL I", explanation: "Initial severity applied." },
+    correctiveAction: item.correctiveAction || null,
+    protectedException: item.protectedException || null,
+    sourceDate: item.sourceDate || todayISODate()
+  }));
+}
+
+function buildStandardsPersistencePayload(item = {}) {
+  return {
+    id: item.id || null,
+    user_id: item.userId || item.user_id || null,
+    standard_code: item.standardCode || item.standard_code || null,
+    category: item.category || "Reporting and Evidence",
+    title: item.title || "Standards review",
+    source_type: item.sourceType || item.source_type || "daily_compliance",
+    source_id: item.sourceId || item.source_id || null,
+    source_date: item.sourceDate || item.source_date || null,
+    domain: item.domain || null,
+    evidence: item.evidence || null,
+    protected_exceptions: item.protectedException || item.protected_exceptions || null,
+    candidate_reason: item.candidateReason || item.candidate_reason || null,
+    classification: item.classification || "CANDIDATE",
+    severity: item.severity?.level || item.severity || "LEVEL I",
+    status: item.status || "CANDIDATE",
+    corrective_action_type: item.correctiveAction?.type || null,
+    corrective_action_description: item.correctiveAction?.description || null,
+    corrective_action_due_date: item.correctiveAction?.dueDate || null,
+    correction_note: item.correctionNote || item.correction_note || null,
+    confirmed_at: item.confirmedAt || item.confirmed_at || null,
+    corrected_at: item.correctedAt || item.corrected_at || null,
+    resolved_at: item.resolvedAt || item.resolved_at || null,
+    dismissed_at: item.dismissedAt || item.dismissed_at || null,
+    excused_at: item.excusedAt || item.excused_at || null,
+    created_at: item.createdAt || item.created_at || null,
+    updated_at: item.updatedAt || item.updated_at || null
+  };
 }
 
 function todayISODate() {
@@ -1246,6 +1518,7 @@ async function init() {
     session = data.session;
     setText("identity", "Signed in as " + session.user.email);
     onboardingDismissed = window.localStorage.getItem("coach-dominion:onboarding-dismissed") === "true";
+    loadStandardsReviewState();
     renderOnboarding();
     restoreSectionFromHash();
     await loadDailyState();
@@ -1287,6 +1560,24 @@ if (typeof document !== "undefined") {
     renderOnboarding();
     setActiveSection("today");
   });
+  const reviewStandardsButton = document.getElementById("review-standards-candidate");
+  const confirmStandardsButton = document.getElementById("confirm-standards-candidate");
+  if (reviewStandardsButton) {
+    reviewStandardsButton.addEventListener("click", () => {
+      const selected = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance))[0];
+      if (!selected) return;
+      const updated = updateStandardsReviewItem(selected, "UNDER REVIEW");
+      if (updated) renderStandardsSection();
+    });
+  }
+  if (confirmStandardsButton) {
+    confirmStandardsButton.addEventListener("click", () => {
+      const selected = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance))[0];
+      if (!selected) return;
+      const updated = updateStandardsReviewItem(selected, "CONFIRMED");
+      if (updated) renderStandardsSection();
+    });
+  }
   document.getElementById("dismiss-onboarding").addEventListener("click", () => {
     onboardingDismissed = true;
     persistOnboardingState();
@@ -1303,7 +1594,231 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, deriveCommandCenterOverview, normalizeSectionKey, shouldWarnBeforeNavigation, deriveDirtyState, deriveFinalizeConfirmationState, isFinalizedReadOnlyInspection, deriveOnboardingVisibility, getStatusMessage, deriveSaveState, deriveInputImmutabilityState, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, deriveCommandCenterOverview, normalizeSectionKey, shouldWarnBeforeNavigation, deriveDirtyState, deriveFinalizeConfirmationState, isFinalizedReadOnlyInspection, deriveOnboardingVisibility, getStatusMessage, deriveSaveState, deriveInputImmutabilityState, getStandardsCatalog, dedupeViolationCandidates, deriveViolationCandidates, detectProtectedException, classifyViolationCandidate, calculateViolationSeverity, validateViolationTransition, selectCorrectiveAction, generateAtlasStandardsReview, buildViolationAuditEvent, summarizeWeeklyViolationHistory, deriveStandardsState, buildStandardsReviewState, deriveStandardsReviewStateFromRecord, sanitizeStandardsReviewState, buildStandardsPersistencePayload, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+}
+
+function standardsStorageKey() {
+  return `coach-dominion:standards:${session?.user?.id || "local"}`;
+}
+
+function standardsEventStorageKey() {
+  return `coach-dominion:standards-events:${session?.user?.id || "local"}`;
+}
+
+function loadStandardsReviewState() {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(standardsStorageKey());
+    const parsed = stored ? JSON.parse(stored) : [];
+    standardsReviewState = Array.isArray(parsed) ? parsed : [];
+    return standardsReviewState;
+  } catch (_) {
+    standardsReviewState = [];
+    return standardsReviewState;
+  }
+}
+
+function saveStandardsReviewState(items = []) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    standardsReviewState = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(standardsStorageKey(), JSON.stringify(standardsReviewState));
+  } catch (_) {
+    standardsReviewState = [];
+  }
+}
+
+function loadStandardsAuditEvents() {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(standardsEventStorageKey());
+    return stored ? JSON.parse(stored) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveStandardsAuditEvents(items = []) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(standardsEventStorageKey(), JSON.stringify(items));
+  } catch (_) {
+    // Ignore local persistence failure.
+  }
+}
+
+function standardsDomainCode(domain = "reporting") {
+  const mapping = {
+    mission: "MISSION-EXECUTION-01",
+    strength: "STRENGTH-01",
+    cardio: "CARDIO-01",
+    recovery: "RECOVERY-01",
+    nutrition: "NUTRITION-01"
+  };
+  return mapping[domain] || "REPORTING-01";
+}
+
+function deriveStandardsReviewItems(record = null) {
+  if (!record) return [];
+  const entries = COMPLIANCE_DOMAINS.reduce((results, domain) => {
+    const status = normalizeComplianceStatus(record[`${domain}_status`]);
+    const evidence = [record[`${domain}_actual`] || "", record[`${domain}_note`] || "", record[`${domain}_restriction`] || ""].filter(Boolean).join(" | ");
+    const protectedException = record[`${domain}_approved_modification`] ? "approved_modification" : (record[`${domain}_restriction`] ? "approved_modification" : null);
+    if (status === "missed" && evidence && !protectedException) {
+      results.push({
+        id: `${record.compliance_date || todayISODate()}:${domain}`,
+        standardCode: standardsDomainCode(domain),
+        domain,
+        category: COMPLIANCE_DOMAIN_LABELS[domain],
+        title: `${COMPLIANCE_DOMAIN_LABELS[domain]} review`,
+        sourceType: "daily_compliance",
+        sourceDate: record.compliance_date || todayISODate(),
+        evidence,
+        status: "missed",
+        repeatCount: 1,
+        deliberate: false,
+        safety: false
+      });
+    }
+    return results;
+  }, []);
+  return deriveViolationCandidates(entries, []).map((candidate) => classifyViolationCandidate(candidate));
+}
+
+function mergeStandardsReviewItems(items = []) {
+  const existing = loadStandardsReviewState();
+  return items.map((item) => {
+    const persisted = existing.find((record) => record.id === item.id);
+    if (!persisted) return item;
+    return {
+      ...item,
+      ...persisted,
+      severity: persisted.severity || item.severity,
+      correctiveAction: persisted.correctiveAction || item.correctiveAction,
+      protectedException: persisted.protectedException || item.protectedException
+    };
+  });
+}
+
+function updateStandardsReviewItem(candidate, nextStatus) {
+  const transition = validateViolationTransition(candidate.status || "CANDIDATE", nextStatus);
+  if (!transition.valid) return null;
+  const updated = {
+    ...candidate,
+    status: nextStatus,
+    classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : nextStatus === "DISMISSED" ? "DISMISSED" : nextStatus === "EXCUSED" ? "EXCUSED" : candidate.classification || "CANDIDATE",
+    correctiveAction: candidate.correctiveAction || selectCorrectiveAction({ classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : candidate.classification || "CANDIDATE", severity: candidate.severity?.level || "LEVEL I", domain: candidate.domain }),
+    updatedAt: new Date().toISOString()
+  };
+  const existingIndex = standardsReviewState.findIndex((item) => item.id === candidate.id);
+  if (existingIndex >= 0) {
+    standardsReviewState[existingIndex] = updated;
+  } else {
+    standardsReviewState.push(updated);
+  }
+  const event = buildViolationAuditEvent(candidate.id, candidate.status || "CANDIDATE", nextStatus, `Reviewed via ${nextStatus.toLowerCase().replaceAll(" ", "_")}`);
+  const events = loadStandardsAuditEvents();
+  events.push({ ...event, violationId: candidate.id, userId: session?.user?.id || null, createdAt: new Date().toISOString() });
+  saveStandardsAuditEvents(events);
+  saveStandardsReviewState(standardsReviewState);
+  return updated;
+}
+
+function composeStandardsPersistencePayload(candidate, storageMode = "SUPABASE") {
+  return buildStandardsPersistencePayload({
+    id: candidate.id,
+    userId: session?.user?.id || null,
+    standardCode: candidate.standardCode || candidate.standard_code || standardsDomainCode(candidate.domain),
+    category: candidate.category || "Reporting and Evidence",
+    title: candidate.title || "Standards review",
+    sourceType: candidate.sourceType || candidate.source_type || "daily_compliance",
+    sourceId: candidate.sourceId || candidate.source_id || null,
+    sourceDate: candidate.sourceDate || candidate.source_date || todayISODate(),
+    domain: candidate.domain || null,
+    evidence: candidate.evidence || null,
+    protectedException: candidate.protectedException || null,
+    candidateReason: candidate.candidateReason || candidate.candidate_reason || null,
+    classification: candidate.classification || "CANDIDATE",
+    severity: candidate.severity?.level || candidate.severity || "LEVEL I",
+    status: candidate.status || "CANDIDATE",
+    correctiveAction: candidate.correctiveAction || null,
+    correctionNote: candidate.correctionNote || candidate.correction_note || null,
+    confirmedAt: candidate.confirmedAt || candidate.confirmed_at || null,
+    correctedAt: candidate.correctedAt || candidate.corrected_at || null,
+    resolvedAt: candidate.resolvedAt || candidate.resolved_at || null,
+    dismissedAt: candidate.dismissedAt || candidate.dismissed_at || null,
+    excusedAt: candidate.excusedAt || candidate.excused_at || null,
+    createdAt: candidate.createdAt || candidate.created_at || null,
+    updatedAt: candidate.updatedAt || candidate.updated_at || null,
+    storageMode
+  });
+}
+
+async function saveStandardsReviewStateToSupabase(items = []) {
+  const supabase = await getClient();
+  const payloads = sanitizeStandardsReviewState(items).map((item) => composeStandardsPersistencePayload(item, "SUPABASE"));
+  const { error } = await supabase.from("standards_violations").upsert(payloads, { onConflict: "user_id,standard_code,source_type,source_date,domain" });
+  if (error) throw error;
+}
+
+async function loadStandardsReviewStateFromSupabase() {
+  const supabase = await getClient();
+  const { data, error } = await supabase.from("standards_violations").select("*").eq("user_id", session.user.id).order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+function renderStandardsSection() {
+  if (typeof document === "undefined") return;
+  const container = document.getElementById("standards");
+  if (!container) return;
+  const catalog = getStandardsCatalog();
+  const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
+  const openItems = items.filter((item) => !["RESOLVED", "DISMISSED", "EXCUSED"].includes(item.status));
+  const selected = items[0] || null;
+  const summaryState = openItems.length ? (openItems.some((item) => item.status === "CONFIRMED") ? "REVIEWING" : "MONITORING") : "CLEAR";
+  setText("standards-catalog-count", catalog.length);
+  setText("standards-candidate-count", openItems.length);
+  setText("standards-confirmed-count", items.filter((item) => item.status === "CONFIRMED").length);
+  setText("standards-resolved-count", items.filter((item) => item.status === "RESOLVED").length);
+  const badge = document.getElementById("standards-state");
+  if (badge) {
+    badge.textContent = summaryState;
+    badge.className = `state-pill ${summaryState === "REVIEWING" ? "yellow" : summaryState === "MONITORING" ? "neutral" : "green"}`;
+  }
+  const queue = document.getElementById("standards-queue");
+  if (queue) {
+    queue.innerHTML = items.length
+      ? items.map((item) => {
+        const pillClass = item.status === "CONFIRMED" ? "green" : item.status === "UNDER REVIEW" ? "yellow" : "neutral";
+        return `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${pillClass}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`;
+      }).join("")
+      : '<div class="standards-empty">No standards review candidates detected for the current Dominion Record.</div>';
+  }
+  const output = document.getElementById("standards-review-output");
+  if (output) {
+    if (!selected) {
+      output.textContent = "No standards review candidates yet. Save a Dominion Record with a missed domain to populate the queue.";
+    } else {
+      const review = generateAtlasStandardsReview({
+        status: selected.status || "CANDIDATE",
+        standardCode: selected.standardCode || standardsDomainCode(selected.domain),
+        severity: selected.severity,
+        evidence: selected.evidence || "No evidence recorded.",
+        protectedException: selected.protectedException || "None",
+        classification: selected.classification || "CANDIDATE",
+        correctiveAction: selected.correctiveAction || selectCorrectiveAction({ classification: selected.classification || "CANDIDATE", severity: selected.severity?.level || "LEVEL I", domain: selected.domain })
+      });
+      output.textContent = review.text;
+    }
+  }
+  const auditTrail = document.getElementById("standards-audit-trail");
+  if (auditTrail) {
+    const events = loadStandardsAuditEvents().slice().sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || ""));
+    auditTrail.innerHTML = events.length
+      ? events.map((event) => `<li class="feed-event info"><div class="feed-meta"><strong>${event.violationId || "Review"}</strong><span>${event.priorStatus} → ${event.newStatus}</span></div><p>${event.note || "Reviewed"}</p><time>${event.createdAt ? new Date(event.createdAt).toLocaleString() : "Pending"}</time></li>`).join("")
+      : '<li class="feed-empty">Standards reviews are logged locally until a Supabase-backed audit table is applied.</li>';
+  }
 }
 
 function emptyComplianceDomains() {
@@ -1468,6 +1983,7 @@ function renderComplianceRecord(record, storageMode = "SUPABASE") {
   currentSaveState = storageMode === "LOCAL" ? "locally saved" : "saved";
   updateComplianceStatusMessage();
   lastSavedComplianceState = structuredClone(compliancePreviousState);
+  renderStandardsSection();
 }
 
 function complianceStorageKey() {
@@ -1504,9 +2020,18 @@ async function loadDailyCompliance() {
     if (error) throw error;
     dailyCompliance = data;
     renderComplianceRecord(dailyCompliance, "SUPABASE");
+    try {
+      const remoteStandards = await loadStandardsReviewStateFromSupabase();
+      standardsReviewState = sanitizeStandardsReviewState(remoteStandards.map((item) => ({ ...item, status: item.status || "CANDIDATE", severity: item.severity ? { level: item.severity, explanation: "Loaded from Supabase" } : { level: "LEVEL I", explanation: "Loaded from Supabase" } })));
+      saveStandardsReviewState(standardsReviewState);
+      saveStandardsAuditEvents([]);
+    } catch (_) {
+      // No remote standards state available; fall back to local state.
+    }
   } catch (_) {
     dailyCompliance = loadLocalCompliance();
     renderComplianceRecord(dailyCompliance, "LOCAL");
+    standardsReviewState = loadStandardsReviewState();
   }
 }
 
@@ -1548,6 +2073,11 @@ async function saveDailyCompliance(event) {
     dailyCompliance = data;
     currentSaveState = "saved";
     renderComplianceRecord(data, "SUPABASE");
+    try {
+      await saveStandardsReviewStateToSupabase(standardsReviewState);
+    } catch (_) {
+      // Ignore remote standards persistence failure and continue with local fallback.
+    }
   } catch (_) {
     const localRecord = { ...payload, updated_at: new Date().toISOString() };
     dailyCompliance = localRecord;
@@ -1652,6 +2182,13 @@ function renderWeeklyInspection(aggregate, storageMode) {
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
   document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.assessedCount}/5 ASSESSED</span></summary><p>${day.includedCount} applicable scoring observations</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
+  const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
+  const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
+  if (weeklyStandardsSummary) {
+    weeklyStandardsSummary.innerHTML = weeklyStandardsItems.length
+      ? weeklyStandardsItems.map((item) => `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${item.status === "CONFIRMED" ? "green" : item.status === "RESOLVED" ? "neutral" : item.status === "DISMISSED" ? "neutral" : item.status === "EXCUSED" ? "neutral" : "yellow"}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`).join("")
+      : '<div class="standards-empty">No standards review history for this inspection week.</div>';
+  }
   const warning = finalized ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.` : aggregate.evidenceLimitation ? `Finalization requires ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage. Current evidence is limited.` : "";
   setText("weekly-warning", warning);
   const finalizeButton = document.getElementById("finalize-week");
@@ -1662,6 +2199,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   if (finalizeHint) finalizeHint.textContent = finalized ? "This inspection is finalized and read-only." : finalizeState.readOnlyMessage;
   document.getElementById("weekly-inspection").dataset.finalized = finalized ? "true" : "false";
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
+  renderStandardsSection();
 }
 
 async function loadWeeklyInspection() {

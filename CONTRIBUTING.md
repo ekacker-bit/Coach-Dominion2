@@ -8,6 +8,7 @@
 - Inspect the repository, current branch, working tree, and relevant implementation before editing.
 - Keep each change within the approved build scope.
 - Run all automated tests before committing.
+- For Build 004E work, include the standards suite in validation: `node tests/standards-violations.test.js` and `npm.cmd test` on Windows.
 - Submit changes through a pull request; do not merge feature work directly into `main`.
 - Test the Vercel preview, including affected routes, before merging.
 - Never commit secrets, environment files, credentials, private URLs, or user data.

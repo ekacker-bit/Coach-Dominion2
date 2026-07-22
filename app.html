@@ -21,6 +21,7 @@
           <a class="nav-link" href="#record" data-section="record">RECORD</a>
           <a class="nav-link" href="#inspection" data-section="inspection">INSPECTION</a>
           <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
+          <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
@@ -219,6 +220,8 @@
           <summary>Calculation evidence</summary>
           <div id="weekly-evidence" class="evidence-list"></div>
         </details>
+        <h3>Standards review history</h3>
+        <div id="weekly-standards-summary" class="standards-queue"></div>
         <h3>Atlas After Action Report</h3>
         <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
         <p><a href="#trends">Continue to Trends &amp; Analytics</a></p>
@@ -259,6 +262,33 @@
         </div>
         <h3>Atlas Trend Report</h3>
         <pre id="atlas-trend-report" class="atlas-brief-output" aria-live="polite">Historical analytics are loading.</pre>
+      </section>
+
+      <section id="standards" class="card standards-review scroll-anchor" aria-labelledby="standards-heading" data-section="standards">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 004E // STANDARDS &amp; VIOLATIONS</div>
+            <h2 id="standards-heading">Standards &amp; Violations</h2>
+            <p class="muted">Candidate review is deterministic; protected exceptions remain visible and are never treated as misconduct.</p>
+          </div>
+          <span id="standards-state" class="state-pill neutral">CLEAR</span>
+        </div>
+        <div class="standards-summary-grid">
+          <div><span>Standards catalog</span><strong id="standards-catalog-count">0</strong></div>
+          <div><span>Open candidates</span><strong id="standards-candidate-count">0</strong></div>
+          <div><span>Confirmed</span><strong id="standards-confirmed-count">0</strong></div>
+          <div><span>Resolved</span><strong id="standards-resolved-count">0</strong></div>
+        </div>
+        <div class="standards-controls">
+          <button id="review-standards-candidate" class="ghost" type="button">Review candidate</button>
+          <button id="confirm-standards-candidate" type="button">Confirm review</button>
+        </div>
+        <h3>Review queue</h3>
+        <div id="standards-queue" class="standards-queue"></div>
+        <h3>Atlas Standards Review</h3>
+        <pre id="standards-review-output" class="atlas-brief-output" aria-live="polite">No standards review candidates yet.</pre>
+        <h3>Audit trail</h3>
+        <ul id="standards-audit-trail" class="feed"></ul>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">
@@ -318,6 +348,7 @@
           <li>RECORD — save the Dominion Record.</li>
           <li>INSPECTION — review and finalize the weekly inspection.</li>
           <li>TRENDS — review trajectory and consistency.</li>
+          <li>STANDARDS — review standards candidates and audit the outcome.</li>
         </ol>
       </section>
     </div>

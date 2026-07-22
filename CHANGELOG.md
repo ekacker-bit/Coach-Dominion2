@@ -2,6 +2,16 @@
 
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
+## Unreleased — Build 004E: Standards & Violations
+
+- Added a deterministic standards catalog and violation-candidate engine that remains supplemental to the Dominion Record and Weekly Inspection scoring logic.
+- Added protected-exception handling for excused statuses, N/A, approved modifications, readiness restrictions, illness, injury, and insufficient evidence.
+- Added a standards review lifecycle for `CANDIDATE`, `UNDER REVIEW`, `CONFIRMED`, `CORRECTED`, `RESOLVED`, `DISMISSED`, and `EXCUSED` with explicit, non-punitive corrective actions and audit-event logging.
+- Added Standards & Violations UI in the War Room with review queue, Atlas review output, and audit history.
+- Added owner-scoped standards persistence through [supabase/migrations/004_standards_violations.sql](supabase/migrations/004_standards_violations.sql) and browser-local fallback behavior with user-scoped keys.
+- Added standards-and-violations regression coverage and included the suite in the full test command.
+- This remains unreleased Build 004E work; it does not alter finalized inspection snapshots or the existing scoring formulas.
+
 ## Unreleased — Build 004C: Dominion Record Trends & Analytics
 
 - Added deterministic four-week finalized-inspection trajectories, evidence-quality precedence, five domain directions, historical summaries, and calendar-contiguous compliance streaks.

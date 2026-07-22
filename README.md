@@ -34,7 +34,9 @@ Inspection states use a configurable 60% evidence threshold:
 
 Finalization is blocked below the threshold. A finalized inspection is loaded from its stored snapshot and is read-only; later daily-record changes do not rewrite it. Drafts recalculate from current daily evidence. Supabase persistence uses `weekly_inspections` after migration `003_weekly_inspections.sql` is reviewed and applied. If Supabase is unavailable, weekly drafts and snapshots use user/week-scoped local storage and are labeled `LOCAL FALLBACK`; they are browser-specific and are not automatically synchronized.
 
-## Build 004C trends and analytics
+## Build 004D UX command center pass
+
+The War Room now supports a structured command-center experience with top-level navigation for Today, Record, Inspection, and Trends. The app preserves section state through hash-based navigation, supports desktop and mobile navigation, and adds onboarding guidance that can be dismissed and reopened. Dominion Record now supports progressive disclosure, dirty-state tracking, save-state messaging, and unsaved-change warnings, while Weekly Inspection adds draft/finalized distinction, confirmation before finalization, read-only snapshot messaging, collapsible daily evidence, and clearer visual treatment for missed, excused, and approved-modification outcomes. Trends now lead with trajectory, score change, evidence quality, domain-at-risk context, and consistency, while preserving the existing scoring and analytics calculations.
 
 Trends are derived at runtime; no analytics table or redundant state is stored. Finalized `weekly_inspections` snapshots are the authoritative historical source. The meaningful current week is added to charts as a clearly labeled provisional point, while `daily_compliance` drives calendar-day streaks. Finalized history is never recalculated from later daily changes.
 

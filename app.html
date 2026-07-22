@@ -15,7 +15,16 @@
         <h1>War Room</h1>
         <p class="muted" id="identity">Verifying session…</p>
       </div>
-      <div class="header-actions"><a class="btn ghost" href="#weekly-inspection">Weekly Inspection</a><a class="btn ghost" href="#trends-analytics">Trends</a><button id="logout" class="ghost">Sign out</button></div>
+      <div class="header-actions">
+        <nav class="top-nav" aria-label="Primary">
+          <a class="nav-link active" href="#today" data-section="today">TODAY</a>
+          <a class="nav-link" href="#record" data-section="record">RECORD</a>
+          <a class="nav-link" href="#inspection" data-section="inspection">INSPECTION</a>
+          <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
+        </nav>
+        <button id="help-onboarding" class="ghost" type="button">Help</button>
+        <button id="logout" class="ghost">Sign out</button>
+      </div>
     </header>
 
     <section class="status-bar" aria-label="Current status bar">
@@ -37,7 +46,8 @@
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
       </section>
 
-      <article class="card atlas-brief" aria-labelledby="atlas-brief-heading">
+      <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
+        <article class="card atlas-brief" aria-labelledby="atlas-brief-heading">
         <div class="section-heading compact">
           <div>
             <div class="kicker">COMMAND VOICE</div>
@@ -47,6 +57,23 @@
         </div>
         <pre id="atlas-brief-output" class="atlas-brief-output" aria-live="polite"></pre>
       </article>
+
+      <section class="card command-center-overview" aria-labelledby="command-center-overview-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">UX COMMAND CENTER</div>
+            <h2 id="command-center-overview-heading">Command posture</h2>
+          </div>
+          <span id="command-center-overview-state" class="state-pill neutral">AWAITING SIGNAL</span>
+        </div>
+        <div class="overview-grid">
+          <div class="overview-metric"><span>Readiness</span><strong id="overview-readiness">—</strong></div>
+          <div class="overview-metric"><span>Weekly</span><strong id="overview-weekly">—</strong></div>
+          <div class="overview-metric"><span>Trend</span><strong id="overview-trend">—</strong></div>
+        </div>
+        <p id="overview-focus" class="overview-focus">The command center is preparing the next recommendation.</p>
+        <p id="overview-summary" class="muted">Submit Morning Roll Call to initialize the operating picture.</p>
+      </section>
 
       <section class="command-grid" aria-label="War Room command center">
         <article class="card mission-board">
@@ -120,7 +147,7 @@
         </article>
       </section>
 
-      <section class="card dominion-record" aria-labelledby="dominion-record-heading">
+      <section id="record" class="card dominion-record scroll-anchor" aria-labelledby="dominion-record-heading" data-section="record">
         <div class="section-heading">
           <div>
             <div class="kicker">LONGITUDINAL EXECUTION RECORD</div>
@@ -155,7 +182,7 @@
         </details>
       </section>
 
-      <section id="weekly-inspection" class="card weekly-inspection" aria-labelledby="weekly-inspection-heading">
+      <section id="inspection" class="card weekly-inspection scroll-anchor" aria-labelledby="weekly-inspection-heading" data-section="inspection">
         <div class="section-heading">
           <div>
             <div class="kicker">BUILD 004B // SEVEN-DAY REVIEW</div>
@@ -194,15 +221,22 @@
         </details>
         <h3>Atlas After Action Report</h3>
         <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
-        <p><a href="#trends-analytics">Continue to Trends &amp; Analytics</a></p>
+        <p><a href="#trends">Continue to Trends &amp; Analytics</a></p>
       </section>
 
-      <section id="trends-analytics" class="card trends-analytics" aria-labelledby="trends-heading">
+      <section id="trends" class="card trends-analytics scroll-anchor" aria-labelledby="trends-heading" data-section="trends">
         <div class="section-heading">
           <div><div class="kicker">BUILD 004C // LONGITUDINAL INTELLIGENCE</div><h2 id="trends-heading">Trends &amp; Analytics</h2><p id="trend-window" class="muted">Most recent four finalized scored inspections.</p></div>
           <span id="trajectory-status" class="state-pill neutral">INSUFFICIENT HISTORY</span>
         </div>
         <p id="analytics-storage" class="muted">ANALYTICS NOT LOADED</p>
+        <div class="trend-summary-grid" aria-label="Trend priorities">
+          <div><span>Trajectory</span><strong id="trend-summary-trajectory">—</strong></div>
+          <div><span>Score change</span><strong id="trend-summary-score-change">—</strong></div>
+          <div><span>Evidence quality</span><strong id="trend-summary-evidence">—</strong></div>
+          <div><span>Domain at risk</span><strong id="trend-summary-domain">—</strong></div>
+          <div><span>Consistency</span><strong id="trend-summary-consistency">—</strong></div>
+        </div>
         <div class="analytics-summary-grid">
           <div><span>Latest finalized</span><strong id="trend-latest-score">UNSCORED</strong></div>
           <div><span>Recent average</span><strong id="trend-average-score">UNSCORED</strong></div>
@@ -267,6 +301,24 @@
         <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training module</h2><p class="muted">Placeholder for prescribed work.</p></article>
         <article class="card module-placeholder"><div class="kicker">NUTRITION</div><h2>Fuel module</h2><p class="muted">Placeholder for nutrition guidance.</p></article>
         <article class="card module-placeholder"><div class="kicker">RECOVERY</div><h2>Recovery module</h2><p class="muted">Placeholder for recovery actions.</p></article>
+      </section>
+      </section>
+
+      <section id="onboarding" class="card onboarding-card" aria-labelledby="onboarding-heading" hidden>
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">ORIENTATION</div>
+            <h2 id="onboarding-heading">How to use the command center</h2>
+          </div>
+          <button id="dismiss-onboarding" class="ghost" type="button">Dismiss</button>
+        </div>
+        <ol class="onboarding-steps">
+          <li>ROLL CALL — capture today's readiness.</li>
+          <li>MISSION — review the generated mission.</li>
+          <li>RECORD — save the Dominion Record.</li>
+          <li>INSPECTION — review and finalize the weekly inspection.</li>
+          <li>TRENDS — review trajectory and consistency.</li>
+        </ol>
       </section>
     </div>
   </main>

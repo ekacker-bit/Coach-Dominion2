@@ -62,6 +62,12 @@ Supabase persistence uses the new migration [supabase/migrations/004_standards_v
 
 The Standards & Violations section in the War Room displays the catalog size, open candidates, confirmed count, and resolved count; it also shows a review queue, a deterministic Atlas Standards Review, and the persisted audit trail.
 
+## Build 004F rank & promotion
+
+Build 004F adds a deterministic rank-and-promotion system that uses finalized weekly-inspection history, recent Discipline Score, evidence coverage, consecutive qualifying weeks, standards history, and corrective-period status to determine promotion readiness. The system does not alter the existing scoring formulas or finalized-inspection snapshots. Promotion remains deliberate: eligibility is recalculated, promotions are only finalized after explicit confirmation, and finalized promotions are stored as immutable history.
+
+The built-in rank catalog starts at RECRUIT and advances one rank at a time through CADET, OPERATOR, VANGUARD, DOMINION, and ASCENDANT. Requirements are progressive and explainable, using a deterministic catalog that can be adjusted later without a manual admin editor. Promotion states are NOT ELIGIBLE, PROGRESSING, ELIGIBLE, PROMOTION PENDING, PROMOTED, BLOCKED, and CORRECTIVE PERIOD. Dismissed and excused standards candidates do not count against promotion, and provisional or UNSCORED weeks do not qualify. The Rank section in the War Room shows the current rank, next-rank target, checklist, blockers, Atlas Promotion Review, history, and ladder overview. Local fallback persistence keeps rank status and promotion history available while remote persistence is unavailable.
+
 ## Routes
 
 | Route | Purpose |

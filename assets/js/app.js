@@ -11,6 +11,8 @@ let onboardingDismissed = false;
 let lastSavedComplianceState = null;
 let currentSaveState = "empty";
 let standardsReviewState = [];
+let rankStatus = { currentRank: "RECRUIT", promotionState: "NOT ELIGIBLE", activeCorrectivePeriod: false, correctivePeriodReason: null, correctivePeriodStatus: null, correctivePeriodStartedAt: null, correctivePeriodReviewDate: null };
+let promotionHistory = [];
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -58,13 +60,23 @@ const STANDARDS_CATALOG = [
   { code: "CONDUCT-01", category: "Program Conduct", title: "Integrity and reporting", description: "Reporting must be honest and consistent.", evidenceRule: "Deliberate falsification or contradictory reporting may warrant serious review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true }
 ];
 
-const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards"];
+const RANK_CATALOG = [
+  { code: "RECRUIT", displayName: "Recruit", sequenceOrder: 1, description: "Starting rank", minimumFinalizedInspections: 0, requiredLookbackWindow: 0, minimumAverageDisciplineScore: 0, minimumAverageEvidenceCoverage: 0, minimumMissionDomainScore: 0, maximumUnresolvedConfirmedViolations: 999, maximumLevelTwoOrLevelThreeViolations: 999, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "No requirements to begin progression.", privilegesPlaceholder: "expanded historical view" },
+  { code: "CADET", displayName: "Cadet", sequenceOrder: 2, description: "Demonstrated baseline execution", minimumFinalizedInspections: 2, requiredLookbackWindow: 4, minimumAverageDisciplineScore: 70, minimumAverageEvidenceCoverage: 60, minimumMissionDomainScore: 70, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "Demonstrate baseline execution and evidence quality.", privilegesPlaceholder: "advanced inspection access" },
+  { code: "OPERATOR", displayName: "Operator", sequenceOrder: 3, description: "Consistent execution across a recent window", minimumFinalizedInspections: 4, requiredLookbackWindow: 6, minimumAverageDisciplineScore: 78, minimumAverageEvidenceCoverage: 70, minimumMissionDomainScore: 74, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 1, requiredConsecutiveQualifyingWeeks: 2, correctivePeriodBlocksEligibility: false, promotionCommandNote: "Maintain discipline, evidence quality, and consecutive qualifying weeks.", privilegesPlaceholder: "additional program templates" },
+  { code: "VANGUARD", displayName: "Vanguard", sequenceOrder: 4, description: "Sustained quality at the command level", minimumFinalizedInspections: 8, requiredLookbackWindow: 8, minimumAverageDisciplineScore: 84, minimumAverageEvidenceCoverage: 75, minimumMissionDomainScore: 78, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 3, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and a clean standards record.", privilegesPlaceholder: "cosmetic insignia" },
+  { code: "DOMINION", displayName: "Dominion", sequenceOrder: 5, description: "Trusted steady execution", minimumFinalizedInspections: 12, requiredLookbackWindow: 10, minimumAverageDisciplineScore: 88, minimumAverageEvidenceCoverage: 80, minimumMissionDomainScore: 80, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 4, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Maintain a clean record and strong evidence across all domains.", privilegesPlaceholder: "advanced historical view" },
+  { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
+];
+
+const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank"];
 const SECTION_LABELS = {
   today: "Today",
   record: "Record",
   inspection: "Inspection",
   trends: "Trends",
-  standards: "Standards"
+  standards: "Standards",
+  rank: "Rank"
 };
 
 function normalizeSectionKey(section = "today") {
@@ -131,6 +143,277 @@ function deriveInputImmutabilityState(isImmutable = false) {
 
 function getStandardsCatalog() {
   return STANDARDS_CATALOG.map((standard) => ({ ...standard }));
+}
+
+function normalizeRankCode(rank = "RECRUIT") {
+  if (typeof rank !== "string") return "RECRUIT";
+  const normalized = rank.trim().toUpperCase();
+  return normalized === "ASCENDANT" ? "ASCENDANT" : normalized === "DOMINION" ? "DOMINION" : normalized === "VANGUARD" ? "VANGUARD" : normalized === "OPERATOR" ? "OPERATOR" : normalized === "CADET" ? "CADET" : "RECRUIT";
+}
+
+function getRankCatalog() {
+  return RANK_CATALOG.map((rank) => ({ ...rank }));
+}
+
+function getCurrentRankDefinition(rankCode = "RECRUIT") {
+  const normalized = normalizeRankCode(rankCode);
+  return getRankCatalog().find((rank) => rank.code === normalized) || getRankCatalog()[0];
+}
+
+function getNextRankDefinition(rankCode = "RECRUIT") {
+  const current = getCurrentRankDefinition(rankCode);
+  const catalog = getRankCatalog();
+  const currentIndex = catalog.findIndex((rank) => rank.code === current.code);
+  return catalog[currentIndex + 1] || null;
+}
+
+function validateRankTransition(fromRank = "RECRUIT", toRank = "CADET") {
+  const from = getCurrentRankDefinition(fromRank);
+  const to = getCurrentRankDefinition(toRank);
+  const fromIndex = RANK_CATALOG.findIndex((rank) => rank.code === from.code);
+  const toIndex = RANK_CATALOG.findIndex((rank) => rank.code === to.code);
+  if (fromIndex < 0 || toIndex < 0) return { valid: false, reason: "Invalid rank selection." };
+  const isSingleStep = toIndex === fromIndex + 1;
+  return { valid: isSingleStep, reason: isSingleStep ? "Single-step rank advancement." : "Rank skipping is not allowed." };
+}
+
+function calculatePromotionMetrics(input = {}, targetRank = "CADET") {
+  const catalog = getRankCatalog();
+  const target = getCurrentRankDefinition(targetRank);
+  const finalizedInspections = Number(input.finalizedInspections || input.finalized_inspections || 0);
+  const recentAverageDisciplineScore = Number(input.recentAverageDisciplineScore || input.recent_average_discipline_score || 0);
+  const recentAverageEvidenceCoverage = Number(input.recentAverageEvidenceCoverage || input.recent_average_evidence_coverage || 0);
+  const consecutiveQualifyingWeeks = Number(input.consecutiveQualifyingWeeks || input.consecutive_qualifying_weeks || 0);
+  const unresolvedConfirmedViolations = Number(input.unresolvedConfirmedViolations || input.unresolved_confirmed_violations || 0);
+  const unresolvedLevelTwoViolations = Number(input.unresolvedLevelTwoViolations || input.unresolved_level_two_violations || 0);
+  const unresolvedLevelThreeViolations = Number(input.unresolvedLevelThreeViolations || input.unresolved_level_three_violations || 0);
+  const activeCorrectivePeriod = Boolean(input.activeCorrectivePeriod || input.active_corrective_period);
+  const domainScores = input.domainScores || input.domain_scores || {};
+  const missionDomainScore = Number(domainScores.mission || 0);
+  const requirements = [
+    { requirement: "finalized_inspections", target: target.minimumFinalizedInspections, actual: finalizedInspections, passed: finalizedInspections >= target.minimumFinalizedInspections },
+    { requirement: "average_discipline_score", target: target.minimumAverageDisciplineScore, actual: recentAverageDisciplineScore, passed: recentAverageDisciplineScore >= target.minimumAverageDisciplineScore },
+    { requirement: "average_evidence_coverage", target: target.minimumAverageEvidenceCoverage, actual: recentAverageEvidenceCoverage, passed: recentAverageEvidenceCoverage >= target.minimumAverageEvidenceCoverage },
+    { requirement: "consecutive_qualifying_weeks", target: target.requiredConsecutiveQualifyingWeeks, actual: consecutiveQualifyingWeeks, passed: consecutiveQualifyingWeeks >= target.requiredConsecutiveQualifyingWeeks },
+    { requirement: "mission_domain_score", target: target.minimumMissionDomainScore, actual: missionDomainScore, passed: missionDomainScore >= target.minimumMissionDomainScore },
+    { requirement: "unresolved_confirmed_violations", target: target.maximumUnresolvedConfirmedViolations, actual: unresolvedConfirmedViolations, passed: unresolvedConfirmedViolations <= target.maximumUnresolvedConfirmedViolations },
+    { requirement: "unresolved_level_two_or_three_violations", target: target.maximumLevelTwoOrLevelThreeViolations, actual: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations, passed: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations <= target.maximumLevelTwoOrLevelThreeViolations },
+    { requirement: "corrective_period", target: target.correctivePeriodBlocksEligibility ? 0 : 1, actual: activeCorrectivePeriod ? 0 : 1, passed: !activeCorrectivePeriod || !target.correctivePeriodBlocksEligibility }
+  ];
+  const passed = requirements.every((requirement) => requirement.passed);
+  const hasCriticalStandardsBlocker = requirements.some((requirement) => (requirement.requirement === "unresolved_confirmed_violations" || requirement.requirement === "unresolved_level_two_or_three_violations") && requirement.passed === false);
+  const state = passed ? "ELIGIBLE" : hasCriticalStandardsBlocker ? "BLOCKED" : finalizedInspections >= target.minimumFinalizedInspections || recentAverageDisciplineScore >= target.minimumAverageDisciplineScore || recentAverageEvidenceCoverage >= target.minimumAverageEvidenceCoverage ? "PROGRESSING" : "NOT ELIGIBLE";
+  return {
+    currentRank: input.currentRank || "RECRUIT",
+    nextRank: target.code,
+    targetRank: target.code,
+    finalizedInspectionsRequired: target.minimumFinalizedInspections,
+    recentAverageDisciplineScoreRequired: target.minimumAverageDisciplineScore,
+    recentAverageEvidenceCoverageRequired: target.minimumAverageEvidenceCoverage,
+    consecutiveQualifyingWeeksRequired: target.requiredConsecutiveQualifyingWeeks,
+    missionDomainScoreRequired: target.minimumMissionDomainScore,
+    unresolvedConfirmedViolationsAllowed: target.maximumUnresolvedConfirmedViolations,
+    unresolvedLevelTwoOrThreeViolationsAllowed: target.maximumLevelTwoOrLevelThreeViolations,
+    requirements,
+    passed,
+    state,
+    target,
+    catalog
+  };
+}
+
+function calculateConsecutiveQualifyingWeeks(weeks = [], thresholds = {}) {
+  const rawWeeks = Array.isArray(weeks) ? weeks : [];
+  const hasProvisionalEntry = rawWeeks.some((week) => {
+    const finalized = Boolean(week.finalizedAt || week.finalized_at);
+    const kind = String(week.kind || "FINALIZED").toUpperCase();
+    return !finalized || kind === "PROVISIONAL";
+  });
+  if (hasProvisionalEntry) return 0;
+
+  const qualifying = rawWeeks.filter((week) => {
+    const finalized = Boolean(week.finalizedAt || week.finalized_at);
+    const kind = String(week.kind || "FINALIZED").toUpperCase();
+    const score = Number(week.score || week.weekly_discipline_score || 0);
+    const evidence = Number(week.evidenceCoverage || week.evidence_coverage || 0);
+    const minimumScore = Number(thresholds.minimumDisciplineScore || thresholds.minimum_average_discipline_score || 0);
+    const minimumEvidence = Number(thresholds.minimumEvidenceCoverage || thresholds.minimum_average_evidence_coverage || 0);
+    return finalized && kind !== "PROVISIONAL" && score >= minimumScore && evidence >= minimumEvidence && Number.isFinite(score) && Number.isFinite(evidence);
+  });
+  if (!qualifying.length) return 0;
+  const sorted = qualifying.slice().sort((left, right) => (left.weekStartDate || "").localeCompare(right.weekStartDate || ""));
+  let streak = 1;
+  let previous = sorted[0].weekStartDate || sorted[0].week_start_date || null;
+  for (let index = 1; index < sorted.length; index += 1) {
+    const currentStart = sorted[index].weekStartDate || sorted[index].week_start_date || null;
+    if (!currentStart) continue;
+    const previousDate = new Date(`${previous}T00:00:00`);
+    const currentDate = new Date(`${currentStart}T00:00:00`);
+    const expected = new Date(previousDate);
+    expected.setDate(expected.getDate() + 7);
+    if (currentDate.getTime() === expected.getTime()) {
+      streak += 1;
+      previous = currentStart;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function evaluatePromotionEligibility(input = {}, targetRank = "CADET") {
+  const metrics = calculatePromotionMetrics(input, targetRank);
+  const correctiveState = deriveCorrectivePeriodState(input);
+  const blockers = [];
+  if (metrics.requirements.find((item) => item.requirement === "finalized_inspections")?.passed === false) blockers.push("insufficient finalized inspections");
+  if (metrics.requirements.find((item) => item.requirement === "average_discipline_score")?.passed === false) blockers.push("weak discipline score");
+  if (metrics.requirements.find((item) => item.requirement === "average_evidence_coverage")?.passed === false) blockers.push("weak evidence");
+  if (metrics.requirements.find((item) => item.requirement === "consecutive_qualifying_weeks")?.passed === false) blockers.push("insufficient consecutive qualifying weeks");
+  if (metrics.requirements.find((item) => item.requirement === "mission_domain_score")?.passed === false) blockers.push("weak mission-domain execution");
+  if (metrics.requirements.find((item) => item.requirement === "unresolved_confirmed_violations")?.passed === false) blockers.push("unresolved confirmed standards issue");
+  if (metrics.requirements.find((item) => item.requirement === "unresolved_level_two_or_three_violations")?.passed === false) blockers.push("level II/III violation threshold exceeded");
+  if (metrics.requirements.find((item) => item.requirement === "corrective_period")?.passed === false) blockers.push("active corrective period");
+  let status = metrics.passed ? "ELIGIBLE" : metrics.state === "PROGRESSING" ? "PROGRESSING" : metrics.state === "BLOCKED" ? "BLOCKED" : "NOT ELIGIBLE";
+  if (correctiveState.active) {
+    status = "CORRECTIVE PERIOD";
+  }
+  return {
+    ...metrics,
+    status,
+    blockers,
+    remainingActions: blockers.map((blocker) => blocker),
+    promotionState: status === "ELIGIBLE" ? "PROMOTION PENDING" : status === "PROGRESSING" ? "PROGRESSING" : status === "CORRECTIVE PERIOD" ? "CORRECTIVE PERIOD" : "NOT ELIGIBLE"
+  };
+}
+
+function derivePromotionState(eligibility = {}) {
+  const state = eligibility?.status || "NOT ELIGIBLE";
+  return {
+    state,
+    label: state === "ELIGIBLE" ? "Eligible" : state === "PROGRESSING" ? "Progressing" : state === "BLOCKED" ? "Blocked" : state === "CORRECTIVE PERIOD" ? "Corrective period" : state === "PROMOTION PENDING" ? "Promotion pending" : "Not eligible"
+  };
+}
+
+function buildPromotionEvidence(input = {}) {
+  const targetRank = getCurrentRankDefinition(input.nextRank || input.targetRank || "CADET");
+  const metrics = calculatePromotionMetrics(input, targetRank.code);
+  const requirements = metrics.requirements.map((requirement) => ({
+    requirement: requirement.requirement,
+    target: requirement.target,
+    actual: requirement.actual,
+    passed: requirement.passed,
+    source: requirement.requirement === "finalized_inspections" ? "Finalized weekly inspections" : requirement.requirement === "average_discipline_score" ? "Recent Weekly Discipline Score" : requirement.requirement === "average_evidence_coverage" ? "Evidence Coverage" : requirement.requirement === "consecutive_qualifying_weeks" ? "Consecutive qualifying weeks" : requirement.requirement === "mission_domain_score" ? "Mission-domain score" : requirement.requirement === "unresolved_confirmed_violations" ? "Standards & Violations" : requirement.requirement === "unresolved_level_two_or_three_violations" ? "Standards & Violations" : "Corrective-period status",
+    blocker: requirement.passed ? null : requirement.requirement
+  }));
+  return {
+    currentRank: input.currentRank || "RECRUIT",
+    nextRank: targetRank.code,
+    requirements,
+    blockers: requirements.filter((requirement) => !requirement.passed).map((requirement) => requirement.requirement),
+    status: metrics.passed ? "ELIGIBLE" : metrics.state
+  };
+}
+
+function generateAtlasPromotionReview(input = {}) {
+  const lines = [
+    "ATLAS // PROMOTION REVIEW",
+    "",
+    `CURRENT RANK: ${input.currentRank || "RECRUIT"}`,
+    `NEXT RANK: ${input.nextRank || "CADET"}`,
+    `STATUS: ${input.status || "NOT ELIGIBLE"}`,
+    "",
+    "QUALIFYING HISTORY",
+    input.qualifyingHistory || "Insufficient finalized history to confirm promotion.",
+    "",
+    "DISCIPLINE STANDARD",
+    input.disciplineStandard || "Recent weekly discipline score must meet the target.",
+    "",
+    "EVIDENCE STANDARD",
+    input.evidenceStandard || "Evidence coverage must meet the target without relying on provisional weeks.",
+    "",
+    "STANDARDS RECORD",
+    input.standardsRecord || "Standards and violation history are reviewed before promotion.",
+    "",
+    "BLOCKERS",
+    input.blockers && input.blockers.length ? input.blockers.join("; ") : "No blocking issues detected.",
+    "",
+    "REMAINING REQUIREMENTS",
+    input.remainingActions && input.remainingActions.length ? input.remainingActions.join("; ") : "No additional requirements remain.",
+    "",
+    "PROMOTION ORDER",
+    input.promotionOrder || "One rank at a time.",
+    "",
+    "COMMAND NOTE",
+    input.commandNote || "Promotion is earned through sustained execution and a clean evidence trail."
+  ];
+  return { text: lines.join("\n"), status: input.status || "NOT ELIGIBLE" };
+}
+
+function finalizePromotionSnapshot(input = {}, promotionAuthorized = false) {
+  const nextRankCode = input.nextRank || input.targetRank || "CADET";
+  const transition = validateRankTransition(input.currentRank || "RECRUIT", nextRankCode);
+  if (!transition.valid) return { ...input, promotionState: "BLOCKED", currentRank: input.currentRank || "RECRUIT", status: "BLOCKED" };
+  if (!promotionAuthorized) return { ...input, promotionState: "ELIGIBLE", currentRank: input.currentRank || "RECRUIT", status: input.status || "ELIGIBLE" };
+  return {
+    ...input,
+    currentRank: nextRankCode,
+    priorRank: input.currentRank || "RECRUIT",
+    promotionState: "PROMOTED",
+    status: "PROMOTED",
+    effectiveDate: input.effectiveDate || new Date().toISOString().slice(0, 10),
+    finalizedAt: input.finalizedAt || new Date().toISOString(),
+    promotionAuthorized: true,
+    qualificationSnapshot: input.qualificationSnapshot || {}
+  };
+}
+
+function buildRankStatusEvent(eventType = "status_changed", priorRank = "RECRUIT", newRank = "CADET", priorState = "ELIGIBLE", newState = "PROMOTED", eventMetadata = {}) {
+  return { eventType, priorRank, newRank, priorState, newState, eventMetadata, createdAt: new Date().toISOString() };
+}
+
+function deriveCorrectivePeriodState(input = {}) {
+  const active = Boolean(input.activeCorrectivePeriod || input.active_corrective_period || input.correctivePeriodActive);
+  const reason = input.correctivePeriodReason || input.corrective_period_reason || "Corrective period active";
+  const status = input.correctivePeriodStatus || input.corrective_period_status || "ACTIVE";
+  return {
+    active,
+    reason,
+    status,
+    state: active ? "CORRECTIVE PERIOD" : "CLEAR",
+    blocksPromotion: active
+  };
+}
+
+function summarizePromotionHistory(items = []) {
+  const promotions = (items || []).filter((item) => item && item.promotionState === "PROMOTED");
+  return {
+    totalPromotions: promotions.length,
+    latestPromotion: promotions.length ? promotions[promotions.length - 1] : null
+  };
+}
+
+function deriveRankStatusFromRecord(record = {}) {
+  return {
+    currentRank: record.current_rank || record.currentRank || "RECRUIT",
+    promotionState: record.promotion_state || record.promotionState || "NOT ELIGIBLE",
+    activeCorrectivePeriod: Boolean(record.active_corrective_period || record.activeCorrectivePeriod),
+    correctivePeriodReason: record.corrective_period_reason || record.correctivePeriodReason || null,
+    correctivePeriodStatus: record.corrective_period_status || record.correctivePeriodStatus || null,
+    correctivePeriodStartedAt: record.corrective_period_started_at || record.correctivePeriodStartedAt || null,
+    correctivePeriodReviewDate: record.corrective_period_review_date || record.correctivePeriodReviewDate || null,
+    createdAt: record.created_at || record.createdAt || null,
+    updatedAt: record.updated_at || record.updatedAt || null
+  };
+}
+
+function formatPromotionMetric(value = 0, displayType = "score") {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) return "—";
+  if (displayType === "score") {
+    const rounded = Math.round((numeric + Number.EPSILON) * 100) / 100;
+    return rounded.toFixed(2);
+  }
+  return `${Math.round(numeric)}%`;
 }
 
 function detectProtectedException(entry = {}) {
@@ -1519,6 +1802,8 @@ async function init() {
     setText("identity", "Signed in as " + session.user.email);
     onboardingDismissed = window.localStorage.getItem("coach-dominion:onboarding-dismissed") === "true";
     loadStandardsReviewState();
+    loadRankStatus();
+    loadPromotionHistory();
     renderOnboarding();
     restoreSectionFromHash();
     await loadDailyState();
@@ -1527,6 +1812,7 @@ async function init() {
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
+    renderRankSection();
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -1560,6 +1846,48 @@ if (typeof document !== "undefined") {
     renderOnboarding();
     setActiveSection("today");
   });
+  const reviewPromotionButton = document.getElementById("review-promotion");
+  const finalizePromotionButton = document.getElementById("finalize-promotion");
+  if (reviewPromotionButton) {
+    reviewPromotionButton.addEventListener("click", () => {
+      renderRankSection();
+    });
+  }
+  if (finalizePromotionButton) {
+    finalizePromotionButton.addEventListener("click", () => {
+      const nextRank = getNextRankDefinition(rankStatus.currentRank || "RECRUIT");
+      if (!nextRank) return;
+      const snapshot = finalizePromotionSnapshot({
+        currentRank: rankStatus.currentRank || "RECRUIT",
+        nextRank: nextRank.code,
+        status: "ELIGIBLE",
+        effectiveDate: todayISODate(),
+        promotionAuthorized: true,
+        qualificationSnapshot: buildPromotionEvidence({
+          currentRank: rankStatus.currentRank || "RECRUIT",
+          nextRank: nextRank.code,
+          finalizedInspections: weeklyInspection?.counts?.completed || 0,
+          recentAverageDisciplineScore: weeklyInspection?.score || 0,
+          recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
+          consecutiveQualifyingWeeks: 0,
+          unresolvedConfirmedViolations: 0,
+          unresolvedLevelTwoViolations: 0,
+          unresolvedLevelThreeViolations: 0,
+          activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
+          domainScores: weeklyInspection?.domainScores || {}
+        })
+      }, true);
+      rankStatus = {
+        ...rankStatus,
+        currentRank: snapshot.currentRank,
+        promotionState: snapshot.promotionState,
+        updatedAt: new Date().toISOString()
+      };
+      promotionHistory = [{ ...snapshot, createdAt: new Date().toISOString() }, ...promotionHistory];
+      saveRankStatus();
+      renderRankSection();
+    });
+  }
   const reviewStandardsButton = document.getElementById("review-standards-candidate");
   const confirmStandardsButton = document.getElementById("confirm-standards-candidate");
   if (reviewStandardsButton) {
@@ -1594,7 +1922,7 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, deriveCommandCenterOverview, normalizeSectionKey, shouldWarnBeforeNavigation, deriveDirtyState, deriveFinalizeConfirmationState, isFinalizedReadOnlyInspection, deriveOnboardingVisibility, getStatusMessage, deriveSaveState, deriveInputImmutabilityState, getStandardsCatalog, dedupeViolationCandidates, deriveViolationCandidates, detectProtectedException, classifyViolationCandidate, calculateViolationSeverity, validateViolationTransition, selectCorrectiveAction, generateAtlasStandardsReview, buildViolationAuditEvent, summarizeWeeklyViolationHistory, deriveStandardsState, buildStandardsReviewState, deriveStandardsReviewStateFromRecord, sanitizeStandardsReviewState, buildStandardsPersistencePayload, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, deriveCommandCenterOverview, normalizeSectionKey, shouldWarnBeforeNavigation, deriveDirtyState, deriveFinalizeConfirmationState, isFinalizedReadOnlyInspection, deriveOnboardingVisibility, getStatusMessage, deriveSaveState, deriveInputImmutabilityState, getStandardsCatalog, normalizeRankCode, getRankCatalog, getCurrentRankDefinition, getNextRankDefinition, validateRankTransition, calculatePromotionMetrics, calculateConsecutiveQualifyingWeeks, evaluatePromotionEligibility, derivePromotionState, buildPromotionEvidence, generateAtlasPromotionReview, finalizePromotionSnapshot, buildRankStatusEvent, deriveCorrectivePeriodState, summarizePromotionHistory, deriveRankStatusFromRecord, formatPromotionMetric, dedupeViolationCandidates, deriveViolationCandidates, detectProtectedException, classifyViolationCandidate, calculateViolationSeverity, validateViolationTransition, selectCorrectiveAction, generateAtlasStandardsReview, buildViolationAuditEvent, summarizeWeeklyViolationHistory, deriveStandardsState, buildStandardsReviewState, deriveStandardsReviewStateFromRecord, sanitizeStandardsReviewState, buildStandardsPersistencePayload, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
 }
 
 function standardsStorageKey() {
@@ -1766,6 +2094,133 @@ async function loadStandardsReviewStateFromSupabase() {
   const { data, error } = await supabase.from("standards_violations").select("*").eq("user_id", session.user.id).order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
+}
+
+function rankStorageKey() {
+  return `coach-dominion:rank:${session?.user?.id || "local"}`;
+}
+
+function promotionHistoryStorageKey() {
+  return `coach-dominion:rank-history:${session?.user?.id || "local"}`;
+}
+
+function loadRankStatus() {
+  if (typeof window === "undefined" || !window.localStorage) return rankStatus;
+  try {
+    const stored = window.localStorage.getItem(rankStorageKey());
+    const parsed = stored ? JSON.parse(stored) : null;
+    rankStatus = parsed ? { ...rankStatus, ...parsed } : rankStatus;
+    return rankStatus;
+  } catch (_) {
+    return rankStatus;
+  }
+}
+
+function saveRankStatus() {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(rankStorageKey(), JSON.stringify(rankStatus));
+  } catch (_) {
+    // Ignore local persistence failure.
+  }
+}
+
+function loadPromotionHistory() {
+  if (typeof window === "undefined" || !window.localStorage) return promotionHistory;
+  try {
+    const stored = window.localStorage.getItem(promotionHistoryStorageKey());
+    const parsed = stored ? JSON.parse(stored) : [];
+    promotionHistory = Array.isArray(parsed) ? parsed : [];
+    return promotionHistory;
+  } catch (_) {
+    return promotionHistory;
+  }
+}
+
+function savePromotionHistory(items = []) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    promotionHistory = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(promotionHistoryStorageKey(), JSON.stringify(promotionHistory));
+  } catch (_) {
+    // Ignore local persistence failure.
+  }
+}
+
+function renderRankSection() {
+  if (typeof document === "undefined") return;
+  const container = document.getElementById("rank");
+  if (!container) return;
+  const currentRank = rankStatus.currentRank || "RECRUIT";
+  const nextRank = getNextRankDefinition(currentRank);
+  const eligibility = evaluatePromotionEligibility({
+    currentRank,
+    finalizedInspections: weeklyInspection?.counts?.completed || 0,
+    recentAverageDisciplineScore: weeklyInspection?.score || 0,
+    recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
+    consecutiveQualifyingWeeks: 0,
+    unresolvedConfirmedViolations: 0,
+    unresolvedLevelTwoViolations: 0,
+    unresolvedLevelThreeViolations: 0,
+    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
+    domainScores: weeklyInspection?.domainScores || {},
+    standardsHistory: standardsReviewState || []
+  }, nextRank?.code || "CADET");
+  const evidence = buildPromotionEvidence({
+    currentRank,
+    nextRank: nextRank?.code || "CADET",
+    finalizedInspections: weeklyInspection?.counts?.completed || 0,
+    recentAverageDisciplineScore: weeklyInspection?.score || 0,
+    recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
+    consecutiveQualifyingWeeks: 0,
+    unresolvedConfirmedViolations: 0,
+    unresolvedLevelTwoViolations: 0,
+    unresolvedLevelThreeViolations: 0,
+    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
+    domainScores: weeklyInspection?.domainScores || {},
+    standardsHistory: standardsReviewState || []
+  });
+  const review = generateAtlasPromotionReview({
+    currentRank,
+    nextRank: nextRank?.code || "CADET",
+    status: eligibility.status,
+    blockers: eligibility.blockers,
+    remainingActions: eligibility.remainingActions,
+    qualifyingHistory: `${weeklyInspection?.counts?.completed || 0} finalized inspections available`,
+    disciplineStandard: `Recent weekly discipline score target is ${eligibility.target?.minimumAverageDisciplineScore || 0}`,
+    evidenceStandard: `Evidence coverage target is ${eligibility.target?.minimumAverageEvidenceCoverage || 0}%`,
+    standardsRecord: `Confirmed standards issues: ${eligibility.unresolvedConfirmedViolations || 0}`,
+    promotionOrder: "One rank at a time.",
+    commandNote: nextRank ? `${nextRank.promotionCommandNote}` : "No additional rank remains."
+  });
+  setText("rank-current", currentRank);
+  setText("rank-next", nextRank?.displayName || "—");
+  setText("rank-status", eligibility.status);
+  setText("rank-qualifying-weeks", String(eligibility.consecutiveQualifyingWeeksRequired || 0));
+  const rankStateBadge = document.getElementById("rank-state");
+  if (rankStateBadge) {
+    rankStateBadge.textContent = eligibility.status;
+    rankStateBadge.className = `state-pill ${eligibility.status === "ELIGIBLE" ? "green" : eligibility.status === "PROMOTED" ? "green" : eligibility.status === "PROGRESSING" ? "yellow" : eligibility.status === "BLOCKED" ? "red" : "neutral"}`;
+  }
+  const requirements = document.getElementById("rank-requirements");
+  if (requirements) {
+    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
+  }
+  const blockers = document.getElementById("rank-blockers");
+  if (blockers) {
+    blockers.innerHTML = eligibility.blockers.length ? eligibility.blockers.map((item) => `<div class="standards-item"><p>${item}</p></div>`).join("") : '<div class="standards-empty">No blockers detected.</div>';
+  }
+  const reviewOutput = document.getElementById("rank-review-output");
+  if (reviewOutput) reviewOutput.textContent = review.text;
+  const history = document.getElementById("rank-history");
+  if (history) {
+    const items = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${item.priorRank || "RECRUIT"} → ${item.currentRank || "CADET"}</strong><span>${item.promotionState || "PROMOTED"}</span></div><p>${item.effectiveDate || ""}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
+    history.innerHTML = items;
+  }
+  const ladder = document.getElementById("rank-ladder");
+  if (ladder) {
+    ladder.innerHTML = getRankCatalog().map((rank) => `<div class="standards-item"><div class="standards-item-header"><strong>${rank.displayName}</strong><span class="state-pill ${rank.code === currentRank ? "green" : "neutral"}">${rank.code}</span></div><p>${rank.description}</p><small>Min inspections ${rank.minimumFinalizedInspections}; min score ${rank.minimumAverageDisciplineScore}; evidence ${rank.minimumAverageEvidenceCoverage}%</small></div>`).join("");
+  }
 }
 
 function renderStandardsSection() {
@@ -2360,6 +2815,7 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
   renderTrendChart("evidence-trend-chart", chartSeries, "evidenceCoverage", "Weekly Evidence Coverage");
   setText("atlas-trend-report", report.text);
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || {}, trajectory.state);
+  renderRankSection();
 }
 
 async function loadTrendsAnalytics() {

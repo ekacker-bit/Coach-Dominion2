@@ -2,6 +2,14 @@
 
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
+## Unreleased — Build 004F: Rank & Promotion
+
+- Added a deterministic rank ladder anchored at RECRUIT and advancing one step at a time through CADET, OPERATOR, VANGUARD, DOMINION, and ASCENDANT.
+- Added promotion evaluation based on finalized inspection count, recent Discipline Score, evidence coverage, consecutive qualifying weeks, domain strength, standards/violation history, and corrective-period state.
+- Added promotion eligibility states, deterministic Atlas Promotion Review output, explicit promotion confirmation, and immutable promotion-history storage.
+- Added the Rank section to the War Room UI, local fallback persistence for rank status and promotion history, and a new Supabase migration for owner-scoped rank persistence.
+- Added a new rank-promotion regression suite and included it in the main test script.
+
 ## Unreleased — Build 004E: Standards & Violations
 
 - Added a deterministic standards catalog and violation-candidate engine that remains supplemental to the Dominion Record and Weekly Inspection scoring logic.

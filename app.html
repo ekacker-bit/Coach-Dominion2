@@ -22,6 +22,7 @@
           <a class="nav-link" href="#inspection" data-section="inspection">INSPECTION</a>
           <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
           <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
+          <a class="nav-link" href="#rank" data-section="rank">RANK</a>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
@@ -289,6 +290,37 @@
         <pre id="standards-review-output" class="atlas-brief-output" aria-live="polite">No standards review candidates yet.</pre>
         <h3>Audit trail</h3>
         <ul id="standards-audit-trail" class="feed"></ul>
+      </section>
+
+      <section id="rank" class="card rank-review scroll-anchor" aria-labelledby="rank-heading" data-section="rank">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 004F // RANK &amp; PROMOTION</div>
+            <h2 id="rank-heading">Rank &amp; Promotion</h2>
+            <p class="muted">Promotion is earned through finalized inspection history, evidence quality, standards discipline, and deliberate confirmation.</p>
+          </div>
+          <span id="rank-state" class="state-pill neutral">NOT ELIGIBLE</span>
+        </div>
+        <div class="standards-summary-grid">
+          <div><span>Current rank</span><strong id="rank-current">RECRUIT</strong></div>
+          <div><span>Next rank</span><strong id="rank-next">CADET</strong></div>
+          <div><span>Status</span><strong id="rank-status">NOT ELIGIBLE</strong></div>
+          <div><span>Qualifying weeks</span><strong id="rank-qualifying-weeks">0</strong></div>
+        </div>
+        <div class="standards-controls">
+          <button id="review-promotion" class="ghost" type="button">Review promotion</button>
+          <button id="finalize-promotion" type="button">Authorize promotion</button>
+        </div>
+        <h3>Requirements checklist</h3>
+        <ul id="rank-requirements" class="feed"></ul>
+        <h3>Blockers</h3>
+        <div id="rank-blockers" class="standards-queue"></div>
+        <h3>Atlas Promotion Review</h3>
+        <pre id="rank-review-output" class="atlas-brief-output" aria-live="polite">Promotion review is loading.</pre>
+        <h3>Promotion history</h3>
+        <ul id="rank-history" class="feed"></ul>
+        <h3>Rank ladder</h3>
+        <div id="rank-ladder" class="standards-queue"></div>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">

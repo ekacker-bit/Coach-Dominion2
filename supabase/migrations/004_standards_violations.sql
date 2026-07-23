@@ -45,44 +45,52 @@ create table if not exists public.standards_violation_events (
 alter table public.standards_violations enable row level security;
 alter table public.standards_violation_events enable row level security;
 
-create policy if not exists standards_violations_select_own
+drop policy if exists standards_violations_select_own on public.standards_violations;
+create policy standards_violations_select_own
   on public.standards_violations
   for select
   using (auth.uid() = user_id);
 
-create policy if not exists standards_violations_insert_own
+drop policy if exists standards_violations_insert_own on public.standards_violations;
+create policy standards_violations_insert_own
   on public.standards_violations
   for insert
   with check (auth.uid() = user_id);
 
-create policy if not exists standards_violations_update_own
+drop policy if exists standards_violations_update_own on public.standards_violations;
+create policy standards_violations_update_own
   on public.standards_violations
   for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy if not exists standards_violations_delete_own
+drop policy if exists standards_violations_delete_own on public.standards_violations;
+create policy standards_violations_delete_own
   on public.standards_violations
   for delete
   using (auth.uid() = user_id);
 
-create policy if not exists standards_violation_events_select_own
+drop policy if exists standards_violation_events_select_own on public.standards_violation_events;
+create policy standards_violation_events_select_own
   on public.standards_violation_events
   for select
   using (auth.uid() = user_id);
 
-create policy if not exists standards_violation_events_insert_own
+drop policy if exists standards_violation_events_insert_own on public.standards_violation_events;
+create policy standards_violation_events_insert_own
   on public.standards_violation_events
   for insert
   with check (auth.uid() = user_id);
 
-create policy if not exists standards_violation_events_update_own
+drop policy if exists standards_violation_events_update_own on public.standards_violation_events;
+create policy standards_violation_events_update_own
   on public.standards_violation_events
   for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy if not exists standards_violation_events_delete_own
+drop policy if exists standards_violation_events_delete_own on public.standards_violation_events;
+create policy standards_violation_events_delete_own
   on public.standards_violation_events
   for delete
   using (auth.uid() = user_id);

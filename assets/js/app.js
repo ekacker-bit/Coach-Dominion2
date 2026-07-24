@@ -13,9 +13,81 @@ let currentSaveState = "empty";
 let standardsReviewState = [];
 let rankStatus = { currentRank: "RECRUIT", promotionState: "NOT ELIGIBLE", activeCorrectivePeriod: false, correctivePeriodReason: null, correctivePeriodStatus: null, correctivePeriodStartedAt: null, correctivePeriodReviewDate: null };
 let promotionHistory = [];
+let performanceEntries = [];
+let performanceStorageMode = "LOADING";
+let performanceSaveState = "loading";
+let performanceEditId = null;
+let performanceFilters = { date: "", domain: "", activity: "", entryType: "" };
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
+const PERFORMANCE_DOMAINS = ["strength", "running", "core", "conditioning", "fitness_test", "body_metrics"];
+const PERFORMANCE_DOMAIN_LABELS = {
+  strength: "Strength",
+  running: "Running",
+  core: "Core",
+  conditioning: "Conditioning",
+  fitness_test: "Fitness Test",
+  body_metrics: "Body Metrics"
+};
+const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
+  { code: "TRAINING_SET", label: "Training Set" },
+  { code: "WORKOUT_SUMMARY", label: "Workout Summary" },
+  { code: "BENCHMARK", label: "Benchmark" },
+  { code: "FORMAL_TEST", label: "Formal Test" },
+  { code: "RACE", label: "Race" },
+  { code: "MEASUREMENT", label: "Measurement" }
+];
+const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
+const PERFORMANCE_ACTIVITY_CATALOG = {
+  strength: [
+    { code: "bench_press", label: "Bench Press" },
+    { code: "squat", label: "Squat" },
+    { code: "deadlift", label: "Deadlift" },
+    { code: "overhead_press", label: "Overhead Press" },
+    { code: "pull_up", label: "Pull-Up" },
+    { code: "row", label: "Row" },
+    { code: "custom", label: "Custom movement" }
+  ],
+  running: [
+    { code: "easy_run", label: "Easy Run" },
+    { code: "tempo", label: "Tempo" },
+    { code: "interval", label: "Interval" },
+    { code: "long_run", label: "Long Run" },
+    { code: "recovery_run", label: "Recovery Run" },
+    { code: "race", label: "Race" },
+    { code: "custom", label: "Custom run" }
+  ],
+  core: [
+    { code: "plank", label: "Plank" },
+    { code: "hanging_leg_raise", label: "Hanging Leg Raise" },
+    { code: "sit_up", label: "Sit-Up" },
+    { code: "hollow_hold", label: "Hollow Hold" },
+    { code: "custom", label: "Custom core benchmark" }
+  ],
+  conditioning: [
+    { code: "burpee", label: "Burpee" },
+    { code: "rowing", label: "Rowing" },
+    { code: "assault_bike", label: "Assault Bike" },
+    { code: "stair_machine", label: "Stair Machine" },
+    { code: "circuit", label: "Circuit" },
+    { code: "custom", label: "Custom conditioning test" }
+  ],
+  fitness_test: [
+    { code: "wingate", label: "Wingate" },
+    { code: "beep_test", label: "Beep Test" },
+    { code: "yoyo_ir1", label: "Yo-Yo IR1" },
+    { code: "custom", label: "Custom protocol" }
+  ],
+  body_metrics: [
+    { code: "bodyweight", label: "Bodyweight" },
+    { code: "waist", label: "Waist" },
+    { code: "chest", label: "Chest" },
+    { code: "arm", label: "Arm" },
+    { code: "thigh", label: "Thigh" },
+    { code: "custom", label: "Custom measurement" }
+  ]
+};
 const COMPLIANCE_DOMAIN_LABELS = {
   mission: "Mission Compliance",
   strength: "Strength Compliance",
@@ -69,14 +141,15 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank"];
+const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank", "performance"];
 const SECTION_LABELS = {
   today: "Today",
   record: "Record",
   inspection: "Inspection",
   trends: "Trends",
   standards: "Standards",
-  rank: "Rank"
+  rank: "Rank",
+  performance: "Performance"
 };
 
 function normalizeSectionKey(section = "today") {
@@ -86,6 +159,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "weekly" || normalized === "inspection" || normalized === "weekly-inspection") return "inspection";
   if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
+  if (normalized === "performance" || normalized === "performance-log") return "performance";
   return "today";
 }
 
@@ -1480,6 +1554,680 @@ function deriveCommandCenterOverview(readinessResultOrState = null, weeklyInspec
   };
 }
 
+function toSnakeCase(value = "") {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .trim()
+    .toLowerCase();
+}
+
+function sanitizePerformanceText(value = "", maxLength = 80) {
+  const safeText = String(value ?? "")
+    .trim()
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>"']/g, "")
+    .replace(/\s+/g, " ");
+  return safeText.length > maxLength ? safeText.slice(0, maxLength) : safeText;
+}
+
+function normalizePerformanceDomain(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "strength") return "strength";
+  if (normalized === "running") return "running";
+  if (normalized === "core") return "core";
+  if (normalized === "conditioning") return "conditioning";
+  if (normalized === "fitness" || normalized === "fitness test" || normalized === "fitness_test") return "fitness_test";
+  if (normalized === "body" || normalized === "body metrics" || normalized === "body_metrics") return "body_metrics";
+  return null;
+}
+
+function normalizePerformanceEntryType(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase().replaceAll(" ", "_");
+  const lookup = {
+    TRAINING_SET: "TRAINING_SET",
+    WORKOUT_SUMMARY: "WORKOUT_SUMMARY",
+    BENCHMARK: "BENCHMARK",
+    FORMAL_TEST: "FORMAL_TEST",
+    RACE: "RACE",
+    MEASUREMENT: "MEASUREMENT"
+  };
+  return lookup[normalized] || null;
+}
+
+function normalizePerformanceEvidenceStatus(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase();
+  const lookup = {
+    SELF_REPORTED: "SELF REPORTED",
+    VERIFIED: "VERIFIED",
+    ESTIMATED: "ESTIMATED",
+    INCOMPLETE: "INCOMPLETE"
+  };
+  return lookup[normalized] || null;
+}
+
+function normalizePerformanceUnits(input = {}) {
+  const metrics = input?.metrics && typeof input.metrics === "object" ? { ...input.metrics } : {};
+  const normalizedMetrics = { ...metrics };
+  if (normalizedMetrics.distanceUnit !== undefined && normalizedMetrics.distance_unit === undefined) normalizedMetrics.distance_unit = normalizedMetrics.distanceUnit;
+  if (normalizedMetrics.weightUnit !== undefined && normalizedMetrics.weight_unit === undefined) normalizedMetrics.weight_unit = normalizedMetrics.weightUnit;
+  if (normalizedMetrics.measurementUnit !== undefined && normalizedMetrics.measurement_unit === undefined) normalizedMetrics.measurement_unit = normalizedMetrics.measurementUnit;
+  if (normalizedMetrics.measurementValue !== undefined && normalizedMetrics.measurement_value === undefined) normalizedMetrics.measurement_value = normalizedMetrics.measurementValue;
+  if (normalizedMetrics.testProtocolName !== undefined && normalizedMetrics.test_protocol_name === undefined) normalizedMetrics.test_protocol_name = normalizedMetrics.testProtocolName;
+  if (normalizedMetrics.eventResults !== undefined && normalizedMetrics.event_results === undefined) normalizedMetrics.event_results = normalizedMetrics.eventResults;
+  if (normalizedMetrics.overallScore !== undefined && normalizedMetrics.overall_score === undefined) normalizedMetrics.overall_score = normalizedMetrics.overallScore;
+  return { ...input, metrics: normalizedMetrics };
+}
+
+function stableSerializePerformanceValue(value) {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableSerializePerformanceValue(item)).join(",")}]`;
+  if (typeof value === "object") {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableSerializePerformanceValue(value[key])}`).join(",")}}`;
+  }
+  return String(value);
+}
+
+function buildPerformanceSignature(source = {}) {
+  const rawMetrics = source.metrics && typeof source.metrics === "object" ? source.metrics : {};
+  const metrics = {};
+  const metricAliases = {
+    sets: ["sets"],
+    repetitions: ["repetitions", "reps"],
+    weight: ["weight"],
+    weight_unit: ["weightUnit", "weight_unit"],
+    duration_seconds: ["durationSeconds", "duration_seconds", "duration"],
+    distance: ["distance"],
+    distance_unit: ["distanceUnit", "distance_unit"],
+    pace_seconds_per_unit: ["paceSecondsPerUnit", "pace_seconds_per_unit"],
+    elevation_gain: ["elevationGain", "elevation_gain"],
+    route_type: ["routeType", "route_type"],
+    run_type: ["runType", "run_type"],
+    race_name: ["raceName", "race_name"],
+    assistance: ["assistance"],
+    bodyweight_added: ["bodyweightAdded", "bodyweight_added"],
+    perceived_effort: ["perceivedEffort", "perceived_effort"],
+    estimated_one_rep_max: ["estimatedOneRepMax", "estimated_one_rep_max"],
+    measurement_value: ["measurementValue", "measurement_value"],
+    measurement_unit: ["measurementUnit", "measurement_unit"],
+    measurement_location: ["measurementLocation", "measurement_location"],
+    test_protocol_code: ["testProtocolCode", "test_protocol_code"],
+    test_protocol_name: ["testProtocolName", "test_protocol_name"],
+    event_results: ["eventResults", "event_results"],
+    overall_score: ["overallScore", "overall_score"],
+    calories: ["calories"],
+    rounds: ["rounds"],
+    work_interval_seconds: ["workIntervalSeconds", "work_interval_seconds"],
+    rest_interval_seconds: ["restIntervalSeconds", "rest_interval_seconds"]
+  };
+  Object.entries(metricAliases).forEach(([targetKey, aliases]) => {
+    const match = aliases.find((alias) => rawMetrics[alias] !== undefined);
+    if (match) metrics[targetKey] = rawMetrics[match];
+  });
+  Object.entries(rawMetrics).forEach(([key, value]) => {
+    if (value === undefined) return;
+    if (Object.keys(metricAliases).includes(toSnakeCase(key))) return;
+    metrics[toSnakeCase(key)] = value;
+  });
+  const activityCode = source.activityCode || source.activity_code || null;
+  const activityName = sanitizePerformanceText(source.activityName || source.activity_name || (activityCode ? activityCode.replace(/_/g, " ") : ""), 80);
+  const domain = normalizePerformanceDomain(source.domain);
+  const entryType = normalizePerformanceEntryType(source.entryType || source.entry_type);
+  const evidenceStatus = normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status);
+  const sourceValue = typeof source.source === "string" && source.source.trim() ? source.source.trim().toUpperCase() : "MANUAL";
+  const noteText = sanitizePerformanceText(source.notes || "", 500);
+  return {
+    id: source.id || null,
+    userId: source.userId || source.user_id || null,
+    performanceDate: source.performanceDate || source.performance_date || "",
+    performanceTime: source.performanceTime || source.performance_time || null,
+    domain,
+    entryType,
+    activityCode,
+    activityName,
+    sessionName: sanitizePerformanceText(source.sessionName || source.session_name || "", 80),
+    source: sourceValue,
+    notes: noteText,
+    evidenceStatus,
+    metrics,
+    createdAt: source.createdAt || source.created_at || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString()
+  };
+}
+
+function createPerformanceStableId(source = {}) {
+  const signature = stableSerializePerformanceValue({
+    userId: source.userId || source.user_id || "",
+    performanceDate: source.performanceDate || source.performance_date || "",
+    performanceTime: source.performanceTime || source.performance_time || "",
+    domain: normalizePerformanceDomain(source.domain),
+    entryType: normalizePerformanceEntryType(source.entryType || source.entry_type),
+    activityCode: source.activityCode || source.activity_code || "",
+    activityName: sanitizePerformanceText(source.activityName || source.activity_name || "", 80),
+    sessionName: sanitizePerformanceText(source.sessionName || source.session_name || "", 80),
+    source: typeof source.source === "string" && source.source.trim() ? source.source.trim().toUpperCase() : "MANUAL",
+    notes: sanitizePerformanceText(source.notes || "", 500),
+    evidenceStatus: normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status),
+    metrics: buildPerformanceSignature(source).metrics
+  });
+  let hash = 2166136261;
+  for (let index = 0; index < signature.length; index += 1) {
+    hash ^= signature.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `perf-${(hash >>> 0).toString(16)}`;
+}
+
+function normalizePerformanceEntry(input = {}) {
+  const source = input || {};
+  const normalized = buildPerformanceSignature(source);
+  const explicitId = typeof source.id === "string" ? source.id.trim() : source.id;
+  const resolvedId = explicitId ? String(explicitId) : createPerformanceStableId(source);
+  return normalizePerformanceUnits({
+    ...normalized,
+    id: resolvedId,
+    performanceDate: normalized.performanceDate || todayISODate()
+  });
+}
+
+function validatePerformanceEntry(input = {}) {
+  const entry = normalizePerformanceEntry(input);
+  const errors = [];
+  if (!entry.performanceDate) errors.push({ field: "performance_date", message: "Performance date is required." });
+  if (!entry.domain || !PERFORMANCE_DOMAINS.includes(entry.domain)) errors.push({ field: "domain", message: "Choose a valid performance domain." });
+  if (!entry.entryType || !PERFORMANCE_ENTRY_TYPE_OPTIONS.some((item) => item.code === entry.entryType)) errors.push({ field: "entry_type", message: "Choose a valid entry type." });
+  if (!entry.activityName) errors.push({ field: "activity_name", message: "Activity name is required." });
+  if (entry.activityName && entry.activityName.length > 80) errors.push({ field: "activity_name", message: "Activity name must be 80 characters or fewer." });
+  if (!entry.evidenceStatus || !PERFORMANCE_EVIDENCE_STATUS_OPTIONS.includes(entry.evidenceStatus)) errors.push({ field: "evidence_status", message: "Choose a valid evidence status." });
+  if (entry.notes && entry.notes.length > 500) errors.push({ field: "notes", message: "Notes must be 500 characters or fewer." });
+  if (entry.metrics && typeof entry.metrics !== "object") errors.push({ field: "metrics", message: "Metrics must be provided as an object." });
+  const metrics = entry.metrics || {};
+  if (entry.domain === "strength") {
+    const sets = Number(metrics.sets);
+    const repetitions = Number(metrics.repetitions);
+    const weight = Number(metrics.weight);
+    if (!Number.isFinite(sets) || sets <= 0) errors.push({ field: "metrics.sets", message: "Sets must be a positive number." });
+    if (!Number.isFinite(repetitions) || repetitions <= 0) errors.push({ field: "metrics.repetitions", message: "Repetitions must be a positive number." });
+    if (metrics.weight !== undefined && metrics.weight !== null && (!Number.isFinite(weight) || weight < 0)) errors.push({ field: "metrics.weight", message: "Weight must be a non-negative number." });
+  }
+  if (entry.domain === "running") {
+    const distance = Number(metrics.distance);
+    const durationSeconds = Number(metrics.duration_seconds);
+    if (!Number.isFinite(distance) || distance <= 0) errors.push({ field: "metrics.distance", message: "Distance must be greater than zero." });
+    if (metrics.duration_seconds !== undefined && metrics.duration_seconds !== null && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) errors.push({ field: "metrics.duration_seconds", message: "Duration must be greater than zero." });
+  }
+  if (entry.domain === "core" || entry.domain === "conditioning") {
+    if (metrics.repetitions !== undefined && metrics.repetitions !== null && (!Number.isInteger(Number(metrics.repetitions)) || Number(metrics.repetitions) <= 0)) errors.push({ field: "metrics.repetitions", message: "Repetitions must be a positive integer." });
+    if (metrics.duration_seconds !== undefined && metrics.duration_seconds !== null && (!Number.isFinite(Number(metrics.duration_seconds)) || Number(metrics.duration_seconds) <= 0)) errors.push({ field: "metrics.duration_seconds", message: "Duration must be greater than zero." });
+  }
+  if (entry.domain === "body_metrics") {
+    const measurementValue = Number(metrics.measurement_value);
+    if (!Number.isFinite(measurementValue) || measurementValue < 0) errors.push({ field: "metrics.measurement_value", message: "Measurement value must be a non-negative number." });
+  }
+  if (entry.domain === "fitness_test") {
+    if (!entry.metrics?.test_protocol_name && !entry.activityName) errors.push({ field: "metrics.test_protocol_name", message: "Formal tests need a protocol name." });
+  }
+  return { valid: errors.length === 0, errors, entry };
+}
+
+function calculateStrengthVolume(entry = {}) {
+  const metrics = entry?.metrics || {};
+  const sets = Number(metrics.sets);
+  const repetitions = Number(metrics.repetitions);
+  const weight = Number(metrics.weight);
+  if (!Number.isFinite(sets) || !Number.isFinite(repetitions) || !Number.isFinite(weight) || sets <= 0 || repetitions <= 0 || weight < 0) return { value: null, unit: "", label: "volume" };
+  return { value: sets * repetitions * weight, unit: "volume", label: "volume" };
+}
+
+function estimateOneRepMax(entry = {}) {
+  const metrics = entry?.metrics || {};
+  if (entry?.domain !== "strength") return null;
+  const weight = Number(metrics.weight);
+  const repetitions = Number(metrics.repetitions);
+  if (!Number.isFinite(weight) || !Number.isFinite(repetitions) || repetitions <= 0 || weight < 0) return null;
+  return { value: weight * (1 + repetitions / 30), label: "estimated" };
+}
+
+function calculateRunningPace(entry = {}) {
+  const metrics = entry?.metrics || {};
+  if (entry?.domain !== "running") return null;
+  const distance = Number(metrics.distance);
+  const durationSeconds = Number(metrics.duration_seconds);
+  if (!Number.isFinite(distance) || !Number.isFinite(durationSeconds) || distance <= 0 || durationSeconds <= 0) return null;
+  return { paceSecondsPerUnit: durationSeconds / distance, durationSeconds, distance, distanceUnit: metrics.distance_unit || metrics.distanceUnit || "mi" };
+}
+
+function getPerformanceDomainCatalog() {
+  return PERFORMANCE_DOMAINS.map((code) => ({ code, label: PERFORMANCE_DOMAIN_LABELS[code] }));
+}
+
+function getPerformanceActivityCatalog(domain = "strength") {
+  const normalized = normalizePerformanceDomain(domain) || "strength";
+  return (PERFORMANCE_ACTIVITY_CATALOG[normalized] || []).map((activity) => ({ ...activity }));
+}
+
+function buildPerformancePersistencePayload(entry = {}, userId = null) {
+  const normalized = normalizePerformanceEntry(entry);
+  const resolvedUserId = userId || normalized.userId || null;
+  return {
+    id: normalized.id || null,
+    user_id: resolvedUserId,
+    performance_date: normalized.performanceDate,
+    performance_time: normalized.performanceTime,
+    domain: normalized.domain,
+    entry_type: normalized.entryType,
+    activity_code: normalized.activityCode,
+    activity_name: normalized.activityName,
+    session_name: normalized.sessionName || null,
+    source: normalized.source,
+    evidence_status: normalized.evidenceStatus,
+    metrics: normalized.metrics || {},
+    notes: normalized.notes || null,
+    created_at: normalized.createdAt,
+    updated_at: normalized.updatedAt
+  };
+}
+
+function hydratePerformanceEntry(row = {}) {
+  return normalizePerformanceEntry({
+    id: row.id,
+    userId: row.user_id || row.userId,
+    performanceDate: row.performance_date || row.performanceDate,
+    performanceTime: row.performance_time || row.performanceTime,
+    domain: row.domain,
+    entryType: row.entry_type || row.entryType,
+    activityCode: row.activity_code || row.activityCode,
+    activityName: row.activity_name || row.activityName,
+    sessionName: row.session_name || row.sessionName,
+    source: row.source,
+    notes: row.notes,
+    evidenceStatus: row.evidence_status || row.evidenceStatus,
+    metrics: row.metrics,
+    createdAt: row.created_at || row.createdAt,
+    updatedAt: row.updated_at || row.updatedAt
+  });
+}
+
+function summarizeRecentPerformance(entries = []) {
+  const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
+  const referenceDate = parseISODateUTC(todayISODate()) || new Date();
+  const weekStart = new Date(referenceDate);
+  weekStart.setUTCDate(referenceDate.getUTCDate() - ((referenceDate.getUTCDay() + 6) % 7));
+  const weekStartISO = formatISODateUTC(weekStart);
+  const currentWeek = normalizedEntries.filter((entry) => entry.performanceDate >= weekStartISO && entry.performanceDate <= todayISODate());
+  const strengthEntries = currentWeek.filter((entry) => entry.domain === "strength");
+  const runEntries = currentWeek.filter((entry) => entry.domain === "running");
+  const testEntries = currentWeek.filter((entry) => entry.entryType === "BENCHMARK" || entry.entryType === "FORMAL_TEST");
+  return {
+    entriesThisWeek: currentWeek.length,
+    mostRecentStrengthEntry: strengthEntries.sort((a, b) => (a.performanceDate > b.performanceDate ? -1 : 1))[0] || null,
+    mostRecentRun: runEntries.sort((a, b) => (a.performanceDate > b.performanceDate ? -1 : 1))[0] || null,
+    mostRecentBenchmarkOrFormalTest: testEntries.sort((a, b) => (a.performanceDate > b.performanceDate ? -1 : 1))[0] || null,
+    domainsRepresentedThisWeek: Array.from(new Set(currentWeek.map((entry) => entry.domain))).filter(Boolean)
+  };
+}
+
+function filterPerformanceEntries(entries = [], filters = {}) {
+  const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
+  const normalizedFilters = {
+    date: String(filters.date || "").trim(),
+    domain: normalizePerformanceDomain(filters.domain),
+    activity: String(filters.activity || "").trim().toLowerCase(),
+    entryType: normalizePerformanceEntryType(filters.entryType)
+  };
+  return normalizedEntries.filter((entry) => {
+    if (normalizedFilters.date && entry.performanceDate !== normalizedFilters.date) return false;
+    if (normalizedFilters.domain && entry.domain !== normalizedFilters.domain) return false;
+    if (normalizedFilters.activity && !String(entry.activityName || "").toLowerCase().includes(normalizedFilters.activity)) return false;
+    if (normalizedFilters.entryType && entry.entryType !== normalizedFilters.entryType) return false;
+    return true;
+  });
+}
+
+function removePerformanceEntry(entries = [], entryId = null) {
+  if (entryId === null || entryId === undefined || entryId === "") return Array.isArray(entries) ? entries : [];
+  const normalizedId = String(entryId).trim();
+  const list = Array.isArray(entries) ? entries : [];
+  const matchedIndex = list.findIndex((entry) => String(entry?.id ?? "") === normalizedId);
+  if (matchedIndex >= 0) {
+    return list.filter((_, index) => index !== matchedIndex);
+  }
+  return list;
+}
+
+function derivePerformanceEmptyState(options = {}) {
+  return {
+    visible: true,
+    message: options.message || "No performance entries yet.",
+    storageState: options.storageState || "empty"
+  };
+}
+
+function performanceStorageKey() {
+  return `coach-dominion:performance-entries:${session?.user?.id || "local"}`;
+}
+
+function loadLocalPerformanceEntries() {
+  try {
+    const stored = window.localStorage.getItem(performanceStorageKey());
+    return stored ? JSON.parse(stored) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveLocalPerformanceEntries(entries = []) {
+  try {
+    window.localStorage.setItem(performanceStorageKey(), JSON.stringify(entries));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function resetPerformanceForm() {
+  performanceEditId = null;
+  const form = document.getElementById("performance-form");
+  if (!form) return;
+  form.reset();
+  document.getElementById("performance-date").value = todayISODate();
+  document.getElementById("performance-domain").value = "strength";
+  document.getElementById("performance-entry-type").value = "TRAINING_SET";
+  document.getElementById("performance-source").value = "MANUAL";
+  document.getElementById("performance-evidence-status").value = "SELF REPORTED";
+  document.getElementById("performance-activity-code").value = "bench_press";
+  document.getElementById("performance-activity-name").value = "Bench Press";
+  refreshPerformanceFieldVisibility();
+  setText("performance-save-state", "READY");
+  setText("performance-save-hint", "Create a fresh entry.");
+}
+
+function refreshPerformanceFieldVisibility() {
+  const form = document.getElementById("performance-form");
+  if (!form) return;
+  const domain = document.getElementById("performance-domain").value;
+  const entryType = document.getElementById("performance-entry-type").value;
+  const strengthGroup = document.getElementById("performance-strength-fields");
+  const runningGroup = document.getElementById("performance-running-fields");
+  const coreGroup = document.getElementById("performance-core-fields");
+  const fitnessGroup = document.getElementById("performance-fitness-fields");
+  const bodyMetricsGroup = document.getElementById("performance-body-metrics-fields");
+  const showStrength = domain === "strength";
+  const showRunning = domain === "running";
+  const showCore = domain === "core" || domain === "conditioning";
+  const showFitness = domain === "fitness_test" || entryType === "FORMAL_TEST";
+  const showBodyMetrics = domain === "body_metrics";
+  if (strengthGroup) strengthGroup.hidden = !showStrength;
+  if (runningGroup) runningGroup.hidden = !showRunning;
+  if (coreGroup) coreGroup.hidden = !showCore;
+  if (fitnessGroup) fitnessGroup.hidden = !showFitness;
+  if (bodyMetricsGroup) bodyMetricsGroup.hidden = !showBodyMetrics;
+}
+
+function populatePerformanceActivityOptions(domain = "strength") {
+  const activityCode = document.getElementById("performance-activity-code");
+  const activityName = document.getElementById("performance-activity-name");
+  if (!activityCode) return;
+  const activities = getPerformanceActivityCatalog(domain);
+  const currentValue = activityCode.value || activities[0]?.code || "custom";
+  activityCode.innerHTML = activities.map((activity) => `<option value="${activity.code}">${activity.label}</option>`).join("");
+  activityCode.insertAdjacentHTML("beforeend", '<option value="custom">Custom</option>');
+  activityCode.value = currentValue;
+  if (activityName && !activityName.value) activityName.value = activities.find((activity) => activity.code === currentValue)?.label || "";
+}
+
+function readPerformanceFormValues() {
+  const form = document.getElementById("performance-form");
+  if (!form) return null;
+  const formData = new FormData(form);
+  const values = Object.fromEntries(formData.entries());
+  const metrics = {};
+  const domain = values.domain || "strength";
+  const entryType = values.entry_type || "TRAINING_SET";
+  if (domain === "strength") {
+    metrics.sets = values.sets ? Number(values.sets) : null;
+    metrics.repetitions = values.repetitions ? Number(values.repetitions) : null;
+    metrics.weight = values.weight ? Number(values.weight) : null;
+    metrics.weight_unit = values.weight_unit || "lb";
+    metrics.duration_seconds = values.duration_seconds ? Number(values.duration_seconds) : null;
+    metrics.assistance = values.assistance || null;
+    metrics.bodyweight_added = values.bodyweight_added ? Number(values.bodyweight_added) : null;
+  }
+  if (domain === "running") {
+    metrics.distance = values.distance ? Number(values.distance) : null;
+    metrics.distance_unit = values.distance_unit || "mi";
+    metrics.duration_seconds = values.duration_seconds ? Number(values.duration_seconds) : null;
+    metrics.pace_seconds_per_unit = values.pace_seconds_per_unit ? Number(values.pace_seconds_per_unit) : null;
+    metrics.elevation_gain = values.elevation_gain ? Number(values.elevation_gain) : null;
+    metrics.route_type = values.route_type || null;
+    metrics.run_type = values.run_type || null;
+    metrics.race_name = values.race_name || null;
+  }
+  if (domain === "core" || domain === "conditioning") {
+    metrics.repetitions = values.repetitions ? Number(values.repetitions) : null;
+    metrics.duration_seconds = values.duration_seconds ? Number(values.duration_seconds) : null;
+    metrics.distance = values.distance ? Number(values.distance) : null;
+    metrics.calories = values.calories ? Number(values.calories) : null;
+    metrics.rounds = values.rounds ? Number(values.rounds) : null;
+    metrics.work_interval_seconds = values.work_interval_seconds ? Number(values.work_interval_seconds) : null;
+    metrics.rest_interval_seconds = values.rest_interval_seconds ? Number(values.rest_interval_seconds) : null;
+  }
+  if (domain === "fitness_test" || entryType === "FORMAL_TEST") {
+    metrics.test_protocol_name = values.test_protocol_name || null;
+    metrics.test_protocol_code = values.test_protocol_code || null;
+    metrics.event_results = values.event_results ? values.event_results.split("\n").filter(Boolean).map((line) => {
+      const [name, score] = line.split(",");
+      return { name: name?.trim() || "Event", score: score ? Number(score.trim()) : null };
+    }) : [];
+    metrics.overall_score = values.overall_score ? Number(values.overall_score) : null;
+  }
+  if (domain === "body_metrics") {
+    metrics.measurement_value = values.measurement_value ? Number(values.measurement_value) : null;
+    metrics.measurement_unit = values.measurement_unit || "kg";
+    metrics.measurement_location = values.measurement_location || null;
+  }
+  return {
+    id: performanceEditId,
+    userId: session?.user?.id || null,
+    performanceDate: values.performance_date || todayISODate(),
+    performanceTime: values.performance_time || null,
+    domain,
+    entryType,
+    activityCode: values.activity_code || "custom",
+    activityName: values.activity_name || values.activity_code || "",
+    sessionName: values.session_name || "",
+    source: values.source || "MANUAL",
+    notes: values.notes || "",
+    evidenceStatus: values.evidence_status || "SELF REPORTED",
+    metrics
+  };
+}
+
+function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
+  const summary = summarizeRecentPerformance(entries);
+  setText("performance-week-count", summary.entriesThisWeek);
+  setText("performance-strength-last", summary.mostRecentStrengthEntry ? `${summary.mostRecentStrengthEntry.performanceDate} — ${summary.mostRecentStrengthEntry.activityName}` : "—");
+  setText("performance-run-last", summary.mostRecentRun ? `${summary.mostRecentRun.performanceDate} — ${summary.mostRecentRun.activityName}` : "—");
+  setText("performance-test-last", summary.mostRecentBenchmarkOrFormalTest ? `${summary.mostRecentBenchmarkOrFormalTest.performanceDate} — ${summary.mostRecentBenchmarkOrFormalTest.activityName}` : "—");
+  setText("performance-domains-week", summary.domainsRepresentedThisWeek.length ? summary.domainsRepresentedThisWeek.map((key) => PERFORMANCE_DOMAIN_LABELS[key] || key).join(" / ") : "None yet");
+  const storageLabel = storageMode === "SUPABASE" ? "REMOTE ACTIVE" : storageMode === "LOCAL" ? "LOCAL FALLBACK" : "LOADING";
+  setText("performance-storage", storageLabel);
+  const storageStateText = saveState === "saved" ? "Saved to remote store." : saveState === "locally saved" ? "Saved locally while remote sync is unavailable." : saveState === "failed" ? "Save failed." : saveState === "loading" ? "Loading entries…" : "No save yet.";
+  setText("performance-save-state", saveState === "saving" ? "SAVING" : saveState === "saved" ? "SAVED" : saveState === "locally saved" ? "LOCAL" : saveState === "failed" ? "FAILED" : "READY");
+  setText("performance-save-hint", storageStateText);
+  const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
+  const entryList = document.getElementById("performance-entry-list");
+  if (!entryList) return;
+  if (!filteredEntries.length) {
+    entryList.innerHTML = `<div class="performance-empty">${derivePerformanceEmptyState({ storageState: storageMode === "LOCAL" ? "local fallback" : "ready" }).message}</div>`;
+    return;
+  }
+  entryList.innerHTML = filteredEntries.map((entry) => {
+    const metricsSummary = [];
+    if (entry.domain === "strength") {
+      const volume = calculateStrengthVolume(entry);
+      const oneRepMax = estimateOneRepMax(entry);
+      metricsSummary.push(volume?.value !== null ? `volume ${volume.value}` : "volume pending");
+      if (oneRepMax) metricsSummary.push(`e1rm ${oneRepMax.value.toFixed(1)}`);
+    }
+    if (entry.domain === "running") {
+      const pace = calculateRunningPace(entry);
+      metricsSummary.push(pace ? `pace ${pace.paceSecondsPerUnit.toFixed(1)} sec/unit` : "pace pending");
+    }
+    if (entry.domain === "fitness_test") {
+      metricsSummary.push(entry.metrics?.overall_score ? `score ${entry.metrics.overall_score}` : "protocol logged");
+    }
+    if (entry.domain === "body_metrics") {
+      metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
+    }
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
+  }).join("");
+}
+
+async function loadPerformanceEntries() {
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("performance_entries").select("*").eq("user_id", session.user.id).order("performance_date", { ascending: false });
+    if (error) throw error;
+    performanceEntries = (data || []).map((row) => hydratePerformanceEntry(row));
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  } catch (_) {
+    performanceEntries = loadLocalPerformanceEntries().map((entry) => hydratePerformanceEntry(entry));
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  }
+}
+
+async function savePerformanceEntry(event) {
+  if (event) event.preventDefault();
+  const validation = validatePerformanceEntry(readPerformanceFormValues());
+  if (!validation.valid) {
+    const firstError = validation.errors[0];
+    setText("performance-save-hint", firstError ? `${firstError.field}: ${firstError.message}` : "Validation failed.");
+    return;
+  }
+  const payload = buildPerformancePersistencePayload(validation.entry, session?.user?.id || null);
+  performanceSaveState = "saving";
+  renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("performance_entries").upsert(payload, { onConflict: "id" }).select("*").single();
+    if (error) throw error;
+    const savedEntry = hydratePerformanceEntry(data || payload);
+    if (performanceEditId) {
+      performanceEntries = removePerformanceEntry(performanceEntries, performanceEditId);
+    }
+    performanceEntries = [savedEntry, ...performanceEntries];
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+    saveLocalPerformanceEntries(performanceEntries);
+    resetPerformanceForm();
+  } catch (_) {
+    const localEntries = [...performanceEntries];
+    const localEntry = hydratePerformanceEntry(payload);
+    if (performanceEditId) {
+      const index = localEntries.findIndex((entry) => entry.id === performanceEditId);
+      if (index >= 0) localEntries[index] = localEntry; else localEntries.unshift(localEntry);
+    } else {
+      localEntries.unshift(localEntry);
+    }
+    performanceEntries = localEntries;
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+    saveLocalPerformanceEntries(performanceEntries);
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+    resetPerformanceForm();
+  }
+}
+
+function populatePerformanceForm(entry = null) {
+  const normalized = normalizePerformanceEntry(entry || {});
+  if (!normalized) return;
+  performanceEditId = normalized.id || null;
+  const form = document.getElementById("performance-form");
+  if (!form) return;
+  const domainSelect = document.getElementById("performance-domain");
+  const entryTypeSelect = document.getElementById("performance-entry-type");
+  const activityCodeSelect = document.getElementById("performance-activity-code");
+  const activityNameInput = document.getElementById("performance-activity-name");
+  const sourceSelect = document.getElementById("performance-source");
+  const evidenceStatusSelect = document.getElementById("performance-evidence-status");
+  if (domainSelect) domainSelect.value = normalized.domain || "strength";
+  if (entryTypeSelect) entryTypeSelect.value = normalized.entryType || "TRAINING_SET";
+  if (activityCodeSelect) { activityCodeSelect.value = normalized.activityCode || "custom"; }
+  if (activityNameInput) activityNameInput.value = normalized.activityName || "";
+  if (sourceSelect) sourceSelect.value = normalized.source || "MANUAL";
+  if (evidenceStatusSelect) evidenceStatusSelect.value = normalized.evidenceStatus || "SELF REPORTED";
+  document.getElementById("performance-date").value = normalized.performanceDate || todayISODate();
+  document.getElementById("performance-time").value = normalized.performanceTime || "";
+  document.getElementById("performance-session-name").value = normalized.sessionName || "";
+  document.getElementById("performance-notes").value = normalized.notes || "";
+  const metrics = normalized.metrics || {};
+  document.getElementById("performance-strength-sets").value = metrics.sets ?? "";
+  document.getElementById("performance-strength-repetitions").value = metrics.repetitions ?? "";
+  document.getElementById("performance-strength-weight").value = metrics.weight ?? "";
+  document.getElementById("performance-strength-weight-unit").value = metrics.weight_unit || "lb";
+  document.getElementById("performance-strength-duration-seconds").value = metrics.duration_seconds ?? "";
+  document.getElementById("performance-strength-assistance").value = metrics.assistance ?? "";
+  document.getElementById("performance-strength-bodyweight-added").value = metrics.bodyweight_added ?? "";
+  document.getElementById("performance-running-distance").value = metrics.distance ?? "";
+  document.getElementById("performance-running-distance-unit").value = metrics.distance_unit || "mi";
+  document.getElementById("performance-running-duration-seconds").value = metrics.duration_seconds ?? "";
+  document.getElementById("performance-running-pace-seconds").value = metrics.pace_seconds_per_unit ?? "";
+  document.getElementById("performance-running-elevation-gain").value = metrics.elevation_gain ?? "";
+  document.getElementById("performance-running-route-type").value = metrics.route_type ?? "";
+  document.getElementById("performance-running-run-type").value = metrics.run_type ?? "";
+  document.getElementById("performance-running-race-name").value = metrics.race_name ?? "";
+  document.getElementById("performance-core-repetitions").value = metrics.repetitions ?? "";
+  document.getElementById("performance-core-duration-seconds").value = metrics.duration_seconds ?? "";
+  document.getElementById("performance-core-distance").value = metrics.distance ?? "";
+  document.getElementById("performance-core-calories").value = metrics.calories ?? "";
+  document.getElementById("performance-core-rounds").value = metrics.rounds ?? "";
+  document.getElementById("performance-core-work-interval-seconds").value = metrics.work_interval_seconds ?? "";
+  document.getElementById("performance-core-rest-interval-seconds").value = metrics.rest_interval_seconds ?? "";
+  document.getElementById("performance-fitness-protocol-name").value = metrics.test_protocol_name || "";
+  document.getElementById("performance-fitness-protocol-code").value = metrics.test_protocol_code || "";
+  document.getElementById("performance-fitness-event-results").value = Array.isArray(metrics.event_results) ? metrics.event_results.map((item) => `${item.name || "Event"},${item.score ?? ""}`).join("\n") : "";
+  document.getElementById("performance-fitness-overall-score").value = metrics.overall_score ?? "";
+  document.getElementById("performance-body-measurement-value").value = metrics.measurement_value ?? "";
+  document.getElementById("performance-body-measurement-unit").value = metrics.measurement_unit || "kg";
+  document.getElementById("performance-body-measurement-location").value = metrics.measurement_location || "";
+  refreshPerformanceFieldVisibility();
+  populatePerformanceActivityOptions(normalized.domain || "strength");
+}
+
+async function deletePerformanceEntry(entryId) {
+  if (!entryId) return;
+  const confirmed = window.confirm("Delete this performance entry? This does not affect finalized inspections or promotions.");
+  if (!confirmed) return;
+  const nextEntries = removePerformanceEntry(performanceEntries, entryId);
+  performanceEntries = nextEntries;
+  saveLocalPerformanceEntries(performanceEntries);
+  performanceSaveState = "locally saved";
+  renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  try {
+    const supabase = await getClient();
+    await supabase.from("performance_entries").delete().eq("id", entryId);
+    performanceSaveState = "saved";
+    renderPerformanceSection(performanceEntries, "SUPABASE", performanceSaveState);
+  } catch (_) {
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  }
+}
+
 function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspectionAggregate = {}, trajectoryState = "INSUFFICIENT HISTORY") {
   const overview = deriveCommandCenterOverview(readinessResultOrState, weeklyInspectionAggregate, trajectoryState);
   setText("overview-readiness", overview.readinessLabel || "—");
@@ -1842,7 +2590,9 @@ async function init() {
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
+    await loadPerformanceEntries();
     renderRankSection();
+    resetPerformanceForm();
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -1862,6 +2612,26 @@ if (typeof document !== "undefined") {
   document.getElementById("inspect-week").addEventListener("click", loadWeeklyInspection);
   document.getElementById("weekly-date").addEventListener("change", loadWeeklyInspection);
   document.getElementById("finalize-week").addEventListener("click", finalizeWeeklyInspection);
+  document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);
+  document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);
+  document.getElementById("performance-domain").addEventListener("change", () => { populatePerformanceActivityOptions(document.getElementById("performance-domain").value); refreshPerformanceFieldVisibility(); });
+  document.getElementById("performance-entry-type").addEventListener("change", refreshPerformanceFieldVisibility);
+  document.getElementById("performance-filter-date").addEventListener("change", (event) => { performanceFilters.date = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-filter-domain").addEventListener("change", (event) => { performanceFilters.domain = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-filter-activity").addEventListener("input", (event) => { performanceFilters.activity = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-filter-entry-type").addEventListener("change", (event) => { performanceFilters.entryType = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-entry-list").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+    const entryId = button.dataset.id;
+    if (button.dataset.action === "edit") {
+      const entry = performanceEntries.find((item) => String(item.id) === String(entryId));
+      if (entry) populatePerformanceForm(entry);
+    }
+    if (button.dataset.action === "delete") {
+      deletePerformanceEntry(entryId);
+    }
+  });
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
@@ -1952,7 +2722,103 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { evaluateReadiness, calculateConfidence, calculateReadiness, generateMission, generateMorningBrief, formatAtlasBriefVoice, normalizeComplianceStatus, scoreComplianceDomain, calculateDisciplineScore, formatDisciplineScore, buildComplianceExplanation, deriveDailyComplianceState, getInspectionWeekRange, calculateWeeklyDisciplineScore, calculateEvidenceCoverage, deriveInspectionStatus, identifyStrongestAndWeakestDomains, selectNextWeekPriority, aggregateWeeklyCompliance, generateWeeklyAfterActionReport, finalizeWeeklyInspectionSnapshot, sortInspectionHistory, selectTrendWindow, calculateLinearTrend, deriveTrajectoryState, calculateDomainTrends, calculateComplianceStreaks, summarizeInspectionHistory, identifyBestAndLowestWeeks, buildChartSeries, generateAtlasTrendReport, deriveCommandCenterOverview, normalizeSectionKey, shouldWarnBeforeNavigation, deriveDirtyState, deriveFinalizeConfirmationState, isFinalizedReadOnlyInspection, deriveOnboardingVisibility, getStatusMessage, deriveSaveState, deriveInputImmutabilityState, getStandardsCatalog, normalizeRankCode, getRankCatalog, getCurrentRankDefinition, getNextRankDefinition, validateRankTransition, calculatePromotionMetrics, calculateConsecutiveQualifyingWeeks, evaluatePromotionEligibility, derivePromotionState, buildPromotionEvidence, generateAtlasPromotionReview, finalizePromotionSnapshot, buildRankStatusEvent, deriveCorrectivePeriodState, summarizePromotionHistory, deriveRankStatusFromRecord, formatPromotionMetric, dedupeViolationCandidates, deriveViolationCandidates, detectProtectedException, classifyViolationCandidate, calculateViolationSeverity, validateViolationTransition, selectCorrectiveAction, generateAtlasStandardsReview, buildViolationAuditEvent, summarizeWeeklyViolationHistory, deriveStandardsState, buildStandardsReviewState, deriveStandardsReviewStateFromRecord, sanitizeStandardsReviewState, buildStandardsPersistencePayload, WEEKLY_EVIDENCE_THRESHOLD, TREND_WINDOW_SIZE, TREND_SLOPE_THRESHOLD, TREND_EVIDENCE_THRESHOLD, dailyIntelligence, buildCommandEvents, __setSessionForTests: (value) => { session = value; } };
+  module.exports = {
+    evaluateReadiness,
+    calculateConfidence,
+    calculateReadiness,
+    generateMission,
+    generateMorningBrief,
+    formatAtlasBriefVoice,
+    normalizeComplianceStatus,
+    scoreComplianceDomain,
+    calculateDisciplineScore,
+    formatDisciplineScore,
+    buildComplianceExplanation,
+    deriveDailyComplianceState,
+    getInspectionWeekRange,
+    calculateWeeklyDisciplineScore,
+    calculateEvidenceCoverage,
+    deriveInspectionStatus,
+    identifyStrongestAndWeakestDomains,
+    selectNextWeekPriority,
+    aggregateWeeklyCompliance,
+    generateWeeklyAfterActionReport,
+    finalizeWeeklyInspectionSnapshot,
+    sortInspectionHistory,
+    selectTrendWindow,
+    calculateLinearTrend,
+    deriveTrajectoryState,
+    calculateDomainTrends,
+    calculateComplianceStreaks,
+    summarizeInspectionHistory,
+    identifyBestAndLowestWeeks,
+    buildChartSeries,
+    generateAtlasTrendReport,
+    deriveCommandCenterOverview,
+    normalizeSectionKey,
+    shouldWarnBeforeNavigation,
+    deriveDirtyState,
+    deriveFinalizeConfirmationState,
+    isFinalizedReadOnlyInspection,
+    deriveOnboardingVisibility,
+    getStatusMessage,
+    deriveSaveState,
+    deriveInputImmutabilityState,
+    getStandardsCatalog,
+    normalizeRankCode,
+    getRankCatalog,
+    getCurrentRankDefinition,
+    getNextRankDefinition,
+    validateRankTransition,
+    calculatePromotionMetrics,
+    calculateConsecutiveQualifyingWeeks,
+    evaluatePromotionEligibility,
+    derivePromotionState,
+    buildPromotionEvidence,
+    generateAtlasPromotionReview,
+    finalizePromotionSnapshot,
+    buildRankStatusEvent,
+    deriveCorrectivePeriodState,
+    summarizePromotionHistory,
+    deriveRankStatusFromRecord,
+    formatPromotionMetric,
+    dedupeViolationCandidates,
+    deriveViolationCandidates,
+    detectProtectedException,
+    classifyViolationCandidate,
+    calculateViolationSeverity,
+    validateViolationTransition,
+    selectCorrectiveAction,
+    generateAtlasStandardsReview,
+    buildViolationAuditEvent,
+    summarizeWeeklyViolationHistory,
+    deriveStandardsState,
+    buildStandardsReviewState,
+    deriveStandardsReviewStateFromRecord,
+    sanitizeStandardsReviewState,
+    buildStandardsPersistencePayload,
+    getPerformanceDomainCatalog,
+    getPerformanceActivityCatalog,
+    normalizePerformanceEntry,
+    validatePerformanceEntry,
+    calculateStrengthVolume,
+    estimateOneRepMax,
+    calculateRunningPace,
+    normalizePerformanceUnits,
+    buildPerformancePersistencePayload,
+    hydratePerformanceEntry,
+    summarizeRecentPerformance,
+    filterPerformanceEntries,
+    removePerformanceEntry,
+    derivePerformanceEmptyState,
+    WEEKLY_EVIDENCE_THRESHOLD,
+    TREND_WINDOW_SIZE,
+    TREND_SLOPE_THRESHOLD,
+    TREND_EVIDENCE_THRESHOLD,
+    dailyIntelligence,
+    buildCommandEvents,
+    __setSessionForTests: (value) => { session = value; }
+  };
 }
 
 function standardsStorageKey() {

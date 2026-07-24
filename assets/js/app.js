@@ -1600,7 +1600,7 @@ function normalizePerformanceEntryType(value) {
 
 function normalizePerformanceEvidenceStatus(value) {
   if (typeof value !== "string") return null;
-  const normalized = value.trim().toUpperCase();
+  const normalized = value.trim().toUpperCase().replaceAll(" ", "_");
   const lookup = {
     SELF_REPORTED: "SELF REPORTED",
     VERIFIED: "VERIFIED",
@@ -1635,6 +1635,49 @@ function stableSerializePerformanceValue(value) {
   return String(value);
 }
 
+function parsePerformanceNumber(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePerformanceMetricValue(domain, key, value) {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  const normalizedDomain = normalizePerformanceDomain(domain);
+  if (normalizedDomain === "strength") {
+    const allowedKeys = new Set(["sets", "repetitions", "weight", "weight_unit", "duration_seconds", "assistance", "bodyweight_added"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "running") {
+    const allowedKeys = new Set(["distance", "distance_unit", "duration_seconds", "pace_seconds_per_unit", "elevation_gain", "route_type", "run_type", "race_name"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "core" || normalizedDomain === "conditioning") {
+    const allowedKeys = new Set(["repetitions", "duration_seconds", "distance", "calories", "rounds", "work_interval_seconds", "rest_interval_seconds"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "fitness_test") {
+    const allowedKeys = new Set(["test_protocol_name", "test_protocol_code", "event_results", "overall_score"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "body_metrics") {
+    const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score") {
+    return parsePerformanceNumber(value);
+  }
+  return value;
+}
+
 function buildPerformanceSignature(source = {}) {
   const rawMetrics = source.metrics && typeof source.metrics === "object" ? source.metrics : {};
   const metrics = {};
@@ -1667,18 +1710,23 @@ function buildPerformanceSignature(source = {}) {
     work_interval_seconds: ["workIntervalSeconds", "work_interval_seconds"],
     rest_interval_seconds: ["restIntervalSeconds", "rest_interval_seconds"]
   };
+  const domain = normalizePerformanceDomain(source.domain);
   Object.entries(metricAliases).forEach(([targetKey, aliases]) => {
     const match = aliases.find((alias) => rawMetrics[alias] !== undefined);
-    if (match) metrics[targetKey] = rawMetrics[match];
+    if (match) {
+      const normalizedValue = normalizePerformanceMetricValue(domain, targetKey, rawMetrics[match]);
+      if (normalizedValue !== undefined) metrics[targetKey] = normalizedValue;
+    }
   });
   Object.entries(rawMetrics).forEach(([key, value]) => {
     if (value === undefined) return;
-    if (Object.keys(metricAliases).includes(toSnakeCase(key))) return;
-    metrics[toSnakeCase(key)] = value;
+    const normalizedKey = toSnakeCase(key);
+    if (Object.keys(metricAliases).includes(normalizedKey)) return;
+    const normalizedValue = normalizePerformanceMetricValue(domain, normalizedKey, value);
+    if (normalizedValue !== undefined) metrics[normalizedKey] = normalizedValue;
   });
   const activityCode = source.activityCode || source.activity_code || null;
   const activityName = sanitizePerformanceText(source.activityName || source.activity_name || (activityCode ? activityCode.replace(/_/g, " ") : ""), 80);
-  const domain = normalizePerformanceDomain(source.domain);
   const entryType = normalizePerformanceEntryType(source.entryType || source.entry_type);
   const evidenceStatus = normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status);
   const sourceValue = typeof source.source === "string" && source.source.trim() ? source.source.trim().toUpperCase() : "MANUAL";
@@ -1988,64 +2036,78 @@ function readPerformanceFormValues() {
   if (!form) return null;
   const formData = new FormData(form);
   const values = Object.fromEntries(formData.entries());
-  const metrics = {};
+  const visibleMetricValues = {};
   const domain = values.domain || "strength";
   const entryType = values.entry_type || "TRAINING_SET";
+  const activeGroups = [];
+  if (domain === "strength") activeGroups.push(document.getElementById("performance-strength-fields"));
+  if (domain === "running") activeGroups.push(document.getElementById("performance-running-fields"));
+  if (domain === "core" || domain === "conditioning") activeGroups.push(document.getElementById("performance-core-fields"));
+  if (domain === "fitness_test" || entryType === "FORMAL_TEST") activeGroups.push(document.getElementById("performance-fitness-fields"));
+  if (domain === "body_metrics") activeGroups.push(document.getElementById("performance-body-metrics-fields"));
+  activeGroups.filter(Boolean).forEach((group) => {
+    group.querySelectorAll("[name]").forEach((field) => {
+      if (!field.name) return;
+      visibleMetricValues[field.name] = field.value;
+    });
+  });
+  const resolvedValues = { ...values, ...visibleMetricValues };
+  const metrics = {};
   if (domain === "strength") {
-    metrics.sets = values.sets ? Number(values.sets) : null;
-    metrics.repetitions = values.repetitions ? Number(values.repetitions) : null;
-    metrics.weight = values.weight ? Number(values.weight) : null;
-    metrics.weight_unit = values.weight_unit || "lb";
-    metrics.duration_seconds = values.duration_seconds ? Number(values.duration_seconds) : null;
-    metrics.assistance = values.assistance || null;
-    metrics.bodyweight_added = values.bodyweight_added ? Number(values.bodyweight_added) : null;
+    metrics.sets = resolvedValues.sets ? Number(resolvedValues.sets) : null;
+    metrics.repetitions = resolvedValues.repetitions ? Number(resolvedValues.repetitions) : null;
+    metrics.weight = resolvedValues.weight ? Number(resolvedValues.weight) : null;
+    metrics.weight_unit = resolvedValues.weight_unit || "lb";
+    metrics.duration_seconds = resolvedValues.duration_seconds ? Number(resolvedValues.duration_seconds) : null;
+    metrics.assistance = resolvedValues.assistance || null;
+    metrics.bodyweight_added = resolvedValues.bodyweight_added ? Number(resolvedValues.bodyweight_added) : null;
   }
   if (domain === "running") {
-    metrics.distance = values.distance ? Number(values.distance) : null;
-    metrics.distance_unit = values.distance_unit || "mi";
-    metrics.duration_seconds = values.duration_seconds ? Number(values.duration_seconds) : null;
-    metrics.pace_seconds_per_unit = values.pace_seconds_per_unit ? Number(values.pace_seconds_per_unit) : null;
-    metrics.elevation_gain = values.elevation_gain ? Number(values.elevation_gain) : null;
-    metrics.route_type = values.route_type || null;
-    metrics.run_type = values.run_type || null;
-    metrics.race_name = values.race_name || null;
+    metrics.distance = resolvedValues.distance ? Number(resolvedValues.distance) : null;
+    metrics.distance_unit = resolvedValues.distance_unit || "mi";
+    metrics.duration_seconds = resolvedValues.duration_seconds ? Number(resolvedValues.duration_seconds) : null;
+    metrics.pace_seconds_per_unit = resolvedValues.pace_seconds_per_unit ? Number(resolvedValues.pace_seconds_per_unit) : null;
+    metrics.elevation_gain = resolvedValues.elevation_gain ? Number(resolvedValues.elevation_gain) : null;
+    metrics.route_type = resolvedValues.route_type || null;
+    metrics.run_type = resolvedValues.run_type || null;
+    metrics.race_name = resolvedValues.race_name || null;
   }
   if (domain === "core" || domain === "conditioning") {
-    metrics.repetitions = values.repetitions ? Number(values.repetitions) : null;
-    metrics.duration_seconds = values.duration_seconds ? Number(values.duration_seconds) : null;
-    metrics.distance = values.distance ? Number(values.distance) : null;
-    metrics.calories = values.calories ? Number(values.calories) : null;
-    metrics.rounds = values.rounds ? Number(values.rounds) : null;
-    metrics.work_interval_seconds = values.work_interval_seconds ? Number(values.work_interval_seconds) : null;
-    metrics.rest_interval_seconds = values.rest_interval_seconds ? Number(values.rest_interval_seconds) : null;
+    metrics.repetitions = resolvedValues.repetitions ? Number(resolvedValues.repetitions) : null;
+    metrics.duration_seconds = resolvedValues.duration_seconds ? Number(resolvedValues.duration_seconds) : null;
+    metrics.distance = resolvedValues.distance ? Number(resolvedValues.distance) : null;
+    metrics.calories = resolvedValues.calories ? Number(resolvedValues.calories) : null;
+    metrics.rounds = resolvedValues.rounds ? Number(resolvedValues.rounds) : null;
+    metrics.work_interval_seconds = resolvedValues.work_interval_seconds ? Number(resolvedValues.work_interval_seconds) : null;
+    metrics.rest_interval_seconds = resolvedValues.rest_interval_seconds ? Number(resolvedValues.rest_interval_seconds) : null;
   }
   if (domain === "fitness_test" || entryType === "FORMAL_TEST") {
-    metrics.test_protocol_name = values.test_protocol_name || null;
-    metrics.test_protocol_code = values.test_protocol_code || null;
-    metrics.event_results = values.event_results ? values.event_results.split("\n").filter(Boolean).map((line) => {
+    metrics.test_protocol_name = resolvedValues.test_protocol_name || null;
+    metrics.test_protocol_code = resolvedValues.test_protocol_code || null;
+    metrics.event_results = resolvedValues.event_results ? resolvedValues.event_results.split("\n").filter(Boolean).map((line) => {
       const [name, score] = line.split(",");
       return { name: name?.trim() || "Event", score: score ? Number(score.trim()) : null };
     }) : [];
-    metrics.overall_score = values.overall_score ? Number(values.overall_score) : null;
+    metrics.overall_score = resolvedValues.overall_score ? Number(resolvedValues.overall_score) : null;
   }
   if (domain === "body_metrics") {
-    metrics.measurement_value = values.measurement_value ? Number(values.measurement_value) : null;
-    metrics.measurement_unit = values.measurement_unit || "kg";
-    metrics.measurement_location = values.measurement_location || null;
+    metrics.measurement_value = resolvedValues.measurement_value ? Number(resolvedValues.measurement_value) : null;
+    metrics.measurement_unit = resolvedValues.measurement_unit || "kg";
+    metrics.measurement_location = resolvedValues.measurement_location || null;
   }
   return {
     id: performanceEditId,
     userId: session?.user?.id || null,
-    performanceDate: values.performance_date || todayISODate(),
-    performanceTime: values.performance_time || null,
+    performanceDate: resolvedValues.performance_date || todayISODate(),
+    performanceTime: resolvedValues.performance_time || null,
     domain,
     entryType,
-    activityCode: values.activity_code || "custom",
-    activityName: values.activity_name || values.activity_code || "",
-    sessionName: values.session_name || "",
-    source: values.source || "MANUAL",
-    notes: values.notes || "",
-    evidenceStatus: values.evidence_status || "SELF REPORTED",
+    activityCode: resolvedValues.activity_code || "custom",
+    activityName: resolvedValues.activity_name || resolvedValues.activity_code || "",
+    sessionName: resolvedValues.session_name || "",
+    source: resolvedValues.source || "MANUAL",
+    notes: resolvedValues.notes || "",
+    evidenceStatus: resolvedValues.evidence_status || "SELF REPORTED",
     metrics
   };
 }

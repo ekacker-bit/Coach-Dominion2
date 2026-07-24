@@ -233,6 +233,93 @@ const anonymousDeleteSet = [anonymousA, anonymousB];
 const anonymousNoop = removePerformanceEntry(anonymousDeleteSet, 'missing-id');
 assert.strictEqual(anonymousNoop, anonymousDeleteSet, 'anonymous entries are not deleted arbitrarily');
 
+const strengthScoped = validatePerformanceEntry({
+  domain: 'STRENGTH',
+  entryType: 'TRAINING SET',
+  activityName: 'Bench Press',
+  evidenceStatus: 'VERIFIED',
+  metrics: { sets: '3', repetitions: '5', weight: '225', distance: '5', duration_seconds: '1800' }
+});
+assert.equal(strengthScoped.valid, true, 'valid strength entry saves without running errors');
+assert.ok(!strengthScoped.errors.some((error) => error.field === 'metrics.distance'), 'strength validation ignores running distance');
+assert.ok(!strengthScoped.errors.some((error) => error.field === 'metrics.duration_seconds'), 'strength validation ignores running duration');
+
+const runningScoped = validatePerformanceEntry({
+  domain: 'RUNNING',
+  entryType: 'WORKOUT SUMMARY',
+  activityName: 'Tempo Run',
+  evidenceStatus: 'SELF REPORTED',
+  metrics: { distance: '5.5', duration_seconds: '1800', sets: '3', repetitions: '5', weight: '225' }
+});
+assert.equal(runningScoped.valid, true, 'valid running entry saves without strength errors');
+assert.ok(!runningScoped.errors.some((error) => error.field === 'metrics.sets'), 'running validation ignores strength sets');
+assert.ok(!runningScoped.errors.some((error) => error.field === 'metrics.repetitions'), 'running validation ignores strength repetitions');
+
+const strengthScopedPayload = normalizePerformanceEntry({
+  domain: 'STRENGTH',
+  entryType: 'TRAINING SET',
+  activityName: 'Bench Press',
+  evidenceStatus: 'VERIFIED',
+  metrics: { sets: '3', repetitions: '5', weight: '225', distance: '5', duration_seconds: '1800' }
+});
+assert.equal(strengthScopedPayload.metrics.sets, 3, 'relevant strength metrics remain in normalized payloads');
+assert.equal(strengthScopedPayload.metrics.distance, undefined, 'hidden running metrics are omitted from strength payloads');
+
+const blankIrrelevant = normalizePerformanceEntry({
+  domain: 'RUNNING',
+  entryType: 'WORKOUT SUMMARY',
+  activityName: 'Tempo Run',
+  evidenceStatus: 'SELF REPORTED',
+  metrics: { distance: '5', duration_seconds: '1800', sets: '', repetitions: '', weight: '' }
+});
+assert.equal(blankIrrelevant.metrics.distance, 5, 'relevant running metrics remain after blank-irrelevant cleanup');
+assert.equal(blankIrrelevant.metrics.sets, undefined, 'blank irrelevant strength fields are omitted');
+
+const numericString = validatePerformanceEntry({
+  domain: 'RUNNING',
+  entryType: 'WORKOUT SUMMARY',
+  activityName: 'Tempo Run',
+  evidenceStatus: 'SELF REPORTED',
+  metrics: { distance: '5', duration_seconds: '1800' }
+});
+assert.equal(numericString.valid, true, 'numeric strings are parsed as valid positive numbers');
+
+const decimalDistance = validatePerformanceEntry({
+  domain: 'RUNNING',
+  entryType: 'WORKOUT SUMMARY',
+  activityName: 'Tempo Run',
+  evidenceStatus: 'SELF REPORTED',
+  metrics: { distance: '3.1', duration_seconds: '1800' }
+});
+assert.equal(decimalDistance.valid, true, 'decimal distances are accepted');
+
+const zeroDistance = validatePerformanceEntry({
+  domain: 'RUNNING',
+  entryType: 'WORKOUT SUMMARY',
+  activityName: 'Tempo Run',
+  evidenceStatus: 'SELF REPORTED',
+  metrics: { distance: '0', duration_seconds: '1800' }
+});
+assert.ok(zeroDistance.errors.some((error) => error.field === 'metrics.distance'), 'zero running distance remains invalid');
+
+const zeroDuration = validatePerformanceEntry({
+  domain: 'RUNNING',
+  entryType: 'WORKOUT SUMMARY',
+  activityName: 'Tempo Run',
+  evidenceStatus: 'SELF REPORTED',
+  metrics: { distance: '5', duration_seconds: '0' }
+});
+assert.ok(zeroDuration.errors.some((error) => error.field === 'metrics.duration_seconds'), 'zero running duration remains invalid');
+
+const invalidStrengthReps = validatePerformanceEntry({
+  domain: 'STRENGTH',
+  entryType: 'TRAINING SET',
+  activityName: 'Bench Press',
+  evidenceStatus: 'VERIFIED',
+  metrics: { sets: '3', repetitions: '0', weight: '225' }
+});
+assert.ok(invalidStrengthReps.errors.some((error) => error.field === 'metrics.repetitions'), 'invalid strength repetitions remain invalid');
+
 const original = { metrics: { weight: 225 } };
 const clone = normalizePerformanceEntry(original);
 clone.metrics.weight = 999;

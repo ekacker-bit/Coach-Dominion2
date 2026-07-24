@@ -18,6 +18,10 @@ let performanceStorageMode = "LOADING";
 let performanceSaveState = "loading";
 let performanceEditId = null;
 let performanceFilters = { date: "", domain: "", activity: "", entryType: "" };
+let fitnessTestAttempts = [];
+let personalRecords = [];
+let milestoneAchievements = [];
+let atlasPerformanceReviews = [];
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -39,6 +43,63 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
+const FITNESS_TEST_PROTOCOL_CATALOG = [
+  {
+    code: "DOMINION_MONTHLY_FITNESS_TEST",
+    displayName: "Dominion Monthly Fitness Test",
+    description: "Standard monthly test with strength, core, conditioning, and running benchmarks.",
+    version: "1.0",
+    orderedEvents: [
+      { code: "push_ups_2m", name: "Push-ups in 2 minutes", metricType: "repetitions", unit: "repetitions", direction: "higher", required: true },
+      { code: "pull_ups_max", name: "Pull-ups, maximum strict repetitions", metricType: "repetitions", unit: "repetitions", direction: "higher", required: true },
+      { code: "air_squats_2m", name: "Air squats in 2 minutes", metricType: "repetitions", unit: "repetitions", direction: "higher", required: true },
+      { code: "plank_hold", name: "Plank hold", metricType: "duration", unit: "seconds", direction: "higher", required: true },
+      { code: "hanging_leg_raises", name: "Hanging leg raises", metricType: "repetitions", unit: "repetitions", direction: "higher", required: true },
+      { code: "burpees_10m", name: "Burpees in 10 minutes", metricType: "repetitions", unit: "repetitions", direction: "higher", required: true },
+      { code: "two_mile_run", name: "2-mile run", metricType: "distance_duration", unit: "seconds", direction: "lower", required: true },
+      { code: "hundred_m_sprint", name: "100-meter sprint", metricType: "sprint_duration", unit: "seconds", direction: "lower", required: false }
+    ],
+    completionRules: { requiredEvents: ["push_ups_2m", "pull_ups_max", "air_squats_2m", "plank_hold", "hanging_leg_raises", "burpees_10m", "two_mile_run"] },
+    scoringPlaceholder: "Overall score is derived from completed events once scoring rules are finalized.",
+    active: true
+  },
+  {
+    code: "CUSTOM_TEST",
+    displayName: "Custom Test",
+    description: "User-defined protocol using selected supported events.",
+    version: "1.0",
+    orderedEvents: [],
+    completionRules: { requiredEvents: [] },
+    scoringPlaceholder: "Overall score is optional for custom tests.",
+    active: true
+  }
+];
+const FITNESS_TEST_ATTEMPT_STATUS_OPTIONS = ["DRAFT", "IN PROGRESS", "COMPLETE", "INCOMPLETE", "INVALIDATED"];
+const FITNESS_TEST_EVENT_METRIC_TYPES = new Set(["repetitions", "duration", "distance_duration", "sprint_duration", "load_and_repetitions", "rounds", "numeric_score"]);
+const PERSONAL_RECORD_CATEGORY_OPTIONS = ["LOAD_PR", "REP_PR", "VOLUME_PR", "ESTIMATED_1RM_PR", "VERIFIED_1RM_PR", "TIME_PR", "DISTANCE_PR", "DURATION_PR", "TEST_EVENT_PR", "TEST_SCORE_PR", "CONDITIONING_PR"];
+const MILESTONE_CATALOG = [
+  { code: "FIRST_STRENGTH_BENCHMARK", title: "First strength benchmark logged", description: "A first strength benchmark is now recorded.", domain: "strength", evaluationType: "entry", targetValue: 1, targetUnit: "entry", direction: "higher", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Strength baseline established." },
+  { code: "BENCH_PRESS_BODYWEIGHT_1_0", title: "Bench press 1.0× bodyweight", description: "Bench press weight meets at least 1.0× bodyweight.", domain: "strength", evaluationType: "ratio", targetValue: 1, targetUnit: "bodyweight", direction: "higher", requiredActivity: "bench_press", evidenceRequirement: "VERIFIED", repeatable: false, active: true, commandNote: "Strong foundation benchmark reached." },
+  { code: "PULL_UPS_20", title: "20 strict pull-ups", description: "A strength benchmark of 20 strict pull-ups was achieved.", domain: "strength", evaluationType: "repetitions", targetValue: 20, targetUnit: "repetitions", direction: "higher", requiredActivity: "pull_up", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "A meaningful pull-up milestone was achieved." },
+  { code: "PLANK_2MIN", title: "2-minute plank", description: "A 2-minute plank hold was achieved.", domain: "core", evaluationType: "duration", targetValue: 120, targetUnit: "seconds", direction: "higher", requiredActivity: "plank", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core endurance milestone reached." },
+  { code: "PLANK_3MIN", title: "3-minute plank", description: "A 3-minute plank hold was achieved.", domain: "core", evaluationType: "duration", targetValue: 180, targetUnit: "seconds", direction: "higher", requiredActivity: "plank", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core endurance milestone reached." },
+  { code: "PLANK_4MIN", title: "4-minute plank", description: "A 4-minute plank hold was achieved.", domain: "core", evaluationType: "duration", targetValue: 240, targetUnit: "seconds", direction: "higher", requiredActivity: "plank", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core endurance milestone reached." },
+  { code: "HANGING_LEG_RAISES_15", title: "15 hanging leg raises", description: "A milestone of 15 hanging leg raises was achieved.", domain: "core", evaluationType: "repetitions", targetValue: 15, targetUnit: "repetitions", direction: "higher", requiredActivity: "hanging_leg_raise", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core repetition milestone reached." },
+  { code: "HANGING_LEG_RAISES_20", title: "20 hanging leg raises", description: "A milestone of 20 hanging leg raises was achieved.", domain: "core", evaluationType: "repetitions", targetValue: 20, targetUnit: "repetitions", direction: "higher", requiredActivity: "hanging_leg_raise", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core repetition milestone reached." },
+  { code: "BURPEES_75_10M", title: "75 burpees in 10 minutes", description: "A 10-minute burpee benchmark of 75 repetitions was achieved.", domain: "conditioning", evaluationType: "repetitions", targetValue: 75, targetUnit: "repetitions", direction: "higher", requiredActivity: "burpee", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Conditioning benchmark reached." },
+  { code: "BURPEES_90_10M", title: "90 burpees in 10 minutes", description: "A 10-minute burpee benchmark of 90 repetitions was achieved.", domain: "conditioning", evaluationType: "repetitions", targetValue: 90, targetUnit: "repetitions", direction: "higher", requiredActivity: "burpee", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Conditioning benchmark reached." },
+  { code: "BURPEES_100_10M", title: "100 burpees in 10 minutes", description: "A 10-minute burpee benchmark of 100 repetitions was achieved.", domain: "conditioning", evaluationType: "repetitions", targetValue: 100, targetUnit: "repetitions", direction: "higher", requiredActivity: "burpee", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Conditioning benchmark reached." },
+  { code: "FIRST_RACE_LOGGED", title: "First race logged", description: "A first race entry is now recorded.", domain: "running", evaluationType: "entry", targetValue: 1, targetUnit: "entry", direction: "higher", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Race history established." },
+  { code: "SUB_7_MILE", title: "Sub-7:00 mile", description: "A sub-7-minute mile was completed.", domain: "running", evaluationType: "time", targetValue: 420, targetUnit: "seconds", direction: "lower", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "A strong running benchmark was achieved." },
+  { code: "SUB_6_30_MILE", title: "Sub-6:30 mile", description: "A sub-6:30 mile was completed.", domain: "running", evaluationType: "time", targetValue: 390, targetUnit: "seconds", direction: "lower", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "A strong running benchmark was achieved." },
+  { code: "SUB_20_5K", title: "Sub-20:00 5K", description: "A sub-20-minute 5K was completed.", domain: "running", evaluationType: "time", targetValue: 1200, targetUnit: "seconds", direction: "lower", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "A strong running benchmark was achieved." },
+  { code: "SUB_90_MIN_HALF", title: "Sub-90-minute half marathon", description: "A sub-90-minute half marathon was completed.", domain: "running", evaluationType: "time", targetValue: 5400, targetUnit: "seconds", direction: "lower", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "A strong running benchmark was achieved." },
+  { code: "FIRST_COMPLETE_DOMINION_TEST", title: "First complete Dominion Monthly Fitness Test", description: "A complete Dominion Monthly Fitness Test was saved.", domain: "fitness_test", evaluationType: "test", targetValue: 1, targetUnit: "test", direction: "higher", requiredActivity: null, evidenceRequirement: "VERIFIED", repeatable: false, active: true, commandNote: "Formal test history established." },
+  { code: "FIVE_OR_MORE_EVENTS_IMPROVED", title: "Improved five or more events in one complete test", description: "One completed test improved five or more events versus a prior attempt.", domain: "fitness_test", evaluationType: "test", targetValue: 5, targetUnit: "events", direction: "higher", requiredActivity: null, evidenceRequirement: "VERIFIED", repeatable: false, active: true, commandNote: "A strong test-session improvement was observed." },
+  { code: "THREE_CONSECUTIVE_MONTHLY_TESTS", title: "Completed three consecutive monthly tests", description: "Three consecutive completed monthly tests were logged.", domain: "fitness_test", evaluationType: "test", targetValue: 3, targetUnit: "tests", direction: "higher", requiredActivity: null, evidenceRequirement: "VERIFIED", repeatable: false, active: true, commandNote: "Consistent monthly test cadence achieved." },
+  { code: "FIRST_BODY_METRIC_BASELINE", title: "First body-metric baseline completed", description: "A first body-metric baseline was logged.", domain: "body_metrics", evaluationType: "entry", targetValue: 1, targetUnit: "baseline", direction: "higher", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Baseline body metrics recorded." },
+  { code: "TEN_WEEKLY_BODYWEIGHT_ENTRIES", title: "10 consecutive weekly bodyweight entries", description: "Ten consecutive weekly bodyweight entries were logged.", domain: "body_metrics", evaluationType: "entry", targetValue: 10, targetUnit: "entries", direction: "higher", requiredActivity: "bodyweight", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Consistent bodyweight tracking is in place." }
+];
 const PERFORMANCE_ACTIVITY_CATALOG = {
   strength: [
     { code: "bench_press", label: "Bench Press" },
@@ -1572,6 +1633,15 @@ function sanitizePerformanceText(value = "", maxLength = 80) {
   return safeText.length > maxLength ? safeText.slice(0, maxLength) : safeText;
 }
 
+function sanitizeFitnessTestText(value = "", maxLength = 80) {
+  const safeText = String(value ?? "")
+    .trim()
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>"']/g, "")
+    .replace(/\s+/g, " ");
+  return safeText.length > maxLength ? safeText.slice(0, maxLength) : safeText;
+}
+
 function normalizePerformanceDomain(value) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
@@ -1653,7 +1723,7 @@ function normalizePerformanceMetricValue(domain, key, value) {
   if (typeof value === "string" && value.trim() === "") return undefined;
   const normalizedDomain = normalizePerformanceDomain(domain);
   if (normalizedDomain === "strength") {
-    const allowedKeys = new Set(["sets", "repetitions", "weight", "weight_unit", "duration_seconds", "assistance", "bodyweight_added"]);
+    const allowedKeys = new Set(["sets", "repetitions", "weight", "weight_unit", "duration_seconds", "assistance", "bodyweight_added", "estimated_one_rep_max", "verified_one_rep_max"]);
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "running") {
@@ -1665,7 +1735,7 @@ function normalizePerformanceMetricValue(domain, key, value) {
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "fitness_test") {
-    const allowedKeys = new Set(["test_protocol_name", "test_protocol_code", "event_results", "overall_score"]);
+    const allowedKeys = new Set(["test_protocol_name", "test_protocol_code", "event_results", "overall_score", "test_event_value"]);
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "body_metrics") {
@@ -1697,12 +1767,14 @@ function buildPerformanceSignature(source = {}) {
     assistance: ["assistance"],
     bodyweight_added: ["bodyweightAdded", "bodyweight_added"],
     perceived_effort: ["perceivedEffort", "perceived_effort"],
-    estimated_one_rep_max: ["estimatedOneRepMax", "estimated_one_rep_max"],
+    estimated_one_rep_max: ["estimatedOneRepMax", "estimated_one_rep_max", "estimated_1rm"],
+    verified_one_rep_max: ["verifiedOneRepMax", "verified_one_rep_max", "verified_1rm"],
     measurement_value: ["measurementValue", "measurement_value"],
     measurement_unit: ["measurementUnit", "measurement_unit"],
     measurement_location: ["measurementLocation", "measurement_location"],
     test_protocol_code: ["testProtocolCode", "test_protocol_code"],
     test_protocol_name: ["testProtocolName", "test_protocol_name"],
+    test_event_value: ["testEventValue", "test_event_value"],
     event_results: ["eventResults", "event_results"],
     overall_score: ["overallScore", "overall_score"],
     calories: ["calories"],
@@ -1823,6 +1895,676 @@ function validatePerformanceEntry(input = {}) {
     if (!entry.metrics?.test_protocol_name && !entry.activityName) errors.push({ field: "metrics.test_protocol_name", message: "Formal tests need a protocol name." });
   }
   return { valid: errors.length === 0, errors, entry };
+}
+
+function normalizeFitnessTestProtocolCode(value) {
+  if (typeof value !== "string") return "CUSTOM_TEST";
+  const normalized = value.trim().toUpperCase();
+  return normalized === "DOMINION_MONTHLY_FITNESS_TEST" ? "DOMINION_MONTHLY_FITNESS_TEST" : "CUSTOM_TEST";
+}
+
+function normalizeFitnessTestStatus(value) {
+  if (typeof value !== "string") return "DRAFT";
+  const normalized = value.trim().toUpperCase().replaceAll(" ", "_");
+  const lookup = {
+    DRAFT: "DRAFT",
+    IN_PROGRESS: "IN PROGRESS",
+    COMPLETE: "COMPLETE",
+    INCOMPLETE: "INCOMPLETE",
+    INVALIDATED: "INVALIDATED"
+  };
+  return lookup[normalized] || "DRAFT";
+}
+
+function normalizeFitnessTestProtocol(input = {}) {
+  const protocolCode = normalizeFitnessTestProtocolCode(input?.code || input?.protocolCode || input?.protocol_code);
+  const base = FITNESS_TEST_PROTOCOL_CATALOG.find((item) => item.code === protocolCode) || FITNESS_TEST_PROTOCOL_CATALOG[1];
+  return {
+    code: base.code,
+    displayName: sanitizePerformanceText(input?.displayName || input?.display_name || base.displayName, 160),
+    description: sanitizePerformanceText(input?.description || base.description, 260),
+    version: sanitizeFitnessTestText(input?.version || base.version, 40),
+    orderedEvents: Array.isArray(input?.orderedEvents || input?.ordered_events) ? (input?.orderedEvents || input?.ordered_events).map((event) => ({
+      code: sanitizeFitnessTestText(event.code || event.eventCode || event.event_code || "event", 80),
+      name: sanitizePerformanceText(event.name || event.eventName || event.event_name || "Event", 160),
+      metricType: event.metricType || event.metric_type || "numeric_score",
+      unit: sanitizeFitnessTestText(event.unit || "", 40),
+      direction: event.direction || "higher",
+      required: Boolean(event.required)
+    })) : base.orderedEvents.map((event) => ({ ...event })),
+    completionRules: input?.completionRules || input?.completion_rules || base.completionRules,
+    scoringPlaceholder: sanitizePerformanceText(input?.scoringPlaceholder || input?.scoring_placeholder || base.scoringPlaceholder, 260),
+    active: input?.active !== undefined ? Boolean(input.active) : base.active
+  };
+}
+
+function getFitnessTestProtocolCatalog() {
+  return FITNESS_TEST_PROTOCOL_CATALOG.map((protocol) => ({ ...protocol, orderedEvents: protocol.orderedEvents.map((event) => ({ ...event })) }));
+}
+
+function normalizeFitnessTestAttempt(input = {}) {
+  const source = input || {};
+  const protocol = normalizeFitnessTestProtocol({
+    code: source.protocolCode || source.protocol_code || "CUSTOM_TEST",
+    displayName: source.protocolName || source.protocol_name,
+    version: source.protocolVersion || source.protocol_version,
+    orderedEvents: source.orderedEvents || source.ordered_events
+  });
+  const rawEventResults = Array.isArray(source.eventResults || source.event_results) ? (source.eventResults || source.event_results) : [];
+  const eventResults = rawEventResults.map((item, index) => ({
+    eventCode: sanitizeFitnessTestText(item.eventCode || item.event_code || `event_${index + 1}`, 80),
+    eventName: sanitizePerformanceText(item.eventName || item.event_name || "Event", 160),
+    metricType: item.metricType || item.metric_type || "numeric_score",
+    rawValue: item.rawValue ?? item.raw_value ?? null,
+    unit: sanitizeFitnessTestText(item.unit || "", 40),
+    comparisonDirection: item.comparisonDirection || item.comparison_direction || "higher",
+    evidenceStatus: normalizePerformanceEvidenceStatus(item.evidenceStatus || item.evidence_status || source.evidenceStatus || source.evidence_status || "SELF REPORTED"),
+    validity: item.validity !== undefined ? Boolean(item.validity) : true,
+    notes: sanitizePerformanceText(item.notes || "", 250)
+  }));
+  return {
+    id: source.id || null,
+    userId: source.userId || source.user_id || null,
+    protocolCode: protocol.code,
+    protocolName: sanitizePerformanceText(source.protocolName || source.protocol_name || protocol.displayName, 160),
+    protocolVersion: source.protocolVersion || source.protocol_version || protocol.version,
+    testDate: source.testDate || source.test_date || todayISODate(),
+    startedAt: source.startedAt || source.started_at || null,
+    completedAt: source.completedAt || source.completed_at || null,
+    status: normalizeFitnessTestStatus(source.status || "DRAFT"),
+    evidenceStatus: normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status || "SELF REPORTED"),
+    eventResults,
+    overallScore: source.overallScore ?? source.overall_score ?? null,
+    notes: sanitizePerformanceText(source.notes || "", 500),
+    createdAt: source.createdAt || source.created_at || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString()
+  };
+}
+
+function validateFitnessTestAttempt(input = {}) {
+  const attempt = normalizeFitnessTestAttempt(input);
+  const errors = [];
+  if (!attempt.protocolCode) errors.push({ field: "protocol_code", message: "Protocol is required." });
+  if (!attempt.testDate) errors.push({ field: "test_date", message: "Test date is required." });
+  if (!attempt.status || !FITNESS_TEST_ATTEMPT_STATUS_OPTIONS.includes(attempt.status)) errors.push({ field: "status", message: "Choose a valid test status." });
+  if (attempt.status === "COMPLETE") {
+    const protocol = getFitnessTestProtocolCatalog().find((item) => item.code === attempt.protocolCode) || FITNESS_TEST_PROTOCOL_CATALOG[1];
+    const requiredEvents = (protocol.orderedEvents || []).filter((event) => event.required).map((event) => event.code);
+    if (!attempt.eventResults.length) {
+      errors.push({ field: "event_results", message: "A completed test needs at least one event result." });
+    }
+    requiredEvents.forEach((eventCode) => {
+      const matched = attempt.eventResults.find((item) => item.eventCode === eventCode);
+      if (!matched) {
+        errors.push({ field: "event_results", message: `Required event ${eventCode} is missing.` });
+      } else if (matched.rawValue === null || matched.rawValue === undefined || !Number.isFinite(Number(matched.rawValue))) {
+        errors.push({ field: `event_results.${eventCode}`, message: `Event ${eventCode} needs a numeric value.` });
+      }
+    });
+  }
+  if (attempt.eventResults.some((item) => item.rawValue !== null && item.rawValue !== undefined && !Number.isFinite(Number(item.rawValue)))) {
+    errors.push({ field: "event_results", message: "Event values must be numeric." });
+  }
+  if (attempt.notes && attempt.notes.length > 500) errors.push({ field: "notes", message: "Notes must be 500 characters or fewer." });
+  return { valid: errors.length === 0, errors, attempt };
+}
+
+function getComparableRecordFieldValue(record = {}, camelKey = "", snakeKey = "", fallback = null) {
+  if (!record || typeof record !== "object") return fallback;
+  if (record[camelKey] !== undefined) return record[camelKey];
+  if (record[snakeKey] !== undefined) return record[snakeKey];
+  return fallback;
+}
+
+function normalizeComparableRecord(record = {}, fallbackRecordCategory = null, fallbackComparisonKey = null) {
+  const normalizedEntry = normalizePerformanceEntry(record);
+  const recordCategory = getComparableRecordFieldValue(record, "recordCategory", "record_category", fallbackRecordCategory || determineRecordCategory(normalizedEntry));
+  const ownComparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
+  const comparisonKey = getComparableRecordFieldValue(record, "comparisonKey", "comparison_key", ownComparisonKey);
+  const normalizedValue = getComparableRecordFieldValue(record, "normalizedValue", "normalized_value", getComparableRecordFieldValue(record, "rawValue", "raw_value", determineRecordValue(normalizedEntry, recordCategory)));
+  const recordStatus = String(getComparableRecordFieldValue(record, "recordStatus", "record_status", getComparableRecordFieldValue(record, "status", "status", getComparableRecordFieldValue(record, "evidenceStatus", "evidence_status", "CONFIRMED")))).toUpperCase();
+  const evidenceStatus = String(getComparableRecordFieldValue(record, "evidenceStatus", "evidence_status", getComparableRecordFieldValue(record, "recordStatus", "record_status", "SELF REPORTED"))).toUpperCase();
+  const domain = getComparableRecordFieldValue(record, "domain", "domain", normalizedEntry?.domain || null);
+  const activityCode = getComparableRecordFieldValue(record, "activityCode", "activity_code", normalizedEntry?.activityCode || normalizedEntry?.activity_code || null);
+  const activityName = getComparableRecordFieldValue(record, "activityName", "activity_name", normalizedEntry?.activityName || null);
+  return {
+    record,
+    recordCategory,
+    comparisonKey,
+    normalizedValue: parsePerformanceNumber(normalizedValue),
+    recordStatus,
+    evidenceStatus,
+    domain,
+    activityCode,
+    activityName,
+    normalizedEntry
+  };
+}
+
+function buildPerformanceComparisonKey(entry = {}, recordCategory = "LOAD_PR") {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const domain = normalizedEntry?.domain;
+  const activityCode = sanitizeFitnessTestText(normalizedEntry?.activityCode || normalizedEntry?.activity_code || "custom", 80);
+  if (domain === "strength") {
+    const metricBasis = recordCategory === "REP_PR" ? "repetitions" : recordCategory === "VOLUME_PR" ? "volume" : recordCategory === "ESTIMATED_1RM_PR" ? "estimated_1rm" : recordCategory === "VERIFIED_1RM_PR" ? "verified_1rm" : "load";
+    const unit = normalizedEntry?.metrics?.weight_unit || normalizedEntry?.metrics?.weightUnit || "lb";
+    return `${domain}:${activityCode}:${metricBasis}:${unit}`;
+  }
+  if (domain === "running") {
+    const distanceCategory = normalizeRunningDistanceCategory(normalizedEntry?.metrics?.distance, normalizedEntry?.metrics?.distance_unit || normalizedEntry?.metrics?.distanceUnit || "mi");
+    const entryType = normalizePerformanceEntryType(normalizedEntry?.entryType) || "WORKOUT_SUMMARY";
+    if (distanceCategory.startsWith("custom:")) {
+      return `${domain}:custom:${entryType}`;
+    }
+    return `${domain}:${distanceCategory}:${entryType}`;
+  }
+  if (domain === "core" || domain === "conditioning") {
+    const metricType = recordCategory === "CONDITIONING_PR" ? "conditioning" : "repetitions";
+    return `${domain}:${activityCode}:${metricType}`;
+  }
+  if (domain === "fitness_test") {
+    return `${domain}:${activityCode}:test_event`;
+  }
+  return `${domain || "body_metrics"}:${activityCode}:default`;
+}
+
+function normalizeRunningDistanceCategory(distanceValue = null, unit = "mi") {
+  const normalizedDistance = Number(distanceValue);
+  if (!Number.isFinite(normalizedDistance) || normalizedDistance <= 0) return "custom";
+  const normalizedUnit = String(unit || "mi").trim().toLowerCase();
+  const meters = normalizedUnit === "km" ? normalizedDistance * 1000 : normalizedUnit === "m" || normalizedUnit === "meter" || normalizedUnit === "meters" ? normalizedDistance : normalizedUnit === "mi" || normalizedUnit === "mile" || normalizedUnit === "miles" ? normalizedDistance * 1609.34 : normalizedDistance;
+  const tolerance = 0.05;
+  if (Math.abs(meters - 100) <= tolerance) return "100m";
+  if (Math.abs(meters - 400) <= tolerance) return "400m";
+  if (Math.abs(meters - 1000) <= tolerance) return "1km";
+  if (Math.abs(meters - 1609.34) <= tolerance) return "1mi";
+  if (Math.abs(meters - 5000) <= tolerance) return "5k";
+  if (Math.abs(meters - 10000) <= tolerance) return "10k";
+  if (Math.abs(meters - 21097.5) <= tolerance) return "half_marathon";
+  if (Math.abs(meters - 42195) <= tolerance) return "marathon";
+  if (Math.abs(meters - 3218.69) <= tolerance) return "2mi";
+  return `custom:${Math.round(meters)}`;
+}
+
+function determineRecordCategory(entry = {}, testAttempt = null) {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const domain = normalizedEntry?.domain;
+  const metrics = normalizedEntry?.metrics || {};
+  if (domain === "strength") {
+    const hasVerifiedOneRepMax = metrics.verified_one_rep_max === true || metrics.verifiedOneRepMax === true || metrics.verified_1rm === true || entry?.verifiedOneRepMax === true || entry?.verified_1rm === true;
+    if (hasVerifiedOneRepMax) return "VERIFIED_1RM_PR";
+    const hasEstimatedOneRepMax = metrics.estimated_one_rep_max === true || metrics.estimatedOneRepMax === true || metrics.estimated_1rm === true || entry?.estimatedOneRepMax === true || entry?.estimated_1rm === true;
+    if (hasEstimatedOneRepMax || normalizedEntry?.evidenceStatus === "ESTIMATED") return "ESTIMATED_1RM_PR";
+    if (metrics.weight !== undefined && metrics.weight !== null) return "LOAD_PR";
+    if (metrics.repetitions !== undefined && metrics.repetitions !== null) return "REP_PR";
+    if (metrics.sets !== undefined && metrics.sets !== null && metrics.repetitions !== undefined && metrics.repetitions !== null) return "VOLUME_PR";
+    return null;
+  }
+  if (domain === "running") {
+    if (normalizedEntry?.entryType === "RACE" || normalizedEntry?.activityCode === "race") return "TIME_PR";
+    return "TIME_PR";
+  }
+  if (domain === "core" || domain === "conditioning") {
+    return "CONDITIONING_PR";
+  }
+  if (domain === "fitness_test") {
+    return (testAttempt || normalizedEntry?.metrics?.test_event_value !== undefined || normalizedEntry?.metrics?.test_event_value !== null || normalizedEntry?.metrics?.overall_score !== undefined) ? "TEST_EVENT_PR" : null;
+  }
+  if (testAttempt) {
+    return "TEST_EVENT_PR";
+  }
+  return null;
+}
+
+function isPerformanceComparable(candidate = {}, target = {}, recordCategory = "LOAD_PR") {
+  const candidateKey = buildPerformanceComparisonKey(candidate, recordCategory);
+  const targetKey = buildPerformanceComparisonKey(target, recordCategory);
+  if (!candidateKey || !targetKey) return false;
+  if (candidateKey === targetKey) {
+    if (recordCategory === "ESTIMATED_1RM_PR" && candidate?.evidenceStatus !== target?.evidenceStatus) return false;
+    if (recordCategory === "VERIFIED_1RM_PR" && candidate?.evidenceStatus !== target?.evidenceStatus) return false;
+    return true;
+  }
+  return false;
+}
+
+function selectComparablePerformanceEntries(entries = [], targetEntry = {}, recordCategory = "LOAD_PR") {
+  const normalizedTarget = normalizePerformanceEntry(targetEntry);
+  const targetComparisonKey = buildPerformanceComparisonKey(normalizedTarget, recordCategory);
+  return (entries || []).filter((entry) => {
+    const candidate = normalizeComparableRecord(entry, recordCategory, targetComparisonKey);
+    if (!candidate) return false;
+    if (candidate.recordCategory !== recordCategory) return false;
+    const candidateComparisonKey = candidate.comparisonKey || targetComparisonKey;
+    if (candidateComparisonKey !== targetComparisonKey) return false;
+    if (candidate.domain && normalizedTarget.domain && candidate.domain !== normalizedTarget.domain) return false;
+    if (candidate.activityCode && normalizedTarget.activityCode && candidate.activityCode !== normalizedTarget.activityCode) return false;
+    if (candidate.recordStatus === "INVALIDATED" || candidate.recordStatus === "INCOMPLETE") return false;
+    return true;
+  }).map((entry) => normalizeComparableRecord(entry, recordCategory, targetComparisonKey));
+}
+
+function findCurrentPersonalRecord(records = [], recordCategory = "LOAD_PR", comparisonKey = null, targetEntry = null) {
+  const normalizedTarget = targetEntry ? normalizePerformanceEntry(targetEntry) : null;
+  const targetComparisonKey = comparisonKey || (normalizedTarget ? buildPerformanceComparisonKey(normalizedTarget, recordCategory) : null);
+  const targetDomain = normalizedTarget?.domain || null;
+  const targetActivityCode = normalizedTarget?.activityCode || null;
+  let best = null;
+  (records || []).forEach((record) => {
+    const candidate = normalizeComparableRecord(record, recordCategory, targetComparisonKey);
+    if (!candidate) return;
+    if (candidate.recordCategory !== recordCategory) return;
+    if (targetComparisonKey && candidate.comparisonKey !== targetComparisonKey) return;
+    if (targetDomain && candidate.domain && candidate.domain !== targetDomain) return;
+    if (targetActivityCode && candidate.activityCode && candidate.activityCode !== targetActivityCode) return;
+    if (candidate.recordStatus === "INVALIDATED" || candidate.recordStatus === "INCOMPLETE") return;
+    const currentValue = Number(candidate.normalizedValue);
+    if (!Number.isFinite(currentValue)) return;
+    if (!best) {
+      best = candidate;
+      return;
+    }
+    const bestValue = Number(best.normalizedValue);
+    if (!Number.isFinite(bestValue)) {
+      best = candidate;
+      return;
+    }
+    if (recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" || recordCategory === "DISTANCE_PR") {
+      if (currentValue < bestValue) best = candidate;
+      return;
+    }
+    if (currentValue > bestValue) best = candidate;
+  });
+  return best;
+}
+
+function calculateRecordImprovement(previousValue = null, currentValue = null, direction = "higher") {
+  const previous = Number(previousValue);
+  const current = Number(currentValue);
+  if (!Number.isFinite(previous) || !Number.isFinite(current) || previous === 0) return { absolute: current - previous, percentage: null };
+  const absolute = current - previous;
+  const percentage = direction === "lower" ? ((previous - current) / previous) * 100 : ((current - previous) / previous) * 100;
+  return { absolute, percentage };
+}
+
+function buildPersonalRecordSnapshot(entry = {}, recordCategory = "LOAD_PR", previousRecord = null, existingRecords = []) {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const comparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
+  const normalizedValue = determineRecordValue(normalizedEntry, recordCategory);
+  if (!Number.isFinite(Number(normalizedValue))) return null;
+  const duplicate = (existingRecords || []).some((record) => record?.sourceEntryId === normalizedEntry.id && record?.recordCategory === recordCategory);
+  if (duplicate) return null;
+  const evidenceStatus = normalizedEntry.evidenceStatus === "INCOMPLETE"
+    ? "INCOMPLETE"
+    : normalizedEntry.evidenceStatus === "ESTIMATED"
+      ? "ESTIMATED"
+      : normalizedEntry.evidenceStatus === "VERIFIED"
+        ? "VERIFIED"
+        : "SELF REPORTED";
+  const recordStatus = evidenceStatus === "ESTIMATED"
+    ? "ESTIMATED"
+    : evidenceStatus === "INCOMPLETE"
+      ? "INVALIDATED"
+      : "CONFIRMED";
+  const improvement = calculateRecordImprovement(previousRecord?.normalizedValue || null, normalizedValue, recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" ? "lower" : "higher");
+  return {
+    id: `pr-${stableSerializePerformanceValue({ entryId: normalizedEntry.id, recordCategory, comparisonKey, value: normalizedValue })}`,
+    userId: normalizedEntry.userId || null,
+    recordCategory,
+    domain: normalizedEntry.domain,
+    activityCode: normalizedEntry.activityCode,
+    activityName: normalizedEntry.activityName,
+    comparisonKey,
+    sourceEntryId: normalizedEntry.id,
+    sourceTestAttemptId: null,
+    achievedDate: normalizedEntry.performanceDate,
+    rawValue: normalizedValue,
+    normalizedValue,
+    unit: determineRecordUnit(normalizedEntry, recordCategory),
+    previousRecordValue: previousRecord?.normalizedValue || null,
+    improvementAbsolute: improvement.absolute,
+    improvementPercentage: improvement.percentage,
+    evidenceStatus,
+    recordStatus,
+    calculationEvidence: { comparisonKey, recordCategory, direction: recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" ? "lower" : "higher" },
+    createdAt: new Date().toISOString()
+  };
+}
+
+function determineRecordValue(entry = {}, recordCategory = "LOAD_PR") {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const metrics = normalizedEntry?.metrics || {};
+  if (entry?.normalizedValue !== undefined || entry?.normalized_value !== undefined) return Number(entry?.normalizedValue ?? entry?.normalized_value);
+  if (entry?.rawValue !== undefined || entry?.raw_value !== undefined) return Number(entry?.rawValue ?? entry?.raw_value);
+  if (entry?.value !== undefined) return Number(entry.value);
+  if (recordCategory === "LOAD_PR") return Number(metrics.weight);
+  if (recordCategory === "REP_PR") return Number(metrics.repetitions);
+  if (recordCategory === "VOLUME_PR") return Number(calculateStrengthVolume(normalizedEntry)?.value);
+  if (recordCategory === "ESTIMATED_1RM_PR") return Number(estimateOneRepMax(normalizedEntry)?.value);
+  if (recordCategory === "VERIFIED_1RM_PR") return Number(metrics.verified_1rm || metrics.verifiedOneRepMax);
+  if (recordCategory === "TIME_PR") return Number(metrics.duration_seconds || metrics.duration);
+  if (recordCategory === "DISTANCE_PR") return Number(metrics.distance);
+  if (recordCategory === "DURATION_PR") return Number(metrics.duration_seconds || metrics.duration);
+  if (recordCategory === "TEST_EVENT_PR") return Number(metrics.test_event_value || metrics.overall_score);
+  if (recordCategory === "TEST_SCORE_PR") return Number(metrics.overall_score);
+  if (recordCategory === "CONDITIONING_PR") return Number(metrics.repetitions || metrics.distance || metrics.calories || metrics.rounds);
+  return null;
+}
+
+function determineRecordUnit(entry = {}, recordCategory = "LOAD_PR") {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const metrics = normalizedEntry?.metrics || {};
+  if (recordCategory === "LOAD_PR" || recordCategory === "VOLUME_PR" || recordCategory === "ESTIMATED_1RM_PR" || recordCategory === "VERIFIED_1RM_PR") return metrics.weight_unit || "lb";
+  if (recordCategory === "TIME_PR" || recordCategory === "DURATION_PR") return "seconds";
+  if (recordCategory === "DISTANCE_PR") return metrics.distance_unit || "mi";
+  if (recordCategory === "TEST_EVENT_PR" || recordCategory === "TEST_SCORE_PR") return "score";
+  return "value";
+}
+
+function explainPersonalRecordDecision(entry = {}, recordCategory = "LOAD_PR", previousRecord = null, reason = "eligible") {
+  return { eligible: Boolean(entry), recordCategory, reason, previousRecordValue: previousRecord?.normalizedValue || null };
+}
+
+function evaluatePersonalRecord(entry = {}, existingRecords = []) {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const recordCategory = determineRecordCategory(normalizedEntry);
+  if (!recordCategory) return null;
+  if (normalizedEntry.evidenceStatus === "INCOMPLETE") return null;
+  if (normalizedEntry.domain === "body_metrics") return null;
+  const targetComparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
+  const sameDomainActivityCategoryRecords = (existingRecords || []).map((record) => normalizeComparableRecord(record, recordCategory, targetComparisonKey)).filter((candidate) => {
+    if (candidate.recordCategory !== recordCategory) return false;
+    if (candidate.domain && normalizedEntry.domain && candidate.domain !== normalizedEntry.domain) return false;
+    if (candidate.activityCode && normalizedEntry.activityCode && candidate.activityCode !== normalizedEntry.activityCode) return false;
+    return true;
+  });
+  const comparable = sameDomainActivityCategoryRecords.filter((candidate) => candidate.recordStatus !== "INVALIDATED" && candidate.recordStatus !== "INCOMPLETE" && candidate.comparisonKey === targetComparisonKey);
+  const hasSameComparisonKeyRecord = sameDomainActivityCategoryRecords.some((candidate) => candidate.comparisonKey === targetComparisonKey);
+  if (!hasSameComparisonKeyRecord && sameDomainActivityCategoryRecords.length > 0) return null;
+  const previousRecord = findCurrentPersonalRecord(comparable, recordCategory, targetComparisonKey, normalizedEntry);
+  const currentValue = determineRecordValue(normalizedEntry, recordCategory);
+  if (!Number.isFinite(Number(currentValue))) return null;
+  const direction = recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" ? "lower" : "higher";
+  const isBetter = previousRecord ? (direction === "lower" ? currentValue < previousRecord.normalizedValue : currentValue > previousRecord.normalizedValue) : true;
+  if (!isBetter) return null;
+  return buildPersonalRecordSnapshot(normalizedEntry, recordCategory, previousRecord, existingRecords);
+}
+
+function syncFitnessAnalyticState(entry = null, testAttempt = null, bodyWeight = null) {
+  ensurePerformanceAnalyticStateLoaded();
+  const nextPersonalRecords = [...personalRecords];
+  const nextMilestoneAchievements = [...milestoneAchievements];
+  const nextAtlasReviews = [...atlasPerformanceReviews];
+  let changed = false;
+  if (entry) {
+    const recordSnapshot = evaluatePersonalRecord(entry, nextPersonalRecords);
+    if (recordSnapshot) {
+      const existingIndex = nextPersonalRecords.findIndex((item) => item?.sourceEntryId === recordSnapshot.sourceEntryId && item?.recordCategory === recordSnapshot.recordCategory);
+      if (existingIndex >= 0) nextPersonalRecords[existingIndex] = recordSnapshot; else nextPersonalRecords.unshift(recordSnapshot);
+      changed = true;
+    }
+    const milestoneSnapshots = evaluateMilestones({ entry, bodyWeight }, nextMilestoneAchievements);
+    if (milestoneSnapshots.length) {
+      nextMilestoneAchievements.unshift(...milestoneSnapshots);
+      changed = true;
+    }
+  }
+  if (testAttempt) {
+    const evaluation = evaluateFitnessTestAttempt(testAttempt, nextPersonalRecords);
+    if (evaluation.records.length) {
+      evaluation.records.forEach((record) => {
+        const existingIndex = nextPersonalRecords.findIndex((item) => item?.sourceEntryId === record.sourceEntryId && item?.recordCategory === record.recordCategory);
+        if (existingIndex >= 0) nextPersonalRecords[existingIndex] = record; else nextPersonalRecords.unshift(record);
+      });
+      changed = true;
+    }
+  }
+  if (changed) {
+    personalRecords = nextPersonalRecords;
+    milestoneAchievements = nextMilestoneAchievements;
+    atlasPerformanceReviews = [buildAtlasPerformanceReview(personalRecords, milestoneAchievements, { entry, testAttempt, incompleteEvidence: entry?.evidenceStatus === "INCOMPLETE" || testAttempt?.evidenceStatus === "INCOMPLETE" }), ...nextAtlasReviews].slice(0, 8);
+    savePersonalRecordsToStorage(personalRecords, session?.user?.id || "local");
+    saveMilestoneAchievementsToStorage(milestoneAchievements, session?.user?.id || "local");
+    saveAtlasReviewsToStorage(atlasPerformanceReviews, session?.user?.id || "local");
+  }
+  return { personalRecords, milestoneAchievements, atlasPerformanceReviews };
+}
+
+function evaluateFitnessTestAttempt(attempt = {}, existingRecords = []) {
+  const validation = validateFitnessTestAttempt(attempt);
+  if (!validation.valid && validation.attempt.status !== "INCOMPLETE" && validation.attempt.status !== "DRAFT") return { records: [], attempt: validation.attempt };
+  const attemptSnapshot = validation.attempt;
+  const records = [];
+  if (attemptSnapshot.status === "COMPLETE" || attemptSnapshot.status === "INCOMPLETE") {
+    attemptSnapshot.eventResults.forEach((event) => {
+      if (event.rawValue === null || event.rawValue === undefined || !Number.isFinite(Number(event.rawValue))) return;
+      const recordCategory = "TEST_EVENT_PR";
+      const candidateEntry = normalizePerformanceEntry({
+        id: attemptSnapshot.id,
+        userId: attemptSnapshot.userId,
+        performanceDate: attemptSnapshot.testDate,
+        domain: "fitness_test",
+        entryType: "FORMAL_TEST",
+        activityName: attemptSnapshot.protocolName,
+        evidenceStatus: attemptSnapshot.evidenceStatus,
+        metrics: { test_event_value: Number(event.rawValue), event_code: event.eventCode, event_name: event.eventName, unit: event.unit, direction: event.comparisonDirection }
+      });
+      const comparable = selectComparablePerformanceEntries(existingRecords, candidateEntry, recordCategory);
+      const previousRecord = findCurrentPersonalRecord(comparable, recordCategory, buildPerformanceComparisonKey(candidateEntry, recordCategory), candidateEntry);
+      const currentValue = determineRecordValue(candidateEntry, recordCategory);
+      if (!Number.isFinite(Number(currentValue))) return;
+      const isBetter = previousRecord ? currentValue > previousRecord.normalizedValue : true;
+      if (!isBetter) return;
+      const snapshot = buildPersonalRecordSnapshot(candidateEntry, recordCategory, previousRecord, existingRecords);
+      if (snapshot) records.push(snapshot);
+    });
+    if (attemptSnapshot.overallScore !== null && attemptSnapshot.overallScore !== undefined) {
+      const candidateEntry = normalizePerformanceEntry({
+        id: attemptSnapshot.id,
+        userId: attemptSnapshot.userId,
+        performanceDate: attemptSnapshot.testDate,
+        domain: "fitness_test",
+        entryType: "FORMAL_TEST",
+        activityName: attemptSnapshot.protocolName,
+        evidenceStatus: attemptSnapshot.evidenceStatus,
+        metrics: { overall_score: Number(attemptSnapshot.overallScore) }
+      });
+      const comparable = selectComparablePerformanceEntries(existingRecords, candidateEntry, "TEST_SCORE_PR");
+      const previousRecord = findCurrentPersonalRecord(comparable, "TEST_SCORE_PR", buildPerformanceComparisonKey(candidateEntry, "TEST_SCORE_PR"), candidateEntry);
+      const currentValue = determineRecordValue(candidateEntry, "TEST_SCORE_PR");
+      if (Number.isFinite(Number(currentValue))) {
+        const isBetter = previousRecord ? currentValue > previousRecord.normalizedValue : true;
+        if (isBetter) {
+          const snapshot = buildPersonalRecordSnapshot(candidateEntry, "TEST_SCORE_PR", previousRecord, existingRecords);
+          if (snapshot) records.push(snapshot);
+        }
+      }
+    }
+  }
+  return { records, attempt: attemptSnapshot };
+}
+
+function getMilestoneCatalog() {
+  return MILESTONE_CATALOG.map((milestone) => ({ ...milestone }));
+}
+
+function evaluateMilestones(context = {}, existingMilestones = []) {
+  const entry = context.entry || null;
+  const testAttempt = context.testAttempt || null;
+  const bodyWeight = context.bodyWeight || null;
+  const achievements = [];
+  const normalizedEntry = entry ? normalizePerformanceEntry(entry) : null;
+  const normalizedTestAttempt = testAttempt ? normalizeFitnessTestAttempt(testAttempt) : null;
+  const milestoneCatalog = getMilestoneCatalog();
+  const existingCodes = new Set((existingMilestones || []).map((item) => item.milestoneCode));
+  if (normalizedEntry && normalizedEntry.domain === "strength" && normalizedEntry.activityCode === "bench_press" && normalizedEntry.metrics?.weight !== undefined) {
+    const firstBenchmark = milestoneCatalog.find((item) => item.code === "FIRST_STRENGTH_BENCHMARK");
+    if (firstBenchmark && !existingCodes.has(firstBenchmark.code)) achievements.push({ id: `milestone-${firstBenchmark.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: firstBenchmark.code, title: firstBenchmark.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { weight: Number(normalizedEntry.metrics.weight) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "strength" && normalizedEntry.activityCode === "bench_press" && normalizedEntry.metrics?.weight !== undefined && bodyWeight !== null && bodyWeight !== undefined && Number(bodyWeight) > 0 && Number(normalizedEntry.metrics.weight) / Number(bodyWeight) >= 1) {
+    const milestone = milestoneCatalog.find((item) => item.code === "BENCH_PRESS_BODYWEIGHT_1_0");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { ratio: Number(normalizedEntry.metrics.weight) / Number(bodyWeight) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "strength" && normalizedEntry.activityCode === "pull_up" && Number(normalizedEntry.metrics.repetitions) >= 20) {
+    const milestone = milestoneCatalog.find((item) => item.code === "PULL_UPS_20");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { repetitions: Number(normalizedEntry.metrics.repetitions) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "core" && normalizedEntry.activityCode === "plank" && Number(normalizedEntry.metrics.duration_seconds) >= 120) {
+    const milestone = milestoneCatalog.find((item) => item.code === "PLANK_2MIN");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { durationSeconds: Number(normalizedEntry.metrics.duration_seconds) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "core" && normalizedEntry.activityCode === "hanging_leg_raise" && Number(normalizedEntry.metrics.repetitions) >= 15) {
+    const milestone = milestoneCatalog.find((item) => item.code === "HANGING_LEG_RAISES_15");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { repetitions: Number(normalizedEntry.metrics.repetitions) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "conditioning" && normalizedEntry.activityCode === "burpee" && Number(normalizedEntry.metrics.repetitions) >= 75) {
+    const milestone = milestoneCatalog.find((item) => item.code === "BURPEES_75_10M");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { repetitions: Number(normalizedEntry.metrics.repetitions) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "running" && normalizedEntry.entryType === "RACE") {
+    const milestone = milestoneCatalog.find((item) => item.code === "FIRST_RACE_LOGGED");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { entryType: normalizedEntry.entryType }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "running" && Number(normalizedEntry.metrics.distance) === 1 && (normalizedEntry.metrics.distance_unit || "mi") === "mi" && Number(normalizedEntry.metrics.duration_seconds) <= 420) {
+    const milestone = milestoneCatalog.find((item) => item.code === "SUB_7_MILE");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { durationSeconds: Number(normalizedEntry.metrics.duration_seconds) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "body_metrics") {
+    const milestone = milestoneCatalog.find((item) => item.code === "FIRST_BODY_METRIC_BASELINE");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { measurementValue: normalizedEntry.metrics.measurement_value }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedTestAttempt && normalizedTestAttempt.status === "COMPLETE" && normalizedTestAttempt.protocolCode === "DOMINION_MONTHLY_FITNESS_TEST") {
+    const firstTestMilestone = milestoneCatalog.find((item) => item.code === "FIRST_COMPLETE_DOMINION_TEST");
+    if (firstTestMilestone && !existingCodes.has(firstTestMilestone.code)) achievements.push({ id: `milestone-${firstTestMilestone.code}-${normalizedTestAttempt.id}`, userId: normalizedTestAttempt.userId || null, milestoneCode: firstTestMilestone.code, title: firstTestMilestone.title, achievedDate: normalizedTestAttempt.testDate, sourceEntryId: null, sourceTestAttemptId: normalizedTestAttempt.id, qualificationSnapshot: { protocolCode: normalizedTestAttempt.protocolCode, status: normalizedTestAttempt.status }, evidenceStatus: normalizedTestAttempt.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  return achievements;
+}
+
+function buildAtlasPerformanceReview(records = [], milestones = [], context = {}) {
+  const confirmedRecords = (records || []).filter((record) => record?.recordStatus === "CONFIRMED");
+  const estimatedRecords = (records || []).filter((record) => record?.recordStatus === "ESTIMATED");
+  const limitedEvidence = Boolean(context.incompleteEvidence || context.entry?.evidenceStatus === "INCOMPLETE" || context.testAttempt?.evidenceStatus === "INCOMPLETE");
+  const strongestResult = confirmedRecords[0] || estimatedRecords[0] || null;
+  const improvement = strongestResult?.improvementAbsolute ? `${strongestResult.improvementAbsolute.toFixed(1)}` : "—";
+  return {
+    id: `atlas-${stableSerializePerformanceValue({ records: records.length, milestones: milestones.length, context: context.entry?.id || context.testAttempt?.id || "none" })}`,
+    status: confirmedRecords.length ? "TEST COMPLETED" : "NO NEW RECORDS",
+    newRecords: confirmedRecords.length ? confirmedRecords.map((record) => record.recordCategory).join(", ") : "None",
+    milestones: milestones.length ? milestones.map((milestone) => milestone.title).join(" / ") : "None",
+    strongestResult: strongestResult ? `${strongestResult.activityName || strongestResult.recordCategory} • ${strongestResult.normalizedValue}` : "No comparable result",
+    improvement,
+    limitedEvidence,
+    nextBenchmark: confirmedRecords.length ? "Maintain evidentiary quality and repeat the benchmark." : "Complete a verified test or entry to generate a benchmark.",
+    commandNote: confirmedRecords.length ? "Confirmed result captured for review." : (estimatedRecords.length ? "Estimated result captured for review." : "No new record was generated."),
+    createdAt: new Date().toISOString()
+  };
+}
+
+function getFitnessTestPersistenceKey(userId = null) {
+  return `coach-dominion:fitness-tests:${userId || session?.user?.id || "local"}`;
+}
+
+function getPersonalRecordPersistenceKey(userId = null) {
+  return `coach-dominion:personal-records:${userId || session?.user?.id || "local"}`;
+}
+
+function getMilestonePersistenceKey(userId = null) {
+  return `coach-dominion:milestone-achievements:${userId || session?.user?.id || "local"}`;
+}
+
+function getAtlasReviewPersistenceKey(userId = null) {
+  return `coach-dominion:atlas-reviews:${userId || session?.user?.id || "local"}`;
+}
+
+function loadFitnessTestAttemptsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getFitnessTestPersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed.map((item) => normalizeFitnessTestAttempt(item)) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveFitnessTestAttemptsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    fitnessTestAttempts = Array.isArray(items) ? items.map((item) => normalizeFitnessTestAttempt(item)) : [];
+    window.localStorage.setItem(getFitnessTestPersistenceKey(userId), JSON.stringify(fitnessTestAttempts));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function loadPersonalRecordsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getPersonalRecordPersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function savePersonalRecordsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    personalRecords = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(getPersonalRecordPersistenceKey(userId), JSON.stringify(personalRecords));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function loadMilestoneAchievementsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getMilestonePersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveMilestoneAchievementsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    milestoneAchievements = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(getMilestonePersistenceKey(userId), JSON.stringify(milestoneAchievements));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function loadAtlasReviewsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getAtlasReviewPersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveAtlasReviewsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    atlasPerformanceReviews = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(getAtlasReviewPersistenceKey(userId), JSON.stringify(atlasPerformanceReviews));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function ensurePerformanceAnalyticStateLoaded() {
+  if (!fitnessTestAttempts.length) fitnessTestAttempts = loadFitnessTestAttemptsFromStorage(session?.user?.id || "local");
+  if (!personalRecords.length) personalRecords = loadPersonalRecordsFromStorage(session?.user?.id || "local");
+  if (!milestoneAchievements.length) milestoneAchievements = loadMilestoneAchievementsFromStorage(session?.user?.id || "local");
+  if (!atlasPerformanceReviews.length) atlasPerformanceReviews = loadAtlasReviewsFromStorage(session?.user?.id || "local");
 }
 
 function calculateStrengthVolume(entry = {}) {
@@ -2112,6 +2854,39 @@ function readPerformanceFormValues() {
   };
 }
 
+function renderFitnessTestsSection() {
+  const container = document.getElementById("fitness-test-history");
+  const summary = document.getElementById("fitness-test-summary");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  if (summary) summary.textContent = fitnessTestAttempts.length ? `${fitnessTestAttempts.length} saved attempt${fitnessTestAttempts.length === 1 ? "" : "s"}` : "No fitness tests yet";
+  container.innerHTML = fitnessTestAttempts.length ? fitnessTestAttempts.map((attempt) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${attempt.protocolName || attempt.protocolCode}</strong><p>${attempt.testDate} • ${attempt.status}</p></div><span class="state-pill neutral">${attempt.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${attempt.notes || "No notes recorded."}</span><span>${attempt.eventResults.length} event${attempt.eventResults.length === 1 ? "" : "s"}</span></div></article>`).join("") : `<div class="performance-empty">No fitness tests have been logged yet.</div>`;
+}
+
+function renderPersonalRecordsSection() {
+  const container = document.getElementById("performance-pr-list");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  container.innerHTML = personalRecords.length ? personalRecords.map((record) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${record.recordCategory}</strong><p>${record.activityName || record.domain}</p></div><span class="state-pill neutral">${record.recordStatus}</span></div><div class="performance-entry-meta"><span>${record.normalizedValue} ${record.unit || ""}</span><span>Prev: ${record.previousRecordValue ?? "—"}</span></div></article>`).join("") : `<div class="performance-empty">No personal records yet.</div>`;
+}
+
+function renderMilestonesSection() {
+  const container = document.getElementById("performance-milestone-history");
+  const catalog = document.getElementById("performance-milestone-catalog");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  if (catalog) catalog.innerHTML = getMilestoneCatalog().slice(0, 8).map((milestone) => `<div class="performance-entry-card"><strong>${milestone.title}</strong><p>${milestone.commandNote}</p></div>`).join("");
+  container.innerHTML = milestoneAchievements.length ? milestoneAchievements.map((item) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${item.title}</strong><p>${item.achievedDate}</p></div><span class="state-pill neutral">${item.evidenceStatus || "SELF REPORTED"}</span></div></article>`).join("") : `<div class="performance-empty">No milestones achieved yet.</div>`;
+}
+
+function renderAtlasPerformanceReviewSection() {
+  const container = document.getElementById("performance-atlas-review-output");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  const review = atlasPerformanceReviews[0] || buildAtlasPerformanceReview(personalRecords, milestoneAchievements, { incompleteEvidence: false });
+  container.innerHTML = `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>ATLAS // PERFORMANCE REVIEW</strong><p>${review.status}</p></div><span class="state-pill neutral">${review.limitedEvidence ? "LIMITED EVIDENCE" : "READY"}</span></div><div class="performance-entry-meta"><span>${review.newRecords}</span><span>${review.milestones}</span></div></article>`;
+}
+
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
   const summary = summarizeRecentPerformance(entries);
   setText("performance-week-count", summary.entriesThisWeek);
@@ -2124,6 +2899,10 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   const storageStateText = saveState === "saved" ? "Saved to remote store." : saveState === "locally saved" ? "Saved locally while remote sync is unavailable." : saveState === "failed" ? "Save failed." : saveState === "loading" ? "Loading entries…" : "No save yet.";
   setText("performance-save-state", saveState === "saving" ? "SAVING" : saveState === "saved" ? "SAVED" : saveState === "locally saved" ? "LOCAL" : saveState === "failed" ? "FAILED" : "READY");
   setText("performance-save-hint", storageStateText);
+  renderFitnessTestsSection();
+  renderPersonalRecordsSection();
+  renderMilestonesSection();
+  renderAtlasPerformanceReviewSection();
   const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
   const entryList = document.getElementById("performance-entry-list");
   if (!entryList) return;
@@ -2179,6 +2958,7 @@ async function savePerformanceEntry(event) {
     return;
   }
   const payload = buildPerformancePersistencePayload(validation.entry, session?.user?.id || null);
+  syncFitnessAnalyticState(validation.entry, null, null);
   performanceSaveState = "saving";
   renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   try {
@@ -2678,6 +3458,22 @@ if (typeof document !== "undefined") {
   document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);
   document.getElementById("performance-domain").addEventListener("change", () => { populatePerformanceActivityOptions(document.getElementById("performance-domain").value); refreshPerformanceFieldVisibility(); });
   document.getElementById("performance-entry-type").addEventListener("change", refreshPerformanceFieldVisibility);
+  const fitnessStartButton = document.getElementById("fitness-start-new-test");
+  if (fitnessStartButton) {
+    fitnessStartButton.addEventListener("click", () => {
+      const protocolSelect = document.getElementById("fitness-protocol-selector");
+      const draft = normalizeFitnessTestAttempt({
+        id: `draft-${Date.now()}`,
+        protocolCode: protocolSelect?.value || "CUSTOM_TEST",
+        protocolName: protocolSelect?.options[protocolSelect.selectedIndex]?.text || "Custom Test",
+        status: "DRAFT",
+        evidenceStatus: "SELF REPORTED"
+      });
+      fitnessTestAttempts = [draft, ...fitnessTestAttempts];
+      saveFitnessTestAttemptsToStorage(fitnessTestAttempts, session?.user?.id || "local");
+      renderPerformanceSection();
+    });
+  }
   document.getElementById("performance-filter-date").addEventListener("change", (event) => { performanceFilters.date = event.target.value; renderPerformanceSection(); });
   document.getElementById("performance-filter-domain").addEventListener("change", (event) => { performanceFilters.domain = event.target.value; renderPerformanceSection(); });
   document.getElementById("performance-filter-activity").addEventListener("input", (event) => { performanceFilters.activity = event.target.value; renderPerformanceSection(); });
@@ -2785,6 +3581,22 @@ if (typeof document !== "undefined") {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    normalizeFitnessTestAttempt,
+    validateFitnessTestAttempt,
+    buildPerformanceComparisonKey,
+    determineRecordCategory,
+    isPerformanceComparable,
+    evaluatePersonalRecord,
+    buildPersonalRecordSnapshot,
+    evaluateMilestones,
+    buildAtlasPerformanceReview,
+    normalizeFitnessTestProtocol,
+    getFitnessTestProtocolCatalog,
+    getMilestoneCatalog,
+    getPersonalRecordPersistenceKey,
+    getFitnessTestPersistenceKey,
+    getMilestonePersistenceKey,
+    getAtlasReviewPersistenceKey,
     evaluateReadiness,
     calculateConfidence,
     calculateReadiness,

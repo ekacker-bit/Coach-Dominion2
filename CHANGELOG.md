@@ -5,6 +5,7 @@ This file records verified Coach Dominion release capabilities. The repository h
 ## Unreleased — Build 005A: Performance Logging Foundation
 
 - Added an unreleased Performance Logging section to the War Room with strength, running, core, conditioning, fitness-test, and body-metrics entry support.
+- Added Build 005B extensions for fitness-test attempts, personal-record generation, milestone achievements, and Atlas review summaries.
 - Added deterministic validation, strength-volume calculations, estimated-1RM calculations, running-pace calculations, summary cards, filters, and edit/delete actions.
 - Added stable client-side performance-entry identifiers and exact-id deletion semantics so entries are removed deterministically without deleting arbitrary anonymous records.
 - Added remote Supabase persistence through [supabase/migrations/006_performance_logging.sql](supabase/migrations/006_performance_logging.sql) and browser-local fallback behavior with user-scoped storage.

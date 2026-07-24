@@ -88,7 +88,7 @@ Performance calculations are:
 
 Performance entries persist to Supabase through [supabase/migrations/006_performance_logging.sql](supabase/migrations/006_performance_logging.sql) when the remote table is available. If Supabase is unavailable, the browser falls back to user-scoped local storage and marks the save state as local fallback. The runtime uses stable client-side ids for performance entries and deletes only by exact stable identifier.
 
-The current scope is the 005A foundation only. Planned follow-on work for 005B and 005C includes richer analytics, export/import, and deeper coaching automation around the new performance history.
+The current scope is the 005A foundation only. Build 005B extends this with deterministic fitness-test attempts, personal-record evaluation, milestone achievements, and Atlas review output. The runtime uses the new browser-side state helpers and a matching Supabase migration [supabase/migrations/007_fitness_tests_prs.sql](supabase/migrations/007_fitness_tests_prs.sql) for durable persistence. Planned follow-on work for 005C includes richer analytics, export/import, and deeper coaching automation around the new performance history.
 
 ## Routes
 

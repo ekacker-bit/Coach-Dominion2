@@ -985,6 +985,35 @@ function parseISODateUTC(value) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
 }
 
+function normalizeComplianceDate(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return formatISODateUTC(parsed);
+  }
+  if (value instanceof Date) return formatISODateUTC(value);
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return formatISODateUTC(new Date(value));
+  }
+  return null;
+}
+
+function normalizeDailyComplianceRecord(record = {}) {
+  if (!record || typeof record !== "object") return record;
+  const normalized = { ...record };
+  const normalizedDate = normalizeComplianceDate(record.compliance_date || record.complianceDate || record.date);
+  if (normalizedDate) normalized.compliance_date = normalizedDate;
+  if (record.domains && typeof record.domains === "object") {
+    normalized.domains = Object.fromEntries(Object.entries(record.domains).map(([key, value]) => [key, value && typeof value === "object" ? { ...value } : value]));
+  }
+  return normalized;
+}
+
 function formatISODateUTC(date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
@@ -1056,9 +1085,10 @@ function selectNextWeekPriority(analysis = {}) {
 
 function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
   const range = getInspectionWeekRange(weekValue);
-  const recordByDate = new Map(records
-    .filter((record) => record && record.compliance_date >= range.weekStartDate && record.compliance_date <= range.weekEndDate)
-    .map((record) => [record.compliance_date, record]));
+  const normalizedRecords = (records || [])
+    .map((record) => normalizeDailyComplianceRecord(record))
+    .filter((record) => record && normalizeComplianceDate(record.compliance_date) && normalizeComplianceDate(record.compliance_date) >= range.weekStartDate && normalizeComplianceDate(record.compliance_date) <= range.weekEndDate);
+  const recordByDate = new Map(normalizedRecords.map((record) => [normalizeComplianceDate(record.compliance_date), record]));
   const counts = { assessedDays: 0, fullyAssessedDays: 0, unscoredDays: 0, completed: 0, partial: 0, missed: 0, excused: 0, notApplicable: 0, approvedModifications: 0, assessedObservations: 0 };
   const observations = [];
   const dailyEvidence = [];
@@ -2678,9 +2708,10 @@ async function loadWeeklyInspection() {
     const { error: draftError } = await supabase.from("weekly_inspections").upsert(payload, { onConflict: "user_id,week_start_date" });
     if (draftError) throw draftError;
     renderWeeklyInspection(aggregate, "SUPABASE");
-  } catch (_) {
+  } catch (error) {
     const saved = loadLocalWeeklyInspection(range.weekStartDate);
     if (saved?.finalized_at) {
+      setText("weekly-warning", `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). Showing the finalized local snapshot.`);
       renderWeeklyInspection(aggregateFromStoredInspection(saved), "LOCAL");
       return;
     }
@@ -2688,6 +2719,10 @@ async function loadWeeklyInspection() {
     const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
     aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
     saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
+    const message = weeklyDailyRecords.length
+      ? `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). Showing local fallback.`
+      : `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). No local fallback rows were found.`;
+    setText("weekly-warning", message);
     renderWeeklyInspection(aggregate, "LOCAL");
   }
 }

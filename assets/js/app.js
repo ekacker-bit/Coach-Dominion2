@@ -19,6 +19,7 @@ let performanceSaveState = "loading";
 let performanceEditId = null;
 let performanceFilters = { date: "", domain: "", activity: "", entryType: "" };
 let fitnessTestAttempts = [];
+let activeFitnessTestAttemptId = null;
 let personalRecords = [];
 let milestoneAchievements = [];
 let atlasPerformanceReviews = [];
@@ -1981,6 +1982,108 @@ function normalizeFitnessTestAttempt(input = {}) {
   };
 }
 
+function initializeFitnessTestAttemptWorkspace(input = {}) {
+  const source = input || {};
+  const protocol = normalizeFitnessTestProtocol({
+    code: source.protocolCode || source.protocol_code || "CUSTOM_TEST",
+    displayName: source.protocolName || source.protocol_name,
+    version: source.protocolVersion || source.protocol_version,
+    orderedEvents: source.orderedEvents || source.ordered_events
+  });
+  const seedEvents = Array.isArray(source.eventResults || source.event_results)
+    ? (source.eventResults || source.event_results)
+    : (protocol.orderedEvents || []).map((event) => ({
+        eventCode: event.code,
+        eventName: event.name,
+        metricType: event.metricType,
+        rawValue: null,
+        unit: event.unit,
+        comparisonDirection: event.direction || "higher",
+        evidenceStatus: "SELF REPORTED",
+        validity: true,
+        notes: ""
+      }));
+  return normalizeFitnessTestAttempt({
+    id: source.id || `draft-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    userId: source.userId || source.user_id || null,
+    protocolCode: protocol.code,
+    protocolName: source.protocolName || source.protocol_name || protocol.displayName,
+    protocolVersion: source.protocolVersion || source.protocol_version || protocol.version,
+    testDate: source.testDate || source.test_date || todayISODate(),
+    startedAt: source.startedAt || source.started_at || new Date().toISOString(),
+    completedAt: source.completedAt || source.completed_at || null,
+    status: source.status || "DRAFT",
+    evidenceStatus: source.evidenceStatus || source.evidence_status || "SELF REPORTED",
+    eventResults: seedEvents,
+    overallScore: source.overallScore ?? source.overall_score ?? null,
+    notes: source.notes || "",
+    createdAt: source.createdAt || source.created_at || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString()
+  });
+}
+
+function saveFitnessTestAttemptsToStore(items = [], userId = null) {
+  saveFitnessTestAttemptsToStorage(items, userId);
+}
+
+function getFitnessTestAttemptById(attemptId = null) {
+  if (!attemptId) return null;
+  return (fitnessTestAttempts || []).find((attempt) => String(attempt.id) === String(attemptId)) || null;
+}
+
+function setActiveFitnessTestAttempt(attempt = null) {
+  activeFitnessTestAttemptId = attempt?.id || null;
+  return getFitnessTestAttemptById(activeFitnessTestAttemptId);
+}
+
+function persistFitnessTestAttempts(items = []) {
+  const nextAttempts = Array.isArray(items) ? items.map((item) => normalizeFitnessTestAttempt(item)) : [];
+  fitnessTestAttempts = nextAttempts;
+  saveFitnessTestAttemptsToStorage(nextAttempts, session?.user?.id || "local");
+  return fitnessTestAttempts;
+}
+
+function collectFitnessTestWorkspaceValues(attempt = null) {
+  const activeAttempt = attempt || getFitnessTestAttemptById(activeFitnessTestAttemptId);
+  if (!activeAttempt) return null;
+  const container = document.getElementById("fitness-test-history");
+  if (!container) return activeAttempt;
+  const workspace = container.querySelector("[data-fitness-workspace='true']");
+  if (!workspace) return activeAttempt;
+  const eventInputs = Array.from(workspace.querySelectorAll("input[data-event-code]"));
+  const eventResults = activeAttempt.eventResults.map((event) => {
+    const input = eventInputs.find((element) => element.dataset.eventCode === event.eventCode);
+    const rawValue = input && input.value !== "" ? Number(input.value) : null;
+    return { ...event, rawValue: Number.isFinite(rawValue) ? rawValue : null };
+  });
+  const overallScoreInput = workspace.querySelector("input[data-field='overallScore']");
+  const notesInput = workspace.querySelector("textarea[data-field='notes']");
+  return {
+    ...activeAttempt,
+    eventResults,
+    overallScore: overallScoreInput && overallScoreInput.value !== "" ? Number(overallScoreInput.value) : null,
+    notes: notesInput ? notesInput.value : activeAttempt.notes
+  };
+}
+
+function renderFitnessTestWorkspace(attempt = null) {
+  const workspace = document.getElementById("fitness-test-history");
+  if (!workspace) return;
+  const activeAttempt = attempt || getFitnessTestAttemptById(activeFitnessTestAttemptId);
+  if (!activeAttempt) {
+    workspace.innerHTML = '<div class="performance-empty">Choose a protocol and start a new test to open the editable workspace.</div>';
+    return;
+  }
+  const eventRows = (activeAttempt.eventResults || []).map((event) => {
+    const value = event.rawValue ?? "";
+    return `<label class="performance-entry-card"><strong>${event.eventName || event.eventCode}</strong><input type="number" step="0.01" value="${value}" data-event-code="${event.eventCode}" data-field="eventValue" /><small>${event.unit || "value"}</small></label>`;
+  }).join("");
+  const historyCards = (fitnessTestAttempts || []).map((attempt) => {
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${attempt.protocolName || attempt.protocolCode}</strong><p>${attempt.testDate} • ${attempt.status}</p></div><span class="state-pill neutral">${attempt.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${attempt.notes || "No notes recorded."}</span><span>${attempt.eventResults.length} event${attempt.eventResults.length === 1 ? "" : "s"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="fitness-test-resume" data-id="${attempt.id || ""}">Resume</button><button type="button" data-action="fitness-test-delete" data-id="${attempt.id || ""}">Delete</button></div></article>`;
+  }).join("");
+  workspace.innerHTML = `<article class="performance-entry-card" data-fitness-workspace="true"><div class="performance-entry-header"><div><strong>${activeAttempt.protocolName || activeAttempt.protocolCode}</strong><p>${activeAttempt.testDate} • ${activeAttempt.status}</p></div><span class="state-pill neutral">ACTIVE TEST</span></div><div class="performance-entry-meta"><span>${activeAttempt.notes || "Capture the working test details below."}</span><span>${(activeAttempt.eventResults || []).length} event${(activeAttempt.eventResults || []).length === 1 ? "" : "s"}</span></div><div class="performance-metric-grid">${eventRows}</div><label>Overall score<input type="number" step="0.01" value="${activeAttempt.overallScore ?? ""}" data-field="overallScore"></label><label>Notes<textarea rows="3" data-field="notes">${activeAttempt.notes || ""}</textarea></label><div class="performance-entry-actions"><button type="button" data-action="fitness-test-save">Save draft</button><button type="button" class="ghost" data-action="fitness-test-complete">Complete</button><button type="button" class="ghost" data-action="fitness-test-cancel">Cancel</button></div></article>${historyCards.length ? historyCards : '<div class="performance-empty">No saved test attempts yet.</div>'}`;
+}
+
 function validateFitnessTestAttempt(input = {}) {
   const attempt = normalizeFitnessTestAttempt(input);
   const errors = [];
@@ -2860,7 +2963,7 @@ function renderFitnessTestsSection() {
   if (!container) return;
   ensurePerformanceAnalyticStateLoaded();
   if (summary) summary.textContent = fitnessTestAttempts.length ? `${fitnessTestAttempts.length} saved attempt${fitnessTestAttempts.length === 1 ? "" : "s"}` : "No fitness tests yet";
-  container.innerHTML = fitnessTestAttempts.length ? fitnessTestAttempts.map((attempt) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${attempt.protocolName || attempt.protocolCode}</strong><p>${attempt.testDate} • ${attempt.status}</p></div><span class="state-pill neutral">${attempt.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${attempt.notes || "No notes recorded."}</span><span>${attempt.eventResults.length} event${attempt.eventResults.length === 1 ? "" : "s"}</span></div></article>`).join("") : `<div class="performance-empty">No fitness tests have been logged yet.</div>`;
+  renderFitnessTestWorkspace(getFitnessTestAttemptById(activeFitnessTestAttemptId));
 }
 
 function renderPersonalRecordsSection() {
@@ -3462,16 +3565,68 @@ if (typeof document !== "undefined") {
   if (fitnessStartButton) {
     fitnessStartButton.addEventListener("click", () => {
       const protocolSelect = document.getElementById("fitness-protocol-selector");
-      const draft = normalizeFitnessTestAttempt({
+      const protocolCode = protocolSelect?.value || "CUSTOM_TEST";
+      const protocolName = protocolSelect?.options[protocolSelect.selectedIndex]?.text || "Custom Test";
+      const existingDraft = fitnessTestAttempts.find((attempt) => String(attempt.status).toUpperCase() === "DRAFT" && String(attempt.id).startsWith("draft-"));
+      const draft = existingDraft || initializeFitnessTestAttemptWorkspace({
         id: `draft-${Date.now()}`,
-        protocolCode: protocolSelect?.value || "CUSTOM_TEST",
-        protocolName: protocolSelect?.options[protocolSelect.selectedIndex]?.text || "Custom Test",
+        protocolCode,
+        protocolName,
         status: "DRAFT",
         evidenceStatus: "SELF REPORTED"
       });
-      fitnessTestAttempts = [draft, ...fitnessTestAttempts];
-      saveFitnessTestAttemptsToStorage(fitnessTestAttempts, session?.user?.id || "local");
+      setActiveFitnessTestAttempt(draft);
+      const nextAttempts = existingDraft ? fitnessTestAttempts : [draft, ...fitnessTestAttempts];
+      persistFitnessTestAttempts(nextAttempts);
       renderPerformanceSection();
+    });
+  }
+  const fitnessHistoryContainer = document.getElementById("fitness-test-history");
+  if (fitnessHistoryContainer) {
+    fitnessHistoryContainer.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.dataset.action;
+      if (action === "fitness-test-resume") {
+        const attempt = getFitnessTestAttemptById(button.dataset.id);
+        if (attempt) {
+          setActiveFitnessTestAttempt(attempt);
+          renderPerformanceSection();
+        }
+      }
+      if (action === "fitness-test-delete") {
+        const targetId = button.dataset.id;
+        if (!targetId) return;
+        const nextAttempts = fitnessTestAttempts.filter((attempt) => String(attempt.id) !== String(targetId));
+        persistFitnessTestAttempts(nextAttempts);
+        if (String(activeFitnessTestAttemptId) === String(targetId)) {
+          activeFitnessTestAttemptId = null;
+        }
+        renderPerformanceSection();
+      }
+      if (action === "fitness-test-save") {
+        const updatedAttempt = collectFitnessTestWorkspaceValues();
+        if (!updatedAttempt) return;
+        const nextAttempts = fitnessTestAttempts.map((attempt) => String(attempt.id) === String(updatedAttempt.id) ? { ...attempt, ...updatedAttempt, status: "DRAFT", updatedAt: new Date().toISOString() } : attempt);
+        persistFitnessTestAttempts(nextAttempts);
+        renderPerformanceSection();
+      }
+      if (action === "fitness-test-complete") {
+        const updatedAttempt = collectFitnessTestWorkspaceValues();
+        if (!updatedAttempt) return;
+        const nextAttempts = fitnessTestAttempts.map((attempt) => String(attempt.id) === String(updatedAttempt.id) ? { ...attempt, ...updatedAttempt, status: "COMPLETE", updatedAt: new Date().toISOString() } : attempt);
+        persistFitnessTestAttempts(nextAttempts);
+        activeFitnessTestAttemptId = null;
+        renderPerformanceSection();
+      }
+      if (action === "fitness-test-cancel") {
+        const updatedAttempt = collectFitnessTestWorkspaceValues();
+        if (!updatedAttempt) return;
+        const nextAttempts = fitnessTestAttempts.map((attempt) => String(attempt.id) === String(updatedAttempt.id) ? { ...attempt, ...updatedAttempt, status: "INVALIDATED", updatedAt: new Date().toISOString() } : attempt);
+        persistFitnessTestAttempts(nextAttempts);
+        activeFitnessTestAttemptId = null;
+        renderPerformanceSection();
+      }
     });
   }
   document.getElementById("performance-filter-date").addEventListener("change", (event) => { performanceFilters.date = event.target.value; renderPerformanceSection(); });
@@ -3597,6 +3752,7 @@ if (typeof module !== "undefined") {
     getFitnessTestPersistenceKey,
     getMilestonePersistenceKey,
     getAtlasReviewPersistenceKey,
+    initializeFitnessTestAttemptWorkspace,
     evaluateReadiness,
     calculateConfidence,
     calculateReadiness,

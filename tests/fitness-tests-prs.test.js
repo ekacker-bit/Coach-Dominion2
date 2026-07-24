@@ -15,7 +15,8 @@ const {
   getPersonalRecordPersistenceKey,
   getFitnessTestPersistenceKey,
   getMilestonePersistenceKey,
-  getAtlasReviewPersistenceKey
+  getAtlasReviewPersistenceKey,
+  initializeFitnessTestAttemptWorkspace
 } = require('../assets/js/app.js');
 
 const protocol = normalizeFitnessTestProtocol({ code: 'DOMINION_MONTHLY_FITNESS_TEST', version: '1.0' });
@@ -30,6 +31,12 @@ const incompleteAttempt = validateFitnessTestAttempt({ id: 'attempt-3', protocol
 assert.equal(incompleteAttempt.valid, true, 'incomplete tests remain storable');
 const completedAttempt = normalizeFitnessTestAttempt({ id: 'attempt-4', protocolCode: 'DOMINION_MONTHLY_FITNESS_TEST', protocolVersion: '1.0', status: 'COMPLETE', evidenceStatus: 'VERIFIED', eventResults: [{ eventCode: 'push_ups_2m', rawValue: '20', unit: 'repetitions', evidenceStatus: 'VERIFIED', comparisonDirection: 'higher' }, { eventCode: 'pull_ups_max', rawValue: '10', unit: 'repetitions', evidenceStatus: 'VERIFIED', comparisonDirection: 'higher' }, { eventCode: 'air_squats_2m', rawValue: '50', unit: 'repetitions', evidenceStatus: 'VERIFIED', comparisonDirection: 'higher' }, { eventCode: 'plank_hold', rawValue: '180', unit: 'seconds', evidenceStatus: 'VERIFIED', comparisonDirection: 'higher' }, { eventCode: 'hanging_leg_raises', rawValue: '15', unit: 'repetitions', evidenceStatus: 'VERIFIED', comparisonDirection: 'higher' }, { eventCode: 'burpees_10m', rawValue: '75', unit: 'repetitions', evidenceStatus: 'VERIFIED', comparisonDirection: 'higher' }, { eventCode: 'two_mile_run', rawValue: '900', unit: 'seconds', evidenceStatus: 'VERIFIED', comparisonDirection: 'lower' }] });
 assert.equal(completedAttempt.protocolVersion, '1.0', 'completed attempts preserve the protocol version');
+
+const workspaceDraft = initializeFitnessTestAttemptWorkspace({ protocolCode: 'DOMINION_MONTHLY_FITNESS_TEST', protocolName: 'Dominion Monthly Fitness Test' });
+assert.equal(workspaceDraft.status, 'DRAFT', 'new test workspaces start as draft attempts');
+assert.ok(workspaceDraft.eventResults.length >= 7, 'new test workspaces initialize protocol events');
+assert.equal(workspaceDraft.eventResults[0].eventCode, 'push_ups_2m', 'the first event row follows the selected protocol');
+assert.equal(workspaceDraft.eventResults[0].rawValue, null, 'protocol-driven rows start empty for entry');
 
 const lowerStrength = { domain: 'strength', activityCode: 'bench_press', activityName: 'Bench Press', evidenceStatus: 'SELF REPORTED', performanceDate: '2026-07-01', metrics: { weight: 200, weight_unit: 'lb' } };
 const higherStrength = { domain: 'strength', activityCode: 'bench_press', activityName: 'Bench Press', evidenceStatus: 'VERIFIED', performanceDate: '2026-07-02', metrics: { weight: 225, weight_unit: 'lb' } };

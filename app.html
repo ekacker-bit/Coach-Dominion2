@@ -405,6 +405,26 @@
           <label>Activity<input id="performance-filter-activity" type="text"></label>
           <label>Entry type<select id="performance-filter-entry-type"><option value="">All</option><option value="TRAINING_SET">Training Set</option><option value="WORKOUT_SUMMARY">Workout Summary</option><option value="BENCHMARK">Benchmark</option><option value="FORMAL_TEST">Formal Test</option><option value="RACE">Race</option><option value="MEASUREMENT">Measurement</option></select></label>
         </div>
+        <div class="performance-subsection">
+          <h3>Fitness Tests</h3>
+          <label>Protocol<select id="fitness-protocol-selector"><option value="DOMINION_MONTHLY_FITNESS_TEST">Dominion Monthly Fitness Test</option><option value="CUSTOM_TEST">Custom Test</option></select></label>
+          <button id="fitness-start-new-test" class="ghost" type="button">Start new test</button>
+          <div id="fitness-test-summary" class="muted"></div>
+          <div id="fitness-test-history" class="performance-entry-list"></div>
+        </div>
+        <div class="performance-subsection">
+          <h3>Personal Records</h3>
+          <div id="performance-pr-list" class="performance-entry-list"></div>
+        </div>
+        <div class="performance-subsection">
+          <h3>Milestones</h3>
+          <div id="performance-milestone-catalog" class="performance-entry-list"></div>
+          <div id="performance-milestone-history" class="performance-entry-list"></div>
+        </div>
+        <div class="performance-subsection">
+          <h3>Atlas Performance Review</h3>
+          <div id="performance-atlas-review-output"></div>
+        </div>
         <div id="performance-entry-list" class="performance-entry-list"></div>
       </section>
 

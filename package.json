@@ -4,7 +4,7 @@
   "private": true,
   "description": "Deterministic coaching readiness and command-center application.",
   "scripts": {
-    "test": "node tests/readiness-engine.test.js && node tests/atlas-morning-brief.test.js && node tests/compliance-foundation.test.js && node tests/weekly-inspection.test.js && node tests/trends-analytics.test.js && node tests/ux-command-center.test.js && node tests/ux-build-004d.test.js && node tests/standards-violations.test.js && node tests/rank-promotion.test.js && node tests/performance-foundation.test.js",
+    "test": "node tests/readiness-engine.test.js && node tests/atlas-morning-brief.test.js && node tests/compliance-foundation.test.js && node tests/weekly-inspection.test.js && node tests/trends-analytics.test.js && node tests/ux-command-center.test.js && node tests/ux-build-004d.test.js && node tests/standards-violations.test.js && node tests/rank-promotion.test.js && node tests/performance-foundation.test.js && node tests/fitness-tests-prs.test.js",
     "test:readiness": "node tests/readiness-engine.test.js",
     "test:atlas": "node tests/atlas-morning-brief.test.js",
     "test:compliance": "node tests/compliance-foundation.test.js",

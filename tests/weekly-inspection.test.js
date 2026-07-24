@@ -6,6 +6,8 @@ const {
   finalizeWeeklyInspectionSnapshot,
   formatDisciplineScore,
   getInspectionWeekRange,
+  loadComplianceRecordsForRange,
+  normalizeSupabaseWeeklyInspectionRow,
   WEEKLY_EVIDENCE_THRESHOLD
 } = require('../assets/js/app.js');
 
@@ -120,4 +122,29 @@ assert.throws(() => finalizeWeeklyInspectionSnapshot(missing), /requires at leas
 assert.equal(deriveInspectionStatus({ counts: { assessedObservations: 0 }, evidenceCoverage: 0 }), 'NOT READY');
 
 assert.deepEqual(calculateEvidenceCoverage([{ status: 'not_applicable' }]), { expectedObservations: 0, assessedObservations: 0, intentionalNACount: 1, percentage: 100 });
+
+const sharedRecords = [
+  { compliance_date: '2027-01-01', mission_status: 'completed', strength_status: 'completed', cardio_status: 'completed', recovery_status: 'completed', nutrition_status: 'completed' },
+  { compliance_date: '2027-01-02', mission_status: 'partial', strength_status: 'completed', cardio_status: 'completed', recovery_status: 'completed', nutrition_status: 'completed' },
+  { compliance_date: '2027-01-03', mission_status: 'completed', strength_status: 'completed', cardio_status: 'completed', recovery_status: 'completed', nutrition_status: 'completed' }
+];
+const sharedWindow = loadComplianceRecordsForRange(sharedRecords, '2027-01-01');
+assert.equal(sharedWindow.length, 3, 'shared compliance loader returns the week range rows');
+assert.equal(sharedWindow[0].compliance_date, '2027-01-01', 'shared compliance loader preserves normalized date ordering');
+assert.equal(sharedWindow[1].mission_status, 'partial', 'shared compliance loader keeps per-day values intact');
+
+const normalizedRemoteInspection = normalizeSupabaseWeeklyInspectionRow({
+  week_start_date: '2027-01-03',
+  week_end_date: '2027-01-09',
+  weekly_discipline_score: 88,
+  evidence_coverage: 80,
+  domain_scores: { mission: { score: 100 } },
+  inspection_status: 'ready_for_inspection',
+  finalized_at: null
+});
+assert.equal(normalizedRemoteInspection.weekStartDate, '2027-01-03', 'remote weekly inspection rows normalize week start from the real migration column');
+assert.equal(normalizedRemoteInspection.score, 88, 'remote weekly inspection rows normalize weekly discipline score from the real migration column');
+assert.equal(normalizedRemoteInspection.evidenceCoverage, 80, 'remote weekly inspection rows normalize evidence coverage from the real migration column');
+assert.deepEqual(normalizedRemoteInspection.domainScores, { mission: { score: 100 } }, 'remote weekly inspection rows preserve JSONB domain scores');
+assert.equal(normalizedRemoteInspection.inspectionStatus, 'ready_for_inspection', 'remote weekly inspection rows normalize inspection status from the real migration column');
 console.log('weekly inspection tests passed');

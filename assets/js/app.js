@@ -18,6 +18,7 @@ let performanceStorageMode = "LOADING";
 let performanceSaveState = "loading";
 let performanceEditId = null;
 let performanceFilters = { date: "", domain: "", activity: "", entryType: "" };
+let performanceActiveView = "overview";
 let fitnessTestAttempts = [];
 let activeFitnessTestAttemptId = null;
 let personalRecords = [];
@@ -169,6 +170,11 @@ const COMPLIANCE_COLUMNS = [
     `${domain}_status`, `${domain}_target`, `${domain}_actual`, `${domain}_note`,
     `${domain}_restriction`, `${domain}_approved_modification`
   ])
+].join(",");
+const WEEKLY_INSPECTION_COLUMNS = [
+  "week_start_date", "week_end_date", "weekly_discipline_score", "evidence_coverage",
+  "domain_scores", "aggregate_counts", "strongest_domain", "weakest_domain",
+  "next_week_priority", "report_evidence", "atlas_report", "inspection_status", "finalized_at"
 ].join(",");
 
 const readinessClass = {
@@ -1330,17 +1336,20 @@ function inspectionValue(record, camel, snake) {
   return record?.[camel] ?? record?.[snake] ?? null;
 }
 
-function normalizeInspectionForAnalytics(record = {}) {
-  const domainScores = inspectionValue(record, "domainScores", "domain_scores") || {};
+function normalizeSupabaseWeeklyInspectionRow(record = {}) {
   return {
     weekStartDate: inspectionValue(record, "weekStartDate", "week_start_date"),
     weekEndDate: inspectionValue(record, "weekEndDate", "week_end_date"),
     score: inspectionValue(record, "score", "weekly_discipline_score"),
     evidenceCoverage: inspectionValue(record, "evidenceCoverage", "evidence_coverage"),
-    domainScores,
+    domainScores: inspectionValue(record, "domainScores", "domain_scores") || {},
     finalizedAt: inspectionValue(record, "finalizedAt", "finalized_at"),
     inspectionStatus: inspectionValue(record, "inspectionStatus", "inspection_status")
   };
+}
+
+function normalizeInspectionForAnalytics(record = {}) {
+  return normalizeSupabaseWeeklyInspectionRow(record);
 }
 
 function sortInspectionHistory(records = []) {
@@ -2748,6 +2757,159 @@ function hydratePerformanceEntry(row = {}) {
   });
 }
 
+function formatPerformanceMetricValue(record = {}) {
+  const normalizedValue = record?.normalizedValue ?? record?.normalized_value ?? null;
+  const unit = record?.unit || record?.normalizedUnit || record?.metrics?.weight_unit || record?.metrics?.measurement_unit || record?.metrics?.distance_unit || "";
+  const fallbackValue = record?.metrics?.weight ?? record?.metrics?.measurement_value ?? record?.metrics?.overall_score ?? record?.metrics?.test_event_value ?? record?.metrics?.duration_seconds ?? record?.metrics?.distance ?? null;
+  const rawValue = normalizedValue ?? fallbackValue;
+  if (rawValue === null || rawValue === undefined || rawValue === "") return "—";
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    const rounded = rawValue >= 100 ? Math.round(rawValue) : Number(rawValue).toFixed(1);
+    return `${rounded}${unit ? ` ${unit}` : ""}`.trim();
+  }
+  return `${rawValue}${unit ? ` ${unit}` : ""}`.trim();
+}
+
+function buildPerformanceOverviewModel(entries = [], personalRecords = [], milestoneAchievements = [], fitnessAttempts = [], atlasReviews = []) {
+  const recentSummary = summarizeRecentPerformance(entries || []);
+  const latestStrength = recentSummary.mostRecentStrengthEntry;
+  const latestRun = recentSummary.mostRecentRun;
+  const latestTest = recentSummary.mostRecentBenchmarkOrFormalTest;
+  const latestRecord = Array.isArray(personalRecords) ? personalRecords[0] : null;
+  const latestMilestone = Array.isArray(milestoneAchievements) ? milestoneAchievements[0] : null;
+  const latestFitnessAttempt = Array.isArray(fitnessAttempts) ? fitnessAttempts[0] : null;
+  const achievementFeed = [];
+  if (latestRecord) {
+    achievementFeed.push({ kind: "record", title: latestRecord.activityName || latestRecord.recordCategory || "Performance record", description: `${latestRecord.recordCategory || "PR"} • ${formatPerformanceMetricValue(latestRecord)}`, meta: latestRecord.recordStatus || "CONFIRMED" });
+  }
+  if (latestMilestone) {
+    achievementFeed.push({ kind: "milestone", title: latestMilestone.title || "Milestone", description: latestMilestone.achievedDate || "Milestone reached", meta: latestMilestone.evidenceStatus || "SELF REPORTED" });
+  }
+  if (latestFitnessAttempt) {
+    achievementFeed.push({ kind: "fitness", title: latestFitnessAttempt.protocolName || latestFitnessAttempt.title || "Fitness test", description: latestFitnessAttempt.status || "Draft", meta: latestFitnessAttempt.completedAt || latestFitnessAttempt.updatedAt || "Recently updated" });
+  }
+  return {
+    summaryMetrics: [
+      { label: "Entries this week", value: recentSummary.entriesThisWeek },
+      { label: "PRs tracked", value: Array.isArray(personalRecords) ? personalRecords.length : 0 },
+      { label: "Milestones", value: Array.isArray(milestoneAchievements) ? milestoneAchievements.length : 0 },
+      { label: "Tests", value: Array.isArray(fitnessAttempts) ? fitnessAttempts.length : 0 }
+    ],
+    latestSignals: [
+      { label: "Latest strength", value: latestStrength ? `${latestStrength.performanceDate} • ${latestStrength.activityName}` : "—" },
+      { label: "Latest run", value: latestRun ? `${latestRun.performanceDate} • ${latestRun.activityName}` : "—" },
+      { label: "Latest test", value: latestTest ? `${latestTest.performanceDate} • ${latestTest.activityName}` : "—" }
+    ],
+    achievementFeed,
+    atlasStatus: Array.isArray(atlasReviews) && atlasReviews[0] ? atlasReviews[0].status : "Ready"
+  };
+}
+
+function buildPerformanceFitnessScorecardModel(fitnessAttempts = [], personalRecords = []) {
+  return (fitnessAttempts || []).map((attempt, index) => {
+    const score = attempt?.overallScore ?? attempt?.overall_score ?? attempt?.metrics?.overall_score ?? null;
+    return {
+      id: attempt?.id || `fitness-${index + 1}`,
+      title: attempt?.protocolName || attempt?.title || attempt?.activityName || "Fitness test",
+      score: score === null || score === undefined ? null : Number(score),
+      status: attempt?.status || "DRAFT",
+      completedAt: attempt?.completedAt || attempt?.performanceDate || attempt?.updatedAt || null,
+      recordCount: Array.isArray(personalRecords) ? personalRecords.length : 0
+    };
+  });
+}
+
+function buildPerformanceRecordTimelineModel(personalRecords = [], entries = []) {
+  const records = Array.isArray(personalRecords) ? personalRecords : [];
+  return records.map((record, index) => ({
+    id: record?.id || `record-${index + 1}`,
+    category: record?.recordCategory || record?.record_category || "PR",
+    title: record?.activityName || record?.activity_code || record?.activityCode || "Performance record",
+    metric: formatPerformanceMetricValue(record),
+    status: record?.recordStatus || record?.record_status || "CONFIRMED",
+    achievedDate: record?.achievedDate || record?.performanceDate || null,
+    sourceEntry: Array.isArray(entries) ? entries.find((entry) => String(entry?.id || "") === String(record?.sourceEntryId || "")) || null : null
+  }));
+}
+
+function buildPerformanceMilestoneWallModel(milestoneAchievements = [], milestoneCatalog = []) {
+  const catalog = Array.isArray(milestoneCatalog) ? milestoneCatalog : [];
+  return (milestoneAchievements || []).map((achievement, index) => {
+    const catalogEntry = catalog.find((item) => item.code === achievement?.milestoneCode) || null;
+    return {
+      id: achievement?.id || `milestone-${index + 1}`,
+      title: achievement?.title || catalogEntry?.title || "Milestone",
+      description: achievement?.description || catalogEntry?.commandNote || "Milestone reached",
+      achievedDate: achievement?.achievedDate || null,
+      evidenceStatus: achievement?.evidenceStatus || "SELF REPORTED"
+    };
+  });
+}
+
+function buildPerformanceViewModel(entries = [], personalRecords = [], milestoneAchievements = [], fitnessAttempts = [], atlasReviews = []) {
+  return {
+    overview: buildPerformanceOverviewModel(entries, personalRecords, milestoneAchievements, fitnessAttempts, atlasReviews),
+    fitness: buildPerformanceFitnessScorecardModel(fitnessAttempts, personalRecords),
+    records: buildPerformanceRecordTimelineModel(personalRecords, entries),
+    milestones: buildPerformanceMilestoneWallModel(milestoneAchievements, getMilestoneCatalog()),
+    log: (entries || []).slice(0, 6).map((entry) => normalizePerformanceEntry(entry))
+  };
+}
+
+function setPerformanceActiveView(view = "overview") {
+  const normalizedView = ["overview", "fitness", "records", "milestones", "log"].includes(view) ? view : "overview";
+  performanceActiveView = normalizedView;
+  document.querySelectorAll(".performance-view-tab").forEach((button) => {
+    const isActive = button.dataset.view === normalizedView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  document.querySelectorAll("[data-view-panel]").forEach((panel) => {
+    const isActive = panel.dataset.viewPanel === normalizedView;
+    panel.hidden = !isActive;
+    panel.classList.toggle("active", isActive);
+  });
+}
+
+function renderPerformanceViewShell(viewModel = buildPerformanceViewModel(performanceEntries, personalRecords, milestoneAchievements, fitnessTestAttempts, atlasPerformanceReviews)) {
+  const overviewMetrics = document.getElementById("performance-overview-metrics");
+  if (overviewMetrics) {
+    overviewMetrics.innerHTML = (viewModel?.overview?.summaryMetrics || []).map((metric) => `<div class="performance-stat-card"><span>${metric.label}</span><strong>${metric.value}</strong></div>`).join("");
+  }
+  const overviewSignals = document.getElementById("performance-overview-signals");
+  if (overviewSignals) {
+    overviewSignals.innerHTML = (viewModel?.overview?.latestSignals || []).map((signal) => `<div class="performance-signal-item"><span>${signal.label}</span><strong>${signal.value}</strong></div>`).join("");
+  }
+  const achievementFeed = document.getElementById("performance-achievement-feed");
+  if (achievementFeed) {
+    achievementFeed.innerHTML = (viewModel?.overview?.achievementFeed || []).map((item) => `<article class="performance-feed-item"><div class="performance-feed-title">${item.title}</div><p>${item.description}</p><span>${item.meta}</span></article>`).join("");
+  }
+  const atlasReadout = document.getElementById("performance-overview-atlas");
+  if (atlasReadout) {
+    atlasReadout.innerHTML = `<article class="performance-atlas-card"><div class="performance-feed-title">ATLAS // PERFORMANCE REVIEW</div><p>${viewModel?.overview?.atlasStatus || "Ready"}</p><span>Deterministic review derived from latest PRs, milestones, and test outcomes.</span></article>`;
+  }
+  const fitnessCards = document.getElementById("performance-fitness-scorecards");
+  if (fitnessCards) {
+    fitnessCards.innerHTML = (viewModel?.fitness || []).map((card) => `<article class="performance-scorecard"><div class="performance-feed-title">${card.title}</div><strong>${card.score === null ? "—" : card.score}</strong><p>${card.status}</p><span>${card.completedAt || "Pending"}</span></article>`).join("");
+  }
+  const recordTimeline = document.getElementById("performance-record-timeline");
+  if (recordTimeline) {
+    recordTimeline.innerHTML = (viewModel?.records || []).map((record) => `<article class="performance-feed-item"><div class="performance-feed-title">${record.title}</div><p>${record.category}</p><span>${record.metric} • ${record.status}</span></article>`).join("");
+  }
+  const milestoneWall = document.getElementById("performance-milestone-wall");
+  if (milestoneWall) {
+    milestoneWall.innerHTML = (viewModel?.milestones || []).map((milestone) => `<article class="performance-feed-item"><div class="performance-feed-title">${milestone.title}</div><p>${milestone.description}</p><span>${milestone.achievedDate || milestone.evidenceStatus}</span></article>`).join("");
+  }
+  const title = document.getElementById("performance-view-title");
+  if (title) {
+    title.textContent = performanceActiveView === "fitness" ? "Fitness test command center" : performanceActiveView === "records" ? "Record cabinet" : performanceActiveView === "milestones" ? "Milestone wall" : performanceActiveView === "log" ? "Performance log" : "Performance operating picture";
+  }
+  const state = document.getElementById("performance-view-state");
+  if (state) {
+    state.textContent = viewModel?.overview?.atlasStatus || "READY";
+  }
+}
+
 function summarizeRecentPerformance(entries = []) {
   const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
   const referenceDate = parseISODateUTC(todayISODate()) || new Date();
@@ -3002,6 +3164,8 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   const storageStateText = saveState === "saved" ? "Saved to remote store." : saveState === "locally saved" ? "Saved locally while remote sync is unavailable." : saveState === "failed" ? "Save failed." : saveState === "loading" ? "Loading entries…" : "No save yet.";
   setText("performance-save-state", saveState === "saving" ? "SAVING" : saveState === "saved" ? "SAVED" : saveState === "locally saved" ? "LOCAL" : saveState === "failed" ? "FAILED" : "READY");
   setText("performance-save-hint", storageStateText);
+  const viewModel = buildPerformanceViewModel(entries, personalRecords, milestoneAchievements, fitnessTestAttempts, atlasPerformanceReviews);
+  renderPerformanceViewShell(viewModel);
   renderFitnessTestsSection();
   renderPersonalRecordsSection();
   renderMilestonesSection();
@@ -3559,6 +3723,15 @@ if (typeof document !== "undefined") {
   document.getElementById("finalize-week").addEventListener("click", finalizeWeeklyInspection);
   document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);
   document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);
+  const performanceViewSwitcher = document.getElementById("performance-view-switcher");
+  if (performanceViewSwitcher) {
+    performanceViewSwitcher.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-view]");
+      if (!button) return;
+      setPerformanceActiveView(button.dataset.view);
+      renderPerformanceSection();
+    });
+  }
   document.getElementById("performance-domain").addEventListener("change", () => { populatePerformanceActivityOptions(document.getElementById("performance-domain").value); refreshPerformanceFieldVisibility(); });
   document.getElementById("performance-entry-type").addEventListener("change", refreshPerformanceFieldVisibility);
   const fitnessStartButton = document.getElementById("fitness-start-new-test");
@@ -3762,6 +3935,8 @@ if (typeof module !== "undefined") {
     normalizeComplianceStatus,
     scoreComplianceDomain,
     calculateDisciplineScore,
+    loadComplianceRecordsForRange,
+    normalizeSupabaseWeeklyInspectionRow,
     formatDisciplineScore,
     buildComplianceExplanation,
     deriveDailyComplianceState,
@@ -3841,6 +4016,11 @@ if (typeof module !== "undefined") {
     filterPerformanceEntries,
     removePerformanceEntry,
     derivePerformanceEmptyState,
+    buildPerformanceOverviewModel,
+    buildPerformanceFitnessScorecardModel,
+    buildPerformanceRecordTimelineModel,
+    buildPerformanceMilestoneWallModel,
+    buildPerformanceViewModel,
     WEEKLY_EVIDENCE_THRESHOLD,
     TREND_WINDOW_SIZE,
     TREND_SLOPE_THRESHOLD,
@@ -4474,6 +4654,36 @@ async function saveDailyCompliance(event) {
   await loadTrendsAnalytics();
 }
 
+function loadComplianceRecordsForRange(records = [], weekValue = todayISODate()) {
+  const range = getInspectionWeekRange(weekValue);
+  const normalized = [];
+  const byDate = new Map();
+  const sourceRecords = Array.isArray(records) ? records : [];
+  sourceRecords.forEach((record) => {
+    const normalizedRecord = normalizeDailyComplianceRecord(record);
+    const date = normalizeComplianceDate(normalizedRecord?.compliance_date);
+    if (!date || date < range.weekStartDate || date > range.weekEndDate) return;
+    const existing = byDate.get(date);
+    if (!existing) {
+      byDate.set(date, normalizedRecord);
+      normalized.push(normalizedRecord);
+      return;
+    }
+    const merged = {
+      ...existing,
+      ...normalizedRecord,
+      ...Object.fromEntries(Object.entries(normalizedRecord).filter(([key, value]) => {
+        if (key === "compliance_date") return Boolean(value);
+        return value !== null && value !== undefined && value !== "";
+      }))
+    };
+    byDate.set(date, merged);
+    const position = normalized.findIndex((item) => normalizeComplianceDate(item.compliance_date) === date);
+    if (position >= 0) normalized[position] = merged;
+  });
+  return normalized.sort((left, right) => normalizeComplianceDate(left.compliance_date).localeCompare(normalizeComplianceDate(right.compliance_date)));
+}
+
 function weeklyInspectionStorageKey(weekStartDate) {
   return `coach-dominion:weekly-inspection:${session?.user?.id || "local"}:${weekStartDate}`;
 }
@@ -4509,6 +4719,22 @@ function loadLocalWeekRecords(range) {
     return records;
   }
   return records;
+}
+
+function loadComplianceRecordsForRangeFromStorage(range = {}) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  const records = [];
+  try {
+    for (let offset = 0; offset < 7; offset += 1) {
+      const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
+      const key = `coach-dominion:daily-compliance:${session?.user?.id || "local"}:${date}`;
+      const stored = window.localStorage.getItem(key);
+      if (stored) records.push(JSON.parse(stored));
+    }
+  } catch (_) {
+    return [];
+  }
+  return loadComplianceRecordsForRange(records, range.weekStartDate);
 }
 
 function weeklyPersistencePayload(aggregate, finalizedAt = null) {
@@ -4589,7 +4815,7 @@ async function loadWeeklyInspection() {
   setText("weekly-warning", "Calculating weekly evidence…");
   try {
     const supabase = await getClient();
-    const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+    const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select(WEEKLY_INSPECTION_COLUMNS).eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
     if (inspectionError) throw inspectionError;
     if (saved?.finalized_at) {
       renderWeeklyInspection(aggregateFromStoredInspection(saved), "SUPABASE");
@@ -4597,7 +4823,7 @@ async function loadWeeklyInspection() {
     }
     const { data: records, error: recordsError } = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
     if (recordsError) throw recordsError;
-    weeklyDailyRecords = records || [];
+    weeklyDailyRecords = loadComplianceRecordsForRange(records || [], range.weekStartDate);
     const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
     aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
     const payload = weeklyPersistencePayload(aggregate);
@@ -4611,7 +4837,7 @@ async function loadWeeklyInspection() {
       renderWeeklyInspection(aggregateFromStoredInspection(saved), "LOCAL");
       return;
     }
-    weeklyDailyRecords = loadLocalWeekRecords(range);
+    weeklyDailyRecords = loadComplianceRecordsForRangeFromStorage(range);
     const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
     aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
     saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
@@ -4753,12 +4979,13 @@ async function loadTrendsAnalytics() {
   try {
     const supabase = await getClient();
     const results = await Promise.all([
-      supabase.from("weekly_inspections").select("week_start_date,week_end_date,weekly_discipline_score,evidence_coverage,domain_scores,inspection_status,finalized_at").eq("user_id", session.user.id).order("week_start_date", { ascending: true }),
+      supabase.from("weekly_inspections").select(WEEKLY_INSPECTION_COLUMNS).eq("user_id", session.user.id).order("week_start_date", { ascending: true }),
       supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).lte("compliance_date", todayISODate()).order("compliance_date", { ascending: true })
     ]);
     if (results[0].error) throw results[0].error;
     if (results[1].error) throw results[1].error;
-    renderTrendsAnalytics(results[0].data || [], results[1].data || [], "SUPABASE");
+    const inspections = (results[0].data || []).map((row) => normalizeSupabaseWeeklyInspectionRow(row));
+    renderTrendsAnalytics(inspections, results[1].data || [], "SUPABASE");
   } catch (_) {
     const local = loadLocalAnalyticsHistory();
     renderTrendsAnalytics(local.inspections, local.dailyRecords, "LOCAL FALLBACK");

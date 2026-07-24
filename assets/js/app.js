@@ -171,6 +171,11 @@ const COMPLIANCE_COLUMNS = [
     `${domain}_restriction`, `${domain}_approved_modification`
   ])
 ].join(",");
+const WEEKLY_INSPECTION_COLUMNS = [
+  "week_start_date", "week_end_date", "weekly_discipline_score", "evidence_coverage",
+  "domain_scores", "aggregate_counts", "strongest_domain", "weakest_domain",
+  "next_week_priority", "report_evidence", "atlas_report", "inspection_status", "finalized_at"
+].join(",");
 
 const readinessClass = {
   RED: "red",
@@ -1331,17 +1336,20 @@ function inspectionValue(record, camel, snake) {
   return record?.[camel] ?? record?.[snake] ?? null;
 }
 
-function normalizeInspectionForAnalytics(record = {}) {
-  const domainScores = inspectionValue(record, "domainScores", "domain_scores") || {};
+function normalizeSupabaseWeeklyInspectionRow(record = {}) {
   return {
     weekStartDate: inspectionValue(record, "weekStartDate", "week_start_date"),
     weekEndDate: inspectionValue(record, "weekEndDate", "week_end_date"),
     score: inspectionValue(record, "score", "weekly_discipline_score"),
     evidenceCoverage: inspectionValue(record, "evidenceCoverage", "evidence_coverage"),
-    domainScores,
+    domainScores: inspectionValue(record, "domainScores", "domain_scores") || {},
     finalizedAt: inspectionValue(record, "finalizedAt", "finalized_at"),
     inspectionStatus: inspectionValue(record, "inspectionStatus", "inspection_status")
   };
+}
+
+function normalizeInspectionForAnalytics(record = {}) {
+  return normalizeSupabaseWeeklyInspectionRow(record);
 }
 
 function sortInspectionHistory(records = []) {
@@ -3927,6 +3935,8 @@ if (typeof module !== "undefined") {
     normalizeComplianceStatus,
     scoreComplianceDomain,
     calculateDisciplineScore,
+    loadComplianceRecordsForRange,
+    normalizeSupabaseWeeklyInspectionRow,
     formatDisciplineScore,
     buildComplianceExplanation,
     deriveDailyComplianceState,
@@ -4644,6 +4654,36 @@ async function saveDailyCompliance(event) {
   await loadTrendsAnalytics();
 }
 
+function loadComplianceRecordsForRange(records = [], weekValue = todayISODate()) {
+  const range = getInspectionWeekRange(weekValue);
+  const normalized = [];
+  const byDate = new Map();
+  const sourceRecords = Array.isArray(records) ? records : [];
+  sourceRecords.forEach((record) => {
+    const normalizedRecord = normalizeDailyComplianceRecord(record);
+    const date = normalizeComplianceDate(normalizedRecord?.compliance_date);
+    if (!date || date < range.weekStartDate || date > range.weekEndDate) return;
+    const existing = byDate.get(date);
+    if (!existing) {
+      byDate.set(date, normalizedRecord);
+      normalized.push(normalizedRecord);
+      return;
+    }
+    const merged = {
+      ...existing,
+      ...normalizedRecord,
+      ...Object.fromEntries(Object.entries(normalizedRecord).filter(([key, value]) => {
+        if (key === "compliance_date") return Boolean(value);
+        return value !== null && value !== undefined && value !== "";
+      }))
+    };
+    byDate.set(date, merged);
+    const position = normalized.findIndex((item) => normalizeComplianceDate(item.compliance_date) === date);
+    if (position >= 0) normalized[position] = merged;
+  });
+  return normalized.sort((left, right) => normalizeComplianceDate(left.compliance_date).localeCompare(normalizeComplianceDate(right.compliance_date)));
+}
+
 function weeklyInspectionStorageKey(weekStartDate) {
   return `coach-dominion:weekly-inspection:${session?.user?.id || "local"}:${weekStartDate}`;
 }
@@ -4679,6 +4719,22 @@ function loadLocalWeekRecords(range) {
     return records;
   }
   return records;
+}
+
+function loadComplianceRecordsForRangeFromStorage(range = {}) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  const records = [];
+  try {
+    for (let offset = 0; offset < 7; offset += 1) {
+      const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
+      const key = `coach-dominion:daily-compliance:${session?.user?.id || "local"}:${date}`;
+      const stored = window.localStorage.getItem(key);
+      if (stored) records.push(JSON.parse(stored));
+    }
+  } catch (_) {
+    return [];
+  }
+  return loadComplianceRecordsForRange(records, range.weekStartDate);
 }
 
 function weeklyPersistencePayload(aggregate, finalizedAt = null) {
@@ -4759,7 +4815,7 @@ async function loadWeeklyInspection() {
   setText("weekly-warning", "Calculating weekly evidence…");
   try {
     const supabase = await getClient();
-    const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+    const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select(WEEKLY_INSPECTION_COLUMNS).eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
     if (inspectionError) throw inspectionError;
     if (saved?.finalized_at) {
       renderWeeklyInspection(aggregateFromStoredInspection(saved), "SUPABASE");
@@ -4767,7 +4823,7 @@ async function loadWeeklyInspection() {
     }
     const { data: records, error: recordsError } = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
     if (recordsError) throw recordsError;
-    weeklyDailyRecords = records || [];
+    weeklyDailyRecords = loadComplianceRecordsForRange(records || [], range.weekStartDate);
     const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
     aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
     const payload = weeklyPersistencePayload(aggregate);
@@ -4781,7 +4837,7 @@ async function loadWeeklyInspection() {
       renderWeeklyInspection(aggregateFromStoredInspection(saved), "LOCAL");
       return;
     }
-    weeklyDailyRecords = loadLocalWeekRecords(range);
+    weeklyDailyRecords = loadComplianceRecordsForRangeFromStorage(range);
     const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
     aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
     saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
@@ -4923,12 +4979,13 @@ async function loadTrendsAnalytics() {
   try {
     const supabase = await getClient();
     const results = await Promise.all([
-      supabase.from("weekly_inspections").select("week_start_date,week_end_date,weekly_discipline_score,evidence_coverage,domain_scores,inspection_status,finalized_at").eq("user_id", session.user.id).order("week_start_date", { ascending: true }),
+      supabase.from("weekly_inspections").select(WEEKLY_INSPECTION_COLUMNS).eq("user_id", session.user.id).order("week_start_date", { ascending: true }),
       supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).lte("compliance_date", todayISODate()).order("compliance_date", { ascending: true })
     ]);
     if (results[0].error) throw results[0].error;
     if (results[1].error) throw results[1].error;
-    renderTrendsAnalytics(results[0].data || [], results[1].data || [], "SUPABASE");
+    const inspections = (results[0].data || []).map((row) => normalizeSupabaseWeeklyInspectionRow(row));
+    renderTrendsAnalytics(inspections, results[1].data || [], "SUPABASE");
   } catch (_) {
     const local = loadLocalAnalyticsHistory();
     renderTrendsAnalytics(local.inspections, local.dailyRecords, "LOCAL FALLBACK");

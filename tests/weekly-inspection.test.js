@@ -27,6 +27,19 @@ const complete = aggregateWeeklyCompliance(week('completed'), dates[0]);
 assert.equal(complete.score, 100, '1. seven completed days score 100');
 assert.equal(complete.evidenceCoverage, 100);
 
+const supabaseStyle = aggregateWeeklyCompliance([
+  {
+    compliance_date: '2026-07-20T00:00:00.000Z',
+    mission_status: 'completed',
+    strength_status: 'completed',
+    cardio_status: 'completed',
+    recovery_status: 'completed',
+    nutrition_status: 'completed'
+  }
+], '2026-07-20');
+assert.equal(supabaseStyle.counts.assessedObservations, 5, '1b. supabase-style rows map to all five domains');
+assert.equal(supabaseStyle.dailyEvidence[0].assessedCount, 5, '1c. supabase-style rows render as 5/5 assessed');
+
 const mixed = aggregateWeeklyCompliance([
   record(dates[0], ['completed', 'partial', 'missed', 'completed', 'partial']),
   ...dates.slice(1).map((date) => record(date, 'completed'))

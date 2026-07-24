@@ -23,6 +23,7 @@
           <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
           <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
           <a class="nav-link" href="#rank" data-section="rank">RANK</a>
+          <a class="nav-link" href="#performance" data-section="performance">PERFORMANCE</a>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
@@ -321,6 +322,90 @@
         <ul id="rank-history" class="feed"></ul>
         <h3>Rank ladder</h3>
         <div id="rank-ladder" class="standards-queue"></div>
+      </section>
+
+      <section id="performance" class="card performance-log scroll-anchor" aria-labelledby="performance-heading" data-section="performance">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 005A // PERFORMANCE LOGGING FOUNDATION</div>
+            <h2 id="performance-heading">Performance Logging</h2>
+            <p class="muted">Capture strength, running, core, conditioning, formal tests, and body metrics with deterministic validation and reviewable evidence.</p>
+          </div>
+          <span id="performance-storage" class="state-pill neutral">LOADING</span>
+        </div>
+        <div class="performance-summary-grid">
+          <div><span>Entries this week</span><strong id="performance-week-count">0</strong></div>
+          <div><span>Last strength</span><strong id="performance-strength-last">—</strong></div>
+          <div><span>Last run</span><strong id="performance-run-last">—</strong></div>
+          <div><span>Last benchmark/test</span><strong id="performance-test-last">—</strong></div>
+          <div><span>Domains represented</span><strong id="performance-domains-week">None yet</strong></div>
+        </div>
+        <form id="performance-form" class="performance-form">
+          <div class="performance-form-grid">
+            <label>Date<input id="performance-date" name="performance_date" type="date"></label>
+            <label>Time<input id="performance-time" name="performance_time" type="time"></label>
+            <label>Domain<select id="performance-domain" name="domain"><option value="strength">Strength</option><option value="running">Running</option><option value="core">Core</option><option value="conditioning">Conditioning</option><option value="fitness_test">Fitness Test</option><option value="body_metrics">Body Metrics</option></select></label>
+            <label>Entry type<select id="performance-entry-type" name="entry_type"><option value="TRAINING_SET">Training Set</option><option value="WORKOUT_SUMMARY">Workout Summary</option><option value="BENCHMARK">Benchmark</option><option value="FORMAL_TEST">Formal Test</option><option value="RACE">Race</option><option value="MEASUREMENT">Measurement</option></select></label>
+            <label>Activity code<select id="performance-activity-code" name="activity_code"></select></label>
+            <label>Activity name<input id="performance-activity-name" name="activity_name" type="text" maxlength="80"></label>
+            <label>Session name<input id="performance-session-name" name="session_name" type="text" maxlength="80"></label>
+            <label>Source<select id="performance-source" name="source"><option value="MANUAL">Manual</option><option value="IMPORTED">Imported</option><option value="SYNCED">Synced</option></select></label>
+            <label>Evidence status<select id="performance-evidence-status" name="evidence_status"><option value="SELF REPORTED">Self Reported</option><option value="VERIFIED">Verified</option><option value="ESTIMATED">Estimated</option><option value="INCOMPLETE">Incomplete</option></select></label>
+          </div>
+          <div id="performance-strength-fields" class="performance-metric-grid">
+            <label>Sets<input id="performance-strength-sets" name="sets" type="number" min="1" step="1"></label>
+            <label>Repetitions<input id="performance-strength-repetitions" name="repetitions" type="number" min="1" step="1"></label>
+            <label>Weight<input id="performance-strength-weight" name="weight" type="number" step="0.01"></label>
+            <label>Weight unit<input id="performance-strength-weight-unit" name="weight_unit" type="text" value="lb"></label>
+            <label>Duration seconds<input id="performance-strength-duration-seconds" name="duration_seconds" type="number" min="1" step="1"></label>
+            <label>Assistance<input id="performance-strength-assistance" name="assistance" type="text"></label>
+            <label>Bodyweight added<input id="performance-strength-bodyweight-added" name="bodyweight_added" type="number" step="0.01"></label>
+          </div>
+          <div id="performance-running-fields" class="performance-metric-grid" hidden>
+            <label>Distance<input id="performance-running-distance" name="distance" type="number" min="0" step="0.01"></label>
+            <label>Distance unit<input id="performance-running-distance-unit" name="distance_unit" type="text" value="mi"></label>
+            <label>Duration seconds<input id="performance-running-duration-seconds" name="duration_seconds" type="number" min="1" step="1"></label>
+            <label>Pace sec/unit<input id="performance-running-pace-seconds" name="pace_seconds_per_unit" type="number" step="0.01"></label>
+            <label>Elevation gain<input id="performance-running-elevation-gain" name="elevation_gain" type="number" step="0.01"></label>
+            <label>Route type<input id="performance-running-route-type" name="route_type" type="text"></label>
+            <label>Run type<input id="performance-running-run-type" name="run_type" type="text"></label>
+            <label>Race name<input id="performance-running-race-name" name="race_name" type="text"></label>
+          </div>
+          <div id="performance-core-fields" class="performance-metric-grid" hidden>
+            <label>Repetitions<input id="performance-core-repetitions" name="repetitions" type="number" min="1" step="1"></label>
+            <label>Duration seconds<input id="performance-core-duration-seconds" name="duration_seconds" type="number" min="1" step="1"></label>
+            <label>Distance<input id="performance-core-distance" name="distance" type="number" step="0.01"></label>
+            <label>Calories<input id="performance-core-calories" name="calories" type="number" step="1"></label>
+            <label>Rounds<input id="performance-core-rounds" name="rounds" type="number" step="1"></label>
+            <label>Work interval seconds<input id="performance-core-work-interval-seconds" name="work_interval_seconds" type="number" step="1"></label>
+            <label>Rest interval seconds<input id="performance-core-rest-interval-seconds" name="rest_interval_seconds" type="number" step="1"></label>
+          </div>
+          <div id="performance-fitness-fields" class="performance-metric-grid" hidden>
+            <label>Protocol name<input id="performance-fitness-protocol-name" name="test_protocol_name" type="text"></label>
+            <label>Protocol code<input id="performance-fitness-protocol-code" name="test_protocol_code" type="text"></label>
+            <label>Event results<textarea id="performance-fitness-event-results" name="event_results" rows="3" placeholder="Name,score"></textarea></label>
+            <label>Overall score<input id="performance-fitness-overall-score" name="overall_score" type="number" min="0" step="1"></label>
+          </div>
+          <div id="performance-body-metrics-fields" class="performance-metric-grid" hidden>
+            <label>Measurement value<input id="performance-body-measurement-value" name="measurement_value" type="number" step="0.01"></label>
+            <label>Measurement unit<input id="performance-body-measurement-unit" name="measurement_unit" type="text" value="kg"></label>
+            <label>Measurement location<input id="performance-body-measurement-location" name="measurement_location" type="text"></label>
+          </div>
+          <label>Notes<textarea id="performance-notes" name="notes" rows="3" maxlength="500" placeholder="Use this to note context, fatigue, or confidence."></textarea></label>
+          <div class="performance-actions">
+            <button id="performance-save" type="submit">Save entry</button>
+            <button id="performance-reset" class="ghost" type="button">Reset</button>
+          </div>
+          <p id="performance-save-state" class="muted">READY</p>
+          <p id="performance-save-hint" class="muted">Create a fresh entry.</p>
+        </form>
+        <div class="performance-filters">
+          <label>Date<input id="performance-filter-date" type="date"></label>
+          <label>Domain<select id="performance-filter-domain"><option value="">All</option><option value="strength">Strength</option><option value="running">Running</option><option value="core">Core</option><option value="conditioning">Conditioning</option><option value="fitness_test">Fitness Test</option><option value="body_metrics">Body Metrics</option></select></label>
+          <label>Activity<input id="performance-filter-activity" type="text"></label>
+          <label>Entry type<select id="performance-filter-entry-type"><option value="">All</option><option value="TRAINING_SET">Training Set</option><option value="WORKOUT_SUMMARY">Workout Summary</option><option value="BENCHMARK">Benchmark</option><option value="FORMAL_TEST">Formal Test</option><option value="RACE">Race</option><option value="MEASUREMENT">Measurement</option></select></label>
+        </div>
+        <div id="performance-entry-list" class="performance-entry-list"></div>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">

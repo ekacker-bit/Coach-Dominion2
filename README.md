@@ -68,6 +68,28 @@ Build 004F adds a deterministic rank-and-promotion system that uses finalized we
 
 The built-in rank catalog starts at RECRUIT and advances one rank at a time through CADET, OPERATOR, VANGUARD, DOMINION, and ASCENDANT. Requirements are progressive and explainable, using a deterministic catalog that can be adjusted later without a manual admin editor. Promotion states are NOT ELIGIBLE, PROGRESSING, ELIGIBLE, PROMOTION PENDING, PROMOTED, BLOCKED, and CORRECTIVE PERIOD. Dismissed and excused standards candidates do not count against promotion, and provisional or UNSCORED weeks do not qualify. The Rank section in the War Room shows the current rank, next-rank target, checklist, blockers, Atlas Promotion Review, history, and ladder overview. Local fallback persistence keeps rank status and promotion history available while remote persistence is unavailable.
 
+## Build 005A performance logging foundation
+
+Build 005A adds an unreleased Performance Logging foundation to the War Room. It is additive and does not replace existing readiness, Dominion Record, inspection, standards, or promotion behavior.
+
+Performance domains include strength, running, core, conditioning, fitness tests, and body metrics. Supported entry types are training set, workout summary, benchmark, formal test, race, and measurement. Evidence statuses are self reported, verified, estimated, and incomplete. The UI supports progressive disclosure by domain, summary cards, filters, and edit/delete actions.
+
+Validation rules are deterministic:
+- strength entries require positive sets and repetitions, and weight must be non-negative
+- running entries require positive distance and duration
+- core and conditioning entries require positive repetitions or duration when provided
+- formal tests require a protocol name or activity name
+- body metrics require a non-negative measurement value
+
+Performance calculations are:
+- strength volume = sets × repetitions × weight
+- estimated 1RM = weight × (1 + repetitions / 30)
+- running pace = duration seconds / distance
+
+Performance entries persist to Supabase through [supabase/migrations/006_performance_logging.sql](supabase/migrations/006_performance_logging.sql) when the remote table is available. If Supabase is unavailable, the browser falls back to user-scoped local storage and marks the save state as local fallback. The runtime uses stable client-side ids for performance entries and deletes only by exact stable identifier.
+
+The current scope is the 005A foundation only. Planned follow-on work for 005B and 005C includes richer analytics, export/import, and deeper coaching automation around the new performance history.
+
 ## Routes
 
 | Route | Purpose |

@@ -4728,14 +4728,19 @@ function connectedRecordPayload(record) {
 
 async function persistConnectedRemote() {
   const supabase = await getClient();
-  const writes = [];
-  if (connectedAccounts.length) writes.push(supabase.from("connected_accounts").upsert(connectedAccounts.map(connectedAccountPayload), { onConflict: "id" }));
-  if (connectedSyncJobs.length) writes.push(supabase.from("integration_sync_jobs").upsert(connectedSyncJobs.map(connectedJobPayload), { onConflict: "id" }));
+  if (connectedAccounts.length) {
+    const result = await supabase.from("connected_accounts").upsert(connectedAccounts.map(connectedAccountPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+  if (connectedSyncJobs.length) {
+    const result = await supabase.from("integration_sync_jobs").upsert(connectedSyncJobs.map(connectedJobPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
   const canonicalRecords = connectedImportedRecords.filter((record) => record.importStatus !== "DUPLICATE");
-  if (canonicalRecords.length) writes.push(supabase.from("imported_records").upsert(canonicalRecords.map(connectedRecordPayload), { onConflict: "id" }));
-  const results = await Promise.all(writes);
-  const failed = results.find((result) => result.error);
-  if (failed) throw failed.error;
+  if (canonicalRecords.length) {
+    const result = await supabase.from("imported_records").upsert(canonicalRecords.map(connectedRecordPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
 }
 
 async function loadConnectedDominion() {

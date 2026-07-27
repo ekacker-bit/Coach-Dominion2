@@ -4754,10 +4754,12 @@ function renderConnectedDominion() {
   if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
     const account = connectedAccounts.find((item) => item.providerCode === provider.providerCode && item.connectionStatus !== "DISCONNECTED");
     const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
+    const fitbodImport = provider.providerCode === "FITBOD" ? `<button type="button" data-connected-action="fitbod-import">Import Fitbod workout CSV</button>` : "";
+    const previewAction = account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review account</button>` : `<button type="button" class="ghost" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`;
     return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
       <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
       <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
-      <div class="connected-actions">${account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review simulated account</button>` : `<button type="button" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`}</div>
+      <div class="connected-actions">${fitbodImport}${previewAction}</div>
     </article>`;
   }).join("")}</div>`;
 
@@ -4844,6 +4846,58 @@ async function runConnectedDemoSync(accountId, syncType = "MANUAL", retryOf = nu
     }
   }
   await saveConnectedState(`Manual DEMO sync ${job.status}: ${counts.imported} imported, ${counts.duplicate} duplicate, ${counts.rejected} rejected, ${counts.unmapped} unmapped.`, performancePersistFailed);
+  renderPerformanceSection();
+}
+
+async function importFitbodWorkoutFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  setText("connected-feedback", "Reading Fitbod workout file…");
+  const requestedAt = new Date().toISOString();
+  let account = connectedAccounts.find((item) => item.providerCode === "FITBOD" && item.connectionStatus !== "DISCONNECTED");
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "FITBOD", providerDisplayName: "Fitbod",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_STRENGTH_WORKOUTS"],
+      externalAccountLabel: "User-controlled workout-file import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "FITBOD",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseFitbodWorkoutCsv(await file.text(), {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  });
+  const processed = [], mappedEntries = [];
+  parsed.records.forEach((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords, ...processed]);
+    if (reconciled.importStatus === "DUPLICATE") { processed.push(reconciled); return; }
+    const mapping = api.mapImportedRecordToPerformanceEntry(reconciled, {
+      permissions: ["READ_STRENGTH_WORKOUTS"], normalizePerformanceEntry, validatePerformanceEntry
+    });
+    processed.push(mapping.record);
+    if (mapping.entry && !performanceEntries.some((entry) => entry.id === mapping.entry.id)) mappedEntries.push(mapping.entry);
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  performanceEntries = [...mappedEntries, ...performanceEntries];
+  if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "FITBOD_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Fitbod file import ${status}: ${counts.imported} mapped, ${counts.duplicate} duplicate, ${counts.unmapped} unmapped, ${parsed.errors.length} invalid row(s).`);
   renderPerformanceSection();
 }
 
@@ -4991,6 +5045,7 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-connected-action]");
     if (!button) return;
     const action = button.dataset.connectedAction;
+    if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
     if (action === "simulate") await simulateConnectedAccount(button.dataset.provider);
     if (action === "review-account") setConnectedActiveView("accounts");
     if (action === "sync") await runConnectedDemoSync(button.dataset.accountId);
@@ -5006,6 +5061,12 @@ if (typeof document !== "undefined") {
       const original = connectedSyncJobs.find((item) => item.id === button.dataset.jobId);
       if (original) await runConnectedDemoSync(original.connectedAccountId, "RETRY", original.id);
     }
+  });
+  const fitbodImportFile = document.getElementById("fitbod-import-file");
+  if (fitbodImportFile) fitbodImportFile.addEventListener("change", async () => {
+    const file = fitbodImportFile.files?.[0];
+    fitbodImportFile.value = "";
+    if (file) await importFitbodWorkoutFile(file);
   });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

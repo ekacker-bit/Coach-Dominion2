@@ -29,7 +29,7 @@ function run(overrides = {}) {
 
 test("1 provider catalog is deterministic", () => assert.deepEqual(connected.getConnectedProviderCatalog(), connected.getConnectedProviderCatalog()));
 test("2 unknown providers are rejected", () => assert.equal(connected.normalizeProviderCode("unknown"), null));
-test("3 providers remain architecture-only or planned", () => assert.ok(connected.getConnectedProviderCatalog().every((item) => ["ARCHITECTURE_ONLY", "PLANNED"].includes(item.implementationStatus))));
+test("3 providers expose only approved implementation modes", () => assert.ok(connected.getConnectedProviderCatalog().every((item) => ["ARCHITECTURE_ONLY", "PLANNED", "FILE_IMPORT"].includes(item.implementationStatus))));
 test("4 account normalization supports camelCase", () => assert.equal(account.providerCode, "STRAVA"));
 test("5 account normalization supports snake_case", () => assert.equal(connected.normalizeConnectedAccount({ provider_code: "GARMIN", user_id: "u" }).providerCode, "GARMIN"));
 test("6 unsupported permissions are rejected", () => assert.equal(connected.validatePermissionSelection("STRAVA", ["READ_SLEEP"]).valid, false));
@@ -112,6 +112,28 @@ test("49 weekly inspection render cannot abort Connected Dominion initialization
   const appSource = fs.readFileSync(require.resolve("../assets/js/app.js"), "utf8");
   assert.ok(appSource.includes('const inspectionSection = document.getElementById("inspection");'));
   assert.ok(!appSource.includes('document.getElementById("weekly-inspection").dataset'));
+});
+test("50 Fitbod CSV imports quoted exercise rows", () => {
+  const parsed = connected.parseFitbodWorkoutCsv('Date,Exercise,Reps,Weight,Unit,Set\n"2026-07-25 07:00","Bench Press",5,185,lb,1', {
+    userId: "user-1", connectedAccountId: "fitbod-1", sourceSyncJobId: "job-fitbod"
+  });
+  assert.equal(parsed.errors.length, 0);
+  assert.equal(parsed.records.length, 1);
+  assert.equal(parsed.records[0].providerCode, "FITBOD");
+  assert.equal(parsed.records[0].normalizedPayload.exercise_name, "Bench Press");
+  assert.equal(parsed.records[0].normalizedPayload.load, 185);
+});
+test("51 Fitbod CSV rejects files without required columns", () => {
+  const parsed = connected.parseFitbodWorkoutCsv("Workout,Reps\nPush Day,5");
+  assert.equal(parsed.records.length, 0);
+  assert.match(parsed.errors[0], /Date and Exercise/);
+});
+test("52 Fitbod import records are real user-controlled provenance", () => {
+  const parsed = connected.parseFitbodWorkoutCsv("Date,Exercise,Reps,Weight\n2026-07-25,Squat,5,225", {
+    userId: "user-1", connectedAccountId: "fitbod-1", sourceSyncJobId: "job-fitbod"
+  });
+  assert.equal(parsed.records[0].isDemo, false);
+  assert.equal(parsed.records[0].sourceSyncJobId, "job-fitbod");
 });
 
 console.log(`Connected Dominion: ${passed} assertions passed.`);

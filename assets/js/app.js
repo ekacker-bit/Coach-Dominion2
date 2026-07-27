@@ -4656,6 +4656,7 @@ function renderWarRoom(state) {
     setText("daily-risk", intel[3]);
     renderDailyCoachingLoop();
     renderBaselineIntelligence();
+    renderNutritionCommand();
     return;
   }
 
@@ -4707,6 +4708,7 @@ function renderWarRoom(state) {
   setText("summary-confidence", confidencePercent(readinessResult.confidence));
   renderDailyCoachingLoop();
   renderBaselineIntelligence();
+  renderNutritionCommand();
   setText("summary-comments", state.comments || "—");
 }
 
@@ -4893,6 +4895,73 @@ function connectedApi() {
 
 function connectedUserId() {
   return session?.user?.id || "local";
+}
+
+function nutritionManualStorageKey(date) {
+  return `coach-dominion:nutrition-manual:${connectedUserId()}:${date}`;
+}
+
+function readManualNutrition(date) {
+  try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(date)) || "null"); }
+  catch (_) { return null; }
+}
+
+function nutritionCommandDate() {
+  return document.querySelector('#nutrition-manual-form [name="date"]')?.value || todayISODate();
+}
+
+function renderNutritionCommand() {
+  const output = document.getElementById("nutrition-command-output");
+  const statusPill = document.getElementById("nutrition-command-status");
+  const form = document.getElementById("nutrition-manual-form");
+  if (!output || !statusPill || !form || typeof DominionNutritionCommand === "undefined" || !connectedApi()) return;
+  if (!form.elements.date.value) form.elements.date.value = todayISODate();
+  const date = nutritionCommandDate();
+  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords).find((day) => day.date === date);
+  const manual = readManualNutrition(date);
+  const actual = imported || manual || {};
+  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  const targets = connectedApi().parseNutritionTarget(targetText);
+  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  const readiness = dailyState && date === todayISODate() ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  const command = DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
+  statusPill.textContent = command.status;
+  statusPill.className = `state-pill ${command.status === "ON TARGET" ? "green" : ["UNDER-FUELED", "REVIEW NEEDED"].includes(command.status) ? "yellow" : "neutral"}`;
+  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
+  const metrics = Object.values(command.metrics).map((metric) => {
+    const [label, unit] = labels[metric.key];
+    const actualText = metric.actual === null ? "—" : `${Math.round(metric.actual)}${unit}`;
+    const targetTextValue = metric.target ? `${Math.round(metric.target)}${unit}` : "No target";
+    return `<article class="nutrition-metric"><span>${label}</span><strong>${actualText}</strong><small>Target: ${targetTextValue}</small><small>${metric.percent === null ? metric.status : `${metric.percent}% · ${metric.status}`}</small></article>`;
+  }).join("");
+  output.innerHTML = `<div class="nutrition-command-context">
+      <div><span>Date</span><strong>${escapeHtml(date)}</strong></div>
+      <div><span>Intake source</span><strong>${escapeHtml(command.source)}</strong></div>
+      <div><span>Context</span><strong>${trainingDay ? "TRAINING DAY" : "NO TRAINING IMPORT"} · ${escapeHtml(readiness)} READINESS</strong></div>
+    </div>
+    <div class="nutrition-command-grid">${metrics}</div>
+    <div class="nutrition-guidance"><strong>Atlas guidance</strong><ul>${command.guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+    <ul class="baseline-safeguards">${command.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions">
+      <button type="button" data-nutrition-command-action="review-targets">Review Nutrition Targets</button>
+      <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
+    </div>`;
+}
+
+function saveManualNutrition(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const date = String(data.get("date") || todayISODate());
+  const record = { date };
+  ["calories", "protein", "carbs", "fat"].forEach((key) => {
+    const value = data.get(key);
+    record[key] = value === "" || value === null ? null : Number(value);
+  });
+  window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
+  renderNutritionCommand();
+  setText("nutrition-command-feedback", "Manual totals saved locally. MyFitnessPal data will take priority when available for this date.");
 }
 
 function readConnectedLocal(kind, normalizer) {
@@ -5120,6 +5189,7 @@ function renderConnectedDominion() {
   }
   renderDailyCoachingLoop();
   renderBaselineIntelligence();
+  renderNutritionCommand();
   setConnectedActiveView(connectedActiveView);
 }
 
@@ -5467,6 +5537,22 @@ if (typeof document !== "undefined") {
   document.getElementById("weekly-plan-output")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-weekly-plan-action]");
     if (button?.dataset.weeklyPlanAction === "approve") approveCurrentWeeklyPlan();
+  });
+  document.getElementById("nutrition-manual-form")?.addEventListener("submit", saveManualNutrition);
+  document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
+  document.getElementById("nutrition-command-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-command-action]");
+    if (!button) return;
+    if (button.dataset.nutritionCommandAction === "review-targets") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("nutrition_target")?.focus();
+    }
+    if (button.dataset.nutritionCommandAction === "open-import") {
+      setActiveSection("connected");
+      window.history.replaceState(null, "", "#connected");
+      setConnectedActiveView("providers");
+    }
   });
   document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);
   document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);

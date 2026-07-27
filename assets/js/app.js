@@ -53,7 +53,7 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
-const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "programming"];
+const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "programming", "recovery"];
 const PERFORMANCE_TRAJECTORY_STATES = ["STRONGLY IMPROVING", "IMPROVING", "STABLE", "NOISY", "DECLINING", "STRONGLY DECLINING", "INSUFFICIENT DATA"];
 const PERFORMANCE_CONFIDENCE_STATES = ["HIGH", "MODERATE", "LOW", "INSUFFICIENT"];
 const PERFORMANCE_PLATEAU_STATES = ["NO PLATEAU", "POSSIBLE PLATEAU", "LIKELY PLATEAU", "INSUFFICIENT DATA"];
@@ -4128,6 +4128,58 @@ function renderProgrammingReview() {
     ${draft ? `<article class="connected-detail-card"><strong>APPROVED LOCAL DRAFT</strong><p>${escapeHtml(draft.prescription || "")}</p><p class="muted">Approved ${escapeHtml(draft.approvedAt || "")}. This draft has not silently changed today’s mission.</p></article>` : ""}`;
 }
 
+function recoveryStorageKey() {
+  return `coach-dominion:recovery-plan:${session?.user?.id || "local"}`;
+}
+
+function buildCurrentRecoveryRecommendation() {
+  if (typeof DominionRecovery === "undefined" || !connectedApi()) return null;
+  const readinessResult = dailyState ? evaluateReadiness(dailyState) : null;
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const nutrition = nutritionDays[0] || {};
+  const strengthSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const latestTraining = strengthSessions[0] || {};
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  return DominionRecovery.buildRecoveryRecommendation({
+    readiness: { state: readinessResult?.state, energy: dailyState?.energy, soreness: dailyState?.soreness, pain: Boolean(dailyState?.pain) },
+    nutrition,
+    targets: connectedApi().parseNutritionTarget(targetText),
+    training: { volume: latestTraining.volume || 0, sets: latestTraining.setCount || 0 },
+    weightTrend: DominionRecovery.weightTrend(performanceEntries)
+  });
+}
+
+function readRecoveryPlan() {
+  try { return JSON.parse(window.localStorage.getItem(recoveryStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function renderRecoveryReview() {
+  const panel = document.getElementById("recovery-review-panel");
+  if (!panel) return;
+  const review = buildCurrentRecoveryRecommendation();
+  if (!review) { panel.innerHTML = `<div class="performance-empty">Recovery engine unavailable.</div>`; return; }
+  setText("recovery-status", review.status);
+  const plan = readRecoveryPlan();
+  const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
+  panel.innerHTML = `<div class="connected-summary-grid">
+      <div><span>Recovery posture</span><strong>${escapeHtml(review.status)}</strong></div>
+      <div><span>Priority</span><strong>${escapeHtml(review.priority)}</strong></div>
+      <div><span>Confidence</span><strong>${escapeHtml(review.confidence)}</strong></div>
+      <div><span>Progression</span><strong>${review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
+      <div><span>Calorie coverage</span><strong>${coverage(review.calorieCoverage)}</strong></div>
+      <div><span>Protein coverage</span><strong>${coverage(review.proteinCoverage)}</strong></div>
+      <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume · ${review.trainingSets} sets</strong></div>
+      <div><span>Weight trend</span><strong>${escapeHtml(review.weightTrend.state)}${review.weightTrend.change === null ? "" : ` ${review.weightTrend.change > 0 ? "+" : ""}${review.weightTrend.change}`}</strong></div>
+    </div>
+    <article class="connected-detail-card"><header><div><span class="kicker">ATLAS ORDERS</span><h3>${escapeHtml(review.status)}</h3></div>${connectedStatusPill(review.priority)}</header>
+      <ul>${review.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+      <p class="muted">Readiness: ${escapeHtml(review.readiness.state)} · Energy ${review.readiness.energy ?? "—"}/10 · Soreness ${review.readiness.soreness ?? "—"}/10 · Pain ${review.readiness.pain ? "YES" : "NO"}</p>
+    </article>
+    <div class="performance-actions"><button type="button" data-recovery-action="approve">Approve recovery plan</button><button type="button" class="ghost" data-recovery-action="refresh">Refresh evidence</button></div>
+    ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter today’s mission.</p></article>` : ""}`;
+}
+
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
   const summary = summarizeRecentPerformance(entries);
   setText("performance-week-count", summary.entriesThisWeek);
@@ -4146,6 +4198,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderAtlasPerformanceReviewSection();
   renderPerformanceIntelligenceSection(entries);
   renderProgrammingReview();
+  renderRecoveryReview();
   renderPerformanceViewPanels();
   const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
   const entryList = document.getElementById("performance-entry-list");
@@ -5222,6 +5275,7 @@ if (typeof document !== "undefined") {
   document.querySelectorAll("[data-performance-view]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.performanceView === "programming") renderProgrammingReview();
+      if (button.dataset.performanceView === "recovery") renderRecoveryReview();
       setPerformanceActiveView(button.dataset.performanceView || "overview");
     });
   });
@@ -5243,6 +5297,26 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(programmingStorageKey(), JSON.stringify(draft));
       renderProgrammingReview();
       setText("programming-feedback", "Next-session draft approved locally. Today’s mission and Dominion Record were not changed.");
+    }
+  });
+  document.getElementById("recovery-review-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-recovery-action]");
+    if (!button) return;
+    if (button.dataset.recoveryAction === "refresh") {
+      renderRecoveryReview();
+      setText("recovery-feedback", "Recovery and fueling evidence refreshed.");
+    }
+    if (button.dataset.recoveryAction === "approve") {
+      const recommendation = buildCurrentRecoveryRecommendation();
+      if (!recommendation) return;
+      const plan = {
+        approvedAt: new Date().toISOString(),
+        recommendation,
+        plan: DominionRecovery.formatRecoveryPlan(recommendation)
+      };
+      window.localStorage.setItem(recoveryStorageKey(), JSON.stringify(plan));
+      renderRecoveryReview();
+      setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
     }
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {

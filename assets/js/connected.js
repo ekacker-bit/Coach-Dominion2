@@ -1,4 +1,3 @@
-
 (function connectedDominionModule(root, factory) {
   const api = factory();
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -396,6 +395,74 @@
     return { records, errors };
   }
 
+  function normalizeExerciseName(value) {
+    return text(value).toLowerCase()
+      .replace(/\b(barbell|dumbbell|machine|cable|weighted)\b/g, "")
+      .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+  }
+
+  function groupFitbodWorkoutSessions(records = []) {
+    const groups = new Map();
+    records.filter((record) => record.providerCode === "FITBOD" && record.dataType === "EXERCISE_SET" && record.validationStatus === "VALID")
+      .forEach((record) => {
+        const payload = record.normalizedPayload || {};
+        const date = text(record.occurredAt).slice(0, 10);
+        const workoutName = text(payload.workout_name) || "Fitbod Workout";
+        const key = `${date}|${normalizeExerciseName(workoutName)}`;
+        if (!groups.has(key)) groups.set(key, { id: stableId("fitbod_session", key), date, workoutName, records: [] });
+        groups.get(key).records.push(record);
+      });
+    return Array.from(groups.values()).map((session) => {
+      const exercises = new Map();
+      let volume = 0;
+      session.records.forEach((record) => {
+        const payload = record.normalizedPayload || {};
+        const name = text(payload.exercise_name) || "Unknown exercise";
+        const code = normalizeExerciseName(name);
+        const item = exercises.get(code) || { code, name, sets: 0, reps: 0, volume: 0 };
+        const sets = Number(payload.sets) || 1, reps = Number(payload.repetitions) || 0, load = Number(payload.load) || 0;
+        item.sets += sets;
+        item.reps += reps * sets;
+        item.volume += sets * reps * load;
+        volume += sets * reps * load;
+        exercises.set(code, item);
+      });
+      return { ...session, exercises: Array.from(exercises.values()), setCount: session.records.length, volume };
+    }).sort((a, b) => `${b.date}|${b.workoutName}`.localeCompare(`${a.date}|${a.workoutName}`));
+  }
+
+  function parsePrescribedStrengthTarget(value) {
+    return text(value).split(/[\n;]+/).map((part) => part.trim()).filter(Boolean).map((part) => {
+      const prescription = part.match(/(\d+)\s*[x×]\s*(\d+)/i);
+      const name = part.replace(/[-–—:]?\s*\d+\s*[x×]\s*\d+.*$/i, "").trim();
+      return { raw: part, name, code: normalizeExerciseName(name), sets: prescription ? Number(prescription[1]) : null, reps: prescription ? Number(prescription[2]) : null };
+    }).filter((item) => item.code);
+  }
+
+  function reconcileFitbodWorkoutSession(session = {}, prescribedTarget = "") {
+    const prescribed = parsePrescribedStrengthTarget(prescribedTarget);
+    const completed = Array.isArray(session.exercises) ? session.exercises : [];
+    const matches = prescribed.map((target) => {
+      const exercise = completed.find((item) => item.code === target.code || item.code.includes(target.code) || target.code.includes(item.code));
+      return { target, exercise: exercise || null, setComplete: Boolean(exercise) && (target.sets === null || exercise.sets >= target.sets) };
+    });
+    const matchedExercises = matches.filter((item) => item.exercise).length;
+    const completedSets = completed.reduce((sum, item) => sum + item.sets, 0);
+    const prescribedSets = prescribed.reduce((sum, item) => sum + (item.sets || 0), 0);
+    const matchedCodes = new Set(matches.filter((item) => item.exercise).map((item) => item.exercise.code));
+    const substitutions = completed.filter((item) => !matchedCodes.has(item.code));
+    let recommendation = "REVIEW_REQUIRED";
+    if (prescribed.length && matchedExercises === prescribed.length && matches.every((item) => item.setComplete) && !substitutions.length) recommendation = "COMPLETE";
+    else if (prescribed.length && matchedExercises === prescribed.length && matches.every((item) => item.setComplete)) recommendation = "COMPLETE_WITH_MODIFICATION";
+    else if (matchedExercises > 0) recommendation = "PARTIAL";
+    else if (prescribed.length) recommendation = "UNMATCHED";
+    return {
+      session, prescribed, matches, substitutions, recommendation, matchedExercises,
+      prescribedExerciseCount: prescribed.length, completedExerciseCount: completed.length,
+      completedSets, prescribedSets, setCompletionPercent: prescribedSets ? Math.min(100, Math.round((completedSets / prescribedSets) * 100)) : null
+    };
+  }
+
   return Object.freeze({
     PERMISSIONS, CONNECTION_STATUSES, SYNC_TYPES, SYNC_STATUSES, DATA_TYPES, IMPORT_STATUSES, VALIDATION_STATUSES,
     normalizeProviderCode, getConnectedProviderCatalog, getProviderDefinition, normalizePermissionList, validatePermissionSelection,
@@ -404,7 +471,7 @@
     normalizeImportedPayload, classifyImportedDataType, normalizeImportedRecord, validateImportedRecord,
     buildImportedRecordDeduplicationKey, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
     summarizeSyncJob, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
-    parseFitbodWorkoutCsv, stableId, stableUuid, clone
+    parseFitbodWorkoutCsv, normalizeExerciseName, groupFitbodWorkoutSessions, parsePrescribedStrengthTarget,
+    reconcileFitbodWorkoutSession, stableId, stableUuid, clone
   });
 });
-

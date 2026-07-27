@@ -68,6 +68,7 @@
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="imported_records">IMPORTED RECORDS</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="reconciliation">RECONCILIATION</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="nutrition">NUTRITION</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="apple_health">APPLE HEALTH</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="privacy">PRIVACY</button>
         </div>
         <div id="connected-view-overview" class="connected-view-panel"></div>
@@ -77,12 +78,15 @@
         <div id="connected-view-imported_records" class="connected-view-panel" hidden></div>
         <div id="connected-view-reconciliation" class="connected-view-panel" hidden></div>
         <div id="connected-view-nutrition" class="connected-view-panel" hidden></div>
+        <div id="connected-view-apple_health" class="connected-view-panel" hidden></div>
         <input id="fitbod-import-file" type="file" accept=".csv,text/csv,text/plain" hidden>
         <input id="mfp-import-file" type="file" accept=".csv,text/csv,text/plain" hidden>
+        <input id="apple-health-import-file" type="file" accept=".xml,text/xml,application/xml" hidden>
         <div id="connected-view-privacy" class="connected-view-panel" hidden>
           <h3>Privacy and data control</h3>
           <ul class="connected-privacy-list">
             <li>No real credentials, OAuth secrets, or provider tokens are stored.</li>
+            <li>Apple Health import reads only the export.xml file you deliberately choose. Unsupported health categories are ignored and never uploaded as raw XML.</li>
             <li>Permission selections are stored per simulated account and grant no live provider access.</li>
             <li>Remote storage is user-scoped when migration 009 is applied; otherwise state uses a clearly labeled user-scoped local fallback.</li>
             <li>Disconnecting preserves account, sync, imported-record, and provenance history for auditability.</li>

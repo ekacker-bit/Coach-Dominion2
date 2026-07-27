@@ -26,6 +26,12 @@ let atlasPerformanceReviews = [];
 let performanceActiveView = "overview";
 let performanceIntelligenceFilters = { domain: "all", trajectory: "all", confidence: "all", evidenceStatus: "all" };
 let performanceLoadState = { remoteLoadFailed: false, authRequired: false, calculationUnavailable: false };
+let connectedAccounts = [];
+let connectedSyncJobs = [];
+let connectedImportedRecords = [];
+let connectedStorageMode = "LOADING";
+let connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: false, localFallback: false };
+let connectedActiveView = "overview";
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -225,7 +231,7 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank", "performance"];
+const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank", "performance", "connected"];
 const SECTION_LABELS = {
   today: "Today",
   record: "Record",
@@ -233,7 +239,8 @@ const SECTION_LABELS = {
   trends: "Trends",
   standards: "Standards",
   rank: "Rank",
-  performance: "Performance"
+  performance: "Performance",
+  connected: "Connected"
 };
 
 function normalizeSectionKey(section = "today") {
@@ -244,6 +251,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
   if (normalized === "performance" || normalized === "performance-log") return "performance";
+  if (normalized === "connected" || normalized === "integrations") return "connected";
   return "today";
 }
 
@@ -2743,7 +2751,7 @@ function buildPerformancePersistencePayload(entry = {}, userId = null) {
     session_name: normalized.sessionName || null,
     source: normalized.source,
     evidence_status: normalized.evidenceStatus,
-    metrics: normalized.metrics || {},
+    metrics: normalized.provenance ? { ...(normalized.metrics || {}), source_provenance: normalized.provenance } : (normalized.metrics || {}),
     notes: normalized.notes || null,
     created_at: normalized.createdAt,
     updated_at: normalized.updatedAt
@@ -2751,7 +2759,7 @@ function buildPerformancePersistencePayload(entry = {}, userId = null) {
 }
 
 function hydratePerformanceEntry(row = {}) {
-  return normalizePerformanceEntry({
+  const entry = normalizePerformanceEntry({
     id: row.id,
     userId: row.user_id || row.userId,
     performanceDate: row.performance_date || row.performanceDate,
@@ -2768,6 +2776,9 @@ function hydratePerformanceEntry(row = {}) {
     createdAt: row.created_at || row.createdAt,
     updatedAt: row.updated_at || row.updatedAt
   });
+  const provenance = row.provenance || row.metrics?.source_provenance;
+  if (provenance) entry.provenance = JSON.parse(JSON.stringify(provenance));
+  return entry;
 }
 
 function summarizeRecentPerformance(entries = [], options = {}) {
@@ -4105,7 +4116,8 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
     if (entry.domain === "body_metrics") {
       metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
     }
-    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
+    const sourceLabel = entry.provenance?.sourceIsDemo ? `DEMO ${entry.provenance.sourceProvider || "PROVIDER"} IMPORT` : entry.provenance?.sourceProvider ? `${entry.provenance.sourceProvider} IMPORT` : (entry.source || "MANUAL");
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p><span class="demo-badge">${escapeHtml(sourceLabel)}</span></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
   }).join("");
 }
 
@@ -4589,6 +4601,252 @@ function handleSectionNavigation(link) {
   return true;
 }
 
+function connectedApi() {
+  return typeof ConnectedDominion !== "undefined" ? ConnectedDominion : null;
+}
+
+function connectedUserId() {
+  return session?.user?.id || "local";
+}
+
+function readConnectedLocal(kind, normalizer) {
+  const api = connectedApi();
+  if (!api || typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(api.storageKey(kind, connectedUserId())) || "[]");
+    return Array.isArray(parsed) ? parsed.map((item) => normalizer(item, { userId: connectedUserId() })) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeConnectedLocal() {
+  const api = connectedApi();
+  if (!api || typeof window === "undefined" || !window.localStorage) return false;
+  try {
+    window.localStorage.setItem(api.storageKey("connected-accounts", connectedUserId()), JSON.stringify(connectedAccounts));
+    window.localStorage.setItem(api.storageKey("integration-sync-jobs", connectedUserId()), JSON.stringify(connectedSyncJobs));
+    window.localStorage.setItem(api.storageKey("imported-records", connectedUserId()), JSON.stringify(connectedImportedRecords));
+    window.localStorage.setItem(api.storageKey("connected-ui", connectedUserId()), JSON.stringify({ activeView: connectedActiveView }));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function connectedAccountPayload(account) {
+  return {
+    id: account.id, user_id: account.userId, provider_code: account.providerCode, provider_display_name: account.providerDisplayName,
+    connection_status: account.connectionStatus, permissions: account.permissions, external_account_id: account.externalAccountId,
+    external_account_label: account.externalAccountLabel, last_successful_sync_at: account.lastSuccessfulSyncAt,
+    last_attempted_sync_at: account.lastAttemptedSyncAt, last_sync_status: account.lastSyncStatus,
+    last_sync_error_code: account.lastSyncErrorCode, last_sync_error_message: account.lastSyncErrorMessage,
+    sync_cursor: account.syncCursor, metadata: account.metadata, is_simulated: account.isSimulated,
+    disconnected_at: account.disconnectedAt, created_at: account.createdAt, updated_at: account.updatedAt
+  };
+}
+
+function connectedJobPayload(job) {
+  return {
+    id: job.id, user_id: job.userId, connected_account_id: job.connectedAccountId, provider_code: job.providerCode,
+    sync_type: job.syncType, status: job.status, requested_at: job.requestedAt, started_at: job.startedAt,
+    completed_at: job.completedAt, cursor_before: job.cursorBefore, cursor_after: job.cursorAfter,
+    imported_count: job.importedCount, duplicate_count: job.duplicateCount, rejected_count: job.rejectedCount,
+    unmapped_count: job.unmappedCount, error_code: job.errorCode, error_message: job.errorMessage,
+    summary: job.summary, is_demo: job.isDemo, created_at: job.createdAt
+  };
+}
+
+function connectedRecordPayload(record) {
+  return {
+    id: record.id, user_id: record.userId, connected_account_id: record.connectedAccountId, provider_code: record.providerCode,
+    provider_record_id: record.providerRecordId, provider_record_type: record.providerRecordType,
+    source_created_at: record.sourceCreatedAt, source_updated_at: record.sourceUpdatedAt, occurred_at: record.occurredAt,
+    timezone: record.timezone, data_type: record.dataType, normalized_payload: record.normalizedPayload,
+    raw_payload: record.rawPayload, deduplication_key: record.deduplicationKey, validation_status: record.validationStatus,
+    import_status: record.importStatus, rejection_reason: record.rejectionReason,
+    mapped_performance_entry_id: record.mappedPerformanceEntryId, source_sync_job_id: record.sourceSyncJobId,
+    is_demo: record.isDemo, created_at: record.createdAt, updated_at: record.updatedAt
+  };
+}
+
+async function persistConnectedRemote() {
+  const supabase = await getClient();
+  const writes = [];
+  if (connectedAccounts.length) writes.push(supabase.from("connected_accounts").upsert(connectedAccounts.map(connectedAccountPayload), { onConflict: "id" }));
+  if (connectedSyncJobs.length) writes.push(supabase.from("integration_sync_jobs").upsert(connectedSyncJobs.map(connectedJobPayload), { onConflict: "id" }));
+  const canonicalRecords = connectedImportedRecords.filter((record) => record.importStatus !== "DUPLICATE");
+  if (canonicalRecords.length) writes.push(supabase.from("imported_records").upsert(canonicalRecords.map(connectedRecordPayload), { onConflict: "id" }));
+  const results = await Promise.all(writes);
+  const failed = results.find((result) => result.error);
+  if (failed) throw failed.error;
+}
+
+async function loadConnectedDominion() {
+  const api = connectedApi();
+  if (!api) return;
+  connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: !session?.user?.id, localFallback: false };
+  renderConnectedDominion();
+  try {
+    if (!session?.user?.id) throw new Error("Authentication required.");
+    const supabase = await getClient();
+    const [accountsResult, jobsResult, recordsResult] = await Promise.all([
+      supabase.from("connected_accounts").select("*").eq("user_id", session.user.id).order("created_at", { ascending: true }),
+      supabase.from("integration_sync_jobs").select("*").eq("user_id", session.user.id).order("requested_at", { ascending: false }),
+      supabase.from("imported_records").select("*").eq("user_id", session.user.id).order("occurred_at", { ascending: false })
+    ]);
+    const error = accountsResult.error || jobsResult.error || recordsResult.error;
+    if (error) throw error;
+    connectedAccounts = (accountsResult.data || []).map((item) => api.normalizeConnectedAccount(item));
+    connectedSyncJobs = (jobsResult.data || []).map((item) => api.normalizeSyncJob(item));
+    connectedImportedRecords = (recordsResult.data || []).map((item) => api.normalizeImportedRecord(item));
+    connectedStorageMode = "SUPABASE";
+    connectedLoadState = { loading: false, remoteLoadFailed: false, authRequired: false, localFallback: false };
+    writeConnectedLocal();
+  } catch (_) {
+    connectedAccounts = readConnectedLocal("connected-accounts", api.normalizeConnectedAccount);
+    connectedSyncJobs = readConnectedLocal("integration-sync-jobs", api.normalizeSyncJob);
+    connectedImportedRecords = readConnectedLocal("imported-records", api.normalizeImportedRecord);
+    connectedStorageMode = "LOCAL FALLBACK";
+    connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+  }
+  renderConnectedDominion();
+}
+
+function connectedStatusPill(value) {
+  const status = escapeHtml(value || "UNKNOWN");
+  const tone = ["CONNECTED", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
+  return `<span class="state-pill ${tone}">${status}</span>`;
+}
+
+function setConnectedActiveView(view = "overview") {
+  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "privacy"];
+  connectedActiveView = allowed.includes(view) ? view : "overview";
+  document.querySelectorAll("[data-connected-view]").forEach((button) => {
+    const active = button.dataset.connectedView === connectedActiveView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = active ? 0 : -1;
+  });
+  allowed.forEach((code) => {
+    const panel = document.getElementById(`connected-view-${code}`);
+    if (panel) panel.hidden = code !== connectedActiveView;
+  });
+  writeConnectedLocal();
+}
+
+function renderConnectedDominion() {
+  const api = connectedApi();
+  if (!api || typeof document === "undefined") return;
+  const overview = api.buildConnectedOverviewModel({ accounts: connectedAccounts, jobs: connectedSyncJobs, records: connectedImportedRecords, storageState: connectedStorageMode });
+  setText("connected-storage", connectedStorageMode);
+  const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "ARCHITECTURE PREVIEW only. Real integrations are not available; all connection and sync actions below are simulated.");
+  const overviewPanel = document.getElementById("connected-view-overview");
+  if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
+    <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
+    <div><span>Recent sync</span><strong>${escapeHtml(overview.mostRecentSyncStatus)}</strong></div><div><span>Imported records</span><strong>${overview.importedRecordCount}</strong></div>
+    <div><span>Duplicates</span><strong>${overview.duplicateCount}</strong></div><div><span>Rejected</span><strong>${overview.rejectedCount}</strong></div>
+    <div><span>Unmapped</span><strong>${overview.unmappedCount}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div>
+  </div><div class="connected-notice"><strong>Architecture preview:</strong> demo fixtures are isolated, labeled DEMO, and never imply live provider access.</div>`;
+
+  const providerPanel = document.getElementById("connected-view-providers");
+  if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
+    const account = connectedAccounts.find((item) => item.providerCode === provider.providerCode && item.connectionStatus !== "DISCONNECTED");
+    const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
+    return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
+      <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
+      <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
+      <div class="connected-actions">${account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review simulated account</button>` : `<button type="button" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`}</div>
+    </article>`;
+  }).join("")}</div>`;
+
+  const accountsPanel = document.getElementById("connected-view-accounts");
+  if (accountsPanel) accountsPanel.innerHTML = connectedAccounts.length ? `<div class="connected-card-list">${connectedAccounts.map((account) => {
+    const jobs = connectedSyncJobs.filter((job) => job.connectedAccountId === account.id);
+    const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
+    const counts = api.summarizeSyncJob(records);
+    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">SIMULATED · ARCHITECTURE PREVIEW</span></div>${connectedStatusPill(account.connectionStatus)}</header>
+      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
+      <div class="connected-actions">${account.connectionStatus === "CONNECTED" ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>` : ""}</div>
+    </article>`;
+  }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
+
+  const historyPanel = document.getElementById("connected-view-sync_history");
+  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Counts</th><th>Error / summary</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">DEMO</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${job.importedCount} imported · ${job.duplicateCount} duplicate · ${job.rejectedCount} rejected · ${job.unmappedCount} unmapped</td><td>${escapeHtml(job.errorMessage || JSON.stringify(job.summary || {}))}${job.status === "FAILED" ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Demo sync jobs remain auditable after completion or failure.</div>`;
+
+  const recordsPanel = document.getElementById("connected-view-imported_records");
+  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${record.mappedPerformanceEntryId ? `Mapped to Performance entry ${escapeHtml(record.mappedPerformanceEntryId)}` : escapeHtml(record.rejectionReason || "Retained for audit; no mapped destination.")}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
+  setConnectedActiveView(connectedActiveView);
+}
+
+async function saveConnectedState(message, forceLocalFallback = false) {
+  writeConnectedLocal();
+  try {
+    await persistConnectedRemote();
+    connectedStorageMode = forceLocalFallback ? "LOCAL FALLBACK" : "SUPABASE";
+    connectedLoadState = { loading: false, remoteLoadFailed: forceLocalFallback, authRequired: false, localFallback: forceLocalFallback };
+  } catch (_) {
+    connectedStorageMode = "LOCAL FALLBACK";
+    connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+  }
+  renderConnectedDominion();
+  setText("connected-feedback", `${message} ${connectedStorageMode === "LOCAL FALLBACK" ? "Saved locally; remote storage did not report success." : "Saved to remote storage."}`);
+}
+
+async function simulateConnectedAccount(providerCode) {
+  const api = connectedApi(), definition = api?.getProviderDefinition(providerCode);
+  if (!definition) return;
+  const selected = Array.from(document.querySelectorAll(`input[data-provider="${providerCode}"][data-permission]:checked`)).map((input) => input.dataset.permission);
+  const check = api.validatePermissionSelection(providerCode, selected);
+  if (!check.valid) { setText("connected-feedback", "Unsupported permission selection rejected."); return; }
+  const now = new Date().toISOString();
+  const account = api.normalizeConnectedAccount({ userId: connectedUserId(), providerCode, providerDisplayName: definition.displayName, connectionStatus: "CONNECTED", permissions: check.permissions, externalAccountLabel: `${definition.displayName} demo account`, isSimulated: true, createdAt: now, updatedAt: now });
+  connectedAccounts = [account, ...connectedAccounts.filter((item) => !(item.providerCode === providerCode && item.connectionStatus !== "DISCONNECTED"))];
+  await saveConnectedState(`${definition.displayName} SIMULATED connection created. No external request occurred.`);
+}
+
+async function runConnectedDemoSync(accountId, syncType = "MANUAL", retryOf = null) {
+  const api = connectedApi(), account = connectedAccounts.find((item) => item.id === accountId && item.isSimulated);
+  if (!api || !account || account.connectionStatus !== "CONNECTED") return;
+  const requestedAt = new Date().toISOString();
+  let job = api.normalizeSyncJob({ userId: connectedUserId(), connectedAccountId: account.id, providerCode: account.providerCode, syncType, status: "QUEUED", requestedAt, createdAt: requestedAt, isDemo: true, summary: retryOf ? { retryOf } : {} });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const fixtures = api.createDemoRecords(account, job);
+  const processed = [];
+  const mappedEntries = [];
+  fixtures.forEach((fixture) => {
+    const reconciled = api.reconcileImportedRecord(fixture, [...connectedImportedRecords, ...processed]);
+    if (reconciled.importStatus === "DUPLICATE") { processed.push(reconciled); return; }
+    const mapping = api.mapImportedRecordToPerformanceEntry(reconciled, { permissions: account.permissions, normalizePerformanceEntry, validatePerformanceEntry });
+    processed.push(mapping.record);
+    if (mapping.entry && !performanceEntries.some((entry) => entry.id === mapping.entry.id)) mappedEntries.push(mapping.entry);
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  performanceEntries = [...mappedEntries, ...performanceEntries];
+  if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
+  const counts = api.summarizeSyncJob(processed);
+  const terminal = counts.rejected || counts.unmapped ? (counts.imported ? "PARTIAL" : "PARTIAL") : "SUCCEEDED";
+  job = api.transitionSyncJob({ ...job, importedCount: counts.imported, duplicateCount: counts.duplicate, rejectedCount: counts.rejected, unmappedCount: counts.unmapped, summary: counts }, terminal, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  const accountIndex = connectedAccounts.findIndex((item) => item.id === account.id);
+  connectedAccounts[accountIndex] = { ...account, lastAttemptedSyncAt: job.completedAt, lastSuccessfulSyncAt: ["SUCCEEDED", "PARTIAL"].includes(job.status) ? job.completedAt : account.lastSuccessfulSyncAt, lastSyncStatus: job.status, lastSyncErrorCode: job.errorCode, lastSyncErrorMessage: job.errorMessage, updatedAt: job.completedAt };
+  let performancePersistFailed = false;
+  if (mappedEntries.length) {
+    try {
+      const supabase = await getClient();
+      const { error } = await supabase.from("performance_entries").upsert(mappedEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())), { onConflict: "id" });
+      if (error) throw error;
+    } catch (_) {
+      performancePersistFailed = true;
+      connectedStorageMode = "LOCAL FALLBACK";
+      connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+    }
+  }
+  await saveConnectedState(`Manual DEMO sync ${job.status}: ${counts.imported} imported, ${counts.duplicate} duplicate, ${counts.rejected} rejected, ${counts.unmapped} unmapped.`, performancePersistFailed);
+  renderPerformanceSection();
+}
+
 async function init() {
   try {
     setLoading(true);
@@ -4614,6 +4872,7 @@ async function init() {
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
     await loadPerformanceEntries();
+    await loadConnectedDominion();
     renderRankSection();
     resetPerformanceForm();
     setPerformanceActiveView("overview");
@@ -4716,6 +4975,37 @@ if (typeof document !== "undefined") {
     button.addEventListener("click", () => {
       setPerformanceActiveView(button.dataset.performanceView || "overview");
     });
+  });
+  document.querySelectorAll("[data-connected-view]").forEach((button) => {
+    button.addEventListener("click", () => setConnectedActiveView(button.dataset.connectedView || "overview"));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      const tabs = Array.from(document.querySelectorAll("[data-connected-view]"));
+      const index = tabs.indexOf(button);
+      const next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
+      next.focus();
+      setConnectedActiveView(next.dataset.connectedView);
+    });
+  });
+  document.getElementById("connected").addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-connected-action]");
+    if (!button) return;
+    const action = button.dataset.connectedAction;
+    if (action === "simulate") await simulateConnectedAccount(button.dataset.provider);
+    if (action === "review-account") setConnectedActiveView("accounts");
+    if (action === "sync") await runConnectedDemoSync(button.dataset.accountId);
+    if (action === "disconnect") {
+      const index = connectedAccounts.findIndex((item) => item.id === button.dataset.accountId);
+      if (index >= 0) {
+        const transitioned = connectedApi().transitionConnectedAccount(connectedAccounts[index], "DISCONNECTED");
+        if (transitioned.valid) connectedAccounts[index] = transitioned.account;
+        await saveConnectedState("Simulated account disconnected; history preserved.");
+      }
+    }
+    if (action === "retry") {
+      const original = connectedSyncJobs.find((item) => item.id === button.dataset.jobId);
+      if (original) await runConnectedDemoSync(original.connectedAccountId, "RETRY", original.id);
+    }
   });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

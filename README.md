@@ -129,6 +129,28 @@ Benchmark proximity and PR readiness:
 
 State handling includes distinct outcomes for no history, insufficient comparable history, remote load failure, local fallback active, authentication required, invalidated/incomplete evidence, and calculation-unavailable states.
 
+## Build 006A Connected Dominion architecture (unreleased)
+
+Build 006A adds a provider-neutral architecture for future Strava, Garmin, Apple Health, Fitbod, and MyFitnessPal integrations. All providers are `ARCHITECTURE_ONLY` or `PLANNED`: no real integrations, OAuth, credentials, tokens, provider API calls, background jobs, or write-back are active.
+
+The new `CONNECTED` section contains Overview, Providers, Accounts, Sync History, Imported Records, and Privacy views. Users may create visibly simulated accounts after reviewing provider-supported read permissions and run manual DEMO syncs against built-in fixture data only. Simulated accounts, demo jobs, and demo records remain explicitly labeled. Disconnect preserves history, and retry creates a new auditable job.
+
+The runtime models connected accounts, provider permissions, sync jobs, and canonical imported records. Provider record identity is the primary deduplication key; a stable provider/data/time/activity/duration/distance-or-load signature is used only when a provider ID is unavailable. Deduplication never crosses providers and never silently merges provider imports with manual entries.
+
+Supported mapping is deliberately narrow:
+
+- `RUN` maps only with positive distance and duration.
+- `STRENGTH_SESSION` / `EXERCISE_SET` map only with an exact exercise identity, sets, repetitions, and load.
+- `BODYWEIGHT` maps to body metrics and never creates an athletic trophy.
+- `CONDITIONING_SESSION` maps only with an exact protocol and measurable result.
+- Unsupported and partial health records remain auditable as `UNMAPPED`; invalid numeric records are `REJECTED`.
+
+Mapped entries pass through the existing Performance normalization and validation path and preserve source provider, account, source record, imported record, sync job, source update time, evidence status, and demo designation. Manual and imported records remain distinguishable.
+
+Migration `supabase/migrations/009_connected_dominion_architecture.sql` adds owner-scoped `connected_accounts`, `integration_sync_jobs`, and `imported_records` tables with RLS, constraints, indexes, and safe updated-at triggers. Local fallback uses user-scoped `coach-dominion:connected-accounts:<user>`, `coach-dominion:integration-sync-jobs:<user>`, `coach-dominion:imported-records:<user>`, and `coach-dominion:connected-ui:<user>` keys. Remote load failure is surfaced as `LOCAL FALLBACK`; it is never presented as empty remote data or remote success.
+
+Run `node tests/connected-dominion.test.js` for the provider, permission, lifecycle, deduplication, provenance, mapping, immutability, and storage-state suite. Provider-specific OAuth, token refresh, webhooks, background sync, API clients, and provider deletion remain future scope.
+
 Accessibility and responsive behavior include semantic headings, keyboard-accessible controls, visible focus states, aria-selected tabs, aria-live intelligence updates, reduced-motion support, and clean stacking across desktop/tablet/mobile layouts.
 
 Known unrelated issue (not addressed in Build 005D):
@@ -236,3 +258,4 @@ npm.cmd run test:atlas
 Alternatively, open Command Prompt in the repository and use the normal `npm` commands there. If `vercel` has the same PowerShell issue, use `vercel.cmd dev` or Command Prompt.
 
 If local authentication redirects incorrectly, confirm the local URL is allowed in Supabase Authentication settings. If `/api/config` returns an error, confirm both required environment variables are available to `vercel dev`; do not print their values while troubleshooting.
+

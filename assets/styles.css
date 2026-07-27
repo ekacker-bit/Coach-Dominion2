@@ -55,3 +55,40 @@
 .intelligence-empty{border:1px dashed var(--line-strong);border-radius:10px;padding:12px;color:var(--muted)}
 @media(max-width:1100px){.intelligence-status-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.intelligence-domain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.intelligence-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.intelligence-filter-row{grid-template-columns:1fr}.intelligence-status-strip,.intelligence-domain-grid,.intelligence-metric-grid{grid-template-columns:1fr}.intelligence-row{flex-direction:column}}
+
+/* Build 006A // Connected Dominion */
+.connected-section{margin-top:18px;scroll-margin-top:18px}
+.connected-notice,.connected-empty{border:1px solid var(--line-strong);border-radius:10px;padding:14px;background:rgba(56,212,141,.05);color:#dce3ea;margin:14px 0}
+.connected-view-nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+.connected-view-tab{background:var(--panel3);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:999px;font-size:12px;letter-spacing:.08em;font-weight:900;min-height:44px}
+.connected-view-tab.active,.connected-view-tab[aria-selected="true"]{border-color:var(--green);box-shadow:0 0 0 1px rgba(56,212,141,.22) inset}
+.connected-view-panel{min-width:0}
+.connected-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.connected-summary-grid div,.connected-detail-grid div{border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:12px}
+.connected-summary-grid span,.connected-detail-grid dt{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.connected-summary-grid strong,.connected-detail-grid dd{display:block;margin:5px 0 0;font-weight:900}
+.provider-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.provider-card,.connected-detail-card,.import-record-card{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:15px;min-width:0}
+.provider-card header,.connected-detail-card header,.import-record-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.provider-card h3,.connected-detail-card h3{margin:4px 0}
+.provider-card fieldset{display:grid;gap:8px;margin-top:12px}
+.permission-option{display:flex;grid-template-columns:none;align-items:center;gap:8px;min-height:36px}
+.permission-option input{width:auto}
+.connected-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.connected-actions button{min-height:44px}
+.connected-card-list{display:grid;gap:12px}
+.connected-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.demo-badge{display:inline-flex;font-size:10px;font-weight:1000;letter-spacing:.1em;color:var(--yellow);text-transform:uppercase}
+.connected-table-wrap{max-width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.connected-table{width:100%;border-collapse:collapse;min-width:760px}
+.connected-table th,.connected-table td{padding:11px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+.connected-table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.record-status-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.import-record-card p{overflow-wrap:anywhere}
+.import-record-card details{border-top:1px solid var(--line);padding-top:10px}
+.import-record-card summary{cursor:pointer;font-weight:900}
+.import-record-card pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--muted)}
+.connected-privacy-list{display:grid;gap:10px;color:#dce3ea;padding-left:22px}
+@media(max-width:900px){.connected-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.provider-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.connected-summary-grid,.connected-detail-grid{grid-template-columns:1fr}.connected-view-nav{display:grid;grid-template-columns:1fr 1fr}.connected-view-tab{border-radius:8px}.provider-card header,.connected-detail-card header,.import-record-card header{flex-direction:column}.connected-actions{display:grid}.connected-table{min-width:0}.connected-table thead{display:none}.connected-table,.connected-table tbody,.connected-table tr,.connected-table td{display:block;width:100%}.connected-table tr{border-bottom:2px solid var(--line-strong)}.connected-table td{border:0;padding:8px 11px}}
+

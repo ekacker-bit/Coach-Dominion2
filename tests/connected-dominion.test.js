@@ -156,5 +156,24 @@ test("56 missing prescription remains review required", () => {
   const review = connected.reconcileFitbodWorkoutSession(connected.groupFitbodWorkoutSessions(parsed.records)[0], "");
   assert.equal(review.recommendation, "REVIEW_REQUIRED");
 });
+test("57 MyFitnessPal nutrition CSV parses meal macros", () => {
+  const parsed = connected.parseMyFitnessPalNutritionCsv("Date,Meal,Calories,Protein (g),Carbohydrates (g),Fat (g)\n2026-07-27,Breakfast,600,40,70,18");
+  assert.equal(parsed.errors.length, 0);
+  assert.equal(parsed.records[0].providerCode, "MYFITNESSPAL");
+  assert.equal(parsed.records[0].normalizedPayload.protein_grams, 40);
+});
+test("58 MyFitnessPal meals aggregate by day", () => {
+  const parsed = connected.parseMyFitnessPalNutritionCsv("Date,Meal,Calories,Protein,Carbs,Fat\n2026-07-27,Breakfast,600,40,70,18\n2026-07-27,Dinner,1400,130,150,52");
+  const day = connected.aggregateNutritionByDate(parsed.records)[0];
+  assert.deepEqual([day.calories, day.protein, day.carbs, day.fat, day.meals], [2000, 170, 220, 70, 2]);
+});
+test("59 nutrition target parser recognizes calories and macros", () => {
+  assert.deepEqual(connected.parseNutritionTarget("2000 calories; 170g protein; 220g carbs; 70g fat"), { calories: 2000, protein: 170, carbs: 220, fat: 70 });
+});
+test("60 nutrition reconciliation recommends complete within tolerance", () => {
+  const review = connected.reconcileNutritionDay({ calories: 2000, protein: 170, carbs: 220, fat: 70 }, "2000 calories; 170g protein; 220g carbs; 70g fat");
+  assert.equal(review.recommendation, "COMPLETE");
+  assert.equal(review.withinCount, 4);
+});
 
 console.log(`Connected Dominion: ${passed} assertions passed.`);

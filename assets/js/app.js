@@ -53,7 +53,7 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
-const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence"];
+const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "programming"];
 const PERFORMANCE_TRAJECTORY_STATES = ["STRONGLY IMPROVING", "IMPROVING", "STABLE", "NOISY", "DECLINING", "STRONGLY DECLINING", "INSUFFICIENT DATA"];
 const PERFORMANCE_CONFIDENCE_STATES = ["HIGH", "MODERATE", "LOW", "INSUFFICIENT"];
 const PERFORMANCE_PLATEAU_STATES = ["NO PLATEAU", "POSSIBLE PLATEAU", "LIKELY PLATEAU", "INSUFFICIENT DATA"];
@@ -4073,6 +4073,61 @@ function renderAtlasPerformanceReviewSection() {
   container.innerHTML = `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>ATLAS // PERFORMANCE REVIEW</strong><p>${review.status}</p></div><span class="state-pill neutral">${review.limitedEvidence ? "LIMITED EVIDENCE" : "READY"}</span></div><div class="performance-entry-meta"><span>${review.newRecords}</span><span>${review.milestones}</span></div></article>`;
 }
 
+function programmingStorageKey() {
+  return `coach-dominion:programming-draft:${session?.user?.id || "local"}`;
+}
+
+function readProgrammingDraft() {
+  try { return JSON.parse(window.localStorage.getItem(programmingStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function buildCurrentProgrammingRecommendation() {
+  if (typeof DominionProgramming === "undefined") return null;
+  const readinessResult = dailyState ? evaluateReadiness(dailyState) : null;
+  const strengthStatus = document.getElementById("strength_status")?.value || lastSavedComplianceState?.strength?.status || "";
+  return DominionProgramming.buildProgrammingRecommendation({
+    entries: performanceEntries,
+    readiness: {
+      state: readinessResult?.state || null,
+      energy: dailyState?.energy,
+      soreness: dailyState?.soreness,
+      pain: Boolean(dailyState?.pain)
+    },
+    compliance: { strengthStatus }
+  });
+}
+
+function renderProgrammingReview() {
+  const panel = document.getElementById("programming-review-panel");
+  if (!panel) return;
+  const recommendation = buildCurrentProgrammingRecommendation();
+  if (!recommendation) {
+    panel.innerHTML = `<div class="performance-empty">Programming engine unavailable.</div>`;
+    return;
+  }
+  setText("programming-status", recommendation.status);
+  const draft = readProgrammingDraft();
+  const items = recommendation.exercises.map((item) => `<article class="performance-entry-card">
+    <div class="performance-entry-header"><div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.action.replaceAll("_", " "))}</p></div><span class="state-pill neutral">${item.evidenceCount} EVIDENCE</span></div>
+    <div class="performance-entry-meta"><span>${item.currentLoad} ${escapeHtml(item.unit)} → <strong>${item.recommendedLoad} ${escapeHtml(item.unit)}</strong></span><span>${item.currentSets} → <strong>${item.recommendedSets} sets</strong> × ${item.targetReps} reps</span></div>
+    <p class="muted">${escapeHtml(item.rationale)}</p>
+  </article>`).join("");
+  panel.innerHTML = `<div class="connected-summary-grid">
+      <div><span>Recommendation</span><strong>${escapeHtml(recommendation.status)}</strong></div>
+      <div><span>Evidence quality</span><strong>${escapeHtml(recommendation.evidenceQuality)}</strong></div>
+      <div><span>Readiness policy</span><strong>${escapeHtml(recommendation.policy.code)}</strong></div>
+      <div><span>Exercises covered</span><strong>${recommendation.exercises.length}</strong></div>
+    </div>
+    <div class="connected-notice"><strong>Why:</strong> ${escapeHtml(recommendation.policy.reason)} Restrictions: ${escapeHtml(recommendation.restrictions.join(" "))}</div>
+    <div class="performance-entry-list">${items || `<div class="performance-empty">Import or log strength work before generating progression recommendations.</div>`}</div>
+    <div class="performance-actions">
+      <button type="button" data-programming-action="approve" ${recommendation.requiresConfirmation ? "" : "disabled"}>Approve next-session draft</button>
+      <button type="button" class="ghost" data-programming-action="refresh">Refresh evidence</button>
+    </div>
+    ${draft ? `<article class="connected-detail-card"><strong>APPROVED LOCAL DRAFT</strong><p>${escapeHtml(draft.prescription || "")}</p><p class="muted">Approved ${escapeHtml(draft.approvedAt || "")}. This draft has not silently changed today’s mission.</p></article>` : ""}`;
+}
+
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
   const summary = summarizeRecentPerformance(entries);
   setText("performance-week-count", summary.entriesThisWeek);
@@ -4090,6 +4145,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderMilestonesSection();
   renderAtlasPerformanceReviewSection();
   renderPerformanceIntelligenceSection(entries);
+  renderProgrammingReview();
   renderPerformanceViewPanels();
   const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
   const entryList = document.getElementById("performance-entry-list");
@@ -5084,8 +5140,29 @@ if (typeof document !== "undefined") {
   document.getElementById("performance-filter-entry-type").addEventListener("change", (event) => { performanceFilters.entryType = event.target.value; renderPerformanceSection(); });
   document.querySelectorAll("[data-performance-view]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.dataset.performanceView === "programming") renderProgrammingReview();
       setPerformanceActiveView(button.dataset.performanceView || "overview");
     });
+  });
+  document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-programming-action]");
+    if (!button) return;
+    if (button.dataset.programmingAction === "refresh") {
+      renderProgrammingReview();
+      setText("programming-feedback", "Programming evidence refreshed.");
+    }
+    if (button.dataset.programmingAction === "approve") {
+      const recommendation = buildCurrentProgrammingRecommendation();
+      if (!recommendation?.requiresConfirmation) return;
+      const draft = {
+        approvedAt: new Date().toISOString(),
+        recommendation,
+        prescription: DominionProgramming.formatPrescription(recommendation)
+      };
+      window.localStorage.setItem(programmingStorageKey(), JSON.stringify(draft));
+      renderProgrammingReview();
+      setText("programming-feedback", "Next-session draft approved locally. Today’s mission and Dominion Record were not changed.");
+    }
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {

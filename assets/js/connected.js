@@ -8,7 +8,7 @@
   const PROVIDER_CATALOG = Object.freeze([
     provider("STRAVA", "Strava", "ACTIVITY", ["RUN", "RIDE", "WALK", "SWIM"], ["READ_ACTIVITY"], "PLANNED", "PHASE_2", "Planned endurance activity import."),
     provider("GARMIN", "Garmin", "HEALTH", ["RUN", "RIDE", "SWIM", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_2", "Architecture preview for activity and health metrics."),
-    provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["WALK", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT", "BODY_METRIC"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_3", "Architecture preview for user-authorized health data."),
+    provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "FILE_IMPORT", "PHASE_3", "User-controlled Apple Health export.xml import; no Apple credentials or live HealthKit access."),
     provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "FILE_IMPORT", "PHASE_2", "User-controlled Fitbod workout-file import; no Fitbod credentials are stored."),
     provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "FILE_IMPORT", "PHASE_4", "User-controlled MyFitnessPal nutrition-file import; no MyFitnessPal credentials are stored.")
   ]);
@@ -545,6 +545,125 @@
     };
   }
 
+  const APPLE_HEALTH_TYPES = Object.freeze({
+    HKQuantityTypeIdentifierStepCount: { dataType: "STEPS", permission: "READ_STEPS" },
+    HKQuantityTypeIdentifierRestingHeartRate: { dataType: "HEART_RATE", permission: "READ_HEART_RATE" },
+    HKQuantityTypeIdentifierBodyMass: { dataType: "BODYWEIGHT", permission: "READ_BODY_METRICS" },
+    HKCategoryTypeIdentifierSleepAnalysis: { dataType: "SLEEP", permission: "READ_SLEEP" }
+  });
+
+  function decodeXmlAttribute(value = "") {
+    return text(value).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  }
+
+  function parseXmlAttributes(source = "") {
+    const attributes = {};
+    String(source).replace(/([A-Za-z][\w:-]*)="([^"]*)"/g, (_, key, value) => {
+      attributes[key] = decodeXmlAttribute(value);
+      return _;
+    });
+    return attributes;
+  }
+
+  function appleDate(value) {
+    const raw = text(value);
+    if (!raw) return null;
+    const normalized = raw.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) ([+-]\d{2})(\d{2})$/, "$1T$2$3:$4");
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  function appleTimezone(value) {
+    const match = text(value).match(/([+-]\d{2})(\d{2})$/);
+    return match ? `UTC${match[1]}:${match[2]}` : "UTC";
+  }
+
+  function parseAppleHealthExportXml(xmlText, options = {}) {
+    const source = String(xmlText || "");
+    const errors = [];
+    if (!/<HealthData[\s>]/.test(source)) return { records: [], errors: ["Apple Health export.xml must contain a HealthData root."], ignoredCount: 0, supportedCount: 0 };
+    const rawItems = [];
+    const recordPattern = /<Record\b([^>]*?)(?:\/>|>[\s\S]*?<\/Record>)/g;
+    let match;
+    while ((match = recordPattern.exec(source))) {
+      const attributes = parseXmlAttributes(match[1]);
+      if (APPLE_HEALTH_TYPES[attributes.type]) rawItems.push(attributes);
+    }
+    const totalRecordTags = (source.match(/<Record\b/g) || []).length;
+    const dailySteps = new Map();
+    const records = [];
+    rawItems.forEach((item, index) => {
+      const definition = APPLE_HEALTH_TYPES[item.type];
+      const occurredAt = appleDate(item.endDate || item.startDate || item.creationDate);
+      const startAt = appleDate(item.startDate);
+      const endAt = appleDate(item.endDate);
+      if (!occurredAt) {
+        errors.push(`Supported Apple Health row ${index + 1} has an invalid date.`);
+        return;
+      }
+      const sourceName = text(item.sourceName) || "Apple Health";
+      const seed = [item.type, item.startDate, item.endDate, item.value, item.unit, sourceName].join("|");
+      if (definition.dataType === "STEPS") {
+        const date = occurredAt.slice(0, 10);
+        const current = dailySteps.get(date) || { value: 0, sources: new Set(), timezone: appleTimezone(item.endDate || item.startDate), seed: [] };
+        current.value += Number(item.value) || 0;
+        current.sources.add(sourceName);
+        current.seed.push(seed);
+        dailySteps.set(date, current);
+        return;
+      }
+      let normalizedPayload;
+      if (definition.dataType === "SLEEP") {
+        const durationHours = startAt && endAt ? Math.max(0, (new Date(endAt) - new Date(startAt)) / 3600000) : 0;
+        normalizedPayload = { value: durationHours, unit: "h", sleep_stage: item.value || "UNKNOWN", start_at: startAt, end_at: endAt, source_name: sourceName };
+      } else {
+        normalizedPayload = { value: Number(item.value), unit: item.unit || (definition.dataType === "HEART_RATE" ? "count/min" : ""), source_name: sourceName };
+      }
+      records.push(normalizeImportedRecord({
+        userId: options.userId || "local", connectedAccountId: options.connectedAccountId || "apple-health-file",
+        providerCode: "APPLE_HEALTH", providerRecordId: stableId("apple_health", seed),
+        providerRecordType: item.type, dataType: definition.dataType, occurredAt,
+        timezone: appleTimezone(item.endDate || item.startDate), normalizedPayload,
+        rawPayload: { type: item.type, sourceName, unit: item.unit || null, startDate: item.startDate, endDate: item.endDate, value: item.value },
+        sourceSyncJobId: options.sourceSyncJobId || null, sourceCreatedAt: appleDate(item.creationDate),
+        isDemo: false, validationStatus: Number.isFinite(Number(item.value)) || definition.dataType === "SLEEP" ? "VALID" : "INVALID"
+      }, options));
+    });
+    dailySteps.forEach((item, date) => {
+      const seed = item.seed.sort().join("|");
+      records.push(normalizeImportedRecord({
+        userId: options.userId || "local", connectedAccountId: options.connectedAccountId || "apple-health-file",
+        providerCode: "APPLE_HEALTH", providerRecordId: stableId("apple_steps", seed),
+        providerRecordType: "HKQuantityTypeIdentifierStepCount", dataType: "STEPS", occurredAt: date,
+        timezone: item.timezone, normalizedPayload: { value: Math.round(item.value), unit: "count", source_name: Array.from(item.sources).sort().join(", ") },
+        rawPayload: { aggregate: "daily_sum", contributing_records: item.seed.length }, sourceSyncJobId: options.sourceSyncJobId || null,
+        isDemo: false, validationStatus: "VALID"
+      }, options));
+    });
+    return { records: sortByDate(records, "occurredAt"), errors, ignoredCount: Math.max(0, totalRecordTags - rawItems.length), supportedCount: rawItems.length };
+  }
+
+  function summarizeAppleHealthByDate(records = []) {
+    const byDate = new Map();
+    records.filter((record) => record.providerCode === "APPLE_HEALTH" && record.validationStatus === "VALID" && record.importStatus !== "DUPLICATE")
+      .forEach((record) => {
+        const date = text(record.occurredAt).slice(0, 10);
+        const day = byDate.get(date) || { date, steps: null, restingHeartRate: null, weight: null, weightUnit: null, sleepAsleep: 0, sleepInBed: 0, records: 0 };
+        const payload = record.normalizedPayload || {};
+        day.records += 1;
+        if (record.dataType === "STEPS") day.steps = Math.round(Number(payload.value) || 0);
+        if (record.dataType === "HEART_RATE") day.restingHeartRate = Number(payload.value) || null;
+        if (record.dataType === "BODYWEIGHT") { day.weight = Number(payload.value) || null; day.weightUnit = payload.unit || null; }
+        if (record.dataType === "SLEEP" && /Asleep/i.test(payload.sleep_stage || "")) day.sleepAsleep += Number(payload.value) || 0;
+        if (record.dataType === "SLEEP" && /InBed/i.test(payload.sleep_stage || "")) day.sleepInBed += Number(payload.value) || 0;
+        byDate.set(date, day);
+      });
+    return Array.from(byDate.values()).map((day) => ({
+      ...day,
+      sleep: Math.round((day.sleepAsleep || day.sleepInBed) * 100) / 100
+    })).sort((a, b) => b.date.localeCompare(a.date));
+  }
+
   return Object.freeze({
     PERMISSIONS, CONNECTION_STATUSES, SYNC_TYPES, SYNC_STATUSES, DATA_TYPES, IMPORT_STATUSES, VALIDATION_STATUSES,
     normalizeProviderCode, getConnectedProviderCatalog, getProviderDefinition, normalizePermissionList, validatePermissionSelection,
@@ -553,7 +672,8 @@
     normalizeImportedPayload, classifyImportedDataType, normalizeImportedRecord, validateImportedRecord,
     buildImportedRecordDeduplicationKey, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
     summarizeSyncJob, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
-    parseFitbodWorkoutCsv, parseMyFitnessPalNutritionCsv, aggregateNutritionByDate, parseNutritionTarget, reconcileNutritionDay,
+    parseFitbodWorkoutCsv, parseMyFitnessPalNutritionCsv, parseAppleHealthExportXml, summarizeAppleHealthByDate,
+    aggregateNutritionByDate, parseNutritionTarget, reconcileNutritionDay,
     normalizeExerciseName, groupFitbodWorkoutSessions, parsePrescribedStrengthTarget,
     reconcileFitbodWorkoutSession, stableId, stableUuid, clone
   });

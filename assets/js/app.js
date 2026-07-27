@@ -145,381 +145,195 @@ const PERFORMANCE_ACTIVITY_CATALOG = {
     { code: "interval", label: "Interval" },
     { code: "long_run", label: "Long Run" },
     { code: "recovery_run", label: "Recovery Run" },
-    { code: "race", label: "Race" },
-    { code: "custom", label: "Custom run" }
-  ],
-  core: [
-    { code: "plank", label: "Plank" },
-    { code: "hanging_leg_raise", label: "Hanging Leg Raise" },
-    { code: "sit_up", label: "Sit-Up" },
-    { code: "hollow_hold", label: "Hollow Hold" },
-    { code: "custom", label: "Custom core benchmark" }
-  ],
-  conditioning: [
-    { code: "burpee", label: "Burpee" },
-    { code: "rowing", label: "Rowing" },
-    { code: "assault_bike", label: "Assault Bike" },
-    { code: "stair_machine", label: "Stair Machine" },
-    { code: "circuit", label: "Circuit" },
-    { code: "custom", label: "Custom conditioning test" }
-  ],
-  fitness_test: [
-    { code: "wingate", label: "Wingate" },
-    { code: "beep_test", label: "Beep Test" },
-    { code: "yoyo_ir1", label: "Yo-Yo IR1" },
-    { code: "custom", label: "Custom protocol" }
-  ],
-  body_metrics: [
-    { code: "bodyweight", label: "Bodyweight" },
-    { code: "waist", label: "Waist" },
-    { code: "chest", label: "Chest" },
-    { code: "arm", label: "Arm" },
-    { code: "thigh", label: "Thigh" },
-    { code: "custom", label: "Custom measurement" }
-  ]
-};
-const COMPLIANCE_DOMAIN_LABELS = {
-  mission: "Mission Compliance",
-  strength: "Strength Compliance",
-  cardio: "Running/Cardio Compliance",
-  recovery: "Recovery Compliance",
-  nutrition: "Nutrition Compliance"
-};
-const COMPLIANCE_STATUS_SCORES = { completed: 100, partial: 50, missed: 0 };
-const COMPLIANCE_EXCLUDED_STATUSES = new Set(["excused", "not_applicable"]);
-const WEEKLY_EVIDENCE_THRESHOLD = 60;
-const TREND_WINDOW_SIZE = 4;
-const TREND_SLOPE_THRESHOLD = 2;
-const TREND_EVIDENCE_THRESHOLD = 60;
-const COMPLIANCE_COLUMNS = [
-  "compliance_date", "discipline_score", "score_evidence", "updated_at",
-  ...COMPLIANCE_DOMAINS.flatMap((domain) => [
-    `${domain}_status`, `${domain}_target`, `${domain}_actual`, `${domain}_note`,
-    `${domain}_restriction`, `${domain}_approved_modification`
-  ])
-].join(",");
+    { code: "race׏vۋh�鬶��q�^t\
 
-const readinessClass = {
-  RED: "red",
-  YELLOW: "yellow",
-  GREEN: "green"
-};
+^JHO�]Z[Șۘ\܏H�ٙZ۞KY]�Y[�ًY^H	٘^K�\ܙ\ܙY۝[�Ȉ��]]�[���Z\ܚ[�ȟH��ݛ[X\�O�ݜ�ۙω٘^K�]_Oܝ�ۙϏܘ[��٘^K�\ܙ\ܙY۝[�K͈TԑTԑQܜ[��ܝ[[X\�O��٘^K�[�۝YY۝[�H\Xؘ�H؛ܚ[�ț؜ٜ��][ۜϋ܏�ٙ]Z[Ϙ
+K��ڛ���Nٝ^
+�ٙZ۞K\�\ܝ�
+Yٜ�Y؝K�]\ԙ\ܝٛ�\�]UٙZ۞PY�\�Xݚ[۔�\ܝ
+Yٜ�Y؝JJK�^
+Nۛ�݈ٙZ۞Tݘ[�\�ԝ[[X\�HH؝[Y[��ٝ[[Y[��RY
+�ٙZ۞K\ݘ[�\�˜ݛ[X\�H�Nۛ�݈ٙZ۞Tݘ[�\�ҝ[\ȏHݘ[�\�ԙ]�Y]ԝ]K��[\�
+][JHO�][K�۝\�ّ]H	��][K�۝\�ّ]HHYٜ�Y؝K�ٙZћ�]H	��][K�۝\�ّ]H�HYٜ�Y؝K�ٙZԝ\�]JNY�
+ٙZ۞Tݘ[�\�ԝ[[X\�JHٙZ۞Tݘ[�\�ԝ[[X\�K�[��\�SHٙZ۞Tݘ[�\�ҝ[\˛[�ݚ�ȝٙZ۞Tݘ[�\�ҝ[\˛X\
 
-const readinessSeverity = {
-  RED: "CRITICAL",
-  YELLOW: "WARNING",
-  GREEN: "SUCCESS"
-};
+][JHO�\�XۙHۘ\܏H�ݘ[�\�˚][H��]�ۘ\܏H�ݘ[�\�˚][KZXY\���ݜ�ۙωڝ[K�ۘZ[�Oܝ�ۙϏܘ[�ۘ\܏H�ݘ]K\[	ڝ[K�ݘ]\ȏOOH�ӓ��T�QQ�Ȉ�ܙY[���][K�ݘ]\ȏOOH��Tӓ�Q�Ȉ��]]�[��][K�ݘ]\ȏOOH�TӒTԑQ�Ȉ��]]�[��][K�ݘ]\ȏOOH�VՔё�Ȉ��]]�[���Y[݈�H��ڝ[K�ݘ]\ȟ�Г�QUH�Oܜ[��ٚ]���ڝ[K�]�Y[�و��ș]�Y[�و�Xۜ�Y��O܏�ۘ[�ڝ[K�ٝ�\�]O˛]�[�U�SH�OܛX[�؜�XۙO�
+K��ڛ���B��	ϙ]�ۘ\܏H�ݘ[�\�˙[\H���Ȝݘ[�\�Ȝ�]�Y]Ț\ݛܞH�܈\Ț[�ܙXݚ[ۈٙZˏٚ]��΂�B�ۛ�݈؜��[�ȏH�[�[^�YȘ�[�[^�Y	ۙ]ȑ]JYٜ�Y؝K��[�[^�Y]
+K�ӛؘ[Tݜ�[�ʊ_K�\ݛܚX؛ۘ\ڛ݈\Ȝ�XY[ۛK��Yٜ�Y؝K�]�Y[�ٓ[Z]][ۈȘ�[�[^�][ۈ�\]Z\�\ȉՑQRӖWѕ�QS�їՒ�TғӑIH]�Y[�و۝�\�Yً�ݜ��[�]�Y[�و\ț[Z]Y����ٝ^
+�ٙZ۞K]؜��[�ȋ؜��[�ʎۛ�݈�[�[^�P�]ۈH؝[Y[��ٝ[[Y[��RY
+��[�[^�K]ٙZȊN�[�[^�P�]ۋ�\ؘ�YH�[�[^�YYٜ�Y؝K�]�Y[�ِ۝�\�YوёRӖWѕ�QS�їՒ�Tғӑ�[�[^�P�]ۋ�^ۛ�[�H�[�[^�YȈ�[�ܙXݚ[ۈ�[�[^�Y����[�[^�H[�ܙXݚ[ۈ��[�[^�P�]ۋ�ٝ]�X�]J�\�XKY\ؘ�Y��[�[^�P�]ۋ�\ؘ�YȈ��YH����[و�Nۛ�݈�[�[^�R[�H؝[Y[��ٝ[[Y[��RY
+�ٙZ۞KY�[�[^�KZ[��NY�
+�[�[^�R[�
+H�[�[^�R[��^ۛ�[�H�[�[^�YȈ�\Ț[�ܙXݚ[ۈ\ș�[�[^�Y[��XY[ۛK����[�[^�Tݘ]K��XYۛSY\ܘYَ؝[Y[��ٝ[[Y[��RY
+�ٙZ۞KZ[�ܙXݚ[ۈ�K�]\ٝ��[�[^�YH�[�[^�YȈ��YH����[و��[�\�ۛ[X[�ٛ�\�ݙ\��Y]ʙZ[Tݘ]Hș]�[X]T�XY[�\܊Z[Tݘ]JH��[Yٜ�Y؝JN�[�\�ݘ[�\�ԙXݚ[ۊ
+NB��\ޛ�ș�[�ݚ[ۈؙٙZ۞R[�ܙXݚ[ۊ
+Hۛ�݈ٛXݙY]HH؝[Y[��ٝ[[Y[��RY
+�ٙZ۞KY]H�K��[YH٘^RTӑ]J
+Nۛ�݈�[�وHٝ[�ܙXݚ[ەٙZԘ[�يٛXݙY]JNٝ^
+�ٙZ۞K]؜��[�ȋ�؛ݛ][�ȝٙZ۞H]�Y[�ٸ�)��N�Hۛ�݈ݜX�\وH]ؚ]ٝۚY[�
 
-const STANDARDS_CATALOG = [
-  { code: "MISSION-EXECUTION-01", category: "Mission Execution", title: "Mission execution target", description: "A planned mission target is expected to be executed without unauthorized compensation.", evidenceRule: "A missed mission target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "STRENGTH-01", category: "Strength Compliance", title: "Strength completion target", description: "Strength work should follow the assigned target unless a protected exception applies.", evidenceRule: "A missed strength target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "CARDIO-01", category: "Running/Cardio Compliance", title: "Cardio completion target", description: "Assigned cardio work should be completed unless a protected exception applies.", evidenceRule: "A missed cardio target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "RECOVERY-01", category: "Recovery", title: "Recovery restriction", description: "Recovery restrictions must be respected and not ignored.", evidenceRule: "Ignoring a recovery restriction or training through pain may warrant review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "NUTRITION-01", category: "Nutrition", title: "Nutrition target", description: "Nutrition targets should be followed unless a protected exception applies.", evidenceRule: "A missed nutrition target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "REPORTING-01", category: "Reporting and Evidence", title: "Required evidence", description: "Required evidence and note quality should be recorded.", evidenceRule: "Missing evidence or contradictory reporting may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "SAFETY-01", category: "Safety", title: "Safety restriction", description: "Safety restrictions must be followed.", evidenceRule: "A deliberate or repeated safety breach may be serious.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "CONDUCT-01", category: "Program Conduct", title: "Integrity and reporting", description: "Reporting must be honest and consistent.", evidenceRule: "Deliberate falsification or contradictory reporting may warrant serious review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true }
-];
+Nۛ�݈ș]N�؝�Y\��܎�[�ܙXݚ[ۑ\��܈HH]ؚ]ݜX�\ً���ۊ�ٙZ۞Wڛ�ܙXݚ[ۜȊK�ٛX݊���K�\J�\ٜ�ڙ�ٜܚ[ۋ�\ٜ��Y
+K�\J�ٙZלݘ\�٘]H��[�ً�ٙZԝ\�]JK�X^X�Tڛ�ۙJ
+NY�
+[�ܙXݚ[ۑ\��܊H�݈[�ܙXݚ[ۑ\��܎Y�
+؝�Y˙�[�[^�Y؝
+H�[�\�ٙZ۞R[�ܙXݚ[ۊYٜ�Y؝Q��۔ݛܙY[�ܙXݚ[ۊ؝�Y
+K�ՔP�Tш�N�]\��B�ۛ�݈ș]N��Xۜ�ˈ\��܎��Xۜ�ќ��܈HH]ؚ]ݜX�\ً���ۊ�Z[W؛ۜX[�و�K�ٛX݊ӓTPS�їГӕSS�ʋ�\J�\ٜ�ڙ�ٜܚ[ۋ�\ٜ��Y
+K�ݙJ�ۛ\X[�ٗ٘]H��[�ً�ٙZԝ\�]JK�J�ۛ\X[�ٗ٘]H��[�ً�ٙZћ�]JNY�
+�Xۜ�ќ��܊H�݈�Xۜ�ќ��܎ٙZ۞QZ[T�Xۜ�ȏH�Xۜ�ȟ׎ۛ�݈Yٜ�Y؝HHYٜ�Y؝UٙZ۞Pۛ\X[�يٙZ۞QZ[T�Xۜ�ˈ�[�ً�ٙZԝ\�]JNYٜ�Y؝K�]\ԙ\ܝHٛ�\�]UٙZ۞PY�\�Xݚ[۔�\ܝ
+Yٜ�Y؝JNۛ�݈^[ؙHٙZ۞T\�ڜݙ[�ٔ^[ؙ
+Yٜ�Y؝JNۛ�݈ș\��܎��Y�\��܈HH]ؚ]ݜX�\ً���ۊ�ٙZ۞Wڛ�ܙXݚ[ۜȊK�\ٜ�
+^[ؙțېۛ��Xݎ��\ٜ�ڙٙZלݘ\�٘]H�JNY�
+�Y�\��܊H�݈�Y�\��܎�[�\�ٙZ۞R[�ܙXݚ[ۊYٜ�Y؝K�ՔP�Tш�NH؝ڈ
+\��܊Hۛ�݈؝�YHؙؘ[ٙZ۞R[�ܙXݚ[ۊ�[�ً�ٙZԝ\�]JNY�
+؝�Y˙�[�[^�Y؝
+Hٝ^
+�ٙZ۞K]؜��[�ȋ�[[ݙHٙZ۞H[�ܙXݚ[ۈ]H۝[�݈�HؙY
+	ٜ��܏˛Y\ܘYو�[�ۛݛ�\��܈�JK�ڛݚ[�ȝH�[�[^�Yؘ[ۘ\ڛ݋�
+N�[�\�ٙZ۞R[�ܙXݚ[ۊYٜ�Y؝Q��۔ݛܙY[�ܙXݚ[ۊ؝�Y
+K�АS�N�]\��B�ٙZ۞QZ[T�Xۜ�ȏHؙؘ[ٙZԙXۜ�ʜ�[�يNۛ�݈Yٜ�Y؝HHYٜ�Y؝UٙZ۞Pۛ\X[�يٙZ۞QZ[T�Xۜ�ˈ�[�ً�ٙZԝ\�]JNYٜ�Y؝K�]\ԙ\ܝHٛ�\�]UٙZ۞PY�\�Xݚ[۔�\ܝ
+Yٜ�Y؝JN؝�Sؘ[ٙZ۞R[�ܙXݚ[ۊٙZ۞T\�ڜݙ[�ٔ^[ؙ
+Yٜ�Y؝JJNۛ�݈Y\ܘYوHٙZ۞QZ[T�Xۜ�˛[�ݚ�Ș�[[ݙHٙZ۞H[�ܙXݚ[ۈ]H۝[�݈�HؙY
+	ٜ��܏˛Y\ܘYو�[�ۛݛ�\��܈�JK�ڛݚ[�țؘ[�[�Xڋ����[[ݙHٙZ۞H[�ܙXݚ[ۈ]H۝[�݈�HؙY
+	ٜ��܏˛Y\ܘYو�[�ۛݛ�\��܈�JK��țؘ[�[�Xڈ�ݜȝٜ�H�ݛ��ٝ^
+�ٙZ۞K]؜��[�ȋY\ܘYيN�[�\�ٙZ۞R[�ܙXݚ[ۊYٜ�Y؝K�АS�NB�B��\ޛ�ș�[�ݚ[ۈ�[�[^�UٙZ۞R[�ܙXݚ[ۊ
+HY�
+]ٙZ۞R[�ܙXݚ[ۊH�]\��ۛ�݈�[�[^�Tݘ]HH\�]�Q�[�[^�Pۛ��\�X][۔ݘ]J�ۛX[�ٙZ۞R[�ܙXݚ[ۋ��[�[^�Y]
+KٙZ۞R[�ܙXݚ[ۋ�]�Y[�ِ۝�\�YيNY�
+Y�[�[^�Tݘ]K�؛��[�[^�JHٝ^
+�ٙZ۞K]؜��[�ȋ��[�[^�][ۈ�\]Z\�\Ȝݙ��Xڙ[�]�Y[�و۝�\�Yً��N�]\��B�ۛ�݈ۛ��\�YYHڛ�݋�ۛ��\�J	ٚ[�[^�Tݘ]K��XYۛSY\ܘYٟW���[�[^�H\Ț[�ܙXݚ[ۈ�ݏ؊NY�
+Xۛ��\�YY
+H�]\��ۛ�݈�]ۈH؝[Y[��ٝ[[Y[��RY
+��[�[^�K]ٙZȊN�]ۋ�\ؘ�YH�YN�Hۛ�݈�[�[^�YH�[�[^�UٙZ۞R[�ܙXݚ[۔ۘ\ڛ݊ٙZ۞R[�ܙXݚ[ۊNۛ�݈^[ؙHٙZ۞T\�ڜݙ[�ٔ^[ؙ
+�[�[^�Y�[�[^�Y��[�[^�Y]
+N�Hۛ�݈ݜX�\وH]ؚ]ٝۚY[�
 
-const RANK_CATALOG = [
-  { code:…79415 tokens truncated…    if (!saved) setText("compliance-storage", "UNSAVED — local storage unavailable");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Save Dominion Record";
-    updateComplianceStatusMessage();
-  }
-  await loadTrendsAnalytics();
-}
+Nۛ�݈ș]K\��܈HH]ؚ]ݜX�\ً���ۊ�ٙZ۞Wڛ�ܙXݚ[ۜȊK�\ٜ�
+^[ؙțېۛ��Xݎ��\ٜ�ڙٙZלݘ\�٘]H�JK�ٛX݊���K�ڛ�ۙJ
+NY�
+\��܊H�݈\��܎�[�\�ٙZ۞R[�ܙXݚ[ۊYٜ�Y؝Q��۔ݛܙY[�ܙXݚ[ۊ]JK�ՔP�Tш�NH؝ڈ
+ʈ؝�Sؘ[ٙZ۞R[�ܙXݚ[ۊ^[ؙ
+N�[�\�ٙZ۞R[�ܙXݚ[ۊ�[�[^�Y�АS�NB�]ؚ]ؙ�[�Л�[]X܊
+NH؝ڈ
+\��܊Hٝ^
+�ٙZ۞K]؜��[�ȋ\��܋�Y\ܘYيN�]ۋ�\ؘ�YH�[َB�B���[�ݚ[ۈؙؘ[[�[]Xܒ\ݛܞJ
+Hۛ�݈\ٜ�Hٜܚ[ۏ˝\ٜ�˚Y�ؘ[�ۛ�݈Z[T�Y�^HۘXڋYۚ[�[ێ�Z[KXۛ\X[�َ�ݜٜ�N�ۛ�݈ٙZ۞T�Y�^HۘXڋYۚ[�[ێ�ٙZ۞KZ[�ܙXݚ[ێ�ݜٜ�N�ۛ�݈Z[T�Xۜ�ȏH׎ۛ�݈[�ܙXݚ[ۜȏH׎�H�܈
+][�^HȚ[�^ڛ�݋�ؘ[ݛܘYً�[�ݚȚ[�^
+ψJHۛ�݈ٞHHڛ�݋�ؘ[ݛܘYً�ٞJ[�^
+NY�
+ZٞJHۛ�[�YNۛ�݈\�ٙH�ӓ��\�يڛ�݋�ؘ[ݛܘYً�ٝ][JٞJJNY�
+ٞK�ݘ\�՚]
+Z[T�Y�^
+JHZ[T�Xۜ�˜\ڊ\�ٙ
+NY�
+ٞK�ݘ\�՚]
+ٙZ۞T�Y�^
+JH[�ܙXݚ[ۜ˜\ڊ\�ٙ
+NB�H؝ڈ
+ʈ�]\��șZ[T�Xۜ�ˈ[�ܙXݚ[ۜȟNB��]\��șZ[T�Xۜ�ˈ[�ܙXݚ[ۜȟNB���[�ݚ[ۈڙۙY\ܛ^J�[YKݙ��^H�H�HY�
+S�[X�\��\њ[�]J�[X�\��[YJJJH�]\����%�ۛ�݈�ݛ�YHX]��ݛ�
+�[X�\��[YJJN�]\��	ܛݛ�Y�Ȉ�Ȉ���Iܛݛ�YIܝY��^XB���[�ݚ[ۈ�[�\��[�ژ\�
+[[Y[�Yٜ�Y\ˈ�[YRٞKX�[
+Hۛ�݈[[Y[�H؝[Y[��ٝ[[Y[��RY
+[[Y[�Y
+Nۛ�݈ڛ�ȏHٜ�Y\˙�[\�
+][JHO�\њ[�]SY]�Xʚ][Vݘ[YRٞWJJNY�
+\ڛ�˛[�ݚ
+H[[Y[��[��\�SH]�ۘ\܏H�ژ\�Y[\H���ȉۘX�[�ӛݙ\�؜ي
+_H]H]�Z[X�K�ٚ]���]\��B�ۛ�݈ڙHڛ�݋�[��\�ڙ�Ȍ̌��ۛ�݈ZYڝHڛ�݋�[��\�ڙ�Ȍ�L��̎ۛ�݈Y�H�ۛ�݈�YڝHNۛ�݈܈HNۛ�݈�ݝۈHۛ�݈H
+[�^
+HO�ڛ�˛[�ݚOOHHȝڙȌ��Y�
+Ț[�^
+�
 
-function weeklyInspectionStorageKey(weekStartDate) {
-  return `coach-dominion:weekly-inspection:${session?.user?.id || "local"}:${weekStartDate}`;
-}
+ڙHY�H�Yڝ
+HȊڛ�˛[�ݚHJJNۛ�݈HH
+�[YJHO�܈
+ȊLHX]�X^
+X]�Z[�L�[X�\��[YJJJJHȌL
+�
+ZYڝH܈H�ݝۊNۛ�݈�[�[^�YHڛ�˙�[\�
+][JHO�][K�ڛ�OOH��S�SV�Q�Nۛ�݈�[�[^�Yۛܙ[�]\ȏH�[�[^�Y�X\
 
-function loadLocalWeeklyInspection(weekStartDate) {
-  try {
-    const stored = window.localStorage.getItem(weeklyInspectionStorageKey(weekStartDate));
-    return stored ? JSON.parse(stored) : null;
-  } catch (_) {
-    return null;
-  }
-}
+][JHO�	ފڛ�˚[�^ي][JJ_K	ފ][Vݘ[YRٞWJ_X
+K��ڛ���Nۛ�݈�ݚ\ڛۘ[Hڛ�˙�[�
 
-function saveLocalWeeklyInspection(record) {
-  try {
-    window.localStorage.setItem(weeklyInspectionStorageKey(record.week_start_date), JSON.stringify(record));
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
+][JHO�][K�ڛ�OOH��ՒTғӐS�Nۛ�݈�[܈H�ݚ\ڛۘ[Ȝڛ�˜ۚXيڛ�˚[�^ي�ݚ\ڛۘ[
+JK�]
+LJH��[ۛ�݈�ݚ\ڛۘ[[�HH�ݚ\ڛۘ[	���[܈Ș[�Hۘ\܏H�ژ\�[[�Hژ\�\�ݚ\ڛۘ[[[�H�OH�ފڛ�˚[�^ي�[܊J_H�LOH�ފ�[ܖݘ[YRٞWJ_H��H�ފڛ�˚[�^ي�ݚ\ڛۘ[
+J_H�L�H�ފ�ݚ\ڛۘ[ݘ[YRٞWJ_H��ۚ[�O����ۛ�݈ܚYH̋�KL͋LK�X\
 
-function loadLocalWeekRecords(range) {
-  const records = [];
-  try {
-    for (let offset = 0; offset < 7; offset += 1) {
-      const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
-      const key = `coach-dominion:daily-compliance:${session?.user?.id || "local"}:${date}`;
-      const stored = window.localStorage.getItem(key);
-      if (stored) records.push(JSON.parse(stored));
-    }
-  } catch (_) {
-    return records;
-  }
-  return records;
-}
+�[YJHO�[�Hۘ\܏H�ژ\�YܚY[�H�OH�ۙY�H�LOH�ފ�[YJ_H��H�ݚYH�YڝH�L�H�ފ�[YJ_H��ۚ[�O�^ۘ\܏H�ژ\�[X�[�H��OH�ފ�[YJH
+ȍH��ݘ[Y_Oݙ^�
+K��ڛ���Nۛ�݈X\�܈Hڛ�˛X\
 
-function weeklyPersistencePayload(aggregate, finalizedAt = null) {
-  const report = aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate);
-  return {
-    user_id: session?.user?.id || null,
-    week_start_date: aggregate.weekStartDate,
-    week_end_date: aggregate.weekEndDate,
-    inspection_status: finalizedAt ? "inspection_complete" : aggregate.inspectionStatus.toLowerCase().replaceAll(" ", "_"),
-    weekly_discipline_score: aggregate.score,
-    evidence_coverage: aggregate.evidenceCoverage,
-    domain_scores: aggregate.domainScores,
-    aggregate_counts: aggregate.counts,
-    strongest_domain: aggregate.strongestDomain,
-    weakest_domain: aggregate.weakestDomain,
-    next_week_priority: aggregate.nextWeekPriority,
-    report_evidence: aggregate,
-    atlas_report: report,
-    finalized_at: finalizedAt
-  };
-}
+][K[�^
+HO�ۛ�݈٘Zѝ�Y[�وH�[YRٞHOOH�؛ܙH�	���[X�\�][K�]�Y[�ِ۝�\�YيH�S�ѕ�QS�їՒ�Tғӑ�]\��ڜ�ۙHۘ\܏H�ژ\�\ڛ�	ڝ[K�ڛ�OOH��ՒTғӐS�Ȉ��ݚ\ڛۘ[����H	ݙXZѝ�Y[�وȈ�٘Z˙]�Y[�و����H�ޏH�ފ[�^
+_H�ޏH�ފ][Vݘ[YRٞWJ_H��H�H��]O�ڝ[K�ٙZԝ\�]_N�	ڝ[Vݘ[YRٞW_IH	ڝ[K�ڛ��ӛݙ\�؜ي
+_IݙXZѝ�Y[�وȈ�ț[Z]Y]�Y[�و����Oݚ]O�ؚ\�ۙO�^ۘ\܏H�ژ\�[X�[�^X[�ڛ܏H�ZYH�H�ފ[�^
+_H�OH�ڙZYڝH�_H��ڝ[K�ٙZԝ\�]K�ۚXيJ_Oݙ^�^ۘ\܏H�ژ\�[X�[�^X[�ڛ܏H�ZYH�H�ފ[�^
+_H�OH�ފ][Vݘ[YRٞWJHH_H��Ә]��ݛ�
+][Vݘ[YRٞWJ_Oݙ^�JK��ڛ���Nۛ�݈\]Z]�[[�Hڛ�˛X\
 
-function aggregateFromStoredInspection(record) {
-  if (!record?.report_evidence) return null;
-  const aggregate = structuredClone(record.report_evidence);
-  aggregate.finalizedAt = record.finalized_at || aggregate.finalizedAt;
-  aggregate.inspectionStatus = record.finalized_at ? "INSPECTION COMPLETE" : aggregate.inspectionStatus;
-  aggregate.atlasReport = record.atlas_report || aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate);
-  return aggregate;
-}
+][JHO�	ڝ[K�ٙZԝ\�]_N�	ڝ[Vݘ[YRٞW_IH
+	ڝ[K�ڛ��ӛݙ\�؜ي
+_Iݘ[YRٞHOOH�؛ܙH�	���[X�\�][K�]�Y[�ِ۝�\�YيH�S�ѕ�QS�їՒ�TғӑȈ�[Z]Y]�Y[�و����JX
+K��ڛ��Ȉ�N[[Y[��[��\�SHݙȝ�Y]ЛޏH�	ݚYH	ڙZYڝH��ۙOH�[YȈ\�XK[X�[H�ۘX�[K��^Y^\ș��ۈ�\�ȝțۙH[��Y\�ٛ����ٜ�YIٚ[�[^�Yۛܙ[�]\ȏȘ۞[[�Hۘ\܏H�ژ\�[[�H�ڛ�ψ�ٚ[�[^�Yۛܙ[�]\߈��ܛ۞[[�O����Iܜ�ݚ\ڛۘ[[�_Iۘ\�ܟOܝ�Ϗۘ\܏H�ژ\�Y\]Z]�[[���ٜ]Z]�[[�O܏�B���[�ݚ[ۈ�[�\��[�Л�[]X܊[�ܙXݚ[ۜˈZ[T�Xۜ�ˈݛܘYٓ[ٙJHۛ�݈ݜ��[��[�وHٝ[�ܙXݚ[ەٙZԘ[�ي٘^RTӑ]J
+JNۛ�݈ݜ��[�Yٜ�Y؝HHYٜ�Y؝UٙZ۞Pۛ\X[�يZ[T�Xۜ�ˈݜ��[��[�ً�ٙZԝ\�]JNۛ�݈\њ[�[^�Yݜ��[�ٙZȏHۜ�[�ܙXݚ[ے\ݛܞJ[�ܙXݚ[ۜʋ�ۛYJ
+][JHO�][K�ٙZԝ\�]HOOHݜ��[��[�ً�ٙZԝ\�]H	��][K��[�[^�Y]
+Nۛ�݈�ݚ\ڛۘ[Hݜ��[�Yٜ�Y؝K�۝[�˘\ܙ\ܙY؜ٜ��][ۜȏ�	��Z\њ[�[^�Yݜ��[�ٙZȏȘݜ��[�Yٜ�Y؝H��[ۛ�݈�Z�XݛܞHH\�]�U�Z�XݛܞTݘ]J[�ܙXݚ[ۜʎۛ�݈ۘZ[��[�ȏH؛ݛ]QۘZ[��[�ʚ[�ܙXݚ[ۜʎۛ�݈ݜ�XZ܈H؛ݛ]Pۛ\X[�ٔݜ�XZ܊Z[T�Xۜ�ˈ٘^RTӑ]J
+JNۛ�݈ݛ[X\�HHݛ[X\�^�R[�ܙXݚ[ے\ݛܞJ[�ܙXݚ[ۜʎۛ�݈ژ\�ٜ�Y\ȏH�Z[ژ\�ٜ�Y\ʚ[�ܙXݚ[ۜˈ�ݚ\ڛۘ[
+Nۛ�݈�\ܝHٛ�\�]P]\՜�[��\ܝ
+ȝ�Z�XݛܞKۘZ[��[�ˈݜ�XZ܋ݛ[X\�Kژ\�ٜ�Y\ȟJNٝ^
+��Z�XݛܞK\ݘ]\ȋ�Z�XݛܞK�ݘ]JN؝[Y[��ٝ[[Y[��RY
+��Z�XݛܞK\ݘ]\ȊK�ۘ\ܓ�[YHHݘ]K\[	ݜ�Z�XݛܞK�ݘ]HOOH�ST�ՒS�ȈȈ�ܙY[����Z�XݛܞK�ݘ]HOOH�PӒS�S�ȈȈ��Y���Z�XݛܞK�ݘ]HOOH�SRUQU�QS�ш�Ȉ�Y[݈����]]�[�Xٝ^
+�[�[]X܋\ݛܘYو�	ܝܘYٓ[ٙ_HS�SUPԈ8�%\�]�Y�݈ݛܙY
+Nٝ^
+��[�\ݛ[X\�K]�Z�XݛܞH��Z�XݛܞK�ݘ]H�S�Ց��PґS�TՓԖH�Nٝ^
+��[�\ݛ[X\�K\؛ܙKXژ[�و�ڙۙY\ܛ^Jݛ[X\�K�؛ܙPژ[�يJNٝ^
+��[�\ݛ[X\�KY]�Y[�و��Z�XݛܞK�]�\�Yّ]�Y[�وOOH�[Ȉ��%��	Ә]��ݛ�
+�Z�XݛܞK�]�\�Yّ]�Y[�ي_IX
+Nۛ�݈ۘZ[�]�\ڈH�\ܝ�ۘZ[�]�\ڈOOH��șXۚ[�[�șۘZ[�\ݘX�\ڙY��Ȉ��%���\ܝ�ۘZ[�]�\ڎٝ^
+��[�\ݛ[X\�KYۘZ[��ۘZ[�]�\ڊNٝ^
+��[�\ݛ[X\�KXۛ�ڜݙ[�ވ��\ܝ�ۛ�ڜݙ[�ވ��%�Nۛ�݈ڛ�ݑ]\ȏH�Z�XݛܞK�ڛ�݋�X\
 
-function renderWeeklyInspection(aggregate, storageMode) {
-  weeklyInspection = aggregate;
-  const finalized = Boolean(aggregate.finalizedAt);
-  const finalizeState = deriveFinalizeConfirmationState(finalized, aggregate.evidenceCoverage);
-  const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
-  setText("weekly-status", aggregate.inspectionStatus);
-  document.getElementById("weekly-status").className = `state-pill ${aggregate.inspectionStatus === "INSPECTION COMPLETE" ? "green" : aggregate.inspectionStatus === "READY FOR INSPECTION" ? "yellow" : "neutral"}`;
-  setText("weekly-range", `${aggregate.weekStartDate} — ${aggregate.weekEndDate}`);
-  setText("weekly-score", formatDisciplineScore(aggregate.score));
-  setText("weekly-coverage", `${Math.round(aggregate.evidenceCoverage)}%`);
-  setText("weekly-storage", storageMode === "SUPABASE" ? "SUPABASE" : "LOCAL FALLBACK");
-  setText("weekly-assessed-days", `${aggregate.counts.assessedDays} / ${aggregate.counts.fullyAssessedDays}`);
-  setText("weekly-unscored-days", aggregate.counts.unscoredDays);
-  setText("weekly-result-counts", `${aggregate.counts.completed} / ${aggregate.counts.partial} / ${aggregate.counts.missed}`);
-  setText("weekly-excluded-counts", `${aggregate.counts.excused} / ${aggregate.counts.notApplicable}`);
-  setText("weekly-modification-count", aggregate.counts.approvedModifications);
-  setText("weekly-strongest", aggregate.strongestDomains.length ? aggregate.strongestDomains.map(label).join(" / ") : "UNSCORED");
-  setText("weekly-weakest", aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
-  setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
-  setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
-  document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
-  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.assessedCount}/5 ASSESSED</span></summary><p>${day.includedCount} applicable scoring observations</p></details>`).join("");
-  setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
-  const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
-  const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
-  if (weeklyStandardsSummary) {
-    weeklyStandardsSummary.innerHTML = weeklyStandardsItems.length
-      ? weeklyStandardsItems.map((item) => `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${item.status === "CONFIRMED" ? "green" : item.status === "RESOLVED" ? "neutral" : item.status === "DISMISSED" ? "neutral" : item.status === "EXCUSED" ? "neutral" : "yellow"}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`).join("")
-      : '<div class="standards-empty">No standards review history for this inspection week.</div>';
-  }
-  const warning = finalized ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.` : aggregate.evidenceLimitation ? `Finalization requires ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage. Current evidence is limited.` : "";
-  setText("weekly-warning", warning);
-  const finalizeButton = document.getElementById("finalize-week");
-  finalizeButton.disabled = finalized || aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD;
-  finalizeButton.textContent = finalized ? "Inspection Finalized" : "Finalize Inspection";
-  finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
-  const finalizeHint = document.getElementById("weekly-finalize-hint");
-  if (finalizeHint) finalizeHint.textContent = finalized ? "This inspection is finalized and read-only." : finalizeState.readOnlyMessage;
-  document.getElementById("weekly-inspection").dataset.finalized = finalized ? "true" : "false";
-  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
-  renderStandardsSection();
-}
+][JHO�][K�ٙZԝ\�]JNٝ^
+��[�]ڛ�݈�ڛ�ݑ]\˛[�ݚȘ�[�[^�Y�[�ڛ�ݎ�	ݚ[�ݑ]\֌_H�ݙڈ	ݚ[�ݑ]\˘]
+LJ_H
+	ݚ[�ݑ]\˛[�ݚH؛ܙYٙZ܊K����ș�[�[^�Y؛ܙY�[�ڛ�݈]�Z[X�K��Nٝ^
+��[�[]\݋\؛ܙH�ݛ[X\�K�[ܝ�Xٛ��[�[^�Yș�ܛX]\ؚ\[�T؛ܙJݛ[X\�K�[ܝ�Xٛ��[�[^�Y�؛ܙJH��S�ГԑQ�Nٝ^
+��[�X]�\�Yً\؛ܙH��ܛX]\ؚ\[�T؛ܙJݛ[X\�K��Xٛ�]�\�Yٔ؛ܙJJNٝ^
+��[�\؛ܙKXژ[�و�ڙۙY\ܛ^Jݛ[X\�K�؛ܙPژ[�يJNٝ^
+��[�Y]�Y[�ًXژ[�و�ڙۙY\ܛ^Jݛ[X\�K�]�Y[�ِژ[�يJNٝ^
+��[�X�\݋]ٙZȋݛ[X\�K��\ݕٙZȏȘ	ܝ[[X\�K��\ݕٙZ˝ٙZԝ\�]_Hˈ	ٛܛX]\ؚ\[�T؛ܙJݛ[X\�K��\ݕٙZ˜؛ܙJ_X���%�Nٝ^
+��[�[ݙ\݋]ٙZȋݛ[X\�K�ݙ\ݕٙZȏȘ	ܝ[[X\�K�ݙ\ݕٙZ˝ٙZԝ\�]_Hˈ	ٛܛX]\ؚ\[�T؛ܙJݛ[X\�K�ݙ\ݕٙZ˜؛ܙJ_X���%�Nٝ^
+��[�Y�[�[^�YX۝[��ݛ[X\�K��[�[^�Y۝[�
+Nٝ^
+��[�Xۛ\][ۋ\�]H��[X�\��\њ[�]Jݛ[X\�K��Xٛ�[�ܙXݚ[ېۛ\][۔�]JHȘ	Ә]��ݛ�
+ݛ[X\�K��Xٛ�[�ܙXݚ[ېۛ\][۔�]J_IX���%�Nٝ^
+�ݜ��[�X\ܙ\ܙY\ݜ�XZȋ	ܝ�XZ܋�ݜ��[�\ܙ\ܙY^Tݜ�XZ߈^\؊Nٝ^
+�ݜ��[�Y�[\ݜ�XZȋ	ܝ�XZ܋�ݜ��[��[P\ܙ\ܙY^Tݜ�XZ߈^\؊Nٝ^
+�ٜۙ݋X\ܙ\ܙY\ݜ�XZȋ	ܝ�XZ܋�ٜۙݐ\ܙ\ܙY^Tݜ�XZ߈^\؊N؝[Y[��ٝ[[Y[��RY
+��[�YۘZ[�YܚY�K�[��\�SHӓTPS�їѓӐRS�˛X\
 
-async function loadWeeklyInspection() {
-  const selectedDate = document.getElementById("weekly-date").value || todayISODate();
-  const range = getInspectionWeekRange(selectedDate);
-  setText("weekly-warning", "Calculating weekly evidence…");
-  try {
-    const supabase = await getClient();
-    const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
-    if (inspectionError) throw inspectionError;
-    if (saved?.finalized_at) {
-      renderWeeklyInspection(aggregateFromStoredInspection(saved), "SUPABASE");
-      return;
-    }
-    const { data: records, error: recordsError } = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
-    if (recordsError) throw recordsError;
-    weeklyDailyRecords = records || [];
-    const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
-    aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
-    const payload = weeklyPersistencePayload(aggregate);
-    const { error: draftError } = await supabase.from("weekly_inspections").upsert(payload, { onConflict: "user_id,week_start_date" });
-    if (draftError) throw draftError;
-    renderWeeklyInspection(aggregate, "SUPABASE");
-  } catch (error) {
-    const saved = loadLocalWeeklyInspection(range.weekStartDate);
-    if (saved?.finalized_at) {
-      setText("weekly-warning", `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). Showing the finalized local snapshot.`);
-      renderWeeklyInspection(aggregateFromStoredInspection(saved), "LOCAL");
-      return;
-    }
-    weeklyDailyRecords = loadLocalWeekRecords(range);
-    const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
-    aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
-    saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
-    const message = weeklyDailyRecords.length
-      ? `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). Showing local fallback.`
-      : `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). No local fallback rows were found.`;
-    setText("weekly-warning", message);
-    renderWeeklyInspection(aggregate, "LOCAL");
-  }
-}
+ٞJHO�]�ۘ\܏H��[�YۘZ[�X؜�	ٛۘZ[��[�֚ٞWK�\�Xݚ[ۋ�ӛݙ\�؜ي
+K��\Xِ[
+���H�_H��ܘ[��ГӔPS�їѓӐRS�ӐP�S֚ٞW_Oܜ[��ݜ�ۙωٛۘZ[��[�֚ٞWK�\�Xݚ[۟Oܝ�ۙϏۘ[�ٛۘZ[��[�֚ٞWK�ۛܙHOOH�[Ȉ��Ȝ�[XX�HۛܙH��	ٛۘZ[��[�֚ٞWK�ۛܙK�њ^Y
+�_H˝ٙZ؟OܛX[�ٚ]��
+K��ڛ���N�[�\��[�ژ\�
+�\ؚ\[�K]�[�Xژ\��ژ\�ٜ�Y\ˈ�؛ܙH��ٙZ۞H\ؚ\[�H؛ܙH�N�[�\��[�ژ\�
+�]�Y[�ً]�[�Xژ\��ژ\�ٜ�Y\ˈ�]�Y[�ِ۝�\�Yو��ٙZ۞H]�Y[�و۝�\�Yو�Nٝ^
+�]\˝�[�\�\ܝ��\ܝ�^
+N�[�\�ۛ[X[�ٛ�\�ݙ\��Y]ʙZ[Tݘ]Hș]�[X]T�XY[�\܊Z[Tݘ]JH��[ٙZ۞R[�ܙXݚ[ۈߋ�Z�XݛܞK�ݘ]JN�[�\��[�ԙXݚ[ۊ
+NB��\ޛ�ș�[�ݚ[ۈؙ�[�Л�[]X܊
+H�Hۛ�݈ݜX�\وH]ؚ]ٝۚY[�
 
-async function finalizeWeeklyInspection() {
-  if (!weeklyInspection) return;
-  const finalizeState = deriveFinalizeConfirmationState(Boolean(weeklyInspection.finalizedAt), weeklyInspection.evidenceCoverage);
-  if (!finalizeState.canFinalize) {
-    setText("weekly-warning", "Finalization requires sufficient evidence coverage.");
-    return;
-  }
-  const confirmed = window.confirm(`${finalizeState.readOnlyMessage}\n\nFinalize this inspection now?`);
-  if (!confirmed) return;
-  const button = document.getElementById("finalize-week");
-  button.disabled = true;
-  try {
-    const finalized = finalizeWeeklyInspectionSnapshot(weeklyInspection);
-    const payload = weeklyPersistencePayload(finalized, finalized.finalizedAt);
-    try {
-      const supabase = await getClient();
-      const { data, error } = await supabase.from("weekly_inspections").upsert(payload, { onConflict: "user_id,week_start_date" }).select("*").single();
-      if (error) throw error;
-      renderWeeklyInspection(aggregateFromStoredInspection(data), "SUPABASE");
-    } catch (_) {
-      saveLocalWeeklyInspection(payload);
-      renderWeeklyInspection(finalized, "LOCAL");
-    }
-    await loadTrendsAnalytics();
-  } catch (error) {
-    setText("weekly-warning", error.message);
-    button.disabled = false;
-  }
-}
-
-function loadLocalAnalyticsHistory() {
-  const user = session?.user?.id || "local";
-  const dailyPrefix = `coach-dominion:daily-compliance:${user}:`;
-  const weeklyPrefix = `coach-dominion:weekly-inspection:${user}:`;
-  const dailyRecords = [];
-  const inspections = [];
-  try {
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
-      if (!key) continue;
-      const parsed = JSON.parse(window.localStorage.getItem(key));
-      if (key.startsWith(dailyPrefix)) dailyRecords.push(parsed);
-      if (key.startsWith(weeklyPrefix)) inspections.push(parsed);
-    }
-  } catch (_) {
-    return { dailyRecords, inspections };
-  }
-  return { dailyRecords, inspections };
-}
-
-function signedDisplay(value, suffix = "%") {
-  if (!Number.isFinite(Number(value))) return "—";
-  const rounded = Math.round(Number(value));
-  return `${rounded > 0 ? "+" : ""}${rounded}${suffix}`;
-}
-
-function renderTrendChart(elementId, series, valueKey, label) {
-  const element = document.getElementById(elementId);
-  const points = series.filter((item) => isFiniteMetric(item[valueKey]));
-  if (!points.length) {
-    element.innerHTML = `<div class="chart-empty">No ${label.toLowerCase()} data available.</div>`;
-    return;
-  }
-  const width = window.innerWidth < 640 ? 320 : 640;
-  const height = window.innerWidth < 640 ? 210 : 230;
-  const left = 42;
-  const right = 18;
-  const top = 18;
-  const bottom = 48;
-  const x = (index) => points.length === 1 ? width / 2 : left + index * ((width - left - right) / (points.length - 1));
-  const y = (value) => top + (100 - Math.max(0, Math.min(100, Number(value)))) / 100 * (height - top - bottom);
-  const finalized = points.filter((item) => item.kind === "FINALIZED");
-  const finalizedCoordinates = finalized.map((item) => `${x(points.indexOf(item))},${y(item[valueKey])}`).join(" ");
-  const provisional = points.find((item) => item.kind === "PROVISIONAL");
-  const prior = provisional ? points.slice(0, points.indexOf(provisional)).at(-1) : null;
-  const provisionalLine = provisional && prior ? `<line class="chart-line chart-provisional-line" x1="${x(points.indexOf(prior))}" y1="${y(prior[valueKey])}" x2="${x(points.indexOf(provisional))}" y2="${y(provisional[valueKey])}"></line>` : "";
-  const grid = [0, 25, 50, 75, 100].map((value) => `<line class="chart-gridline" x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}"></line><text class="chart-label" x="4" y="${y(value) + 4}">${value}</text>`).join("");
-  const marks = points.map((item, index) => {
-    const weakEvidence = valueKey === "score" && Number(item.evidenceCoverage) < TREND_EVIDENCE_THRESHOLD;
-    return `<circle class="chart-point ${item.kind === "PROVISIONAL" ? "provisional" : ""} ${weakEvidence ? "weak-evidence" : ""}" cx="${x(index)}" cy="${y(item[valueKey])}" r="5"><title>${item.weekStartDate}: ${item[valueKey]}% ${item.kind.toLowerCase()}${weakEvidence ? "; limited evidence" : ""}</title></circle><text class="chart-label" text-anchor="middle" x="${x(index)}" y="${height - 25}">${item.weekStartDate.slice(5)}</text><text class="chart-label" text-anchor="middle" x="${x(index)}" y="${y(item[valueKey]) - 9}">${Math.round(item[valueKey])}</text>`;
-  }).join("");
-  const equivalent = points.map((item) => `${item.weekStartDate}: ${item[valueKey]}% (${item.kind.toLowerCase()}${valueKey === "score" && Number(item.evidenceCoverage) < TREND_EVIDENCE_THRESHOLD ? ", limited evidence" : ""})`).join("; ");
-  element.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${label}. Fixed axis from zero to one hundred percent.">${grid}${finalizedCoordinates ? `<polyline class="chart-line" points="${finalizedCoordinates}"></polyline>` : ""}${provisionalLine}${marks}</svg><p class="chart-equivalent">${equivalent}</p>`;
-}
-
-function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
-  const currentRange = getInspectionWeekRange(todayISODate());
-  const currentAggregate = aggregateWeeklyCompliance(dailyRecords, currentRange.weekStartDate);
-  const hasFinalizedCurrentWeek = sortInspectionHistory(inspections).some((item) => item.weekStartDate === currentRange.weekStartDate && item.finalizedAt);
-  const provisional = currentAggregate.counts.assessedObservations > 0 && !hasFinalizedCurrentWeek ? currentAggregate : null;
-  const trajectory = deriveTrajectoryState(inspections);
-  const domainTrends = calculateDomainTrends(inspections);
-  const streaks = calculateComplianceStreaks(dailyRecords, todayISODate());
-  const summary = summarizeInspectionHistory(inspections);
-  const chartSeries = buildChartSeries(inspections, provisional);
-  const report = generateAtlasTrendReport({ trajectory, domainTrends, streaks, summary, chartSeries });
-  setText("trajectory-status", trajectory.state);
-  document.getElementById("trajectory-status").className = `state-pill ${trajectory.state === "IMPROVING" ? "green" : trajectory.state === "DECLINING" ? "red" : trajectory.state === "LIMITED EVIDENCE" ? "yellow" : "neutral"}`;
-  setText("analytics-storage", `${storageMode} ANALYTICS — derived, not stored`);
-  setText("trend-summary-trajectory", trajectory.state || "INSUFFICIENT HISTORY");
-  setText("trend-summary-score-change", signedDisplay(summary.scoreChange));
-  setText("trend-summary-evidence", trajectory.averageEvidence === null ? "—" : `${Math.round(trajectory.averageEvidence)}%`);
-  const domainAtRisk = report.domainAtRisk === "No declining domain established." ? "—" : report.domainAtRisk;
-  setText("trend-summary-domain", domainAtRisk);
-  setText("trend-summary-consistency", report.consistency || "—");
-  const windowDates = trajectory.window.map((item) => item.weekStartDate);
-  setText("trend-window", windowDates.length ? `Finalized trend window: ${windowDates[0]} through ${windowDates.at(-1)} (${windowDates.length} scored weeks).` : "No finalized scored trend window available.");
-  setText("trend-latest-score", summary.mostRecentFinalized ? formatDisciplineScore(summary.mostRecentFinalized.score) : "UNSCORED");
-  setText("trend-average-score", formatDisciplineScore(summary.recentAverageScore));
-  setText("trend-score-change", signedDisplay(summary.scoreChange));
-  setText("trend-evidence-change", signedDisplay(summary.evidenceChange));
-  setText("trend-best-week", summary.bestWeek ? `${summary.bestWeek.weekStartDate} // ${formatDisciplineScore(summary.bestWeek.score)}` : "—");
-  setText("trend-lowest-week", summary.lowestWeek ? `${summary.lowestWeek.weekStartDate} // ${formatDisciplineScore(summary.lowestWeek.score)}` : "—");
-  setText("trend-finalized-count", summary.finalizedCount);
-  setText("trend-completion-rate", Number.isFinite(summary.recentInspectionCompletionRate) ? `${Math.round(summary.recentInspectionCompletionRate)}%` : "—");
-  setText("current-assessed-streak", `${streaks.currentAssessedDayStreak} days`);
-  setText("current-full-streak", `${streaks.currentFullyAssessedDayStreak} days`);
-  setText("longest-assessed-streak", `${streaks.longestAssessedDayStreak} days`);
-  document.getElementById("trend-domain-grid").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div class="trend-domain-card ${domainTrends[key].direction.toLowerCase().replaceAll(" ", "-")}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${domainTrends[key].direction}</strong><small>${domainTrends[key].slope === null ? "No reliable slope" : `${domainTrends[key].slope.toFixed(2)} pts/week`}</small></div>`).join("");
-  renderTrendChart("discipline-trend-chart", chartSeries, "score", "Weekly Discipline Score");
-  renderTrendChart("evidence-trend-chart", chartSeries, "evidenceCoverage", "Weekly Evidence Coverage");
-  setText("atlas-trend-report", report.text);
-  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || {}, trajectory.state);
-  renderRankSection();
-}
-
-async function loadTrendsAnalytics() {
-  try {
-    const supabase = await getClient();
-    const results = await Promise.all([
-      supabase.from("weekly_inspections").select("week_start_date,week_end_date,weekly_discipline_score,evidence_coverage,domain_scores,inspection_status,finalized_at").eq("user_id", session.user.id).order("week_start_date", { ascending: true }),
-      supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).lte("compliance_date", todayISODate()).order("compliance_date", { ascending: true })
-    ]);
-    if (results[0].error) throw results[0].error;
-    if (results[1].error) throw results[1].error;
-    renderTrendsAnalytics(results[0].data || [], results[1].data || [], "SUPABASE");
-  } catch (_) {
-    const local = loadLocalAnalyticsHistory();
-    renderTrendsAnalytics(local.inspections, local.dailyRecords, "LOCAL FALLBACK");
-  }
-}
-
+Nۛ�݈�\ݛȏH]ؚ]�ۚ\ً�[
+ݜX�\ً���ۊ�ٙZ۞Wڛ�ܙXݚ[ۜȊK�ٛX݊�ٙZלݘ\�٘]KٙZי[�٘]KٙZ۞Wٚ\ؚ\[�Wܘۜ�K]�Y[�ٗ؛ݙ\�YًۘZ[�ܘۜ�\˚[�ܙXݚ[ۗܝ]\˙�[�[^�Y؝�K�\J�\ٜ�ڙ�ٜܚ[ۋ�\ٜ��Y
+K�ܙ\��ٙZלݘ\�٘]H�Ș\ؙ[�[�Έ�YHJK�ݜX�\ً���ۊ�Z[W؛ۜX[�و�K�ٛX݊ӓTPS�їГӕSS�ʋ�\J�\ٜ�ڙ�ٜܚ[ۋ�\ٜ��Y
+K�J�ۛ\X[�ٗ٘]H�٘^RTӑ]J
+JK�ܙ\��ۛ\X[�ٗ٘]H�Ș\ؙ[�[�Έ�YHJB�JNY�
+�\ݛ֌K�\��܊H�݈�\ݛ֌K�\��܎Y�
+�\ݛ֌WK�\��܊H�݈�\ݛ֌WK�\��܎�[�\��[�Л�[]X܊�\ݛ֌K�]H׋�\ݛ֌WK�]H׋�ՔP�Tш�NH؝ڈ
+ʈۛ�݈ؘ[Hؙؘ[[�[]Xܒ\ݛܞJ
+N�[�\��[�Л�[]X܊ؘ[�[�ܙXݚ[ۜˈؘ[�Z[T�Xۜ�ˈ�АS�S�P҈�NB�B

@@ -223,7 +223,7 @@ const STANDARDS_CATALOG = [
 ];
 
 const RANK_CATALOG = [
-  { code:…2 tokens truncated…UIT", displayName: "Recruit", sequenceOrder: 1, description: "Starting rank", minimumFinalizedInspections: 0, requiredLookbackWindow: 0, minimumAverageDisciplineScore: 0, minimumAverageEvidenceCoverage: 0, minimumMissionDomainScore: 0, maximumUnresolvedConfirmedViolations: 999, maximumLevelTwoOrLevelThreeViolations: 999, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "No requirements to begin progression.", privilegesPlaceholder: "expanded historical view" },
+  { code: "RECRUIT", displayName: "Recruit", sequenceOrder: 1, description: "Starting rank", minimumFinalizedInspections: 0, requiredLookbackWindow: 0, minimumAverageDisciplineScore: 0, minimumAverageEvidenceCoverage: 0, minimumMissionDomainScore: 0, maximumUnresolvedConfirmedViolations: 999, maximumLevelTwoOrLevelThreeViolations: 999, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "No requirements to begin progression.", privilegesPlaceholder: "expanded historical view" },
   { code: "CADET", displayName: "Cadet", sequenceOrder: 2, description: "Demonstrated baseline execution", minimumFinalizedInspections: 2, requiredLookbackWindow: 4, minimumAverageDisciplineScore: 70, minimumAverageEvidenceCoverage: 60, minimumMissionDomainScore: 70, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "Demonstrate baseline execution and evidence quality.", privilegesPlaceholder: "advanced inspection access" },
   { code: "OPERATOR", displayName: "Operator", sequenceOrder: 3, description: "Consistent execution across a recent window", minimumFinalizedInspections: 4, requiredLookbackWindow: 6, minimumAverageDisciplineScore: 78, minimumAverageEvidenceCoverage: 70, minimumMissionDomainScore: 74, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 1, requiredConsecutiveQualifyingWeeks: 2, correctivePeriodBlocksEligibility: false, promotionCommandNote: "Maintain discipline, evidence quality, and consecutive qualifying weeks.", privilegesPlaceholder: "additional program templates" },
   { code: "VANGUARD", displayName: "Vanguard", sequenceOrder: 4, description: "Sustained quality at the command level", minimumFinalizedInspections: 8, requiredLookbackWindow: 8, minimumAverageDisciplineScore: 84, minimumAverageEvidenceCoverage: 75, minimumMissionDomainScore: 78, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 3, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and a clean standards record.", privilegesPlaceholder: "cosmetic insignia" },
@@ -941,7 +941,7 @@ function evaluateReadiness(state) {
   const rationale = [];
   if (readinessState === "RED") {
     rationale.push("Pain was reported.", "Hard training is not authorized.");
-  }…2 tokens truncated… {
+  } else {
     rationale.push("No pain reported.");
     if (energyGreen) rationale.push("Energy is at or above the GREEN threshold.");
     else rationale.push("Energy is below the GREEN threshold.");
@@ -1715,7 +1715,7 @@ function normalizePerformanceUnits(input = {}) {
   const metrics = input?.metrics && typeof input.metrics === "object" ? { ...input.metrics } : {};
   const normalizedMetrics = { ...metrics };
   if (normalizedMetrics.distanceUnit !== undefined && normalizedMetrics.distance_unit === undefined) normalizedMetrics.distance_unit = normalizedMetrics.distanceUnit;
-  if (normalizedMetrics.weightUnit !== undefined && norm…1 tokens truncated…izedMetrics.weight_unit === undefined) normalizedMetrics.weight_unit = normalizedMetrics.weightUnit;
+  if (normalizedMetrics.weightUnit !== undefined && normalizedMetrics.weight_unit === undefined) normalizedMetrics.weight_unit = normalizedMetrics.weightUnit;
   if (normalizedMetrics.measurementUnit !== undefined && normalizedMetrics.measurement_unit === undefined) normalizedMetrics.measurement_unit = normalizedMetrics.measurementUnit;
   if (normalizedMetrics.measurementValue !== undefined && normalizedMetrics.measurement_value === undefined) normalizedMetrics.measurement_value = normalizedMetrics.measurementValue;
   if (normalizedMetrics.testProtocolName !== undefined && normalizedMetrics.test_protocol_name === undefined) normalizedMetrics.test_protocol_name = normalizedMetrics.testProtocolName;
@@ -2367,7 +2367,7 @@ function buildPersonalRecordSnapshot(entry = {}, recordCategory = "LOAD_PR", pre
 function determineRecordValue(entry = {}, recordCategory = "LOAD_PR") {
   const normalizedEntry = normalizePerformanceEntry(entry);
   const metrics = normalizedEntry?.metrics || {};
-  if (entry?.normalizedValue !== undefined || …2 tokens truncated…ormalized_value !== undefined) return Number(entry?.normalizedValue ?? entry?.normalized_value);
+  if (entry?.normalizedValue !== undefined || entry?.normalized_value !== undefined) return Number(entry?.normalizedValue ?? entry?.normalized_value);
   if (entry?.rawValue !== undefined || entry?.raw_value !== undefined) return Number(entry?.rawValue ?? entry?.raw_value);
   if (entry?.value !== undefined) return Number(entry.value);
   if (recordCategory === "LOAD_PR") return Number(metrics.weight);
@@ -3705,7 +3705,7 @@ function buildPerformanceIntelligenceOverview(entries = [], attempts = [], recor
     remoteLoadFailed: Boolean(options.remoteLoadFailed),
     localFallbackActive: Boolean(options.localFallbackActive),
     calculationUnavailable: Boolean(options.calculationUnavailable),
-    hasHistory: (entries || []).length …1 tokens truncated…
+    hasHistory: (entries || []).length > 0,
     hasComparableHistory: comparable.validPointCount > 0
   });
   return {
@@ -4299,7 +4299,8 @@ function renderCommandFeed(events) {
     const item = document.createElement("li");
     const meta = document.createElement("div");
     const type = document.createElement("strong");
-    const severity = document.cre…15 tokens truncated…nt("p");
+    const severity = document.createElement("span");
+    const message = document.createElement("p");
     const time = document.createElement("time");
 
     item.className = `feed-event ${String(event.severity).toLowerCase()}`;
@@ -4994,7 +4995,7 @@ if (typeof document !== "undefined") {
       if (action === "fitness-test-resume") {
         const attempt = getFitnessTestAttemptById(button.dataset.id);
         if (attempt) {
-         …4 tokens truncated…ssTestAttempt(attempt);
+          setActiveFitnessTestAttempt(attempt);
           renderPerformanceSection();
         }
       }
@@ -5886,7 +5887,8 @@ function compliancePayload(domains) {
   const payload = {
     user_id: session?.user?.id || null,
     compliance_date: todayISODate(),
-    discipline_score: state.scor…9 tokens truncated… state.evidence, explanation: state.explanation, complianceStatus: state.complianceStatus }
+    discipline_score: state.score,
+    score_evidence: { evidence: state.evidence, explanation: state.explanation, complianceStatus: state.complianceStatus }
   };
   COMPLIANCE_DOMAINS.forEach((key) => {
     payload[`${key}_status`] = domains[key].status;

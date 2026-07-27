@@ -4922,7 +4922,7 @@ function connectedStatusPill(value) {
 }
 
 function setConnectedActiveView(view = "overview") {
-  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "privacy"];
+  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "apple_health", "privacy"];
   connectedActiveView = allowed.includes(view) ? view : "overview";
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     const active = button.dataset.connectedView === connectedActiveView;
@@ -4943,7 +4943,7 @@ function renderConnectedDominion() {
   const overview = api.buildConnectedOverviewModel({ accounts: connectedAccounts, jobs: connectedSyncJobs, records: connectedImportedRecords, storageState: connectedStorageMode });
   setText("connected-storage", connectedStorageMode);
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
-  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "ARCHITECTURE PREVIEW only. Real integrations are not available; all connection and sync actions below are simulated.");
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "User-controlled Fitbod, MyFitnessPal, and Apple Health file imports are active. Live OAuth and background sync remain unavailable.");
   const overviewPanel = document.getElementById("connected-view-overview");
   if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
     <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
@@ -4958,11 +4958,12 @@ function renderConnectedDominion() {
     const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
     const fitbodImport = provider.providerCode === "FITBOD" ? `<button type="button" data-connected-action="fitbod-import">Import Fitbod workout CSV</button>` : "";
     const mfpImport = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-import">Import MyFitnessPal nutrition CSV</button>` : "";
+    const appleHealthImport = provider.providerCode === "APPLE_HEALTH" ? `<button type="button" data-connected-action="apple-health-import">Import Apple Health export.xml</button>` : "";
     const previewAction = account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review account</button>` : `<button type="button" class="ghost" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`;
     return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
       <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
       <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
-      <div class="connected-actions">${fitbodImport}${mfpImport}${previewAction}</div>
+      <div class="connected-actions">${fitbodImport}${mfpImport}${appleHealthImport}${previewAction}</div>
     </article>`;
   }).join("")}</div>`;
 
@@ -5015,6 +5016,18 @@ function renderConnectedDominion() {
         <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
       </article>`;
     }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
+  }
+  const appleHealthPanel = document.getElementById("connected-view-apple_health");
+  if (appleHealthPanel) {
+    const days = api.summarizeAppleHealthByDate(connectedImportedRecords);
+    appleHealthPanel.innerHTML = `<article class="connected-detail-card"><header><div><span class="kicker">BUILD 006E // APPLE HEALTH IMPORT</span><h3>Readiness evidence</h3><p>Upload the export.xml produced by Apple Health. Coach Dominion reads supported metrics only and never stores the raw XML file.</p></div>${connectedStatusPill(days.length ? "VALID" : "NOT_IMPORTED")}</header>
+      <div class="connected-actions"><button type="button" data-connected-action="apple-health-import">Choose Apple Health export.xml</button></div>
+      <p class="muted">Supported: daily steps, resting heart rate, body weight, and sleep analysis. Other health categories are ignored.</p>
+    </article>
+    ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODate() ? connectedStatusPill("TODAY") : ""}</header>
+      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
+      ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
+    </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
   }
   renderDailyCoachingLoop();
   setConnectedActiveView(connectedActiveView);
@@ -5237,6 +5250,81 @@ async function importMyFitnessPalNutritionFile(file) {
   setConnectedActiveView("nutrition");
 }
 
+async function importAppleHealthFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  if (file.size > 100 * 1024 * 1024) {
+    setText("connected-feedback", "Apple Health export.xml exceeds the 100 MB browser-import limit.");
+    return;
+  }
+  setText("connected-feedback", "Reading supported Apple Health evidence…");
+  const requestedAt = new Date().toISOString();
+  let account = connectedAccounts.find((item) => item.providerCode === "APPLE_HEALTH" && item.connectionStatus !== "DISCONNECTED" && !item.isSimulated);
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "APPLE_HEALTH", providerDisplayName: "Apple Health",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"],
+      externalAccountLabel: "User-controlled export.xml import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "APPLE_HEALTH",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name, rawFileStored: false }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseAppleHealthExportXml(await file.text(), {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id
+  });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "APPLE_HEALTH_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, supportedSourceRows: parsed.supportedCount, ignoredSourceRows: parsed.ignoredCount, rawFileStored: false }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Apple Health import ${status}: ${counts.imported} supported record(s), ${counts.duplicate} duplicate, ${parsed.ignoredCount} unsupported source row(s) ignored.`);
+  setConnectedActiveView("apple_health");
+}
+
+async function applyAppleHealthReadiness() {
+  const api = connectedApi();
+  if (!api || !dailyState) return;
+  const day = api.summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === todayISODate());
+  if (!day) return;
+  const weight = day.weight === null ? dailyState.weight : /kg/i.test(day.weightUnit || "") ? Math.round(day.weight * 2.2046226218 * 10) / 10 : day.weight;
+  const payload = {
+    ...dailyState,
+    user_id: session.user.id,
+    date: todayISODate(),
+    sleep: day.sleep || dailyState.sleep,
+    weight,
+    steps: day.steps ?? dailyState.steps,
+    resting_heart_rate: day.restingHeartRate ?? dailyState.resting_heart_rate
+  };
+  payload.confidence = evaluateReadiness(payload).confidence;
+  const supabase = await getClient();
+  const { data, error } = await supabase.from("daily_state").upsert(payload, { onConflict: "user_id,date" }).select(DAILY_STATE_COLUMNS).single();
+  if (error) {
+    setText("connected-feedback", error.message);
+    return;
+  }
+  dailyState = data;
+  renderWarRoom(dailyState);
+  renderConnectedDominion();
+  setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
+}
+
 async function init() {
   try {
     setLoading(true);
@@ -5448,7 +5536,7 @@ if (typeof document !== "undefined") {
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (["reconciliation", "nutrition"].includes(button.dataset.connectedView)) renderConnectedDominion();
+      if (["reconciliation", "nutrition", "apple_health"].includes(button.dataset.connectedView)) renderConnectedDominion();
       setConnectedActiveView(button.dataset.connectedView || "overview");
     });
     button.addEventListener("keydown", (event) => {
@@ -5466,6 +5554,8 @@ if (typeof document !== "undefined") {
     const action = button.dataset.connectedAction;
     if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
     if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
+    if (action === "apple-health-import") document.getElementById("apple-health-import-file")?.click();
+    if (action === "apply-apple-readiness") await applyAppleHealthReadiness();
     if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);
     if (action === "apply-nutrition") applyNutritionReconciliation(button.dataset.nutritionDate);
     if (action === "review-strength-target") {
@@ -5505,6 +5595,12 @@ if (typeof document !== "undefined") {
     const file = mfpImportFile.files?.[0];
     mfpImportFile.value = "";
     if (file) await importMyFitnessPalNutritionFile(file);
+  });
+  const appleHealthImportFile = document.getElementById("apple-health-import-file");
+  if (appleHealthImportFile) appleHealthImportFile.addEventListener("change", async () => {
+    const file = appleHealthImportFile.files?.[0];
+    appleHealthImportFile.value = "";
+    if (file) await importAppleHealthFile(file);
   });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

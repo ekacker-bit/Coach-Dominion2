@@ -4154,6 +4154,91 @@ function readRecoveryPlan() {
   catch (_) { return null; }
 }
 
+function dailyOrdersStorageKey() {
+  return `coach-dominion:daily-orders:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readApprovedDailyOrders() {
+  try { return JSON.parse(window.localStorage.getItem(dailyOrdersStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function buildCurrentDailyCoachingLoop() {
+  if (typeof DominionDailyCoaching === "undefined") return null;
+  const readinessResult = dailyState ? evaluateReadiness(dailyState) : evaluateReadiness(null);
+  const programming = buildCurrentProgrammingRecommendation() || {};
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const api = connectedApi();
+  const strengthSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const approvedOrders = readApprovedDailyOrders();
+  return DominionDailyCoaching.buildDailyCoachingLoop({
+    readiness: {
+      state: readinessResult.state,
+      energy: dailyState?.energy,
+      soreness: dailyState?.soreness,
+      pain: Boolean(dailyState?.pain),
+      instruction: readinessResult.instruction
+    },
+    mission: readinessResult.state ? generateMission(readinessResult) : {},
+    programming,
+    recovery,
+    programmingApproved: Boolean(readProgrammingDraft()),
+    recoveryApproved: Boolean(readRecoveryPlan()),
+    ordersApproved: Boolean(approvedOrders),
+    evidence: {
+      trainingRecords: connectedImportedRecords.filter((record) => record.providerCode === "FITBOD" && record.importStatus !== "DUPLICATE").length,
+      nutritionRecords: connectedImportedRecords.filter((record) => record.providerCode === "MYFITNESSPAL" && record.importStatus !== "DUPLICATE").length,
+      trainingVolume: strengthSessions[0]?.volume || 0,
+      nutritionDays: nutritionDays.length
+    },
+    compliance: {
+      saved: Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate())
+    }
+  });
+}
+
+function dailyActionLabel(action) {
+  return {
+    roll_call: "Complete Morning Roll Call",
+    review_recovery: "Review Recovery & Fueling",
+    review_programming: "Review Programming",
+    approve_orders: "Approve Today’s Orders",
+    review_record: "Open Dominion Record",
+    refresh: "Refresh Today’s Evidence"
+  }[action] || "Refresh Today’s Evidence";
+}
+
+function renderDailyCoachingLoop() {
+  const panel = document.getElementById("daily-orders-panel");
+  const phases = document.getElementById("daily-loop-phases");
+  if (!panel || !phases) return;
+  const loop = buildCurrentDailyCoachingLoop();
+  if (!loop) {
+    panel.innerHTML = `<div class="performance-empty">Daily coaching engine unavailable.</div>`;
+    return;
+  }
+  setText("daily-orders-state", loop.posture);
+  const state = document.getElementById("daily-orders-state");
+  state.className = `state-pill ${loop.priority === "CRITICAL" ? "red" : loop.priority === "HIGH" || loop.priority === "MODERATE" ? "yellow" : loop.posture === "ROLL CALL REQUIRED" ? "neutral" : "green"}`;
+  phases.innerHTML = loop.phases.map((item) => `<div class="daily-loop-phase ${escapeHtml(item.state.toLowerCase())}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.state)}</strong><small>${escapeHtml(item.detail)}</small></div>`).join("");
+  const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
+  panel.innerHTML = `<div class="kicker">ATLAS // NEXT ACTION</div>
+    <h3>${escapeHtml(loop.headline)}</h3>
+    <p>${escapeHtml(loop.directive)}</p>
+    <div class="daily-evidence-grid">
+      <div><span>Readiness</span><strong>${escapeHtml(dailyState ? evaluateReadiness(dailyState).state : "PENDING")}</strong></div>
+      <div><span>Training evidence</span><strong>${loop.evidence.trainingRecords} records</strong></div>
+      <div><span>Calorie coverage</span><strong>${coverage(loop.evidence.calorieCoverage)}</strong></div>
+      <div><span>Protein coverage</span><strong>${coverage(loop.evidence.proteinCoverage)}</strong></div>
+    </div>
+    <div class="daily-orders-actions">
+      <button type="button" data-daily-action="${escapeHtml(loop.nextAction)}">${escapeHtml(dailyActionLabel(loop.nextAction))}</button>
+      <button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button>
+    </div>
+    <p class="daily-orders-safeguard">Safety lock: pain overrides progression. Programming, recovery, and daily-order adjustments require deliberate approval. Today’s mission is never silently mutated.</p>`;
+}
+
 function renderRecoveryReview() {
   const panel = document.getElementById("recovery-review-panel");
   if (!panel) return;
@@ -4199,6 +4284,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderPerformanceIntelligenceSection(entries);
   renderProgrammingReview();
   renderRecoveryReview();
+  renderDailyCoachingLoop();
   renderPerformanceViewPanels();
   const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
   const entryList = document.getElementById("performance-entry-list");
@@ -4486,6 +4572,7 @@ function renderWarRoom(state) {
     setText("daily-primary", intel[1]);
     setText("daily-instruction", intel[2]);
     setText("daily-risk", intel[3]);
+    renderDailyCoachingLoop();
     return;
   }
 
@@ -4535,6 +4622,7 @@ function renderWarRoom(state) {
   setText("summary-soreness", `${state.soreness}/10`);
   setText("summary-pain", state.pain ? "Yes" : "No");
   setText("summary-confidence", confidencePercent(readinessResult.confidence));
+  renderDailyCoachingLoop();
   setText("summary-comments", state.comments || "—");
 }
 
@@ -4928,6 +5016,7 @@ function renderConnectedDominion() {
       </article>`;
     }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
   }
+  renderDailyCoachingLoop();
   setConnectedActiveView(connectedActiveView);
 }
 
@@ -5317,6 +5406,44 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(recoveryStorageKey(), JSON.stringify(plan));
       renderRecoveryReview();
       setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
+    }
+  });
+  document.getElementById("daily-orders-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-daily-action]");
+    if (!button) return;
+    const action = button.dataset.dailyAction;
+    if (action === "refresh") {
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Today’s readiness, connected evidence, and approved plans were refreshed.");
+    }
+    if (action === "approve_orders") {
+      const loop = buildCurrentDailyCoachingLoop();
+      if (!loop || !dailyState || loop.safeguards.painOverride || loop.safeguards.progressionHeld) return;
+      const approval = {
+        approvedAt: new Date().toISOString(),
+        posture: loop.posture,
+        headline: loop.headline,
+        orders: DominionDailyCoaching.formatApprovedOrders(loop),
+        safeguards: loop.safeguards
+      };
+      window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify(approval));
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
+    }
+    if (action === "review_recovery") {
+      window.location.hash = "performance";
+      setPerformanceActiveView("recovery");
+      renderRecoveryReview();
+    }
+    if (action === "review_programming") {
+      window.location.hash = "performance";
+      setPerformanceActiveView("programming");
+      renderProgrammingReview();
+    }
+    if (action === "review_record") window.location.hash = "record";
+    if (action === "roll_call") {
+      window.location.hash = "today";
+      document.getElementById("energy")?.focus();
     }
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {

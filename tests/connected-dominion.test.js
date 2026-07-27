@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const connected = require("../assets/js/connected.js");
@@ -6,8 +5,8 @@ const performance = require("../assets/js/app.js");
 
 let passed = 0;
 function test(name, fn) {
-  try { fn(); passed += 1; console.log(`âœ“ ${name}`); }
-  catch (error) { console.error(`âœ— ${name}`); throw error; }
+  try { fn(); passed += 1; console.log(`✓ ${name}`); }
+  catch (error) { console.error(`✗ ${name}`); throw error; }
 }
 const account = connected.normalizeConnectedAccount({
   id: "acct-1", userId: "user-1", providerCode: "STRAVA", connectionStatus: "CONNECTED",
@@ -135,6 +134,27 @@ test("52 Fitbod import records are real user-controlled provenance", () => {
   assert.equal(parsed.records[0].isDemo, false);
   assert.equal(parsed.records[0].sourceSyncJobId, "job-fitbod");
 });
+test("53 Fitbod rows group into a workout session", () => {
+  const parsed = connected.parseFitbodWorkoutCsv("Date,Exercise,Reps,Weight,Set,Workout\n2026-07-25 07:00,Bench Press,5,185,1,Upper\n2026-07-25 07:01,Bench Press,5,185,2,Upper\n2026-07-25 07:05,Row,8,70,1,Upper");
+  const sessions = connected.groupFitbodWorkoutSessions(parsed.records);
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].setCount, 3);
+  assert.equal(sessions[0].exercises.length, 2);
+});
+test("54 prescribed strength targets parse sets and reps", () => {
+  const target = connected.parsePrescribedStrengthTarget("Bench Press 2x5; Row 1x8");
+  assert.deepEqual(target.map((item) => [item.name, item.sets, item.reps]), [["Bench Press", 2, 5], ["Row", 1, 8]]);
+});
+test("55 exact Fitbod completion recommends complete", () => {
+  const parsed = connected.parseFitbodWorkoutCsv("Date,Exercise,Reps,Weight,Set,Workout\n2026-07-25 07:00,Bench Press,5,185,1,Upper\n2026-07-25 07:01,Bench Press,5,185,2,Upper\n2026-07-25 07:05,Row,8,70,1,Upper");
+  const review = connected.reconcileFitbodWorkoutSession(connected.groupFitbodWorkoutSessions(parsed.records)[0], "Bench Press 2x5; Row 1x8");
+  assert.equal(review.recommendation, "COMPLETE");
+  assert.equal(review.setCompletionPercent, 100);
+});
+test("56 missing prescription remains review required", () => {
+  const parsed = connected.parseFitbodWorkoutCsv("Date,Exercise,Reps,Weight\n2026-07-25,Squat,5,225");
+  const review = connected.reconcileFitbodWorkoutSession(connected.groupFitbodWorkoutSessions(parsed.records)[0], "");
+  assert.equal(review.recommendation, "REVIEW_REQUIRED");
+});
 
 console.log(`Connected Dominion: ${passed} assertions passed.`);
-

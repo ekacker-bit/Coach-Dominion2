@@ -6653,13 +6653,6 @@ async function loadWeeklyInspection() {
   }
 
   const recordsResult = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
-  let draftWriteError = null;
-  if (!recordsResult.error) {
-    const remoteAggregate = aggregateWeeklyCompliance(recordsResult.data || [], range.weekStartDate);
-    remoteAggregate.atlasReport = generateWeeklyAfterActionReport(remoteAggregate);
-    const draftResult = await supabase.from("weekly_inspections").upsert(weeklyPersistencePayload(remoteAggregate), { onConflict: "user_id,week_start_date" });
-    draftWriteError = draftResult.error;
-  }
 
   const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
   const outcome = resolveWeeklyInspectionLoadOutcome({
@@ -6667,7 +6660,7 @@ async function loadWeeklyInspection() {
     inspectionReadError: inspectionResult.error,
     remoteRecords: recordsResult.data,
     recordsReadError: recordsResult.error,
-    draftWriteError,
+    draftWriteError: null,
     localRecords: loadLocalWeekRecords(range)
   });
   if (outcome.mode === "FINALIZED_LOCAL") {

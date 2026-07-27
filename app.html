@@ -24,6 +24,7 @@
           <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
           <a class="nav-link" href="#rank" data-section="rank">RANK</a>
           <a class="nav-link" href="#performance" data-section="performance">PERFORMANCE</a>
+          <a class="nav-link" href="#connected" data-section="connected">CONNECTED</a>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
@@ -47,6 +48,42 @@
         <div class="kicker">DAILY STATE</div>
         <h2>Morning Roll Call Required.</h2>
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
+      </section>
+
+      <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 006A · ARCHITECTURE PREVIEW</div>
+            <h2 id="connected-heading">Connected Dominion</h2>
+            <p class="muted">Provider-neutral import architecture. No live provider connections, OAuth, credentials, or external sync requests are active.</p>
+          </div>
+          <span id="connected-storage" class="state-pill neutral">LOADING</span>
+        </div>
+        <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
+        <div class="connected-view-nav" role="tablist" aria-label="Connected Dominion views">
+          <button type="button" class="connected-view-tab active" role="tab" aria-selected="true" data-connected-view="overview">OVERVIEW</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="providers">PROVIDERS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="accounts">ACCOUNTS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="sync_history">SYNC HISTORY</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="imported_records">IMPORTED RECORDS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="privacy">PRIVACY</button>
+        </div>
+        <div id="connected-view-overview" class="connected-view-panel"></div>
+        <div id="connected-view-providers" class="connected-view-panel" hidden></div>
+        <div id="connected-view-accounts" class="connected-view-panel" hidden></div>
+        <div id="connected-view-sync_history" class="connected-view-panel" hidden></div>
+        <div id="connected-view-imported_records" class="connected-view-panel" hidden></div>
+        <div id="connected-view-privacy" class="connected-view-panel" hidden>
+          <h3>Privacy and data control</h3>
+          <ul class="connected-privacy-list">
+            <li>No real credentials, OAuth secrets, or provider tokens are stored.</li>
+            <li>Permission selections are stored per simulated account and grant no live provider access.</li>
+            <li>Remote storage is user-scoped when migration 009 is applied; otherwise state uses a clearly labeled user-scoped local fallback.</li>
+            <li>Disconnecting preserves account, sync, imported-record, and provenance history for auditability.</li>
+            <li>This architecture-only build does not provide provider-side deletion or revoke data already copied into local history.</li>
+            <li>Live integrations are not active. Demo sync uses built-in fixtures only and remains visibly marked DEMO.</li>
+          </ul>
+        </div>
       </section>
 
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
@@ -525,6 +562,8 @@
     </div>
   </main>
 
+<script src="/assets/js/connected.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>
+

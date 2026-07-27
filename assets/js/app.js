@@ -5464,6 +5464,10 @@ if (typeof document !== "undefined") {
   document.getElementById("inspect-week").addEventListener("click", loadWeeklyInspection);
   document.getElementById("weekly-date").addEventListener("change", loadWeeklyInspection);
   document.getElementById("finalize-week").addEventListener("click", finalizeWeeklyInspection);
+  document.getElementById("weekly-plan-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-weekly-plan-action]");
+    if (button?.dataset.weeklyPlanAction === "approve") approveCurrentWeeklyPlan();
+  });
   document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);
   document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);
   document.getElementById("performance-domain").addEventListener("change", () => { populatePerformanceActivityOptions(document.getElementById("performance-domain").value); refreshPerformanceFieldVisibility(); });
@@ -6579,6 +6583,56 @@ function saveLocalWeeklyInspection(record) {
   }
 }
 
+function weeklyPlanStorageKey(nextWeekStart) {
+  return `coach-dominion:weekly-plan:${session?.user?.id || "local"}:${nextWeekStart || "pending"}`;
+}
+
+function loadApprovedWeeklyPlan(nextWeekStart) {
+  try { return JSON.parse(window.localStorage.getItem(weeklyPlanStorageKey(nextWeekStart)) || "null"); }
+  catch (_) { return null; }
+}
+
+function renderWeeklyPlan(inspection = weeklyInspection) {
+  const output = document.getElementById("weekly-plan-output");
+  const status = document.getElementById("weekly-plan-status");
+  if (!output || !status || typeof DominionWeeklyPlan === "undefined") return;
+  const plan = DominionWeeklyPlan.buildWeeklyPlan(inspection);
+  const approved = plan.nextWeekStart ? loadApprovedWeeklyPlan(plan.nextWeekStart) : null;
+  const current = approved || plan;
+  status.textContent = current.status;
+  status.className = `state-pill ${current.status === "APPROVED" ? "green" : current.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current.days?.length) {
+    output.className = "performance-empty";
+    output.textContent = current.reason;
+    return;
+  }
+  output.className = "";
+  const days = current.days.map((day) => `<article class="weekly-plan-day"><span>${escapeHtml(day.day)} · ${escapeHtml(day.date)}</span><strong>${escapeHtml(day.focus)}</strong><p>${escapeHtml(day.instruction)}</p></article>`).join("");
+  output.innerHTML = `<div class="weekly-plan-header">
+      <div><span>Next week</span><strong>${escapeHtml(current.nextWeekStart)} — ${escapeHtml(current.nextWeekEnd)}</strong></div>
+      <div><span>Priority</span><strong>${escapeHtml(current.focus)}</strong></div>
+      <div><span>Source discipline</span><strong>${formatDisciplineScore(current.disciplineScore)}</strong></div>
+      <div><span>Source evidence</span><strong>${Math.round(current.evidenceCoverage)}%</strong></div>
+    </div>
+    <p><strong>Atlas priority:</strong> ${escapeHtml(current.priority.text)}</p>
+    <div class="weekly-plan-days">${days}</div>
+    <ul class="baseline-safeguards">${current.guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions"><button type="button" data-weekly-plan-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Plan Approved" : "Approve Next Week’s Plan"}</button></div>`;
+}
+
+function approveCurrentWeeklyPlan() {
+  if (!weeklyInspection || typeof DominionWeeklyPlan === "undefined") return;
+  try {
+    const plan = DominionWeeklyPlan.buildWeeklyPlan(weeklyInspection);
+    const approved = DominionWeeklyPlan.approveWeeklyPlan(plan);
+    window.localStorage.setItem(weeklyPlanStorageKey(approved.nextWeekStart), JSON.stringify(approved));
+    renderWeeklyPlan(weeklyInspection);
+    setText("weekly-plan-feedback", "Plan approved. Daily readiness and pain rules still govern each day.");
+  } catch (error) {
+    setText("weekly-plan-feedback", error.message);
+  }
+}
+
 function loadLocalWeekRecords(range) {
   const records = [];
   try {
@@ -6689,6 +6743,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   const inspectionSection = document.getElementById("inspection");
   if (inspectionSection) inspectionSection.dataset.finalized = finalized ? "true" : "false";
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
+  renderWeeklyPlan(aggregate);
   renderStandardsSection();
 }
 

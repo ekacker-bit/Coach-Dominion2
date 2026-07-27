@@ -4776,7 +4776,7 @@ function connectedStatusPill(value) {
 }
 
 function setConnectedActiveView(view = "overview") {
-  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "privacy"];
+  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "privacy"];
   connectedActiveView = allowed.includes(view) ? view : "overview";
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     const active = button.dataset.connectedView === connectedActiveView;
@@ -4811,11 +4811,12 @@ function renderConnectedDominion() {
     const account = connectedAccounts.find((item) => item.providerCode === provider.providerCode && item.connectionStatus !== "DISCONNECTED");
     const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
     const fitbodImport = provider.providerCode === "FITBOD" ? `<button type="button" data-connected-action="fitbod-import">Import Fitbod workout CSV</button>` : "";
+    const mfpImport = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-import">Import MyFitnessPal nutrition CSV</button>` : "";
     const previewAction = account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review account</button>` : `<button type="button" class="ghost" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`;
     return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
       <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
       <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
-      <div class="connected-actions">${fitbodImport}${previewAction}</div>
+      <div class="connected-actions">${fitbodImport}${mfpImport}${previewAction}</div>
     </article>`;
   }).join("")}</div>`;
 
@@ -4824,14 +4825,14 @@ function renderConnectedDominion() {
     const jobs = connectedSyncJobs.filter((job) => job.connectedAccountId === account.id);
     const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
     const counts = api.summarizeSyncJob(records);
-    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">SIMULATED · ARCHITECTURE PREVIEW</span></div>${connectedStatusPill(account.connectionStatus)}</header>
+    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : "USER FILE IMPORT"}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
       <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
       <div class="connected-actions">${account.connectionStatus === "CONNECTED" ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>` : ""}</div>
     </article>`;
   }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
 
   const historyPanel = document.getElementById("connected-view-sync_history");
-  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Counts</th><th>Error / summary</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">DEMO</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${job.importedCount} imported · ${job.duplicateCount} duplicate · ${job.rejectedCount} rejected · ${job.unmappedCount} unmapped</td><td>${escapeHtml(job.errorMessage || JSON.stringify(job.summary || {}))}${job.status === "FAILED" ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Demo sync jobs remain auditable after completion or failure.</div>`;
+  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Counts</th><th>Error / summary</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${job.importedCount} imported · ${job.duplicateCount} duplicate · ${job.rejectedCount} rejected · ${job.unmappedCount} unmapped</td><td>${escapeHtml(job.errorMessage || JSON.stringify(job.summary || {}))}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
 
   const recordsPanel = document.getElementById("connected-view-imported_records");
   if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${record.mappedPerformanceEntryId ? `Mapped to Performance entry ${escapeHtml(record.mappedPerformanceEntryId)}` : escapeHtml(record.rejectionReason || "Retained for audit; no mapped destination.")}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
@@ -4854,6 +4855,21 @@ function renderConnectedDominion() {
       </article>`;
     }).join("")}</div>` : `<div class="connected-empty">No Fitbod workout is ready for reconciliation. Import a Fitbod workout CSV first.</div>`;
   }
+  const nutritionPanel = document.getElementById("connected-view-nutrition");
+  if (nutritionPanel) {
+    const days = api.aggregateNutritionByDate(connectedImportedRecords);
+    const nutritionTarget = document.getElementById("nutrition_target")?.value || "";
+    nutritionPanel.innerHTML = days.length ? `<div class="connected-card-list">${days.map((day) => {
+      const review = api.reconcileNutritionDay(day, nutritionTarget);
+      const metricRows = [["Calories", day.calories, review.target.calories], ["Protein", day.protein, review.target.protein], ["Carbs", day.carbs, review.target.carbs], ["Fat", day.fat, review.target.fat]]
+        .map(([label, actual, goal]) => `<div><span>${label}</span><strong>${Math.round(actual)}${label === "Calories" ? "" : "g"}${goal ? ` / ${goal}${label === "Calories" ? "" : "g"}` : ""}</strong></div>`).join("");
+      return `<article class="connected-detail-card"><header><div><span class="kicker">MYFITNESSPAL DAILY REVIEW</span><h3>${escapeHtml(day.date)}</h3><p>${day.meals} meal-level row(s)</p></div>${connectedStatusPill(review.recommendation)}</header>
+        <div class="connected-summary-grid">${metricRows}</div>
+        <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}. ${review.targetCount ? `${review.withinCount} of ${review.targetCount} nutrition targets were within tolerance.` : "Add a Nutrition assigned target to enable reconciliation."}</p>
+        <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
+      </article>`;
+    }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
+  }
   setConnectedActiveView(connectedActiveView);
 }
 
@@ -4872,6 +4888,22 @@ function applyFitbodReconciliation(sessionId) {
   setComplianceDirtyState();
   renderComplianceScore(readComplianceForm());
   setText("connected-feedback", "Fitbod recommendation applied to Strength Compliance. Review it, then save the Dominion Record.");
+  setActiveSection("record");
+  window.history.replaceState(null, "", "#record");
+}
+
+function applyNutritionReconciliation(date) {
+  const api = connectedApi(), form = document.getElementById("compliance-form");
+  const day = api?.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date);
+  if (!api || !form || !day) return;
+  const review = api.reconcileNutritionDay(day, form.elements.nutrition_target.value);
+  if (review.recommendation === "REVIEW_REQUIRED") return;
+  form.elements.nutrition_status.value = review.recommendation === "COMPLETE" ? "completed" : review.recommendation === "PARTIAL" ? "partial" : "missed";
+  form.elements.nutrition_actual.value = `${Math.round(day.calories)} calories; ${Math.round(day.protein)}g protein; ${Math.round(day.carbs)}g carbs; ${Math.round(day.fat)}g fat.`;
+  form.elements.nutrition_note.value = `MyFitnessPal reconciliation: ${review.withinCount}/${review.targetCount} targets within tolerance.`;
+  setComplianceDirtyState();
+  renderComplianceScore(readComplianceForm());
+  setText("connected-feedback", "MyFitnessPal recommendation applied to Nutrition Compliance. Review it, then save the Dominion Record.");
   setActiveSection("record");
   window.history.replaceState(null, "", "#record");
 }
@@ -5012,6 +5044,50 @@ async function importFitbodWorkoutFile(file) {
   connectedSyncJobs = [job, ...connectedSyncJobs];
   await saveConnectedState(`Fitbod file import ${status}: ${counts.imported} mapped, ${counts.duplicate} duplicate, ${counts.unmapped} unmapped, ${parsed.errors.length} invalid row(s).`, performancePersistFailed);
   renderPerformanceSection();
+}
+
+async function importMyFitnessPalNutritionFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  setText("connected-feedback", "Reading MyFitnessPal nutrition file…");
+  const requestedAt = new Date().toISOString();
+  let account = connectedAccounts.find((item) => item.providerCode === "MYFITNESSPAL" && item.connectionStatus !== "DISCONNECTED");
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "MYFITNESSPAL", providerDisplayName: "MyFitnessPal",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_NUTRITION"],
+      externalAccountLabel: "User-controlled nutrition-file import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "MYFITNESSPAL",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseMyFitnessPalNutritionCsv(await file.text(), {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "MFP_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`MyFitnessPal nutrition import ${status}: ${counts.imported} meal row(s), ${counts.duplicate} duplicate, ${parsed.errors.length} invalid row(s).`);
+  setConnectedActiveView("nutrition");
 }
 
 async function init() {
@@ -5166,7 +5242,7 @@ if (typeof document !== "undefined") {
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.dataset.connectedView === "reconciliation") renderConnectedDominion();
+      if (["reconciliation", "nutrition"].includes(button.dataset.connectedView)) renderConnectedDominion();
       setConnectedActiveView(button.dataset.connectedView || "overview");
     });
     button.addEventListener("keydown", (event) => {
@@ -5183,11 +5259,18 @@ if (typeof document !== "undefined") {
     if (!button) return;
     const action = button.dataset.connectedAction;
     if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
+    if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
     if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);
+    if (action === "apply-nutrition") applyNutritionReconciliation(button.dataset.nutritionDate);
     if (action === "review-strength-target") {
       setActiveSection("record");
       window.history.replaceState(null, "", "#record");
       document.getElementById("strength_target")?.focus();
+    }
+    if (action === "review-nutrition-target") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("nutrition_target")?.focus();
     }
     if (action === "simulate") await simulateConnectedAccount(button.dataset.provider);
     if (action === "review-account") setConnectedActiveView("accounts");
@@ -5210,6 +5293,12 @@ if (typeof document !== "undefined") {
     const file = fitbodImportFile.files?.[0];
     fitbodImportFile.value = "";
     if (file) await importFitbodWorkoutFile(file);
+  });
+  const mfpImportFile = document.getElementById("mfp-import-file");
+  if (mfpImportFile) mfpImportFile.addEventListener("change", async () => {
+    const file = mfpImportFile.files?.[0];
+    mfpImportFile.value = "";
+    if (file) await importMyFitnessPalNutritionFile(file);
   });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

@@ -24,6 +24,7 @@
           <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
           <a class="nav-link" href="#rank" data-section="rank">RANK</a>
           <a class="nav-link" href="#performance" data-section="performance">PERFORMANCE</a>
+          <a class="nav-link" href="#nutrition" data-section="nutrition">NUTRITION</a>
           <a class="nav-link" href="#connected" data-section="connected">CONNECTED</a>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
@@ -94,6 +95,31 @@
             <li>Live integrations are not active. Demo sync uses built-in fixtures only and remains visibly marked DEMO.</li>
           </ul>
         </div>
+      </section>
+
+      <section id="nutrition" class="card nutrition-command scroll-anchor" aria-labelledby="nutrition-command-heading" data-section="nutrition">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 008A // NUTRITION COMMAND</div>
+            <h2 id="nutrition-command-heading">Nutrition Command Center</h2>
+            <p class="muted">Daily targets, MyFitnessPal or manual intake, training context, and readiness in one conservative coaching decision.</p>
+          </div>
+          <span id="nutrition-command-status" class="state-pill neutral">LOADING</span>
+        </div>
+        <div id="nutrition-command-output"><div class="performance-empty">Atlas is assembling today’s nutrition picture.</div></div>
+        <details class="nutrition-manual-entry">
+          <summary>Manual daily totals fallback</summary>
+          <form id="nutrition-manual-form" class="nutrition-manual-form">
+            <label>Date<input name="date" type="date" required></label>
+            <label>Calories<input name="calories" type="number" min="0" step="1"></label>
+            <label>Protein (g)<input name="protein" type="number" min="0" step="1"></label>
+            <label>Carbohydrates (g)<input name="carbs" type="number" min="0" step="1"></label>
+            <label>Fat (g)<input name="fat" type="number" min="0" step="1"></label>
+            <button type="submit">Save Manual Totals</button>
+          </form>
+          <p class="muted">Manual totals stay in this browser and are used only when no MyFitnessPal day exists for the selected date.</p>
+        </details>
+        <p id="nutrition-command-feedback" class="muted"></p>
       </section>
 
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
@@ -642,6 +668,7 @@
 <script src="/assets/js/daily-coaching.js"></script>
 <script src="/assets/js/readiness-baselines.js"></script>
 <script src="/assets/js/weekly-plan.js"></script>
+<script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

@@ -5741,6 +5741,7 @@ if (typeof module !== "undefined") {
     identifyStrongestAndWeakestDomains,
     selectNextWeekPriority,
     aggregateWeeklyCompliance,
+    resolveWeeklyInspectionLoadOutcome,
     generateWeeklyAfterActionReport,
     finalizeWeeklyInspectionSnapshot,
     sortInspectionHistory,
@@ -6459,6 +6460,10 @@ async function saveDailyCompliance(event) {
     updateComplianceStatusMessage();
   }
   await loadTrendsAnalytics();
+  const selectedWeek = getInspectionWeekRange(document.getElementById("weekly-date")?.value || todayISODate());
+  if (todayISODate() >= selectedWeek.weekStartDate && todayISODate() <= selectedWeek.weekEndDate) {
+    await loadWeeklyInspection();
+  }
 }
 
 function weeklyInspectionStorageKey(weekStartDate) {
@@ -6496,6 +6501,31 @@ function loadLocalWeekRecords(range) {
     return records;
   }
   return records;
+}
+
+function resolveWeeklyInspectionLoadOutcome(input = {}) {
+  if (input.savedInspection?.finalized_at && !input.inspectionReadError) {
+    return { mode: "FINALIZED_REMOTE", storageMode: "SUPABASE", inspection: input.savedInspection, records: [], warning: "" };
+  }
+  if (!input.recordsReadError && Array.isArray(input.remoteRecords)) {
+    const warnings = [];
+    if (input.inspectionReadError) warnings.push(`Weekly snapshot storage is unavailable (${input.inspectionReadError.message || "unknown error"}).`);
+    if (input.draftWriteError) warnings.push(`The live inspection was calculated, but its draft snapshot was not saved (${input.draftWriteError.message || "unknown error"}).`);
+    return { mode: "REMOTE_RECORDS", storageMode: "SUPABASE", inspection: null, records: input.remoteRecords, warning: warnings.join(" ") };
+  }
+  if (input.savedInspection?.finalized_at) {
+    return { mode: "FINALIZED_LOCAL", storageMode: "LOCAL", inspection: input.savedInspection, records: [], warning: "Remote weekly data is unavailable. Showing the finalized local snapshot." };
+  }
+  const localRecords = Array.isArray(input.localRecords) ? input.localRecords : [];
+  return {
+    mode: "LOCAL_RECORDS",
+    storageMode: "LOCAL",
+    inspection: null,
+    records: localRecords,
+    warning: localRecords.length
+      ? `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). Showing local fallback.`
+      : `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). No local fallback rows were found.`
+  };
 }
 
 function weeklyPersistencePayload(aggregate, finalizedAt = null) {
@@ -6571,7 +6601,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   renderStandardsSection();
 }
 
-async function loadWeeklyInspection() {
+async function loadWeeklyInspectionLegacy() {
   const selectedDate = document.getElementById("weekly-date").value || todayISODate();
   const range = getInspectionWeekRange(selectedDate);
   setText("weekly-warning", "Calculating weekly evidence…");
@@ -6609,6 +6639,48 @@ async function loadWeeklyInspection() {
     setText("weekly-warning", message);
     renderWeeklyInspection(aggregate, "LOCAL");
   }
+}
+
+async function loadWeeklyInspection() {
+  const selectedDate = document.getElementById("weekly-date").value || todayISODate();
+  const range = getInspectionWeekRange(selectedDate);
+  setText("weekly-warning", "Calculating weekly evidence…");
+  const supabase = await getClient();
+  const inspectionResult = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+  if (inspectionResult.data?.finalized_at && !inspectionResult.error) {
+    renderWeeklyInspection(aggregateFromStoredInspection(inspectionResult.data), "SUPABASE");
+    return;
+  }
+
+  const recordsResult = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
+  let draftWriteError = null;
+  if (!recordsResult.error) {
+    const remoteAggregate = aggregateWeeklyCompliance(recordsResult.data || [], range.weekStartDate);
+    remoteAggregate.atlasReport = generateWeeklyAfterActionReport(remoteAggregate);
+    const draftResult = await supabase.from("weekly_inspections").upsert(weeklyPersistencePayload(remoteAggregate), { onConflict: "user_id,week_start_date" });
+    draftWriteError = draftResult.error;
+  }
+
+  const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
+  const outcome = resolveWeeklyInspectionLoadOutcome({
+    savedInspection: inspectionResult.data || localSaved,
+    inspectionReadError: inspectionResult.error,
+    remoteRecords: recordsResult.data,
+    recordsReadError: recordsResult.error,
+    draftWriteError,
+    localRecords: loadLocalWeekRecords(range)
+  });
+  if (outcome.mode === "FINALIZED_LOCAL") {
+    renderWeeklyInspection(aggregateFromStoredInspection(outcome.inspection), outcome.storageMode);
+    setText("weekly-warning", outcome.warning);
+    return;
+  }
+  weeklyDailyRecords = outcome.records;
+  const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
+  aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+  if (outcome.storageMode === "LOCAL") saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
+  renderWeeklyInspection(aggregate, outcome.storageMode);
+  if (outcome.warning) setText("weekly-warning", outcome.warning);
 }
 
 async function finalizeWeeklyInspection() {

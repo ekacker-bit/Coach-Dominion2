@@ -4720,7 +4720,7 @@ function connectedStatusPill(value) {
 }
 
 function setConnectedActiveView(view = "overview") {
-  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "privacy"];
+  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "privacy"];
   connectedActiveView = allowed.includes(view) ? view : "overview";
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     const active = button.dataset.connectedView === connectedActiveView;
@@ -4779,7 +4779,45 @@ function renderConnectedDominion() {
 
   const recordsPanel = document.getElementById("connected-view-imported_records");
   if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${record.mappedPerformanceEntryId ? `Mapped to Performance entry ${escapeHtml(record.mappedPerformanceEntryId)}` : escapeHtml(record.rejectionReason || "Retained for audit; no mapped destination.")}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
+
+  const reconciliationPanel = document.getElementById("connected-view-reconciliation");
+  if (reconciliationPanel) {
+    const sessions = api.groupFitbodWorkoutSessions(connectedImportedRecords);
+    const strengthTarget = document.getElementById("strength_target")?.value || "";
+    reconciliationPanel.innerHTML = sessions.length ? `<div class="connected-card-list">${sessions.map((session) => {
+      const review = api.reconcileFitbodWorkoutSession(session, strengthTarget);
+      const matchText = review.prescribedExerciseCount ? `${review.matchedExercises} of ${review.prescribedExerciseCount} prescribed exercises matched` : "Add a structured Strength target to enable matching";
+      const setsText = review.prescribedSets ? `${review.completedSets} of ${review.prescribedSets} prescribed sets (${review.setCompletionPercent}%)` : `${review.completedSets} completed sets logged`;
+      return `<article class="connected-detail-card fitbod-reconciliation-card">
+        <header><div><span class="kicker">FITBOD WORKOUT REVIEW</span><h3>${escapeHtml(session.workoutName)}</h3><p>${escapeHtml(session.date)}</p></div>${connectedStatusPill(review.recommendation)}</header>
+        <div class="connected-summary-grid"><div><span>Exercise match</span><strong>${escapeHtml(matchText)}</strong></div><div><span>Set completion</span><strong>${escapeHtml(setsText)}</strong></div><div><span>Exercises logged</span><strong>${review.completedExerciseCount}</strong></div><div><span>Training volume</span><strong>${Math.round(session.volume).toLocaleString()}</strong></div></div>
+        <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}.</p>
+        <ul>${session.exercises.map((exercise) => `<li>${escapeHtml(exercise.name)} — ${exercise.sets} set(s), ${exercise.reps} total reps</li>`).join("")}</ul>
+        ${review.substitutions.length && review.prescribedExerciseCount ? `<p class="muted">Unmatched or substituted: ${escapeHtml(review.substitutions.map((item) => item.name).join(", "))}</p>` : ""}
+        <div class="connected-actions"><button type="button" data-connected-action="apply-reconciliation" data-session-id="${escapeHtml(session.id)}" ${["UNMATCHED", "REVIEW_REQUIRED"].includes(review.recommendation) ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-strength-target">Review Strength target</button></div>
+      </article>`;
+    }).join("")}</div>` : `<div class="connected-empty">No Fitbod workout is ready for reconciliation. Import a Fitbod workout CSV first.</div>`;
+  }
   setConnectedActiveView(connectedActiveView);
+}
+
+function applyFitbodReconciliation(sessionId) {
+  const api = connectedApi();
+  const sessionReview = api?.groupFitbodWorkoutSessions(connectedImportedRecords).find((item) => item.id === sessionId);
+  const form = document.getElementById("compliance-form");
+  if (!api || !sessionReview || !form) return;
+  const review = api.reconcileFitbodWorkoutSession(sessionReview, form.elements.strength_target.value);
+  if (!["COMPLETE", "COMPLETE_WITH_MODIFICATION", "PARTIAL"].includes(review.recommendation)) return;
+  form.elements.strength_status.value = review.recommendation === "PARTIAL" ? "partial" : "completed";
+  form.elements.strength_actual.value = `${sessionReview.workoutName}: ${review.completedExerciseCount} exercises, ${review.completedSets} sets, ${Math.round(sessionReview.volume).toLocaleString()} volume.`;
+  form.elements.strength_note.value = `Fitbod reconciliation: ${review.matchedExercises}/${review.prescribedExerciseCount} exercises matched${review.setCompletionPercent === null ? "" : `; ${review.setCompletionPercent}% prescribed sets`}.`;
+  form.elements.strength_approved_modification.checked = review.recommendation === "COMPLETE_WITH_MODIFICATION";
+  if (review.recommendation === "COMPLETE_WITH_MODIFICATION") form.elements.strength_restriction.value = `Fitbod substitutions: ${review.substitutions.map((item) => item.name).join(", ")}.`;
+  setComplianceDirtyState();
+  renderComplianceScore(readComplianceForm());
+  setText("connected-feedback", "Fitbod recommendation applied to Strength Compliance. Review it, then save the Dominion Record.");
+  setActiveSection("record");
+  window.history.replaceState(null, "", "#record");
 }
 
 async function saveConnectedState(message, forceLocalFallback = false) {
@@ -5050,7 +5088,10 @@ if (typeof document !== "undefined") {
     });
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
-    button.addEventListener("click", () => setConnectedActiveView(button.dataset.connectedView || "overview"));
+    button.addEventListener("click", () => {
+      if (button.dataset.connectedView === "reconciliation") renderConnectedDominion();
+      setConnectedActiveView(button.dataset.connectedView || "overview");
+    });
     button.addEventListener("keydown", (event) => {
       if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
       const tabs = Array.from(document.querySelectorAll("[data-connected-view]"));
@@ -5065,6 +5106,12 @@ if (typeof document !== "undefined") {
     if (!button) return;
     const action = button.dataset.connectedAction;
     if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
+    if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);
+    if (action === "review-strength-target") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("strength_target")?.focus();
+    }
     if (action === "simulate") await simulateConnectedAccount(button.dataset.provider);
     if (action === "review-account") setConnectedActiveView("accounts");
     if (action === "sync") await runConnectedDemoSync(button.dataset.accountId);

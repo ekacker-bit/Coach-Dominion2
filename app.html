@@ -107,6 +107,21 @@
           <span id="nutrition-command-status" class="state-pill neutral">LOADING</span>
         </div>
         <div id="nutrition-command-output"><div class="performance-empty">Atlas is assembling today’s nutrition picture.</div></div>
+        <section class="adaptive-fueling-panel" aria-labelledby="adaptive-fueling-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">BUILD 008B // ADAPTIVE FUELING TARGETS</div><h3 id="adaptive-fueling-heading">Training-Day Fueling</h3></div>
+            <span id="adaptive-fueling-status" class="state-pill neutral">LEARNING</span>
+          </div>
+          <label class="adaptive-goal">Coaching goal
+            <select id="adaptive-fueling-goal">
+              <option value="MAINTAIN">Maintain</option>
+              <option value="PERFORMANCE">Performance</option>
+              <option value="FAT_LOSS">Fat loss</option>
+            </select>
+          </label>
+          <div id="adaptive-fueling-output" class="performance-empty">Atlas is reviewing nutrition evidence.</div>
+          <p id="adaptive-fueling-feedback" class="muted"></p>
+        </section>
         <details class="nutrition-manual-entry">
           <summary>Manual daily totals fallback</summary>
           <form id="nutrition-manual-form" class="nutrition-manual-form">
@@ -669,6 +684,7 @@
 <script src="/assets/js/readiness-baselines.js"></script>
 <script src="/assets/js/weekly-plan.js"></script>
 <script src="/assets/js/nutrition-command.js"></script>
+<script src="/assets/js/adaptive-fueling.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

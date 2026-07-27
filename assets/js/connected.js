@@ -10,7 +10,7 @@
     provider("GARMIN", "Garmin", "HEALTH", ["RUN", "RIDE", "SWIM", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_2", "Architecture preview for activity and health metrics."),
     provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["WALK", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT", "BODY_METRIC"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_3", "Architecture preview for user-authorized health data."),
     provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "FILE_IMPORT", "PHASE_2", "User-controlled Fitbod workout-file import; no Fitbod credentials are stored."),
-    provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "PLANNED", "PHASE_4", "Planned nutrition and body-metric import.")
+    provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "FILE_IMPORT", "PHASE_4", "User-controlled MyFitnessPal nutrition-file import; no MyFitnessPal credentials are stored.")
   ]);
   const PROVIDER_CODES = new Set(PROVIDER_CATALOG.map((item) => item.providerCode));
   const PERMISSIONS = Object.freeze(["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_STRENGTH_WORKOUTS", "READ_NUTRITION", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"]);
@@ -395,6 +395,88 @@
     return { records, errors };
   }
 
+  function parseMyFitnessPalNutritionCsv(source, options = {}) {
+    const rows = parseCsvRows(source);
+    if (rows.length < 2) return { records: [], errors: ["The MyFitnessPal nutrition file has no meal rows."] };
+    const headers = rows[0].map(fitbodHeader);
+    const aliases = {
+      date: ["date", "entry_date", "food_date", "day"],
+      meal: ["meal", "meal_name", "meal_category"],
+      calories: ["calories", "calorie", "energy"],
+      protein: ["protein", "protein_g"],
+      carbs: ["carbohydrates", "carbs", "carbohydrate_g", "carbs_g"],
+      fat: ["fat", "fat_g", "total_fat"],
+      note: ["note", "notes", "food_note"]
+    };
+    const column = (names) => names.map((name) => headers.indexOf(name)).find((index) => index >= 0) ?? -1;
+    const indexes = Object.fromEntries(Object.entries(aliases).map(([key, names]) => [key, column(names)]));
+    if (indexes.date < 0 || indexes.calories < 0) return { records: [], errors: ["MyFitnessPal nutrition import requires Date and Calories columns."] };
+    const records = [], errors = [];
+    rows.slice(1).forEach((cells, rowIndex) => {
+      const get = (key) => indexes[key] >= 0 ? text(cells[indexes[key]]) : "";
+      const occurredAt = normalizeTimestamp(get("date"));
+      const values = { calories: finite(get("calories")), protein_grams: finite(get("protein")), carbohydrate_grams: finite(get("carbs")), fat_grams: finite(get("fat")) };
+      if (!occurredAt || !(values.calories >= 0)) { errors.push(`Row ${rowIndex + 2}: missing Date or valid Calories.`); return; }
+      if ([values.protein_grams, values.carbohydrate_grams, values.fat_grams].some(Number.isNaN)) { errors.push(`Row ${rowIndex + 2}: invalid macro value.`); return; }
+      const mealName = get("meal") || "Daily nutrition";
+      const seed = `${occurredAt}|${mealName}|${values.calories}|${values.protein_grams}|${values.carbohydrate_grams}|${values.fat_grams}|${rowIndex}`;
+      records.push(normalizeImportedRecord({
+        id: stableId("mfp_record", seed), userId: options.userId, connectedAccountId: options.connectedAccountId,
+        providerCode: "MYFITNESSPAL", providerRecordId: stableId("mfp", seed), providerRecordType: "NUTRITION_MEAL",
+        dataType: "MACRONUTRIENTS", occurredAt, timezone: options.timezone || "UTC",
+        normalizedPayload: { meal_name: mealName, ...values, note: get("note") },
+        rawPayload: Object.fromEntries(headers.map((header, index) => [header || `column_${index + 1}`, text(cells[index])])),
+        sourceSyncJobId: options.sourceSyncJobId, isDemo: false
+      }, options));
+    });
+    return { records, errors };
+  }
+
+  function aggregateNutritionByDate(records = []) {
+    const days = new Map();
+    records.filter((record) => record.providerCode === "MYFITNESSPAL" && ["CALORIES", "MACRONUTRIENTS"].includes(record.dataType) && record.validationStatus === "VALID")
+      .forEach((record) => {
+        const date = text(record.occurredAt).slice(0, 10), payload = record.normalizedPayload || {};
+        const day = days.get(date) || { date, calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0, records: [] };
+        day.calories += finite(payload.calories) || 0;
+        day.protein += finite(payload.protein_grams ?? payload.protein) || 0;
+        day.carbs += finite(payload.carbohydrate_grams ?? payload.carbs) || 0;
+        day.fat += finite(payload.fat_grams ?? payload.fat) || 0;
+        day.meals += 1; day.records.push(record); days.set(date, day);
+      });
+    return Array.from(days.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  function parseNutritionTarget(value) {
+    const input = text(value).toLowerCase();
+    const find = (patterns) => {
+      for (const pattern of patterns) { const match = input.match(pattern); if (match) return Number(match[1]); }
+      return null;
+    };
+    return {
+      calories: find([/(\d+(?:\.\d+)?)\s*(?:kcal|calories|cal)\b/, /calories?\s*[:=]?\s*(\d+(?:\.\d+)?)/]),
+      protein: find([/(\d+(?:\.\d+)?)\s*g?\s*protein\b/, /protein\s*[:=]?\s*(\d+(?:\.\d+)?)/]),
+      carbs: find([/(\d+(?:\.\d+)?)\s*g?\s*(?:carbs|carbohydrates)\b/, /(?:carbs|carbohydrates)\s*[:=]?\s*(\d+(?:\.\d+)?)/]),
+      fat: find([/(\d+(?:\.\d+)?)\s*g?\s*fat\b/, /fat\s*[:=]?\s*(\d+(?:\.\d+)?)/])
+    };
+  }
+
+  function reconcileNutritionDay(day = {}, targetText = "") {
+    const target = parseNutritionTarget(targetText);
+    const availableTargets = Object.entries(target).filter(([, value]) => value > 0);
+    const metrics = Object.fromEntries(availableTargets.map(([key, goal]) => {
+      const actual = Number(day[key]) || 0, percent = Math.round((actual / goal) * 100);
+      const within = key === "protein" ? percent >= 90 : percent >= 85 && percent <= 115;
+      return [key, { actual, goal, percent, within }];
+    }));
+    const withinCount = Object.values(metrics).filter((item) => item.within).length;
+    let recommendation = "REVIEW_REQUIRED";
+    if (availableTargets.length && withinCount === availableTargets.length) recommendation = "COMPLETE";
+    else if (availableTargets.length && withinCount >= Math.ceil(availableTargets.length / 2)) recommendation = "PARTIAL";
+    else if (availableTargets.length) recommendation = "MISSED";
+    return { day, target, metrics, recommendation, withinCount, targetCount: availableTargets.length };
+  }
+
   function normalizeExerciseName(value) {
     return text(value).toLowerCase()
       .replace(/\b(barbell|dumbbell|machine|cable|weighted)\b/g, "")
@@ -471,7 +553,8 @@
     normalizeImportedPayload, classifyImportedDataType, normalizeImportedRecord, validateImportedRecord,
     buildImportedRecordDeduplicationKey, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
     summarizeSyncJob, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
-    parseFitbodWorkoutCsv, normalizeExerciseName, groupFitbodWorkoutSessions, parsePrescribedStrengthTarget,
+    parseFitbodWorkoutCsv, parseMyFitnessPalNutritionCsv, aggregateNutritionByDate, parseNutritionTarget, reconcileNutritionDay,
+    normalizeExerciseName, groupFitbodWorkoutSessions, parsePrescribedStrengthTarget,
     reconcileFitbodWorkoutSession, stableId, stableUuid, clone
   });
 });

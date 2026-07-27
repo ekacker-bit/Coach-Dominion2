@@ -4888,11 +4888,15 @@ async function importFitbodWorkoutFile(file) {
   performanceEntries = [...mappedEntries, ...performanceEntries];
   if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
   let performancePersistFailed = false;
-  if (mappedEntries.length && session?.user?.id) {
+  const connectedPerformanceIds = new Set(
+    connectedImportedRecords.map((record) => record.mappedPerformanceEntryId).filter(Boolean)
+  );
+  const connectedPerformanceEntries = performanceEntries.filter((entry) => connectedPerformanceIds.has(entry.id));
+  if (connectedPerformanceEntries.length && session?.user?.id) {
     try {
       const supabase = await getClient();
       const { error } = await supabase.from("performance_entries").upsert(
-        mappedEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())),
+        connectedPerformanceEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())),
         { onConflict: "id" }
       );
       if (error) throw error;

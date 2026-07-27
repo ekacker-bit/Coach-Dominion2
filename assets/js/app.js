@@ -2748,13 +2748,15 @@ function hydratePerformanceEntry(row = {}) {
   });
 }
 
-function summarizeRecentPerformance(entries = []) {
+function summarizeRecentPerformance(entries = [], options = {}) {
   const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
-  const referenceDate = parseISODateUTC(todayISODate()) || new Date();
+  const requestedReferenceDate = options?.referenceDate;
+  const referenceDate = parseISODateUTC(requestedReferenceDate) || parseISODateUTC(todayISODate()) || new Date();
+  const referenceDateISO = formatISODateUTC(referenceDate);
   const weekStart = new Date(referenceDate);
   weekStart.setUTCDate(referenceDate.getUTCDate() - ((referenceDate.getUTCDay() + 6) % 7));
   const weekStartISO = formatISODateUTC(weekStart);
-  const currentWeek = normalizedEntries.filter((entry) => entry.performanceDate >= weekStartISO && entry.performanceDate <= todayISODate());
+  const currentWeek = normalizedEntries.filter((entry) => entry.performanceDate >= weekStartISO && entry.performanceDate <= referenceDateISO);
   const strengthEntries = currentWeek.filter((entry) => entry.domain === "strength");
   const runEntries = currentWeek.filter((entry) => entry.domain === "running");
   const testEntries = currentWeek.filter((entry) => entry.entryType === "BENCHMARK" || entry.entryType === "FORMAL_TEST");

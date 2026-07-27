@@ -1,11 +1,15 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const connected = require("../assets/js/connected.js");
 const performance = require("../assets/js/app.js");
 
 let passed = 0;
 function test(name, fn) {
-  try { fn(); passed += 1; console.log(`✓ ${name}`); }
-  catch (error) { console.error(`✗ ${name}`); throw error; }
+  try { fn(); passed += 1; console.log(`âœ“ ${name}`); }
+  catch (error) { console.error(`âœ— ${name}`); throw error; }
 }
 const account = connected.normalizeConnectedAccount({
   id: "acct-1", userId: "user-1", providerCode: "STRAVA", connectionStatus: "CONNECTED",
@@ -106,6 +110,11 @@ test("45 unknown data type validates unsupported", () => assert.equal(connected.
 test("46 storage keys are user scoped", () => assert.notEqual(connected.storageKey("connected-accounts", "a"), connected.storageKey("connected-accounts", "b")));
 test("47 exact stable IDs survive normalization", () => assert.equal(connected.normalizeConnectedAccount({ ...account, id: "exact-id" }).id, "exact-id"));
 test("48 overview exposes explicit counts", () => assert.equal(connected.buildConnectedOverviewModel({ accounts: [account], jobs: [job], records: [run()] }).providerCount, 5));
+test("49 weekly inspection render cannot abort Connected Dominion initialization", () => {
+  const appSource = fs.readFileSync(require.resolve("../assets/js/app.js"), "utf8");
+  assert.ok(appSource.includes('const inspectionSection = document.getElementById("inspection");'));
+  assert.ok(!appSource.includes('document.getElementById("weekly-inspection").dataset'));
+});
 
 console.log(`Connected Dominion: ${passed} assertions passed.`);
 

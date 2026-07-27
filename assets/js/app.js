@@ -4910,6 +4910,64 @@ function nutritionCommandDate() {
   return document.querySelector('#nutrition-manual-form [name="date"]')?.value || todayISODate();
 }
 
+function adaptiveFuelingStorageKey(goal) {
+  return `coach-dominion:adaptive-fueling:${connectedUserId()}:${goal || "MAINTAIN"}`;
+}
+
+function readApprovedAdaptiveFueling(goal) {
+  try { return JSON.parse(window.localStorage.getItem(adaptiveFuelingStorageKey(goal)) || "null"); }
+  catch (_) { return null; }
+}
+
+function currentAdaptiveFuelingGoal() {
+  return document.getElementById("adaptive-fueling-goal")?.value || "MAINTAIN";
+}
+
+function buildCurrentAdaptiveFuelingProposal() {
+  if (typeof DominionAdaptiveFueling === "undefined" || !connectedApi()) return null;
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  const targets = connectedApi().parseNutritionTarget(targetText);
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const readiness = dailyState ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  return DominionAdaptiveFueling.buildAdaptiveFuelingProposal({
+    targets,
+    nutritionDays,
+    goal: currentAdaptiveFuelingGoal(),
+    readiness
+  });
+}
+
+function adaptiveTargetCards(targets) {
+  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbs", "g"], fat: ["Fat", "g"] };
+  return Object.entries(labels).map(([key, [label, unit]]) => `<div class="adaptive-target-card"><span>${label}</span><strong>${Math.round(targets[key])}${unit}</strong></div>`).join("");
+}
+
+function renderAdaptiveFueling() {
+  const output = document.getElementById("adaptive-fueling-output");
+  const status = document.getElementById("adaptive-fueling-status");
+  if (!output || !status) return;
+  const proposal = buildCurrentAdaptiveFuelingProposal();
+  if (!proposal) return;
+  const approved = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const current = approved || proposal;
+  status.textContent = current.status;
+  status.className = `state-pill ${current.status === "APPROVED" ? "green" : current.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current.trainingTargets) {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>${escapeHtml(current.status)}</strong><p>${escapeHtml(current.reason)}</p><p>${current.evidenceDays || 0}${current.requiredDays ? ` / ${current.requiredDays}` : ""} complete nutrition day(s).</p>`;
+    return;
+  }
+  output.className = "";
+  output.innerHTML = `<p><strong>Strategy:</strong> ${escapeHtml(current.strategy)}</p>
+    <div class="adaptive-target-variants">
+      <article class="adaptive-target-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
+      <article class="adaptive-target-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
+    </div>
+    <p class="muted">${current.evidenceDays} complete nutrition day(s) · calorie adherence ${Math.round(current.adherence.calories * 100)}% · protein adherence ${Math.round(current.adherence.protein * 100)}%</p>
+    <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions"><button type="button" data-adaptive-fueling-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Fueling Variant Approved" : "Approve Fueling Variant"}</button></div>`;
+}
+
 function renderNutritionCommand() {
   const output = document.getElementById("nutrition-command-output");
   const statusPill = document.getElementById("nutrition-command-status");
@@ -4921,9 +4979,11 @@ function renderNutritionCommand() {
   const manual = readManualNutrition(date);
   const actual = imported || manual || {};
   const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
-  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
-  const targets = connectedApi().parseNutritionTarget(targetText);
   const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  const baseTargets = connectedApi().parseNutritionTarget(targetText);
+  const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
   const readiness = dailyState && date === todayISODate() ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
   const command = DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
   statusPill.textContent = command.status;
@@ -4947,6 +5007,7 @@ function renderNutritionCommand() {
       <button type="button" data-nutrition-command-action="review-targets">Review Nutrition Targets</button>
       <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
     </div>`;
+  renderAdaptiveFueling();
 }
 
 function saveManualNutrition(event) {
@@ -5540,6 +5601,23 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("nutrition-manual-form")?.addEventListener("submit", saveManualNutrition);
   document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
+  document.getElementById("adaptive-fueling-goal")?.addEventListener("change", () => {
+    renderNutritionCommand();
+    setText("adaptive-fueling-feedback", "Goal updated. No target change has been approved.");
+  });
+  document.getElementById("adaptive-fueling-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-adaptive-fueling-action]");
+    if (button?.dataset.adaptiveFuelingAction !== "approve" || typeof DominionAdaptiveFueling === "undefined") return;
+    try {
+      const proposal = buildCurrentAdaptiveFuelingProposal();
+      const approved = DominionAdaptiveFueling.approveAdaptiveFuelingProposal(proposal);
+      window.localStorage.setItem(adaptiveFuelingStorageKey(approved.goal), JSON.stringify(approved));
+      renderNutritionCommand();
+      setText("adaptive-fueling-feedback", "Fueling variant approved locally. The Dominion Record target was not changed.");
+    } catch (error) {
+      setText("adaptive-fueling-feedback", error.message);
+    }
+  });
   document.getElementById("nutrition-command-output")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-nutrition-command-action]");
     if (!button) return;

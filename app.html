@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Coach Dominion — War Room</title>
+  <title>Coach Dominion â€” War Room</title>
   <link rel="stylesheet" href="/assets/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -13,7 +13,7 @@
       <div>
         <div class="kicker">DOMINION // CLOSED ALPHA</div>
         <h1>War Room</h1>
-        <p class="muted" id="identity">Verifying session…</p>
+        <p class="muted" id="identity">Verifying sessionâ€¦</p>
       </div>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
@@ -32,16 +32,16 @@
     </header>
 
     <section class="status-bar" aria-label="Current status bar">
-      <div><span>Sleep</span><strong id="status-sleep">—</strong></div>
-      <div><span>Weight</span><strong id="status-weight">—</strong></div>
-      <div><span>Steps</span><strong id="status-steps">—</strong></div>
-      <div><span>RHR</span><strong id="status-rhr">—</strong></div>
-      <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
+      <div><span>Sleep</span><strong id="status-sleep">â€”</strong></div>
+      <div><span>Weight</span><strong id="status-weight">â€”</strong></div>
+      <div><span>Steps</span><strong id="status-steps">â€”</strong></div>
+      <div><span>RHR</span><strong id="status-rhr">â€”</strong></div>
+      <div><span>Confidence</span><strong id="status-confidence">â€”</strong></div>
       <div><span>Build</span><strong>0.3.0</strong></div>
     </section>
 
     <p class="status" id="status"></p>
-    <p class="muted loading" id="loading">Loading today's Daily State…</p>
+    <p class="muted loading" id="loading">Loading today's Daily Stateâ€¦</p>
 
     <div id="app-content" hidden>
       <section id="roll-call-required" class="card alert" hidden>
@@ -53,13 +53,13 @@
       <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
         <div class="section-heading">
           <div>
-            <div class="kicker">BUILD 006A · ARCHITECTURE PREVIEW</div>
+            <div class="kicker">BUILD 006A Â· ARCHITECTURE PREVIEW</div>
             <h2 id="connected-heading">Connected Dominion</h2>
             <p class="muted">Provider-neutral import architecture. No live provider connections, OAuth, credentials, or external sync requests are active.</p>
           </div>
           <span id="connected-storage" class="state-pill neutral">LOADING</span>
         </div>
-        <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
+        <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion stateâ€¦</div>
         <div class="connected-view-nav" role="tablist" aria-label="Connected Dominion views">
           <button type="button" class="connected-view-tab active" role="tab" aria-selected="true" data-connected-view="overview">OVERVIEW</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="providers">PROVIDERS</button>
@@ -112,16 +112,30 @@
         <div class="section-heading compact">
           <div>
             <div class="kicker">BUILD 007C // DAILY COACHING LOOP</div>
-            <h2 id="daily-orders-heading">Today’s Orders</h2>
+            <h2 id="daily-orders-heading">Todayâ€™s Orders</h2>
             <p class="muted">One operating sequence from roll call through mission, connected evidence, and the Dominion Record.</p>
           </div>
           <span id="daily-orders-state" class="state-pill neutral">LOADING</span>
         </div>
         <div id="daily-loop-phases" class="daily-loop-phases" aria-label="Daily coaching phases"></div>
         <article id="daily-orders-panel" class="daily-orders-panel" aria-live="polite">
-          <div class="performance-empty">Atlas is assembling today’s operating picture.</div>
+          <div class="performance-empty">Atlas is assembling todayâ€™s operating picture.</div>
         </article>
         <p id="daily-orders-feedback" class="muted"></p>
+      </section>
+
+      <section class="card readiness-baseline-card" aria-labelledby="baseline-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">BUILD 007D // PERSONALIZED READINESS</div>
+            <h2 id="baseline-heading">Personal Baseline</h2>
+            <p class="muted">Your 14- and 28-day norms make readiness more personal without weakening pain or safety rules.</p>
+          </div>
+          <span id="baseline-state" class="state-pill neutral">LEARNING</span>
+        </div>
+        <div id="baseline-panel" aria-live="polite">
+          <div class="performance-empty">Atlas is looking for enough prior sleep and resting heart-rate evidence.</div>
+        </div>
       </section>
 
       <section class="card command-center-overview" aria-labelledby="command-center-overview-heading">
@@ -133,9 +147,9 @@
           <span id="command-center-overview-state" class="state-pill neutral">AWAITING SIGNAL</span>
         </div>
         <div class="overview-grid">
-          <div class="overview-metric"><span>Readiness</span><strong id="overview-readiness">—</strong></div>
-          <div class="overview-metric"><span>Weekly</span><strong id="overview-weekly">—</strong></div>
-          <div class="overview-metric"><span>Trend</span><strong id="overview-trend">—</strong></div>
+          <div class="overview-metric"><span>Readiness</span><strong id="overview-readiness">â€”</strong></div>
+          <div class="overview-metric"><span>Weekly</span><strong id="overview-weekly">â€”</strong></div>
+          <div class="overview-metric"><span>Trend</span><strong id="overview-trend">â€”</strong></div>
         </div>
         <p id="overview-focus" class="overview-focus">The command center is preparing the next recommendation.</p>
         <p id="overview-summary" class="muted">Submit Morning Roll Call to initialize the operating picture.</p>
@@ -154,20 +168,20 @@
           <dl class="mission-data">
             <div><dt>Restrictions</dt><dd id="mission-restrictions">Awaiting roll call.</dd></div>
             <div><dt>Readiness Source</dt><dd id="mission-source">No Daily State evidence.</dd></div>
-            <div><dt>Confidence</dt><dd id="mission-confidence">—</dd></div>
+            <div><dt>Confidence</dt><dd id="mission-confidence">â€”</dd></div>
             <div><dt>Context</dt><dd id="mission-context">Generated/current-state context unavailable.</dd></div>
           </dl>
         </article>
 
         <article class="card readiness-card">
           <div class="kicker">READINESS INTELLIGENCE</div>
-          <div id="readiness" class="metric">—</div>
+          <div id="readiness" class="metric">â€”</div>
           <p id="readiness-detail">Submit Energy, Soreness, and Pain to calculate readiness.</p>
           <div class="readiness-factors">
             <div><span>Confidence</span><strong id="confidence">0%</strong></div>
-            <div><span>Energy</span><strong id="readiness-energy">—</strong></div>
-            <div><span>Soreness</span><strong id="readiness-soreness">—</strong></div>
-            <div><span>Pain</span><strong id="readiness-pain">—</strong></div>
+            <div><span>Energy</span><strong id="readiness-energy">â€”</strong></div>
+            <div><span>Soreness</span><strong id="readiness-soreness">â€”</strong></div>
+            <div><span>Pain</span><strong id="readiness-pain">â€”</strong></div>
           </div>
           <dl class="readiness-actions">
             <div><dt>Primary risk</dt><dd id="readiness-risk">Operating without current readiness.</dd></div>
@@ -194,7 +208,7 @@
           <div class="section-heading compact">
             <div>
               <div class="kicker">COMMAND FEED</div>
-              <h2>Today’s events</h2>
+              <h2>Todayâ€™s events</h2>
             </div>
           </div>
           <ul id="command-feed" class="feed">
@@ -221,7 +235,7 @@
             <p class="muted">Record what was assigned, completed, modified, excused, or missed. Restrictions are evidence, not misconduct.</p>
           </div>
           <div class="compliance-scoreboard">
-            <span id="compliance-date">—</span>
+            <span id="compliance-date">â€”</span>
             <strong id="discipline-score">UNSCORED</strong>
             <span id="compliance-status">UNSCORED</span>
           </div>
@@ -264,7 +278,7 @@
         </div>
         <p id="weekly-warning" class="status"></p>
         <div class="weekly-score-grid">
-          <div><span>Week</span><strong id="weekly-range">—</strong></div>
+          <div><span>Week</span><strong id="weekly-range">â€”</strong></div>
           <div><span>Discipline</span><strong id="weekly-score">UNSCORED</strong></div>
           <div><span>Evidence</span><strong id="weekly-coverage">0%</strong></div>
           <div><span>Storage</span><strong id="weekly-storage">NOT LOADED</strong></div>
@@ -299,53 +313,19 @@
         </div>
         <p id="analytics-storage" class="muted">ANALYTICS NOT LOADED</p>
         <div class="trend-summary-grid" aria-label="Trend priorities">
-          <div><span>Trajectory</span><strong id="trend-summary-trajectory">—</strong></div>
-          <div><span>Score change</span><strong id="trend-summary-score-change">—</strong></div>
-          <div><span>Evidence quality</span><strong id="trend-summary-evidence">—</strong></div>
-          <div><span>Domain at risk</span><strong id="trend-summary-domain">—</strong></div>
-          <div><span>Consistency</span><strong id="trend-summary-consistency">—</strong></div>
+          <div><span>Trajectory</span><strong id="trend-summary-trajectory">â€”</strong></div>
+          <div><span>Score change</span><strong id="trend-summary-score-change">â€”</strong></div>
+          <div><span>Evidence quality</span><strong id="trend-summary-evidence">â€”</strong></div>
+          <div><span>Domain at risk</span><strong id="trend-summary-domain">â€”</strong></div>
+          <div><span>Consistency</span><strong id="trend-summary-consistency">â€”</strong></div>
         </div>
         <div class="analytics-summary-grid">
           <div><span>Latest finalized</span><strong id="trend-latest-score">UNSCORED</strong></div>
           <div><span>Recent average</span><strong id="trend-average-score">UNSCORED</strong></div>
-          <div><span>Score change</span><strong id="trend-score-change">—</strong></div>
-          <div><span>Evidence change</span><strong id="trend-evidence-change">—</strong></div>
-          <div><span>Best finalized week</span><strong id="trend-best-week">—</strong></div>
-          <div><span>Lowest finalized week</span><strong id="trend-lowest-week">—</strong></div>
-          <div><span>Finalized inspections</span><strong id="trend-finalized-count">0</strong></div>
-          <div><span>Recent completion rate</span><strong id="trend-completion-rate">—</strong></div>
-        </div>
-        <div class="chart-grid">
-          <figure><figcaption>Weekly Discipline Score</figcaption><div id="discipline-trend-chart" class="trend-chart"></div></figure>
-          <figure><figcaption>Weekly Evidence Coverage</figcaption><div id="evidence-trend-chart" class="trend-chart"></div></figure>
-        </div>
-        <div id="trend-domain-grid" class="trend-domain-grid"></div>
-        <div class="streak-grid">
-          <div><span>Current assessed streak</span><strong id="current-assessed-streak">0 days</strong></div>
-          <div><span>Current fully assessed streak</span><strong id="current-full-streak">0 days</strong></div>
-          <div><span>Longest assessed streak</span><strong id="longest-assessed-streak">0 days</strong></div>
-        </div>
-        <h3>Atlas Trend Report</h3>
-        <pre id="atlas-trend-report" class="atlas-brief-output" aria-live="polite">Historical analytics are loading.</pre>
-      </section>
-
-      <section id="standards" class="card standards-review scroll-anchor" aria-labelledby="standards-heading" data-section="standards">
-        <div class="section-heading">
-          <div>
-            <div class="kicker">BUILD 004E // STANDARDS &amp; VIOLATIONS</div>
-            <h2 id="standards-heading">Standards &amp; Violations</h2>
-            <p class="muted">Candidate review is deterministic; protected exceptions remain visible and are never treated as misconduct.</p>
-          </div>
-          <span id="standards-state" class="state-pill neutral">CLEAR</span>
-        </div>
-        <div class="standards-summary-grid">
-          <div><span>Standards catalog</span><strong id="standards-catalog-count">0</strong></div>
-          <div><span>Open candidates</span><strong id="standards-candidate-count">0</strong></div>
-          <div><span>Confirmed</span><strong id="standards-confirmed-count">0</strong></div>
-          <div><span>Resolved</span><strong id="standards-resolved-count">0</strong></div>
-        </div>
-        <div class="standards-controls">
-          <button id="review-standards-candidate" class="ghost" type="button">Review candidate</button>
+          <div><span>Score change</span><strong id="trend-score-change">â€”</strong></div>
+          <div><span>Evidence change</span><strong id="trend-evidence-change">â€”</strong></div>
+          <div><span>Best finalized week</span><strong id="trend-best-week">â€”</strong></div>
+     …598 tokens truncated…" class="ghost" type="button">Review candidate</button>
           <button id="confirm-standards-candidate" type="button">Confirm review</button>
         </div>
         <h3>Review queue</h3>
@@ -410,9 +390,9 @@
         <div id="performance-view-overview" class="performance-view-panel">
           <div class="performance-summary-grid">
             <div><span>Entries this week</span><strong id="performance-week-count">0</strong></div>
-            <div><span>Last strength</span><strong id="performance-strength-last">—</strong></div>
-            <div><span>Last run</span><strong id="performance-run-last">—</strong></div>
-            <div><span>Last benchmark/test</span><strong id="performance-test-last">—</strong></div>
+            <div><span>Last strength</span><strong id="performance-strength-last">â€”</strong></div>
+            <div><span>Last run</span><strong id="performance-run-last">â€”</strong></div>
+            <div><span>Last benchmark/test</span><strong id="performance-test-last">â€”</strong></div>
             <div><span>Domains represented</span><strong id="performance-domains-week">None yet</strong></div>
           </div>
           <div class="performance-subsection">
@@ -568,7 +548,7 @@
               <label class="radio"><input type="radio" name="pain" value="yes" required> Yes</label>
             </fieldset>
             <label>Comments (optional, 250 characters)
-              <textarea name="comments" maxlength="250" rows="3" placeholder="Travel, illness, poor sleep, unusual soreness…"></textarea>
+              <textarea name="comments" maxlength="250" rows="3" placeholder="Travel, illness, poor sleep, unusual sorenessâ€¦"></textarea>
             </label>
             <button id="save-roll-call" type="submit">Submit Morning Roll Call</button>
           </form>
@@ -577,14 +557,14 @@
         <section id="daily-state-summary" class="card summary" hidden>
           <div class="kicker">TODAY'S DAILY STATE</div>
           <dl>
-            <div><dt>Date</dt><dd id="summary-date">—</dd></div>
-            <div><dt>Energy</dt><dd id="summary-energy">—</dd></div>
-            <div><dt>Soreness</dt><dd id="summary-soreness">—</dd></div>
-            <div><dt>Pain</dt><dd id="summary-pain">—</dd></div>
-            <div><dt>Confidence</dt><dd id="summary-confidence">—</dd></div>
+            <div><dt>Date</dt><dd id="summary-date">â€”</dd></div>
+            <div><dt>Energy</dt><dd id="summary-energy">â€”</dd></div>
+            <div><dt>Soreness</dt><dd id="summary-soreness">â€”</dd></div>
+            <div><dt>Pain</dt><dd id="summary-pain">â€”</dd></div>
+            <div><dt>Confidence</dt><dd id="summary-confidence">â€”</dd></div>
           </dl>
           <dl class="comments-summary">
-            <div><dt>Comments</dt><dd id="summary-comments">—</dd></div>
+            <div><dt>Comments</dt><dd id="summary-comments">â€”</dd></div>
           </dl>
         </section>
 
@@ -603,12 +583,12 @@
           <button id="dismiss-onboarding" class="ghost" type="button">Dismiss</button>
         </div>
         <ol class="onboarding-steps">
-          <li>ROLL CALL — capture today's readiness.</li>
-          <li>MISSION — review the generated mission.</li>
-          <li>RECORD — save the Dominion Record.</li>
-          <li>INSPECTION — review and finalize the weekly inspection.</li>
-          <li>TRENDS — review trajectory and consistency.</li>
-          <li>STANDARDS — review standards candidates and audit the outcome.</li>
+          <li>ROLL CALL â€” capture today's readiness.</li>
+          <li>MISSION â€” review the generated mission.</li>
+          <li>RECORD â€” save the Dominion Record.</li>
+          <li>INSPECTION â€” review and finalize the weekly inspection.</li>
+          <li>TRENDS â€” review trajectory and consistency.</li>
+          <li>STANDARDS â€” review standards candidates and audit the outcome.</li>
         </ol>
       </section>
     </div>
@@ -618,6 +598,7 @@
 <script src="/assets/js/programming.js"></script>
 <script src="/assets/js/recovery.js"></script>
 <script src="/assets/js/daily-coaching.js"></script>
+<script src="/assets/js/readiness-baselines.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

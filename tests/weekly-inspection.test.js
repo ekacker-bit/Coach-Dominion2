@@ -6,6 +6,7 @@ const {
   finalizeWeeklyInspectionSnapshot,
   formatDisciplineScore,
   getInspectionWeekRange,
+  resolveWeeklyInspectionLoadOutcome,
   WEEKLY_EVIDENCE_THRESHOLD
 } = require('../assets/js/app.js');
 
@@ -120,4 +121,28 @@ assert.throws(() => finalizeWeeklyInspectionSnapshot(missing), /requires at leas
 assert.equal(deriveInspectionStatus({ counts: { assessedObservations: 0 }, evidenceCoverage: 0 }), 'NOT READY');
 
 assert.deepEqual(calculateEvidenceCoverage([{ status: 'not_applicable' }]), { expectedObservations: 0, assessedObservations: 0, intentionalNACount: 1, percentage: 100 });
+
+const remoteRows = [record('2026-07-27', ['not_assessed', 'completed', 'not_applicable', 'completed', 'completed'])];
+const draftFailure = resolveWeeklyInspectionLoadOutcome({
+  inspectionReadError: null,
+  remoteRecords: remoteRows,
+  recordsReadError: null,
+  draftWriteError: new Error('weekly draft upsert denied'),
+  localRecords: []
+});
+assert.equal(draftFailure.mode, 'REMOTE_RECORDS', '20. draft snapshot failure preserves remote Dominion Records');
+assert.equal(draftFailure.storageMode, 'SUPABASE');
+assert.equal(draftFailure.records.length, 1);
+assert.match(draftFailure.warning, /draft snapshot was not saved/);
+assert.equal(aggregateWeeklyCompliance(draftFailure.records, '2026-07-27').counts.assessedObservations, 4);
+
+const inspectionTableFailure = resolveWeeklyInspectionLoadOutcome({
+  inspectionReadError: new Error('weekly_inspections unavailable'),
+  remoteRecords: remoteRows,
+  recordsReadError: null,
+  localRecords: []
+});
+assert.equal(inspectionTableFailure.mode, 'REMOTE_RECORDS', '21. inspection-table failure does not discard remote daily records');
+assert.equal(inspectionTableFailure.records[0].compliance_date, '2026-07-27');
+
 console.log('weekly inspection tests passed');

@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.7 seconds
+Output:
 -- Build 006A: provider-neutral Connected Dominion architecture.
 -- Architecture only: no credentials, provider tokens, OAuth, or provider API access.
 
@@ -74,7 +77,7 @@ create table if not exists public.imported_records (
   validation_status text not null check (validation_status in ('VALID','INVALID','PARTIAL','UNSUPPORTED')),
   import_status text not null check (import_status in ('RECEIVED','VALIDATED','DUPLICATE','REJECTED','MAPPED','UNMAPPED','INVALIDATED')),
   rejection_reason text,
-  mapped_performance_entry_id text references public.performance_entries(id) on delete set null,
+  mapped_performance_entry_id uuid references public.performance_entries(id) on delete set null,
   source_sync_job_id text not null references public.integration_sync_jobs(id) on delete restrict,
   is_demo boolean not null default true,
   created_at timestamptz not null default now(),

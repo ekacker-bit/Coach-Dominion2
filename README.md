@@ -4,7 +4,7 @@ Coach Dominion is a browser-based AI coaching operating system with a discipline
 
 ## Release status
 
-The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. **Build 004C — Dominion Record: Trends & Analytics** is unreleased work toward Release 0.4.0; it builds on 004A and 004B but does not represent the complete 0.4.0 release. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
+The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Builds 004C through 005D are unreleased work and do not mark Release 0.4 or Release 0.5 complete. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Architecture
 
@@ -90,6 +90,50 @@ Performance entries persist to Supabase through [supabase/migrations/006_perform
 
 The current scope is the 005A foundation only. Build 005B extends this with deterministic fitness-test attempts, personal-record evaluation, milestone achievements, and Atlas review output. The runtime uses the new browser-side state helpers and a matching Supabase migration [supabase/migrations/007_fitness_tests_prs.sql](supabase/migrations/007_fitness_tests_prs.sql) for durable persistence. Planned follow-on work for 005C includes richer analytics, export/import, and deeper coaching automation around the new performance history.
 
+## Build 005D performance intelligence (unreleased)
+
+Build 005D adds a deterministic intelligence layer on top of existing 005A/005B performance data. It is additive and does not alter readiness, compliance, weekly inspection scoring, PR business rules, milestone qualification rules, or fitness-test completion rules.
+
+Performance navigation now includes OVERVIEW, LOG, FITNESS TESTS, RECORDS, MILESTONES, and INTELLIGENCE.
+
+The Intelligence view adds:
+- an intelligence status strip
+- overall trajectory distribution
+- domain intelligence cards
+- plateau and regression watchlist
+- next benchmark recommendation
+- PR readiness panel
+- fitness-test event intelligence
+- deterministic Atlas Performance Intelligence brief
+- explicit evidence limitations
+
+Trend windows and states:
+- recent window: latest 3 valid comparable results
+- prior window: preceding 3 valid comparable results when available
+- minimum trend series: 3 valid comparable results
+- preferred confidence series: 6 or more valid comparable results
+- trajectory states: STRONGLY IMPROVING, IMPROVING, STABLE, NOISY, DECLINING, STRONGLY DECLINING, INSUFFICIENT DATA
+
+Confidence, plateau, and regression states:
+- confidence: HIGH, MODERATE, LOW, INSUFFICIENT
+- plateau: NO PLATEAU, POSSIBLE PLATEAU, LIKELY PLATEAU, INSUFFICIENT DATA
+- regression: NO REGRESSION, POSSIBLE REGRESSION, LIKELY REGRESSION, INSUFFICIENT DATA
+- estimated-only evidence is explicitly labeled and confidence-limited
+
+Benchmark proximity and PR readiness:
+- benchmark proximity uses existing milestone targets with direction-aware gap handling
+- non-comparable and unsupported evidence is excluded from ranking
+- bodyweight-ratio benchmarks require valid bodyweight evidence
+- PR readiness states: READY, APPROACHING, NOT READY, INSUFFICIENT EVIDENCE, ESTIMATED ONLY, RECENT REGRESSION
+- readiness is evidence-based and not a guarantee
+
+State handling includes distinct outcomes for no history, insufficient comparable history, remote load failure, local fallback active, authentication required, invalidated/incomplete evidence, and calculation-unavailable states.
+
+Accessibility and responsive behavior include semantic headings, keyboard-accessible controls, visible focus states, aria-selected tabs, aria-live intelligence updates, reduced-motion support, and clean stacking across desktop/tablet/mobile layouts.
+
+Known unrelated issue (not addressed in Build 005D):
+- Weekly Inspection currently has a live Supabase schema-alignment defect involving a legacy weekly_inspections path. Build 005D intentionally does not modify Weekly Inspection persistence, migrations, or business logic.
+
 ## Routes
 
 | Route | Purpose |
@@ -157,6 +201,7 @@ npm run test:compliance
 npm run test:weekly
 npm run test:trends
 npm run test:standards
+npm run test:ux
 ```
 
 The underlying direct commands are:
@@ -168,6 +213,8 @@ node tests/compliance-foundation.test.js
 node tests/weekly-inspection.test.js
 node tests/trends-analytics.test.js
 node tests/standards-violations.test.js
+node tests/performance-ux.test.js
+node tests/performance-intelligence.test.js
 ```
 
 The compliance panel persists to Supabase after `002_daily_compliance.sql` has been explicitly reviewed and applied through the approved database workflow. Until that table is available, the authenticated browser falls back to user/date-scoped local storage for compliance data only. Local fallback records are device/browser-specific and are not synchronized to Supabase automatically.

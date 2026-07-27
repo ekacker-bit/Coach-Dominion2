@@ -1,3 +1,4 @@
+
 (function connectedDominionModule(root, factory) {
   const api = factory();
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -9,7 +10,7 @@
     provider("STRAVA", "Strava", "ACTIVITY", ["RUN", "RIDE", "WALK", "SWIM"], ["READ_ACTIVITY"], "PLANNED", "PHASE_2", "Planned endurance activity import."),
     provider("GARMIN", "Garmin", "HEALTH", ["RUN", "RIDE", "SWIM", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_2", "Architecture preview for activity and health metrics."),
     provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["WALK", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT", "BODY_METRIC"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_3", "Architecture preview for user-authorized health data."),
-    provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "PLANNED", "PHASE_3", "Planned strength workout import."),
+    provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "FILE_IMPORT", "PHASE_2", "User-controlled Fitbod workout-file import; no Fitbod credentials are stored."),
     provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "PLANNED", "PHASE_4", "Planned nutrition and body-metric import.")
   ]);
   const PROVIDER_CODES = new Set(PROVIDER_CATALOG.map((item) => item.providerCode));
@@ -335,6 +336,65 @@
     };
     return (fixtures[account.providerCode] || []).map((item) => normalizeImportedRecord({ ...item, userId: account.userId, connectedAccountId: account.id, providerCode: account.providerCode, sourceSyncJobId: job.id, rawPayload: clone(item.normalizedPayload), isDemo: true }, options));
   }
+  function parseCsvRows(source) {
+    const rows = []; let row = [], value = "", quoted = false;
+    const input = String(source || "").replace(/^\uFEFF/, "");
+    for (let index = 0; index < input.length; index += 1) {
+      const character = input[index];
+      if (character === '"') {
+        if (quoted && input[index + 1] === '"') { value += '"'; index += 1; }
+        else quoted = !quoted;
+      } else if (character === "," && !quoted) { row.push(value); value = ""; }
+      else if ((character === "\n" || character === "\r") && !quoted) {
+        if (character === "\r" && input[index + 1] === "\n") index += 1;
+        row.push(value); value = "";
+        if (row.some((cell) => text(cell))) rows.push(row);
+        row = [];
+      } else value += character;
+    }
+    row.push(value);
+    if (row.some((cell) => text(cell))) rows.push(row);
+    return rows;
+  }
+  function fitbodHeader(value) { return text(value).toLowerCase().replace(/\([^)]*\)/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""); }
+  function parseFitbodWorkoutCsv(source, options = {}) {
+    const rows = parseCsvRows(source);
+    if (rows.length < 2) return { records: [], errors: ["The Fitbod file has no workout rows."] };
+    const headers = rows[0].map(fitbodHeader);
+    const aliases = {
+      occurredAt: ["date", "datetime", "workout_date", "logged_at", "timestamp"],
+      exercise: ["exercise", "exercise_name", "movement", "name"],
+      repetitions: ["reps", "repetitions", "rep_count"],
+      load: ["weight", "load", "weight_lbs", "weight_kg"],
+      unit: ["unit", "weight_unit", "load_unit"],
+      setNumber: ["set", "set_number", "set_index"],
+      duration: ["duration", "duration_seconds", "seconds"],
+      workout: ["workout", "workout_name", "session"]
+    };
+    const column = (names) => names.map((name) => headers.indexOf(name)).find((index) => index >= 0) ?? -1;
+    const indexes = Object.fromEntries(Object.entries(aliases).map(([key, names]) => [key, column(names)]));
+    if (indexes.occurredAt < 0 || indexes.exercise < 0) return { records: [], errors: ["Fitbod import requires Date and Exercise columns."] };
+    const errors = [], records = [];
+    rows.slice(1).forEach((cells, rowIndex) => {
+      const get = (key) => indexes[key] >= 0 ? text(cells[indexes[key]]) : "";
+      const occurredAt = normalizeTimestamp(get("occurredAt")), exerciseName = get("exercise");
+      if (!occurredAt || !exerciseName) { errors.push(`Row ${rowIndex + 2}: missing Date or Exercise.`); return; }
+      const repetitions = finite(get("repetitions")), load = finite(get("load")), durationSeconds = finite(get("duration"));
+      if ([repetitions, load, durationSeconds].some(Number.isNaN)) { errors.push(`Row ${rowIndex + 2}: invalid numeric value.`); return; }
+      const rawPayload = Object.fromEntries(headers.map((header, index) => [header || `column_${index + 1}`, text(cells[index])]));
+      const seed = `${occurredAt}|${exerciseName}|${get("setNumber")}|${get("repetitions")}|${get("load")}|${rowIndex}`;
+      records.push(normalizeImportedRecord({
+        id: stableId("fitbod_record", seed), userId: options.userId, connectedAccountId: options.connectedAccountId,
+        providerCode: "FITBOD", providerRecordId: stableId("fitbod", seed), providerRecordType: "STRENGTH",
+        dataType: "EXERCISE_SET", occurredAt, timezone: get("timezone") || options.timezone || "UTC",
+        normalizedPayload: { exercise_code: fitbodHeader(exerciseName), exercise_name: exerciseName, sets: 1,
+          repetitions, load, load_unit: get("unit") || (headers[indexes.load] === "weight_kg" ? "kg" : "lb"),
+          set_number: finite(get("setNumber")), duration_seconds: durationSeconds, workout_name: get("workout") },
+        rawPayload, sourceSyncJobId: options.sourceSyncJobId, isDemo: false
+      }, options));
+    });
+    return { records, errors };
+  }
 
   return Object.freeze({
     PERMISSIONS, CONNECTION_STATUSES, SYNC_TYPES, SYNC_STATUSES, DATA_TYPES, IMPORT_STATUSES, VALIDATION_STATUSES,
@@ -343,7 +403,8 @@
     normalizeSyncJob, validateSyncTransition, transitionSyncJob, createRetrySyncJob,
     normalizeImportedPayload, classifyImportedDataType, normalizeImportedRecord, validateImportedRecord,
     buildImportedRecordDeduplicationKey, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
-    summarizeSyncJob, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords, stableId, stableUuid, clone
+    summarizeSyncJob, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
+    parseFitbodWorkoutCsv, stableId, stableUuid, clone
   });
 });
 

@@ -202,7 +202,7 @@ const entries = [
 ];
 const filtered = filterPerformanceEntries(entries, { date: '2026-07-21', domain: 'running', activity: 'Easy Run', entryType: 'WORKOUT SUMMARY' });
 assert.equal(filtered.length, 1, 'filters work by date, domain, activity, and entry type');
-const summary = summarizeRecentPerformance(entries);
+const summary = summarizeRecentPerformance(entries, { referenceDate: '2026-07-22' });
 assert.equal(summary.entriesThisWeek, 3, 'recent summary uses only applicable entries');
 
 const editingEntry = normalizePerformanceEntry({ id: 'edit-1', createdAt: '2026-07-01T00:00:00.000Z', performanceDate: '2026-07-23', domain: 'STRENGTH', entryType: 'TRAINING SET', activityName: 'Bench Press', evidenceStatus: 'SELF REPORTED', metrics: { sets: 1, repetitions: 1, weight: 20 } });

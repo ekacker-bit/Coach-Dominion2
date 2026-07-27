@@ -384,6 +384,7 @@
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="milestones">MILESTONES</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="intelligence">INTELLIGENCE</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="programming">PROGRAMMING</button>
+          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="recovery">RECOVERY &amp; FUELING</button>
         </div>
 
         <div id="performance-view-overview" class="performance-view-panel">
@@ -516,6 +517,18 @@
           <div id="programming-review-panel"></div>
           <p id="programming-feedback" class="muted"></p>
         </div>
+        <div id="performance-view-recovery" class="performance-view-panel" hidden>
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 007B // RECOVERY &amp; FUELING ADJUSTMENTS</div>
+              <h3>Atlas Recovery &amp; Fueling Review</h3>
+              <p class="muted">Training load, nutrition coverage, readiness, pain, and bodyweight evidence combined into one recovery posture.</p>
+            </div>
+            <span id="recovery-status" class="state-pill neutral">LOADING</span>
+          </div>
+          <div id="recovery-review-panel"></div>
+          <p id="recovery-feedback" class="muted"></p>
+        </div>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">
@@ -583,6 +596,7 @@
 
 <script src="/assets/js/connected.js"></script>
 <script src="/assets/js/programming.js"></script>
+<script src="/assets/js/recovery.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

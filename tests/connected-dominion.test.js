@@ -1,6 +1,4 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const connected = require("../assets/js/connected.js");

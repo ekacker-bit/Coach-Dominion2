@@ -2,6 +2,14 @@
 
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
+## Unreleased — Build 005D: Performance Intelligence
+
+- Added a deterministic Performance Intelligence layer that derives comparable series, trajectory classifications, confidence states, plateau/regression watch signals, benchmark proximity, and PR-attempt readiness from existing performance history.
+- Added a new Performance INTELLIGENCE view with status strip, domain cards, watchlist, next benchmark panel, PR readiness panel, fitness-test event intelligence, Atlas intelligence brief, and explicit evidence-limitations output.
+- Added deterministic handling for insufficient data, local fallback, remote load failure, and estimated-only evidence states.
+- Added dependency-free regression coverage in [tests/performance-intelligence.test.js](tests/performance-intelligence.test.js) and UI/state coverage in [tests/performance-ux.test.js](tests/performance-ux.test.js).
+- This remains unreleased Build 005D work and does not mark Release 0.5.0 complete.
+
 ## Unreleased — Build 005A: Performance Logging Foundation
 
 - Added an unreleased Performance Logging section to the War Room with strength, running, core, conditioning, fitness-test, and body-metrics entry support.

@@ -23,6 +23,9 @@ let activeFitnessTestAttemptId = null;
 let personalRecords = [];
 let milestoneAchievements = [];
 let atlasPerformanceReviews = [];
+let performanceActiveView = "overview";
+let performanceIntelligenceFilters = { domain: "all", trajectory: "all", confidence: "all", evidenceStatus: "all" };
+let performanceLoadState = { remoteLoadFailed: false, authRequired: false, calculationUnavailable: false };
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -44,6 +47,25 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
+const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence"];
+const PERFORMANCE_TRAJECTORY_STATES = ["STRONGLY IMPROVING", "IMPROVING", "STABLE", "NOISY", "DECLINING", "STRONGLY DECLINING", "INSUFFICIENT DATA"];
+const PERFORMANCE_CONFIDENCE_STATES = ["HIGH", "MODERATE", "LOW", "INSUFFICIENT"];
+const PERFORMANCE_PLATEAU_STATES = ["NO PLATEAU", "POSSIBLE PLATEAU", "LIKELY PLATEAU", "INSUFFICIENT DATA"];
+const PERFORMANCE_REGRESSION_STATES = ["NO REGRESSION", "POSSIBLE REGRESSION", "LIKELY REGRESSION", "INSUFFICIENT DATA"];
+const PERFORMANCE_PR_READINESS_STATES = ["READY", "APPROACHING", "NOT READY", "INSUFFICIENT EVIDENCE", "ESTIMATED ONLY", "RECENT REGRESSION"];
+const PERFORMANCE_INTELLIGENCE_WINDOW_RULES = Object.freeze({
+  recentWindowSize: 3,
+  priorWindowSize: 3,
+  minimumTrendSeries: 3,
+  preferredConfidenceSeries: 6,
+  meaningfulChangePct: 1,
+  noisyBandPct: 6,
+  likelyPlateauBandPct: 2,
+  possiblePlateauBandPct: 3,
+  likelyRegressionPct: 3,
+  approachingPrGapPct: 5,
+  readyPrGapPct: 2
+});
 const FITNESS_TEST_PROTOCOL_CATALOG = [
   {
     code: "DOMINION_MONTHLY_FITNESS_TEST",
@@ -2750,11 +2772,16 @@ function hydratePerformanceEntry(row = {}) {
 
 function summarizeRecentPerformance(entries = []) {
   const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
-  const referenceDate = parseISODateUTC(todayISODate()) || new Date();
+  const latestEntryDate = normalizedEntries
+    .map((entry) => parseISODateUTC(entry.performanceDate))
+    .filter((date) => date instanceof Date)
+    .sort((a, b) => b.getTime() - a.getTime())[0] || null;
+  const referenceDate = latestEntryDate || parseISODateUTC(todayISODate()) || new Date();
   const weekStart = new Date(referenceDate);
   weekStart.setUTCDate(referenceDate.getUTCDate() - ((referenceDate.getUTCDay() + 6) % 7));
   const weekStartISO = formatISODateUTC(weekStart);
-  const currentWeek = normalizedEntries.filter((entry) => entry.performanceDate >= weekStartISO && entry.performanceDate <= todayISODate());
+  const referenceDateISO = formatISODateUTC(referenceDate);
+  const currentWeek = normalizedEntries.filter((entry) => entry.performanceDate >= weekStartISO && entry.performanceDate <= referenceDateISO);
   const strengthEntries = currentWeek.filter((entry) => entry.domain === "strength");
   const runEntries = currentWeek.filter((entry) => entry.domain === "running");
   const testEntries = currentWeek.filter((entry) => entry.entryType === "BENCHMARK" || entry.entryType === "FORMAL_TEST");
@@ -2800,6 +2827,897 @@ function derivePerformanceEmptyState(options = {}) {
     visible: true,
     message: options.message || "No performance entries yet.",
     storageState: options.storageState || "empty"
+  };
+}
+
+function normalizeIntelligenceEvidenceStatus(value = "") {
+  const normalized = String(value || "").trim().toUpperCase().replaceAll("_", " ");
+  if (normalized === "VERIFIED") return "VERIFIED";
+  if (normalized === "ESTIMATED") return "ESTIMATED";
+  if (normalized === "INCOMPLETE") return "INCOMPLETE";
+  if (normalized === "INVALIDATED") return "INVALIDATED";
+  return "SELF REPORTED";
+}
+
+function metricDirectionForCategory(metricCategory = "") {
+  if (metricCategory.includes("time")) return "lower";
+  return "higher";
+}
+
+function normalizePerformanceViewCode(view = "overview") {
+  const normalized = String(view || "").trim().toLowerCase();
+  return PERFORMANCE_VIEW_CODES.includes(normalized) ? normalized : "overview";
+}
+
+function parsePerformanceDateTimeToEpoch(date = "", time = "") {
+  const dateText = String(date || "").trim();
+  if (!dateText) return Number.POSITIVE_INFINITY;
+  const iso = time ? `${dateText}T${time}` : `${dateText}T00:00:00`;
+  const value = Date.parse(iso);
+  if (Number.isFinite(value)) return value;
+  const fallback = Date.parse(`${dateText}T00:00:00`);
+  return Number.isFinite(fallback) ? fallback : Number.POSITIVE_INFINITY;
+}
+
+function compareSeriesPoints(a = {}, b = {}) {
+  const aEpoch = parsePerformanceDateTimeToEpoch(a.date, a.time);
+  const bEpoch = parsePerformanceDateTimeToEpoch(b.date, b.time);
+  if (aEpoch !== bEpoch) return aEpoch - bEpoch;
+  const aCreated = Date.parse(a.createdAt || "");
+  const bCreated = Date.parse(b.createdAt || "");
+  if (Number.isFinite(aCreated) && Number.isFinite(bCreated) && aCreated !== bCreated) return aCreated - bCreated;
+  return Number(a.sourceIndex || 0) - Number(b.sourceIndex || 0);
+}
+
+function toFiniteNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatComparableDecimal(value) {
+  if (!Number.isFinite(Number(value))) return "unknown";
+  return Number(value).toString();
+}
+
+function buildStrengthVariantTag(entry = {}) {
+  const metrics = entry.metrics || {};
+  const assistance = sanitizePerformanceText(metrics.assistance || "", 40).toLowerCase().replace(/\s+/g, "_");
+  const bodyweightAdded = toFiniteNumber(metrics.bodyweight_added);
+  if (assistance) return assistance;
+  if (Number.isFinite(bodyweightAdded) && bodyweightAdded !== 0) return bodyweightAdded > 0 ? `weighted_${formatComparableDecimal(bodyweightAdded)}` : `assisted_${formatComparableDecimal(Math.abs(bodyweightAdded))}`;
+  return "standard";
+}
+
+function buildCoreConditioningProtocolTag(entry = {}) {
+  const metrics = entry.metrics || {};
+  const segments = [];
+  if (Number.isFinite(toFiniteNumber(metrics.distance))) {
+    segments.push(`distance_${formatComparableDecimal(toFiniteNumber(metrics.distance))}`);
+  }
+  if (Number.isFinite(toFiniteNumber(metrics.duration_seconds))) {
+    segments.push(`cap_${formatComparableDecimal(toFiniteNumber(metrics.duration_seconds))}`);
+  }
+  if (Number.isFinite(toFiniteNumber(metrics.work_interval_seconds))) {
+    segments.push(`work_${formatComparableDecimal(toFiniteNumber(metrics.work_interval_seconds))}`);
+  }
+  if (Number.isFinite(toFiniteNumber(metrics.rest_interval_seconds))) {
+    segments.push(`rest_${formatComparableDecimal(toFiniteNumber(metrics.rest_interval_seconds))}`);
+  }
+  return segments.length ? segments.join(":") : "default";
+}
+
+function isSeriesPointValid(point = {}) {
+  if (!Number.isFinite(Number(point.normalizedValue))) return false;
+  if (point.sourceStatusIndicator === "INVALIDATED" || point.sourceStatusIndicator === "INCOMPLETE") return false;
+  return point.validity !== false;
+}
+
+function pushComparablePoint(target = [], point = {}) {
+  if (!point || !point.comparisonKey) return;
+  target.push({
+    domain: point.domain,
+    activityCode: point.activityCode,
+    activityName: point.activityName,
+    metricCategory: point.metricCategory,
+    comparisonKey: point.comparisonKey,
+    direction: point.direction,
+    normalizedUnit: point.normalizedUnit,
+    date: point.date,
+    time: point.time || null,
+    normalizedValue: Number(point.normalizedValue),
+    sourceEntryId: point.sourceEntryId || null,
+    sourceTestAttemptId: point.sourceTestAttemptId || null,
+    evidenceStatus: point.evidenceStatus,
+    recordStatus: point.recordStatus || null,
+    estimatedOnly: Boolean(point.estimatedOnly),
+    verified: Boolean(point.verified),
+    validity: point.validity !== false,
+    sourceStatusIndicator: point.sourceStatusIndicator || "VALID",
+    createdAt: point.createdAt || null,
+    sourceIndex: Number(point.sourceIndex || 0)
+  });
+}
+
+function buildComparablePointsFromPerformanceEntry(entry = {}, sourceIndex = 0) {
+  const points = [];
+  const normalized = normalizePerformanceEntry(entry);
+  const metrics = normalized.metrics || {};
+  const evidenceStatus = normalizeIntelligenceEvidenceStatus(normalized.evidenceStatus);
+  const sourceStatusIndicator = evidenceStatus === "INCOMPLETE" ? "INCOMPLETE" : "VALID";
+  const base = {
+    domain: normalized.domain,
+    activityCode: normalized.activityCode || "custom",
+    activityName: normalized.activityName || "Activity",
+    date: normalized.performanceDate,
+    time: normalized.performanceTime,
+    sourceEntryId: normalized.id,
+    sourceTestAttemptId: null,
+    evidenceStatus,
+    sourceStatusIndicator,
+    estimatedOnly: evidenceStatus === "ESTIMATED",
+    verified: evidenceStatus === "VERIFIED",
+    validity: sourceStatusIndicator === "VALID",
+    createdAt: normalized.createdAt,
+    sourceIndex
+  };
+
+  if (normalized.domain === "strength") {
+    const variantTag = buildStrengthVariantTag(normalized);
+    const unit = String(metrics.weight_unit || "lb").toLowerCase();
+    const weight = toFiniteNumber(metrics.weight);
+    const repetitions = toFiniteNumber(metrics.repetitions);
+    const sets = toFiniteNumber(metrics.sets);
+    if (Number.isFinite(weight) && weight > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_load", comparisonKey: `strength:${base.activityCode}:load:${variantTag}:${unit}`, direction: "higher", normalizedUnit: unit, normalizedValue: weight });
+    }
+    if (Number.isFinite(weight) && weight > 0 && Number.isFinite(repetitions) && repetitions > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_repetitions_at_load", comparisonKey: `strength:${base.activityCode}:repetitions_at_load:${variantTag}:${unit}:${formatComparableDecimal(weight)}`, direction: "higher", normalizedUnit: "repetitions", normalizedValue: repetitions });
+      const estimated = estimateOneRepMax(normalized);
+      if (estimated && Number.isFinite(toFiniteNumber(estimated.value))) {
+        pushComparablePoint(points, { ...base, metricCategory: "strength_estimated_1rm", comparisonKey: `strength:${base.activityCode}:estimated_1rm:${variantTag}:${unit}`, direction: "higher", normalizedUnit: unit, normalizedValue: Number(estimated.value), estimatedOnly: true, verified: false });
+      }
+    }
+    if (Number.isFinite(weight) && weight > 0 && Number.isFinite(repetitions) && repetitions > 0 && Number.isFinite(sets) && sets > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_volume", comparisonKey: `strength:${base.activityCode}:volume:${variantTag}:${unit}`, direction: "higher", normalizedUnit: `${unit}_reps`, normalizedValue: sets * repetitions * weight });
+    }
+    const verifiedOneRepMax = toFiniteNumber(metrics.verified_1rm ?? metrics.verified_one_rep_max ?? metrics.verifiedOneRepMax);
+    if (Number.isFinite(verifiedOneRepMax) && verifiedOneRepMax > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_verified_1rm", comparisonKey: `strength:${base.activityCode}:verified_1rm:${variantTag}:${unit}`, direction: "higher", normalizedUnit: unit, normalizedValue: verifiedOneRepMax, estimatedOnly: false, verified: evidenceStatus === "VERIFIED" });
+    }
+  }
+
+  if (normalized.domain === "running") {
+    const distance = toFiniteNumber(metrics.distance);
+    const durationSeconds = toFiniteNumber(metrics.duration_seconds);
+    if (Number.isFinite(distance) && distance > 0 && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      const distanceKey = normalizeRunningDistanceCategory(distance, metrics.distance_unit || "mi");
+      pushComparablePoint(points, { ...base, metricCategory: "running_time", comparisonKey: `running:${distanceKey}:time`, direction: "lower", normalizedUnit: "seconds", normalizedValue: durationSeconds });
+    }
+  }
+
+  if (normalized.domain === "core" || normalized.domain === "conditioning") {
+    const protocolTag = buildCoreConditioningProtocolTag(normalized);
+    const repetitions = toFiniteNumber(metrics.repetitions);
+    const durationSeconds = toFiniteNumber(metrics.duration_seconds);
+    const distance = toFiniteNumber(metrics.distance);
+    const calories = toFiniteNumber(metrics.calories);
+    const rounds = toFiniteNumber(metrics.rounds);
+    if (Number.isFinite(repetitions) && repetitions > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_repetitions`, comparisonKey: `${normalized.domain}:${base.activityCode}:repetitions:${protocolTag}`, direction: "higher", normalizedUnit: "repetitions", normalizedValue: repetitions });
+    }
+    if (Number.isFinite(durationSeconds) && durationSeconds > 0 && !Number.isFinite(repetitions)) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_duration`, comparisonKey: `${normalized.domain}:${base.activityCode}:duration:${protocolTag}`, direction: "higher", normalizedUnit: "seconds", normalizedValue: durationSeconds });
+    }
+    if (Number.isFinite(distance) && distance > 0 && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_time_at_distance`, comparisonKey: `${normalized.domain}:${base.activityCode}:time_at_distance:${protocolTag}`, direction: "lower", normalizedUnit: "seconds", normalizedValue: durationSeconds });
+    }
+    if (Number.isFinite(calories) && calories > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_calories`, comparisonKey: `${normalized.domain}:${base.activityCode}:calories:${protocolTag}`, direction: "higher", normalizedUnit: "calories", normalizedValue: calories });
+    }
+    if (Number.isFinite(rounds) && rounds > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_rounds`, comparisonKey: `${normalized.domain}:${base.activityCode}:rounds:${protocolTag}`, direction: "higher", normalizedUnit: "rounds", normalizedValue: rounds });
+    }
+  }
+
+  return points;
+}
+
+function buildComparablePerformanceSeries(entries = []) {
+  const flatPoints = [];
+  (entries || []).forEach((entry, sourceIndex) => {
+    const points = buildComparablePointsFromPerformanceEntry(entry, sourceIndex);
+    points.forEach((point) => flatPoints.push(point));
+  });
+
+  const grouped = new Map();
+  flatPoints.forEach((point) => {
+    if (!grouped.has(point.comparisonKey)) grouped.set(point.comparisonKey, []);
+    grouped.get(point.comparisonKey).push(point);
+  });
+
+  const series = Array.from(grouped.values()).map((items) => {
+    const sortedItems = [...items].sort(compareSeriesPoints);
+    const validItems = sortedItems.filter((item) => isSeriesPointValid(item));
+    const first = sortedItems[0] || {};
+    return {
+      domain: first.domain || null,
+      activityCode: first.activityCode || null,
+      activityName: first.activityName || null,
+      metricCategory: first.metricCategory || null,
+      comparisonKey: first.comparisonKey || null,
+      direction: first.direction || metricDirectionForCategory(first.metricCategory || ""),
+      normalizedUnit: first.normalizedUnit || "value",
+      points: sortedItems,
+      validPoints: validItems,
+      validCount: validItems.length,
+      evidenceStatuses: Array.from(new Set(sortedItems.map((item) => item.evidenceStatus)))
+    };
+  }).sort((a, b) => String(a.comparisonKey || "").localeCompare(String(b.comparisonKey || "")));
+
+  return {
+    series,
+    seriesByKey: Object.fromEntries(series.map((item) => [item.comparisonKey, item])),
+    pointCount: flatPoints.length,
+    validPointCount: flatPoints.filter((item) => isSeriesPointValid(item)).length
+  };
+}
+
+function average(values = []) {
+  const valid = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value));
+  if (!valid.length) return null;
+  return valid.reduce((sum, value) => sum + value, 0) / valid.length;
+}
+
+function median(values = []) {
+  const valid = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value)).sort((a, b) => a - b);
+  if (!valid.length) return null;
+  const midpoint = Math.floor(valid.length / 2);
+  if (valid.length % 2) return valid[midpoint];
+  return (valid[midpoint - 1] + valid[midpoint]) / 2;
+}
+
+function standardDeviation(values = []) {
+  const mean = average(values);
+  if (!Number.isFinite(mean)) return null;
+  const variance = average(values.map((value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? (numeric - mean) ** 2 : null;
+  }));
+  return Number.isFinite(variance) ? Math.sqrt(variance) : null;
+}
+
+function calculateDirectionAwareChange(currentValue = null, previousValue = null, direction = "higher") {
+  const current = toFiniteNumber(currentValue);
+  const previous = toFiniteNumber(previousValue);
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+  return direction === "lower" ? previous - current : current - previous;
+}
+
+function calculateDirectionAwarePercentChange(currentValue = null, previousValue = null, direction = "higher") {
+  const current = toFiniteNumber(currentValue);
+  const previous = toFiniteNumber(previousValue);
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) return null;
+  const delta = calculateDirectionAwareChange(current, previous, direction);
+  if (!Number.isFinite(delta)) return null;
+  return (delta / Math.abs(previous)) * 100;
+}
+
+function detectPerformanceNoise(points = [], direction = "higher") {
+  const validPoints = (points || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < 4) return false;
+  const deltas = [];
+  for (let index = 1; index < validPoints.length; index += 1) {
+    const delta = calculateDirectionAwarePercentChange(validPoints[index].normalizedValue, validPoints[index - 1].normalizedValue, direction);
+    if (Number.isFinite(delta)) deltas.push(delta);
+  }
+  if (deltas.length < 3) return false;
+  const signFlips = deltas.slice(1).reduce((count, value, index) => {
+    const prior = deltas[index];
+    if (prior === 0 || value === 0) return count;
+    return Math.sign(prior) !== Math.sign(value) ? count + 1 : count;
+  }, 0);
+  const absoluteDeltas = deltas.map((value) => Math.abs(value));
+  const variability = standardDeviation(absoluteDeltas);
+  const band = Math.max(...absoluteDeltas) - Math.min(...absoluteDeltas);
+  return signFlips >= 2 && Number.isFinite(variability) && variability >= 1 && band >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.noisyBandPct;
+}
+
+function classifyPerformanceTrajectory(trend = {}) {
+  if (!trend || trend.validCount < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) return "INSUFFICIENT DATA";
+  if (trend.noisy) return "NOISY";
+  const pct = Number(trend.recentNetPercent || 0);
+  const absPct = Math.abs(pct);
+  if (absPct < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.meaningfulChangePct) return "STABLE";
+  if (pct >= 3) return "STRONGLY IMPROVING";
+  if (pct >= 1) return "IMPROVING";
+  if (pct <= -3) return "STRONGLY DECLINING";
+  return "DECLINING";
+}
+
+function calculateTrendConfidence(series = {}, trajectory = "INSUFFICIENT DATA") {
+  const points = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (points.length < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) return "INSUFFICIENT";
+  const estimatedOnly = points.every((point) => point.evidenceStatus === "ESTIMATED");
+  if (estimatedOnly) return "LOW";
+  const verifiedCount = points.filter((point) => point.evidenceStatus === "VERIFIED").length;
+  const verifiedShare = verifiedCount / points.length;
+  const latestEpoch = parsePerformanceDateTimeToEpoch(points[points.length - 1]?.date, points[points.length - 1]?.time);
+  const daysOld = Number.isFinite(latestEpoch) ? Math.floor((Date.now() - latestEpoch) / 86400000) : 365;
+  let score = 0;
+  if (points.length >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.preferredConfidenceSeries) score += 2;
+  else if (points.length >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) score += 1;
+  if (verifiedShare >= 0.6) score += 1;
+  if (daysOld <= 45) score += 1;
+  if (trajectory === "IMPROVING" || trajectory === "STRONGLY IMPROVING" || trajectory === "STABLE") score += 1;
+  if (score >= 4) return "HIGH";
+  if (score >= 3) return "MODERATE";
+  return "LOW";
+}
+
+function calculateSeriesTrend(series = {}) {
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  const direction = series.direction || "higher";
+  const validCount = validPoints.length;
+  if (validCount < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) {
+    return {
+      validCount,
+      direction,
+      recentNetChange: null,
+      recentNetPercent: null,
+      priorNetPercent: null,
+      consistency: 0,
+      noisy: false,
+      trajectory: "INSUFFICIENT DATA",
+      confidence: "INSUFFICIENT"
+    };
+  }
+  const recentWindow = validPoints.slice(-PERFORMANCE_INTELLIGENCE_WINDOW_RULES.recentWindowSize);
+  const priorWindow = validPoints.slice(-(PERFORMANCE_INTELLIGENCE_WINDOW_RULES.recentWindowSize + PERFORMANCE_INTELLIGENCE_WINDOW_RULES.priorWindowSize), -PERFORMANCE_INTELLIGENCE_WINDOW_RULES.recentWindowSize);
+  const deltas = [];
+  for (let index = 1; index < recentWindow.length; index += 1) {
+    const delta = calculateDirectionAwareChange(recentWindow[index].normalizedValue, recentWindow[index - 1].normalizedValue, direction);
+    if (Number.isFinite(delta)) deltas.push(delta);
+  }
+  const positiveMoves = deltas.filter((value) => value > 0).length;
+  const consistency = deltas.length ? positiveMoves / deltas.length : 0;
+  const recentNetChange = calculateDirectionAwareChange(recentWindow[recentWindow.length - 1].normalizedValue, recentWindow[0].normalizedValue, direction);
+  const recentNetPercent = calculateDirectionAwarePercentChange(recentWindow[recentWindow.length - 1].normalizedValue, recentWindow[0].normalizedValue, direction);
+  const priorNetPercent = priorWindow.length >= 2
+    ? calculateDirectionAwarePercentChange(priorWindow[priorWindow.length - 1].normalizedValue, priorWindow[0].normalizedValue, direction)
+    : null;
+  const noisy = detectPerformanceNoise(recentWindow, direction) || detectPerformanceNoise(validPoints, direction);
+  const trajectory = classifyPerformanceTrajectory({ validCount, noisy, recentNetPercent, consistency });
+  const confidence = calculateTrendConfidence(series, trajectory);
+  return {
+    validCount,
+    direction,
+    recentNetChange,
+    recentNetPercent,
+    priorNetPercent,
+    consistency,
+    noisy,
+    trajectory,
+    confidence
+  };
+}
+
+function detectPerformancePlateau(series = {}, trend = null) {
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < 4) return { state: "INSUFFICIENT DATA", reason: "Not enough comparable observations." };
+  const direction = series.direction || "higher";
+  const recent = validPoints.slice(-4).map((point) => Number(point.normalizedValue));
+  const recentMin = Math.min(...recent);
+  const recentMax = Math.max(...recent);
+  const mean = Math.abs(average(recent) || 0);
+  const bandPct = mean > 0 ? ((recentMax - recentMin) / mean) * 100 : 0;
+  const recentDeltaPct = calculateDirectionAwarePercentChange(recent[recent.length - 1], recent[0], direction) || 0;
+  const noMeaningfulImprovement = recentDeltaPct < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.meaningfulChangePct;
+  if (trend && trend.trajectory.includes("DECLINING")) return { state: "NO PLATEAU", reason: "Recent movement is declining rather than flat." };
+  if (bandPct >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.noisyBandPct) return { state: "NO PLATEAU", reason: "Variability is too high for a plateau call." };
+  if (bandPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.likelyPlateauBandPct && noMeaningfulImprovement && validPoints.length >= 6) {
+    return { state: "LIKELY PLATEAU", reason: "Comparable results are clustered with no meaningful improvement." };
+  }
+  if (bandPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.possiblePlateauBandPct && noMeaningfulImprovement) {
+    return { state: "POSSIBLE PLATEAU", reason: "Recent results are tight with limited improvement." };
+  }
+  return { state: "NO PLATEAU", reason: "Recent movement is still meaningful." };
+}
+
+function detectRecentRegression(series = {}, trend = null) {
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < 3) return { state: "INSUFFICIENT DATA", reason: "Not enough recent data." };
+  const direction = series.direction || "higher";
+  const recent = validPoints.slice(-3);
+  const deltasPct = [];
+  for (let index = 1; index < recent.length; index += 1) {
+    const pct = calculateDirectionAwarePercentChange(recent[index].normalizedValue, recent[index - 1].normalizedValue, direction);
+    if (Number.isFinite(pct)) deltasPct.push(pct);
+  }
+  const negative = deltasPct.filter((value) => value < -PERFORMANCE_INTELLIGENCE_WINDOW_RULES.meaningfulChangePct).length;
+  const extremeNegative = deltasPct.some((value) => value <= -PERFORMANCE_INTELLIGENCE_WINDOW_RULES.likelyRegressionPct);
+  if (negative >= 2) return { state: "LIKELY REGRESSION", reason: "Multiple recent comparable declines are present." };
+  if (negative === 1 && (extremeNegative || trend?.trajectory === "DECLINING" || trend?.trajectory === "STRONGLY DECLINING")) return { state: "POSSIBLE REGRESSION", reason: "A recent decline needs confirmation." };
+  return { state: "NO REGRESSION", reason: "No sustained recent decline was detected." };
+}
+
+function formatIntelligenceDelta(value = null, unit = "", direction = "higher") {
+  if (!Number.isFinite(Number(value))) return "No meaningful change";
+  const numeric = Number(value);
+  const sign = numeric > 0 ? "+" : "";
+  if (direction === "lower") {
+    return `${sign}${numeric.toFixed(2)} ${unit}`.trim();
+  }
+  return `${sign}${numeric.toFixed(2)} ${unit}`.trim();
+}
+
+function resolveRunningMilestoneDistanceKey(milestone = {}) {
+  const code = String(milestone.code || "").toUpperCase();
+  if (code.includes("5K")) return "5k";
+  if (code.includes("HALF")) return "half_marathon";
+  if (code.includes("MILE")) return "1mi";
+  return null;
+}
+
+function collectRecentBodyweightEvidence(entries = []) {
+  const candidates = (entries || []).map((entry, index) => ({ entry: normalizePerformanceEntry(entry), index })).filter(({ entry }) => entry.domain === "body_metrics" && entry.activityCode === "bodyweight" && Number.isFinite(toFiniteNumber(entry.metrics?.measurement_value)) && normalizeIntelligenceEvidenceStatus(entry.evidenceStatus) !== "INCOMPLETE");
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => compareSeriesPoints({ date: a.entry.performanceDate, time: a.entry.performanceTime, sourceIndex: a.index }, { date: b.entry.performanceDate, time: b.entry.performanceTime, sourceIndex: b.index }));
+  const latest = candidates[candidates.length - 1]?.entry;
+  return latest ? { value: Number(latest.metrics.measurement_value), unit: latest.metrics.measurement_unit || "kg", date: latest.performanceDate, evidenceStatus: latest.evidenceStatus } : null;
+}
+
+function calculateBenchmarkProximity(milestone = {}, entries = []) {
+  if (!milestone || !milestone.active) return { eligible: false, reason: "inactive milestone" };
+  if (milestone.domain === "body_metrics") return { eligible: false, reason: "body metrics are not benchmark trophies" };
+  if (milestone.evaluationType === "entry" || milestone.evaluationType === "test") return { eligible: false, reason: "count-based milestones are excluded from proximity ranking" };
+  const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
+  const filtered = normalizedEntries.filter((entry) => entry.domain === milestone.domain && normalizeIntelligenceEvidenceStatus(entry.evidenceStatus) !== "INCOMPLETE");
+  if (!filtered.length) return { eligible: false, reason: "no comparable entries" };
+
+  if (milestone.evaluationType === "ratio") {
+    const bodyweight = collectRecentBodyweightEvidence(normalizedEntries);
+    if (!bodyweight || !Number.isFinite(bodyweight.value) || bodyweight.value <= 0) return { eligible: false, reason: "missing bodyweight evidence" };
+    const matching = filtered.filter((entry) => (!milestone.requiredActivity || entry.activityCode === milestone.requiredActivity) && Number.isFinite(toFiniteNumber(entry.metrics?.weight)));
+    if (!matching.length) return { eligible: false, reason: "missing comparable load evidence" };
+    const bestLoad = Math.max(...matching.map((entry) => Number(entry.metrics.weight)));
+    const ratio = bestLoad / bodyweight.value;
+    const target = Number(milestone.targetValue);
+    return {
+      eligible: true,
+      milestoneCode: milestone.code,
+      title: milestone.title,
+      domain: milestone.domain,
+      direction: "higher",
+      target,
+      current: ratio,
+      gapAbsolute: target - ratio,
+      progressPct: target > 0 ? Math.min((ratio / target) * 100, 100) : null,
+      comparisonNote: `${bestLoad.toFixed(2)} / ${bodyweight.value.toFixed(2)} bodyweight`
+    };
+  }
+
+  let comparable = filtered;
+  if (milestone.requiredActivity) comparable = comparable.filter((entry) => entry.activityCode === milestone.requiredActivity);
+  if (milestone.domain === "running" && milestone.evaluationType === "time") {
+    const requiredDistance = resolveRunningMilestoneDistanceKey(milestone);
+    comparable = comparable.filter((entry) => normalizeRunningDistanceCategory(entry.metrics?.distance, entry.metrics?.distance_unit || "mi") === requiredDistance);
+  }
+  if (!comparable.length) return { eligible: false, reason: "no distance or protocol-compatible evidence" };
+
+  const values = comparable.map((entry) => {
+    if (milestone.evaluationType === "time") return toFiniteNumber(entry.metrics?.duration_seconds);
+    if (milestone.evaluationType === "duration") return toFiniteNumber(entry.metrics?.duration_seconds);
+    if (milestone.evaluationType === "repetitions") return toFiniteNumber(entry.metrics?.repetitions);
+    return null;
+  }).filter((value) => Number.isFinite(value));
+  if (!values.length) return { eligible: false, reason: "no numeric comparable metric" };
+  const direction = milestone.direction === "lower" ? "lower" : "higher";
+  const current = direction === "lower" ? Math.min(...values) : Math.max(...values);
+  const target = Number(milestone.targetValue);
+  const gapAbsolute = direction === "lower" ? current - target : target - current;
+  return {
+    eligible: true,
+    milestoneCode: milestone.code,
+    title: milestone.title,
+    domain: milestone.domain,
+    direction,
+    target,
+    current,
+    gapAbsolute,
+    progressPct: direction === "higher" && target > 0 ? Math.min((current / target) * 100, 100) : null,
+    comparisonNote: milestone.commandNote
+  };
+}
+
+function rankEligibleBenchmarks(entries = []) {
+  return getMilestoneCatalog()
+    .map((milestone) => calculateBenchmarkProximity(milestone, entries))
+    .filter((item) => item.eligible)
+    .sort((a, b) => {
+      const aGap = Math.abs(Number(a.gapAbsolute));
+      const bGap = Math.abs(Number(b.gapAbsolute));
+      if (aGap !== bGap) return aGap - bGap;
+      return String(a.milestoneCode || "").localeCompare(String(b.milestoneCode || ""));
+    });
+}
+
+function buildNextBenchmarkRecommendation(entries = []) {
+  const ranked = rankEligibleBenchmarks(entries);
+  if (!ranked.length) {
+    return { status: "NO ELIGIBLE BENCHMARK", benchmark: null, rationale: "No benchmark has sufficient comparable evidence yet." };
+  }
+  return { status: "BENCHMARK AVAILABLE", benchmark: ranked[0], rationale: "Closest benchmark selected from eligible evidence." };
+}
+
+function mapMetricCategoryToRecordCategory(metricCategory = "") {
+  if (metricCategory === "strength_load") return "LOAD_PR";
+  if (metricCategory === "strength_repetitions_at_load") return "REP_PR";
+  if (metricCategory === "strength_volume") return "VOLUME_PR";
+  if (metricCategory === "strength_estimated_1rm") return "ESTIMATED_1RM_PR";
+  if (metricCategory === "strength_verified_1rm") return "VERIFIED_1RM_PR";
+  if (metricCategory === "running_time") return "TIME_PR";
+  return "CONDITIONING_PR";
+}
+
+function evaluatePrAttemptReadiness(series = {}, personalRecord = null) {
+  const trend = calculateSeriesTrend(series);
+  const regression = detectRecentRegression(series, trend);
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) {
+    return { status: "INSUFFICIENT EVIDENCE", reason: "At least three comparable results are required.", gapPct: null, trend, regression };
+  }
+  const estimatedOnly = validPoints.every((point) => point.evidenceStatus === "ESTIMATED");
+  if (estimatedOnly || series.metricCategory === "strength_estimated_1rm") {
+    return { status: "ESTIMATED ONLY", reason: "Evidence is estimated and cannot confirm a verified PR attempt.", gapPct: null, trend, regression };
+  }
+  if (regression.state === "LIKELY REGRESSION") {
+    return { status: "RECENT REGRESSION", reason: regression.reason, gapPct: null, trend, regression };
+  }
+  const direction = series.direction || "higher";
+  const currentBest = direction === "lower"
+    ? Math.min(...validPoints.map((point) => Number(point.normalizedValue)))
+    : Math.max(...validPoints.map((point) => Number(point.normalizedValue)));
+  const referencePr = personalRecord && Number.isFinite(toFiniteNumber(personalRecord.normalizedValue))
+    ? Number(personalRecord.normalizedValue)
+    : currentBest;
+  const gapPct = referencePr !== 0
+    ? (direction === "lower" ? ((currentBest - referencePr) / Math.abs(referencePr)) * 100 : ((referencePr - currentBest) / Math.abs(referencePr)) * 100)
+    : null;
+  const trendAcceptable = trend.trajectory === "IMPROVING" || trend.trajectory === "STRONGLY IMPROVING" || trend.trajectory === "STABLE";
+  if (trendAcceptable && Number.isFinite(gapPct) && gapPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.readyPrGapPct) {
+    return { status: "READY", reason: "Recent best is close to current PR with acceptable trend evidence.", gapPct, trend, regression };
+  }
+  if (trendAcceptable && Number.isFinite(gapPct) && gapPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.approachingPrGapPct) {
+    return { status: "APPROACHING", reason: "Performance is close but not yet at ready threshold.", gapPct, trend, regression };
+  }
+  return { status: "NOT READY", reason: "Comparable evidence does not currently support a PR attempt.", gapPct, trend, regression };
+}
+
+function buildFitnessTestIntelligence(attempts = []) {
+  const normalizedAttempts = (attempts || []).map((attempt, sourceIndex) => ({ attempt: normalizeFitnessTestAttempt(attempt), sourceIndex }));
+  const completeAttempts = normalizedAttempts.filter(({ attempt }) => attempt.status === "COMPLETE" && normalizeIntelligenceEvidenceStatus(attempt.evidenceStatus) !== "INVALIDATED");
+  if (!completeAttempts.length) {
+    return {
+      status: "INSUFFICIENT DATA",
+      improvedEventCount: 0,
+      unchangedEventCount: 0,
+      declinedEventCount: 0,
+      missingEventCount: 0,
+      eventIntelligence: [],
+      consecutiveCompletedAttempts: 0,
+      evidenceLimitations: ["No completed compatible fitness-test attempts are available."]
+    };
+  }
+  const protocolCatalog = getFitnessTestProtocolCatalog();
+  const eventSeries = new Map();
+  completeAttempts.sort((a, b) => compareSeriesPoints({ date: a.attempt.testDate, sourceIndex: a.sourceIndex }, { date: b.attempt.testDate, sourceIndex: b.sourceIndex }));
+  completeAttempts.forEach(({ attempt, sourceIndex }) => {
+    const protocol = protocolCatalog.find((item) => item.code === attempt.protocolCode) || protocolCatalog[0];
+    const protocolKey = `${attempt.protocolCode}:${attempt.protocolVersion || protocol.version || "1.0"}`;
+    (protocol.orderedEvents || []).forEach((eventDef) => {
+      const eventResult = (attempt.eventResults || []).find((item) => item.eventCode === eventDef.code);
+      const key = `${protocolKey}:${eventDef.code}`;
+      if (!eventSeries.has(key)) {
+        eventSeries.set(key, {
+          key,
+          protocolCode: attempt.protocolCode,
+          protocolVersion: attempt.protocolVersion || protocol.version || "1.0",
+          eventCode: eventDef.code,
+          eventName: eventDef.name,
+          direction: eventDef.direction || "higher",
+          required: Boolean(eventDef.required),
+          unit: eventDef.unit || "value",
+          points: []
+        });
+      }
+      const target = eventSeries.get(key);
+      target.points.push({
+        date: attempt.testDate,
+        time: null,
+        sourceIndex,
+        normalizedValue: Number.isFinite(toFiniteNumber(eventResult?.rawValue)) ? Number(eventResult.rawValue) : null,
+        evidenceStatus: normalizeIntelligenceEvidenceStatus(eventResult?.evidenceStatus || attempt.evidenceStatus),
+        validity: Number.isFinite(toFiniteNumber(eventResult?.rawValue)),
+        sourceStatusIndicator: normalizeIntelligenceEvidenceStatus(attempt.evidenceStatus) === "INCOMPLETE" ? "INCOMPLETE" : "VALID"
+      });
+    });
+  });
+  const eventIntelligence = Array.from(eventSeries.values()).map((item) => {
+    const series = {
+      domain: "fitness_test",
+      activityCode: item.eventCode,
+      activityName: item.eventName,
+      metricCategory: "fitness_test_event",
+      comparisonKey: item.key,
+      direction: item.direction,
+      normalizedUnit: item.unit,
+      points: [...item.points].sort(compareSeriesPoints),
+      validPoints: item.points.filter((point) => point.validity && Number.isFinite(toFiniteNumber(point.normalizedValue))),
+      validCount: item.points.filter((point) => point.validity && Number.isFinite(toFiniteNumber(point.normalizedValue))).length
+    };
+    const trend = calculateSeriesTrend(series);
+    return {
+      ...item,
+      series,
+      trajectory: trend.trajectory,
+      confidence: trend.confidence,
+      supportingResultCount: series.validCount
+    };
+  });
+  const improvedEventCount = eventIntelligence.filter((event) => event.trajectory === "IMPROVING" || event.trajectory === "STRONGLY IMPROVING").length;
+  const unchangedEventCount = eventIntelligence.filter((event) => event.trajectory === "STABLE").length;
+  const declinedEventCount = eventIntelligence.filter((event) => event.trajectory === "DECLINING" || event.trajectory === "STRONGLY DECLINING").length;
+  const missingEventCount = eventIntelligence.filter((event) => event.series.validCount === 0 && event.required).length;
+  return {
+    status: completeAttempts.length >= 2 ? "READY" : "INSUFFICIENT DATA",
+    improvedEventCount,
+    unchangedEventCount,
+    declinedEventCount,
+    missingEventCount,
+    eventIntelligence,
+    consecutiveCompletedAttempts: completeAttempts.length,
+    evidenceLimitations: completeAttempts.length >= 2 ? [] : ["At least two complete attempts are needed for event progression."]
+  };
+}
+
+function trajectoryScore(state = "INSUFFICIENT DATA") {
+  if (state === "STRONGLY IMPROVING") return 3;
+  if (state === "IMPROVING") return 2;
+  if (state === "STABLE") return 1;
+  if (state === "NOISY") return 0;
+  if (state === "DECLINING") return -2;
+  if (state === "STRONGLY DECLINING") return -3;
+  return -1;
+}
+
+function buildDomainPerformanceIntelligence(domain = "strength", metricIntelligence = [], benchmarkRecommendation = null, prCandidates = []) {
+  const rows = (metricIntelligence || []).filter((item) => item.series?.domain === domain);
+  const trajectoryCounts = {
+    improving: rows.filter((row) => row.trajectory === "IMPROVING" || row.trajectory === "STRONGLY IMPROVING").length,
+    stable: rows.filter((row) => row.trajectory === "STABLE").length,
+    noisy: rows.filter((row) => row.trajectory === "NOISY").length,
+    declining: rows.filter((row) => row.trajectory === "DECLINING" || row.trajectory === "STRONGLY DECLINING").length,
+    insufficient: rows.filter((row) => row.trajectory === "INSUFFICIENT DATA").length
+  };
+  const ranked = [...rows].sort((a, b) => {
+    const scoreDiff = trajectoryScore(b.trajectory) - trajectoryScore(a.trajectory);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.series?.comparisonKey || "").localeCompare(String(b.series?.comparisonKey || ""));
+  });
+  const strongest = ranked[0] || null;
+  const weakest = ranked[ranked.length - 1] || null;
+  const plateaus = rows.filter((row) => row.plateau.state === "POSSIBLE PLATEAU" || row.plateau.state === "LIKELY PLATEAU").length;
+  const regressions = rows.filter((row) => row.regression.state === "LIKELY REGRESSION").length;
+  let trajectory = "INSUFFICIENT DATA";
+  if (rows.length) {
+    const weighted = average(rows.map((row) => trajectoryScore(row.trajectory))) || 0;
+    trajectory = weighted >= 2 ? "STRONGLY IMPROVING" : weighted >= 1 ? "IMPROVING" : weighted <= -2 ? "STRONGLY DECLINING" : weighted <= -1 ? "DECLINING" : trajectoryCounts.noisy > trajectoryCounts.stable ? "NOISY" : "STABLE";
+  }
+  let recommendedFocusCode = "ADD_COMPARABLE_EVIDENCE";
+  let recommendedFocusText = "Add comparable evidence";
+  if (!rows.length || trajectoryCounts.insufficient === rows.length) {
+    recommendedFocusCode = "ADD_COMPARABLE_EVIDENCE";
+    recommendedFocusText = "No action until more data exists";
+  } else if (regressions > 0 || trajectory.includes("DECLINING")) {
+    recommendedFocusCode = "REVIEW_RECENT_DECLINE";
+    recommendedFocusText = "Review recent decline";
+  } else if (plateaus > 0) {
+    recommendedFocusCode = "RETEST_BENCHMARK";
+    recommendedFocusText = "Retest benchmark";
+  } else if (trajectory === "IMPROVING" || trajectory === "STRONGLY IMPROVING") {
+    recommendedFocusCode = "CONTINUE_PROGRESSION";
+    recommendedFocusText = "Continue progression";
+  } else if (trajectory === "STABLE") {
+    recommendedFocusCode = "MAINTAIN_CURRENT_LEVEL";
+    recommendedFocusText = "Maintain current level";
+  } else {
+    recommendedFocusCode = "REESTABLISH_CONSISTENCY";
+    recommendedFocusText = "Re-establish consistency";
+  }
+  const confidence = rows.length ? (rows.some((row) => row.confidence === "HIGH") ? "HIGH" : rows.some((row) => row.confidence === "MODERATE") ? "MODERATE" : rows.some((row) => row.confidence === "LOW") ? "LOW" : "INSUFFICIENT") : "INSUFFICIENT";
+  return {
+    domain,
+    trajectory,
+    confidence,
+    strongestSeries: strongest,
+    weakestSeries: weakest,
+    improvingCount: trajectoryCounts.improving,
+    stableCount: trajectoryCounts.stable,
+    noisyCount: trajectoryCounts.noisy,
+    decliningCount: trajectoryCounts.declining,
+    insufficientCount: trajectoryCounts.insufficient,
+    plateauCount: plateaus,
+    likelyRegressionCount: regressions,
+    closestBenchmark: benchmarkRecommendation?.benchmark?.domain === domain ? benchmarkRecommendation.benchmark : null,
+    prReadinessCandidate: (prCandidates || []).find((item) => item.series?.domain === domain) || null,
+    evidenceLimitations: rows.filter((row) => row.trajectory === "INSUFFICIENT DATA").map((row) => `${row.series.activityName} lacks sufficient comparable evidence.`),
+    recommendedFocusCode,
+    recommendedFocusText
+  };
+}
+
+function buildAtlasPerformanceIntelligence(input = {}) {
+  const overall = input.overall || {};
+  const strongestDomain = input.strongestDomain || "None";
+  const weakestDomain = input.weakestDomain || "None";
+  const plateaus = Number(input.plateaus || 0);
+  const regressions = Number(input.regressions || 0);
+  const nextBenchmark = input.nextBenchmark?.benchmark ? input.nextBenchmark.benchmark.title : "No eligible benchmark";
+  const readiness = input.prReadiness?.length ? input.prReadiness[0].status : "INSUFFICIENT EVIDENCE";
+  const limitations = (input.evidenceLimitations || []).length ? input.evidenceLimitations.join("; ") : "None";
+  const recommendedFocus = input.recommendedFocus || "No action until more data exists";
+  const commandNote = regressions > 0
+    ? "Recent regression signals are present. Re-establish consistency before escalating targets."
+    : plateaus > 0
+      ? "Progress has narrowed into a plateau band. A formal retest is appropriate."
+      : overall.trajectory === "INSUFFICIENT DATA"
+        ? "Evidence is insufficient for a confirmed readiness call."
+        : "Performance progression is intact. Preserve current execution quality.";
+  const lines = [
+    "ATLAS // PERFORMANCE INTELLIGENCE",
+    "",
+    `STATUS: ${overall.status || "ANALYSIS READY"}`,
+    `OVERALL TRAJECTORY: ${overall.trajectory || "INSUFFICIENT DATA"}`,
+    `STRONGEST DOMAIN: ${strongestDomain}`,
+    `WEAKEST DOMAIN: ${weakestDomain}`,
+    `PLATEAUS: ${plateaus}`,
+    `REGRESSIONS: ${regressions}`,
+    `NEXT BENCHMARK: ${nextBenchmark}`,
+    `PR READINESS: ${readiness}`,
+    `EVIDENCE LIMITATIONS: ${limitations}`,
+    `RECOMMENDED FOCUS: ${recommendedFocus}`,
+    `COMMAND NOTE: ${commandNote}`
+  ];
+  return {
+    status: overall.status || "ANALYSIS READY",
+    commandNote,
+    text: lines.join("\n")
+  };
+}
+
+function derivePerformanceIntelligenceViewState(input = {}) {
+  if (input.authRequired) return { state: "authentication_required", label: "AUTHENTICATION REQUIRED", tone: "red" };
+  if (input.remoteLoadFailed && !input.hasHistory) return { state: "remote_load_failed", label: "REMOTE LOAD FAILED", tone: "red" };
+  if (input.localFallbackActive) return { state: "local_fallback_active", label: "LOCAL FALLBACK ACTIVE", tone: "yellow" };
+  if (!input.hasHistory) return { state: "no_history", label: "NO PERFORMANCE HISTORY", tone: "neutral" };
+  if (input.hasHistory && !input.hasComparableHistory) return { state: "insufficient_comparable_history", label: "INSUFFICIENT COMPARABLE HISTORY", tone: "yellow" };
+  if (input.calculationUnavailable) return { state: "calculation_unavailable", label: "CALCULATION UNAVAILABLE", tone: "red" };
+  return { state: "ready", label: "INTELLIGENCE READY", tone: "green" };
+}
+
+function buildPerformanceIntelligenceOverview(entries = [], attempts = [], records = [], milestones = [], options = {}) {
+  const comparable = buildComparablePerformanceSeries(entries);
+  const metricIntelligence = comparable.series.map((series) => {
+    const trend = calculateSeriesTrend(series);
+    const plateau = detectPerformancePlateau(series, trend);
+    const regression = detectRecentRegression(series, trend);
+    const recordCategory = mapMetricCategoryToRecordCategory(series.metricCategory);
+    const personalRecord = findCurrentPersonalRecord(records, recordCategory, series.comparisonKey, {
+      domain: series.domain,
+      activityCode: series.activityCode,
+      activityName: series.activityName,
+      metrics: {}
+    });
+    const prReadiness = evaluatePrAttemptReadiness(series, personalRecord);
+    return {
+      series,
+      trend,
+      trajectory: trend.trajectory,
+      confidence: trend.confidence,
+      plateau,
+      regression,
+      personalRecord,
+      prReadiness,
+      latestMeaningfulChange: formatIntelligenceDelta(trend.recentNetChange, series.normalizedUnit, series.direction)
+    };
+  });
+  const trajectoryCounts = {
+    improving: metricIntelligence.filter((item) => item.trajectory === "IMPROVING" || item.trajectory === "STRONGLY IMPROVING").length,
+    stable: metricIntelligence.filter((item) => item.trajectory === "STABLE").length,
+    noisy: metricIntelligence.filter((item) => item.trajectory === "NOISY").length,
+    declining: metricIntelligence.filter((item) => item.trajectory === "DECLINING" || item.trajectory === "STRONGLY DECLINING").length,
+    insufficient: metricIntelligence.filter((item) => item.trajectory === "INSUFFICIENT DATA").length
+  };
+  const totalComparableMetrics = metricIntelligence.length;
+  const overallTrajectory = totalComparableMetrics === 0
+    ? "INSUFFICIENT DATA"
+    : trajectoryCounts.declining > trajectoryCounts.improving && trajectoryCounts.declining >= 2
+      ? trajectoryCounts.declining >= trajectoryCounts.improving + 2 ? "STRONGLY DECLINING" : "DECLINING"
+      : trajectoryCounts.improving > trajectoryCounts.declining && trajectoryCounts.improving >= 2
+        ? trajectoryCounts.improving >= trajectoryCounts.declining + 2 ? "STRONGLY IMPROVING" : "IMPROVING"
+        : trajectoryCounts.noisy > trajectoryCounts.stable
+          ? "NOISY"
+          : "STABLE";
+  const nextBenchmark = buildNextBenchmarkRecommendation(entries);
+  const prCandidates = metricIntelligence.map((item) => ({ ...item.prReadiness, series: item.series, trajectory: item.trajectory, confidence: item.confidence })).sort((a, b) => {
+    const order = PERFORMANCE_PR_READINESS_STATES;
+    const scoreDiff = order.indexOf(a.status) - order.indexOf(b.status);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.series?.comparisonKey || "").localeCompare(String(b.series?.comparisonKey || ""));
+  });
+  const domains = ["strength", "running", "core", "conditioning"].map((domain) => buildDomainPerformanceIntelligence(domain, metricIntelligence, nextBenchmark, prCandidates));
+  const fitnessTestIntelligence = buildFitnessTestIntelligence(attempts);
+  const fitnessDomain = buildDomainPerformanceIntelligence("fitness_test", metricIntelligence, nextBenchmark, prCandidates);
+  fitnessDomain.trajectory = fitnessTestIntelligence.status === "READY"
+    ? (fitnessTestIntelligence.declinedEventCount > fitnessTestIntelligence.improvedEventCount ? "DECLINING" : fitnessTestIntelligence.improvedEventCount > 0 ? "IMPROVING" : "STABLE")
+    : "INSUFFICIENT DATA";
+  fitnessDomain.confidence = fitnessTestIntelligence.status === "READY" ? "MODERATE" : "INSUFFICIENT";
+  fitnessDomain.plateauCount = 0;
+  fitnessDomain.likelyRegressionCount = fitnessTestIntelligence.declinedEventCount > 0 ? 1 : 0;
+  const allDomains = [...domains, fitnessDomain];
+  const sortedDomains = [...allDomains].sort((a, b) => {
+    const scoreDiff = trajectoryScore(b.trajectory) - trajectoryScore(a.trajectory);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.domain).localeCompare(String(b.domain));
+  });
+  const strongestDomain = sortedDomains[0]?.domain || "none";
+  const weakestDomain = sortedDomains[sortedDomains.length - 1]?.domain || "none";
+  const totalPlateaus = metricIntelligence.filter((item) => item.plateau.state === "POSSIBLE PLATEAU" || item.plateau.state === "LIKELY PLATEAU").length;
+  const totalRegressions = metricIntelligence.filter((item) => item.regression.state === "LIKELY REGRESSION").length;
+  const evidenceLimitations = [];
+  if (!comparable.pointCount) evidenceLimitations.push("No performance entries are available.");
+  if (comparable.pointCount > 0 && comparable.validPointCount === 0) evidenceLimitations.push("All current evidence is invalidated or incomplete for trend analysis.");
+  if (metricIntelligence.some((item) => item.confidence === "INSUFFICIENT")) evidenceLimitations.push("Several metrics do not meet the minimum comparable window for confident trend calls.");
+  if (metricIntelligence.some((item) => item.series.evidenceStatuses.every((status) => status === "ESTIMATED"))) evidenceLimitations.push("Estimated-only evidence limits confidence for selected metrics.");
+  if (options.remoteLoadFailed) evidenceLimitations.push("Remote performance load failed; shown intelligence may reflect local-only history.");
+  const recommendedFocus = sortedDomains[0]?.recommendedFocusText || "No action until more data exists";
+  const atlas = buildAtlasPerformanceIntelligence({
+    overall: { status: "ANALYSIS READY", trajectory: overallTrajectory },
+    strongestDomain: PERFORMANCE_DOMAIN_LABELS[strongestDomain] || strongestDomain,
+    weakestDomain: PERFORMANCE_DOMAIN_LABELS[weakestDomain] || weakestDomain,
+    plateaus: totalPlateaus,
+    regressions: totalRegressions,
+    nextBenchmark,
+    prReadiness: prCandidates,
+    evidenceLimitations,
+    recommendedFocus
+  });
+  const viewState = derivePerformanceIntelligenceViewState({
+    authRequired: Boolean(options.authRequired),
+    remoteLoadFailed: Boolean(options.remoteLoadFailed),
+    localFallbackActive: Boolean(options.localFallbackActive),
+    calculationUnavailable: Boolean(options.calculationUnavailable),
+    hasHistory: (entries || []).length > 0,
+    hasComparableHistory: comparable.validPointCount > 0
+  });
+  return {
+    rules: { ...PERFORMANCE_INTELLIGENCE_WINDOW_RULES },
+    comparable,
+    metricIntelligence,
+    trajectoryCounts,
+    overallTrajectory,
+    strongestDomain,
+    weakestDomain,
+    totalPlateaus,
+    totalRegressions,
+    nextBenchmark,
+    prCandidates,
+    domainSummaries: allDomains,
+    fitnessTestIntelligence,
+    evidenceLimitations,
+    recommendedFocus,
+    atlas,
+    viewState
   };
 }
 
@@ -2957,6 +3875,163 @@ function readPerformanceFormValues() {
   };
 }
 
+function escapeHtml(value = "") {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildSparkline(points = [], direction = "higher") {
+  const values = (points || []).filter((point) => isSeriesPointValid(point)).slice(-8).map((point) => Number(point.normalizedValue));
+  if (values.length < 2) {
+    return '<span class="intelligence-sparkline-empty">No trend line</span>';
+  }
+  const width = 140;
+  const height = 36;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const coordinates = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * width;
+    const normalized = (value - min) / range;
+    const y = height - (normalized * (height - 4)) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const arrow = direction === "lower" ? "LOWER IS BETTER" : "HIGHER IS BETTER";
+  return `<svg class="intelligence-sparkline" viewBox="0 0 ${width} ${height}" role="img" aria-label="Recent values sparkline, ${arrow}"><polyline points="${coordinates}" /></svg>`;
+}
+
+function renderPerformanceViewPanels() {
+  const active = normalizePerformanceViewCode(performanceActiveView);
+  PERFORMANCE_VIEW_CODES.forEach((code) => {
+    const panel = document.getElementById(`performance-view-${code}`);
+    if (panel) panel.hidden = code !== active;
+    const tab = document.querySelector(`[data-performance-view="${code}"]`);
+    if (tab) {
+      const selected = code === active;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+      tab.classList.toggle("active", selected);
+      tab.tabIndex = selected ? 0 : -1;
+    }
+  });
+}
+
+function setPerformanceActiveView(view = "overview") {
+  performanceActiveView = normalizePerformanceViewCode(view);
+  renderPerformanceViewPanels();
+}
+
+function renderPerformanceIntelligenceSection(entries = performanceEntries) {
+  const container = document.getElementById("performance-intelligence-panel");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  const overview = buildPerformanceIntelligenceOverview(entries, fitnessTestAttempts, personalRecords, milestoneAchievements, {
+    remoteLoadFailed: performanceLoadState.remoteLoadFailed,
+    localFallbackActive: performanceStorageMode === "LOCAL",
+    authRequired: performanceLoadState.authRequired,
+    calculationUnavailable: performanceLoadState.calculationUnavailable
+  });
+  const statusStrip = document.getElementById("performance-intelligence-status");
+  if (statusStrip) {
+    statusStrip.textContent = overview.viewState.label;
+    statusStrip.className = `state-pill ${overview.viewState.tone || "neutral"}`;
+  }
+
+  const filters = performanceIntelligenceFilters || { domain: "all", trajectory: "all", confidence: "all", evidenceStatus: "all" };
+  const filteredMetrics = overview.metricIntelligence.filter((item) => {
+    if (filters.domain !== "all" && item.series.domain !== filters.domain) return false;
+    if (filters.trajectory !== "all" && item.trajectory !== filters.trajectory) return false;
+    if (filters.confidence !== "all" && item.confidence !== filters.confidence) return false;
+    if (filters.evidenceStatus !== "all" && !item.series.evidenceStatuses.includes(filters.evidenceStatus)) return false;
+    return true;
+  });
+
+  const domainCards = overview.domainSummaries.map((domainSummary) => {
+    const strongest = domainSummary.strongestSeries;
+    const weakest = domainSummary.weakestSeries;
+    return `<article class="intelligence-domain-card"><h4>${escapeHtml(PERFORMANCE_DOMAIN_LABELS[domainSummary.domain] || domainSummary.domain)}</h4><dl><div><dt>Trajectory</dt><dd>${escapeHtml(domainSummary.trajectory)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(domainSummary.confidence)}</dd></div><div><dt>Strongest metric</dt><dd>${escapeHtml(strongest?.series?.activityName || strongest?.series?.metricCategory || "None")}</dd></div><div><dt>Weakest metric</dt><dd>${escapeHtml(weakest?.series?.activityName || weakest?.series?.metricCategory || "None")}</dd></div><div><dt>Plateau count</dt><dd>${domainSummary.plateauCount}</dd></div><div><dt>Latest meaningful change</dt><dd>${escapeHtml(strongest?.latestMeaningfulChange || "No meaningful change")}</dd></div><div><dt>Evidence limitations</dt><dd>${escapeHtml(domainSummary.evidenceLimitations[0] || "None")}</dd></div><div><dt>Recommended focus</dt><dd>${escapeHtml(domainSummary.recommendedFocusText)}</dd></div></dl></article>`;
+  }).join("");
+
+  const watchlistRows = overview.metricIntelligence.filter((item) => item.plateau.state !== "NO PLATEAU" || item.regression.state !== "NO REGRESSION").map((item) => {
+    return `<tr><td>${escapeHtml(item.series.activityName)} <span class="muted">${escapeHtml(item.series.metricCategory)}</span></td><td>${escapeHtml(item.plateau.state)}</td><td>${escapeHtml(item.regression.state)}</td><td>${escapeHtml(item.confidence)}</td></tr>`;
+  }).join("");
+
+  const prRows = overview.prCandidates.slice(0, 6).map((candidate) => {
+    return `<article class="intelligence-row"><div><strong>${escapeHtml(candidate.status)}</strong><p>${escapeHtml(candidate.series?.activityName || "Metric")} • ${escapeHtml(candidate.series?.metricCategory || "unknown")}</p></div><div><span>${escapeHtml(candidate.reason || "No rationale")}</span><small>${Number.isFinite(candidate.gapPct) ? `${candidate.gapPct.toFixed(2)}% gap` : "Gap unavailable"}</small></div></article>`;
+  }).join("");
+
+  const metricCards = filteredMetrics.slice(0, 12).map((item) => {
+    return `<article class="intelligence-metric-card"><header><strong>${escapeHtml(item.series.activityName)}</strong><span class="state-pill neutral">${escapeHtml(item.trajectory)}</span></header><p class="muted">${escapeHtml(item.series.metricCategory)}</p>${buildSparkline(item.series.validPoints, item.series.direction)}<dl><div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}</dd></div><div><dt>Recent direction</dt><dd>${escapeHtml(item.trend.recentNetPercent !== null ? `${item.trend.recentNetPercent.toFixed(2)}%` : "No change")}</dd></div><div><dt>Supporting results</dt><dd>${item.series.validCount}</dd></div><div><dt>Evidence status</dt><dd>${escapeHtml(item.series.evidenceStatuses.join(", "))}</dd></div><div><dt>Latest change</dt><dd>${escapeHtml(item.latestMeaningfulChange)}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(item.regression.state === "LIKELY REGRESSION" ? "Review recent decline" : item.plateau.state === "LIKELY PLATEAU" ? "Retest benchmark" : "Continue progression")}</dd></div></dl></article>`;
+  }).join("");
+
+  const benchmark = overview.nextBenchmark.benchmark;
+  const benchmarkPanel = benchmark
+    ? `<div class="intelligence-panel-body"><strong>${escapeHtml(benchmark.title)}</strong><p>${escapeHtml(benchmark.comparisonNote || "")}</p><p>Gap: ${Number(benchmark.gapAbsolute).toFixed(3)} ${escapeHtml(benchmark.direction === "lower" ? "seconds" : "target units")}</p><p>${benchmark.progressPct !== null ? `Progress: ${benchmark.progressPct.toFixed(1)}%` : "Progress percentage unavailable for this benchmark type."}</p></div>`
+    : `<div class="intelligence-empty">No eligible benchmark with sufficient comparable evidence.</div>`;
+
+  const fitnessRows = overview.fitnessTestIntelligence.eventIntelligence.slice(0, 8).map((event) => {
+    return `<article class="intelligence-row"><div><strong>${escapeHtml(event.eventName)}</strong><p>${escapeHtml(event.trajectory)}</p></div><div><span>${escapeHtml(event.confidence)}</span><small>${event.supportingResultCount} result(s)</small></div></article>`;
+  }).join("");
+
+  container.innerHTML = `
+    <section class="intelligence-status-strip" aria-live="polite">
+      <div><span>Overall trajectory</span><strong>${escapeHtml(overview.overallTrajectory)}</strong></div>
+      <div><span>Strongest domain</span><strong>${escapeHtml(PERFORMANCE_DOMAIN_LABELS[overview.strongestDomain] || overview.strongestDomain)}</strong></div>
+      <div><span>Weakest domain</span><strong>${escapeHtml(PERFORMANCE_DOMAIN_LABELS[overview.weakestDomain] || overview.weakestDomain)}</strong></div>
+      <div><span>Improving metrics</span><strong>${overview.trajectoryCounts.improving}</strong></div>
+      <div><span>Stable metrics</span><strong>${overview.trajectoryCounts.stable}</strong></div>
+      <div><span>Declining metrics</span><strong>${overview.trajectoryCounts.declining}</strong></div>
+      <div><span>Insufficient metrics</span><strong>${overview.trajectoryCounts.insufficient}</strong></div>
+    </section>
+    <section class="intelligence-filter-row" aria-label="Performance intelligence filters">
+      <label>Domain<select id="intelligence-filter-domain"><option value="all">All</option>${Object.entries(PERFORMANCE_DOMAIN_LABELS).map(([code, label]) => `<option value="${code}" ${filters.domain === code ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label>Trajectory<select id="intelligence-filter-trajectory"><option value="all">All</option>${PERFORMANCE_TRAJECTORY_STATES.map((state) => `<option value="${state}" ${filters.trajectory === state ? "selected" : ""}>${state}</option>`).join("")}</select></label>
+      <label>Confidence<select id="intelligence-filter-confidence"><option value="all">All</option>${PERFORMANCE_CONFIDENCE_STATES.map((state) => `<option value="${state}" ${filters.confidence === state ? "selected" : ""}>${state}</option>`).join("")}</select></label>
+      <label>Evidence<select id="intelligence-filter-evidence"><option value="all">All</option>${["VERIFIED", "SELF REPORTED", "ESTIMATED", "INCOMPLETE"].map((state) => `<option value="${state}" ${filters.evidenceStatus === state ? "selected" : ""}>${state}</option>`).join("")}</select></label>
+    </section>
+    <section class="intelligence-metric-grid" aria-label="Comparable metric intelligence cards">${metricCards || '<div class="intelligence-empty">No metrics match the selected filters.</div>'}</section>
+    <section class="intelligence-panel"><h3>Domain Intelligence</h3><div class="intelligence-domain-grid">${domainCards}</div></section>
+    <section class="intelligence-panel"><h3>Plateau and Regression Watchlist</h3>${watchlistRows ? `<table class="intelligence-watchlist"><thead><tr><th>Metric</th><th>Plateau</th><th>Regression</th><th>Confidence</th></tr></thead><tbody>${watchlistRows}</tbody></table>` : '<div class="intelligence-empty">No plateau or regression alerts detected.</div>'}</section>
+    <section class="intelligence-panel"><h3>Next Benchmark</h3>${benchmarkPanel}</section>
+    <section class="intelligence-panel"><h3>PR Readiness</h3>${prRows || '<div class="intelligence-empty">No PR readiness candidates available.</div>'}<p class="muted">PR readiness is evidence-based and not a guarantee. Do not test through pain, fatigue, or injury.</p></section>
+    <section class="intelligence-panel"><h3>Fitness-Test Event Intelligence</h3>${fitnessRows || '<div class="intelligence-empty">No completed compatible test attempts available.</div>'}<p class="muted">Improved: ${overview.fitnessTestIntelligence.improvedEventCount} • Unchanged: ${overview.fitnessTestIntelligence.unchangedEventCount} • Declined: ${overview.fitnessTestIntelligence.declinedEventCount} • Missing required: ${overview.fitnessTestIntelligence.missingEventCount}</p></section>
+    <section class="intelligence-panel"><h3>Atlas Performance Intelligence</h3><pre class="atlas-brief-output" aria-live="polite">${escapeHtml(overview.atlas.text)}</pre></section>
+    <section class="intelligence-panel"><h3>Evidence Limitations</h3>${overview.evidenceLimitations.length ? `<ul>${overview.evidenceLimitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : '<div class="intelligence-empty">No material evidence limitations detected.</div>'}</section>
+  `;
+
+  const filterDomain = document.getElementById("intelligence-filter-domain");
+  const filterTrajectory = document.getElementById("intelligence-filter-trajectory");
+  const filterConfidence = document.getElementById("intelligence-filter-confidence");
+  const filterEvidence = document.getElementById("intelligence-filter-evidence");
+  if (filterDomain) {
+    filterDomain.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.domain = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+  if (filterTrajectory) {
+    filterTrajectory.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.trajectory = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+  if (filterConfidence) {
+    filterConfidence.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.confidence = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+  if (filterEvidence) {
+    filterEvidence.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.evidenceStatus = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+}
+
 function renderFitnessTestsSection() {
   const container = document.getElementById("fitness-test-history");
   const summary = document.getElementById("fitness-test-summary");
@@ -3006,6 +4081,8 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderPersonalRecordsSection();
   renderMilestonesSection();
   renderAtlasPerformanceReviewSection();
+  renderPerformanceIntelligenceSection(entries);
+  renderPerformanceViewPanels();
   const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
   const entryList = document.getElementById("performance-entry-list");
   if (!entryList) return;
@@ -3043,11 +4120,15 @@ async function loadPerformanceEntries() {
     performanceEntries = (data || []).map((row) => hydratePerformanceEntry(row));
     performanceStorageMode = "SUPABASE";
     performanceSaveState = "saved";
+    performanceLoadState.remoteLoadFailed = false;
+    performanceLoadState.authRequired = false;
+    performanceLoadState.calculationUnavailable = false;
     renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   } catch (_) {
     performanceEntries = loadLocalPerformanceEntries().map((entry) => hydratePerformanceEntry(entry));
     performanceStorageMode = "LOCAL";
     performanceSaveState = "locally saved";
+    performanceLoadState.remoteLoadFailed = true;
     renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   }
 }
@@ -3538,6 +4619,7 @@ async function init() {
     await loadPerformanceEntries();
     renderRankSection();
     resetPerformanceForm();
+    setPerformanceActiveView("overview");
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -3633,6 +4715,11 @@ if (typeof document !== "undefined") {
   document.getElementById("performance-filter-domain").addEventListener("change", (event) => { performanceFilters.domain = event.target.value; renderPerformanceSection(); });
   document.getElementById("performance-filter-activity").addEventListener("input", (event) => { performanceFilters.activity = event.target.value; renderPerformanceSection(); });
   document.getElementById("performance-filter-entry-type").addEventListener("change", (event) => { performanceFilters.entryType = event.target.value; renderPerformanceSection(); });
+  document.querySelectorAll("[data-performance-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setPerformanceActiveView(button.dataset.performanceView || "overview");
+    });
+  });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");
     if (!button) return;
@@ -3841,6 +4928,24 @@ if (typeof module !== "undefined") {
     filterPerformanceEntries,
     removePerformanceEntry,
     derivePerformanceEmptyState,
+    buildComparablePerformanceSeries,
+    calculateDirectionAwareChange,
+    detectPerformanceNoise,
+    calculateSeriesTrend,
+    classifyPerformanceTrajectory,
+    calculateTrendConfidence,
+    detectPerformancePlateau,
+    detectRecentRegression,
+    calculateBenchmarkProximity,
+    rankEligibleBenchmarks,
+    buildNextBenchmarkRecommendation,
+    evaluatePrAttemptReadiness,
+    buildDomainPerformanceIntelligence,
+    buildFitnessTestIntelligence,
+    buildPerformanceIntelligenceOverview,
+    buildAtlasPerformanceIntelligence,
+    derivePerformanceIntelligenceViewState,
+    formatIntelligenceDelta,
     WEEKLY_EVIDENCE_THRESHOLD,
     TREND_WINDOW_SIZE,
     TREND_SLOPE_THRESHOLD,

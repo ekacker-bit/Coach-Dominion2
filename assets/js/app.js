@@ -4788,7 +4788,8 @@ async function saveConnectedState(message, forceLocalFallback = false) {
     await persistConnectedRemote();
     connectedStorageMode = forceLocalFallback ? "LOCAL FALLBACK" : "SUPABASE";
     connectedLoadState = { loading: false, remoteLoadFailed: forceLocalFallback, authRequired: false, localFallback: forceLocalFallback };
-  } catch (_) {
+  } catch (error) {
+    console.warn("Connected Dominion persistence failed.", error);
     connectedStorageMode = "LOCAL FALLBACK";
     connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
   }
@@ -4839,7 +4840,8 @@ async function runConnectedDemoSync(accountId, syncType = "MANUAL", retryOf = nu
       const supabase = await getClient();
       const { error } = await supabase.from("performance_entries").upsert(mappedEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())), { onConflict: "id" });
       if (error) throw error;
-    } catch (_) {
+    } catch (error) {
+      console.warn("Fitbod performance persistence failed.", error);
       performancePersistFailed = true;
       connectedStorageMode = "LOCAL FALLBACK";
       connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };

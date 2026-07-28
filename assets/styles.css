@@ -129,6 +129,17 @@
 .adaptive-target-variant h4{margin:0 0 8px}
 @media(max-width:720px){.adaptive-target-grid,.adaptive-target-variants{grid-template-columns:1fr 1fr}}
 @media(max-width:500px){.adaptive-target-grid,.adaptive-target-variants{grid-template-columns:1fr}}
+.nutrition-intelligence-panel{margin-top:20px;border-top:1px solid var(--line);padding-top:20px}
+.nutrition-intelligence-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.nutrition-intelligence-summary div,.nutrition-context-card{border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:12px}
+.nutrition-intelligence-summary span,.nutrition-context-card span{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.nutrition-intelligence-summary strong,.nutrition-context-card strong{display:block;margin-top:5px;font-size:18px}
+.nutrition-intelligence-summary small,.nutrition-context-card small{display:block;margin-top:4px;color:var(--muted)}
+.nutrition-intelligence-context{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.nutrition-priority{border:1px solid var(--line-strong);border-radius:10px;background:rgba(56,212,141,.05);padding:14px}
+.nutrition-priority p{margin:6px 0 0;color:#dce3ea}
+@media(max-width:800px){.nutrition-intelligence-summary{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.nutrition-intelligence-summary,.nutrition-intelligence-context{grid-template-columns:1fr}}
 .provider-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .provider-card,.connected-detail-card,.import-record-card{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:15px;min-width:0}
 .provider-card header,.connected-detail-card header,.import-record-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}

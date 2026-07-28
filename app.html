@@ -172,6 +172,26 @@
           <div id="nutrition-review-history"></div>
           <p id="nutrition-review-feedback" class="muted"></p>
         </section>
+        <section class="meal-coaching-panel" aria-labelledby="meal-coaching-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 008F // MEAL-LEVEL COACHING &amp; TIMING</div>
+              <h3 id="meal-coaching-heading">Daily Fueling Map</h3>
+              <p class="muted">Flexible protein and fuel distribution using today’s approved targets, training context, and imported meal evidence.</p>
+            </div>
+            <span id="meal-coaching-status" class="state-pill neutral">WAITING</span>
+          </div>
+          <label class="meal-training-window">Planned training window
+            <select id="meal-training-window">
+              <option value="UNSCHEDULED">No fixed time</option>
+              <option value="MORNING">Morning</option>
+              <option value="MIDDAY">Midday</option>
+              <option value="EVENING">Evening</option>
+            </select>
+          </label>
+          <div id="meal-coaching-output" class="performance-empty">Approve a nutrition baseline to build the daily fueling map.</div>
+          <p id="meal-coaching-feedback" class="muted"></p>
+        </section>
         <details class="nutrition-manual-entry">
           <summary>Manual daily totals fallback</summary>
           <form id="nutrition-manual-form" class="nutrition-manual-form">
@@ -738,6 +758,7 @@
 <script src="/assets/js/nutrition-intelligence.js"></script>
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
+<script src="/assets/js/meal-coaching.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

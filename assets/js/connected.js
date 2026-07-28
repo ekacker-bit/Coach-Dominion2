@@ -62,6 +62,23 @@
     const hex = parts.join("");
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
   }
+  function canonicalSerialize(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalSerialize).join(",")}]`;
+    if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalSerialize(value[key])}`).join(",")}}`;
+    return JSON.stringify(value);
+  }
+  function buildFileChecksum(source) {
+    return stableId("file", String(source || "").replace(/\r\n?/g, "\n").trim());
+  }
+  function buildSourceRecordFingerprint(input = {}) {
+    const normalized = normalizeImportedPayload(pick(input, "normalizedPayload", "normalized_payload", {}));
+    return stableId("record", canonicalSerialize({
+      providerCode: normalizeProviderCode(pick(input, "providerCode", "provider_code")),
+      providerRecordType: upper(pick(input, "providerRecordType", "provider_record_type")),
+      occurredAt: normalizeTimestamp(pick(input, "occurredAt", "occurred_at", normalized.occurredAt || normalized.occurred_at)),
+      normalizedPayload: normalized
+    }));
+  }
   function finite(value) {
     if (value === "" || value === null || value === undefined) return null;
     const parsed = Number(value);
@@ -208,6 +225,8 @@
   function normalizeImportedRecord(input = {}, options = {}) {
     const createdAt = pick(input, "createdAt", "created_at", nowIso(options));
     const normalizedPayload = normalizeImportedPayload(pick(input, "normalizedPayload", "normalized_payload", {}));
+    const rawPayload = clone(pick(input, "rawPayload", "raw_payload", {})) || {};
+    const integrity = rawPayload._dominion_import_integrity || {};
     const dataType = classifyImportedDataType({ ...input, normalizedPayload });
     const record = {
       id: text(pick(input, "id", "id")) || stableId("import", `${pick(input, "sourceSyncJobId", "source_sync_job_id")}|${buildImportedRecordDeduplicationKey(input)}`),
@@ -222,8 +241,12 @@
       timezone: text(pick(input, "timezone", "timezone", normalizedPayload.timezone || "UTC")) || "UTC",
       dataType,
       normalizedPayload,
-      rawPayload: clone(pick(input, "rawPayload", "raw_payload", {})) || {},
+      rawPayload,
       deduplicationKey: text(pick(input, "deduplicationKey", "deduplication_key")) || "",
+      sourceFingerprint: text(pick(input, "sourceFingerprint", "source_fingerprint", integrity.sourceFingerprint)) || "",
+      importClassification: upper(pick(input, "importClassification", "import_classification", integrity.importClassification)) || null,
+      importBatchId: text(pick(input, "importBatchId", "import_batch_id", integrity.importBatchId, options.importBatchId || "")) || null,
+      fileChecksum: text(pick(input, "fileChecksum", "file_checksum", integrity.fileChecksum, options.fileChecksum || "")) || null,
       validationStatus: upper(pick(input, "validationStatus", "validation_status", dataType ? "VALID" : "UNSUPPORTED")),
       importStatus: upper(pick(input, "importStatus", "import_status", "RECEIVED")),
       rejectionReason: text(pick(input, "rejectionReason", "rejection_reason")) || null,
@@ -234,6 +257,7 @@
       updatedAt: pick(input, "updatedAt", "updated_at", createdAt)
     };
     record.deduplicationKey ||= buildImportedRecordDeduplicationKey(record);
+    record.sourceFingerprint ||= buildSourceRecordFingerprint(record);
     if (!VALIDATION_STATUSES.includes(record.validationStatus)) record.validationStatus = "INVALID";
     if (!IMPORT_STATUSES.includes(record.importStatus)) record.importStatus = "RECEIVED";
     return record;
@@ -254,7 +278,11 @@
     const checked = validateImportedRecord(input);
     if (!checked.valid) return checked.record;
     const duplicate = (existingRecords || []).map(normalizeImportedRecord).find((item) => item.deduplicationKey === checked.record.deduplicationKey);
-    return duplicate ? { ...checked.record, importStatus: "DUPLICATE", mappedPerformanceEntryId: duplicate.mappedPerformanceEntryId, rejectionReason: `Duplicate of ${duplicate.id}` } : { ...checked.record, importStatus: "VALIDATED" };
+    if (!duplicate) return { ...checked.record, importStatus: "VALIDATED", importClassification: "NEW" };
+    if (duplicate.sourceFingerprint === checked.record.sourceFingerprint) {
+      return { ...checked.record, importStatus: "DUPLICATE", importClassification: "DUPLICATE", mappedPerformanceEntryId: duplicate.mappedPerformanceEntryId, rejectionReason: `Exact source match; already imported as ${duplicate.id}.` };
+    }
+    return { ...checked.record, importStatus: "VALIDATED", importClassification: "UPDATED", mappedPerformanceEntryId: duplicate.mappedPerformanceEntryId, rejectionReason: `Source record changed since ${duplicate.id}; latest evidence retained.` };
   }
   function buildImportProvenance(record = {}) {
     const item = normalizeImportedRecord(record);
@@ -305,7 +333,30 @@
   function unmapped(record, reason) { return { status: "UNMAPPED", record: { ...record, importStatus: "UNMAPPED" }, entry: null, reason }; }
   function summarizeSyncJob(records = []) {
     const items = (records || []).map(normalizeImportedRecord);
-    return { imported: items.filter((item) => item.importStatus === "MAPPED").length, duplicate: items.filter((item) => item.importStatus === "DUPLICATE").length, rejected: items.filter((item) => item.importStatus === "REJECTED").length, unmapped: items.filter((item) => item.importStatus === "UNMAPPED").length, total: items.length };
+    return { imported: items.filter((item) => item.importStatus === "MAPPED").length, new: items.filter((item) => item.importClassification === "NEW").length, updated: items.filter((item) => item.importClassification === "UPDATED").length, duplicate: items.filter((item) => item.importStatus === "DUPLICATE").length, rejected: items.filter((item) => item.importStatus === "REJECTED").length, unmapped: items.filter((item) => item.importStatus === "UNMAPPED").length, total: items.length };
+  }
+  function buildImportBatch(input = {}) {
+    const checksum = input.fileChecksum || buildFileChecksum(input.source);
+    const providerCode = normalizeProviderCode(input.providerCode);
+    const idempotencyKey = stableId("batch", `${input.userId || "local"}|${providerCode}|${checksum}`);
+    const prior = (input.existingJobs || []).find((job) => job?.summary?.idempotencyKey === idempotencyKey);
+    return {
+      id: input.id || stableId("import_batch", `${idempotencyKey}|${input.requestedAt || ""}`),
+      providerCode,
+      fileName: input.fileName || "import",
+      fileChecksum: checksum,
+      idempotencyKey,
+      repeatedBatch: Boolean(prior),
+      priorJobId: prior?.id || null
+    };
+  }
+  function rollbackImportBatch(records = [], batchId) {
+    const removed = (records || []).filter((record) => record.importBatchId === batchId || record.sourceSyncJobId === batchId);
+    return {
+      records: (records || []).map((record) => removed.includes(record) ? { ...record, importStatus: "INVALIDATED", rejectionReason: `Import batch ${batchId} rolled back; audit evidence retained.`, mappedPerformanceEntryId: null } : record),
+      removed,
+      mappedPerformanceEntryIds: [...new Set(removed.map((record) => record.mappedPerformanceEntryId).filter(Boolean))]
+    };
   }
   function deriveConnectedViewState(input = {}) {
     if (input.loading) return "LOADING";
@@ -670,8 +721,8 @@
     normalizeConnectedAccount, validateConnectedAccount, validateConnectionTransition, transitionConnectedAccount,
     normalizeSyncJob, validateSyncTransition, transitionSyncJob, createRetrySyncJob,
     normalizeImportedPayload, classifyImportedDataType, normalizeImportedRecord, validateImportedRecord,
-    buildImportedRecordDeduplicationKey, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
-    summarizeSyncJob, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
+    buildImportedRecordDeduplicationKey, buildSourceRecordFingerprint, buildFileChecksum, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
+    summarizeSyncJob, buildImportBatch, rollbackImportBatch, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
     parseFitbodWorkoutCsv, parseMyFitnessPalNutritionCsv, parseAppleHealthExportXml, summarizeAppleHealthByDate,
     aggregateNutritionByDate, parseNutritionTarget, reconcileNutritionDay,
     normalizeExerciseName, groupFitbodWorkoutSessions, parsePrescribedStrengthTarget,

@@ -1,10 +1,10 @@
 {
   "name": "coach-dominion",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Deterministic coaching readiness and command-center application.",
   "scripts": {
-    "test": "node tests/readiness-engine.test.js && node tests/atlas-morning-brief.test.js && node tests/compliance-foundation.test.js && node tests/weekly-inspection.test.js && node tests/trends-analytics.test.js && node tests/ux-command-center.test.js && node tests/ux-build-004d.test.js && node tests/performance-ux.test.js && node tests/standards-violations.test.js && node tests/rank-promotion.test.js && node tests/performance-foundation.test.js && node tests/performance-summary-regression.test.js && node tests/fitness-tests-prs.test.js && node tests/performance-intelligence.test.js",
+    "test": "node tests/readiness-engine.test.js && node tests/atlas-morning-brief.test.js && node tests/compliance-foundation.test.js && node tests/weekly-inspection.test.js && node tests/trends-analytics.test.js && node tests/ux-command-center.test.js && node tests/ux-build-004d.test.js && node tests/performance-ux.test.js && node tests/standards-violations.test.js && node tests/rank-promotion.test.js && node tests/performance-foundation.test.js && node tests/performance-summary-regression.test.js && node tests/fitness-tests-prs.test.js && node tests/performance-intelligence.test.js && node tests/connected-dominion.test.js && node tests/programming-adjustments.test.js && node tests/recovery-fueling.test.js && node tests/daily-coaching-loop.test.js && node tests/apple-health-import.test.js && node tests/readiness-baselines.test.js && node tests/weekly-plan.test.js && node tests/nutrition-command.test.js && node tests/adaptive-fueling.test.js && node tests/nutrition-intelligence.test.js && node tests/nutrition-baseline.test.js && node tests/nutrition-review.test.js && node tests/meal-coaching.test.js && node tests/unified-command-ux.test.js",
     "test:readiness": "node tests/readiness-engine.test.js",
     "test:atlas": "node tests/atlas-morning-brief.test.js",
     "test:compliance": "node tests/compliance-foundation.test.js",
@@ -12,6 +12,20 @@
     "test:trends": "node tests/trends-analytics.test.js",
     "test:ux": "node tests/ux-command-center.test.js && node tests/ux-build-004d.test.js && node tests/performance-ux.test.js",
     "test:standards": "node tests/standards-violations.test.js",
-    "test:rank": "node tests/rank-promotion.test.js"
+    "test:rank": "node tests/rank-promotion.test.js",
+    "test:connected": "node tests/connected-dominion.test.js",
+    "test:programming": "node tests/programming-adjustments.test.js",
+    "test:recovery": "node tests/recovery-fueling.test.js",
+    "test:daily": "node tests/daily-coaching-loop.test.js",
+    "test:apple-health": "node tests/apple-health-import.test.js",
+    "test:baselines": "node tests/readiness-baselines.test.js",
+    "test:weekly-plan": "node tests/weekly-plan.test.js",
+    "test:nutrition": "node tests/nutrition-command.test.js",
+    "test:adaptive-fueling": "node tests/adaptive-fueling.test.js",
+    "test:nutrition-intelligence": "node tests/nutrition-intelligence.test.js",
+    "test:nutrition-baseline": "node tests/nutrition-baseline.test.js",
+    "test:nutrition-review": "node tests/nutrition-review.test.js",
+    "test:meal-coaching": "node tests/meal-coaching.test.js",
+    "test:unified-ux": "node tests/unified-command-ux.test.js"
   }
 }

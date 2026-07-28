@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — Build 006A Connected Dominion architecture
+
+- Added a deterministic provider catalog for Strava, Garmin, Apple Health, Fitbod, and MyFitnessPal; every provider remains architecture-only or planned.
+- Added provider-neutral connected-account, permission, sync-job, imported-record, validation, deduplication, provenance, and Performance-mapping helpers.
+- Added the top-level Connected experience with explicit Overview, Providers, Accounts, Sync History, Imported Records, and Privacy states.
+- Added visibly simulated account connections and manual DEMO sync fixtures; no OAuth, credentials, tokens, live APIs, or write-back.
+- Added user-scoped local fallback and remote-first Supabase persistence with explicit remote failure handling.
+- Added migration 009 with RLS-protected connected accounts, sync jobs, and imported records.
+- Added Connected Dominion regression coverage and retained the complete Build 005D regression suite.
+- Release 0.6 is not complete.
+
 This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
 
 ## Unreleased — Build 005D: Performance Intelligence
@@ -90,3 +101,4 @@ This file records verified Coach Dominion release capabilities. The repository h
 - Added deterministic readiness and mission foundations in the browser application.
 - Added Supabase `daily_state` and `command_feed` schema migrations with validation, row-level security, and user-scoped policies.
 - Added authenticated persistence and retrieval of each user's current daily state.
+

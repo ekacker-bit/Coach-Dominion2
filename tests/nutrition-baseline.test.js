@@ -1,0 +1,20 @@
+const assert = require("assert");
+const { buildNutritionBaselineProposal, approveNutritionBaseline, selectEffectiveBaseline } = require("../assets/js/nutrition-baseline.js");
+const valid = { goal: "MAINTAIN", effectiveDate: "2026-07-27", calories: 2200, protein: 170, carbs: 250, fat: 70, trainingCalories: 150, trainingCarbs: 30 };
+
+assert.strictEqual(buildNutritionBaselineProposal({}).status, "REVIEW REQUIRED");
+assert.ok(buildNutritionBaselineProposal({ ...valid, calories: 1100 }).errors.some((item) => item.includes("1,200")));
+assert.ok(buildNutritionBaselineProposal({ ...valid, trainingCalories: 350 }).errors.some((item) => item.includes("300")));
+assert.ok(buildNutritionBaselineProposal({ ...valid, trainingCarbs: 80 }).errors.some((item) => item.includes("75")));
+assert.ok(buildNutritionBaselineProposal({ ...valid, goal: "FAT_LOSS", trainingCalories: 0, trainingCarbs: 0 }).errors.some((item) => item.includes("fueling allowance")));
+const proposal = buildNutritionBaselineProposal(valid);
+assert.strictEqual(proposal.status, "READY FOR APPROVAL");
+assert.deepStrictEqual(proposal.recoveryTargets, { calories: 2200, protein: 170, carbs: 250, fat: 70 });
+assert.deepStrictEqual(proposal.trainingTargets, { calories: 2350, protein: 170, carbs: 280, fat: 70 });
+assert.throws(() => approveNutritionBaseline({ status: "REVIEW REQUIRED" }));
+const approved = approveNutritionBaseline(proposal, "2026-07-27T12:00:00Z", "baseline-1");
+const future = approveNutritionBaseline(buildNutritionBaselineProposal({ ...valid, effectiveDate: "2026-08-10", calories: 2300 }), "2026-07-28T12:00:00Z", "baseline-2");
+assert.strictEqual(selectEffectiveBaseline([approved, future], "2026-08-01").id, "baseline-1");
+assert.strictEqual(selectEffectiveBaseline([approved, future], "2026-08-10").id, "baseline-2");
+assert.strictEqual(selectEffectiveBaseline([future], "2026-08-01"), null);
+console.log("nutrition baseline tests passed");

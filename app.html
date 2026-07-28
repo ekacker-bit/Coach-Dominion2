@@ -271,6 +271,19 @@
         <p id="daily-assignment-feedback" class="muted"></p>
       </section>
 
+      <section class="card today-operating-sequence" aria-labelledby="today-sequence-heading">
+        <div class="section-heading compact">
+          <div><div class="kicker">BUILD 009C // TODAY COMMAND SURFACE</div><h2 id="today-sequence-heading">Complete Today</h2><p class="muted">Workout, fueling, recovery, and evidence in one operating sequence.</p></div>
+          <span id="today-completion-state" class="state-pill neutral">ASSEMBLING</span>
+        </div>
+        <div class="today-sequence-grid">
+          <article><span>1 · Train</span><strong id="today-sequence-training">Review assignment</strong><p id="today-sequence-training-detail">Today’s supported prescription.</p><a href="#today" data-section="today">Open workout</a></article>
+          <article><span>2 · Fuel</span><strong id="today-sequence-fueling">Review fueling</strong><p id="today-sequence-fueling-detail">Calories, protein, and timing.</p><a href="#nutrition" data-section="nutrition">Open nutrition</a></article>
+          <article><span>3 · Recover</span><strong id="today-sequence-recovery">Review recovery</strong><p id="today-sequence-recovery-detail">Readiness restrictions govern.</p><a href="#performance" data-section="performance">Open recovery</a></article>
+          <article><span>4 · Record</span><strong id="today-sequence-evidence">Evidence pending</strong><p id="today-sequence-evidence-detail">Resolve only missing or ambiguous evidence.</p><a href="#record" data-section="record">Open record</a></article>
+        </div>
+      </section>
+
       <section class="card readiness-baseline-card" aria-labelledby="baseline-heading">
         <div class="section-heading compact">
           <div>
@@ -785,6 +798,12 @@
       </section>
     </div>
   </main>
+  <nav class="mobile-command-bar" aria-label="Mobile command bar">
+    <a href="#today" data-section="today">Today</a>
+    <a href="#nutrition" data-section="nutrition">Fuel</a>
+    <a href="#record" data-section="record">Record</a>
+    <a href="#performance" data-section="performance">More</a>
+  </nav>
 
 <script src="/assets/js/connected.js"></script>
 <script src="/assets/js/programming.js"></script>

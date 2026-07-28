@@ -236,9 +236,10 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank", "performance", "connected"];
+const SECTION_ORDER = ["today", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
 const SECTION_LABELS = {
   today: "Today",
+  nutrition: "Nutrition",
   record: "Record",
   inspection: "Inspection",
   trends: "Trends",
@@ -256,6 +257,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
   if (normalized === "performance" || normalized === "performance-log") return "performance";
+  if (normalized === "nutrition" || normalized === "fuel") return "nutrition";
   if (normalized === "connected" || normalized === "integrations") return "connected";
   return "today";
 }
@@ -4357,6 +4359,29 @@ function saveDailyAssignmentExecution(execution) {
   window.localStorage.setItem(dailyAssignmentStorageKey(), JSON.stringify({ ...execution, updatedAt: new Date().toISOString() }));
 }
 
+function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
+  const state = document.getElementById("today-completion-state");
+  if (!state || !assignment) return;
+  const execution = readDailyAssignmentExecution();
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
+  const workoutComplete = assignment.fitbod?.state === "COMPLETE" || execution.state === "COMPLETE";
+  const recordComplete = Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate());
+  const nutritionReady = Boolean(baseline);
+  const completeCount = [workoutComplete, nutritionReady, !recovery.holdProgression, recordComplete].filter(Boolean).length;
+  const completionState = completeCount === 4 ? "DAY COMPLETE" : execution.state === "IN PROGRESS" ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
+  state.textContent = completionState;
+  state.className = `state-pill ${completeCount === 4 ? "green" : completeCount ? "yellow" : "neutral"}`;
+  setText("today-sequence-training", workoutComplete ? "Workout complete" : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN PROGRESS" ? "Workout in progress" : "Start today’s workout");
+  setText("today-sequence-training-detail", `${assignment.exercises.length} exercises · ~${assignment.estimatedMinutes} minutes · ${assignment.confidence.toLowerCase()} confidence.`);
+  setText("today-sequence-fueling", nutritionReady ? "Fueling targets active" : "Approve fueling baseline");
+  setText("today-sequence-fueling-detail", nutritionReady ? "Training-day targets and meal timing are available." : "A baseline is required before Atlas can calculate remaining intake.");
+  setText("today-sequence-recovery", recovery.status || "Review recovery");
+  setText("today-sequence-recovery-detail", recovery.actions?.[0] || assignment.recoveryActions[0] || "Preserve the recovery window.");
+  setText("today-sequence-evidence", recordComplete ? "Dominion Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
+  setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
+}
+
 function renderDailyAssignment() {
   const panel = document.getElementById("daily-assignment-panel");
   if (!panel) return;
@@ -4388,6 +4413,7 @@ function renderDailyAssignment() {
     <div class="daily-exercise-list">${exerciseCards || `<div class="performance-empty">${assignment.state === "RECOVERY ONLY" ? "Loaded training is removed today. Follow the recovery actions below." : "No supported exercise prescription exists yet. Log or import prior strength work, then approve the programming draft."}</div>`}</div>
     <details open><summary>Recovery and safety</summary><ul>${assignment.recoveryActions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>
     <div class="daily-orders-actions"><button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>${execution.state === "IN PROGRESS" ? "Workout in progress" : "Start workout"}</button><button type="button" class="ghost" data-assignment-action="refresh">Refresh Fitbod evidence</button></div>`;
+  renderTodayCommandSurface(assignment);
 }
 
 function buildCurrentDailyCoachingLoop() {
@@ -4993,7 +5019,7 @@ async function saveMorningRollCall(event) {
 function setActiveSection(section = "today") {
   const normalized = normalizeSectionKey(section);
   activeSection = normalized;
-  document.querySelectorAll(".nav-link").forEach((link) => {
+  document.querySelectorAll('a[data-section][href^="#"]').forEach((link) => {
     const isActive = link.dataset.section === normalized;
     link.classList.toggle("active", isActive);
     link.setAttribute("aria-current", isActive ? "page" : "false");
@@ -5001,11 +5027,25 @@ function setActiveSection(section = "today") {
   document.querySelectorAll(".scroll-anchor").forEach((element) => {
     const isMatch = element.id === normalized || element.dataset.section === normalized;
     element.classList.toggle("is-active", isMatch);
+    element.hidden = !isMatch;
+    element.setAttribute("aria-hidden", isMatch ? "false" : "true");
   });
   const target = document.getElementById(normalized) || document.querySelector(`[data-section="${normalized}"]`);
   if (target) {
     target.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+}
+
+function organizeWorkspaceSections() {
+  const app = document.getElementById("app-content");
+  const onboarding = document.getElementById("onboarding");
+  const today = document.getElementById("today");
+  if (!app || !today) return;
+  ["record", "inspection", "trends", "standards", "rank", "performance"].forEach((id) => {
+    const section = document.getElementById(id);
+    if (section && section.parentElement !== app) app.insertBefore(section, onboarding || null);
+  });
+  document.body.dataset.workspaceArchitecture = "009C";
 }
 
 function restoreSectionFromHash() {
@@ -6075,6 +6115,7 @@ async function init() {
     loadRankStatus();
     loadPromotionHistory();
     renderOnboarding();
+    organizeWorkspaceSections();
     restoreSectionFromHash();
     await loadDailyState();
     await loadCommandFeed();
@@ -6444,7 +6485,7 @@ if (typeof document !== "undefined") {
       deletePerformanceEntry(entryId);
     }
   });
-  document.querySelectorAll(".nav-link").forEach((link) => {
+  document.querySelectorAll('a[data-section][href^="#"]').forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       if (handleSectionNavigation(link)) {

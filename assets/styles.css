@@ -89,8 +89,25 @@
 .daily-exercise-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
 .daily-exercise-card h3{margin:4px 0;font-size:23px}
 .daily-assignment-card details{margin-top:12px}
+.today-operating-sequence{border-color:rgba(229,185,79,.34)}
+.today-sequence-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.today-sequence-grid article{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);border-radius:11px;padding:14px;background:var(--panel3)}
+.today-sequence-grid span{color:var(--green);font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.today-sequence-grid strong{margin-top:7px;font-size:18px}
+.today-sequence-grid p{color:var(--muted);flex:1}
+.today-sequence-grid a{font-weight:900}
+.mobile-command-bar{display:none}
 .daily-orders-safeguard{margin:14px 0 0;color:var(--muted);font-size:12px}
 @media(max-width:720px){.daily-loop-phases,.daily-evidence-grid,.daily-assignment-summary,.daily-prescription-grid{grid-template-columns:1fr 1fr}.daily-orders-actions{display:grid}}
+@media(max-width:900px){.today-sequence-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){
+  body{padding-bottom:76px}
+  .command-header .top-nav{display:none}
+  .mobile-command-bar{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:50;border:1px solid var(--line-strong);border-radius:14px;padding:6px;background:rgba(11,16,22,.96);backdrop-filter:blur(14px);box-shadow:0 12px 36px rgba(0,0,0,.45)}
+  .mobile-command-bar a{padding:11px 6px;border-radius:9px;text-align:center;color:var(--muted);font-size:12px;font-weight:900;text-decoration:none}
+  .mobile-command-bar a[aria-current="page"]{background:var(--panel2);color:var(--text);box-shadow:inset 0 -2px 0 var(--green)}
+}
+@media(max-width:520px){.today-sequence-grid{grid-template-columns:1fr}}
 .readiness-baseline-card{margin-top:18px;border-color:rgba(56,212,141,.3)}
 .baseline-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
 .baseline-metric{border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:12px;display:grid;gap:7px}

@@ -140,6 +140,19 @@
 .nutrition-priority p{margin:6px 0 0;color:#dce3ea}
 @media(max-width:800px){.nutrition-intelligence-summary{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.nutrition-intelligence-summary,.nutrition-intelligence-context{grid-template-columns:1fr}}
+.nutrition-baseline-panel{margin-top:20px;border-top:1px solid var(--line);padding-top:20px}
+.nutrition-baseline-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end;margin:14px 0}
+.nutrition-baseline-form button{min-height:44px}
+.nutrition-baseline-variants{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.nutrition-baseline-variant{border:1px solid var(--line-strong);border-radius:10px;background:rgba(56,212,141,.04);padding:14px}
+.nutrition-baseline-variant h4{margin:0 0 8px}
+.nutrition-baseline-history{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.nutrition-baseline-history summary{cursor:pointer;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.nutrition-baseline-history-list{display:grid;gap:8px;margin-top:10px}
+.nutrition-baseline-history-item{display:flex;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:11px}
+.nutrition-baseline-history-item small{display:block;color:var(--muted)}
+@media(max-width:900px){.nutrition-baseline-form{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.nutrition-baseline-form,.nutrition-baseline-variants{grid-template-columns:1fr}.nutrition-baseline-history-item{flex-direction:column}}
 .provider-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .provider-card,.connected-detail-card,.import-record-card{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:15px;min-width:0}
 .provider-card header,.connected-detail-card header,.import-record-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}

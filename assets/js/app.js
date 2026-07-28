@@ -33,6 +33,7 @@ let connectedImportedRecords = [];
 let connectedStorageMode = "LOADING";
 let connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: false, localFallback: false };
 let connectedActiveView = "overview";
+let nutritionBaselineDraft = null;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -4910,6 +4911,108 @@ function nutritionCommandDate() {
   return document.querySelector('#nutrition-manual-form [name="date"]')?.value || todayISODate();
 }
 
+function nutritionBaselineStorageKey() {
+  return `coach-dominion:nutrition-baselines:${connectedUserId()}`;
+}
+
+function readNutritionBaselineHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(nutritionBaselineStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function activeNutritionBaseline(date = todayISODate()) {
+  if (typeof DominionNutritionBaseline === "undefined") return null;
+  return DominionNutritionBaseline.selectEffectiveBaseline(readNutritionBaselineHistory(), date);
+}
+
+function dominionRecordNutritionTargets() {
+  if (!connectedApi()) return {};
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  return connectedApi().parseNutritionTarget(targetText);
+}
+
+function currentNutritionBaseTargets(date = todayISODate()) {
+  return activeNutritionBaseline(date)?.recoveryTargets || dominionRecordNutritionTargets();
+}
+
+function currentNutritionTargetsForContext(trainingDay, date = todayISODate()) {
+  const baseline = activeNutritionBaseline(date);
+  if (baseline) return trainingDay ? baseline.trainingTargets : baseline.recoveryTargets;
+  return dominionRecordNutritionTargets();
+}
+
+function buildNutritionBaselineFromForm() {
+  const form = document.getElementById("nutrition-baseline-form");
+  if (!form || typeof DominionNutritionBaseline === "undefined") return null;
+  const data = new FormData(form);
+  return DominionNutritionBaseline.buildNutritionBaselineProposal(Object.fromEntries(data.entries()));
+}
+
+function renderNutritionBaseline() {
+  const form = document.getElementById("nutrition-baseline-form");
+  const output = document.getElementById("nutrition-baseline-output");
+  const status = document.getElementById("nutrition-baseline-status");
+  const historyOutput = document.getElementById("nutrition-baseline-history");
+  if (!form || !output || !status || !historyOutput || typeof DominionNutritionBaseline === "undefined") return;
+  const history = readNutritionBaselineHistory();
+  const active = activeNutritionBaseline();
+  if (!form.elements.effectiveDate.value) form.elements.effectiveDate.value = todayISODate();
+  const current = nutritionBaselineDraft || active;
+  status.textContent = nutritionBaselineDraft?.status || (active ? "APPROVED" : "NOT SET");
+  status.className = `state-pill ${active && !nutritionBaselineDraft ? "green" : nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current) {
+    output.className = "performance-empty";
+    output.innerHTML = "No approved baseline yet. Complete the setup above to unlock nutrition coaching.";
+  } else if (current.status === "REVIEW REQUIRED") {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>Review required</strong><ul>${current.errors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  } else {
+    output.className = "";
+    output.innerHTML = `<p><strong>${escapeHtml(current.goal.replace("_", " "))}</strong> · effective ${escapeHtml(current.effectiveDate)}</p>
+      <p>${escapeHtml(current.rationale)}</p>
+      <div class="nutrition-baseline-variants">
+        <article class="nutrition-baseline-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
+        <article class="nutrition-baseline-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
+      </div>
+      <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      ${current.status === "READY FOR APPROVAL" ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-baseline-action="approve">Approve &amp; Activate Baseline</button><button type="button" class="ghost" data-nutrition-baseline-action="cancel">Cancel Draft</button></div>' : ""}`;
+  }
+  const historyRows = [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.approvedAt.localeCompare(a.approvedAt))
+    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} · approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal · ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
+  historyOutput.innerHTML = history.length ? `<details class="nutrition-baseline-history"><summary>Baseline history (${history.length})</summary><div class="nutrition-baseline-history-list">${historyRows}</div></details>` : "";
+}
+
+function reviewNutritionBaseline(event) {
+  event.preventDefault();
+  nutritionBaselineDraft = buildNutritionBaselineFromForm();
+  renderNutritionBaseline();
+  setText("nutrition-baseline-feedback", nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "Review both variants, then approve to activate this dated baseline." : "Correct the flagged items before approval.");
+}
+
+function approveNutritionBaselineDraft() {
+  if (!nutritionBaselineDraft || typeof DominionNutritionBaseline === "undefined") return;
+  try {
+    const approved = DominionNutritionBaseline.approveNutritionBaseline(nutritionBaselineDraft);
+    const history = readNutritionBaselineHistory();
+    history.push(approved);
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(history));
+    ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => window.localStorage.removeItem(adaptiveFuelingStorageKey(goalName)));
+    nutritionBaselineDraft = null;
+    const goal = document.getElementById("adaptive-fueling-goal");
+    if (goal) goal.value = approved.goal;
+    renderNutritionCommand();
+    setText("nutrition-baseline-feedback", approved.effectiveDate <= todayISODate()
+      ? "Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence."
+      : `Baseline approved and scheduled for ${approved.effectiveDate}.`);
+  } catch (error) {
+    setText("nutrition-baseline-feedback", error.message);
+  }
+}
+
 function adaptiveFuelingStorageKey(goal) {
   return `coach-dominion:adaptive-fueling:${connectedUserId()}:${goal || "MAINTAIN"}`;
 }
@@ -4925,8 +5028,7 @@ function currentAdaptiveFuelingGoal() {
 
 function buildCurrentAdaptiveFuelingProposal() {
   if (typeof DominionAdaptiveFueling === "undefined" || !connectedApi()) return null;
-  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
-  const targets = connectedApi().parseNutritionTarget(targetText);
+  const targets = currentNutritionBaseTargets();
   const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
   const readiness = dailyState ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
   return DominionAdaptiveFueling.buildAdaptiveFuelingProposal({
@@ -4998,8 +5100,7 @@ function renderNutritionIntelligence() {
   const status = document.getElementById("nutrition-intelligence-status");
   if (!output || !status || typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return;
   const windowEnd = todayISODate();
-  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
-  const targets = connectedApi().parseNutritionTarget(targetText);
+  const targets = currentNutritionBaseTargets(windowEnd);
   const trainingDates = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).map((session) => session.date);
   const result = DominionNutritionIntelligence.buildNutritionIntelligence({
     windowEnd,
@@ -5044,8 +5145,7 @@ function renderNutritionCommand() {
   const actual = imported || manual || {};
   const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
   const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
-  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
-  const baseTargets = connectedApi().parseNutritionTarget(targetText);
+  const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
   const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
   const readiness = dailyState && date === todayISODate() ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
@@ -5071,6 +5171,7 @@ function renderNutritionCommand() {
       <button type="button" data-nutrition-command-action="review-targets">Review Nutrition Targets</button>
       <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
     </div>`;
+  renderNutritionBaseline();
   renderAdaptiveFueling();
   renderNutritionIntelligence();
 }
@@ -5666,6 +5767,17 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("nutrition-manual-form")?.addEventListener("submit", saveManualNutrition);
   document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
+  document.getElementById("nutrition-baseline-form")?.addEventListener("submit", reviewNutritionBaseline);
+  document.getElementById("nutrition-baseline-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-baseline-action]");
+    if (!button) return;
+    if (button.dataset.nutritionBaselineAction === "approve") approveNutritionBaselineDraft();
+    if (button.dataset.nutritionBaselineAction === "cancel") {
+      nutritionBaselineDraft = null;
+      renderNutritionBaseline();
+      setText("nutrition-baseline-feedback", "Draft discarded. No approved baseline changed.");
+    }
+  });
   document.getElementById("adaptive-fueling-goal")?.addEventListener("change", () => {
     renderNutritionCommand();
     setText("adaptive-fueling-feedback", "Goal updated. No target change has been approved.");

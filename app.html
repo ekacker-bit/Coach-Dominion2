@@ -107,6 +107,36 @@
           <span id="nutrition-command-status" class="state-pill neutral">LOADING</span>
         </div>
         <div id="nutrition-command-output"><div class="performance-empty">Atlas is assembling today’s nutrition picture.</div></div>
+        <section class="nutrition-baseline-panel" aria-labelledby="nutrition-baseline-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 008D // NUTRITION BASELINE &amp; GOAL SETUP</div>
+              <h3 id="nutrition-baseline-heading">Approved Fueling Baseline</h3>
+              <p class="muted">Enter the targets you intend to follow. Coach Dominion validates and activates them only after your approval.</p>
+            </div>
+            <span id="nutrition-baseline-status" class="state-pill neutral">NOT SET</span>
+          </div>
+          <form id="nutrition-baseline-form" class="nutrition-baseline-form">
+            <label>Coaching goal
+              <select name="goal">
+                <option value="MAINTAIN">Maintain</option>
+                <option value="PERFORMANCE">Performance</option>
+                <option value="FAT_LOSS">Fat loss</option>
+              </select>
+            </label>
+            <label>Effective date<input name="effectiveDate" type="date" required></label>
+            <label>Recovery calories<input name="calories" type="number" min="1200" step="25" required></label>
+            <label>Protein (g)<input name="protein" type="number" min="1" max="350" step="5" required></label>
+            <label>Carbohydrates (g)<input name="carbs" type="number" min="1" step="5" required></label>
+            <label>Fat (g)<input name="fat" type="number" min="1" step="5" required></label>
+            <label>Training calories added<input name="trainingCalories" type="number" min="0" max="300" step="25" value="150" required></label>
+            <label>Training carbs added (g)<input name="trainingCarbs" type="number" min="0" max="75" step="5" value="30" required></label>
+            <button type="submit">Review Baseline</button>
+          </form>
+          <div id="nutrition-baseline-output" class="performance-empty">No approved baseline yet. Complete the setup above to unlock nutrition coaching.</div>
+          <div id="nutrition-baseline-history"></div>
+          <p id="nutrition-baseline-feedback" class="muted"></p>
+        </section>
         <section class="adaptive-fueling-panel" aria-labelledby="adaptive-fueling-heading">
           <div class="section-heading compact">
             <div><div class="kicker">BUILD 008B // ADAPTIVE FUELING TARGETS</div><h3 id="adaptive-fueling-heading">Training-Day Fueling</h3></div>
@@ -693,6 +723,7 @@
 <script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/adaptive-fueling.js"></script>
 <script src="/assets/js/nutrition-intelligence.js"></script>
+<script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

@@ -5199,6 +5199,77 @@ function approveCurrentNutritionReview() {
   }
 }
 
+function mealTrainingWindowStorageKey() {
+  return `coach-dominion:meal-training-window:${connectedUserId()}`;
+}
+
+function readMealTrainingWindow() {
+  try {
+    const value = window.localStorage.getItem(mealTrainingWindowStorageKey()) || "UNSCHEDULED";
+    return ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(value) ? value : "UNSCHEDULED";
+  }
+  catch (_) { return "UNSCHEDULED"; }
+}
+
+function nutritionMealsForDate(date) {
+  return connectedImportedRecords.filter((record) =>
+    record.providerCode === "MYFITNESSPAL" &&
+    record.validationStatus === "VALID" &&
+    String(record.occurredAt || "").slice(0, 10) === date &&
+    ["CALORIES", "MACRONUTRIENTS"].includes(record.dataType)
+  ).map((record) => {
+    const payload = record.normalizedPayload || {};
+    return {
+      name: payload.meal_name || "Imported meal",
+      calories: payload.calories,
+      protein: payload.protein_grams ?? payload.protein,
+      carbs: payload.carbohydrate_grams ?? payload.carbs,
+      fat: payload.fat_grams ?? payload.fat
+    };
+  });
+}
+
+function renderMealCoaching() {
+  const output = document.getElementById("meal-coaching-output");
+  const status = document.getElementById("meal-coaching-status");
+  const windowSelect = document.getElementById("meal-training-window");
+  if (!output || !status || !windowSelect || typeof DominionMealCoaching === "undefined" || !connectedApi()) return;
+  const date = nutritionCommandDate();
+  const baseline = activeNutritionBaseline(date);
+  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  if (windowSelect.value === "UNSCHEDULED") windowSelect.value = readMealTrainingWindow();
+  const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
+  const plan = DominionMealCoaching.buildMealCoachingPlan({
+    date,
+    targets,
+    trainingDay,
+    trainingWindow: windowSelect.value,
+    meals: nutritionMealsForDate(date)
+  });
+  status.textContent = plan.status;
+  status.className = `state-pill ${plan.status === "MEAL EVIDENCE ACTIVE" ? "green" : plan.status === "FUELING MAP ACTIVE" ? "yellow" : "neutral"}`;
+  if (!plan.slots.length) {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>${escapeHtml(plan.status)}</strong><p>${escapeHtml(plan.reason)}</p>`;
+    return;
+  }
+  const slots = plan.slots.map((slot, index) => `<article class="meal-slot">
+    <span>Anchor ${index + 1}</span><strong>${escapeHtml(slot.label)}</strong>
+    <dl>
+      <div><dt>Calories</dt><dd>${Math.round(slot.calories)}</dd></div>
+      <div><dt>Protein</dt><dd>${Math.round(slot.protein)}g</dd></div>
+      <div><dt>Carbs</dt><dd>${Math.round(slot.carbs)}g</dd></div>
+      <div><dt>Fat</dt><dd>${Math.round(slot.fat)}g</dd></div>
+    </dl><p>${escapeHtml(slot.note)}</p>
+  </article>`).join("");
+  const meals = plan.meals.length ? `<div class="meal-evidence-list">${plan.meals.map((meal) => `<article class="meal-evidence"><strong>${escapeHtml(meal.name)}</strong><small>${Math.round(meal.calories)} kcal · ${Math.round(meal.protein)}g protein · ${Math.round(meal.carbs)}g carbs · ${Math.round(meal.fat)}g fat</small></article>`).join("")}</div>` : "";
+  output.className = "";
+  output.innerHTML = `<p><strong>${trainingDay ? "TRAINING DAY" : "RECOVERY / UNCLASSIFIED DAY"}</strong> · ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing · ${escapeHtml(date)}</p>
+    <div class="meal-slot-grid">${slots}</div>
+    <div class="nutrition-review-card"><h4>Imported meal evidence</h4><p>${escapeHtml(plan.evidenceMessage)}</p>${meals}</div>
+    <ul class="baseline-safeguards">${plan.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function renderNutritionCommand() {
   const output = document.getElementById("nutrition-command-output");
   const statusPill = document.getElementById("nutrition-command-status");
@@ -5241,6 +5312,7 @@ function renderNutritionCommand() {
   renderAdaptiveFueling();
   renderNutritionIntelligence();
   renderNutritionReview();
+  renderMealCoaching();
 }
 
 function saveManualNutrition(event) {
@@ -5848,6 +5920,11 @@ if (typeof document !== "undefined") {
   document.getElementById("nutrition-review-output")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-nutrition-review-action]");
     if (button?.dataset.nutritionReviewAction === "approve") approveCurrentNutritionReview();
+  });
+  document.getElementById("meal-training-window")?.addEventListener("change", (event) => {
+    window.localStorage.setItem(mealTrainingWindowStorageKey(), event.currentTarget.value);
+    renderMealCoaching();
+    setText("meal-coaching-feedback", "Training window saved locally. Approved daily targets were not changed.");
   });
   document.getElementById("adaptive-fueling-goal")?.addEventListener("change", () => {
     renderNutritionCommand();

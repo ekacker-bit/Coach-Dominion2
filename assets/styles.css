@@ -153,6 +153,21 @@
 .nutrition-baseline-history-item small{display:block;color:var(--muted)}
 @media(max-width:900px){.nutrition-baseline-form{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.nutrition-baseline-form,.nutrition-baseline-variants{grid-template-columns:1fr}.nutrition-baseline-history-item{flex-direction:column}}
+.nutrition-review-panel{margin-top:20px;border-top:1px solid var(--line);padding-top:20px}
+.nutrition-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.nutrition-review-card{border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:14px}
+.nutrition-review-card h4{margin:0 0 8px}
+.nutrition-review-card ul{margin:0;padding-left:20px;color:#dce3ea}
+.nutrition-action-list{display:grid;gap:10px;margin:14px 0}
+.nutrition-action{border:1px solid var(--line-strong);border-radius:10px;background:rgba(56,212,141,.05);padding:13px}
+.nutrition-action span{display:block;color:var(--green);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.nutrition-action strong{display:block;margin-top:4px}
+.nutrition-action p{margin:5px 0 0;color:var(--muted)}
+.nutrition-review-history{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.nutrition-review-history summary{cursor:pointer;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.nutrition-review-history-item{border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:11px;margin-top:8px}
+.nutrition-review-history-item small{display:block;color:var(--muted)}
+@media(max-width:650px){.nutrition-review-grid{grid-template-columns:1fr}}
 .provider-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .provider-card,.connected-detail-card,.import-record-card{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:15px;min-width:0}
 .provider-card header,.connected-detail-card header,.import-record-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}

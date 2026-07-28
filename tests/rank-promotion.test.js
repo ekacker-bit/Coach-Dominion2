@@ -45,6 +45,16 @@ const metrics = calculatePromotionMetrics({
 assert.equal(metrics.finalizedInspectionsRequired, 2, 'cadet requires two finalized inspections');
 assert.equal(metrics.state, 'PROGRESSING', 'partial progress should be progressing');
 
+const missingMission = calculatePromotionMetrics({
+  finalizedInspections: 2,
+  recentAverageDisciplineScore: 80,
+  recentAverageEvidenceCoverage: 80,
+  domainScores: { mission: { score: null } }
+}, 'CADET');
+const missionRequirement = missingMission.requirements.find((item) => item.requirement === 'mission_domain_score');
+assert.equal(missionRequirement.actual, null, 'missing mission evidence remains explicit');
+assert.equal(missionRequirement.passed, false, 'missing mission evidence cannot qualify as a numeric score');
+
 const eligible = evaluatePromotionEligibility({
   currentRank: 'CADET',
   finalizedInspections: 2,

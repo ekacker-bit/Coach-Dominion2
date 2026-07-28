@@ -17,13 +17,21 @@
       </div>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
-          <a class="nav-link active" href="#today" data-section="today">TODAY</a>
-          <a class="nav-link" href="#record" data-section="record">RECORD</a>
-          <a class="nav-link" href="#inspection" data-section="inspection">INSPECTION</a>
-          <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
-          <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
-          <a class="nav-link" href="#rank" data-section="rank">RANK</a>
-          <a class="nav-link" href="#performance" data-section="performance">PERFORMANCE</a>
+          <div class="nav-group"><span class="nav-group-label">Operate</span>
+            <a class="nav-link active" href="#today" data-section="today">TODAY</a>
+            <a class="nav-link" href="#nutrition" data-section="nutrition">NUTRITION</a>
+            <a class="nav-link" href="#performance" data-section="performance">PERFORMANCE</a>
+          </div>
+          <div class="nav-group"><span class="nav-group-label">Review</span>
+            <a class="nav-link" href="#inspection" data-section="inspection">INSPECTION</a>
+            <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
+            <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
+            <a class="nav-link" href="#rank" data-section="rank">RANK</a>
+          </div>
+          <div class="nav-group"><span class="nav-group-label">System</span>
+            <a class="nav-link" href="#record" data-section="record">RECORD</a>
+            <a class="nav-link" href="#connected" data-section="connected">CONNECTED</a>
+          </div>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
@@ -36,7 +44,7 @@
       <div><span>Steps</span><strong id="status-steps">—</strong></div>
       <div><span>RHR</span><strong id="status-rhr">—</strong></div>
       <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
-      <div><span>Build</span><strong>0.3.0</strong></div>
+      <div><span>Build</span><strong>0.3.2</strong></div>
     </section>
 
     <p class="status" id="status"></p>
@@ -47,6 +55,179 @@
         <div class="kicker">DAILY STATE</div>
         <h2>Morning Roll Call Required.</h2>
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
+      </section>
+
+      <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 006A · ARCHITECTURE PREVIEW</div>
+            <h2 id="connected-heading">Connected Dominion</h2>
+            <p class="muted">Provider-neutral import architecture. No live provider connections, OAuth, credentials, or external sync requests are active.</p>
+          </div>
+          <span id="connected-storage" class="state-pill neutral">LOADING</span>
+        </div>
+        <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
+        <div class="connected-view-nav" role="tablist" aria-label="Connected Dominion views">
+          <button type="button" class="connected-view-tab active" role="tab" aria-selected="true" data-connected-view="overview">OVERVIEW</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="providers">PROVIDERS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="accounts">ACCOUNTS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="sync_history">SYNC HISTORY</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="imported_records">IMPORTED RECORDS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="reconciliation">RECONCILIATION</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="nutrition">NUTRITION</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="apple_health">APPLE HEALTH</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="privacy">PRIVACY</button>
+        </div>
+        <div id="connected-view-overview" class="connected-view-panel"></div>
+        <div id="connected-view-providers" class="connected-view-panel" hidden></div>
+        <div id="connected-view-accounts" class="connected-view-panel" hidden></div>
+        <div id="connected-view-sync_history" class="connected-view-panel" hidden></div>
+        <div id="connected-view-imported_records" class="connected-view-panel" hidden></div>
+        <div id="connected-view-reconciliation" class="connected-view-panel" hidden></div>
+        <div id="connected-view-nutrition" class="connected-view-panel" hidden></div>
+        <div id="connected-view-apple_health" class="connected-view-panel" hidden></div>
+        <input id="fitbod-import-file" type="file" accept=".csv,text/csv,text/plain" hidden>
+        <input id="mfp-import-file" type="file" accept=".csv,text/csv,text/plain" hidden>
+        <input id="apple-health-import-file" type="file" accept=".xml,text/xml,application/xml" hidden>
+        <div id="connected-view-privacy" class="connected-view-panel" hidden>
+          <h3>Privacy and data control</h3>
+          <ul class="connected-privacy-list">
+            <li>No real credentials, OAuth secrets, or provider tokens are stored.</li>
+            <li>Apple Health import reads only the export.xml file you deliberately choose. Unsupported health categories are ignored and never uploaded as raw XML.</li>
+            <li>Permission selections are stored per simulated account and grant no live provider access.</li>
+            <li>Remote storage is user-scoped when migration 009 is applied; otherwise state uses a clearly labeled user-scoped local fallback.</li>
+            <li>Disconnecting preserves account, sync, imported-record, and provenance history for auditability.</li>
+            <li>This architecture-only build does not provide provider-side deletion or revoke data already copied into local history.</li>
+            <li>Live integrations are not active. Demo sync uses built-in fixtures only and remains visibly marked DEMO.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="nutrition" class="card nutrition-command scroll-anchor" aria-labelledby="nutrition-command-heading" data-section="nutrition">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 008A // NUTRITION COMMAND</div>
+            <h2 id="nutrition-command-heading">Nutrition Command Center</h2>
+            <p class="muted">Daily targets, MyFitnessPal or manual intake, training context, and readiness in one conservative coaching decision.</p>
+          </div>
+          <span id="nutrition-command-status" class="state-pill neutral">LOADING</span>
+        </div>
+        <aside id="nutrition-next-action" class="nutrition-next-action" aria-live="polite">
+          <div><div class="kicker">ATLAS // NEXT BEST ACTION</div><h3>Assembling your next move</h3><p>Reviewing today’s evidence and approved targets.</p></div>
+        </aside>
+        <div class="nutrition-workspace-nav" role="tablist" aria-label="Nutrition workspace">
+          <button type="button" class="nutrition-workspace-tab active" role="tab" aria-selected="true" data-nutrition-view="today">TODAY</button>
+          <button type="button" class="nutrition-workspace-tab" role="tab" aria-selected="false" data-nutrition-view="plan">PLAN</button>
+          <button type="button" class="nutrition-workspace-tab" role="tab" aria-selected="false" data-nutrition-view="review">REVIEW</button>
+          <button type="button" class="nutrition-workspace-tab" role="tab" aria-selected="false" data-nutrition-view="details">DETAILS</button>
+        </div>
+        <div class="nutrition-workspace-panel" data-nutrition-view-panel="today">
+          <div id="nutrition-command-output"><div class="performance-empty">Atlas is assembling today’s nutrition picture.</div></div>
+          <section class="meal-coaching-panel" aria-labelledby="meal-coaching-heading">
+            <div class="section-heading compact">
+              <div>
+                <div class="kicker">BUILD 008F // MEAL-LEVEL COACHING &amp; TIMING</div>
+                <h3 id="meal-coaching-heading">Daily Fueling Map</h3>
+                <p class="muted">Flexible protein and fuel distribution using today’s approved targets, training context, and imported meal evidence.</p>
+              </div>
+              <span id="meal-coaching-status" class="state-pill neutral">WAITING</span>
+            </div>
+            <label class="meal-training-window">Planned training window
+              <select id="meal-training-window">
+                <option value="UNSCHEDULED">No fixed time</option>
+                <option value="MORNING">Morning</option>
+                <option value="MIDDAY">Midday</option>
+                <option value="EVENING">Evening</option>
+              </select>
+            </label>
+            <div id="meal-coaching-output" class="performance-empty">Approve a nutrition baseline to build the daily fueling map.</div>
+            <p id="meal-coaching-feedback" class="muted"></p>
+          </section>
+        </div>
+        <div class="nutrition-workspace-panel" data-nutrition-view-panel="plan" hidden>
+        <section class="nutrition-baseline-panel" aria-labelledby="nutrition-baseline-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 008D // NUTRITION BASELINE &amp; GOAL SETUP</div>
+              <h3 id="nutrition-baseline-heading">Approved Fueling Baseline</h3>
+              <p class="muted">Enter the targets you intend to follow. Coach Dominion validates and activates them only after your approval.</p>
+            </div>
+            <span id="nutrition-baseline-status" class="state-pill neutral">NOT SET</span>
+          </div>
+          <form id="nutrition-baseline-form" class="nutrition-baseline-form">
+            <label>Coaching goal
+              <select name="goal">
+                <option value="MAINTAIN">Maintain</option>
+                <option value="PERFORMANCE">Performance</option>
+                <option value="FAT_LOSS">Fat loss</option>
+              </select>
+            </label>
+            <label>Effective date<input name="effectiveDate" type="date" required></label>
+            <label>Recovery calories<input name="calories" type="number" min="1200" step="25" required></label>
+            <label>Protein (g)<input name="protein" type="number" min="5" max="350" step="5" required></label>
+            <label>Carbohydrates (g)<input name="carbs" type="number" min="5" step="5" required></label>
+            <label>Fat (g)<input name="fat" type="number" min="5" step="5" required></label>
+            <label>Training calories added<input name="trainingCalories" type="number" min="0" max="300" step="25" value="150" required></label>
+            <label>Training carbs added (g)<input name="trainingCarbs" type="number" min="0" max="75" step="5" value="30" required></label>
+            <button type="submit">Review Baseline</button>
+          </form>
+          <div id="nutrition-baseline-output" class="performance-empty">No approved baseline yet. Complete the setup above to unlock nutrition coaching.</div>
+          <div id="nutrition-baseline-history"></div>
+          <p id="nutrition-baseline-feedback" class="muted"></p>
+        </section>
+        <section class="adaptive-fueling-panel" aria-labelledby="adaptive-fueling-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">BUILD 008B // ADAPTIVE FUELING TARGETS</div><h3 id="adaptive-fueling-heading">Training-Day Fueling</h3></div>
+            <span id="adaptive-fueling-status" class="state-pill neutral">LEARNING</span>
+          </div>
+          <label class="adaptive-goal">Coaching goal
+            <select id="adaptive-fueling-goal">
+              <option value="MAINTAIN">Maintain</option>
+              <option value="PERFORMANCE">Performance</option>
+              <option value="FAT_LOSS">Fat loss</option>
+            </select>
+          </label>
+          <div id="adaptive-fueling-output" class="performance-empty">Atlas is reviewing nutrition evidence.</div>
+          <p id="adaptive-fueling-feedback" class="muted"></p>
+        </section>
+        </div>
+        <div class="nutrition-workspace-panel" data-nutrition-view-panel="review" hidden>
+        <section class="nutrition-intelligence-panel" aria-labelledby="nutrition-intelligence-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">BUILD 008C // WEEKLY NUTRITION INTELLIGENCE</div><h3 id="nutrition-intelligence-heading">Nutrition Trend</h3></div>
+            <span id="nutrition-intelligence-status" class="state-pill neutral">LEARNING</span>
+          </div>
+          <div id="nutrition-intelligence-output" class="performance-empty">Atlas is assembling the 14-day evidence window.</div>
+        </section>
+        <section class="nutrition-review-panel" aria-labelledby="nutrition-review-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 008E // WEEKLY NUTRITION REVIEW</div>
+              <h3 id="nutrition-review-heading">Atlas Nutrition Debrief</h3>
+              <p class="muted">Evidence-based wins, friction, and a bounded next-week action plan. Approved targets remain unchanged.</p>
+            </div>
+            <span id="nutrition-review-status" class="state-pill neutral">LEARNING</span>
+          </div>
+          <div id="nutrition-review-output" class="performance-empty">Atlas is waiting for enough nutrition evidence to run the debrief.</div>
+          <div id="nutrition-review-history"></div>
+          <p id="nutrition-review-feedback" class="muted"></p>
+        </section>
+        </div>
+        <div class="nutrition-workspace-panel" data-nutrition-view-panel="details" hidden>
+        <details class="nutrition-manual-entry">
+          <summary>Manual daily totals fallback</summary>
+          <form id="nutrition-manual-form" class="nutrition-manual-form">
+            <label>Date<input name="date" type="date" required></label>
+            <label>Calories<input name="calories" type="number" min="0" step="1"></label>
+            <label>Protein (g)<input name="protein" type="number" min="0" step="1"></label>
+            <label>Carbohydrates (g)<input name="carbs" type="number" min="0" step="1"></label>
+            <label>Fat (g)<input name="fat" type="number" min="0" step="1"></label>
+            <button type="submit">Save Manual Totals</button>
+          </form>
+          <p class="muted">Manual totals stay in this browser and are used only when no MyFitnessPal day exists for the selected date.</p>
+        </details>
+        <p id="nutrition-command-feedback" class="muted"></p>
+        </div>
       </section>
 
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
@@ -60,6 +241,36 @@
         </div>
         <pre id="atlas-brief-output" class="atlas-brief-output" aria-live="polite"></pre>
       </article>
+
+      <section class="card daily-coaching-loop" aria-labelledby="daily-orders-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">BUILD 007C // DAILY COACHING LOOP</div>
+            <h2 id="daily-orders-heading">Today’s Orders</h2>
+            <p class="muted">One operating sequence from roll call through mission, connected evidence, and the Dominion Record.</p>
+          </div>
+          <span id="daily-orders-state" class="state-pill neutral">LOADING</span>
+        </div>
+        <div id="daily-loop-phases" class="daily-loop-phases" aria-label="Daily coaching phases"></div>
+        <article id="daily-orders-panel" class="daily-orders-panel" aria-live="polite">
+          <div class="performance-empty">Atlas is assembling today’s operating picture.</div>
+        </article>
+        <p id="daily-orders-feedback" class="muted"></p>
+      </section>
+
+      <section class="card readiness-baseline-card" aria-labelledby="baseline-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">BUILD 007D // PERSONALIZED READINESS</div>
+            <h2 id="baseline-heading">Personal Baseline</h2>
+            <p class="muted">Your 14- and 28-day norms make readiness more personal without weakening pain or safety rules.</p>
+          </div>
+          <span id="baseline-state" class="state-pill neutral">LEARNING</span>
+        </div>
+        <div id="baseline-panel" aria-live="polite">
+          <div class="performance-empty">Atlas is looking for enough prior sleep and resting heart-rate evidence.</div>
+        </div>
+      </section>
 
       <section class="card command-center-overview" aria-labelledby="command-center-overview-heading">
         <div class="section-heading compact">
@@ -188,7 +399,7 @@
       <section id="inspection" class="card weekly-inspection scroll-anchor" aria-labelledby="weekly-inspection-heading" data-section="inspection">
         <div class="section-heading">
           <div>
-            <div class="kicker">BUILD 004B // SEVEN-DAY REVIEW</div>
+            <div class="kicker">BUILD 009A // INSPECTION INTEGRITY</div>
             <h2 id="weekly-inspection-heading">Weekly Inspection</h2>
             <p class="muted">Monday through Sunday. Discipline and evidence are measured separately.</p>
           </div>
@@ -203,7 +414,7 @@
         <div class="weekly-score-grid">
           <div><span>Week</span><strong id="weekly-range">—</strong></div>
           <div><span>Discipline</span><strong id="weekly-score">UNSCORED</strong></div>
-          <div><span>Evidence</span><strong id="weekly-coverage">0%</strong></div>
+          <div><span>Evidence through today</span><strong id="weekly-coverage">0%</strong></div>
           <div><span>Storage</span><strong id="weekly-storage">NOT LOADED</strong></div>
         </div>
         <div id="weekly-domain-scores" class="weekly-domain-scores"></div>
@@ -213,6 +424,9 @@
           <div><dt>Complete / partial / missed</dt><dd id="weekly-result-counts">0 / 0 / 0</dd></div>
           <div><dt>Excused / N/A</dt><dd id="weekly-excluded-counts">0 / 0</dd></div>
           <div><dt>Approved modifications</dt><dd id="weekly-modification-count">0</dd></div>
+          <div><dt>Evidence through</dt><dd id="weekly-evidence-through">—</dd></div>
+          <div><dt>Projected full-week coverage</dt><dd id="weekly-projected-coverage">0%</dd></div>
+          <div><dt>Calculation integrity</dt><dd id="weekly-calculation-meta">009A.1</dd></div>
           <div><dt>Strongest domain</dt><dd id="weekly-strongest">UNSCORED</dd></div>
           <div><dt>Weakest domain</dt><dd id="weekly-weakest">UNSCORED</dd></div>
           <div><dt>Missed requirements</dt><dd id="weekly-missed">None recorded.</dd></div>
@@ -226,6 +440,14 @@
         <div id="weekly-standards-summary" class="standards-queue"></div>
         <h3>Atlas After Action Report</h3>
         <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
+        <section class="weekly-plan-panel" aria-labelledby="weekly-plan-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">BUILD 007E // ADAPTIVE WEEKLY PLAN</div><h3 id="weekly-plan-heading">Next Week’s Operating Plan</h3></div>
+            <span id="weekly-plan-status" class="state-pill neutral">AWAITING INSPECTION</span>
+          </div>
+          <div id="weekly-plan-output" class="performance-empty">Finalize a supported inspection to generate a plan.</div>
+          <p id="weekly-plan-feedback" class="muted"></p>
+        </section>
         <p><a href="#trends">Continue to Trends &amp; Analytics</a></p>
       </section>
 
@@ -340,6 +562,8 @@
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="records">RECORDS</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="milestones">MILESTONES</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="intelligence">INTELLIGENCE</button>
+          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="programming">PROGRAMMING</button>
+          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="recovery">RECOVERY &amp; FUELING</button>
         </div>
 
         <div id="performance-view-overview" class="performance-view-panel">
@@ -460,6 +684,30 @@
           </div>
           <div id="performance-intelligence-panel" class="performance-intelligence-panel"></div>
         </div>
+        <div id="performance-view-programming" class="performance-view-panel" hidden>
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 007A // EVIDENCE-BASED PROGRAMMING</div>
+              <h3>Atlas Programming Review</h3>
+              <p class="muted">Explainable next-session recommendations. Nothing changes until you approve a local draft.</p>
+            </div>
+            <span id="programming-status" class="state-pill neutral">LOADING</span>
+          </div>
+          <div id="programming-review-panel"></div>
+          <p id="programming-feedback" class="muted"></p>
+        </div>
+        <div id="performance-view-recovery" class="performance-view-panel" hidden>
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 007B // RECOVERY &amp; FUELING ADJUSTMENTS</div>
+              <h3>Atlas Recovery &amp; Fueling Review</h3>
+              <p class="muted">Training load, nutrition coverage, readiness, pain, and bodyweight evidence combined into one recovery posture.</p>
+            </div>
+            <span id="recovery-status" class="state-pill neutral">LOADING</span>
+          </div>
+          <div id="recovery-review-panel"></div>
+          <p id="recovery-feedback" class="muted"></p>
+        </div>
       </section>
 
       <section class="lower-grid" aria-label="Daily operations modules">
@@ -525,6 +773,18 @@
     </div>
   </main>
 
+<script src="/assets/js/connected.js"></script>
+<script src="/assets/js/programming.js"></script>
+<script src="/assets/js/recovery.js"></script>
+<script src="/assets/js/daily-coaching.js"></script>
+<script src="/assets/js/readiness-baselines.js"></script>
+<script src="/assets/js/weekly-plan.js"></script>
+<script src="/assets/js/nutrition-command.js"></script>
+<script src="/assets/js/adaptive-fueling.js"></script>
+<script src="/assets/js/nutrition-intelligence.js"></script>
+<script src="/assets/js/nutrition-baseline.js"></script>
+<script src="/assets/js/nutrition-review.js"></script>
+<script src="/assets/js/meal-coaching.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

@@ -1,9 +1,11 @@
 let client;
 let session;
 let dailyState;
+let readinessHistory = [];
 let dailyCompliance;
 let weeklyInspection;
 let weeklyDailyRecords = [];
+let inspectionHistory = [];
 let activeSection = "today";
 let complianceDirtyState = false;
 let compliancePreviousState = null;
@@ -13,6 +15,7 @@ let currentSaveState = "empty";
 let standardsReviewState = [];
 let rankStatus = { currentRank: "RECRUIT", promotionState: "NOT ELIGIBLE", activeCorrectivePeriod: false, correctivePeriodReason: null, correctivePeriodStatus: null, correctivePeriodStartedAt: null, correctivePeriodReviewDate: null };
 let promotionHistory = [];
+const INSPECTION_CALCULATION_VERSION = "009A.1";
 let performanceEntries = [];
 let performanceStorageMode = "LOADING";
 let performanceSaveState = "loading";
@@ -26,6 +29,14 @@ let atlasPerformanceReviews = [];
 let performanceActiveView = "overview";
 let performanceIntelligenceFilters = { domain: "all", trajectory: "all", confidence: "all", evidenceStatus: "all" };
 let performanceLoadState = { remoteLoadFailed: false, authRequired: false, calculationUnavailable: false };
+let connectedAccounts = [];
+let connectedSyncJobs = [];
+let connectedImportedRecords = [];
+let connectedStorageMode = "LOADING";
+let connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: false, localFallback: false };
+let connectedActiveView = "overview";
+let nutritionBaselineDraft = null;
+let nutritionActiveView = "today";
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -47,7 +58,7 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
-const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence"];
+const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "programming", "recovery"];
 const PERFORMANCE_TRAJECTORY_STATES = ["STRONGLY IMPROVING", "IMPROVING", "STABLE", "NOISY", "DECLINING", "STRONGLY DECLINING", "INSUFFICIENT DATA"];
 const PERFORMANCE_CONFIDENCE_STATES = ["HIGH", "MODERATE", "LOW", "INSUFFICIENT"];
 const PERFORMANCE_PLATEAU_STATES = ["NO PLATEAU", "POSSIBLE PLATEAU", "LIKELY PLATEAU", "INSUFFICIENT DATA"];
@@ -225,7 +236,7 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank", "performance"];
+const SECTION_ORDER = ["today", "record", "inspection", "trends", "standards", "rank", "performance", "connected"];
 const SECTION_LABELS = {
   today: "Today",
   record: "Record",
@@ -233,7 +244,8 @@ const SECTION_LABELS = {
   trends: "Trends",
   standards: "Standards",
   rank: "Rank",
-  performance: "Performance"
+  performance: "Performance",
+  connected: "Connected"
 };
 
 function normalizeSectionKey(section = "today") {
@@ -244,6 +256,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
   if (normalized === "performance" || normalized === "performance-log") return "performance";
+  if (normalized === "connected" || normalized === "integrations") return "connected";
   return "today";
 }
 
@@ -347,13 +360,14 @@ function calculatePromotionMetrics(input = {}, targetRank = "CADET") {
   const unresolvedLevelThreeViolations = Number(input.unresolvedLevelThreeViolations || input.unresolved_level_three_violations || 0);
   const activeCorrectivePeriod = Boolean(input.activeCorrectivePeriod || input.active_corrective_period);
   const domainScores = input.domainScores || input.domain_scores || {};
-  const missionDomainScore = Number(domainScores.mission || 0);
+  const rawMissionDomainScore = domainScores.mission && typeof domainScores.mission === "object" ? domainScores.mission.score : domainScores.mission;
+  const missionDomainScore = isFiniteMetric(rawMissionDomainScore) ? Number(rawMissionDomainScore) : null;
   const requirements = [
     { requirement: "finalized_inspections", target: target.minimumFinalizedInspections, actual: finalizedInspections, passed: finalizedInspections >= target.minimumFinalizedInspections },
     { requirement: "average_discipline_score", target: target.minimumAverageDisciplineScore, actual: recentAverageDisciplineScore, passed: recentAverageDisciplineScore >= target.minimumAverageDisciplineScore },
     { requirement: "average_evidence_coverage", target: target.minimumAverageEvidenceCoverage, actual: recentAverageEvidenceCoverage, passed: recentAverageEvidenceCoverage >= target.minimumAverageEvidenceCoverage },
     { requirement: "consecutive_qualifying_weeks", target: target.requiredConsecutiveQualifyingWeeks, actual: consecutiveQualifyingWeeks, passed: consecutiveQualifyingWeeks >= target.requiredConsecutiveQualifyingWeeks },
-    { requirement: "mission_domain_score", target: target.minimumMissionDomainScore, actual: missionDomainScore, passed: missionDomainScore >= target.minimumMissionDomainScore },
+    { requirement: "mission_domain_score", target: target.minimumMissionDomainScore, actual: missionDomainScore, passed: missionDomainScore !== null && missionDomainScore >= target.minimumMissionDomainScore },
     { requirement: "unresolved_confirmed_violations", target: target.maximumUnresolvedConfirmedViolations, actual: unresolvedConfirmedViolations, passed: unresolvedConfirmedViolations <= target.maximumUnresolvedConfirmedViolations },
     { requirement: "unresolved_level_two_or_three_violations", target: target.maximumLevelTwoOrLevelThreeViolations, actual: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations, passed: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations <= target.maximumLevelTwoOrLevelThreeViolations },
     { requirement: "corrective_period", target: target.correctivePeriodBlocksEligibility ? 0 : 1, actual: activeCorrectivePeriod ? 0 : 1, passed: !activeCorrectivePeriod || !target.correctivePeriodBlocksEligibility }
@@ -966,7 +980,88 @@ function evaluateReadiness(state) {
 }
 
 function calculateReadiness(state) {
-  return evaluateReadiness(state).state;
+  return evaluateOperationalReadiness(state).state;
+}
+
+function mergeReadinessHistory() {
+  const byDate = new Map();
+  if (connectedApi()) {
+    connectedApi().summarizeAppleHealthByDate(connectedImportedRecords).forEach((item) => {
+      byDate.set(item.date, {
+        date: item.date,
+        sleep: item.sleep,
+        resting_heart_rate: item.restingHeartRate,
+        steps: item.steps,
+        weight: item.weight
+      });
+    });
+  }
+  readinessHistory.forEach((item) => {
+    const existing = byDate.get(item.date) || { date: item.date };
+    byDate.set(item.date, {
+      ...existing,
+      ...Object.fromEntries(Object.entries(item).filter(([, value]) => value !== null && value !== undefined && value !== ""))
+    });
+  });
+  return Array.from(byDate.values());
+}
+
+function buildCurrentBaselineProfile(state = dailyState) {
+  if (typeof DominionReadinessBaselines === "undefined") return null;
+  const current = state || { date: todayISODate() };
+  return DominionReadinessBaselines.buildReadinessBaselineProfile(
+    mergeReadinessHistory(),
+    current,
+    { currentDate: current.date || todayISODate() }
+  );
+}
+
+function evaluateOperationalReadiness(state) {
+  const base = evaluateReadiness(state);
+  if (!state || typeof DominionReadinessBaselines === "undefined") return base;
+  return DominionReadinessBaselines.evaluatePersonalizedReadiness(base, buildCurrentBaselineProfile(state));
+}
+
+function baselineValue(value, unit) {
+  if (value === null || value === undefined) return "—";
+  const rounded = Number.isInteger(value) ? value : Number(value).toFixed(1);
+  return `${rounded}${unit ? ` ${unit}` : ""}`;
+}
+
+function renderBaselineIntelligence() {
+  const panel = document.getElementById("baseline-panel");
+  const statePill = document.getElementById("baseline-state");
+  if (!panel || !statePill) return;
+  const profile = buildCurrentBaselineProfile();
+  if (!profile) {
+    statePill.textContent = "UNAVAILABLE";
+    panel.innerHTML = `<div class="performance-empty">Personal baseline engine unavailable.</div>`;
+    return;
+  }
+  statePill.textContent = profile.state;
+  statePill.className = `state-pill ${profile.state === "ACTIVE" ? "green" : "neutral"}`;
+  const result = dailyState ? evaluateOperationalReadiness(dailyState) : null;
+  const metrics = ["sleep", "resting_heart_rate", "steps", "weight"].map((key) => {
+    const metric = profile.metrics[key];
+    const signal = metric.signal.status === "UNAVAILABLE" ? `${metric.baseline28.count}/${profile.minimumObservations} observations` : metric.signal.status;
+    return `<article class="baseline-metric">
+      <span>${escapeHtml(metric.label)}</span>
+      <strong>${baselineValue(metric.current, metric.unit)}</strong>
+      <small>14-day median: ${baselineValue(metric.baseline14.median, metric.unit)}</small>
+      <small>28-day median: ${baselineValue(metric.baseline28.median, metric.unit)}</small>
+      <small>${escapeHtml(signal)}</small>
+    </article>`;
+  }).join("");
+  const decision = !dailyState
+    ? "Complete Morning Roll Call to compare today with your personal norms."
+    : result?.baselineAdjustment === "GREEN_TO_YELLOW"
+      ? "Personal baseline reduced today’s readiness from GREEN to YELLOW."
+      : profile.state === "LEARNING"
+        ? "No readiness adjustment. Atlas needs 10 prior observations for sleep or resting heart rate."
+        : "Personal baseline reviewed. No additional restriction was required.";
+  panel.innerHTML = `<div class="baseline-summary-grid">${metrics}</div>
+    <div class="baseline-decision"><strong>Decision impact</strong><p>${escapeHtml(decision)}</p></div>
+    <ul class="baseline-safeguards">${profile.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
 function generateMission(readinessResultOrState) {
@@ -1221,14 +1316,32 @@ function identifyStrongestAndWeakestDomains(domainScores = {}) {
   const maximum = Math.max(...scored.map((key) => domainScores[key].score));
   const minimum = Math.min(...scored.map((key) => domainScores[key].score));
   const strongestDomains = scored.filter((key) => domainScores[key].score === maximum);
+  if (maximum === minimum) return { strongestDomains, weakestDomains: [], strongestDomain: strongestDomains[0], weakestDomain: null, domainRankingTie: true };
   const weakestDomains = scored.filter((key) => domainScores[key].score === minimum);
-  return { strongestDomains, weakestDomains, strongestDomain: strongestDomains[0], weakestDomain: weakestDomains[0] };
+  return { strongestDomains, weakestDomains, strongestDomain: strongestDomains[0], weakestDomain: weakestDomains[0], domainRankingTie: false };
 }
 
 function deriveInspectionStatus(aggregate, finalized = false, threshold = WEEKLY_EVIDENCE_THRESHOLD) {
   if (finalized) return "INSPECTION COMPLETE";
   if (!aggregate || aggregate.counts.assessedObservations === 0) return "NOT READY";
-  return aggregate.evidenceCoverage < threshold ? "LIMITED EVIDENCE" : "READY FOR INSPECTION";
+  if (aggregate.evidenceCoverage < threshold) return "LIMITED EVIDENCE";
+  return aggregate.canFinalize ? "READY FOR INSPECTION" : "PROVISIONAL";
+}
+
+function inspectionAnalysisWindow(range, asOfDate = todayISODate()) {
+  const asOf = parseISODateUTC(asOfDate);
+  const start = parseISODateUTC(range.weekStartDate);
+  const end = parseISODateUTC(range.weekEndDate);
+  if (!asOf || !start || !end) throw new TypeError("Inspection dates must use YYYY-MM-DD.");
+  const evidenceThrough = asOf < start ? null : asOf > end ? end : asOf;
+  const elapsedDayCount = evidenceThrough ? Math.floor((evidenceThrough - start) / 86400000) + 1 : 0;
+  return {
+    evidenceThroughDate: evidenceThrough ? formatISODateUTC(evidenceThrough) : null,
+    elapsedDayCount,
+    projectedDayCount: 7,
+    weekComplete: asOf >= end,
+    isCurrentWeek: asOf >= start && asOf <= end
+  };
 }
 
 function selectNextWeekPriority(analysis = {}) {
@@ -1241,8 +1354,9 @@ function selectNextWeekPriority(analysis = {}) {
   return { code: "MAINTAIN_STANDARD", text: "Maintain the current standard with complete daily evidence." };
 }
 
-function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
+function aggregateWeeklyCompliance(records = [], weekValue = todayISODate(), options = {}) {
   const range = getInspectionWeekRange(weekValue);
+  const analysisWindow = inspectionAnalysisWindow(range, options.asOfDate || todayISODate());
   const normalizedRecords = (records || [])
     .map((record) => normalizeDailyComplianceRecord(record))
     .filter((record) => record && normalizeComplianceDate(record.compliance_date) && normalizeComplianceDate(record.compliance_date) >= range.weekStartDate && normalizeComplianceDate(record.compliance_date) <= range.weekEndDate);
@@ -1254,6 +1368,7 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
 
   for (let offset = 0; offset < 7; offset += 1) {
     const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
+    const periodState = analysisWindow.evidenceThroughDate && date <= analysisWindow.evidenceThroughDate ? "ELAPSED" : "FUTURE";
     const record = recordByDate.get(date) || null;
     const domains = domainsFromDailyRecord(record || {});
     const dayObservations = COMPLIANCE_DOMAINS.map((key) => {
@@ -1261,26 +1376,28 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
       const scored = scoreComplianceDomain(domain);
       const approvedModification = Boolean(domain.approvedModification);
       const observation = { date, domain: key, label: COMPLIANCE_DOMAIN_LABELS[key], ...scored, target: domain.target || "", actual: domain.actual || "", note: domain.note || "", restriction: domain.restriction || "", approvedModification };
-      if (scored.status === "completed") counts.completed += 1;
-      if (scored.status === "partial") counts.partial += 1;
-      if (scored.status === "missed") counts.missed += 1;
-      if (scored.status === "excused") counts.excused += 1;
-      if (scored.status === "not_applicable") counts.notApplicable += 1;
-      if (approvedModification) counts.approvedModifications += 1;
-      if (scored.status) counts.assessedObservations += 1;
-      if (scored.status === "missed" && !approvedModification) missedByDomain[key] += 1;
+      if (periodState === "ELAPSED" && scored.status === "completed") counts.completed += 1;
+      if (periodState === "ELAPSED" && scored.status === "partial") counts.partial += 1;
+      if (periodState === "ELAPSED" && scored.status === "missed") counts.missed += 1;
+      if (periodState === "ELAPSED" && scored.status === "excused") counts.excused += 1;
+      if (periodState === "ELAPSED" && scored.status === "not_applicable") counts.notApplicable += 1;
+      if (periodState === "ELAPSED" && approvedModification) counts.approvedModifications += 1;
+      if (periodState === "ELAPSED" && scored.status) counts.assessedObservations += 1;
+      if (periodState === "ELAPSED" && scored.status === "missed" && !approvedModification) missedByDomain[key] += 1;
       return observation;
     });
     const assessedCount = dayObservations.filter((item) => item.status).length;
     const includedCount = dayObservations.filter((item) => item.included).length;
-    if (assessedCount > 0) counts.assessedDays += 1;
-    if (assessedCount === COMPLIANCE_DOMAINS.length) counts.fullyAssessedDays += 1;
-    if (includedCount === 0) counts.unscoredDays += 1;
-    dailyEvidence.push({ date, recordPresent: Boolean(record), assessedCount, includedCount });
-    observations.push(...dayObservations);
+    if (periodState === "ELAPSED" && assessedCount > 0) counts.assessedDays += 1;
+    if (periodState === "ELAPSED" && assessedCount === COMPLIANCE_DOMAINS.length) counts.fullyAssessedDays += 1;
+    if (periodState === "ELAPSED" && includedCount === 0) counts.unscoredDays += 1;
+    dailyEvidence.push({ date, recordPresent: Boolean(record), assessedCount: periodState === "ELAPSED" ? assessedCount : 0, includedCount: periodState === "ELAPSED" ? includedCount : 0, periodState });
+    if (periodState === "ELAPSED") observations.push(...dayObservations);
   }
 
   const coverage = calculateEvidenceCoverage(observations);
+  const fullWeekExpected = COMPLIANCE_DOMAINS.length * 7;
+  const projectedFullWeekCoverage = fullWeekExpected ? coverage.assessedObservations / fullWeekExpected * 100 : 0;
   const domainScores = Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => {
     const domainObservations = observations.filter((item) => item.domain === key);
     return [key, { score: calculateWeeklyDisciplineScore(domainObservations), includedCount: domainObservations.filter((item) => item.included).length, assessedCount: domainObservations.filter((item) => item.status).length }];
@@ -1291,10 +1408,17 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
   const recoveryObservations = observations.filter((item) => item.domain === "recovery");
   const recoveryRiskSignal = missedByDomain.recovery >= 2 || recoveryObservations.some((item) => /pain|injur|medical|symptom/i.test(item.restriction) && item.status !== "excused");
   const approvedModificationCompliance = observations.filter((item) => item.approvedModification).map((item) => ({ date: item.date, domain: item.domain, followed: item.status !== "missed", status: item.status }));
+  const missingRequiredDomains = COMPLIANCE_DOMAINS.filter((key) => domainScores[key].assessedCount < analysisWindow.elapsedDayCount);
+  const canFinalize = analysisWindow.weekComplete && coverage.percentage >= WEEKLY_EVIDENCE_THRESHOLD && missingRequiredDomains.length === 0;
   const aggregate = {
     ...range,
+    ...analysisWindow,
+    calculationVersion: INSPECTION_CALCULATION_VERSION,
+    calculatedAt: options.calculatedAt || new Date().toISOString(),
     score: calculateWeeklyDisciplineScore(observations),
     evidenceCoverage: coverage.percentage,
+    evidenceCoverageThroughToday: coverage.percentage,
+    projectedFullWeekCoverage,
     coverage,
     counts,
     domainScores,
@@ -1304,6 +1428,9 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
     recoveryRiskSignal,
     consistencySignal: counts.fullyAssessedDays === 7 ? "FULLY DOCUMENTED" : counts.assessedDays >= 5 ? "MOST DAYS ASSESSED" : "INCONSISTENT EVIDENCE",
     evidenceLimitation: coverage.percentage < WEEKLY_EVIDENCE_THRESHOLD,
+    missingRequiredDomains,
+    canFinalize,
+    scoreIsProvisional: !canFinalize,
     approvedModificationCompliance,
     missedRequirements: observations.filter((item) => item.status === "missed" && !item.approvedModification).map((item) => ({ date: item.date, domain: item.domain, target: item.target || "Requirement not specified" })),
     excusedConditions: observations.filter((item) => item.status === "excused").map((item) => ({ date: item.date, domain: item.domain, restriction: item.restriction || "Excused condition recorded" })),
@@ -1338,7 +1465,9 @@ function generateWeeklyAfterActionReport(aggregate) {
 }
 
 function finalizeWeeklyInspectionSnapshot(aggregate, finalizedAt = new Date().toISOString()) {
+  if (!aggregate.weekComplete) throw new Error("Finalization is available after the inspection week ends.");
   if (aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD) throw new Error(`Finalization requires at least ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage.`);
+  if (aggregate.missingRequiredDomains?.length) throw new Error(`Finalization requires assessed evidence for: ${aggregate.missingRequiredDomains.map((key) => COMPLIANCE_DOMAIN_LABELS[key]).join(", ")}.`);
   const snapshot = structuredClone(aggregate);
   snapshot.inspectionStatus = "INSPECTION COMPLETE";
   snapshot.finalizedAt = finalizedAt;
@@ -1371,6 +1500,54 @@ function sortInspectionHistory(records = []) {
 
 function isFiniteMetric(value) {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function canonicalFinalizedInspections(records = []) {
+  const byWeek = new Map();
+  sortInspectionHistory(records).forEach((item) => {
+    if (!item.weekStartDate || !item.finalizedAt) return;
+    const current = byWeek.get(item.weekStartDate);
+    if (!current || String(item.finalizedAt) > String(current.finalizedAt)) byWeek.set(item.weekStartDate, item);
+  });
+  return [...byWeek.values()].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
+}
+
+function buildInspectionIntegritySummary(records = [], recentSize = TREND_WINDOW_SIZE) {
+  const finalized = canonicalFinalizedInspections(records);
+  const scored = finalized.filter((item) => isFiniteMetric(item.score));
+  const recent = scored.slice(-recentSize);
+  const missionValues = recent.map((item) => domainScoreValue(item, "mission")).filter(isFiniteMetric).map(Number);
+  return {
+    calculationVersion: INSPECTION_CALCULATION_VERSION,
+    finalized,
+    finalizedCount: finalized.length,
+    recentAverageDisciplineScore: recent.length ? recent.reduce((sum, item) => sum + Number(item.score), 0) / recent.length : null,
+    recentAverageEvidenceCoverage: recent.length ? recent.reduce((sum, item) => sum + Number(item.evidenceCoverage || 0), 0) / recent.length : null,
+    missionDomainScore: missionValues.length ? missionValues.reduce((sum, value) => sum + value, 0) / missionValues.length : null,
+    sourceUpdatedAt: finalized.map((item) => item.finalizedAt).filter(Boolean).sort().at(-1) || null
+  };
+}
+
+function buildCanonicalPromotionInput(currentRank = "RECRUIT", targetRank = "CADET") {
+  const integrity = buildInspectionIntegritySummary(inspectionHistory);
+  const target = getCurrentRankDefinition(targetRank);
+  return {
+    currentRank,
+    finalizedInspections: integrity.finalizedCount,
+    recentAverageDisciplineScore: integrity.recentAverageDisciplineScore,
+    recentAverageEvidenceCoverage: integrity.recentAverageEvidenceCoverage,
+    consecutiveQualifyingWeeks: calculateConsecutiveQualifyingWeeks(integrity.finalized, {
+      minimumDisciplineScore: target.minimumAverageDisciplineScore,
+      minimumEvidenceCoverage: target.minimumAverageEvidenceCoverage
+    }),
+    unresolvedConfirmedViolations: 0,
+    unresolvedLevelTwoViolations: 0,
+    unresolvedLevelThreeViolations: 0,
+    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
+    domainScores: { mission: integrity.missionDomainScore },
+    standardsHistory: standardsReviewState || [],
+    integrity
+  };
 }
 
 function selectTrendWindow(records = [], size = TREND_WINDOW_SIZE) {
@@ -1462,7 +1639,7 @@ function identifyBestAndLowestWeeks(records = []) {
 
 function summarizeInspectionHistory(records = [], recentSize = TREND_WINDOW_SIZE) {
   const sorted = sortInspectionHistory(records);
-  const finalized = sorted.filter((item) => item.finalizedAt);
+  const finalized = canonicalFinalizedInspections(records);
   const scored = finalized.filter((item) => isFiniteMetric(item.score));
   const recent = scored.slice(-recentSize);
   const latest = scored.at(-1) || null;
@@ -2743,7 +2920,7 @@ function buildPerformancePersistencePayload(entry = {}, userId = null) {
     session_name: normalized.sessionName || null,
     source: normalized.source,
     evidence_status: normalized.evidenceStatus,
-    metrics: normalized.metrics || {},
+    metrics: normalized.provenance ? { ...(normalized.metrics || {}), source_provenance: normalized.provenance } : (normalized.metrics || {}),
     notes: normalized.notes || null,
     created_at: normalized.createdAt,
     updated_at: normalized.updatedAt
@@ -2751,7 +2928,7 @@ function buildPerformancePersistencePayload(entry = {}, userId = null) {
 }
 
 function hydratePerformanceEntry(row = {}) {
-  return normalizePerformanceEntry({
+  const entry = normalizePerformanceEntry({
     id: row.id,
     userId: row.user_id || row.userId,
     performanceDate: row.performance_date || row.performanceDate,
@@ -2768,6 +2945,9 @@ function hydratePerformanceEntry(row = {}) {
     createdAt: row.created_at || row.createdAt,
     updatedAt: row.updated_at || row.updatedAt
   });
+  const provenance = row.provenance || row.metrics?.source_provenance;
+  if (provenance) entry.provenance = JSON.parse(JSON.stringify(provenance));
+  return entry;
 }
 
 function summarizeRecentPerformance(entries = [], options = {}) {
@@ -4062,6 +4242,198 @@ function renderAtlasPerformanceReviewSection() {
   container.innerHTML = `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>ATLAS // PERFORMANCE REVIEW</strong><p>${review.status}</p></div><span class="state-pill neutral">${review.limitedEvidence ? "LIMITED EVIDENCE" : "READY"}</span></div><div class="performance-entry-meta"><span>${review.newRecords}</span><span>${review.milestones}</span></div></article>`;
 }
 
+function programmingStorageKey() {
+  return `coach-dominion:programming-draft:${session?.user?.id || "local"}`;
+}
+
+function readProgrammingDraft() {
+  try { return JSON.parse(window.localStorage.getItem(programmingStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function buildCurrentProgrammingRecommendation() {
+  if (typeof DominionProgramming === "undefined") return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : null;
+  const strengthStatus = document.getElementById("strength_status")?.value || lastSavedComplianceState?.strength?.status || "";
+  return DominionProgramming.buildProgrammingRecommendation({
+    entries: performanceEntries,
+    readiness: {
+      state: readinessResult?.state || null,
+      energy: dailyState?.energy,
+      soreness: dailyState?.soreness,
+      pain: Boolean(dailyState?.pain)
+    },
+    compliance: { strengthStatus }
+  });
+}
+
+function renderProgrammingReview() {
+  const panel = document.getElementById("programming-review-panel");
+  if (!panel) return;
+  const recommendation = buildCurrentProgrammingRecommendation();
+  if (!recommendation) {
+    panel.innerHTML = `<div class="performance-empty">Programming engine unavailable.</div>`;
+    return;
+  }
+  setText("programming-status", recommendation.status);
+  const draft = readProgrammingDraft();
+  const items = recommendation.exercises.map((item) => `<article class="performance-entry-card">
+    <div class="performance-entry-header"><div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.action.replaceAll("_", " "))}</p></div><span class="state-pill neutral">${item.evidenceCount} EVIDENCE</span></div>
+    <div class="performance-entry-meta"><span>${item.currentLoad} ${escapeHtml(item.unit)} → <strong>${item.recommendedLoad} ${escapeHtml(item.unit)}</strong></span><span>${item.currentSets} → <strong>${item.recommendedSets} sets</strong> × ${item.targetReps} reps</span></div>
+    <p class="muted">${escapeHtml(item.rationale)}</p>
+  </article>`).join("");
+  panel.innerHTML = `<div class="connected-summary-grid">
+      <div><span>Recommendation</span><strong>${escapeHtml(recommendation.status)}</strong></div>
+      <div><span>Evidence quality</span><strong>${escapeHtml(recommendation.evidenceQuality)}</strong></div>
+      <div><span>Readiness policy</span><strong>${escapeHtml(recommendation.policy.code)}</strong></div>
+      <div><span>Exercises covered</span><strong>${recommendation.exercises.length}</strong></div>
+    </div>
+    <div class="connected-notice"><strong>Why:</strong> ${escapeHtml(recommendation.policy.reason)} Restrictions: ${escapeHtml(recommendation.restrictions.join(" "))}</div>
+    <div class="performance-entry-list">${items || `<div class="performance-empty">Import or log strength work before generating progression recommendations.</div>`}</div>
+    <div class="performance-actions">
+      <button type="button" data-programming-action="approve" ${recommendation.requiresConfirmation ? "" : "disabled"}>Approve next-session draft</button>
+      <button type="button" class="ghost" data-programming-action="refresh">Refresh evidence</button>
+    </div>
+    ${draft ? `<article class="connected-detail-card"><strong>APPROVED LOCAL DRAFT</strong><p>${escapeHtml(draft.prescription || "")}</p><p class="muted">Approved ${escapeHtml(draft.approvedAt || "")}. This draft has not silently changed today’s mission.</p></article>` : ""}`;
+}
+
+function recoveryStorageKey() {
+  return `coach-dominion:recovery-plan:${session?.user?.id || "local"}`;
+}
+
+function buildCurrentRecoveryRecommendation() {
+  if (typeof DominionRecovery === "undefined" || !connectedApi()) return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : null;
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const nutrition = nutritionDays[0] || {};
+  const strengthSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const latestTraining = strengthSessions[0] || {};
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  return DominionRecovery.buildRecoveryRecommendation({
+    readiness: { state: readinessResult?.state, energy: dailyState?.energy, soreness: dailyState?.soreness, pain: Boolean(dailyState?.pain) },
+    nutrition,
+    targets: connectedApi().parseNutritionTarget(targetText),
+    training: { volume: latestTraining.volume || 0, sets: latestTraining.setCount || 0 },
+    weightTrend: DominionRecovery.weightTrend(performanceEntries)
+  });
+}
+
+function readRecoveryPlan() {
+  try { return JSON.parse(window.localStorage.getItem(recoveryStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function dailyOrdersStorageKey() {
+  return `coach-dominion:daily-orders:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readApprovedDailyOrders() {
+  try { return JSON.parse(window.localStorage.getItem(dailyOrdersStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function buildCurrentDailyCoachingLoop() {
+  if (typeof DominionDailyCoaching === "undefined") return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const programming = buildCurrentProgrammingRecommendation() || {};
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const api = connectedApi();
+  const strengthSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const approvedOrders = readApprovedDailyOrders();
+  return DominionDailyCoaching.buildDailyCoachingLoop({
+    readiness: {
+      state: readinessResult.state,
+      energy: dailyState?.energy,
+      soreness: dailyState?.soreness,
+      pain: Boolean(dailyState?.pain),
+      instruction: readinessResult.instruction
+    },
+    mission: readinessResult.state ? generateMission(readinessResult) : {},
+    programming,
+    recovery,
+    programmingApproved: Boolean(readProgrammingDraft()),
+    recoveryApproved: Boolean(readRecoveryPlan()),
+    ordersApproved: Boolean(approvedOrders),
+    evidence: {
+      trainingRecords: connectedImportedRecords.filter((record) => record.providerCode === "FITBOD" && record.importStatus !== "DUPLICATE").length,
+      nutritionRecords: connectedImportedRecords.filter((record) => record.providerCode === "MYFITNESSPAL" && record.importStatus !== "DUPLICATE").length,
+      trainingVolume: strengthSessions[0]?.volume || 0,
+      nutritionDays: nutritionDays.length
+    },
+    compliance: {
+      saved: Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate())
+    }
+  });
+}
+
+function dailyActionLabel(action) {
+  return {
+    roll_call: "Complete Morning Roll Call",
+    review_recovery: "Review Recovery & Fueling",
+    review_programming: "Review Programming",
+    approve_orders: "Approve Today’s Orders",
+    review_record: "Open Dominion Record",
+    refresh: "Refresh Today’s Evidence"
+  }[action] || "Refresh Today’s Evidence";
+}
+
+function renderDailyCoachingLoop() {
+  const panel = document.getElementById("daily-orders-panel");
+  const phases = document.getElementById("daily-loop-phases");
+  if (!panel || !phases) return;
+  const loop = buildCurrentDailyCoachingLoop();
+  if (!loop) {
+    panel.innerHTML = `<div class="performance-empty">Daily coaching engine unavailable.</div>`;
+    return;
+  }
+  setText("daily-orders-state", loop.posture);
+  const state = document.getElementById("daily-orders-state");
+  state.className = `state-pill ${loop.priority === "CRITICAL" ? "red" : loop.priority === "HIGH" || loop.priority === "MODERATE" ? "yellow" : loop.posture === "ROLL CALL REQUIRED" ? "neutral" : "green"}`;
+  phases.innerHTML = loop.phases.map((item) => `<div class="daily-loop-phase ${escapeHtml(item.state.toLowerCase())}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.state)}</strong><small>${escapeHtml(item.detail)}</small></div>`).join("");
+  const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
+  panel.innerHTML = `<div class="kicker">ATLAS // NEXT ACTION</div>
+    <h3>${escapeHtml(loop.headline)}</h3>
+    <p>${escapeHtml(loop.directive)}</p>
+    <div class="daily-evidence-grid">
+      <div><span>Readiness</span><strong>${escapeHtml(dailyState ? evaluateReadiness(dailyState).state : "PENDING")}</strong></div>
+      <div><span>Training evidence</span><strong>${loop.evidence.trainingRecords} records</strong></div>
+      <div><span>Calorie coverage</span><strong>${coverage(loop.evidence.calorieCoverage)}</strong></div>
+      <div><span>Protein coverage</span><strong>${coverage(loop.evidence.proteinCoverage)}</strong></div>
+    </div>
+    <div class="daily-orders-actions">
+      <button type="button" data-daily-action="${escapeHtml(loop.nextAction)}">${escapeHtml(dailyActionLabel(loop.nextAction))}</button>
+      <button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button>
+    </div>
+    <p class="daily-orders-safeguard">Safety lock: pain overrides progression. Programming, recovery, and daily-order adjustments require deliberate approval. Today’s mission is never silently mutated.</p>`;
+}
+
+function renderRecoveryReview() {
+  const panel = document.getElementById("recovery-review-panel");
+  if (!panel) return;
+  const review = buildCurrentRecoveryRecommendation();
+  if (!review) { panel.innerHTML = `<div class="performance-empty">Recovery engine unavailable.</div>`; return; }
+  setText("recovery-status", review.status);
+  const plan = readRecoveryPlan();
+  const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
+  panel.innerHTML = `<div class="connected-summary-grid">
+      <div><span>Recovery posture</span><strong>${escapeHtml(review.status)}</strong></div>
+      <div><span>Priority</span><strong>${escapeHtml(review.priority)}</strong></div>
+      <div><span>Confidence</span><strong>${escapeHtml(review.confidence)}</strong></div>
+      <div><span>Progression</span><strong>${review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
+      <div><span>Calorie coverage</span><strong>${coverage(review.calorieCoverage)}</strong></div>
+      <div><span>Protein coverage</span><strong>${coverage(review.proteinCoverage)}</strong></div>
+      <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume · ${review.trainingSets} sets</strong></div>
+      <div><span>Weight trend</span><strong>${escapeHtml(review.weightTrend.state)}${review.weightTrend.change === null ? "" : ` ${review.weightTrend.change > 0 ? "+" : ""}${review.weightTrend.change}`}</strong></div>
+    </div>
+    <article class="connected-detail-card"><header><div><span class="kicker">ATLAS ORDERS</span><h3>${escapeHtml(review.status)}</h3></div>${connectedStatusPill(review.priority)}</header>
+      <ul>${review.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+      <p class="muted">Readiness: ${escapeHtml(review.readiness.state)} · Energy ${review.readiness.energy ?? "—"}/10 · Soreness ${review.readiness.soreness ?? "—"}/10 · Pain ${review.readiness.pain ? "YES" : "NO"}</p>
+    </article>
+    <div class="performance-actions"><button type="button" data-recovery-action="approve">Approve recovery plan</button><button type="button" class="ghost" data-recovery-action="refresh">Refresh evidence</button></div>
+    ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter today’s mission.</p></article>` : ""}`;
+}
+
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
   const summary = summarizeRecentPerformance(entries);
   setText("performance-week-count", summary.entriesThisWeek);
@@ -4079,6 +4451,9 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderMilestonesSection();
   renderAtlasPerformanceReviewSection();
   renderPerformanceIntelligenceSection(entries);
+  renderProgrammingReview();
+  renderRecoveryReview();
+  renderDailyCoachingLoop();
   renderPerformanceViewPanels();
   const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
   const entryList = document.getElementById("performance-entry-list");
@@ -4105,7 +4480,8 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
     if (entry.domain === "body_metrics") {
       metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
     }
-    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
+    const sourceLabel = entry.provenance?.sourceIsDemo ? `DEMO ${entry.provenance.sourceProvider || "PROVIDER"} IMPORT` : entry.provenance?.sourceProvider ? `${entry.provenance.sourceProvider} IMPORT` : (entry.source || "MANUAL");
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p><span class="demo-badge">${escapeHtml(sourceLabel)}</span></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
   }).join("");
 }
 
@@ -4365,10 +4741,13 @@ function renderWarRoom(state) {
     setText("daily-primary", intel[1]);
     setText("daily-instruction", intel[2]);
     setText("daily-risk", intel[3]);
+    renderDailyCoachingLoop();
+    renderBaselineIntelligence();
+    renderNutritionCommand();
     return;
   }
 
-  const readinessResult = evaluateReadiness(state);
+  const readinessResult = evaluateOperationalReadiness(state);
   const derivedReadiness = readinessResult.state;
   const mission = generateMission(readinessResult);
   const morningBrief = generateMorningBrief(readinessResult);
@@ -4414,20 +4793,27 @@ function renderWarRoom(state) {
   setText("summary-soreness", `${state.soreness}/10`);
   setText("summary-pain", state.pain ? "Yes" : "No");
   setText("summary-confidence", confidencePercent(readinessResult.confidence));
+  renderDailyCoachingLoop();
+  renderBaselineIntelligence();
+  renderNutritionCommand();
   setText("summary-comments", state.comments || "—");
 }
 
 async function loadDailyState() {
   const supabase = await getClient();
+  const cutoff = new Date(`${todayISODate()}T00:00:00Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 28);
   const { data, error } = await supabase
     .from("daily_state")
     .select(DAILY_STATE_COLUMNS)
     .eq("user_id", session.user.id)
-    .eq("date", todayISODate())
-    .maybeSingle();
+    .gte("date", cutoff.toISOString().slice(0, 10))
+    .lte("date", todayISODate())
+    .order("date", { ascending: true });
 
   if (error) throw error;
-  dailyState = data;
+  readinessHistory = data || [];
+  dailyState = readinessHistory.find((item) => item.date === todayISODate()) || null;
   renderWarRoom(dailyState);
 }
 
@@ -4440,8 +4826,8 @@ function missionsMatch(previousMission, newMission) {
 }
 
 function buildCommandEvents(newState, previousState) {
-  const newResult = evaluateReadiness(newState);
-  const previousResult = previousState ? evaluateReadiness(previousState) : null;
+  const newResult = evaluateOperationalReadiness(newState);
+  const previousResult = previousState ? evaluateOperationalReadiness(previousState) : null;
   const newReadiness = newResult.state;
   const previousReadiness = previousResult ? previousResult.state : null;
   const newMission = generateMission(newResult);
@@ -4533,6 +4919,7 @@ async function saveMorningRollCall(event) {
     await writeCommandEvents(data, previousState);
 
     dailyState = data;
+    readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
     renderWarRoom(dailyState);
     await loadCommandFeed();
     setStatus("Morning Roll Call saved.");
@@ -4589,6 +4976,1029 @@ function handleSectionNavigation(link) {
   return true;
 }
 
+function connectedApi() {
+  return typeof ConnectedDominion !== "undefined" ? ConnectedDominion : null;
+}
+
+function connectedUserId() {
+  return session?.user?.id || "local";
+}
+
+function nutritionManualStorageKey(date) {
+  return `coach-dominion:nutrition-manual:${connectedUserId()}:${date}`;
+}
+
+function readManualNutrition(date) {
+  try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(date)) || "null"); }
+  catch (_) { return null; }
+}
+
+function nutritionCommandDate() {
+  return document.querySelector('#nutrition-manual-form [name="date"]')?.value || todayISODate();
+}
+
+function nutritionBaselineStorageKey() {
+  return `coach-dominion:nutrition-baselines:${connectedUserId()}`;
+}
+
+function readNutritionBaselineHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(nutritionBaselineStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function activeNutritionBaseline(date = todayISODate()) {
+  if (typeof DominionNutritionBaseline === "undefined") return null;
+  return DominionNutritionBaseline.selectEffectiveBaseline(readNutritionBaselineHistory(), date);
+}
+
+function dominionRecordNutritionTargets() {
+  if (!connectedApi()) return {};
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  return connectedApi().parseNutritionTarget(targetText);
+}
+
+function currentNutritionBaseTargets(date = todayISODate()) {
+  return activeNutritionBaseline(date)?.recoveryTargets || dominionRecordNutritionTargets();
+}
+
+function currentNutritionTargetsForContext(trainingDay, date = todayISODate()) {
+  const baseline = activeNutritionBaseline(date);
+  if (baseline) return trainingDay ? baseline.trainingTargets : baseline.recoveryTargets;
+  return dominionRecordNutritionTargets();
+}
+
+function buildNutritionBaselineFromForm() {
+  const form = document.getElementById("nutrition-baseline-form");
+  if (!form || typeof DominionNutritionBaseline === "undefined") return null;
+  const data = new FormData(form);
+  return DominionNutritionBaseline.buildNutritionBaselineProposal(Object.fromEntries(data.entries()));
+}
+
+function renderNutritionBaseline() {
+  const form = document.getElementById("nutrition-baseline-form");
+  const output = document.getElementById("nutrition-baseline-output");
+  const status = document.getElementById("nutrition-baseline-status");
+  const historyOutput = document.getElementById("nutrition-baseline-history");
+  if (!form || !output || !status || !historyOutput || typeof DominionNutritionBaseline === "undefined") return;
+  const history = readNutritionBaselineHistory();
+  const active = activeNutritionBaseline();
+  if (!form.elements.effectiveDate.value) form.elements.effectiveDate.value = todayISODate();
+  const current = nutritionBaselineDraft || active;
+  status.textContent = nutritionBaselineDraft?.status || (active ? "APPROVED" : "NOT SET");
+  status.className = `state-pill ${active && !nutritionBaselineDraft ? "green" : nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current) {
+    output.className = "performance-empty";
+    output.innerHTML = "No approved baseline yet. Complete the setup above to unlock nutrition coaching.";
+  } else if (current.status === "REVIEW REQUIRED") {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>Review required</strong><ul>${current.errors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  } else {
+    output.className = "";
+    output.innerHTML = `<p><strong>${escapeHtml(current.goal.replace("_", " "))}</strong> · effective ${escapeHtml(current.effectiveDate)}</p>
+      <p>${escapeHtml(current.rationale)}</p>
+      <div class="nutrition-baseline-variants">
+        <article class="nutrition-baseline-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
+        <article class="nutrition-baseline-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
+      </div>
+      <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      ${current.status === "READY FOR APPROVAL" ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-baseline-action="approve">Approve &amp; Activate Baseline</button><button type="button" class="ghost" data-nutrition-baseline-action="cancel">Cancel Draft</button></div>' : ""}`;
+  }
+  const historyRows = [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.approvedAt.localeCompare(a.approvedAt))
+    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} · approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal · ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
+  historyOutput.innerHTML = history.length ? `<details class="nutrition-baseline-history"><summary>Baseline history (${history.length})</summary><div class="nutrition-baseline-history-list">${historyRows}</div></details>` : "";
+}
+
+function reviewNutritionBaseline(event) {
+  event.preventDefault();
+  nutritionBaselineDraft = buildNutritionBaselineFromForm();
+  renderNutritionBaseline();
+  setText("nutrition-baseline-feedback", nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "Review both variants, then approve to activate this dated baseline." : "Correct the flagged items before approval.");
+}
+
+function approveNutritionBaselineDraft() {
+  if (!nutritionBaselineDraft || typeof DominionNutritionBaseline === "undefined") return;
+  try {
+    const approved = DominionNutritionBaseline.approveNutritionBaseline(nutritionBaselineDraft);
+    const history = readNutritionBaselineHistory();
+    history.push(approved);
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(history));
+    ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => window.localStorage.removeItem(adaptiveFuelingStorageKey(goalName)));
+    nutritionBaselineDraft = null;
+    const goal = document.getElementById("adaptive-fueling-goal");
+    if (goal) goal.value = approved.goal;
+    renderNutritionCommand();
+    setText("nutrition-baseline-feedback", approved.effectiveDate <= todayISODate()
+      ? "Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence."
+      : `Baseline approved and scheduled for ${approved.effectiveDate}.`);
+  } catch (error) {
+    setText("nutrition-baseline-feedback", error.message);
+  }
+}
+
+function adaptiveFuelingStorageKey(goal) {
+  return `coach-dominion:adaptive-fueling:${connectedUserId()}:${goal || "MAINTAIN"}`;
+}
+
+function readApprovedAdaptiveFueling(goal) {
+  try { return JSON.parse(window.localStorage.getItem(adaptiveFuelingStorageKey(goal)) || "null"); }
+  catch (_) { return null; }
+}
+
+function currentAdaptiveFuelingGoal() {
+  return document.getElementById("adaptive-fueling-goal")?.value || "MAINTAIN";
+}
+
+function buildCurrentAdaptiveFuelingProposal() {
+  if (typeof DominionAdaptiveFueling === "undefined" || !connectedApi()) return null;
+  const targets = currentNutritionBaseTargets();
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const readiness = dailyState ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  return DominionAdaptiveFueling.buildAdaptiveFuelingProposal({
+    targets,
+    nutritionDays,
+    goal: currentAdaptiveFuelingGoal(),
+    readiness
+  });
+}
+
+function adaptiveTargetCards(targets) {
+  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbs", "g"], fat: ["Fat", "g"] };
+  return Object.entries(labels).map(([key, [label, unit]]) => `<div class="adaptive-target-card"><span>${label}</span><strong>${Math.round(targets[key])}${unit}</strong></div>`).join("");
+}
+
+function renderAdaptiveFueling() {
+  const output = document.getElementById("adaptive-fueling-output");
+  const status = document.getElementById("adaptive-fueling-status");
+  if (!output || !status) return;
+  const proposal = buildCurrentAdaptiveFuelingProposal();
+  if (!proposal) return;
+  const approved = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const current = approved || proposal;
+  status.textContent = current.status;
+  status.className = `state-pill ${current.status === "APPROVED" ? "green" : current.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current.trainingTargets) {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>${escapeHtml(current.status)}</strong><p>${escapeHtml(current.reason)}</p><p>${current.evidenceDays || 0}${current.requiredDays ? ` / ${current.requiredDays}` : ""} complete nutrition day(s).</p>`;
+    return;
+  }
+  output.className = "";
+  output.innerHTML = `<p><strong>Strategy:</strong> ${escapeHtml(current.strategy)}</p>
+    <div class="adaptive-target-variants">
+      <article class="adaptive-target-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
+      <article class="adaptive-target-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
+    </div>
+    <p class="muted">${current.evidenceDays} complete nutrition day(s) · calorie adherence ${Math.round(current.adherence.calories * 100)}% · protein adherence ${Math.round(current.adherence.protein * 100)}%</p>
+    <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions"><button type="button" data-adaptive-fueling-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Fueling Variant Approved" : "Approve Fueling Variant"}</button></div>`;
+}
+
+function nutritionIntelligencePercent(value) {
+  return value === null || value === undefined ? "—" : `${Math.round(value * 100)}%`;
+}
+
+function nutritionIntelligenceAverage(value, unit) {
+  return value === null || value === undefined ? "—" : `${Math.round(value)}${unit || ""}`;
+}
+
+function nutritionEvidenceHistory(windowEnd) {
+  if (!connectedApi()) return [];
+  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const importedByDate = new Map(imported.map((day) => [day.date, { ...day, source: "MYFITNESSPAL" }]));
+  const history = [];
+  const anchor = new Date(`${windowEnd}T12:00:00`);
+  for (let offset = 13; offset >= 0; offset -= 1) {
+    const date = new Date(anchor);
+    date.setDate(anchor.getDate() - offset);
+    const dateKey = date.toISOString().slice(0, 10);
+    const manual = readManualNutrition(dateKey);
+    const record = importedByDate.get(dateKey) || (manual ? { ...manual, source: "MANUAL" } : null);
+    if (record) history.push(record);
+  }
+  return history;
+}
+
+function buildCurrentNutritionIntelligence() {
+  if (typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return null;
+  const windowEnd = todayISODate();
+  return DominionNutritionIntelligence.buildNutritionIntelligence({
+    windowEnd,
+    targets: currentNutritionBaseTargets(windowEnd),
+    trainingDates: connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).map((session) => session.date),
+    nutritionDays: nutritionEvidenceHistory(windowEnd)
+  });
+}
+
+function renderNutritionIntelligence() {
+  const output = document.getElementById("nutrition-intelligence-output");
+  const status = document.getElementById("nutrition-intelligence-status");
+  if (!output || !status || typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return;
+  const result = buildCurrentNutritionIntelligence();
+  if (!result) return;
+  status.textContent = result.status;
+  status.className = `state-pill ${result.status === "READY" ? "green" : result.status === "PROVISIONAL" ? "yellow" : "neutral"}`;
+  const recent = result.sevenDay;
+  const total = result.fourteenDay;
+  const trendText = result.trend.status === "AVAILABLE"
+    ? `Calories ${result.trend.calories.direction.toLowerCase()} ${Math.abs(result.trend.calories.delta)} · protein ${result.trend.protein.direction.toLowerCase()} ${Math.abs(result.trend.protein.delta)}g`
+    : "Needs 3 complete days in each 7-day window";
+  const contextCard = (label, summary) => `<article class="nutrition-context-card">
+    <span>${label}</span>
+    <strong>${summary.evidenceDays} evidence day${summary.evidenceDays === 1 ? "" : "s"}</strong>
+    <small>${nutritionIntelligenceAverage(summary.averageCalories, "")} kcal average · ${nutritionIntelligenceAverage(summary.averageProtein, "g")} protein</small>
+    <small>Calories ${nutritionIntelligencePercent(summary.calorieAdherence)} · protein ${nutritionIntelligencePercent(summary.proteinAdherence)}</small>
+  </article>`;
+  output.className = "";
+  output.innerHTML = `<div class="nutrition-intelligence-summary">
+      <div><span>14-day evidence</span><strong>${result.evidenceDays} / 14 days</strong><small>${result.evidenceCoverage}% coverage · ${result.missingDays} evidence gaps</small></div>
+      <div><span>Recent 7 days</span><strong>${nutritionIntelligenceAverage(recent.averageCalories, "")} kcal</strong><small>${nutritionIntelligenceAverage(recent.averageProtein, "g")} average protein</small></div>
+      <div><span>14-day adherence</span><strong>${nutritionIntelligencePercent(total.calorieAdherence)}</strong><small>Protein ${nutritionIntelligencePercent(total.proteinAdherence)}</small></div>
+      <div><span>Trend direction</span><strong>${escapeHtml(result.trend.status)}</strong><small>${escapeHtml(trendText)}</small></div>
+    </div>
+    <div class="nutrition-intelligence-context">${contextCard("Training days", result.training)}${contextCard("Recovery / unclassified days", result.recovery)}</div>
+    <div class="nutrition-priority"><span class="kicker">WEEKLY PRIORITY // ${escapeHtml(result.priority.code)}</span><strong>${escapeHtml(result.priority.title)}</strong><p>${escapeHtml(result.priority.message)}</p></div>
+    <ul class="baseline-safeguards">${result.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function nutritionReviewStorageKey() {
+  return `coach-dominion:nutrition-reviews:${connectedUserId()}`;
+}
+
+function readNutritionReviewHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(nutritionReviewStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function buildCurrentNutritionReview() {
+  if (typeof DominionNutritionReview === "undefined") return null;
+  const intelligence = buildCurrentNutritionIntelligence();
+  if (!intelligence) return null;
+  return DominionNutritionReview.buildWeeklyNutritionReview({
+    intelligence,
+    goal: activeNutritionBaseline()?.goal || currentAdaptiveFuelingGoal(),
+    reviewEnd: todayISODate()
+  });
+}
+
+function renderNutritionReview() {
+  const output = document.getElementById("nutrition-review-output");
+  const status = document.getElementById("nutrition-review-status");
+  const historyOutput = document.getElementById("nutrition-review-history");
+  if (!output || !status || !historyOutput) return;
+  const review = buildCurrentNutritionReview();
+  if (!review) return;
+  status.textContent = review.status;
+  status.className = `state-pill ${review.status === "READY FOR REVIEW" ? "green" : review.status === "PROVISIONAL REVIEW" ? "yellow" : "neutral"}`;
+  const list = (items) => items.length ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : "<li>No conclusion available.</li>";
+  output.className = "";
+  output.innerHTML = `<p><strong>${escapeHtml(review.headline)}</strong></p>
+    <div class="nutrition-review-grid">
+      <article class="nutrition-review-card"><h4>Wins to preserve</h4><ul>${list(review.wins)}</ul></article>
+      <article class="nutrition-review-card"><h4>Evidence &amp; friction</h4><ul>${list(review.observations)}</ul></article>
+    </div>
+    <div class="nutrition-action-list">${review.actions.map((item) => `<article class="nutrition-action"><span>${escapeHtml(item.code)}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></article>`).join("")}</div>
+    <ul class="baseline-safeguards">${review.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    ${["PROVISIONAL REVIEW", "READY FOR REVIEW"].includes(review.status) ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-review-action="approve">Approve Next-Week Plan</button></div>' : ""}`;
+  const history = readNutritionReviewHistory();
+  historyOutput.innerHTML = history.length ? `<details class="nutrition-review-history"><summary>Approved reviews (${history.length})</summary>${[...history].reverse().map((item) =>
+    `<div class="nutrition-review-history-item"><strong>Week ending ${escapeHtml(item.reviewEnd || item.approvedAt.slice(0, 10))}</strong><small>${item.evidenceDays} evidence days · ${item.actions.map((action) => escapeHtml(action.code)).join(" · ")}</small></div>`).join("")}</details>` : "";
+}
+
+function approveCurrentNutritionReview() {
+  if (typeof DominionNutritionReview === "undefined") return;
+  try {
+    const approved = DominionNutritionReview.approveWeeklyNutritionReview(buildCurrentNutritionReview());
+    const history = readNutritionReviewHistory();
+    history.push(approved);
+    window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(history));
+    renderNutritionReview();
+    setText("nutrition-review-feedback", "Next-week behavior plan approved locally. Calorie and macro targets were not changed.");
+  } catch (error) {
+    setText("nutrition-review-feedback", error.message);
+  }
+}
+
+function mealTrainingWindowStorageKey() {
+  return `coach-dominion:meal-training-window:${connectedUserId()}`;
+}
+
+function readMealTrainingWindow() {
+  try {
+    const value = window.localStorage.getItem(mealTrainingWindowStorageKey()) || "UNSCHEDULED";
+    return ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(value) ? value : "UNSCHEDULED";
+  }
+  catch (_) { return "UNSCHEDULED"; }
+}
+
+function nutritionMealsForDate(date) {
+  return connectedImportedRecords.filter((record) =>
+    record.providerCode === "MYFITNESSPAL" &&
+    record.validationStatus === "VALID" &&
+    String(record.occurredAt || "").slice(0, 10) === date &&
+    ["CALORIES", "MACRONUTRIENTS"].includes(record.dataType)
+  ).map((record) => {
+    const payload = record.normalizedPayload || {};
+    return {
+      name: payload.meal_name || "Imported meal",
+      calories: payload.calories,
+      protein: payload.protein_grams ?? payload.protein,
+      carbs: payload.carbohydrate_grams ?? payload.carbs,
+      fat: payload.fat_grams ?? payload.fat
+    };
+  });
+}
+
+function renderMealCoaching() {
+  const output = document.getElementById("meal-coaching-output");
+  const status = document.getElementById("meal-coaching-status");
+  const windowSelect = document.getElementById("meal-training-window");
+  if (!output || !status || !windowSelect || typeof DominionMealCoaching === "undefined" || !connectedApi()) return;
+  const date = nutritionCommandDate();
+  const baseline = activeNutritionBaseline(date);
+  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  if (windowSelect.value === "UNSCHEDULED") windowSelect.value = readMealTrainingWindow();
+  const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
+  const plan = DominionMealCoaching.buildMealCoachingPlan({
+    date,
+    targets,
+    trainingDay,
+    trainingWindow: windowSelect.value,
+    meals: nutritionMealsForDate(date)
+  });
+  status.textContent = plan.status;
+  status.className = `state-pill ${plan.status === "MEAL EVIDENCE ACTIVE" ? "green" : plan.status === "FUELING MAP ACTIVE" ? "yellow" : "neutral"}`;
+  if (!plan.slots.length) {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>${escapeHtml(plan.status)}</strong><p>${escapeHtml(plan.reason)}</p>`;
+    return;
+  }
+  const slots = plan.slots.map((slot, index) => `<article class="meal-slot">
+    <span>Anchor ${index + 1}</span><strong>${escapeHtml(slot.label)}</strong>
+    <dl>
+      <div><dt>Calories</dt><dd>${Math.round(slot.calories)}</dd></div>
+      <div><dt>Protein</dt><dd>${Math.round(slot.protein)}g</dd></div>
+      <div><dt>Carbs</dt><dd>${Math.round(slot.carbs)}g</dd></div>
+      <div><dt>Fat</dt><dd>${Math.round(slot.fat)}g</dd></div>
+    </dl><p>${escapeHtml(slot.note)}</p>
+  </article>`).join("");
+  const meals = plan.meals.length ? `<div class="meal-evidence-list">${plan.meals.map((meal) => `<article class="meal-evidence"><strong>${escapeHtml(meal.name)}</strong><small>${Math.round(meal.calories)} kcal · ${Math.round(meal.protein)}g protein · ${Math.round(meal.carbs)}g carbs · ${Math.round(meal.fat)}g fat</small></article>`).join("")}</div>` : "";
+  output.className = "";
+  output.innerHTML = `<p><strong>${trainingDay ? "TRAINING DAY" : "RECOVERY / UNCLASSIFIED DAY"}</strong> · ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing · ${escapeHtml(date)}</p>
+    <div class="meal-slot-grid">${slots}</div>
+    <div class="nutrition-review-card"><h4>Imported meal evidence</h4><p>${escapeHtml(plan.evidenceMessage)}</p>${meals}</div>
+    <ul class="baseline-safeguards">${plan.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function renderNutritionCommand() {
+  const output = document.getElementById("nutrition-command-output");
+  const statusPill = document.getElementById("nutrition-command-status");
+  const form = document.getElementById("nutrition-manual-form");
+  if (!output || !statusPill || !form || typeof DominionNutritionCommand === "undefined" || !connectedApi()) return;
+  if (!form.elements.date.value) form.elements.date.value = todayISODate();
+  const date = nutritionCommandDate();
+  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords).find((day) => day.date === date);
+  const manual = readManualNutrition(date);
+  const actual = imported || manual || {};
+  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
+  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
+  const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
+  const readiness = dailyState && date === todayISODate() ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  const command = DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
+  statusPill.textContent = command.status;
+  statusPill.className = `state-pill ${command.status === "ON TARGET" ? "green" : ["UNDER-FUELED", "REVIEW NEEDED"].includes(command.status) ? "yellow" : "neutral"}`;
+  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
+  const metrics = Object.values(command.metrics).map((metric) => {
+    const [label, unit] = labels[metric.key];
+    const actualText = metric.actual === null ? "—" : `${Math.round(metric.actual)}${unit}`;
+    const targetTextValue = metric.target ? `${Math.round(metric.target)}${unit}` : "No target";
+    return `<article class="nutrition-metric"><span>${label}</span><strong>${actualText}</strong><small>Target: ${targetTextValue}</small><small>${metric.percent === null ? metric.status : `${metric.percent}% · ${metric.status}`}</small></article>`;
+  }).join("");
+  output.innerHTML = `<div class="nutrition-command-context">
+      <div><span>Date</span><strong>${escapeHtml(date)}</strong></div>
+      <div><span>Intake source</span><strong>${escapeHtml(command.source)}</strong></div>
+      <div><span>Context</span><strong>${trainingDay ? "TRAINING DAY" : "NO TRAINING IMPORT"} · ${escapeHtml(readiness)} READINESS</strong></div>
+    </div>
+    <div class="nutrition-command-grid">${metrics}</div>
+    <div class="nutrition-guidance"><strong>Atlas guidance</strong><ul>${command.guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+    <ul class="baseline-safeguards">${command.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions">
+      <button type="button" data-nutrition-command-action="review-targets">Review Nutrition Targets</button>
+      <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
+    </div>`;
+  renderNutritionBaseline();
+  renderAdaptiveFueling();
+  renderNutritionIntelligence();
+  renderNutritionReview();
+  renderMealCoaching();
+  renderNutritionNextAction({ imported, manual });
+}
+
+function nutritionViewStorageKey() {
+  return `coach-dominion:nutrition-view:${connectedUserId()}`;
+}
+
+function setNutritionActiveView(view = "today", persist = true) {
+  const allowed = ["today", "plan", "review", "details"];
+  nutritionActiveView = allowed.includes(view) ? view : "today";
+  document.querySelectorAll("[data-nutrition-view]").forEach((button) => {
+    const active = button.dataset.nutritionView === nutritionActiveView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-nutrition-view-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.nutritionViewPanel !== nutritionActiveView;
+  });
+  if (persist && typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.setItem(nutritionViewStorageKey(), nutritionActiveView);
+  }
+}
+
+function restoreNutritionActiveView() {
+  let saved = "today";
+  try {
+    saved = window.localStorage.getItem(nutritionViewStorageKey()) || "today";
+  } catch (_) {}
+  setNutritionActiveView(saved, false);
+}
+
+function renderNutritionNextAction({ imported = null, manual = null } = {}) {
+  const output = document.getElementById("nutrition-next-action");
+  if (!output) return;
+  const baseline = activeNutritionBaseline(nutritionCommandDate());
+  let action = {
+    status: "TODAY",
+    title: "Follow today’s fueling map",
+    copy: "Use the daily targets and meal anchors below as flexible guidance.",
+    view: "today",
+    label: "View Today"
+  };
+  if (!baseline) {
+    action = {
+      status: "SETUP",
+      title: "Set your fueling baseline",
+      copy: "Approve recovery and training-day targets to unlock daily coaching.",
+      view: "plan",
+      label: "Set Baseline"
+    };
+  } else if (!imported && !manual) {
+    action = {
+      status: "IMPORT",
+      title: "Add today’s intake",
+      copy: "Import MyFitnessPal data or enter daily totals so Atlas can compare intake with your plan.",
+      view: "details",
+      label: "Add Intake"
+    };
+  }
+  output.innerHTML = `<div><div class="kicker">ATLAS // NEXT BEST ACTION · ${escapeHtml(action.status)}</div><h3>${escapeHtml(action.title)}</h3><p>${escapeHtml(action.copy)}</p></div>
+    <button type="button" data-nutrition-next-action="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`;
+}
+
+function saveManualNutrition(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const date = String(data.get("date") || todayISODate());
+  const record = { date };
+  ["calories", "protein", "carbs", "fat"].forEach((key) => {
+    const value = data.get(key);
+    record[key] = value === "" || value === null ? null : Number(value);
+  });
+  window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
+  renderNutritionCommand();
+  setText("nutrition-command-feedback", "Manual totals saved locally. MyFitnessPal data will take priority when available for this date.");
+}
+
+function readConnectedLocal(kind, normalizer) {
+  const api = connectedApi();
+  if (!api || typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(api.storageKey(kind, connectedUserId())) || "[]");
+    return Array.isArray(parsed) ? parsed.map((item) => normalizer(item, { userId: connectedUserId() })) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeConnectedLocal() {
+  const api = connectedApi();
+  if (!api || typeof window === "undefined" || !window.localStorage) return false;
+  try {
+    window.localStorage.setItem(api.storageKey("connected-accounts", connectedUserId()), JSON.stringify(connectedAccounts));
+    window.localStorage.setItem(api.storageKey("integration-sync-jobs", connectedUserId()), JSON.stringify(connectedSyncJobs));
+    window.localStorage.setItem(api.storageKey("imported-records", connectedUserId()), JSON.stringify(connectedImportedRecords));
+    window.localStorage.setItem(api.storageKey("connected-ui", connectedUserId()), JSON.stringify({ activeView: connectedActiveView }));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function connectedAccountPayload(account) {
+  return {
+    id: account.id, user_id: account.userId, provider_code: account.providerCode, provider_display_name: account.providerDisplayName,
+    connection_status: account.connectionStatus, permissions: account.permissions, external_account_id: account.externalAccountId,
+    external_account_label: account.externalAccountLabel, last_successful_sync_at: account.lastSuccessfulSyncAt,
+    last_attempted_sync_at: account.lastAttemptedSyncAt, last_sync_status: account.lastSyncStatus,
+    last_sync_error_code: account.lastSyncErrorCode, last_sync_error_message: account.lastSyncErrorMessage,
+    sync_cursor: account.syncCursor, metadata: account.metadata, is_simulated: account.isSimulated,
+    disconnected_at: account.disconnectedAt, created_at: account.createdAt, updated_at: account.updatedAt
+  };
+}
+
+function connectedJobPayload(job) {
+  return {
+    id: job.id, user_id: job.userId, connected_account_id: job.connectedAccountId, provider_code: job.providerCode,
+    sync_type: job.syncType, status: job.status, requested_at: job.requestedAt, started_at: job.startedAt,
+    completed_at: job.completedAt, cursor_before: job.cursorBefore, cursor_after: job.cursorAfter,
+    imported_count: job.importedCount, duplicate_count: job.duplicateCount, rejected_count: job.rejectedCount,
+    unmapped_count: job.unmappedCount, error_code: job.errorCode, error_message: job.errorMessage,
+    summary: job.summary, is_demo: job.isDemo, created_at: job.createdAt
+  };
+}
+
+function connectedRecordPayload(record) {
+  return {
+    id: record.id, user_id: record.userId, connected_account_id: record.connectedAccountId, provider_code: record.providerCode,
+    provider_record_id: record.providerRecordId, provider_record_type: record.providerRecordType,
+    source_created_at: record.sourceCreatedAt, source_updated_at: record.sourceUpdatedAt, occurred_at: record.occurredAt,
+    timezone: record.timezone, data_type: record.dataType, normalized_payload: record.normalizedPayload,
+    raw_payload: record.rawPayload, deduplication_key: record.deduplicationKey, validation_status: record.validationStatus,
+    import_status: record.importStatus, rejection_reason: record.rejectionReason,
+    mapped_performance_entry_id: record.mappedPerformanceEntryId, source_sync_job_id: record.sourceSyncJobId,
+    is_demo: record.isDemo, created_at: record.createdAt, updated_at: record.updatedAt
+  };
+}
+
+async function persistConnectedRemote() {
+  const supabase = await getClient();
+  if (connectedAccounts.length) {
+    const result = await supabase.from("connected_accounts").upsert(connectedAccounts.map(connectedAccountPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+  if (connectedSyncJobs.length) {
+    const result = await supabase.from("integration_sync_jobs").upsert(connectedSyncJobs.map(connectedJobPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+  const canonicalRecords = connectedImportedRecords.filter((record) => record.importStatus !== "DUPLICATE");
+  if (canonicalRecords.length) {
+    const result = await supabase.from("imported_records").upsert(canonicalRecords.map(connectedRecordPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+}
+
+async function loadConnectedDominion() {
+  const api = connectedApi();
+  if (!api) return;
+  connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: !session?.user?.id, localFallback: false };
+  renderConnectedDominion();
+  try {
+    if (!session?.user?.id) throw new Error("Authentication required.");
+    const supabase = await getClient();
+    const [accountsResult, jobsResult, recordsResult] = await Promise.all([
+      supabase.from("connected_accounts").select("*").eq("user_id", session.user.id).order("created_at", { ascending: true }),
+      supabase.from("integration_sync_jobs").select("*").eq("user_id", session.user.id).order("requested_at", { ascending: false }),
+      supabase.from("imported_records").select("*").eq("user_id", session.user.id).order("occurred_at", { ascending: false })
+    ]);
+    const error = accountsResult.error || jobsResult.error || recordsResult.error;
+    if (error) throw error;
+    connectedAccounts = (accountsResult.data || []).map((item) => api.normalizeConnectedAccount(item));
+    connectedSyncJobs = (jobsResult.data || []).map((item) => api.normalizeSyncJob(item));
+    connectedImportedRecords = (recordsResult.data || []).map((item) => api.normalizeImportedRecord(item));
+    connectedStorageMode = "SUPABASE";
+    connectedLoadState = { loading: false, remoteLoadFailed: false, authRequired: false, localFallback: false };
+    writeConnectedLocal();
+  } catch (_) {
+    connectedAccounts = readConnectedLocal("connected-accounts", api.normalizeConnectedAccount);
+    connectedSyncJobs = readConnectedLocal("integration-sync-jobs", api.normalizeSyncJob);
+    connectedImportedRecords = readConnectedLocal("imported-records", api.normalizeImportedRecord);
+    connectedStorageMode = "LOCAL FALLBACK";
+    connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+  }
+  renderConnectedDominion();
+}
+
+function connectedStatusPill(value) {
+  const status = escapeHtml(value || "UNKNOWN");
+  const tone = ["CONNECTED", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
+  return `<span class="state-pill ${tone}">${status}</span>`;
+}
+
+function setConnectedActiveView(view = "overview") {
+  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "apple_health", "privacy"];
+  connectedActiveView = allowed.includes(view) ? view : "overview";
+  document.querySelectorAll("[data-connected-view]").forEach((button) => {
+    const active = button.dataset.connectedView === connectedActiveView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = active ? 0 : -1;
+  });
+  allowed.forEach((code) => {
+    const panel = document.getElementById(`connected-view-${code}`);
+    if (panel) panel.hidden = code !== connectedActiveView;
+  });
+  writeConnectedLocal();
+}
+
+function renderConnectedDominion() {
+  const api = connectedApi();
+  if (!api || typeof document === "undefined") return;
+  const overview = api.buildConnectedOverviewModel({ accounts: connectedAccounts, jobs: connectedSyncJobs, records: connectedImportedRecords, storageState: connectedStorageMode });
+  setText("connected-storage", connectedStorageMode);
+  const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "User-controlled Fitbod, MyFitnessPal, and Apple Health file imports are active. Live OAuth and background sync remain unavailable.");
+  const overviewPanel = document.getElementById("connected-view-overview");
+  if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
+    <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
+    <div><span>Recent sync</span><strong>${escapeHtml(overview.mostRecentSyncStatus)}</strong></div><div><span>Imported records</span><strong>${overview.importedRecordCount}</strong></div>
+    <div><span>Duplicates</span><strong>${overview.duplicateCount}</strong></div><div><span>Rejected</span><strong>${overview.rejectedCount}</strong></div>
+    <div><span>Unmapped</span><strong>${overview.unmappedCount}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div>
+  </div><div class="connected-notice"><strong>Architecture preview:</strong> demo fixtures are isolated, labeled DEMO, and never imply live provider access.</div>`;
+
+  const providerPanel = document.getElementById("connected-view-providers");
+  if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
+    const account = connectedAccounts.find((item) => item.providerCode === provider.providerCode && item.connectionStatus !== "DISCONNECTED");
+    const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
+    const fitbodImport = provider.providerCode === "FITBOD" ? `<button type="button" data-connected-action="fitbod-import">Import Fitbod workout CSV</button>` : "";
+    const mfpImport = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-import">Import MyFitnessPal nutrition CSV</button>` : "";
+    const appleHealthImport = provider.providerCode === "APPLE_HEALTH" ? `<button type="button" data-connected-action="apple-health-import">Import Apple Health export.xml</button>` : "";
+    const previewAction = account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review account</button>` : `<button type="button" class="ghost" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`;
+    return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
+      <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
+      <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
+      <div class="connected-actions">${fitbodImport}${mfpImport}${appleHealthImport}${previewAction}</div>
+    </article>`;
+  }).join("")}</div>`;
+
+  const accountsPanel = document.getElementById("connected-view-accounts");
+  if (accountsPanel) accountsPanel.innerHTML = connectedAccounts.length ? `<div class="connected-card-list">${connectedAccounts.map((account) => {
+    const jobs = connectedSyncJobs.filter((job) => job.connectedAccountId === account.id);
+    const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
+    const counts = api.summarizeSyncJob(records);
+    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : "USER FILE IMPORT"}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
+      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
+      <div class="connected-actions">${account.connectionStatus === "CONNECTED" ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>` : ""}</div>
+    </article>`;
+  }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
+
+  const historyPanel = document.getElementById("connected-view-sync_history");
+  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Counts</th><th>Error / summary</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${job.importedCount} imported · ${job.duplicateCount} duplicate · ${job.rejectedCount} rejected · ${job.unmappedCount} unmapped</td><td>${escapeHtml(job.errorMessage || JSON.stringify(job.summary || {}))}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
+
+  const recordsPanel = document.getElementById("connected-view-imported_records");
+  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${record.mappedPerformanceEntryId ? `Mapped to Performance entry ${escapeHtml(record.mappedPerformanceEntryId)}` : escapeHtml(record.rejectionReason || "Retained for audit; no mapped destination.")}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
+
+  const reconciliationPanel = document.getElementById("connected-view-reconciliation");
+  if (reconciliationPanel) {
+    const sessions = api.groupFitbodWorkoutSessions(connectedImportedRecords);
+    const strengthTarget = document.getElementById("strength_target")?.value || "";
+    reconciliationPanel.innerHTML = sessions.length ? `<div class="connected-card-list">${sessions.map((session) => {
+      const review = api.reconcileFitbodWorkoutSession(session, strengthTarget);
+      const matchText = review.prescribedExerciseCount ? `${review.matchedExercises} of ${review.prescribedExerciseCount} prescribed exercises matched` : "Add a structured Strength target to enable matching";
+      const setsText = review.prescribedSets ? `${review.completedSets} of ${review.prescribedSets} prescribed sets (${review.setCompletionPercent}%)` : `${review.completedSets} completed sets logged`;
+      return `<article class="connected-detail-card fitbod-reconciliation-card">
+        <header><div><span class="kicker">FITBOD WORKOUT REVIEW</span><h3>${escapeHtml(session.workoutName)}</h3><p>${escapeHtml(session.date)}</p></div>${connectedStatusPill(review.recommendation)}</header>
+        <div class="connected-summary-grid"><div><span>Exercise match</span><strong>${escapeHtml(matchText)}</strong></div><div><span>Set completion</span><strong>${escapeHtml(setsText)}</strong></div><div><span>Exercises logged</span><strong>${review.completedExerciseCount}</strong></div><div><span>Training volume</span><strong>${Math.round(session.volume).toLocaleString()}</strong></div></div>
+        <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}.</p>
+        <ul>${session.exercises.map((exercise) => `<li>${escapeHtml(exercise.name)} — ${exercise.sets} set(s), ${exercise.reps} total reps</li>`).join("")}</ul>
+        ${review.substitutions.length && review.prescribedExerciseCount ? `<p class="muted">Unmatched or substituted: ${escapeHtml(review.substitutions.map((item) => item.name).join(", "))}</p>` : ""}
+        <div class="connected-actions"><button type="button" data-connected-action="apply-reconciliation" data-session-id="${escapeHtml(session.id)}" ${["UNMATCHED", "REVIEW_REQUIRED"].includes(review.recommendation) ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-strength-target">Review Strength target</button></div>
+      </article>`;
+    }).join("")}</div>` : `<div class="connected-empty">No Fitbod workout is ready for reconciliation. Import a Fitbod workout CSV first.</div>`;
+  }
+  const nutritionPanel = document.getElementById("connected-view-nutrition");
+  if (nutritionPanel) {
+    const days = api.aggregateNutritionByDate(connectedImportedRecords);
+    const nutritionTarget = document.getElementById("nutrition_target")?.value || "";
+    nutritionPanel.innerHTML = days.length ? `<div class="connected-card-list">${days.map((day) => {
+      const review = api.reconcileNutritionDay(day, nutritionTarget);
+      const metricRows = [["Calories", day.calories, review.target.calories], ["Protein", day.protein, review.target.protein], ["Carbs", day.carbs, review.target.carbs], ["Fat", day.fat, review.target.fat]]
+        .map(([label, actual, goal]) => `<div><span>${label}</span><strong>${Math.round(actual)}${label === "Calories" ? "" : "g"}${goal ? ` / ${goal}${label === "Calories" ? "" : "g"}` : ""}</strong></div>`).join("");
+      return `<article class="connected-detail-card"><header><div><span class="kicker">MYFITNESSPAL DAILY REVIEW</span><h3>${escapeHtml(day.date)}</h3><p>${day.meals} meal-level row(s)</p></div>${connectedStatusPill(review.recommendation)}</header>
+        <div class="connected-summary-grid">${metricRows}</div>
+        <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}. ${review.targetCount ? `${review.withinCount} of ${review.targetCount} nutrition targets were within tolerance.` : "Add a Nutrition assigned target to enable reconciliation."}</p>
+        <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
+      </article>`;
+    }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
+  }
+  const appleHealthPanel = document.getElementById("connected-view-apple_health");
+  if (appleHealthPanel) {
+    const days = api.summarizeAppleHealthByDate(connectedImportedRecords);
+    appleHealthPanel.innerHTML = `<article class="connected-detail-card"><header><div><span class="kicker">BUILD 006E // APPLE HEALTH IMPORT</span><h3>Readiness evidence</h3><p>Upload the export.xml produced by Apple Health. Coach Dominion reads supported metrics only and never stores the raw XML file.</p></div>${connectedStatusPill(days.length ? "VALID" : "NOT_IMPORTED")}</header>
+      <div class="connected-actions"><button type="button" data-connected-action="apple-health-import">Choose Apple Health export.xml</button></div>
+      <p class="muted">Supported: daily steps, resting heart rate, body weight, and sleep analysis. Other health categories are ignored.</p>
+    </article>
+    ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODate() ? connectedStatusPill("TODAY") : ""}</header>
+      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
+      ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
+    </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
+  }
+  renderDailyCoachingLoop();
+  renderBaselineIntelligence();
+  renderNutritionCommand();
+  setConnectedActiveView(connectedActiveView);
+}
+
+function applyFitbodReconciliation(sessionId) {
+  const api = connectedApi();
+  const sessionReview = api?.groupFitbodWorkoutSessions(connectedImportedRecords).find((item) => item.id === sessionId);
+  const form = document.getElementById("compliance-form");
+  if (!api || !sessionReview || !form) return;
+  const review = api.reconcileFitbodWorkoutSession(sessionReview, form.elements.strength_target.value);
+  if (!["COMPLETE", "COMPLETE_WITH_MODIFICATION", "PARTIAL"].includes(review.recommendation)) return;
+  form.elements.strength_status.value = review.recommendation === "PARTIAL" ? "partial" : "completed";
+  form.elements.strength_actual.value = `${sessionReview.workoutName}: ${review.completedExerciseCount} exercises, ${review.completedSets} sets, ${Math.round(sessionReview.volume).toLocaleString()} volume.`;
+  form.elements.strength_note.value = `Fitbod reconciliation: ${review.matchedExercises}/${review.prescribedExerciseCount} exercises matched${review.setCompletionPercent === null ? "" : `; ${review.setCompletionPercent}% prescribed sets`}.`;
+  form.elements.strength_approved_modification.checked = review.recommendation === "COMPLETE_WITH_MODIFICATION";
+  if (review.recommendation === "COMPLETE_WITH_MODIFICATION") form.elements.strength_restriction.value = `Fitbod substitutions: ${review.substitutions.map((item) => item.name).join(", ")}.`;
+  setComplianceDirtyState();
+  renderComplianceScore(readComplianceForm());
+  setText("connected-feedback", "Fitbod recommendation applied to Strength Compliance. Review it, then save the Dominion Record.");
+  setActiveSection("record");
+  window.history.replaceState(null, "", "#record");
+}
+
+function applyNutritionReconciliation(date) {
+  const api = connectedApi(), form = document.getElementById("compliance-form");
+  const day = api?.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date);
+  if (!api || !form || !day) return;
+  const review = api.reconcileNutritionDay(day, form.elements.nutrition_target.value);
+  if (review.recommendation === "REVIEW_REQUIRED") return;
+  form.elements.nutrition_status.value = review.recommendation === "COMPLETE" ? "completed" : review.recommendation === "PARTIAL" ? "partial" : "missed";
+  form.elements.nutrition_actual.value = `${Math.round(day.calories)} calories; ${Math.round(day.protein)}g protein; ${Math.round(day.carbs)}g carbs; ${Math.round(day.fat)}g fat.`;
+  form.elements.nutrition_note.value = `MyFitnessPal reconciliation: ${review.withinCount}/${review.targetCount} targets within tolerance.`;
+  setComplianceDirtyState();
+  renderComplianceScore(readComplianceForm());
+  setText("connected-feedback", "MyFitnessPal recommendation applied to Nutrition Compliance. Review it, then save the Dominion Record.");
+  setActiveSection("record");
+  window.history.replaceState(null, "", "#record");
+}
+
+async function saveConnectedState(message, forceLocalFallback = false) {
+  writeConnectedLocal();
+  try {
+    await persistConnectedRemote();
+    connectedStorageMode = forceLocalFallback ? "LOCAL FALLBACK" : "SUPABASE";
+    connectedLoadState = { loading: false, remoteLoadFailed: forceLocalFallback, authRequired: false, localFallback: forceLocalFallback };
+  } catch (error) {
+    console.warn("Connected Dominion persistence failed.", error);
+    connectedStorageMode = "LOCAL FALLBACK";
+    connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+  }
+  renderConnectedDominion();
+  setText("connected-feedback", `${message} ${connectedStorageMode === "LOCAL FALLBACK" ? "Saved locally; remote storage did not report success." : "Saved to remote storage."}`);
+}
+
+async function simulateConnectedAccount(providerCode) {
+  const api = connectedApi(), definition = api?.getProviderDefinition(providerCode);
+  if (!definition) return;
+  const selected = Array.from(document.querySelectorAll(`input[data-provider="${providerCode}"][data-permission]:checked`)).map((input) => input.dataset.permission);
+  const check = api.validatePermissionSelection(providerCode, selected);
+  if (!check.valid) { setText("connected-feedback", "Unsupported permission selection rejected."); return; }
+  const now = new Date().toISOString();
+  const account = api.normalizeConnectedAccount({ userId: connectedUserId(), providerCode, providerDisplayName: definition.displayName, connectionStatus: "CONNECTED", permissions: check.permissions, externalAccountLabel: `${definition.displayName} demo account`, isSimulated: true, createdAt: now, updatedAt: now });
+  connectedAccounts = [account, ...connectedAccounts.filter((item) => !(item.providerCode === providerCode && item.connectionStatus !== "DISCONNECTED"))];
+  await saveConnectedState(`${definition.displayName} SIMULATED connection created. No external request occurred.`);
+}
+
+async function runConnectedDemoSync(accountId, syncType = "MANUAL", retryOf = null) {
+  const api = connectedApi(), account = connectedAccounts.find((item) => item.id === accountId && item.isSimulated);
+  if (!api || !account || account.connectionStatus !== "CONNECTED") return;
+  const requestedAt = new Date().toISOString();
+  let job = api.normalizeSyncJob({ userId: connectedUserId(), connectedAccountId: account.id, providerCode: account.providerCode, syncType, status: "QUEUED", requestedAt, createdAt: requestedAt, isDemo: true, summary: retryOf ? { retryOf } : {} });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const fixtures = api.createDemoRecords(account, job);
+  const processed = [];
+  const mappedEntries = [];
+  fixtures.forEach((fixture) => {
+    const reconciled = api.reconcileImportedRecord(fixture, [...connectedImportedRecords, ...processed]);
+    if (reconciled.importStatus === "DUPLICATE") { processed.push(reconciled); return; }
+    const mapping = api.mapImportedRecordToPerformanceEntry(reconciled, { permissions: account.permissions, normalizePerformanceEntry, validatePerformanceEntry });
+    processed.push(mapping.record);
+    if (mapping.entry && !performanceEntries.some((entry) => entry.id === mapping.entry.id)) mappedEntries.push(mapping.entry);
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  performanceEntries = [...mappedEntries, ...performanceEntries];
+  if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
+  const counts = api.summarizeSyncJob(processed);
+  const terminal = counts.rejected || counts.unmapped ? (counts.imported ? "PARTIAL" : "PARTIAL") : "SUCCEEDED";
+  job = api.transitionSyncJob({ ...job, importedCount: counts.imported, duplicateCount: counts.duplicate, rejectedCount: counts.rejected, unmappedCount: counts.unmapped, summary: counts }, terminal, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  const accountIndex = connectedAccounts.findIndex((item) => item.id === account.id);
+  connectedAccounts[accountIndex] = { ...account, lastAttemptedSyncAt: job.completedAt, lastSuccessfulSyncAt: ["SUCCEEDED", "PARTIAL"].includes(job.status) ? job.completedAt : account.lastSuccessfulSyncAt, lastSyncStatus: job.status, lastSyncErrorCode: job.errorCode, lastSyncErrorMessage: job.errorMessage, updatedAt: job.completedAt };
+  let performancePersistFailed = false;
+  if (mappedEntries.length) {
+    try {
+      const supabase = await getClient();
+      const { error } = await supabase.from("performance_entries").upsert(mappedEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())), { onConflict: "id" });
+      if (error) throw error;
+    } catch (error) {
+      console.warn("Fitbod performance persistence failed.", error);
+      performancePersistFailed = true;
+      connectedStorageMode = "LOCAL FALLBACK";
+      connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+    }
+  }
+  await saveConnectedState(`Manual DEMO sync ${job.status}: ${counts.imported} imported, ${counts.duplicate} duplicate, ${counts.rejected} rejected, ${counts.unmapped} unmapped.`, performancePersistFailed);
+  renderPerformanceSection();
+}
+
+async function importFitbodWorkoutFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  setText("connected-feedback", "Reading Fitbod workout file…");
+  const requestedAt = new Date().toISOString();
+  let account = connectedAccounts.find((item) => item.providerCode === "FITBOD" && item.connectionStatus !== "DISCONNECTED");
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "FITBOD", providerDisplayName: "Fitbod",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_STRENGTH_WORKOUTS"],
+      externalAccountLabel: "User-controlled workout-file import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "FITBOD",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseFitbodWorkoutCsv(await file.text(), {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  });
+  const processed = [], mappedEntries = [];
+  parsed.records.forEach((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords, ...processed]);
+    if (reconciled.importStatus === "DUPLICATE") { processed.push(reconciled); return; }
+    const mapping = api.mapImportedRecordToPerformanceEntry(reconciled, {
+      permissions: ["READ_STRENGTH_WORKOUTS"], normalizePerformanceEntry, validatePerformanceEntry
+    });
+    processed.push(mapping.record);
+    if (mapping.entry && !performanceEntries.some((entry) => entry.id === mapping.entry.id)) mappedEntries.push(mapping.entry);
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  performanceEntries = [...mappedEntries, ...performanceEntries];
+  if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
+  let performancePersistFailed = false;
+  const connectedPerformanceIds = new Set(
+    connectedImportedRecords.map((record) => record.mappedPerformanceEntryId).filter(Boolean)
+  );
+  const connectedPerformanceEntries = performanceEntries.filter((entry) => connectedPerformanceIds.has(entry.id));
+  if (connectedPerformanceEntries.length && session?.user?.id) {
+    try {
+      const supabase = await getClient();
+      const { error } = await supabase.from("performance_entries").upsert(
+        connectedPerformanceEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())),
+        { onConflict: "id" }
+      );
+      if (error) throw error;
+    } catch (_) {
+      performancePersistFailed = true;
+    }
+  }
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "FITBOD_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Fitbod file import ${status}: ${counts.imported} mapped, ${counts.duplicate} duplicate, ${counts.unmapped} unmapped, ${parsed.errors.length} invalid row(s).`, performancePersistFailed);
+  renderPerformanceSection();
+}
+
+async function importMyFitnessPalNutritionFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  setText("connected-feedback", "Reading MyFitnessPal nutrition file…");
+  const requestedAt = new Date().toISOString();
+  let account = connectedAccounts.find((item) => item.providerCode === "MYFITNESSPAL" && item.connectionStatus !== "DISCONNECTED");
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "MYFITNESSPAL", providerDisplayName: "MyFitnessPal",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_NUTRITION"],
+      externalAccountLabel: "User-controlled nutrition-file import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "MYFITNESSPAL",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseMyFitnessPalNutritionCsv(await file.text(), {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "MFP_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`MyFitnessPal nutrition import ${status}: ${counts.imported} meal row(s), ${counts.duplicate} duplicate, ${parsed.errors.length} invalid row(s).`);
+  setConnectedActiveView("nutrition");
+}
+
+async function importAppleHealthFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  if (file.size > 100 * 1024 * 1024) {
+    setText("connected-feedback", "Apple Health export.xml exceeds the 100 MB browser-import limit.");
+    return;
+  }
+  setText("connected-feedback", "Reading supported Apple Health evidence…");
+  const requestedAt = new Date().toISOString();
+  let account = connectedAccounts.find((item) => item.providerCode === "APPLE_HEALTH" && item.connectionStatus !== "DISCONNECTED" && !item.isSimulated);
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "APPLE_HEALTH", providerDisplayName: "Apple Health",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"],
+      externalAccountLabel: "User-controlled export.xml import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "APPLE_HEALTH",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name, rawFileStored: false }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseAppleHealthExportXml(await file.text(), {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id
+  });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "APPLE_HEALTH_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, supportedSourceRows: parsed.supportedCount, ignoredSourceRows: parsed.ignoredCount, rawFileStored: false }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Apple Health import ${status}: ${counts.imported} supported record(s), ${counts.duplicate} duplicate, ${parsed.ignoredCount} unsupported source row(s) ignored.`);
+  setConnectedActiveView("apple_health");
+}
+
+async function applyAppleHealthReadiness() {
+  const api = connectedApi();
+  if (!api || !dailyState) return;
+  const day = api.summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === todayISODate());
+  if (!day) return;
+  const weight = day.weight === null ? dailyState.weight : /kg/i.test(day.weightUnit || "") ? Math.round(day.weight * 2.2046226218 * 10) / 10 : day.weight;
+  const payload = {
+    ...dailyState,
+    user_id: session.user.id,
+    date: todayISODate(),
+    sleep: day.sleep || dailyState.sleep,
+    weight,
+    steps: day.steps ?? dailyState.steps,
+    resting_heart_rate: day.restingHeartRate ?? dailyState.resting_heart_rate
+  };
+  payload.confidence = evaluateReadiness(payload).confidence;
+  const supabase = await getClient();
+  const { data, error } = await supabase.from("daily_state").upsert(payload, { onConflict: "user_id,date" }).select(DAILY_STATE_COLUMNS).single();
+  if (error) {
+    setText("connected-feedback", error.message);
+    return;
+  }
+  dailyState = data;
+  readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+  renderWarRoom(dailyState);
+  renderConnectedDominion();
+  setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
+}
+
 async function init() {
   try {
     setLoading(true);
@@ -4614,6 +6024,7 @@ async function init() {
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
     await loadPerformanceEntries();
+    await loadConnectedDominion();
     renderRankSection();
     resetPerformanceForm();
     setPerformanceActiveView("overview");
@@ -4636,6 +6047,72 @@ if (typeof document !== "undefined") {
   document.getElementById("inspect-week").addEventListener("click", loadWeeklyInspection);
   document.getElementById("weekly-date").addEventListener("change", loadWeeklyInspection);
   document.getElementById("finalize-week").addEventListener("click", finalizeWeeklyInspection);
+  document.getElementById("weekly-plan-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-weekly-plan-action]");
+    if (button?.dataset.weeklyPlanAction === "approve") approveCurrentWeeklyPlan();
+  });
+  document.getElementById("nutrition-manual-form")?.addEventListener("submit", saveManualNutrition);
+  document.querySelectorAll("[data-nutrition-view]").forEach((button) => {
+    button.addEventListener("click", () => setNutritionActiveView(button.dataset.nutritionView));
+  });
+  document.getElementById("nutrition-next-action")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-next-action]");
+    if (!button) return;
+    setNutritionActiveView(button.dataset.nutritionNextAction);
+    document.querySelector(`[data-nutrition-view-panel="${button.dataset.nutritionNextAction}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
+  document.getElementById("nutrition-baseline-form")?.addEventListener("submit", reviewNutritionBaseline);
+  document.getElementById("nutrition-baseline-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-baseline-action]");
+    if (!button) return;
+    if (button.dataset.nutritionBaselineAction === "approve") approveNutritionBaselineDraft();
+    if (button.dataset.nutritionBaselineAction === "cancel") {
+      nutritionBaselineDraft = null;
+      renderNutritionBaseline();
+      setText("nutrition-baseline-feedback", "Draft discarded. No approved baseline changed.");
+    }
+  });
+  document.getElementById("nutrition-review-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-review-action]");
+    if (button?.dataset.nutritionReviewAction === "approve") approveCurrentNutritionReview();
+  });
+  document.getElementById("meal-training-window")?.addEventListener("change", (event) => {
+    window.localStorage.setItem(mealTrainingWindowStorageKey(), event.currentTarget.value);
+    renderMealCoaching();
+    setText("meal-coaching-feedback", "Training window saved locally. Approved daily targets were not changed.");
+  });
+  document.getElementById("adaptive-fueling-goal")?.addEventListener("change", () => {
+    renderNutritionCommand();
+    setText("adaptive-fueling-feedback", "Goal updated. No target change has been approved.");
+  });
+  document.getElementById("adaptive-fueling-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-adaptive-fueling-action]");
+    if (button?.dataset.adaptiveFuelingAction !== "approve" || typeof DominionAdaptiveFueling === "undefined") return;
+    try {
+      const proposal = buildCurrentAdaptiveFuelingProposal();
+      const approved = DominionAdaptiveFueling.approveAdaptiveFuelingProposal(proposal);
+      window.localStorage.setItem(adaptiveFuelingStorageKey(approved.goal), JSON.stringify(approved));
+      renderNutritionCommand();
+      setText("adaptive-fueling-feedback", "Fueling variant approved locally. The Dominion Record target was not changed.");
+    } catch (error) {
+      setText("adaptive-fueling-feedback", error.message);
+    }
+  });
+  document.getElementById("nutrition-command-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-command-action]");
+    if (!button) return;
+    if (button.dataset.nutritionCommandAction === "review-targets") {
+      setNutritionActiveView("plan");
+      document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (button.dataset.nutritionCommandAction === "open-import") {
+      setActiveSection("connected");
+      window.history.replaceState(null, "", "#connected");
+      setConnectedActiveView("providers");
+    }
+  });
+  restoreNutritionActiveView();
   document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);
   document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);
   document.getElementById("performance-domain").addEventListener("change", () => { populatePerformanceActivityOptions(document.getElementById("performance-domain").value); refreshPerformanceFieldVisibility(); });
@@ -4714,8 +6191,156 @@ if (typeof document !== "undefined") {
   document.getElementById("performance-filter-entry-type").addEventListener("change", (event) => { performanceFilters.entryType = event.target.value; renderPerformanceSection(); });
   document.querySelectorAll("[data-performance-view]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.dataset.performanceView === "programming") renderProgrammingReview();
+      if (button.dataset.performanceView === "recovery") renderRecoveryReview();
       setPerformanceActiveView(button.dataset.performanceView || "overview");
     });
+  });
+  document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-programming-action]");
+    if (!button) return;
+    if (button.dataset.programmingAction === "refresh") {
+      renderProgrammingReview();
+      setText("programming-feedback", "Programming evidence refreshed.");
+    }
+    if (button.dataset.programmingAction === "approve") {
+      const recommendation = buildCurrentProgrammingRecommendation();
+      if (!recommendation?.requiresConfirmation) return;
+      const draft = {
+        approvedAt: new Date().toISOString(),
+        recommendation,
+        prescription: DominionProgramming.formatPrescription(recommendation)
+      };
+      window.localStorage.setItem(programmingStorageKey(), JSON.stringify(draft));
+      renderProgrammingReview();
+      setText("programming-feedback", "Next-session draft approved locally. Today’s mission and Dominion Record were not changed.");
+    }
+  });
+  document.getElementById("recovery-review-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-recovery-action]");
+    if (!button) return;
+    if (button.dataset.recoveryAction === "refresh") {
+      renderRecoveryReview();
+      setText("recovery-feedback", "Recovery and fueling evidence refreshed.");
+    }
+    if (button.dataset.recoveryAction === "approve") {
+      const recommendation = buildCurrentRecoveryRecommendation();
+      if (!recommendation) return;
+      const plan = {
+        approvedAt: new Date().toISOString(),
+        recommendation,
+        plan: DominionRecovery.formatRecoveryPlan(recommendation)
+      };
+      window.localStorage.setItem(recoveryStorageKey(), JSON.stringify(plan));
+      renderRecoveryReview();
+      setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
+    }
+  });
+  document.getElementById("daily-orders-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-daily-action]");
+    if (!button) return;
+    const action = button.dataset.dailyAction;
+    if (action === "refresh") {
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Today’s readiness, connected evidence, and approved plans were refreshed.");
+    }
+    if (action === "approve_orders") {
+      const loop = buildCurrentDailyCoachingLoop();
+      if (!loop || !dailyState || loop.safeguards.painOverride || loop.safeguards.progressionHeld) return;
+      const approval = {
+        approvedAt: new Date().toISOString(),
+        posture: loop.posture,
+        headline: loop.headline,
+        orders: DominionDailyCoaching.formatApprovedOrders(loop),
+        safeguards: loop.safeguards
+      };
+      window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify(approval));
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
+    }
+    if (action === "review_recovery") {
+      window.location.hash = "performance";
+      setPerformanceActiveView("recovery");
+      renderRecoveryReview();
+    }
+    if (action === "review_programming") {
+      window.location.hash = "performance";
+      setPerformanceActiveView("programming");
+      renderProgrammingReview();
+    }
+    if (action === "review_record") window.location.hash = "record";
+    if (action === "roll_call") {
+      window.location.hash = "today";
+      document.getElementById("energy")?.focus();
+    }
+  });
+  document.querySelectorAll("[data-connected-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (["reconciliation", "nutrition", "apple_health"].includes(button.dataset.connectedView)) renderConnectedDominion();
+      setConnectedActiveView(button.dataset.connectedView || "overview");
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      const tabs = Array.from(document.querySelectorAll("[data-connected-view]"));
+      const index = tabs.indexOf(button);
+      const next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
+      next.focus();
+      setConnectedActiveView(next.dataset.connectedView);
+    });
+  });
+  document.getElementById("connected").addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-connected-action]");
+    if (!button) return;
+    const action = button.dataset.connectedAction;
+    if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
+    if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
+    if (action === "apple-health-import") document.getElementById("apple-health-import-file")?.click();
+    if (action === "apply-apple-readiness") await applyAppleHealthReadiness();
+    if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);
+    if (action === "apply-nutrition") applyNutritionReconciliation(button.dataset.nutritionDate);
+    if (action === "review-strength-target") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("strength_target")?.focus();
+    }
+    if (action === "review-nutrition-target") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("nutrition_target")?.focus();
+    }
+    if (action === "simulate") await simulateConnectedAccount(button.dataset.provider);
+    if (action === "review-account") setConnectedActiveView("accounts");
+    if (action === "sync") await runConnectedDemoSync(button.dataset.accountId);
+    if (action === "disconnect") {
+      const index = connectedAccounts.findIndex((item) => item.id === button.dataset.accountId);
+      if (index >= 0) {
+        const transitioned = connectedApi().transitionConnectedAccount(connectedAccounts[index], "DISCONNECTED");
+        if (transitioned.valid) connectedAccounts[index] = transitioned.account;
+        await saveConnectedState("Simulated account disconnected; history preserved.");
+      }
+    }
+    if (action === "retry") {
+      const original = connectedSyncJobs.find((item) => item.id === button.dataset.jobId);
+      if (original) await runConnectedDemoSync(original.connectedAccountId, "RETRY", original.id);
+    }
+  });
+  const fitbodImportFile = document.getElementById("fitbod-import-file");
+  if (fitbodImportFile) fitbodImportFile.addEventListener("change", async () => {
+    const file = fitbodImportFile.files?.[0];
+    fitbodImportFile.value = "";
+    if (file) await importFitbodWorkoutFile(file);
+  });
+  const mfpImportFile = document.getElementById("mfp-import-file");
+  if (mfpImportFile) mfpImportFile.addEventListener("change", async () => {
+    const file = mfpImportFile.files?.[0];
+    mfpImportFile.value = "";
+    if (file) await importMyFitnessPalNutritionFile(file);
+  });
+  const appleHealthImportFile = document.getElementById("apple-health-import-file");
+  if (appleHealthImportFile) appleHealthImportFile.addEventListener("change", async () => {
+    const file = appleHealthImportFile.files?.[0];
+    appleHealthImportFile.value = "";
+    if (file) await importAppleHealthFile(file);
   });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");
@@ -4754,25 +6379,14 @@ if (typeof document !== "undefined") {
     finalizePromotionButton.addEventListener("click", () => {
       const nextRank = getNextRankDefinition(rankStatus.currentRank || "RECRUIT");
       if (!nextRank) return;
+      const promotionInput = buildCanonicalPromotionInput(rankStatus.currentRank || "RECRUIT", nextRank.code);
       const snapshot = finalizePromotionSnapshot({
         currentRank: rankStatus.currentRank || "RECRUIT",
         nextRank: nextRank.code,
         status: "ELIGIBLE",
         effectiveDate: todayISODate(),
         promotionAuthorized: true,
-        qualificationSnapshot: buildPromotionEvidence({
-          currentRank: rankStatus.currentRank || "RECRUIT",
-          nextRank: nextRank.code,
-          finalizedInspections: weeklyInspection?.counts?.completed || 0,
-          recentAverageDisciplineScore: weeklyInspection?.score || 0,
-          recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
-          consecutiveQualifyingWeeks: 0,
-          unresolvedConfirmedViolations: 0,
-          unresolvedLevelTwoViolations: 0,
-          unresolvedLevelThreeViolations: 0,
-          activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
-          domainScores: weeklyInspection?.domainScores || {}
-        })
+        qualificationSnapshot: buildPromotionEvidence({ ...promotionInput, nextRank: nextRank.code })
       }, true);
       rankStatus = {
         ...rankStatus,
@@ -4856,6 +6470,10 @@ if (typeof module !== "undefined") {
     identifyStrongestAndWeakestDomains,
     selectNextWeekPriority,
     aggregateWeeklyCompliance,
+    inspectionAnalysisWindow,
+    canonicalFinalizedInspections,
+    buildInspectionIntegritySummary,
+    resolveWeeklyInspectionLoadOutcome,
     generateWeeklyAfterActionReport,
     finalizeWeeklyInspectionSnapshot,
     sortInspectionHistory,
@@ -5181,40 +6799,16 @@ function renderRankSection() {
   if (!container) return;
   const currentRank = rankStatus.currentRank || "RECRUIT";
   const nextRank = getNextRankDefinition(currentRank);
-  const eligibility = evaluatePromotionEligibility({
-    currentRank,
-    finalizedInspections: weeklyInspection?.counts?.completed || 0,
-    recentAverageDisciplineScore: weeklyInspection?.score || 0,
-    recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
-    consecutiveQualifyingWeeks: 0,
-    unresolvedConfirmedViolations: 0,
-    unresolvedLevelTwoViolations: 0,
-    unresolvedLevelThreeViolations: 0,
-    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
-    domainScores: weeklyInspection?.domainScores || {},
-    standardsHistory: standardsReviewState || []
-  }, nextRank?.code || "CADET");
-  const evidence = buildPromotionEvidence({
-    currentRank,
-    nextRank: nextRank?.code || "CADET",
-    finalizedInspections: weeklyInspection?.counts?.completed || 0,
-    recentAverageDisciplineScore: weeklyInspection?.score || 0,
-    recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
-    consecutiveQualifyingWeeks: 0,
-    unresolvedConfirmedViolations: 0,
-    unresolvedLevelTwoViolations: 0,
-    unresolvedLevelThreeViolations: 0,
-    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
-    domainScores: weeklyInspection?.domainScores || {},
-    standardsHistory: standardsReviewState || []
-  });
+  const promotionInput = buildCanonicalPromotionInput(currentRank, nextRank?.code || "CADET");
+  const eligibility = evaluatePromotionEligibility(promotionInput, nextRank?.code || "CADET");
+  const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
   const review = generateAtlasPromotionReview({
     currentRank,
     nextRank: nextRank?.code || "CADET",
     status: eligibility.status,
     blockers: eligibility.blockers,
     remainingActions: eligibility.remainingActions,
-    qualifyingHistory: `${weeklyInspection?.counts?.completed || 0} finalized inspections available`,
+    qualifyingHistory: `${promotionInput.finalizedInspections} finalized inspections available`,
     disciplineStandard: `Recent weekly discipline score target is ${eligibility.target?.minimumAverageDisciplineScore || 0}`,
     evidenceStandard: `Evidence coverage target is ${eligibility.target?.minimumAverageEvidenceCoverage || 0}%`,
     standardsRecord: `Confirmed standards issues: ${eligibility.unresolvedConfirmedViolations || 0}`,
@@ -5232,7 +6826,7 @@ function renderRankSection() {
   }
   const requirements = document.getElementById("rank-requirements");
   if (requirements) {
-    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
+    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
   }
   const blockers = document.getElementById("rank-blockers");
   if (blockers) {
@@ -5381,7 +6975,7 @@ function initializeComplianceForm() {
 
 function applyMissionComplianceDefaults(domains) {
   if (!dailyState || domains.mission.target) return domains;
-  const readinessResult = evaluateReadiness(dailyState);
+  const readinessResult = evaluateOperationalReadiness(dailyState);
   const mission = generateMission(readinessResult);
   domains.mission.target = `${mission.title}: ${mission.detail}`;
   domains.mission.restriction = readinessResult.restrictions.join("; ");
@@ -5574,6 +7168,10 @@ async function saveDailyCompliance(event) {
     updateComplianceStatusMessage();
   }
   await loadTrendsAnalytics();
+  const selectedWeek = getInspectionWeekRange(document.getElementById("weekly-date")?.value || todayISODate());
+  if (todayISODate() >= selectedWeek.weekStartDate && todayISODate() <= selectedWeek.weekEndDate) {
+    await loadWeeklyInspection();
+  }
 }
 
 function weeklyInspectionStorageKey(weekStartDate) {
@@ -5598,6 +7196,56 @@ function saveLocalWeeklyInspection(record) {
   }
 }
 
+function weeklyPlanStorageKey(nextWeekStart) {
+  return `coach-dominion:weekly-plan:${session?.user?.id || "local"}:${nextWeekStart || "pending"}`;
+}
+
+function loadApprovedWeeklyPlan(nextWeekStart) {
+  try { return JSON.parse(window.localStorage.getItem(weeklyPlanStorageKey(nextWeekStart)) || "null"); }
+  catch (_) { return null; }
+}
+
+function renderWeeklyPlan(inspection = weeklyInspection) {
+  const output = document.getElementById("weekly-plan-output");
+  const status = document.getElementById("weekly-plan-status");
+  if (!output || !status || typeof DominionWeeklyPlan === "undefined") return;
+  const plan = DominionWeeklyPlan.buildWeeklyPlan(inspection);
+  const approved = plan.nextWeekStart ? loadApprovedWeeklyPlan(plan.nextWeekStart) : null;
+  const current = approved || plan;
+  status.textContent = current.status;
+  status.className = `state-pill ${current.status === "APPROVED" ? "green" : current.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current.days?.length) {
+    output.className = "performance-empty";
+    output.textContent = current.reason;
+    return;
+  }
+  output.className = "";
+  const days = current.days.map((day) => `<article class="weekly-plan-day"><span>${escapeHtml(day.day)} · ${escapeHtml(day.date)}</span><strong>${escapeHtml(day.focus)}</strong><p>${escapeHtml(day.instruction)}</p></article>`).join("");
+  output.innerHTML = `<div class="weekly-plan-header">
+      <div><span>Next week</span><strong>${escapeHtml(current.nextWeekStart)} — ${escapeHtml(current.nextWeekEnd)}</strong></div>
+      <div><span>Priority</span><strong>${escapeHtml(current.focus)}</strong></div>
+      <div><span>Source discipline</span><strong>${formatDisciplineScore(current.disciplineScore)}</strong></div>
+      <div><span>Source evidence</span><strong>${Math.round(current.evidenceCoverage)}%</strong></div>
+    </div>
+    <p><strong>Atlas priority:</strong> ${escapeHtml(current.priority.text)}</p>
+    <div class="weekly-plan-days">${days}</div>
+    <ul class="baseline-safeguards">${current.guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions"><button type="button" data-weekly-plan-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Plan Approved" : "Approve Next Week’s Plan"}</button></div>`;
+}
+
+function approveCurrentWeeklyPlan() {
+  if (!weeklyInspection || typeof DominionWeeklyPlan === "undefined") return;
+  try {
+    const plan = DominionWeeklyPlan.buildWeeklyPlan(weeklyInspection);
+    const approved = DominionWeeklyPlan.approveWeeklyPlan(plan);
+    window.localStorage.setItem(weeklyPlanStorageKey(approved.nextWeekStart), JSON.stringify(approved));
+    renderWeeklyPlan(weeklyInspection);
+    setText("weekly-plan-feedback", "Plan approved. Daily readiness and pain rules still govern each day.");
+  } catch (error) {
+    setText("weekly-plan-feedback", error.message);
+  }
+}
+
 function loadLocalWeekRecords(range) {
   const records = [];
   try {
@@ -5611,6 +7259,31 @@ function loadLocalWeekRecords(range) {
     return records;
   }
   return records;
+}
+
+function resolveWeeklyInspectionLoadOutcome(input = {}) {
+  if (input.savedInspection?.finalized_at && !input.inspectionReadError) {
+    return { mode: "FINALIZED_REMOTE", storageMode: "SUPABASE", inspection: input.savedInspection, records: [], warning: "" };
+  }
+  if (!input.recordsReadError && Array.isArray(input.remoteRecords)) {
+    const warnings = [];
+    if (input.inspectionReadError) warnings.push(`Weekly snapshot storage is unavailable (${input.inspectionReadError.message || "unknown error"}).`);
+    if (input.draftWriteError) warnings.push(`The live inspection was calculated, but its draft snapshot was not saved (${input.draftWriteError.message || "unknown error"}).`);
+    return { mode: "REMOTE_RECORDS", storageMode: "SUPABASE", inspection: null, records: input.remoteRecords, warning: warnings.join(" ") };
+  }
+  if (input.savedInspection?.finalized_at) {
+    return { mode: "FINALIZED_LOCAL", storageMode: "LOCAL", inspection: input.savedInspection, records: [], warning: "Remote weekly data is unavailable. Showing the finalized local snapshot." };
+  }
+  const localRecords = Array.isArray(input.localRecords) ? input.localRecords : [];
+  return {
+    mode: "LOCAL_RECORDS",
+    storageMode: "LOCAL",
+    inspection: null,
+    records: localRecords,
+    warning: localRecords.length
+      ? `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). Showing local fallback.`
+      : `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). No local fallback rows were found.`
+  };
 }
 
 function weeklyPersistencePayload(aggregate, finalizedAt = null) {
@@ -5650,7 +7323,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-status", aggregate.inspectionStatus);
   document.getElementById("weekly-status").className = `state-pill ${aggregate.inspectionStatus === "INSPECTION COMPLETE" ? "green" : aggregate.inspectionStatus === "READY FOR INSPECTION" ? "yellow" : "neutral"}`;
   setText("weekly-range", `${aggregate.weekStartDate} — ${aggregate.weekEndDate}`);
-  setText("weekly-score", formatDisciplineScore(aggregate.score));
+  setText("weekly-score", `${formatDisciplineScore(aggregate.score)}${aggregate.score !== null && aggregate.scoreIsProvisional ? " · PROVISIONAL" : ""}`);
   setText("weekly-coverage", `${Math.round(aggregate.evidenceCoverage)}%`);
   setText("weekly-storage", storageMode === "SUPABASE" ? "SUPABASE" : "LOCAL FALLBACK");
   setText("weekly-assessed-days", `${aggregate.counts.assessedDays} / ${aggregate.counts.fullyAssessedDays}`);
@@ -5658,12 +7331,15 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-result-counts", `${aggregate.counts.completed} / ${aggregate.counts.partial} / ${aggregate.counts.missed}`);
   setText("weekly-excluded-counts", `${aggregate.counts.excused} / ${aggregate.counts.notApplicable}`);
   setText("weekly-modification-count", aggregate.counts.approvedModifications);
+  setText("weekly-evidence-through", aggregate.evidenceThroughDate || "Week not started");
+  setText("weekly-projected-coverage", `${Math.round(aggregate.projectedFullWeekCoverage || 0)}%`);
+  setText("weekly-calculation-meta", `${aggregate.calculationVersion || INSPECTION_CALCULATION_VERSION} · ${aggregate.elapsedDayCount || 0}/7 days elapsed`);
   setText("weekly-strongest", aggregate.strongestDomains.length ? aggregate.strongestDomains.map(label).join(" / ") : "UNSCORED");
-  setText("weekly-weakest", aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
+  setText("weekly-weakest", aggregate.domainRankingTie ? "NO DISTINCT WEAKEST — TIED" : aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
   setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
   setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
-  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.assessedCount}/5 ASSESSED</span></summary><p>${day.includedCount} applicable scoring observations</p></details>`).join("");
+  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE · NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
   const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
   const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
@@ -5672,20 +7348,27 @@ function renderWeeklyInspection(aggregate, storageMode) {
       ? weeklyStandardsItems.map((item) => `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${item.status === "CONFIRMED" ? "green" : item.status === "RESOLVED" ? "neutral" : item.status === "DISMISSED" ? "neutral" : item.status === "EXCUSED" ? "neutral" : "yellow"}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`).join("")
       : '<div class="standards-empty">No standards review history for this inspection week.</div>';
   }
-  const warning = finalized ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.` : aggregate.evidenceLimitation ? `Finalization requires ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage. Current evidence is limited.` : "";
+  const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
+  const warning = finalized
+    ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.`
+    : aggregate.scoreIsProvisional
+      ? `Provisional inspection. Evidence is measured only through ${aggregate.evidenceThroughDate || "the week start"}${missingLabels.length ? `; incomplete required domains: ${missingLabels.join(", ")}` : ""}${!aggregate.weekComplete ? "; the week is still in progress" : ""}.`
+      : "";
   setText("weekly-warning", warning);
   const finalizeButton = document.getElementById("finalize-week");
-  finalizeButton.disabled = finalized || aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD;
+  finalizeButton.disabled = finalized || !aggregate.canFinalize;
   finalizeButton.textContent = finalized ? "Inspection Finalized" : "Finalize Inspection";
   finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
   const finalizeHint = document.getElementById("weekly-finalize-hint");
   if (finalizeHint) finalizeHint.textContent = finalized ? "This inspection is finalized and read-only." : finalizeState.readOnlyMessage;
-  document.getElementById("weekly-inspection").dataset.finalized = finalized ? "true" : "false";
+  const inspectionSection = document.getElementById("inspection");
+  if (inspectionSection) inspectionSection.dataset.finalized = finalized ? "true" : "false";
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
+  renderWeeklyPlan(aggregate);
   renderStandardsSection();
 }
 
-async function loadWeeklyInspection() {
+async function loadWeeklyInspectionLegacy() {
   const selectedDate = document.getElementById("weekly-date").value || todayISODate();
   const range = getInspectionWeekRange(selectedDate);
   setText("weekly-warning", "Calculating weekly evidence…");
@@ -5725,11 +7408,46 @@ async function loadWeeklyInspection() {
   }
 }
 
+async function loadWeeklyInspection() {
+  const selectedDate = document.getElementById("weekly-date").value || todayISODate();
+  const range = getInspectionWeekRange(selectedDate);
+  setText("weekly-warning", "Calculating weekly evidence…");
+  const supabase = await getClient();
+  const inspectionResult = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+  if (inspectionResult.data?.finalized_at && !inspectionResult.error) {
+    renderWeeklyInspection(aggregateFromStoredInspection(inspectionResult.data), "SUPABASE");
+    return;
+  }
+
+  const recordsResult = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
+
+  const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
+  const outcome = resolveWeeklyInspectionLoadOutcome({
+    savedInspection: inspectionResult.data || localSaved,
+    inspectionReadError: inspectionResult.error,
+    remoteRecords: recordsResult.data,
+    recordsReadError: recordsResult.error,
+    draftWriteError: null,
+    localRecords: loadLocalWeekRecords(range)
+  });
+  if (outcome.mode === "FINALIZED_LOCAL") {
+    renderWeeklyInspection(aggregateFromStoredInspection(outcome.inspection), outcome.storageMode);
+    setText("weekly-warning", outcome.warning);
+    return;
+  }
+  weeklyDailyRecords = outcome.records;
+  const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
+  aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+  if (outcome.storageMode === "LOCAL") saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
+  renderWeeklyInspection(aggregate, outcome.storageMode);
+  if (outcome.warning) setText("weekly-warning", outcome.warning);
+}
+
 async function finalizeWeeklyInspection() {
   if (!weeklyInspection) return;
   const finalizeState = deriveFinalizeConfirmationState(Boolean(weeklyInspection.finalizedAt), weeklyInspection.evidenceCoverage);
-  if (!finalizeState.canFinalize) {
-    setText("weekly-warning", "Finalization requires sufficient evidence coverage.");
+  if (!finalizeState.canFinalize || !weeklyInspection.canFinalize) {
+    setText("weekly-warning", !weeklyInspection.weekComplete ? "Finalization is available after the inspection week ends." : "Finalization requires sufficient evidence across every required domain.");
     return;
   }
   const confirmed = window.confirm(`${finalizeState.readOnlyMessage}\n\nFinalize this inspection now?`);
@@ -5811,15 +7529,16 @@ function renderTrendChart(elementId, series, valueKey, label) {
 }
 
 function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
+  inspectionHistory = canonicalFinalizedInspections(inspections);
   const currentRange = getInspectionWeekRange(todayISODate());
   const currentAggregate = aggregateWeeklyCompliance(dailyRecords, currentRange.weekStartDate);
   const hasFinalizedCurrentWeek = sortInspectionHistory(inspections).some((item) => item.weekStartDate === currentRange.weekStartDate && item.finalizedAt);
   const provisional = currentAggregate.counts.assessedObservations > 0 && !hasFinalizedCurrentWeek ? currentAggregate : null;
-  const trajectory = deriveTrajectoryState(inspections);
-  const domainTrends = calculateDomainTrends(inspections);
+  const trajectory = deriveTrajectoryState(inspectionHistory);
+  const domainTrends = calculateDomainTrends(inspectionHistory);
   const streaks = calculateComplianceStreaks(dailyRecords, todayISODate());
-  const summary = summarizeInspectionHistory(inspections);
-  const chartSeries = buildChartSeries(inspections, provisional);
+  const summary = summarizeInspectionHistory(inspectionHistory);
+  const chartSeries = buildChartSeries(inspectionHistory, provisional);
   const report = generateAtlasTrendReport({ trajectory, domainTrends, streaks, summary, chartSeries });
   setText("trajectory-status", trajectory.state);
   document.getElementById("trajectory-status").className = `state-pill ${trajectory.state === "IMPROVING" ? "green" : trajectory.state === "DECLINING" ? "red" : trajectory.state === "LIMITED EVIDENCE" ? "yellow" : "neutral"}`;

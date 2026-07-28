@@ -5348,7 +5348,7 @@ function restoreNutritionActiveView() {
 function renderNutritionNextAction({ imported = null, manual = null } = {}) {
   const output = document.getElementById("nutrition-next-action");
   if (!output) return;
-  const baseline = readActiveNutritionBaseline(nutritionCommandDate());
+  const baseline = activeNutritionBaseline(nutritionCommandDate());
   let action = {
     status: "TODAY",
     title: "Follow today’s fueling map",

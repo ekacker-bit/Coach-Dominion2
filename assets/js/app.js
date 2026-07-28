@@ -5,6 +5,7 @@ let readinessHistory = [];
 let dailyCompliance;
 let weeklyInspection;
 let weeklyDailyRecords = [];
+let inspectionHistory = [];
 let activeSection = "today";
 let complianceDirtyState = false;
 let compliancePreviousState = null;
@@ -14,6 +15,7 @@ let currentSaveState = "empty";
 let standardsReviewState = [];
 let rankStatus = { currentRank: "RECRUIT", promotionState: "NOT ELIGIBLE", activeCorrectivePeriod: false, correctivePeriodReason: null, correctivePeriodStatus: null, correctivePeriodStartedAt: null, correctivePeriodReviewDate: null };
 let promotionHistory = [];
+const INSPECTION_CALCULATION_VERSION = "009A.1";
 let performanceEntries = [];
 let performanceStorageMode = "LOADING";
 let performanceSaveState = "loading";
@@ -358,13 +360,14 @@ function calculatePromotionMetrics(input = {}, targetRank = "CADET") {
   const unresolvedLevelThreeViolations = Number(input.unresolvedLevelThreeViolations || input.unresolved_level_three_violations || 0);
   const activeCorrectivePeriod = Boolean(input.activeCorrectivePeriod || input.active_corrective_period);
   const domainScores = input.domainScores || input.domain_scores || {};
-  const missionDomainScore = Number(domainScores.mission || 0);
+  const rawMissionDomainScore = domainScores.mission && typeof domainScores.mission === "object" ? domainScores.mission.score : domainScores.mission;
+  const missionDomainScore = isFiniteMetric(rawMissionDomainScore) ? Number(rawMissionDomainScore) : null;
   const requirements = [
     { requirement: "finalized_inspections", target: target.minimumFinalizedInspections, actual: finalizedInspections, passed: finalizedInspections >= target.minimumFinalizedInspections },
     { requirement: "average_discipline_score", target: target.minimumAverageDisciplineScore, actual: recentAverageDisciplineScore, passed: recentAverageDisciplineScore >= target.minimumAverageDisciplineScore },
     { requirement: "average_evidence_coverage", target: target.minimumAverageEvidenceCoverage, actual: recentAverageEvidenceCoverage, passed: recentAverageEvidenceCoverage >= target.minimumAverageEvidenceCoverage },
     { requirement: "consecutive_qualifying_weeks", target: target.requiredConsecutiveQualifyingWeeks, actual: consecutiveQualifyingWeeks, passed: consecutiveQualifyingWeeks >= target.requiredConsecutiveQualifyingWeeks },
-    { requirement: "mission_domain_score", target: target.minimumMissionDomainScore, actual: missionDomainScore, passed: missionDomainScore >= target.minimumMissionDomainScore },
+    { requirement: "mission_domain_score", target: target.minimumMissionDomainScore, actual: missionDomainScore, passed: missionDomainScore !== null && missionDomainScore >= target.minimumMissionDomainScore },
     { requirement: "unresolved_confirmed_violations", target: target.maximumUnresolvedConfirmedViolations, actual: unresolvedConfirmedViolations, passed: unresolvedConfirmedViolations <= target.maximumUnresolvedConfirmedViolations },
     { requirement: "unresolved_level_two_or_three_violations", target: target.maximumLevelTwoOrLevelThreeViolations, actual: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations, passed: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations <= target.maximumLevelTwoOrLevelThreeViolations },
     { requirement: "corrective_period", target: target.correctivePeriodBlocksEligibility ? 0 : 1, actual: activeCorrectivePeriod ? 0 : 1, passed: !activeCorrectivePeriod || !target.correctivePeriodBlocksEligibility }
@@ -1313,14 +1316,32 @@ function identifyStrongestAndWeakestDomains(domainScores = {}) {
   const maximum = Math.max(...scored.map((key) => domainScores[key].score));
   const minimum = Math.min(...scored.map((key) => domainScores[key].score));
   const strongestDomains = scored.filter((key) => domainScores[key].score === maximum);
+  if (maximum === minimum) return { strongestDomains, weakestDomains: [], strongestDomain: strongestDomains[0], weakestDomain: null, domainRankingTie: true };
   const weakestDomains = scored.filter((key) => domainScores[key].score === minimum);
-  return { strongestDomains, weakestDomains, strongestDomain: strongestDomains[0], weakestDomain: weakestDomains[0] };
+  return { strongestDomains, weakestDomains, strongestDomain: strongestDomains[0], weakestDomain: weakestDomains[0], domainRankingTie: false };
 }
 
 function deriveInspectionStatus(aggregate, finalized = false, threshold = WEEKLY_EVIDENCE_THRESHOLD) {
   if (finalized) return "INSPECTION COMPLETE";
   if (!aggregate || aggregate.counts.assessedObservations === 0) return "NOT READY";
-  return aggregate.evidenceCoverage < threshold ? "LIMITED EVIDENCE" : "READY FOR INSPECTION";
+  if (aggregate.evidenceCoverage < threshold) return "LIMITED EVIDENCE";
+  return aggregate.canFinalize ? "READY FOR INSPECTION" : "PROVISIONAL";
+}
+
+function inspectionAnalysisWindow(range, asOfDate = todayISODate()) {
+  const asOf = parseISODateUTC(asOfDate);
+  const start = parseISODateUTC(range.weekStartDate);
+  const end = parseISODateUTC(range.weekEndDate);
+  if (!asOf || !start || !end) throw new TypeError("Inspection dates must use YYYY-MM-DD.");
+  const evidenceThrough = asOf < start ? null : asOf > end ? end : asOf;
+  const elapsedDayCount = evidenceThrough ? Math.floor((evidenceThrough - start) / 86400000) + 1 : 0;
+  return {
+    evidenceThroughDate: evidenceThrough ? formatISODateUTC(evidenceThrough) : null,
+    elapsedDayCount,
+    projectedDayCount: 7,
+    weekComplete: asOf >= end,
+    isCurrentWeek: asOf >= start && asOf <= end
+  };
 }
 
 function selectNextWeekPriority(analysis = {}) {
@@ -1333,8 +1354,9 @@ function selectNextWeekPriority(analysis = {}) {
   return { code: "MAINTAIN_STANDARD", text: "Maintain the current standard with complete daily evidence." };
 }
 
-function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
+function aggregateWeeklyCompliance(records = [], weekValue = todayISODate(), options = {}) {
   const range = getInspectionWeekRange(weekValue);
+  const analysisWindow = inspectionAnalysisWindow(range, options.asOfDate || todayISODate());
   const normalizedRecords = (records || [])
     .map((record) => normalizeDailyComplianceRecord(record))
     .filter((record) => record && normalizeComplianceDate(record.compliance_date) && normalizeComplianceDate(record.compliance_date) >= range.weekStartDate && normalizeComplianceDate(record.compliance_date) <= range.weekEndDate);
@@ -1346,6 +1368,7 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
 
   for (let offset = 0; offset < 7; offset += 1) {
     const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
+    const periodState = analysisWindow.evidenceThroughDate && date <= analysisWindow.evidenceThroughDate ? "ELAPSED" : "FUTURE";
     const record = recordByDate.get(date) || null;
     const domains = domainsFromDailyRecord(record || {});
     const dayObservations = COMPLIANCE_DOMAINS.map((key) => {
@@ -1353,26 +1376,28 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
       const scored = scoreComplianceDomain(domain);
       const approvedModification = Boolean(domain.approvedModification);
       const observation = { date, domain: key, label: COMPLIANCE_DOMAIN_LABELS[key], ...scored, target: domain.target || "", actual: domain.actual || "", note: domain.note || "", restriction: domain.restriction || "", approvedModification };
-      if (scored.status === "completed") counts.completed += 1;
-      if (scored.status === "partial") counts.partial += 1;
-      if (scored.status === "missed") counts.missed += 1;
-      if (scored.status === "excused") counts.excused += 1;
-      if (scored.status === "not_applicable") counts.notApplicable += 1;
-      if (approvedModification) counts.approvedModifications += 1;
-      if (scored.status) counts.assessedObservations += 1;
-      if (scored.status === "missed" && !approvedModification) missedByDomain[key] += 1;
+      if (periodState === "ELAPSED" && scored.status === "completed") counts.completed += 1;
+      if (periodState === "ELAPSED" && scored.status === "partial") counts.partial += 1;
+      if (periodState === "ELAPSED" && scored.status === "missed") counts.missed += 1;
+      if (periodState === "ELAPSED" && scored.status === "excused") counts.excused += 1;
+      if (periodState === "ELAPSED" && scored.status === "not_applicable") counts.notApplicable += 1;
+      if (periodState === "ELAPSED" && approvedModification) counts.approvedModifications += 1;
+      if (periodState === "ELAPSED" && scored.status) counts.assessedObservations += 1;
+      if (periodState === "ELAPSED" && scored.status === "missed" && !approvedModification) missedByDomain[key] += 1;
       return observation;
     });
     const assessedCount = dayObservations.filter((item) => item.status).length;
     const includedCount = dayObservations.filter((item) => item.included).length;
-    if (assessedCount > 0) counts.assessedDays += 1;
-    if (assessedCount === COMPLIANCE_DOMAINS.length) counts.fullyAssessedDays += 1;
-    if (includedCount === 0) counts.unscoredDays += 1;
-    dailyEvidence.push({ date, recordPresent: Boolean(record), assessedCount, includedCount });
-    observations.push(...dayObservations);
+    if (periodState === "ELAPSED" && assessedCount > 0) counts.assessedDays += 1;
+    if (periodState === "ELAPSED" && assessedCount === COMPLIANCE_DOMAINS.length) counts.fullyAssessedDays += 1;
+    if (periodState === "ELAPSED" && includedCount === 0) counts.unscoredDays += 1;
+    dailyEvidence.push({ date, recordPresent: Boolean(record), assessedCount: periodState === "ELAPSED" ? assessedCount : 0, includedCount: periodState === "ELAPSED" ? includedCount : 0, periodState });
+    if (periodState === "ELAPSED") observations.push(...dayObservations);
   }
 
   const coverage = calculateEvidenceCoverage(observations);
+  const fullWeekExpected = COMPLIANCE_DOMAINS.length * 7;
+  const projectedFullWeekCoverage = fullWeekExpected ? coverage.assessedObservations / fullWeekExpected * 100 : 0;
   const domainScores = Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => {
     const domainObservations = observations.filter((item) => item.domain === key);
     return [key, { score: calculateWeeklyDisciplineScore(domainObservations), includedCount: domainObservations.filter((item) => item.included).length, assessedCount: domainObservations.filter((item) => item.status).length }];
@@ -1383,10 +1408,17 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
   const recoveryObservations = observations.filter((item) => item.domain === "recovery");
   const recoveryRiskSignal = missedByDomain.recovery >= 2 || recoveryObservations.some((item) => /pain|injur|medical|symptom/i.test(item.restriction) && item.status !== "excused");
   const approvedModificationCompliance = observations.filter((item) => item.approvedModification).map((item) => ({ date: item.date, domain: item.domain, followed: item.status !== "missed", status: item.status }));
+  const missingRequiredDomains = COMPLIANCE_DOMAINS.filter((key) => domainScores[key].assessedCount < analysisWindow.elapsedDayCount);
+  const canFinalize = analysisWindow.weekComplete && coverage.percentage >= WEEKLY_EVIDENCE_THRESHOLD && missingRequiredDomains.length === 0;
   const aggregate = {
     ...range,
+    ...analysisWindow,
+    calculationVersion: INSPECTION_CALCULATION_VERSION,
+    calculatedAt: options.calculatedAt || new Date().toISOString(),
     score: calculateWeeklyDisciplineScore(observations),
     evidenceCoverage: coverage.percentage,
+    evidenceCoverageThroughToday: coverage.percentage,
+    projectedFullWeekCoverage,
     coverage,
     counts,
     domainScores,
@@ -1396,6 +1428,9 @@ function aggregateWeeklyCompliance(records = [], weekValue = todayISODate()) {
     recoveryRiskSignal,
     consistencySignal: counts.fullyAssessedDays === 7 ? "FULLY DOCUMENTED" : counts.assessedDays >= 5 ? "MOST DAYS ASSESSED" : "INCONSISTENT EVIDENCE",
     evidenceLimitation: coverage.percentage < WEEKLY_EVIDENCE_THRESHOLD,
+    missingRequiredDomains,
+    canFinalize,
+    scoreIsProvisional: !canFinalize,
     approvedModificationCompliance,
     missedRequirements: observations.filter((item) => item.status === "missed" && !item.approvedModification).map((item) => ({ date: item.date, domain: item.domain, target: item.target || "Requirement not specified" })),
     excusedConditions: observations.filter((item) => item.status === "excused").map((item) => ({ date: item.date, domain: item.domain, restriction: item.restriction || "Excused condition recorded" })),
@@ -1430,7 +1465,9 @@ function generateWeeklyAfterActionReport(aggregate) {
 }
 
 function finalizeWeeklyInspectionSnapshot(aggregate, finalizedAt = new Date().toISOString()) {
+  if (!aggregate.weekComplete) throw new Error("Finalization is available after the inspection week ends.");
   if (aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD) throw new Error(`Finalization requires at least ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage.`);
+  if (aggregate.missingRequiredDomains?.length) throw new Error(`Finalization requires assessed evidence for: ${aggregate.missingRequiredDomains.map((key) => COMPLIANCE_DOMAIN_LABELS[key]).join(", ")}.`);
   const snapshot = structuredClone(aggregate);
   snapshot.inspectionStatus = "INSPECTION COMPLETE";
   snapshot.finalizedAt = finalizedAt;
@@ -1463,6 +1500,54 @@ function sortInspectionHistory(records = []) {
 
 function isFiniteMetric(value) {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function canonicalFinalizedInspections(records = []) {
+  const byWeek = new Map();
+  sortInspectionHistory(records).forEach((item) => {
+    if (!item.weekStartDate || !item.finalizedAt) return;
+    const current = byWeek.get(item.weekStartDate);
+    if (!current || String(item.finalizedAt) > String(current.finalizedAt)) byWeek.set(item.weekStartDate, item);
+  });
+  return [...byWeek.values()].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
+}
+
+function buildInspectionIntegritySummary(records = [], recentSize = TREND_WINDOW_SIZE) {
+  const finalized = canonicalFinalizedInspections(records);
+  const scored = finalized.filter((item) => isFiniteMetric(item.score));
+  const recent = scored.slice(-recentSize);
+  const missionValues = recent.map((item) => domainScoreValue(item, "mission")).filter(isFiniteMetric).map(Number);
+  return {
+    calculationVersion: INSPECTION_CALCULATION_VERSION,
+    finalized,
+    finalizedCount: finalized.length,
+    recentAverageDisciplineScore: recent.length ? recent.reduce((sum, item) => sum + Number(item.score), 0) / recent.length : null,
+    recentAverageEvidenceCoverage: recent.length ? recent.reduce((sum, item) => sum + Number(item.evidenceCoverage || 0), 0) / recent.length : null,
+    missionDomainScore: missionValues.length ? missionValues.reduce((sum, value) => sum + value, 0) / missionValues.length : null,
+    sourceUpdatedAt: finalized.map((item) => item.finalizedAt).filter(Boolean).sort().at(-1) || null
+  };
+}
+
+function buildCanonicalPromotionInput(currentRank = "RECRUIT", targetRank = "CADET") {
+  const integrity = buildInspectionIntegritySummary(inspectionHistory);
+  const target = getCurrentRankDefinition(targetRank);
+  return {
+    currentRank,
+    finalizedInspections: integrity.finalizedCount,
+    recentAverageDisciplineScore: integrity.recentAverageDisciplineScore,
+    recentAverageEvidenceCoverage: integrity.recentAverageEvidenceCoverage,
+    consecutiveQualifyingWeeks: calculateConsecutiveQualifyingWeeks(integrity.finalized, {
+      minimumDisciplineScore: target.minimumAverageDisciplineScore,
+      minimumEvidenceCoverage: target.minimumAverageEvidenceCoverage
+    }),
+    unresolvedConfirmedViolations: 0,
+    unresolvedLevelTwoViolations: 0,
+    unresolvedLevelThreeViolations: 0,
+    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
+    domainScores: { mission: integrity.missionDomainScore },
+    standardsHistory: standardsReviewState || [],
+    integrity
+  };
 }
 
 function selectTrendWindow(records = [], size = TREND_WINDOW_SIZE) {
@@ -1554,7 +1639,7 @@ function identifyBestAndLowestWeeks(records = []) {
 
 function summarizeInspectionHistory(records = [], recentSize = TREND_WINDOW_SIZE) {
   const sorted = sortInspectionHistory(records);
-  const finalized = sorted.filter((item) => item.finalizedAt);
+  const finalized = canonicalFinalizedInspections(records);
   const scored = finalized.filter((item) => isFiniteMetric(item.score));
   const recent = scored.slice(-recentSize);
   const latest = scored.at(-1) || null;
@@ -6294,25 +6379,14 @@ if (typeof document !== "undefined") {
     finalizePromotionButton.addEventListener("click", () => {
       const nextRank = getNextRankDefinition(rankStatus.currentRank || "RECRUIT");
       if (!nextRank) return;
+      const promotionInput = buildCanonicalPromotionInput(rankStatus.currentRank || "RECRUIT", nextRank.code);
       const snapshot = finalizePromotionSnapshot({
         currentRank: rankStatus.currentRank || "RECRUIT",
         nextRank: nextRank.code,
         status: "ELIGIBLE",
         effectiveDate: todayISODate(),
         promotionAuthorized: true,
-        qualificationSnapshot: buildPromotionEvidence({
-          currentRank: rankStatus.currentRank || "RECRUIT",
-          nextRank: nextRank.code,
-          finalizedInspections: weeklyInspection?.counts?.completed || 0,
-          recentAverageDisciplineScore: weeklyInspection?.score || 0,
-          recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
-          consecutiveQualifyingWeeks: 0,
-          unresolvedConfirmedViolations: 0,
-          unresolvedLevelTwoViolations: 0,
-          unresolvedLevelThreeViolations: 0,
-          activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
-          domainScores: weeklyInspection?.domainScores || {}
-        })
+        qualificationSnapshot: buildPromotionEvidence({ ...promotionInput, nextRank: nextRank.code })
       }, true);
       rankStatus = {
         ...rankStatus,
@@ -6396,6 +6470,9 @@ if (typeof module !== "undefined") {
     identifyStrongestAndWeakestDomains,
     selectNextWeekPriority,
     aggregateWeeklyCompliance,
+    inspectionAnalysisWindow,
+    canonicalFinalizedInspections,
+    buildInspectionIntegritySummary,
     resolveWeeklyInspectionLoadOutcome,
     generateWeeklyAfterActionReport,
     finalizeWeeklyInspectionSnapshot,
@@ -6722,40 +6799,16 @@ function renderRankSection() {
   if (!container) return;
   const currentRank = rankStatus.currentRank || "RECRUIT";
   const nextRank = getNextRankDefinition(currentRank);
-  const eligibility = evaluatePromotionEligibility({
-    currentRank,
-    finalizedInspections: weeklyInspection?.counts?.completed || 0,
-    recentAverageDisciplineScore: weeklyInspection?.score || 0,
-    recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
-    consecutiveQualifyingWeeks: 0,
-    unresolvedConfirmedViolations: 0,
-    unresolvedLevelTwoViolations: 0,
-    unresolvedLevelThreeViolations: 0,
-    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
-    domainScores: weeklyInspection?.domainScores || {},
-    standardsHistory: standardsReviewState || []
-  }, nextRank?.code || "CADET");
-  const evidence = buildPromotionEvidence({
-    currentRank,
-    nextRank: nextRank?.code || "CADET",
-    finalizedInspections: weeklyInspection?.counts?.completed || 0,
-    recentAverageDisciplineScore: weeklyInspection?.score || 0,
-    recentAverageEvidenceCoverage: weeklyInspection?.evidenceCoverage || 0,
-    consecutiveQualifyingWeeks: 0,
-    unresolvedConfirmedViolations: 0,
-    unresolvedLevelTwoViolations: 0,
-    unresolvedLevelThreeViolations: 0,
-    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
-    domainScores: weeklyInspection?.domainScores || {},
-    standardsHistory: standardsReviewState || []
-  });
+  const promotionInput = buildCanonicalPromotionInput(currentRank, nextRank?.code || "CADET");
+  const eligibility = evaluatePromotionEligibility(promotionInput, nextRank?.code || "CADET");
+  const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
   const review = generateAtlasPromotionReview({
     currentRank,
     nextRank: nextRank?.code || "CADET",
     status: eligibility.status,
     blockers: eligibility.blockers,
     remainingActions: eligibility.remainingActions,
-    qualifyingHistory: `${weeklyInspection?.counts?.completed || 0} finalized inspections available`,
+    qualifyingHistory: `${promotionInput.finalizedInspections} finalized inspections available`,
     disciplineStandard: `Recent weekly discipline score target is ${eligibility.target?.minimumAverageDisciplineScore || 0}`,
     evidenceStandard: `Evidence coverage target is ${eligibility.target?.minimumAverageEvidenceCoverage || 0}%`,
     standardsRecord: `Confirmed standards issues: ${eligibility.unresolvedConfirmedViolations || 0}`,
@@ -6773,7 +6826,7 @@ function renderRankSection() {
   }
   const requirements = document.getElementById("rank-requirements");
   if (requirements) {
-    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
+    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
   }
   const blockers = document.getElementById("rank-blockers");
   if (blockers) {
@@ -7270,7 +7323,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-status", aggregate.inspectionStatus);
   document.getElementById("weekly-status").className = `state-pill ${aggregate.inspectionStatus === "INSPECTION COMPLETE" ? "green" : aggregate.inspectionStatus === "READY FOR INSPECTION" ? "yellow" : "neutral"}`;
   setText("weekly-range", `${aggregate.weekStartDate} — ${aggregate.weekEndDate}`);
-  setText("weekly-score", formatDisciplineScore(aggregate.score));
+  setText("weekly-score", `${formatDisciplineScore(aggregate.score)}${aggregate.score !== null && aggregate.scoreIsProvisional ? " · PROVISIONAL" : ""}`);
   setText("weekly-coverage", `${Math.round(aggregate.evidenceCoverage)}%`);
   setText("weekly-storage", storageMode === "SUPABASE" ? "SUPABASE" : "LOCAL FALLBACK");
   setText("weekly-assessed-days", `${aggregate.counts.assessedDays} / ${aggregate.counts.fullyAssessedDays}`);
@@ -7278,12 +7331,15 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-result-counts", `${aggregate.counts.completed} / ${aggregate.counts.partial} / ${aggregate.counts.missed}`);
   setText("weekly-excluded-counts", `${aggregate.counts.excused} / ${aggregate.counts.notApplicable}`);
   setText("weekly-modification-count", aggregate.counts.approvedModifications);
+  setText("weekly-evidence-through", aggregate.evidenceThroughDate || "Week not started");
+  setText("weekly-projected-coverage", `${Math.round(aggregate.projectedFullWeekCoverage || 0)}%`);
+  setText("weekly-calculation-meta", `${aggregate.calculationVersion || INSPECTION_CALCULATION_VERSION} · ${aggregate.elapsedDayCount || 0}/7 days elapsed`);
   setText("weekly-strongest", aggregate.strongestDomains.length ? aggregate.strongestDomains.map(label).join(" / ") : "UNSCORED");
-  setText("weekly-weakest", aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
+  setText("weekly-weakest", aggregate.domainRankingTie ? "NO DISTINCT WEAKEST — TIED" : aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
   setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
   setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
-  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.assessedCount}/5 ASSESSED</span></summary><p>${day.includedCount} applicable scoring observations</p></details>`).join("");
+  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE · NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
   const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
   const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
@@ -7292,10 +7348,15 @@ function renderWeeklyInspection(aggregate, storageMode) {
       ? weeklyStandardsItems.map((item) => `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${item.status === "CONFIRMED" ? "green" : item.status === "RESOLVED" ? "neutral" : item.status === "DISMISSED" ? "neutral" : item.status === "EXCUSED" ? "neutral" : "yellow"}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`).join("")
       : '<div class="standards-empty">No standards review history for this inspection week.</div>';
   }
-  const warning = finalized ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.` : aggregate.evidenceLimitation ? `Finalization requires ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage. Current evidence is limited.` : "";
+  const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
+  const warning = finalized
+    ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.`
+    : aggregate.scoreIsProvisional
+      ? `Provisional inspection. Evidence is measured only through ${aggregate.evidenceThroughDate || "the week start"}${missingLabels.length ? `; incomplete required domains: ${missingLabels.join(", ")}` : ""}${!aggregate.weekComplete ? "; the week is still in progress" : ""}.`
+      : "";
   setText("weekly-warning", warning);
   const finalizeButton = document.getElementById("finalize-week");
-  finalizeButton.disabled = finalized || aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD;
+  finalizeButton.disabled = finalized || !aggregate.canFinalize;
   finalizeButton.textContent = finalized ? "Inspection Finalized" : "Finalize Inspection";
   finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
   const finalizeHint = document.getElementById("weekly-finalize-hint");
@@ -7385,8 +7446,8 @@ async function loadWeeklyInspection() {
 async function finalizeWeeklyInspection() {
   if (!weeklyInspection) return;
   const finalizeState = deriveFinalizeConfirmationState(Boolean(weeklyInspection.finalizedAt), weeklyInspection.evidenceCoverage);
-  if (!finalizeState.canFinalize) {
-    setText("weekly-warning", "Finalization requires sufficient evidence coverage.");
+  if (!finalizeState.canFinalize || !weeklyInspection.canFinalize) {
+    setText("weekly-warning", !weeklyInspection.weekComplete ? "Finalization is available after the inspection week ends." : "Finalization requires sufficient evidence across every required domain.");
     return;
   }
   const confirmed = window.confirm(`${finalizeState.readOnlyMessage}\n\nFinalize this inspection now?`);
@@ -7468,15 +7529,16 @@ function renderTrendChart(elementId, series, valueKey, label) {
 }
 
 function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
+  inspectionHistory = canonicalFinalizedInspections(inspections);
   const currentRange = getInspectionWeekRange(todayISODate());
   const currentAggregate = aggregateWeeklyCompliance(dailyRecords, currentRange.weekStartDate);
   const hasFinalizedCurrentWeek = sortInspectionHistory(inspections).some((item) => item.weekStartDate === currentRange.weekStartDate && item.finalizedAt);
   const provisional = currentAggregate.counts.assessedObservations > 0 && !hasFinalizedCurrentWeek ? currentAggregate : null;
-  const trajectory = deriveTrajectoryState(inspections);
-  const domainTrends = calculateDomainTrends(inspections);
+  const trajectory = deriveTrajectoryState(inspectionHistory);
+  const domainTrends = calculateDomainTrends(inspectionHistory);
   const streaks = calculateComplianceStreaks(dailyRecords, todayISODate());
-  const summary = summarizeInspectionHistory(inspections);
-  const chartSeries = buildChartSeries(inspections, provisional);
+  const summary = summarizeInspectionHistory(inspectionHistory);
+  const chartSeries = buildChartSeries(inspectionHistory, provisional);
   const report = generateAtlasTrendReport({ trajectory, domainTrends, streaks, summary, chartSeries });
   setText("trajectory-status", trajectory.state);
   document.getElementById("trajectory-status").className = `state-pill ${trajectory.state === "IMPROVING" ? "green" : trajectory.state === "DECLINING" ? "red" : trajectory.state === "LIMITED EVIDENCE" ? "yellow" : "neutral"}`;

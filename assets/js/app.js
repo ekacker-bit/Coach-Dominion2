@@ -4538,11 +4538,26 @@ function saveRunningProfile(profile = {}) {
   return normalized;
 }
 
+function runningPlanStorageKey() {
+  return `coach-dominion:running-plan:${session?.user?.id || "local"}`;
+}
+
+function readApprovedRunningPlan() {
+  try {
+    const stored = window.localStorage.getItem(runningPlanStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function renderRunningCommand(entries = performanceEntries) {
   const panel = document.getElementById("running-command-panel");
   if (!panel || typeof DominionRunning === "undefined") return;
   const profile = readRunningProfile();
   const command = DominionRunning.buildRunningCommand(profile, entries, { today: todayISODate() });
+  const plan = DominionRunning.buildWeeklyRunningPlan(profile, entries, { today: todayISODate() });
+  const approvedPlan = readApprovedRunningPlan();
   const status = document.getElementById("running-command-status");
   if (status) {
     status.textContent = command.readiness.replaceAll("_", " ");
@@ -4566,6 +4581,7 @@ function renderRunningCommand(entries = performanceEntries) {
           <label>Target date<input id="running-target-date" type="date" value="${escapeHtml(profile.targetDate || "")}"></label>
           <label>Running days/week<input id="running-days" type="number" min="1" max="7" step="1" value="${profile.runningDaysPerWeek}"></label>
           <label>Preferred unit<select id="running-unit"><option value="mi" ${profile.preferredUnit === "mi" ? "selected" : ""}>Miles</option><option value="km" ${profile.preferredUnit === "km" ? "selected" : ""}>Kilometers</option></select></label>
+          <label>Current weekly distance<input id="running-declared-distance" type="number" min="0" step="0.1" value="${profile.declaredWeeklyDistance ?? ""}" placeholder="Used only if recent evidence is unavailable"></label>
         </div>
         <fieldset>
           <legend>Optional benchmark</legend>
@@ -4586,15 +4602,30 @@ function renderRunningCommand(entries = performanceEntries) {
           <div><span>28-day runs</span><strong>${command.baseline.runCount}</strong></div>
           <div><span>28-day distance</span><strong>${command.baseline.fourWeekDistance} ${command.baseline.unit}</strong></div>
           <div><span>Weekly average</span><strong>${command.baseline.averageWeeklyDistance} ${command.baseline.unit}</strong></div>
-          <div><span>Evidence window</span><strong>${escapeHtml(command.baseline.windowStart)} â€” ${escapeHtml(command.baseline.windowEnd)}</strong></div>
+          <div><span>Evidence window</span><strong>${escapeHtml(command.baseline.windowStart)} to ${escapeHtml(command.baseline.windowEnd)}</strong></div>
         </div>
         <p>${escapeHtml(command.message)}</p>
-        ${benchmark ? `<div class="running-evidence"><strong>Selected benchmark</strong><p>${DominionRunning.formatDuration(benchmark.durationSeconds)} over ${Number(benchmark.distanceKm.toFixed(2))} km</p><p class="muted">${escapeHtml(benchmark.sourceLabel)} Â· ${escapeHtml(benchmark.date || "date not supplied")} Â· ${escapeHtml(benchmark.evidenceStatus || "SELF REPORTED")}</p></div>` : `<div class="performance-empty">No valid timed benchmark found. Pace zones remain unavailable.</div>`}
+        ${benchmark ? `<div class="running-evidence"><strong>Selected benchmark</strong><p>${DominionRunning.formatDuration(benchmark.durationSeconds)} over ${Number(benchmark.distanceKm.toFixed(2))} km</p><p class="muted">${escapeHtml(benchmark.sourceLabel)} | ${escapeHtml(benchmark.date || "date not supplied")} | ${escapeHtml(benchmark.evidenceStatus || "SELF REPORTED")}</p></div>` : `<div class="performance-empty">No valid timed benchmark found. Pace zones remain unavailable.</div>`}
       </section>
     </div>
     <section class="running-zones-panel">
       <div class="section-heading compact"><div><span class="kicker">PLANNING ESTIMATES</span><h3>Pace zones</h3></div><span class="state-pill ${command.zones.length ? "green" : "neutral"}">${command.zones.length ? "CALCULATED" : "INSUFFICIENT EVIDENCE"}</span></div>
-      ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)}â€“${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">These are deterministic planning ranges, not medical thresholds. Terrain, weather, readiness, and pain take priority.</p>` : `<div class="performance-empty">Approve a valid benchmark or log a timed race/test to unlock pace ranges.</div>`}
+      ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)} to ${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">These are deterministic planning ranges, not medical thresholds. Terrain, weather, readiness, and pain take priority.</p>` : `<div class="performance-empty">Approve a valid benchmark or log a timed race/test to unlock pace ranges.</div>`}
+    </section>
+    <section class="running-week-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 010B // WEEKLY RUNNING PLAN</span><h3>${escapeHtml(plan.weekStart)}${plan.weekEnd ? ` to ${escapeHtml(plan.weekEnd)}` : ""}</h3><p class="muted">${escapeHtml(plan.message)}</p></div><span class="state-pill ${plan.status === "READY" ? "green" : "yellow"}">${escapeHtml(plan.status.replaceAll("_", " "))}</span></div>
+      ${plan.status === "READY" ? `
+        <div class="running-plan-summary">
+          <div><span>Weekly distance</span><strong>${plan.weeklyDistance} ${plan.unit}</strong></div>
+          <div><span>Progression</span><strong>${plan.safeguards.progressionPercent}%</strong></div>
+          <div><span>Long-run share</span><strong>${plan.safeguards.longRunSharePercent}%</strong></div>
+          <div><span>Quality sessions</span><strong>${plan.safeguards.qualitySessions}</strong></div>
+        </div>
+        <div class="running-week-grid">${plan.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} | ${escapeHtml(session.zone)} | ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : ""}</article>`).join("")}</div>
+        <p class="muted">Baseline source: ${escapeHtml(plan.baselineSource.replaceAll("_", " "))}. No progression is applied in this foundation week.</p>
+        <div class="performance-actions"><button type="button" data-running-action="approve-plan">Approve weekly plan</button><button type="button" class="ghost" data-running-action="review-log">Review running evidence</button></div>
+        ${approvedPlan?.weekStart === plan.weekStart && approvedPlan.command?.profile?.updatedAt === profile.updatedAt ? `<div class="running-evidence"><strong>ACTIVE WEEK APPROVED</strong><p>Approved ${escapeHtml(approvedPlan.approvedAt || "")}. Changes to the profile require approval again.</p></div>` : ""}
+      ` : `<div class="performance-empty">${escapeHtml(plan.message)}</div>`}
     </section>`;
 }
 
@@ -6421,6 +6452,7 @@ if (typeof document !== "undefined") {
       targetDate: document.getElementById("running-target-date")?.value,
       runningDaysPerWeek: document.getElementById("running-days")?.value,
       preferredUnit: document.getElementById("running-unit")?.value,
+      declaredWeeklyDistance: document.getElementById("running-declared-distance")?.value,
       benchmarkDistance: distance || null,
       benchmarkSeconds: distance ? (minutes * 60) + seconds : null,
       benchmarkDate: document.getElementById("running-benchmark-date")?.value,
@@ -6429,6 +6461,25 @@ if (typeof document !== "undefined") {
     });
     renderRunningCommand();
     setText("running-command-feedback", "Running profile approved. Pace zones and baseline now use the current performance evidence.");
+  });
+  document.getElementById("running-command-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-running-action]");
+    if (!button) return;
+    if (button.dataset.runningAction === "approve-plan") {
+      const profile = readRunningProfile();
+      const plan = DominionRunning.buildWeeklyRunningPlan(profile, performanceEntries, { today: todayISODate() });
+      if (plan.status !== "READY") return;
+      window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify({ ...plan, approvedAt: new Date().toISOString() }));
+      renderRunningCommand();
+      setText("running-command-feedback", "Weekly running plan approved locally. Future evidence may recommend a new draft but will not silently change this week.");
+    }
+    if (button.dataset.runningAction === "review-log") {
+      performanceFilters.domain = "running";
+      const filter = document.getElementById("performance-filter-domain");
+      if (filter) filter.value = "running";
+      setPerformanceActiveView("log");
+      renderPerformanceSection();
+    }
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-programming-action]");

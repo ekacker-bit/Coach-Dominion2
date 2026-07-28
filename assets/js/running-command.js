@@ -38,6 +38,7 @@
       targetDate: dateIso(input.targetDate || input.target_date),
       runningDaysPerWeek: clamp(Math.round(finite(input.runningDaysPerWeek ?? input.running_days_per_week) || 3), 1, 7),
       preferredUnit: normalizeUnit(input.preferredUnit || input.preferred_unit),
+      declaredWeeklyDistance: finite(input.declaredWeeklyDistance ?? input.declared_weekly_distance),
       benchmarkDistance: DISTANCE_KM[benchmarkDistance] ? benchmarkDistance : null,
       benchmarkSeconds: Math.round(finite(input.benchmarkSeconds ?? input.benchmark_seconds) || 0) || null,
       benchmarkDate: dateIso(input.benchmarkDate || input.benchmark_date),
@@ -155,10 +156,94 @@
       message: readiness === "PROFILE_DRAFT" ? "Approve the running profile to establish the planning contract." : readiness === "BENCHMARK_REQUIRED" ? pace.message : readiness === "BASELINE_LIMITED" ? "Pace zones are available, but recent mileage is missing. Begin conservatively until four weeks of evidence accumulates." : pace.message
     };
   }
+  function weekStartIso(today) {
+    const date = new Date(`${dateIso(today) || new Date().toISOString().slice(0, 10)}T12:00:00Z`);
+    const offset = (date.getUTCDay() + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - offset);
+    return date.toISOString().slice(0, 10);
+  }
+  function addDays(date, days) {
+    const value = new Date(`${date}T12:00:00Z`);
+    value.setUTCDate(value.getUTCDate() + days);
+    return value.toISOString().slice(0, 10);
+  }
+  function runningDayIndexes(days) {
+    return {
+      1: [5], 2: [2, 5], 3: [1, 3, 6], 4: [1, 3, 5, 6],
+      5: [0, 1, 3, 5, 6], 6: [0, 1, 2, 3, 5, 6], 7: [0, 1, 2, 3, 4, 5, 6]
+    }[clamp(days, 1, 7)];
+  }
+  function sessionTypes(profile) {
+    const indexes = runningDayIndexes(profile.runningDaysPerWeek);
+    const types = new Map(indexes.map((day) => [day, "EASY"]));
+    if (indexes.length >= 2) types.set(indexes[indexes.length - 1], "LONG");
+    if (indexes.length >= 3) types.set(indexes[Math.floor(indexes.length / 2) - 1], profile.goal === "5K" ? "INTERVAL" : "TEMPO");
+    if (indexes.length >= 6) types.set(indexes[0], "INTERVAL");
+    return types;
+  }
+  function resolvePlanBaseline(profile, baseline) {
+    if (baseline.status === "OBSERVED" && baseline.averageWeeklyDistance > 0) return { distance: baseline.averageWeeklyDistance, source: "OBSERVED_28_DAY_AVERAGE" };
+    if (profile.declaredWeeklyDistance > 0) return { distance: profile.declaredWeeklyDistance, source: "ATHLETE_DECLARED" };
+    return null;
+  }
+  function zoneForType(type, zones) {
+    const code = type === "REST" ? null : type;
+    return zones.find((zone) => zone.code === code) || zones.find((zone) => zone.code === "EASY") || null;
+  }
+  function buildWeeklyRunningPlan(profileInput = {}, entries = [], options = {}) {
+    const command = buildRunningCommand(profileInput, entries, options);
+    const profile = command.profile;
+    const weekStart = weekStartIso(options.today);
+    if (!profile.approvedAt) return { status: "PROFILE_REQUIRED", weekStart, sessions: [], command, message: "Approve the running profile before generating a weekly plan." };
+    const planBaseline = resolvePlanBaseline(profile, command.baseline);
+    if (!planBaseline) return { status: "BASELINE_REQUIRED", weekStart, sessions: [], command, message: "Add recent running evidence or declare a current weekly distance before generating a plan." };
+    if (!command.zones.length) return { status: "PACE_REQUIRED", weekStart, sessions: [], command, message: "Add a valid benchmark before generating pace-governed sessions." };
+    const weeklyDistance = Number(planBaseline.distance.toFixed(1));
+    const types = sessionTypes(profile);
+    const weights = { EASY: 1, RECOVERY: 0.75, TEMPO: 0.85, INTERVAL: 0.75, LONG: 1.4 };
+    const weightTotal = [...types.values()].reduce((total, type) => total + weights[type], 0);
+    const raw = [...types.entries()].map(([dayIndex, type]) => ({
+      dayIndex, type, distance: weeklyDistance * weights[type] / weightTotal
+    }));
+    const longSession = raw.find((item) => item.type === "LONG");
+    if (longSession) longSession.distance = Math.min(longSession.distance, weeklyDistance * 0.35);
+    raw.filter((item) => ["TEMPO", "INTERVAL"].includes(item.type)).forEach((item) => {
+      item.distance = Math.min(item.distance, weeklyDistance * 0.20);
+    });
+    const allocated = raw.reduce((total, item) => total + item.distance, 0);
+    const remainder = weeklyDistance - allocated;
+    const easySessions = raw.filter((item) => item.type === "EASY");
+    if (remainder > 0 && easySessions.length) easySessions.forEach((item) => { item.distance += remainder / easySessions.length; });
+    const sessions = Array.from({ length: 7 }, (_, dayIndex) => {
+      const run = raw.find((item) => item.dayIndex === dayIndex);
+      if (!run) return { date: addDays(weekStart, dayIndex), dayIndex, type: "REST", title: "Recovery / no prescribed run", distance: 0, unit: profile.preferredUnit, zone: null, estimatedMinutes: 0 };
+      const zone = zoneForType(run.type, command.zones);
+      const distance = Number(run.distance.toFixed(1));
+      const averagePace = zone ? (zone.fastSecondsPerUnit + zone.slowSecondsPerUnit) / 2 : 0;
+      return {
+        date: addDays(weekStart, dayIndex), dayIndex, type: run.type,
+        title: run.type === "LONG" ? "Controlled long run" : run.type === "TEMPO" ? "Tempo development" : run.type === "INTERVAL" ? "Interval session" : "Easy aerobic run",
+        distance, unit: profile.preferredUnit, zone: zone?.code || null,
+        paceFast: zone?.fastSecondsPerUnit || null, paceSlow: zone?.slowSecondsPerUnit || null,
+        estimatedMinutes: Math.round(distance * averagePace / 60)
+      };
+    });
+    return {
+      status: "READY", weekStart, weekEnd: addDays(weekStart, 6), weeklyDistance, unit: profile.preferredUnit,
+      baselineSource: planBaseline.source, sessions, command,
+      safeguards: {
+        progressionPercent: 0,
+        longRunSharePercent: Math.round((sessions.find((item) => item.type === "LONG")?.distance || 0) / weeklyDistance * 100),
+        qualitySessions: sessions.filter((item) => ["TEMPO", "INTERVAL"].includes(item.type)).length,
+        approvalRequired: true
+      },
+      message: "This first weekly plan holds the established baseline. Future progression requires completed-week evidence and readiness review."
+    };
+  }
 
   return {
     GOALS, DISTANCE_KM, ZONE_RULES, normalizeProfile, distanceToKm, formatDuration, formatPace,
     runningEntryEvidence, selectBenchmark, equivalentFiveKilometerPace, derivePaceZones,
-    deriveMileageBaseline, buildRunningCommand
+    deriveMileageBaseline, buildRunningCommand, weekStartIso, runningDayIndexes, buildWeeklyRunningPlan
   };
 });

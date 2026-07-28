@@ -58,7 +58,7 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
-const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "programming", "recovery"];
+const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "running", "programming", "recovery"];
 const PERFORMANCE_TRAJECTORY_STATES = ["STRONGLY IMPROVING", "IMPROVING", "STABLE", "NOISY", "DECLINING", "STRONGLY DECLINING", "INSUFFICIENT DATA"];
 const PERFORMANCE_CONFIDENCE_STATES = ["HIGH", "MODERATE", "LOW", "INSUFFICIENT"];
 const PERFORMANCE_PLATEAU_STATES = ["NO PLATEAU", "POSSIBLE PLATEAU", "LIKELY PLATEAU", "INSUFFICIENT DATA"];
@@ -4519,6 +4519,85 @@ function renderRecoveryReview() {
     ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter today’s mission.</p></article>` : ""}`;
 }
 
+function runningProfileStorageKey() {
+  return `coach-dominion:running-profile:${session?.user?.id || "local"}`;
+}
+
+function readRunningProfile() {
+  try {
+    const stored = window.localStorage.getItem(runningProfileStorageKey());
+    return stored ? DominionRunning.normalizeProfile(JSON.parse(stored)) : DominionRunning.normalizeProfile({});
+  } catch (_) {
+    return DominionRunning.normalizeProfile({});
+  }
+}
+
+function saveRunningProfile(profile = {}) {
+  const normalized = DominionRunning.normalizeProfile(profile);
+  window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(normalized));
+  return normalized;
+}
+
+function renderRunningCommand(entries = performanceEntries) {
+  const panel = document.getElementById("running-command-panel");
+  if (!panel || typeof DominionRunning === "undefined") return;
+  const profile = readRunningProfile();
+  const command = DominionRunning.buildRunningCommand(profile, entries, { today: todayISODate() });
+  const status = document.getElementById("running-command-status");
+  if (status) {
+    status.textContent = command.readiness.replaceAll("_", " ");
+    status.className = `state-pill ${command.readiness === "READY" ? "green" : "yellow"}`;
+  }
+  const minutes = profile.benchmarkSeconds ? Math.floor(profile.benchmarkSeconds / 60) : "";
+  const seconds = profile.benchmarkSeconds ? profile.benchmarkSeconds % 60 : "";
+  const benchmark = command.benchmark;
+  panel.innerHTML = `
+    <div class="running-command-grid">
+      <form id="running-profile-form" class="running-profile-card">
+        <div><span class="kicker">ATHLETE CONTRACT</span><h3>Running profile</h3></div>
+        <div class="running-profile-fields">
+          <label>Primary goal<select id="running-goal">
+            <option value="GENERAL_FITNESS" ${profile.goal === "GENERAL_FITNESS" ? "selected" : ""}>General fitness</option>
+            <option value="5K" ${profile.goal === "5K" ? "selected" : ""}>5K</option>
+            <option value="10K" ${profile.goal === "10K" ? "selected" : ""}>10K</option>
+            <option value="HALF_MARATHON" ${profile.goal === "HALF_MARATHON" ? "selected" : ""}>Half marathon</option>
+            <option value="MARATHON" ${profile.goal === "MARATHON" ? "selected" : ""}>Marathon</option>
+          </select></label>
+          <label>Target date<input id="running-target-date" type="date" value="${escapeHtml(profile.targetDate || "")}"></label>
+          <label>Running days/week<input id="running-days" type="number" min="1" max="7" step="1" value="${profile.runningDaysPerWeek}"></label>
+          <label>Preferred unit<select id="running-unit"><option value="mi" ${profile.preferredUnit === "mi" ? "selected" : ""}>Miles</option><option value="km" ${profile.preferredUnit === "km" ? "selected" : ""}>Kilometers</option></select></label>
+        </div>
+        <fieldset>
+          <legend>Optional benchmark</legend>
+          <p class="muted">Leave blank to use the most recent timed race, formal test, or benchmark in Performance.</p>
+          <div class="running-profile-fields">
+            <label>Distance<select id="running-benchmark-distance"><option value="">Use performance evidence</option>${Object.keys(DominionRunning.DISTANCE_KM).map((code) => `<option value="${code}" ${profile.benchmarkDistance === code ? "selected" : ""}>${code.replaceAll("_", " ")}</option>`).join("")}</select></label>
+            <label>Minutes<input id="running-benchmark-minutes" type="number" min="0" step="1" value="${minutes}"></label>
+            <label>Seconds<input id="running-benchmark-seconds" type="number" min="0" max="59" step="1" value="${seconds}"></label>
+            <label>Benchmark date<input id="running-benchmark-date" type="date" value="${escapeHtml(profile.benchmarkDate || "")}"></label>
+          </div>
+        </fieldset>
+        <div class="performance-actions"><button type="submit">Approve running profile</button></div>
+        <p class="muted">${profile.approvedAt ? `Approved ${escapeHtml(profile.approvedAt)}. Saving creates a new current profile; it does not rewrite past runs.` : "Not yet approved."}</p>
+      </form>
+      <section class="running-profile-card">
+        <div><span class="kicker">OBSERVED BASELINE</span><h3>Recent running evidence</h3></div>
+        <div class="running-baseline-grid">
+          <div><span>28-day runs</span><strong>${command.baseline.runCount}</strong></div>
+          <div><span>28-day distance</span><strong>${command.baseline.fourWeekDistance} ${command.baseline.unit}</strong></div>
+          <div><span>Weekly average</span><strong>${command.baseline.averageWeeklyDistance} ${command.baseline.unit}</strong></div>
+          <div><span>Evidence window</span><strong>${escapeHtml(command.baseline.windowStart)} â€” ${escapeHtml(command.baseline.windowEnd)}</strong></div>
+        </div>
+        <p>${escapeHtml(command.message)}</p>
+        ${benchmark ? `<div class="running-evidence"><strong>Selected benchmark</strong><p>${DominionRunning.formatDuration(benchmark.durationSeconds)} over ${Number(benchmark.distanceKm.toFixed(2))} km</p><p class="muted">${escapeHtml(benchmark.sourceLabel)} Â· ${escapeHtml(benchmark.date || "date not supplied")} Â· ${escapeHtml(benchmark.evidenceStatus || "SELF REPORTED")}</p></div>` : `<div class="performance-empty">No valid timed benchmark found. Pace zones remain unavailable.</div>`}
+      </section>
+    </div>
+    <section class="running-zones-panel">
+      <div class="section-heading compact"><div><span class="kicker">PLANNING ESTIMATES</span><h3>Pace zones</h3></div><span class="state-pill ${command.zones.length ? "green" : "neutral"}">${command.zones.length ? "CALCULATED" : "INSUFFICIENT EVIDENCE"}</span></div>
+      ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)}â€“${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">These are deterministic planning ranges, not medical thresholds. Terrain, weather, readiness, and pain take priority.</p>` : `<div class="performance-empty">Approve a valid benchmark or log a timed race/test to unlock pace ranges.</div>`}
+    </section>`;
+}
+
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
   const summary = summarizeRecentPerformance(entries);
   setText("performance-week-count", summary.entriesThisWeek);
@@ -4536,6 +4615,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderMilestonesSection();
   renderAtlasPerformanceReviewSection();
   renderPerformanceIntelligenceSection(entries);
+  renderRunningCommand(entries);
   renderProgrammingReview();
   renderRecoveryReview();
   renderDailyCoachingLoop();
@@ -6324,6 +6404,31 @@ if (typeof document !== "undefined") {
       if (button.dataset.performanceView === "recovery") renderRecoveryReview();
       setPerformanceActiveView(button.dataset.performanceView || "overview");
     });
+  });
+  document.getElementById("running-command-panel")?.addEventListener("submit", (event) => {
+    if (event.target.id !== "running-profile-form") return;
+    event.preventDefault();
+    const distance = document.getElementById("running-benchmark-distance")?.value || "";
+    const minutes = Number(document.getElementById("running-benchmark-minutes")?.value || 0);
+    const seconds = Number(document.getElementById("running-benchmark-seconds")?.value || 0);
+    if (distance && !(minutes * 60 + seconds > 0)) {
+      setText("running-command-feedback", "Enter a valid benchmark time or choose Use performance evidence.");
+      return;
+    }
+    const now = new Date().toISOString();
+    saveRunningProfile({
+      goal: document.getElementById("running-goal")?.value,
+      targetDate: document.getElementById("running-target-date")?.value,
+      runningDaysPerWeek: document.getElementById("running-days")?.value,
+      preferredUnit: document.getElementById("running-unit")?.value,
+      benchmarkDistance: distance || null,
+      benchmarkSeconds: distance ? (minutes * 60) + seconds : null,
+      benchmarkDate: document.getElementById("running-benchmark-date")?.value,
+      approvedAt: now,
+      updatedAt: now
+    });
+    renderRunningCommand();
+    setText("running-command-feedback", "Running profile approved. Pace zones and baseline now use the current performance evidence.");
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-programming-action]");

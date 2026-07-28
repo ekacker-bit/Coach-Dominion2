@@ -5095,19 +5095,23 @@ function nutritionEvidenceHistory(windowEnd) {
   return history;
 }
 
+function buildCurrentNutritionIntelligence() {
+  if (typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return null;
+  const windowEnd = todayISODate();
+  return DominionNutritionIntelligence.buildNutritionIntelligence({
+    windowEnd,
+    targets: currentNutritionBaseTargets(windowEnd),
+    trainingDates: connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).map((session) => session.date),
+    nutritionDays: nutritionEvidenceHistory(windowEnd)
+  });
+}
+
 function renderNutritionIntelligence() {
   const output = document.getElementById("nutrition-intelligence-output");
   const status = document.getElementById("nutrition-intelligence-status");
   if (!output || !status || typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return;
-  const windowEnd = todayISODate();
-  const targets = currentNutritionBaseTargets(windowEnd);
-  const trainingDates = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).map((session) => session.date);
-  const result = DominionNutritionIntelligence.buildNutritionIntelligence({
-    windowEnd,
-    targets,
-    trainingDates,
-    nutritionDays: nutritionEvidenceHistory(windowEnd)
-  });
+  const result = buildCurrentNutritionIntelligence();
+  if (!result) return;
   status.textContent = result.status;
   status.className = `state-pill ${result.status === "READY" ? "green" : result.status === "PROVISIONAL" ? "yellow" : "neutral"}`;
   const recent = result.sevenDay;
@@ -5131,6 +5135,68 @@ function renderNutritionIntelligence() {
     <div class="nutrition-intelligence-context">${contextCard("Training days", result.training)}${contextCard("Recovery / unclassified days", result.recovery)}</div>
     <div class="nutrition-priority"><span class="kicker">WEEKLY PRIORITY // ${escapeHtml(result.priority.code)}</span><strong>${escapeHtml(result.priority.title)}</strong><p>${escapeHtml(result.priority.message)}</p></div>
     <ul class="baseline-safeguards">${result.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function nutritionReviewStorageKey() {
+  return `coach-dominion:nutrition-reviews:${connectedUserId()}`;
+}
+
+function readNutritionReviewHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(nutritionReviewStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function buildCurrentNutritionReview() {
+  if (typeof DominionNutritionReview === "undefined") return null;
+  const intelligence = buildCurrentNutritionIntelligence();
+  if (!intelligence) return null;
+  return DominionNutritionReview.buildWeeklyNutritionReview({
+    intelligence,
+    goal: activeNutritionBaseline()?.goal || currentAdaptiveFuelingGoal(),
+    reviewEnd: todayISODate()
+  });
+}
+
+function renderNutritionReview() {
+  const output = document.getElementById("nutrition-review-output");
+  const status = document.getElementById("nutrition-review-status");
+  const historyOutput = document.getElementById("nutrition-review-history");
+  if (!output || !status || !historyOutput) return;
+  const review = buildCurrentNutritionReview();
+  if (!review) return;
+  status.textContent = review.status;
+  status.className = `state-pill ${review.status === "READY FOR REVIEW" ? "green" : review.status === "PROVISIONAL REVIEW" ? "yellow" : "neutral"}`;
+  const list = (items) => items.length ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : "<li>No conclusion available.</li>";
+  output.className = "";
+  output.innerHTML = `<p><strong>${escapeHtml(review.headline)}</strong></p>
+    <div class="nutrition-review-grid">
+      <article class="nutrition-review-card"><h4>Wins to preserve</h4><ul>${list(review.wins)}</ul></article>
+      <article class="nutrition-review-card"><h4>Evidence &amp; friction</h4><ul>${list(review.observations)}</ul></article>
+    </div>
+    <div class="nutrition-action-list">${review.actions.map((item) => `<article class="nutrition-action"><span>${escapeHtml(item.code)}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></article>`).join("")}</div>
+    <ul class="baseline-safeguards">${review.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    ${["PROVISIONAL REVIEW", "READY FOR REVIEW"].includes(review.status) ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-review-action="approve">Approve Next-Week Plan</button></div>' : ""}`;
+  const history = readNutritionReviewHistory();
+  historyOutput.innerHTML = history.length ? `<details class="nutrition-review-history"><summary>Approved reviews (${history.length})</summary>${[...history].reverse().map((item) =>
+    `<div class="nutrition-review-history-item"><strong>Week ending ${escapeHtml(item.reviewEnd || item.approvedAt.slice(0, 10))}</strong><small>${item.evidenceDays} evidence days · ${item.actions.map((action) => escapeHtml(action.code)).join(" · ")}</small></div>`).join("")}</details>` : "";
+}
+
+function approveCurrentNutritionReview() {
+  if (typeof DominionNutritionReview === "undefined") return;
+  try {
+    const approved = DominionNutritionReview.approveWeeklyNutritionReview(buildCurrentNutritionReview());
+    const history = readNutritionReviewHistory();
+    history.push(approved);
+    window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(history));
+    renderNutritionReview();
+    setText("nutrition-review-feedback", "Next-week behavior plan approved locally. Calorie and macro targets were not changed.");
+  } catch (error) {
+    setText("nutrition-review-feedback", error.message);
+  }
 }
 
 function renderNutritionCommand() {
@@ -5174,6 +5240,7 @@ function renderNutritionCommand() {
   renderNutritionBaseline();
   renderAdaptiveFueling();
   renderNutritionIntelligence();
+  renderNutritionReview();
 }
 
 function saveManualNutrition(event) {
@@ -5777,6 +5844,10 @@ if (typeof document !== "undefined") {
       renderNutritionBaseline();
       setText("nutrition-baseline-feedback", "Draft discarded. No approved baseline changed.");
     }
+  });
+  document.getElementById("nutrition-review-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-review-action]");
+    if (button?.dataset.nutritionReviewAction === "approve") approveCurrentNutritionReview();
   });
   document.getElementById("adaptive-fueling-goal")?.addEventListener("change", () => {
     renderNutritionCommand();

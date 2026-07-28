@@ -5625,12 +5625,18 @@ function connectedJobPayload(job) {
 }
 
 function connectedRecordPayload(record) {
+  const integrity = {
+    sourceFingerprint: record.sourceFingerprint || null,
+    importClassification: record.importClassification || null,
+    importBatchId: record.importBatchId || record.sourceSyncJobId || null,
+    fileChecksum: record.fileChecksum || null
+  };
   return {
     id: record.id, user_id: record.userId, connected_account_id: record.connectedAccountId, provider_code: record.providerCode,
     provider_record_id: record.providerRecordId, provider_record_type: record.providerRecordType,
     source_created_at: record.sourceCreatedAt, source_updated_at: record.sourceUpdatedAt, occurred_at: record.occurredAt,
     timezone: record.timezone, data_type: record.dataType, normalized_payload: record.normalizedPayload,
-    raw_payload: record.rawPayload, deduplication_key: record.deduplicationKey, validation_status: record.validationStatus,
+    raw_payload: { ...(record.rawPayload || {}), _dominion_import_integrity: integrity }, deduplication_key: record.deduplicationKey, validation_status: record.validationStatus,
     import_status: record.importStatus, rejection_reason: record.rejectionReason,
     mapped_performance_entry_id: record.mappedPerformanceEntryId, source_sync_job_id: record.sourceSyncJobId,
     is_demo: record.isDemo, created_at: record.createdAt, updated_at: record.updatedAt
@@ -5647,7 +5653,12 @@ async function persistConnectedRemote() {
     const result = await supabase.from("integration_sync_jobs").upsert(connectedSyncJobs.map(connectedJobPayload), { onConflict: "id" });
     if (result.error) throw result.error;
   }
-  const canonicalRecords = connectedImportedRecords.filter((record) => record.importStatus !== "DUPLICATE");
+  const canonicalRecords = [...new Map(
+    connectedImportedRecords
+      .filter((record) => record.importStatus !== "DUPLICATE")
+      .reverse()
+      .map((record) => [record.deduplicationKey || record.id, record])
+  ).values()];
   if (canonicalRecords.length) {
     const result = await supabase.from("imported_records").upsert(canonicalRecords.map(connectedRecordPayload), { onConflict: "id" });
     if (result.error) throw result.error;
@@ -5707,6 +5718,16 @@ function setConnectedActiveView(view = "overview") {
   writeConnectedLocal();
 }
 
+function renderImportJobSummary(job = {}) {
+  const summary = job.summary || {};
+  const readable = summary.idempotencyKey
+    ? `${summary.new || 0} new · ${summary.updated || 0} updated · ${job.duplicateCount || 0} duplicate · ${job.rejectedCount || 0} rejected`
+    : `${job.importedCount || 0} imported · ${job.duplicateCount || 0} duplicate · ${job.rejectedCount || 0} rejected · ${job.unmappedCount || 0} unmapped`;
+  const details = summary.idempotencyKey ? `<details><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify({ fileChecksum: summary.fileChecksum, idempotencyKey: summary.idempotencyKey, repeatedBatch: summary.repeatedBatch, priorJobId: summary.priorJobId, parseErrors: summary.parseErrors }, null, 2))}</pre></details>` : "";
+  const rollback = !job.isDemo && summary.idempotencyKey && !summary.rolledBackAt ? `<button type="button" class="ghost" data-connected-action="rollback-import" data-job-id="${escapeHtml(job.id)}">Rollback batch</button>` : "";
+  return `<strong>${readable}</strong>${summary.repeatedBatch ? `<p class="muted">Exact file previously imported${summary.priorJobId ? ` in batch ${escapeHtml(summary.priorJobId)}` : ""}.</p>` : ""}${job.errorMessage ? `<p>${escapeHtml(job.errorMessage)}</p>` : ""}${details}${rollback}`;
+}
+
 function renderConnectedDominion() {
   const api = connectedApi();
   if (!api || typeof document === "undefined") return;
@@ -5749,10 +5770,10 @@ function renderConnectedDominion() {
   }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
 
   const historyPanel = document.getElementById("connected-view-sync_history");
-  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Counts</th><th>Error / summary</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${job.importedCount} imported · ${job.duplicateCount} duplicate · ${job.rejectedCount} rejected · ${job.unmappedCount} unmapped</td><td>${escapeHtml(job.errorMessage || JSON.stringify(job.summary || {}))}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
+  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Import integrity</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}${job.summary?.rolledBackAt ? `<br>${connectedStatusPill("ROLLED BACK")}` : ""}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${renderImportJobSummary(job)}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
 
   const recordsPanel = document.getElementById("connected-view-imported_records");
-  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${record.mappedPerformanceEntryId ? `Mapped to Performance entry ${escapeHtml(record.mappedPerformanceEntryId)}` : escapeHtml(record.rejectionReason || "Retained for audit; no mapped destination.")}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
+  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${record.importClassification ? connectedStatusPill(record.importClassification) : ""}${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${escapeHtml(record.rejectionReason || (record.mappedPerformanceEntryId ? `Mapped to Performance entry ${record.mappedPerformanceEntryId}.` : "Retained for audit; no mapped destination."))}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
 
   const reconciliationPanel = document.getElementById("connected-view-reconciliation");
   if (reconciliationPanel) {
@@ -5914,6 +5935,8 @@ async function importFitbodWorkoutFile(file) {
   if (!api || !file) return;
   setText("connected-feedback", "Reading Fitbod workout file…");
   const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "FITBOD", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
   let account = connectedAccounts.find((item) => item.providerCode === "FITBOD" && item.connectionStatus !== "DISCONNECTED");
   if (!account) {
     account = api.normalizeConnectedAccount({
@@ -5927,11 +5950,12 @@ async function importFitbodWorkoutFile(file) {
   let job = api.normalizeSyncJob({
     userId: connectedUserId(), connectedAccountId: account.id, providerCode: "FITBOD",
     syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
-    isDemo: false, summary: { fileName: file.name }
+    isDemo: false, summary: { fileName: file.name, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
   });
   job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
-  const parsed = api.parseFitbodWorkoutCsv(await file.text(), {
+  const parsed = api.parseFitbodWorkoutCsv(fileText, {
     userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    importBatchId: job.id, fileChecksum: batch.fileChecksum,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
   });
   const processed = [], mappedEntries = [];
@@ -5971,10 +5995,10 @@ async function importFitbodWorkoutFile(file) {
     rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
     errorCode: status === "FAILED" ? "FITBOD_FILE_INVALID" : null,
     errorMessage: parsed.errors.slice(0, 5).join(" "),
-    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length }
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
   }, status, { now: new Date().toISOString() }).job;
   connectedSyncJobs = [job, ...connectedSyncJobs];
-  await saveConnectedState(`Fitbod file import ${status}: ${counts.imported} mapped, ${counts.duplicate} duplicate, ${counts.unmapped} unmapped, ${parsed.errors.length} invalid row(s).`, performancePersistFailed);
+  await saveConnectedState(`Fitbod import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected.${batch.repeatedBatch ? " This exact file was imported before." : ""}`, performancePersistFailed);
   renderPerformanceSection();
 }
 
@@ -5983,6 +6007,8 @@ async function importMyFitnessPalNutritionFile(file) {
   if (!api || !file) return;
   setText("connected-feedback", "Reading MyFitnessPal nutrition file…");
   const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "MYFITNESSPAL", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
   let account = connectedAccounts.find((item) => item.providerCode === "MYFITNESSPAL" && item.connectionStatus !== "DISCONNECTED");
   if (!account) {
     account = api.normalizeConnectedAccount({
@@ -5996,11 +6022,12 @@ async function importMyFitnessPalNutritionFile(file) {
   let job = api.normalizeSyncJob({
     userId: connectedUserId(), connectedAccountId: account.id, providerCode: "MYFITNESSPAL",
     syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
-    isDemo: false, summary: { fileName: file.name }
+    isDemo: false, summary: { fileName: file.name, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
   });
   job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
-  const parsed = api.parseMyFitnessPalNutritionCsv(await file.text(), {
+  const parsed = api.parseMyFitnessPalNutritionCsv(fileText, {
     userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    importBatchId: job.id, fileChecksum: batch.fileChecksum,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
   });
   const processed = parsed.records.map((record) => {
@@ -6015,10 +6042,10 @@ async function importMyFitnessPalNutritionFile(file) {
     rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
     errorCode: status === "FAILED" ? "MFP_FILE_INVALID" : null,
     errorMessage: parsed.errors.slice(0, 5).join(" "),
-    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length }
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
   }, status, { now: new Date().toISOString() }).job;
   connectedSyncJobs = [job, ...connectedSyncJobs];
-  await saveConnectedState(`MyFitnessPal nutrition import ${status}: ${counts.imported} meal row(s), ${counts.duplicate} duplicate, ${parsed.errors.length} invalid row(s).`);
+  await saveConnectedState(`MyFitnessPal import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected.${batch.repeatedBatch ? " This exact file was imported before." : ""}`);
   setConnectedActiveView("nutrition");
 }
 
@@ -6031,6 +6058,8 @@ async function importAppleHealthFile(file) {
   }
   setText("connected-feedback", "Reading supported Apple Health evidence…");
   const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "APPLE_HEALTH", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
   let account = connectedAccounts.find((item) => item.providerCode === "APPLE_HEALTH" && item.connectionStatus !== "DISCONNECTED" && !item.isSimulated);
   if (!account) {
     account = api.normalizeConnectedAccount({
@@ -6044,11 +6073,11 @@ async function importAppleHealthFile(file) {
   let job = api.normalizeSyncJob({
     userId: connectedUserId(), connectedAccountId: account.id, providerCode: "APPLE_HEALTH",
     syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
-    isDemo: false, summary: { fileName: file.name, rawFileStored: false }
+    isDemo: false, summary: { fileName: file.name, rawFileStored: false, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
   });
   job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
-  const parsed = api.parseAppleHealthExportXml(await file.text(), {
-    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id
+  const parsed = api.parseAppleHealthExportXml(fileText, {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id, importBatchId: job.id, fileChecksum: batch.fileChecksum
   });
   const processed = parsed.records.map((record) => {
     const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
@@ -6062,10 +6091,10 @@ async function importAppleHealthFile(file) {
     rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
     errorCode: status === "FAILED" ? "APPLE_HEALTH_FILE_INVALID" : null,
     errorMessage: parsed.errors.slice(0, 5).join(" "),
-    summary: { ...counts, fileName: file.name, supportedSourceRows: parsed.supportedCount, ignoredSourceRows: parsed.ignoredCount, rawFileStored: false }
+    summary: { ...counts, fileName: file.name, supportedSourceRows: parsed.supportedCount, ignoredSourceRows: parsed.ignoredCount, rawFileStored: false, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
   }, status, { now: new Date().toISOString() }).job;
   connectedSyncJobs = [job, ...connectedSyncJobs];
-  await saveConnectedState(`Apple Health import ${status}: ${counts.imported} supported record(s), ${counts.duplicate} duplicate, ${parsed.ignoredCount} unsupported source row(s) ignored.`);
+  await saveConnectedState(`Apple Health import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected; ${parsed.ignoredCount} unsupported row(s) ignored.${batch.repeatedBatch ? " This exact file was imported before." : ""}`);
   setConnectedActiveView("apple_health");
 }
 
@@ -6453,6 +6482,36 @@ if (typeof document !== "undefined") {
     if (action === "retry") {
       const original = connectedSyncJobs.find((item) => item.id === button.dataset.jobId);
       if (original) await runConnectedDemoSync(original.connectedAccountId, "RETRY", original.id);
+    }
+    if (action === "rollback-import") {
+      const jobId = button.dataset.jobId;
+      const jobIndex = connectedSyncJobs.findIndex((item) => item.id === jobId);
+      if (jobIndex < 0 || !window.confirm("Rollback this import batch? Imported performance entries will be removed while the source audit trail is retained.")) return;
+      const rollback = connectedApi().rollbackImportBatch(connectedImportedRecords, jobId);
+      connectedImportedRecords = rollback.records;
+      const mappedIds = new Set(rollback.mappedPerformanceEntryIds);
+      performanceEntries = performanceEntries.filter((entry) => !mappedIds.has(entry.id));
+      saveLocalPerformanceEntries(performanceEntries);
+      connectedSyncJobs[jobIndex] = {
+        ...connectedSyncJobs[jobIndex],
+        summary: {
+          ...(connectedSyncJobs[jobIndex].summary || {}),
+          rolledBackAt: new Date().toISOString(),
+          rolledBackRecords: rollback.removed.length,
+          removedPerformanceEntries: mappedIds.size
+        }
+      };
+      if (session?.user?.id && mappedIds.size) {
+        try {
+          const supabase = await getClient();
+          const result = await supabase.from("performance_entries").delete().eq("user_id", session.user.id).in("id", [...mappedIds]);
+          if (result.error) throw result.error;
+        } catch (_) {
+          setText("connected-feedback", "Rollback is saved locally; remote Performance cleanup will retry on the next successful connection.");
+        }
+      }
+      await saveConnectedState(`Import batch rolled back. ${rollback.removed.length} source record(s) retained as invalidated; ${mappedIds.size} mapped Performance entry or entries removed.`);
+      renderPerformanceSection();
     }
   });
   const fitbodImportFile = document.getElementById("fitbod-import-file");

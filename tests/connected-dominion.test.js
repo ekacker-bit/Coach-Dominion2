@@ -99,7 +99,7 @@ test("40 local and remote storage states remain distinct", () => {
   assert.equal(connected.deriveConnectedViewState({ remoteLoadFailed: true, localFallback: true }), "LOCAL_FALLBACK_ACTIVE");
   assert.equal(connected.deriveConnectedViewState({ remoteLoadFailed: true }), "REMOTE_LOAD_FAILED");
 });
-test("41 sync summaries count statuses", () => assert.deepEqual(connected.summarizeSyncJob([{ ...run(), importStatus: "MAPPED" }, { ...run(), id: "d", importStatus: "DUPLICATE" }, { ...run(), id: "r", importStatus: "REJECTED" }, { ...run(), id: "u", importStatus: "UNMAPPED" }]), { imported: 1, duplicate: 1, rejected: 1, unmapped: 1, total: 4 }));
+test("41 sync summaries count statuses", () => assert.deepEqual(connected.summarizeSyncJob([{ ...run(), importStatus: "MAPPED" }, { ...run(), id: "d", importStatus: "DUPLICATE" }, { ...run(), id: "r", importStatus: "REJECTED" }, { ...run(), id: "u", importStatus: "UNMAPPED" }]), { imported: 1, new: 0, updated: 0, duplicate: 1, rejected: 1, unmapped: 1, total: 4 }));
 test("42 demo records remain labeled", () => assert.ok(connected.createDemoRecords(account, job).every((item) => item.isDemo)));
 test("43 provider catalog objects do not leak mutations", () => { const list = connected.getConnectedProviderCatalog(); list[0].displayName = "Changed"; assert.equal(connected.getProviderDefinition("STRAVA").displayName, "Strava"); });
 test("44 date-only values are not shifted", () => assert.equal(connected.normalizeImportedRecord({ providerCode: "STRAVA", dataType: "BODYWEIGHT", occurredAt: "2026-01-01" }).occurredAt, "2026-01-01"));

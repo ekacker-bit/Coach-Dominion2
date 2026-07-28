@@ -588,6 +588,7 @@
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="records">RECORDS</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="milestones">MILESTONES</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="intelligence">INTELLIGENCE</button>
+          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="running">RUNNING</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="programming">PROGRAMMING</button>
           <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="recovery">RECOVERY &amp; FUELING</button>
         </div>
@@ -710,6 +711,18 @@
           </div>
           <div id="performance-intelligence-panel" class="performance-intelligence-panel"></div>
         </div>
+        <div id="performance-view-running" class="performance-view-panel" hidden>
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 010A // RUNNING COMMAND</div>
+              <h3>Running Profile &amp; Pace Zones</h3>
+              <p class="muted">Establish the goal, baseline, and benchmark evidence that future running prescriptions will use.</p>
+            </div>
+            <span id="running-command-status" class="state-pill neutral">PROFILE DRAFT</span>
+          </div>
+          <div id="running-command-panel"></div>
+          <p id="running-command-feedback" class="muted" aria-live="polite"></p>
+        </div>
         <div id="performance-view-programming" class="performance-view-panel" hidden>
           <div class="section-heading compact">
             <div>
@@ -818,6 +831,7 @@
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
+<script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

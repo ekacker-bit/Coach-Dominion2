@@ -246,3 +246,17 @@
 .connected-privacy-list{display:grid;gap:10px;color:#dce3ea;padding-left:22px}
 @media(max-width:900px){.connected-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.provider-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.connected-summary-grid,.connected-detail-grid{grid-template-columns:1fr}.connected-view-nav{display:grid;grid-template-columns:1fr 1fr}.connected-view-tab{border-radius:8px}.provider-card header,.connected-detail-card header,.import-record-card header{flex-direction:column}.connected-actions{display:grid}.connected-table{min-width:0}.connected-table thead{display:none}.connected-table,.connected-table tbody,.connected-table tr,.connected-table td{display:block;width:100%}.connected-table tr{border-bottom:2px solid var(--line-strong)}.connected-table td{border:0;padding:8px 11px}}
+
+/* Build 010A // Running Command */
+.running-command-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.8fr);gap:14px;margin:16px 0}
+.running-profile-card,.running-zones-panel{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:16px}
+.running-profile-card{display:grid;gap:14px}.running-profile-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.running-baseline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.running-baseline-grid div,.running-evidence{border:1px solid var(--line);border-radius:9px;padding:11px;background:rgba(255,255,255,.02)}
+.running-baseline-grid span,.running-zone-card span{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.running-baseline-grid strong{display:block;margin-top:5px;font-size:16px}.running-evidence p{margin:6px 0 0}
+.running-zone-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.running-zone-card{border:1px solid var(--line);border-top:3px solid var(--green);border-radius:10px;padding:12px;background:rgba(5,7,10,.4)}
+.running-zone-card strong{display:block;margin-top:7px;font-size:16px}.running-zone-card p{color:var(--muted);font-size:12px;margin:8px 0 0}
+@media(max-width:1100px){.running-command-grid{grid-template-columns:1fr}.running-zone-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.running-profile-fields,.running-baseline-grid,.running-zone-grid{grid-template-columns:1fr}}

@@ -4332,6 +4332,64 @@ function readApprovedDailyOrders() {
   catch (_) { return null; }
 }
 
+function dailyAssignmentStorageKey() {
+  return `coach-dominion:daily-assignment:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readDailyAssignmentExecution() {
+  try { return JSON.parse(window.localStorage.getItem(dailyAssignmentStorageKey()) || "null") || { state: "NOT STARTED", completedSets: {} }; }
+  catch (_) { return { state: "NOT STARTED", completedSets: {} }; }
+}
+
+function buildCurrentDailyAssignment() {
+  if (typeof DominionDailyAssignment === "undefined") return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const api = connectedApi();
+  return DominionDailyAssignment.buildDailyAssignment({
+    date: todayISODate(),
+    readiness: { state: readinessResult.state, pain: Boolean(dailyState?.pain) },
+    programming: buildCurrentProgrammingRecommendation() || {},
+    fitbodSessions: api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : []
+  });
+}
+
+function saveDailyAssignmentExecution(execution) {
+  window.localStorage.setItem(dailyAssignmentStorageKey(), JSON.stringify({ ...execution, updatedAt: new Date().toISOString() }));
+}
+
+function renderDailyAssignment() {
+  const panel = document.getElementById("daily-assignment-panel");
+  if (!panel) return;
+  const assignment = buildCurrentDailyAssignment();
+  if (!assignment) {
+    panel.innerHTML = `<div class="performance-empty">Daily assignment engine unavailable.</div>`;
+    return;
+  }
+  const execution = readDailyAssignmentExecution();
+  const fitbodComplete = assignment.fitbod.state === "COMPLETE";
+  const state = fitbodComplete ? "COMPLETE · FITBOD" : execution.state === "COMPLETE" ? "COMPLETE" : execution.state === "IN PROGRESS" ? "IN PROGRESS" : assignment.state;
+  setText("daily-assignment-state", state);
+  const badge = document.getElementById("daily-assignment-state");
+  badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" ? "red" : "neutral"}`;
+  const exerciseCards = assignment.exercises.map((item) => {
+    const completed = Math.min(item.sets, Number(execution.completedSets?.[item.id] || 0));
+    return `<article class="daily-exercise-card">
+      <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(item.name)}</h3></div><span class="state-pill ${completed === item.sets ? "green" : "neutral"}">${completed}/${item.sets} SETS</span></header>
+      <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Load</span><strong>${item.load} ${escapeHtml(item.unit)}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
+      <p>${escapeHtml(item.rationale)}</p><details><summary>Substitutions and evidence</summary><p>${escapeHtml(item.substitutions.join(" "))}</p><p>${item.evidenceCount} supporting exposure(s).</p></details>
+      <div class="daily-orders-actions"><button type="button" data-assignment-action="complete-set" data-exercise-id="${escapeHtml(item.id)}" ${completed >= item.sets || fitbodComplete ? "disabled" : ""}>Complete set</button><button type="button" class="ghost" data-assignment-action="modify" data-exercise-id="${escapeHtml(item.id)}">Modify</button><button type="button" class="ghost" data-assignment-action="pain">Report pain</button></div>
+    </article>`;
+  }).join("");
+  panel.innerHTML = `<div class="daily-assignment-summary">
+      <div><span>Assignment</span><strong>${escapeHtml(assignment.title)}</strong></div><div><span>Duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Confidence</span><strong>${escapeHtml(assignment.confidence)}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>
+    </div>
+    <article class="connected-notice"><strong>Readiness adjustment:</strong> ${escapeHtml(assignment.readinessDelta.detail)}</article>
+    <details open><summary>Warm-up</summary><ol>${assignment.warmup.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol></details>
+    <div class="daily-exercise-list">${exerciseCards || `<div class="performance-empty">${assignment.state === "RECOVERY ONLY" ? "Loaded training is removed today. Follow the recovery actions below." : "No supported exercise prescription exists yet. Log or import prior strength work, then approve the programming draft."}</div>`}</div>
+    <details open><summary>Recovery and safety</summary><ul>${assignment.recoveryActions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>
+    <div class="daily-orders-actions"><button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>${execution.state === "IN PROGRESS" ? "Workout in progress" : "Start workout"}</button><button type="button" class="ghost" data-assignment-action="refresh">Refresh Fitbod evidence</button></div>`;
+}
+
 function buildCurrentDailyCoachingLoop() {
   if (typeof DominionDailyCoaching === "undefined") return null;
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
@@ -4409,6 +4467,7 @@ function renderDailyCoachingLoop() {
 }
 
 function renderRecoveryReview() {
+  renderDailyAssignment();
   const panel = document.getElementById("recovery-review-panel");
   if (!panel) return;
   const review = buildCurrentRecoveryRecommendation();
@@ -6273,6 +6332,37 @@ if (typeof document !== "undefined") {
       window.location.hash = "today";
       document.getElementById("energy")?.focus();
     }
+  });
+  document.getElementById("daily-assignment-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-assignment-action]");
+    if (!button) return;
+    const action = button.dataset.assignmentAction;
+    const assignment = buildCurrentDailyAssignment();
+    const execution = readDailyAssignmentExecution();
+    if (action === "start" && assignment?.exercises.length) {
+      saveDailyAssignmentExecution({ ...execution, state: "IN PROGRESS", startedAt: execution.startedAt || new Date().toISOString() });
+      setText("daily-assignment-feedback", "Workout started. Complete each work set or allow matching Fitbod evidence to close the assignment.");
+    }
+    if (action === "complete-set") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      const completedSets = { ...(execution.completedSets || {}) };
+      completedSets[exercise.id] = Math.min(exercise.sets, Number(completedSets[exercise.id] || 0) + 1);
+      const allComplete = assignment.exercises.every((item) => Number(completedSets[item.id] || 0) >= item.sets);
+      saveDailyAssignmentExecution({ ...execution, state: allComplete ? "COMPLETE" : "IN PROGRESS", completedSets, completedAt: allComplete ? new Date().toISOString() : null });
+      setText("daily-assignment-feedback", allComplete ? "Assignment complete. Preserve the evidence and complete today’s Dominion Record." : `${exercise.name}: set recorded.`);
+    }
+    if (action === "modify") {
+      setText("daily-assignment-feedback", "Use the listed substitution, then record the change in today’s Strength note. Load and volume will not change silently.");
+      window.location.hash = "record";
+    }
+    if (action === "pain") {
+      setText("daily-assignment-feedback", "Stop the set. Report pain in Morning Roll Call; loaded work will be removed when readiness recalculates.");
+      window.location.hash = "today";
+      document.getElementById("pain-yes")?.focus();
+    }
+    if (action === "refresh") setText("daily-assignment-feedback", "Fitbod evidence refreshed.");
+    renderDailyAssignment();
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {

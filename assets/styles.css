@@ -80,8 +80,17 @@
 .daily-evidence-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
 .daily-evidence-grid div{border-top:1px solid var(--line);padding-top:10px}
 .daily-orders-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.daily-assignment-card{border-color:rgba(56,212,141,.38)}
+.daily-assignment-summary,.daily-prescription-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.daily-assignment-summary>div,.daily-prescription-grid>div{border:1px solid var(--line);border-radius:9px;padding:12px;background:rgba(255,255,255,.025);display:grid;gap:5px}
+.daily-assignment-summary span,.daily-prescription-grid span{color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.daily-exercise-list{display:grid;gap:12px;margin:16px 0}
+.daily-exercise-card{border:1px solid var(--line-strong);border-radius:12px;padding:16px;background:rgba(5,9,13,.58)}
+.daily-exercise-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.daily-exercise-card h3{margin:4px 0;font-size:23px}
+.daily-assignment-card details{margin-top:12px}
 .daily-orders-safeguard{margin:14px 0 0;color:var(--muted);font-size:12px}
-@media(max-width:720px){.daily-loop-phases,.daily-evidence-grid{grid-template-columns:1fr 1fr}.daily-orders-actions{display:grid}}
+@media(max-width:720px){.daily-loop-phases,.daily-evidence-grid,.daily-assignment-summary,.daily-prescription-grid{grid-template-columns:1fr 1fr}.daily-orders-actions{display:grid}}
 .readiness-baseline-card{margin-top:18px;border-color:rgba(56,212,141,.3)}
 .baseline-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
 .baseline-metric{border:1px solid var(--line);border-radius:10px;background:var(--panel3);padding:12px;display:grid;gap:7px}

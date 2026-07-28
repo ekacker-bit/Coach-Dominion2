@@ -258,6 +258,19 @@
         <p id="daily-orders-feedback" class="muted"></p>
       </section>
 
+      <section class="card daily-assignment-card" aria-labelledby="daily-assignment-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">BUILD 009B // DAILY TRAINING ASSIGNMENT</div>
+            <h2 id="daily-assignment-heading">Today’s Workout</h2>
+            <p class="muted">A specific, evidence-backed prescription with readiness adjustments and execution controls.</p>
+          </div>
+          <span id="daily-assignment-state" class="state-pill neutral">LOADING</span>
+        </div>
+        <div id="daily-assignment-panel" aria-live="polite"><div class="performance-empty">Atlas is building today’s assignment.</div></div>
+        <p id="daily-assignment-feedback" class="muted"></p>
+      </section>
+
       <section class="card readiness-baseline-card" aria-labelledby="baseline-heading">
         <div class="section-heading compact">
           <div>
@@ -747,7 +760,7 @@
           </dl>
         </section>
 
-        <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training module</h2><p class="muted">Placeholder for prescribed work.</p></article>
+        <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training assignment</h2><p class="muted">Today’s executable prescription is shown above with evidence and completion controls.</p></article>
         <article class="card module-placeholder"><div class="kicker">NUTRITION</div><h2>Fuel module</h2><p class="muted">Placeholder for nutrition guidance.</p></article>
         <article class="card module-placeholder"><div class="kicker">RECOVERY</div><h2>Recovery module</h2><p class="muted">Placeholder for recovery actions.</p></article>
       </section>
@@ -777,6 +790,7 @@
 <script src="/assets/js/programming.js"></script>
 <script src="/assets/js/recovery.js"></script>
 <script src="/assets/js/daily-coaching.js"></script>
+<script src="/assets/js/daily-assignment.js"></script>
 <script src="/assets/js/readiness-baselines.js"></script>
 <script src="/assets/js/weekly-plan.js"></script>
 <script src="/assets/js/nutrition-command.js"></script>

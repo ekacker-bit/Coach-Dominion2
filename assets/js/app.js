@@ -4968,6 +4968,70 @@ function renderAdaptiveFueling() {
     <div class="weekly-plan-actions"><button type="button" data-adaptive-fueling-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Fueling Variant Approved" : "Approve Fueling Variant"}</button></div>`;
 }
 
+function nutritionIntelligencePercent(value) {
+  return value === null || value === undefined ? "—" : `${Math.round(value * 100)}%`;
+}
+
+function nutritionIntelligenceAverage(value, unit) {
+  return value === null || value === undefined ? "—" : `${Math.round(value)}${unit || ""}`;
+}
+
+function nutritionEvidenceHistory(windowEnd) {
+  if (!connectedApi()) return [];
+  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const importedByDate = new Map(imported.map((day) => [day.date, { ...day, source: "MYFITNESSPAL" }]));
+  const history = [];
+  const anchor = new Date(`${windowEnd}T12:00:00`);
+  for (let offset = 13; offset >= 0; offset -= 1) {
+    const date = new Date(anchor);
+    date.setDate(anchor.getDate() - offset);
+    const dateKey = date.toISOString().slice(0, 10);
+    const manual = readManualNutrition(dateKey);
+    const record = importedByDate.get(dateKey) || (manual ? { ...manual, source: "MANUAL" } : null);
+    if (record) history.push(record);
+  }
+  return history;
+}
+
+function renderNutritionIntelligence() {
+  const output = document.getElementById("nutrition-intelligence-output");
+  const status = document.getElementById("nutrition-intelligence-status");
+  if (!output || !status || typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return;
+  const windowEnd = todayISODate();
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  const targets = connectedApi().parseNutritionTarget(targetText);
+  const trainingDates = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).map((session) => session.date);
+  const result = DominionNutritionIntelligence.buildNutritionIntelligence({
+    windowEnd,
+    targets,
+    trainingDates,
+    nutritionDays: nutritionEvidenceHistory(windowEnd)
+  });
+  status.textContent = result.status;
+  status.className = `state-pill ${result.status === "READY" ? "green" : result.status === "PROVISIONAL" ? "yellow" : "neutral"}`;
+  const recent = result.sevenDay;
+  const total = result.fourteenDay;
+  const trendText = result.trend.status === "AVAILABLE"
+    ? `Calories ${result.trend.calories.direction.toLowerCase()} ${Math.abs(result.trend.calories.delta)} · protein ${result.trend.protein.direction.toLowerCase()} ${Math.abs(result.trend.protein.delta)}g`
+    : "Needs 3 complete days in each 7-day window";
+  const contextCard = (label, summary) => `<article class="nutrition-context-card">
+    <span>${label}</span>
+    <strong>${summary.evidenceDays} evidence day${summary.evidenceDays === 1 ? "" : "s"}</strong>
+    <small>${nutritionIntelligenceAverage(summary.averageCalories, "")} kcal average · ${nutritionIntelligenceAverage(summary.averageProtein, "g")} protein</small>
+    <small>Calories ${nutritionIntelligencePercent(summary.calorieAdherence)} · protein ${nutritionIntelligencePercent(summary.proteinAdherence)}</small>
+  </article>`;
+  output.className = "";
+  output.innerHTML = `<div class="nutrition-intelligence-summary">
+      <div><span>14-day evidence</span><strong>${result.evidenceDays} / 14 days</strong><small>${result.evidenceCoverage}% coverage · ${result.missingDays} evidence gaps</small></div>
+      <div><span>Recent 7 days</span><strong>${nutritionIntelligenceAverage(recent.averageCalories, "")} kcal</strong><small>${nutritionIntelligenceAverage(recent.averageProtein, "g")} average protein</small></div>
+      <div><span>14-day adherence</span><strong>${nutritionIntelligencePercent(total.calorieAdherence)}</strong><small>Protein ${nutritionIntelligencePercent(total.proteinAdherence)}</small></div>
+      <div><span>Trend direction</span><strong>${escapeHtml(result.trend.status)}</strong><small>${escapeHtml(trendText)}</small></div>
+    </div>
+    <div class="nutrition-intelligence-context">${contextCard("Training days", result.training)}${contextCard("Recovery / unclassified days", result.recovery)}</div>
+    <div class="nutrition-priority"><span class="kicker">WEEKLY PRIORITY // ${escapeHtml(result.priority.code)}</span><strong>${escapeHtml(result.priority.title)}</strong><p>${escapeHtml(result.priority.message)}</p></div>
+    <ul class="baseline-safeguards">${result.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function renderNutritionCommand() {
   const output = document.getElementById("nutrition-command-output");
   const statusPill = document.getElementById("nutrition-command-status");
@@ -5008,6 +5072,7 @@ function renderNutritionCommand() {
       <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
     </div>`;
   renderAdaptiveFueling();
+  renderNutritionIntelligence();
 }
 
 function saveManualNutrition(event) {

@@ -4572,6 +4572,51 @@ function readRunningExecution() {
   try { return JSON.parse(window.localStorage.getItem(runningExecutionStorageKey()) || "null"); } catch (_) { return null; }
 }
 
+async function persistRunningState(stateType, stateKey, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("running_state").upsert({
+      user_id: session.user.id, state_type: stateType, state_key: stateKey,
+      payload, updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    setText("running-command-feedback", "Saved locally. Remote running storage is unavailable until migration 010 is applied.");
+    return false;
+  }
+}
+
+async function loadRunningState() {
+  if (!session?.user?.id) return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("running_state").select("state_type,state_key,payload,updated_at").eq("user_id", session.user.id).order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const profile = rows.find((row) => row.state_type === "PROFILE");
+    const week = DominionRunning.weekStartIso(todayISODate());
+    const plan = rows.find((row) => row.state_type === "PLAN" && row.state_key === week);
+    const reconciliation = rows.find((row) => row.state_type === "RECONCILIATION" && row.state_key === week);
+    const execution = rows.find((row) => row.state_type === "EXECUTION" && row.state_key === todayISODate());
+    if (profile) window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(profile.payload));
+    if (plan) window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(plan.payload));
+    if (reconciliation) window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(reconciliation.payload));
+    if (execution) window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution.payload));
+    const localProfile = readRunningProfile();
+    const localPlan = readApprovedRunningPlan();
+    const localReconciliation = readApprovedRunningReconciliation();
+    const localExecution = readRunningExecution();
+    if (!profile && localProfile.approvedAt) await persistRunningState("PROFILE", "current", localProfile);
+    if (!plan && localPlan?.weekStart === week) await persistRunningState("PLAN", week, localPlan);
+    if (!reconciliation && localReconciliation?.weekStart === week) await persistRunningState("RECONCILIATION", week, localReconciliation);
+    if (!execution && localExecution) await persistRunningState("EXECUTION", todayISODate(), localExecution);
+  } catch (_) {
+    // Existing local state remains the explicit offline fallback.
+  }
+}
+
 function renderRunningCommand(entries = performanceEntries) {
   const panel = document.getElementById("running-command-panel");
   if (!panel || typeof DominionRunning === "undefined") return;
@@ -6312,6 +6357,7 @@ async function init() {
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
+    await loadRunningState();
     await loadPerformanceEntries();
     await loadConnectedDominion();
     renderRankSection();
@@ -6485,7 +6531,7 @@ if (typeof document !== "undefined") {
       setPerformanceActiveView(button.dataset.performanceView || "overview");
     });
   });
-  document.getElementById("running-command-panel")?.addEventListener("submit", (event) => {
+  document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
     if (event.target.id !== "running-profile-form") return;
     event.preventDefault();
     const distance = document.getElementById("running-benchmark-distance")?.value || "";
@@ -6496,7 +6542,7 @@ if (typeof document !== "undefined") {
       return;
     }
     const now = new Date().toISOString();
-    saveRunningProfile({
+    const savedProfile = saveRunningProfile({
       goal: document.getElementById("running-goal")?.value,
       targetDate: document.getElementById("running-target-date")?.value,
       runningDaysPerWeek: document.getElementById("running-days")?.value,
@@ -6508,19 +6554,22 @@ if (typeof document !== "undefined") {
       approvedAt: now,
       updatedAt: now
     });
+    await persistRunningState("PROFILE", "current", savedProfile);
     renderRunningCommand();
     setText("running-command-feedback", "Running profile approved. Pace zones and baseline now use the current performance evidence.");
   });
-  document.getElementById("running-command-panel")?.addEventListener("click", (event) => {
+  document.getElementById("running-command-panel")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-running-action]");
     if (!button) return;
     if (button.dataset.runningAction === "approve-plan") {
       const profile = readRunningProfile();
       const plan = DominionRunning.buildWeeklyRunningPlan(profile, performanceEntries, { today: todayISODate() });
       if (plan.status !== "READY") return;
-      window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify({ ...plan, approvedAt: new Date().toISOString() }));
+      const approved = { ...plan, approvedAt: new Date().toISOString() };
+      window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(approved));
+      await persistRunningState("PLAN", plan.weekStart, approved);
       renderRunningCommand();
-      setText("running-command-feedback", "Weekly running plan approved locally. Future evidence may recommend a new draft but will not silently change this week.");
+      setText("running-command-feedback", "Weekly running plan approved and saved to your account. Future evidence may recommend a new draft but will not silently change this week.");
     }
     if (button.dataset.runningAction === "review-log") {
       performanceFilters.domain = "running";
@@ -6534,24 +6583,30 @@ if (typeof document !== "undefined") {
       if (!plan) return;
       const reconciliation = DominionRunning.reconcileWeeklyRunningPlan(plan, performanceEntries, { today: todayISODate() });
       if (reconciliation.status !== "READY") return;
-      window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify({
+      const approved = {
         approvedAt: new Date().toISOString(),
         planApprovedAt: plan.approvedAt,
         weekStart: plan.weekStart,
         summary: reconciliation.summary,
         days: reconciliation.days.map((day) => ({ date: day.date, classification: day.classification, sourceIds: day.runs.map((run) => run.id) }))
-      }));
+      };
+      window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(approved));
+      await persistRunningState("RECONCILIATION", plan.weekStart, approved);
       renderRunningCommand();
       setText("running-command-feedback", "Weekly run evidence review approved. Source records and the approved plan remain unchanged.");
     }
     if (button.dataset.runningAction === "start-run") {
-      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify({ state: "IN_PROGRESS", startedAt: new Date().toISOString() }));
+      const state = { state: "IN_PROGRESS", startedAt: new Date().toISOString() };
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
+      await persistRunningState("EXECUTION", todayISODate(), state);
       renderRunningCommand();
       setText("running-command-feedback", "Run started. Follow the prescribed steps and stop if pain develops.");
     }
     if (button.dataset.runningAction === "complete-run") {
       const current = readRunningExecution() || {};
-      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify({ ...current, state: "COMPLETE", completedAt: new Date().toISOString() }));
+      const state = { ...current, state: "COMPLETE", completedAt: new Date().toISOString() };
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
+      await persistRunningState("EXECUTION", todayISODate(), state);
       renderRunningCommand();
       setText("running-command-feedback", "Run marked complete. Imported or manual evidence will reconcile separately.");
     }

@@ -241,4 +241,49 @@ test("evidence outside the approved week is ignored", () => {
   assert.equal(result.summary.evidenceRunCount, 0);
 });
 
+test("daily prescription requires an approved plan", () => {
+  assert.equal(running.buildDailyRunPrescription({}, { today: "2026-07-20" }).status, "PLAN_REQUIRED");
+});
+
+test("daily prescription preserves recovery days", () => {
+  const plan = approvedPlan();
+  const rest = plan.sessions.find((item) => item.type === "REST");
+  assert.equal(running.buildDailyRunPrescription(plan, { today: rest.date }).status, "REST_DAY");
+});
+
+test("green readiness preserves the approved session", () => {
+  const plan = approvedPlan();
+  const session = plan.sessions.find((item) => item.type !== "REST");
+  const result = running.buildDailyRunPrescription(plan, { today: session.date, readiness: { energy: 8, soreness: 2, pain: false } });
+  assert.equal(result.status, "READY");
+  assert.equal(result.session.distance, session.distance);
+  assert.equal(result.steps.length, 3);
+});
+
+test("moderate readiness reduces distance and removes intensity", () => {
+  const plan = approvedPlan({ goal: "5K" });
+  const quality = plan.sessions.find((item) => item.type === "INTERVAL");
+  const result = running.buildDailyRunPrescription(plan, { today: quality.date, readiness: { energy: 5, soreness: 4, pain: false } });
+  assert.equal(result.status, "ADJUSTED");
+  assert.equal(result.session.type, "EASY");
+  assert.ok(result.session.distance < quality.distance);
+});
+
+test("low readiness cuts distance in half", () => {
+  const plan = approvedPlan();
+  const session = plan.sessions.find((item) => item.type !== "REST");
+  const result = running.buildDailyRunPrescription(plan, { today: session.date, readiness: { energy: 3, soreness: 8, pain: false } });
+  assert.equal(result.adjustment.factor, 0.5);
+  assert.equal(result.session.type, "RECOVERY");
+});
+
+test("pain always holds the run", () => {
+  const plan = approvedPlan();
+  const session = plan.sessions.find((item) => item.type !== "REST");
+  const result = running.buildDailyRunPrescription(plan, { today: session.date, readiness: { energy: 10, soreness: 1, pain: true } });
+  assert.equal(result.status, "PAIN_HOLD");
+  assert.equal(result.session.distance, 0);
+  assert.equal(result.steps[0].code, "STOP");
+});
+
 console.log(`Running Command: ${passed} assertions passed.`);

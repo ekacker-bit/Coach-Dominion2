@@ -11,6 +11,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `index.html` provides password and magic-link authentication.
 - `app.html` contains the authenticated War Room interface.
 - `assets/js/app.js` contains Supabase client operations, the Daily State/readiness engine, mission generation, Atlas brief generation, and UI rendering.
+- `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
 - `assets/styles.css` contains the application styles.
 - `api/health.js` and `api/config.js` are Vercel Node.js serverless functions.
 - `supabase/migrations/` contains the tracked PostgreSQL schema, constraints, row-level security policies, and trigger definitions.
@@ -18,6 +19,10 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `vercel.json` defines clean URLs and the `/app` rewrite.
 
 Build 004A adds a daily Dominion Record with five equal-weight compliance domains: mission, strength, running/cardio, recovery, and nutrition. Completed, partial, and missed domains score 100, 50, and 0. Excused and not-applicable domains are excluded. Blank or invalid assessments receive no credit and are excluded as unassessed; when nothing applicable has been assessed, the record remains unscored. Restriction and approved-modification evidence is stored independently, and no Build 004A status automatically creates a violation.
+
+## Build 013C core programming
+
+The Abs/Core destination supports a profile-driven, four-week cycle covering five movement categories. Draft generation and approval are separate; readiness can reduce or remove today’s prescription but cannot increase or silently rewrite an approved plan. Completed movements, session quality, effort, and pain holds persist to user-scoped account storage with device-local fallback. Controlled completion evidence drives an explicit next-cycle recommendation, while each completed exercise also becomes auditable Performance evidence.
 
 ## Build 004B weekly inspection
 

@@ -240,10 +240,64 @@
       message: "This first weekly plan holds the established baseline. Future progression requires completed-week evidence and readiness review."
     };
   }
+  function reconcileWeeklyRunningPlan(plan = {}, entries = [], options = {}) {
+    const today = dateIso(options.today) || new Date().toISOString().slice(0, 10);
+    if (plan.status !== "READY" || !Array.isArray(plan.sessions)) {
+      return { status: "PLAN_REQUIRED", days: [], unmatchedRuns: [], summary: {}, message: "Approve a valid weekly plan before reconciling run evidence." };
+    }
+    const evidence = (entries || []).map(runningEntryEvidence).filter(Boolean);
+    const plannedDates = new Set(plan.sessions.map((session) => session.date));
+    const weekEvidence = evidence.filter((run) => run.date >= plan.weekStart && run.date <= plan.weekEnd);
+    const unmatchedRuns = weekEvidence.filter((run) => !plannedDates.has(run.date));
+    const days = plan.sessions.map((session) => {
+      const runs = weekEvidence.filter((run) => run.date === session.date);
+      const actualDistanceKm = runs.reduce((total, run) => total + run.distanceKm, 0);
+      const actualDistance = Number(distanceFromKm(actualDistanceKm, session.unit || plan.unit).toFixed(2));
+      const actualDurationSeconds = runs.reduce((total, run) => total + run.durationSeconds, 0);
+      const actualPace = actualDistance > 0 ? actualDurationSeconds / actualDistance : null;
+      if (session.type === "REST") {
+        return { ...session, classification: runs.length ? "UNPLANNED" : "REST", runs, actualDistance, actualDurationSeconds, actualPace, reason: runs.length ? "Run evidence exists on a non-running day; review before changing the plan." : "No run prescribed." };
+      }
+      if (!runs.length) {
+        const classification = session.date > today ? "UPCOMING" : session.date === today ? "AWAITING_EVIDENCE" : "MISSED";
+        return { ...session, classification, runs: [], actualDistance: 0, actualDurationSeconds: 0, actualPace: null, reason: classification === "MISSED" ? "No run evidence was found after the planned date." : classification === "UPCOMING" ? "Planned date has not arrived." : "Waiting for imported or manual run evidence." };
+      }
+      const distanceRatio = session.distance > 0 ? actualDistance / session.distance : 0;
+      const paceInside = !actualPace || !session.paceFast || (actualPace >= session.paceFast * 0.90 && actualPace <= session.paceSlow * 1.10);
+      let classification = "REVIEW_REQUIRED";
+      let reason = "Completed evidence differs materially from the approved prescription.";
+      if (distanceRatio >= 0.90 && distanceRatio <= 1.10 && paceInside) {
+        classification = "MATCHED";
+        reason = "Distance and pace align with the approved session.";
+      } else if (distanceRatio >= 0.60 && distanceRatio < 0.90) {
+        classification = "PARTIAL";
+        reason = "At least 60% of planned distance was observed.";
+      } else if (distanceRatio > 1.10) {
+        reason = "Observed distance exceeds the approved session by more than 10%.";
+      } else if (!paceInside) {
+        reason = "Observed pace falls outside the plan tolerance.";
+      } else {
+        reason = "Less than 60% of planned distance was observed.";
+      }
+      return { ...session, classification, runs, actualDistance, actualDurationSeconds, actualPace, distanceRatio: Number(distanceRatio.toFixed(3)), reason };
+    });
+    const counts = {};
+    days.forEach((day) => { counts[day.classification] = (counts[day.classification] || 0) + 1; });
+    const completed = (counts.MATCHED || 0) + (counts.PARTIAL || 0);
+    const prescribed = days.filter((day) => day.type !== "REST").length;
+    const needsReview = days.some((day) => ["REVIEW_REQUIRED", "UNPLANNED"].includes(day.classification)) || unmatchedRuns.length;
+    const stillOpen = days.some((day) => ["UPCOMING", "AWAITING_EVIDENCE"].includes(day.classification));
+    return {
+      status: needsReview ? "REVIEW_REQUIRED" : stillOpen ? "IN_PROGRESS" : "READY",
+      days, unmatchedRuns,
+      summary: { ...counts, prescribed, completed, completionPercent: prescribed ? Math.round(completed / prescribed * 100) : 0, evidenceRunCount: weekEvidence.length },
+      message: "Imported and manual evidence is matched by calendar date. Ambiguous or excess work requires explicit review."
+    };
+  }
 
   return {
     GOALS, DISTANCE_KM, ZONE_RULES, normalizeProfile, distanceToKm, formatDuration, formatPace,
     runningEntryEvidence, selectBenchmark, equivalentFiveKilometerPace, derivePaceZones,
-    deriveMileageBaseline, buildRunningCommand, weekStartIso, runningDayIndexes, buildWeeklyRunningPlan
+    deriveMileageBaseline, buildRunningCommand, weekStartIso, runningDayIndexes, buildWeeklyRunningPlan, reconcileWeeklyRunningPlan
   };
 });

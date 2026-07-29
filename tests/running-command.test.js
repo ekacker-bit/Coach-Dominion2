@@ -163,4 +163,82 @@ test("one-day schedules do not mislabel the only run as long", () => {
   assert.equal(plan.sessions.find((item) => item.type !== "REST").type, "EASY");
 });
 
+function approvedPlan(overrides = {}) {
+  return running.buildWeeklyRunningPlan({
+    approvedAt: "2026-07-20", updatedAt: "2026-07-20",
+    benchmarkDistance: "5K", benchmarkSeconds: 1500,
+    declaredWeeklyDistance: 20, runningDaysPerWeek: 3,
+    ...overrides
+  }, [], { today: "2026-07-22" });
+}
+
+function evidenceForSession(session, ratio = 1, overrides = {}) {
+  const distance = Number((session.distance * ratio).toFixed(2));
+  const pace = (session.paceFast + session.paceSlow) / 2;
+  return run({
+    id: `evidence-${session.date}`,
+    performanceDate: session.date,
+    entryType: "WORKOUT_SUMMARY",
+    provenance: { sourceProvider: "APPLE_HEALTH" },
+    metrics: { distance, distance_unit: session.unit, duration_seconds: Math.round(distance * pace) },
+    ...overrides
+  });
+}
+
+test("reconciliation requires an approved weekly plan", () => {
+  assert.equal(running.reconcileWeeklyRunningPlan({}, []).status, "PLAN_REQUIRED");
+});
+
+test("open week remains in progress while sessions are upcoming", () => {
+  const result = running.reconcileWeeklyRunningPlan(approvedPlan(), [], { today: "2026-07-20" });
+  assert.equal(result.status, "IN_PROGRESS");
+  assert.ok(result.days.some((day) => day.classification === "UPCOMING"));
+});
+
+test("matching distance and pace reconcile automatically", () => {
+  const plan = approvedPlan();
+  const sessions = plan.sessions.filter((session) => session.type !== "REST");
+  const evidence = sessions.map((session) => evidenceForSession(session));
+  const result = running.reconcileWeeklyRunningPlan(plan, evidence, { today: "2026-07-27" });
+  assert.equal(result.status, "READY");
+  assert.equal(result.summary.MATCHED, 3);
+  assert.equal(result.summary.completionPercent, 100);
+});
+
+test("partial distance remains explicit", () => {
+  const plan = approvedPlan();
+  const session = plan.sessions.find((item) => item.type !== "REST");
+  const result = running.reconcileWeeklyRunningPlan(plan, [evidenceForSession(session, 0.7)], { today: "2026-07-27" });
+  assert.equal(result.days.find((day) => day.date === session.date).classification, "PARTIAL");
+});
+
+test("excess distance requires review", () => {
+  const plan = approvedPlan();
+  const session = plan.sessions.find((item) => item.type !== "REST");
+  const result = running.reconcileWeeklyRunningPlan(plan, [evidenceForSession(session, 1.25)], { today: "2026-07-27" });
+  assert.equal(result.status, "REVIEW_REQUIRED");
+  assert.equal(result.days.find((day) => day.date === session.date).classification, "REVIEW_REQUIRED");
+});
+
+test("runs on recovery days are never silently matched", () => {
+  const plan = approvedPlan();
+  const rest = plan.sessions.find((item) => item.type === "REST");
+  const result = running.reconcileWeeklyRunningPlan(plan, [run({ performanceDate: rest.date })], { today: "2026-07-27" });
+  assert.equal(result.status, "REVIEW_REQUIRED");
+  assert.equal(result.days.find((day) => day.date === rest.date).classification, "UNPLANNED");
+});
+
+test("provider provenance survives reconciliation", () => {
+  const plan = approvedPlan();
+  const session = plan.sessions.find((item) => item.type !== "REST");
+  const result = running.reconcileWeeklyRunningPlan(plan, [evidenceForSession(session)], { today: "2026-07-27" });
+  assert.equal(result.days.find((day) => day.date === session.date).runs[0].source, "APPLE_HEALTH");
+});
+
+test("evidence outside the approved week is ignored", () => {
+  const plan = approvedPlan();
+  const result = running.reconcileWeeklyRunningPlan(plan, [run({ performanceDate: "2026-06-01" })], { today: "2026-07-27" });
+  assert.equal(result.summary.evidenceRunCount, 0);
+});
+
 console.log(`Running Command: ${passed} assertions passed.`);

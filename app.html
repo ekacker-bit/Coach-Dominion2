@@ -17,21 +17,20 @@
       </div>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
-          <div class="nav-group"><span class="nav-group-label">Operate</span>
-            <a class="nav-link active" href="#today" data-section="today">TODAY</a>
-            <a class="nav-link" href="#nutrition" data-section="nutrition">NUTRITION</a>
-            <a class="nav-link" href="#performance" data-section="performance">PERFORMANCE</a>
-          </div>
-          <div class="nav-group"><span class="nav-group-label">Review</span>
-            <a class="nav-link" href="#inspection" data-section="inspection">INSPECTION</a>
-            <a class="nav-link" href="#trends" data-section="trends">TRENDS</a>
-            <a class="nav-link" href="#standards" data-section="standards">STANDARDS</a>
-            <a class="nav-link" href="#rank" data-section="rank">RANK</a>
-          </div>
-          <div class="nav-group"><span class="nav-group-label">System</span>
-            <a class="nav-link" href="#record" data-section="record">RECORD</a>
-            <a class="nav-link" href="#connected" data-section="connected">CONNECTED</a>
-          </div>
+          <a class="nav-link active" href="#today" data-section="today">TODAY</a>
+          <a class="nav-link" href="#performance" data-section="performance">TRAIN</a>
+          <a class="nav-link" href="#nutrition" data-section="nutrition">FUEL</a>
+          <a class="nav-link" href="#inspection" data-section="inspection">REVIEW</a>
+          <details class="nav-more">
+            <summary>MORE</summary>
+            <div class="nav-more-menu">
+              <a class="nav-link" href="#trends" data-section="trends">Trends</a>
+              <a class="nav-link" href="#standards" data-section="standards">Standards</a>
+              <a class="nav-link" href="#rank" data-section="rank">Rank</a>
+              <a class="nav-link" href="#record" data-section="record">Dominion Record</a>
+              <a class="nav-link" href="#connected" data-section="connected">Connections &amp; Data</a>
+            </div>
+          </details>
         </nav>
         <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
@@ -248,6 +247,19 @@
           <div id="data-truth-grid" class="data-truth-grid" aria-live="polite"></div>
           <p class="data-truth-note">“Historical” means the source exists but does not contain a record dated today. It is not treated as missing or noncompliant.</p>
         </details>
+
+        <section id="activation-guide" class="card activation-guide" aria-labelledby="activation-guide-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">GET OPERATIONAL</div>
+              <h2 id="activation-guide-heading">Activation path</h2>
+              <p class="muted">Complete each milestone once. Finished steps stay out of your way.</p>
+            </div>
+            <span id="activation-guide-state" class="state-pill neutral">CHECKING</span>
+          </div>
+          <div id="activation-guide-progress" class="activation-guide-progress" aria-hidden="true"><span></span></div>
+          <div id="activation-guide-list" class="activation-guide-list" aria-live="polite"></div>
+        </section>
 
         <details class="today-supporting-detail today-brief-detail">
           <summary><span>Morning brief</span><small>The full Atlas command narrative</small></summary>
@@ -874,9 +886,10 @@
   </main>
   <nav class="mobile-command-bar" aria-label="Mobile command bar">
     <a href="#today" data-section="today">Today</a>
+    <a href="#performance" data-section="performance">Train</a>
     <a href="#nutrition" data-section="nutrition">Fuel</a>
-    <a href="#record" data-section="record">Record</a>
-    <a href="#performance" data-section="performance">More</a>
+    <a href="#inspection" data-section="inspection">Review</a>
+    <a href="#connected" data-section="connected">More</a>
   </nav>
 
 <script src="/assets/js/connected.js"></script>

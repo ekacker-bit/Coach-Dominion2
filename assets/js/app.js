@@ -4475,6 +4475,23 @@ function dailyAssignmentStorageKey() {
   return `coach-dominion:daily-assignment:${session?.user?.id || "local"}:${todayISODate()}`;
 }
 
+function dailyExecutionQueueStorageKey() {
+  return `coach-dominion:daily-execution-queue:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readDailyExecutionQueueState() {
+  try { return JSON.parse(window.localStorage.getItem(dailyExecutionQueueStorageKey()) || "null") || {}; }
+  catch (_) { return {}; }
+}
+
+function saveDailyExecutionQueueState(nextState = {}) {
+  window.localStorage.setItem(dailyExecutionQueueStorageKey(), JSON.stringify({
+    ...readDailyExecutionQueueState(),
+    ...nextState,
+    updatedAt: new Date().toISOString()
+  }));
+}
+
 function readDailyAssignmentExecution() {
   try { return JSON.parse(window.localStorage.getItem(dailyAssignmentStorageKey()) || "null") || { state: "NOT STARTED", completedSets: {} }; }
   catch (_) { return { state: "NOT STARTED", completedSets: {} }; }
@@ -4806,37 +4823,75 @@ function dailyActionLabel(action) {
   }[action] || "Refresh Today’s Evidence";
 }
 
+function buildCurrentDailyExecutionQueue() {
+  if (typeof DominionDailyCoaching === "undefined" || typeof DominionDailyCoaching.buildDailyExecutionQueue !== "function") return null;
+  const assignment = buildCurrentDailyAssignment();
+  const execution = readDailyAssignmentExecution();
+  const loop = buildCurrentDailyCoachingLoop();
+  const api = connectedApi();
+  const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
+  const nutritionCurrent = api
+    ? api.aggregateNutritionByDate(connectedImportedRecords).some((day) => day.date === todayISODate())
+    : false;
+  const manualNutrition = typeof readManualNutrition === "function" ? readManualNutrition(todayISODate()) : null;
+  const manualNutritionCurrent = Boolean(
+    manualNutrition?.date === todayISODate()
+    && ["calories", "protein", "carbs", "fat"].some((key) => Number.isFinite(manualNutrition[key]))
+  );
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const queueState = readDailyExecutionQueueState();
+  return DominionDailyCoaching.buildDailyExecutionQueue({
+    date: todayISODate(),
+    readinessComplete: dailyState?.date === todayISODate(),
+    ordersApproved: Boolean(readApprovedDailyOrders()),
+    ordersAction: loop?.nextAction || "approve_orders",
+    trainingStarted: execution.state === "IN PROGRESS",
+    trainingComplete: assignment?.fitbod?.state === "COMPLETE" || execution.state === "COMPLETE",
+    recoveryOnly: assignment?.state === "RECOVERY ONLY",
+    fuelingBaseline: Boolean(baseline),
+    fuelingComplete: Boolean(baseline && (nutritionCurrent || manualNutritionCurrent)),
+    recoveryRequired: Boolean(recovery.holdProgression || assignment?.state === "RECOVERY ONLY"),
+    recoveryApproved: Boolean(readRecoveryPlan()),
+    recoveryComplete: Boolean(queueState.recoveryComplete),
+    recordComplete: Boolean(dailyCompliance?.compliance_date === todayISODate())
+  });
+}
+
 function renderDailyCoachingLoop() {
   const panel = document.getElementById("daily-orders-panel");
   const phases = document.getElementById("daily-loop-phases");
   if (!panel || !phases) return;
   const loop = buildCurrentDailyCoachingLoop();
-  if (!loop) {
+  const queue = buildCurrentDailyExecutionQueue();
+  if (!loop || !queue) {
     panel.innerHTML = `<div class="performance-empty">Daily coaching engine unavailable.</div>`;
     return;
   }
-  setText("daily-orders-state", loop.posture);
+  setText("daily-orders-state", queue.state);
   setText("today-command-state", loop.posture);
   const state = document.getElementById("daily-orders-state");
-  state.className = `state-pill ${loop.priority === "CRITICAL" ? "red" : loop.priority === "HIGH" || loop.priority === "MODERATE" ? "yellow" : loop.posture === "ROLL CALL REQUIRED" ? "neutral" : "green"}`;
+  state.className = `state-pill ${queue.complete ? "green" : loop.priority === "CRITICAL" ? "red" : queue.completed ? "yellow" : "neutral"}`;
   const commandState = document.getElementById("today-command-state");
   if (commandState) commandState.className = state.className;
-  phases.innerHTML = loop.phases.map((item) => `<div class="daily-loop-phase ${escapeHtml(item.state.toLowerCase())}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.state)}</strong><small>${escapeHtml(item.detail)}</small></div>`).join("");
-  const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
-  panel.innerHTML = `<div class="kicker">ATLAS // NEXT ACTION</div>
-    <h3>${escapeHtml(loop.headline)}</h3>
-    <p>${escapeHtml(loop.directive)}</p>
-    <div class="daily-evidence-grid">
-      <div><span>Readiness</span><strong>${escapeHtml(dailyState ? evaluateReadiness(dailyState).state : "PENDING")}</strong></div>
-      <div><span>Training evidence</span><strong>${loop.evidence.trainingRecords} records</strong></div>
-      <div><span>Calorie coverage</span><strong>${coverage(loop.evidence.calorieCoverage)}</strong></div>
-      <div><span>Protein coverage</span><strong>${coverage(loop.evidence.proteinCoverage)}</strong></div>
-    </div>
-    <div class="daily-orders-actions">
-      <button type="button" data-daily-action="${escapeHtml(loop.nextAction)}">${escapeHtml(dailyActionLabel(loop.nextAction))}</button>
-      <button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button>
-    </div>
-    <p class="daily-orders-safeguard">Safety lock: pain overrides progression. Programming, recovery, and daily-order adjustments require deliberate approval. Today’s mission is never silently mutated.</p>`;
+  const progress = document.getElementById("daily-queue-progress");
+  if (progress) progress.style.width = `${queue.percent}%`;
+  const current = queue.current;
+  panel.innerHTML = queue.complete
+    ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Today’s execution is complete</h3><p>Readiness, plan, training, fueling, recovery, and the Dominion Record are all current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
+    : `<div class="kicker">CURRENT ACTION</div>
+      <h3>${escapeHtml(current?.label || loop.headline)}</h3>
+      <p>${escapeHtml(current?.detail || loop.directive)}</p>
+      ${current?.blockedBy ? `<p class="daily-queue-blocker"><strong>Resolve:</strong> ${escapeHtml(current.blockedBy)}</p>` : ""}
+      <div class="daily-orders-actions">
+        <button type="button" data-daily-action="${escapeHtml(current?.action || loop.nextAction)}">${escapeHtml(current?.actionLabel || dailyActionLabel(loop.nextAction))}</button>
+        <button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button>
+      </div>
+      <p class="daily-orders-safeguard">Safety lock: pain overrides progression. No training, recovery, or programming change is applied without deliberate approval.</p>`;
+  phases.innerHTML = queue.steps.map((item, index) => `<article class="daily-execution-step ${escapeHtml(item.status.toLowerCase())}" aria-current="${item.status === "CURRENT" ? "step" : "false"}">
+    <span class="daily-execution-number">${item.complete ? "✓" : index + 1}</span>
+    <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
+  </article>`).join("");
+  applyProductPolish();
 }
 
 function renderRecoveryReview() {
@@ -5769,6 +5824,7 @@ function approveNutritionBaselineDraft() {
     const goal = document.getElementById("adaptive-fueling-goal");
     if (goal) goal.value = approved.goal;
     renderNutritionCommand();
+    renderDailyCoachingLoop();
     setText("nutrition-baseline-feedback", approved.effectiveDate <= todayISODate()
       ? "Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence."
       : `Baseline approved and scheduled for ${approved.effectiveDate}.`);
@@ -6155,6 +6211,7 @@ function saveManualNutrition(event) {
   });
   window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
   renderNutritionCommand();
+  if (date === todayISODate()) renderDailyCoachingLoop();
   setText("nutrition-command-feedback", "Manual totals saved locally. MyFitnessPal data will take priority when available for this date.");
 }
 
@@ -7038,6 +7095,7 @@ if (typeof document !== "undefined") {
       };
       window.localStorage.setItem(recoveryStorageKey(), JSON.stringify(plan));
       renderRecoveryReview();
+      renderDailyCoachingLoop();
       setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
     }
   });
@@ -7051,7 +7109,7 @@ if (typeof document !== "undefined") {
     }
     if (action === "approve_orders") {
       const loop = buildCurrentDailyCoachingLoop();
-      if (!loop || !dailyState || loop.safeguards.painOverride || loop.safeguards.progressionHeld) return;
+      if (!loop || !dailyState || loop.safeguards.painOverride || (loop.safeguards.progressionHeld && !readRecoveryPlan())) return;
       const approval = {
         approvedAt: new Date().toISOString(),
         posture: loop.posture,
@@ -7064,18 +7122,44 @@ if (typeof document !== "undefined") {
       setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
     }
     if (action === "review_recovery") {
-      window.location.hash = "performance";
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
       setPerformanceActiveView("recovery");
       renderRecoveryReview();
     }
     if (action === "review_programming") {
-      window.location.hash = "performance";
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
       setPerformanceActiveView("programming");
       renderProgrammingReview();
     }
-    if (action === "review_record") window.location.hash = "record";
+    if (action === "start_training") {
+      const assignment = buildCurrentDailyAssignment();
+      const execution = readDailyAssignmentExecution();
+      if (assignment?.exercises.length && execution.state === "NOT STARTED") {
+        saveDailyAssignmentExecution({ ...execution, state: "IN PROGRESS", startedAt: new Date().toISOString() });
+      }
+      const workoutDetail = document.querySelector(".today-workout-detail");
+      if (workoutDetail) workoutDetail.open = true;
+      renderDailyAssignment();
+      document.getElementById("daily-assignment-heading")?.focus({ preventScroll: true });
+    }
+    if (action === "open_fuel") {
+      setActiveSection("nutrition");
+      window.history.replaceState(null, "", "#nutrition");
+    }
+    if (action === "complete_recovery") {
+      saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Recovery action recorded. The queue advanced to the next incomplete step.");
+    }
+    if (action === "review_record") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+    }
     if (action === "roll_call") {
-      window.location.hash = "today";
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
       document.getElementById("energy")?.focus();
     }
   });
@@ -7109,6 +7193,7 @@ if (typeof document !== "undefined") {
     }
     if (action === "refresh") setText("daily-assignment-feedback", "Fitbod evidence refreshed.");
     renderDailyAssignment();
+    renderDailyCoachingLoop();
   });
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -8170,6 +8255,7 @@ async function saveDailyCompliance(event) {
   if (todayISODate() >= selectedWeek.weekStartDate && todayISODate() <= selectedWeek.weekEndDate) {
     await loadWeeklyInspection();
   }
+  renderDailyCoachingLoop();
 }
 
 function weeklyInspectionStorageKey(weekStartDate) {

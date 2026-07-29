@@ -323,3 +323,35 @@
   .nav-more-menu{position:static;margin-top:6px;box-shadow:none}
   .product-diagnostics dl{grid-template-columns:1fr}
 }
+
+/* Build 013A // Daily execution queue */
+.legacy-today-surface{display:none!important}
+#today>.daily-execution-queue{order:1}
+#today>.today-workout-detail{order:2}
+#today>.activation-guide{order:3}
+#today>.today-baseline-detail{order:4}
+#today>.today-brief-detail{order:5}
+#today>.today-intelligence-detail{order:6}
+.daily-execution-queue{border-color:rgba(56,212,141,.62);box-shadow:0 16px 40px rgba(0,0,0,.24)}
+.daily-queue-progress{height:7px;margin:4px 0 16px;border-radius:999px;overflow:hidden;background:var(--panel3)}
+.daily-queue-progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--green),#91f1c1);transition:width .25s ease}
+.daily-execution-list{display:grid;gap:9px;margin-top:14px}
+.daily-execution-step{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--panel3)}
+.daily-execution-number{display:grid;place-items:center;width:31px;height:31px;border:1px solid var(--line-strong);border-radius:50%;color:var(--muted);font-weight:1000}
+.daily-execution-step small{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.11em}
+.daily-execution-step strong{display:block;margin-top:2px;font-size:16px}
+.daily-execution-step p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.daily-execution-step em{display:block;margin-top:6px;color:var(--yellow);font-size:11px;font-style:normal;font-weight:800}
+.daily-execution-step.current{border-color:var(--green);box-shadow:inset 3px 0 0 var(--green);background:rgba(56,212,141,.07)}
+.daily-execution-step.current .daily-execution-number,.daily-execution-step.complete .daily-execution-number{border-color:var(--green);color:var(--green)}
+.daily-execution-step.complete{opacity:.76}
+.daily-execution-step.blocked{opacity:.68}
+.daily-queue-blocker{margin:12px 0 0!important;padding:10px 12px;border-left:3px solid var(--yellow);background:rgba(229,185,79,.08);font-size:13px!important}
+.daily-execution-queue .daily-orders-actions button{min-height:44px}
+.activation-guide{background:rgba(10,14,20,.72);border-style:dashed}
+@media(max-width:720px){
+  .daily-orders-panel{padding:15px}
+  .daily-orders-panel h3{font-size:28px}
+  .daily-execution-step{padding:12px}
+  .daily-execution-queue .daily-orders-actions{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));z-index:8;padding:8px;margin:12px -4px -4px;background:rgba(9,14,19,.96);border-radius:10px}
+}

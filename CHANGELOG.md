@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 013B Simplified Training Workspace
+
+- Replaced the nine-item Performance navigation with five clear training destinations: Today’s Training, Log, Running, Abs/Core, and Progress.
+- Consolidated programming and recovery guidance inside Today’s Training while preserving the existing approval and evidence workflows.
+- Consolidated intelligence, fitness tests, personal records, and milestones inside one progressive-disclosure Progress workspace.
+- Added an operational Abs/Core destination with weekly session, repetition, time-under-tension, active-day, recent-history, and next-milestone views.
+- Added direct Abs/Core training and benchmark entry actions plus compatibility routing for legacy performance destinations.
+- Added keyboard-operable destination tabs and regression coverage for navigation, compatibility aliases, and core-workspace calculations.
+
 ## Unreleased — Build 006A Connected Dominion architecture
 
 - Added a deterministic provider catalog for Strava, Garmin, Apple Health, Fitbod, and MyFitnessPal; every provider remains architecture-only or planned.
@@ -101,4 +110,3 @@ This file records verified Coach Dominion release capabilities. The repository h
 - Added deterministic readiness and mission foundations in the browser application.
 - Added Supabase `daily_state` and `command_feed` schema migrations with validation, row-level security, and user-scoped policies.
 - Added authenticated persistence and retrieval of each user's current daily state.
-

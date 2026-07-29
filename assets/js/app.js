@@ -26,7 +26,7 @@ let activeFitnessTestAttemptId = null;
 let personalRecords = [];
 let milestoneAchievements = [];
 let atlasPerformanceReviews = [];
-let performanceActiveView = "overview";
+let performanceActiveView = "today_training";
 let performanceIntelligenceFilters = { domain: "all", trajectory: "all", confidence: "all", evidenceStatus: "all" };
 let performanceLoadState = { remoteLoadFailed: false, authRequired: false, calculationUnavailable: false };
 let connectedAccounts = [];
@@ -58,7 +58,18 @@ const PERFORMANCE_ENTRY_TYPE_OPTIONS = [
   { code: "MEASUREMENT", label: "Measurement" }
 ];
 const PERFORMANCE_EVIDENCE_STATUS_OPTIONS = ["SELF REPORTED", "VERIFIED", "ESTIMATED", "INCOMPLETE"];
-const PERFORMANCE_VIEW_CODES = ["overview", "log", "fitness_tests", "records", "milestones", "intelligence", "running", "programming", "recovery"];
+const PERFORMANCE_VIEW_CODES = ["today_training", "log", "running", "core", "progress"];
+const PERFORMANCE_VIEW_ALIASES = Object.freeze({
+  overview: "today_training",
+  programming: "today_training",
+  recovery: "today_training",
+  fitness_tests: "progress",
+  records: "progress",
+  milestones: "progress",
+  intelligence: "progress",
+  abs: "core",
+  abs_core: "core"
+});
 const PERFORMANCE_TRAJECTORY_STATES = ["STRONGLY IMPROVING", "IMPROVING", "STABLE", "NOISY", "DECLINING", "STRONGLY DECLINING", "INSUFFICIENT DATA"];
 const PERFORMANCE_CONFIDENCE_STATES = ["HIGH", "MODERATE", "LOW", "INSUFFICIENT"];
 const PERFORMANCE_PLATEAU_STATES = ["NO PLATEAU", "POSSIBLE PLATEAU", "LIKELY PLATEAU", "INSUFFICIENT DATA"];
@@ -3110,6 +3121,58 @@ function summarizeRecentPerformance(entries = [], options = {}) {
   };
 }
 
+function buildCoreWorkspaceModel(entries = [], achievements = [], options = {}) {
+  const requestedReferenceDate = options?.referenceDate;
+  const referenceDate = parseISODateUTC(requestedReferenceDate) || parseISODateUTC(todayISODate()) || new Date();
+  const referenceDateISO = formatISODateUTC(referenceDate);
+  const weekStart = new Date(referenceDate);
+  weekStart.setUTCDate(referenceDate.getUTCDate() - ((referenceDate.getUTCDay() + 6) % 7));
+  const weekStartISO = formatISODateUTC(weekStart);
+  const coreEntries = (entries || [])
+    .map((entry) => normalizePerformanceEntry(entry))
+    .filter((entry) => entry.domain === "core" && entry.performanceDate <= referenceDateISO)
+    .sort((left, right) => {
+      const dateDelta = parsePerformanceDateTimeToEpoch(right.performanceDate, right.performanceTime) - parsePerformanceDateTimeToEpoch(left.performanceDate, left.performanceTime);
+      return dateDelta || String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
+    });
+  const weeklyEntries = coreEntries.filter((entry) => entry.performanceDate >= weekStartISO);
+  const totalRepetitions = weeklyEntries.reduce((total, entry) => total + Math.max(0, Number(entry.metrics?.repetitions) || 0), 0);
+  const totalDurationSeconds = weeklyEntries.reduce((total, entry) => total + Math.max(0, Number(entry.metrics?.duration_seconds) || 0), 0);
+  const achievedCodes = new Set((achievements || []).map((achievement) => String(achievement?.milestoneCode || achievement?.milestone_code || "")).filter(Boolean));
+  const coreMilestones = MILESTONE_CATALOG.filter((milestone) => milestone.active !== false && milestone.domain === "core");
+  const milestoneProgress = coreMilestones.map((milestone) => {
+    const relevantEntries = coreEntries.filter((entry) => !milestone.requiredActivity || entry.activityCode === milestone.requiredActivity);
+    let currentValue = 0;
+    if (milestone.evaluationType === "entry") currentValue = relevantEntries.length;
+    if (milestone.evaluationType === "duration") currentValue = Math.max(0, ...relevantEntries.map((entry) => Number(entry.metrics?.duration_seconds) || 0));
+    if (milestone.evaluationType === "repetitions") currentValue = Math.max(0, ...relevantEntries.map((entry) => Number(entry.metrics?.repetitions) || 0));
+    const metByEvidence = milestone.direction === "lower"
+      ? currentValue > 0 && currentValue <= milestone.targetValue
+      : currentValue >= milestone.targetValue;
+    const achieved = achievedCodes.has(milestone.code) || metByEvidence;
+    return {
+      ...milestone,
+      achieved,
+      currentValue,
+      progressPercent: achieved ? 100 : Math.min(99, Math.max(0, Math.round((currentValue / Math.max(1, Number(milestone.targetValue))) * 100)))
+    };
+  });
+  const nextMilestone = milestoneProgress.find((milestone) => !milestone.achieved) || null;
+  return {
+    status: weeklyEntries.length ? "ACTIVE THIS WEEK" : coreEntries.length ? "HISTORY READY" : "NO CORE EVIDENCE",
+    weekStart: weekStartISO,
+    referenceDate: referenceDateISO,
+    sessionsThisWeek: weeklyEntries.length,
+    totalRepetitions,
+    totalDurationSeconds,
+    activeDays: new Set(weeklyEntries.map((entry) => entry.performanceDate)).size,
+    recentEntries: coreEntries.slice(0, 5),
+    completedMilestones: milestoneProgress.filter((milestone) => milestone.achieved).length,
+    totalMilestones: milestoneProgress.length,
+    nextMilestone
+  };
+}
+
 function filterPerformanceEntries(entries = [], filters = {}) {
   const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
   const normalizedFilters = {
@@ -3160,9 +3223,10 @@ function metricDirectionForCategory(metricCategory = "") {
   return "higher";
 }
 
-function normalizePerformanceViewCode(view = "overview") {
+function normalizePerformanceViewCode(view = "today_training") {
   const normalized = String(view || "").trim().toLowerCase();
-  return PERFORMANCE_VIEW_CODES.includes(normalized) ? normalized : "overview";
+  const aliased = PERFORMANCE_VIEW_ALIASES[normalized] || normalized;
+  return PERFORMANCE_VIEW_CODES.includes(aliased) ? aliased : "today_training";
 }
 
 function parsePerformanceDateTimeToEpoch(date = "", time = "") {
@@ -4235,9 +4299,59 @@ function renderPerformanceViewPanels() {
   });
 }
 
-function setPerformanceActiveView(view = "overview") {
-  performanceActiveView = normalizePerformanceViewCode(view);
+function setPerformanceActiveView(view = "today_training") {
+  const requestedView = String(view || "").trim().toLowerCase();
+  performanceActiveView = normalizePerformanceViewCode(requestedView);
   renderPerformanceViewPanels();
+  const legacyDetailIds = {
+    programming: "training-programming-detail",
+    recovery: "training-recovery-detail",
+    fitness_tests: "training-fitness-tests-detail",
+    records: "training-records-detail",
+    milestones: "training-milestones-detail",
+    intelligence: "training-intelligence-detail"
+  };
+  const detail = document.getElementById(legacyDetailIds[requestedView]);
+  if (detail) detail.open = true;
+}
+
+function formatCoreWorkspaceDuration(totalSeconds = 0) {
+  const seconds = Math.max(0, Number(totalSeconds) || 0);
+  if (seconds < 60) return `${Math.round(seconds)} sec`;
+  const minutes = seconds / 60;
+  return `${minutes >= 10 ? Math.round(minutes) : minutes.toFixed(1).replace(/\.0$/, "")} min`;
+}
+
+function renderCoreWorkspace(entries = performanceEntries) {
+  const panel = document.getElementById("performance-view-core");
+  if (!panel) return;
+  const model = buildCoreWorkspaceModel(entries, milestoneAchievements);
+  setText("core-week-sessions", model.sessionsThisWeek);
+  setText("core-week-reps", model.totalRepetitions);
+  setText("core-week-time", formatCoreWorkspaceDuration(model.totalDurationSeconds));
+  setText("core-active-days", model.activeDays);
+  const status = document.getElementById("core-command-status");
+  if (status) {
+    status.textContent = model.status;
+    status.className = `state-pill ${model.sessionsThisWeek ? "green" : model.recentEntries.length ? "yellow" : "neutral"}`;
+  }
+  const nextMilestone = document.getElementById("core-next-milestone");
+  if (nextMilestone) {
+    nextMilestone.innerHTML = model.nextMilestone
+      ? `<strong>${escapeHtml(model.nextMilestone.title)}</strong><p>${escapeHtml(model.nextMilestone.description)}</p><div class="core-progress-track" role="progressbar" aria-label="${escapeHtml(model.nextMilestone.title)} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.nextMilestone.progressPercent}"><span style="width:${model.nextMilestone.progressPercent}%"></span></div><small>${model.nextMilestone.currentValue} / ${model.nextMilestone.targetValue} ${escapeHtml(model.nextMilestone.targetUnit)} · ${model.nextMilestone.progressPercent}%</small>`
+      : `<strong>Core milestone set complete</strong><p>Every current abs/core objective has qualifying evidence. Keep building durable capacity.</p><small>${model.completedMilestones} of ${model.totalMilestones} complete</small>`;
+  }
+  const recentList = document.getElementById("core-recent-list");
+  if (recentList) {
+    recentList.innerHTML = model.recentEntries.length
+      ? model.recentEntries.map((entry) => {
+        const details = [];
+        if (Number(entry.metrics?.repetitions) > 0) details.push(`${Number(entry.metrics.repetitions)} reps`);
+        if (Number(entry.metrics?.duration_seconds) > 0) details.push(formatCoreWorkspaceDuration(entry.metrics.duration_seconds));
+        return `<div class="core-recent-entry"><div><strong>${escapeHtml(entry.activityName || "Core work")}</strong><span>${escapeHtml(entry.performanceDate)}</span></div><small>${escapeHtml(details.join(" · ") || entry.entryType.replaceAll("_", " "))}</small></div>`;
+      }).join("")
+      : `<div class="performance-empty">No abs/core evidence yet. Start with a training entry or a benchmark.</div>`;
+  }
 }
 
 function renderPerformanceIntelligenceSection(entries = performanceEntries) {
@@ -5143,6 +5257,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
   renderAtlasPerformanceReviewSection();
   renderPerformanceIntelligenceSection(entries);
   renderRunningCommand(entries);
+  renderCoreWorkspace(entries);
   renderProgrammingReview();
   renderRecoveryReview();
   renderDailyCoachingLoop();
@@ -6968,10 +7083,39 @@ if (typeof document !== "undefined") {
   document.getElementById("performance-filter-entry-type").addEventListener("change", (event) => { performanceFilters.entryType = event.target.value; renderPerformanceSection(); });
   document.querySelectorAll("[data-performance-view]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.dataset.performanceView === "programming") renderProgrammingReview();
-      if (button.dataset.performanceView === "recovery") renderRecoveryReview();
-      setPerformanceActiveView(button.dataset.performanceView || "overview");
+      setPerformanceActiveView(button.dataset.performanceView || "today_training");
     });
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = [...document.querySelectorAll("[data-performance-view]")];
+      const currentIndex = tabs.indexOf(button);
+      const nextIndex = event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      const nextTab = tabs[nextIndex];
+      setPerformanceActiveView(nextTab?.dataset.performanceView || "today_training");
+      nextTab?.focus();
+    });
+  });
+  document.getElementById("performance-view-core")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-core-action]");
+    if (!button) return;
+    const entryType = button.dataset.coreAction === "benchmark" ? "BENCHMARK" : "TRAINING_SET";
+    setPerformanceActiveView("log");
+    const domain = document.getElementById("performance-domain");
+    const type = document.getElementById("performance-entry-type");
+    const activityCode = document.getElementById("performance-activity-code");
+    const activityName = document.getElementById("performance-activity-name");
+    if (domain) domain.value = "core";
+    if (type) type.value = entryType;
+    populatePerformanceActivityOptions("core");
+    if (activityCode) activityCode.value = "plank";
+    if (activityName) activityName.value = "Plank";
+    refreshPerformanceFieldVisibility();
+    document.getElementById(entryType === "BENCHMARK" ? "performance-core-duration-seconds" : "performance-activity-code")?.focus();
   });
   document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
     if (event.target.id !== "running-profile-form") return;
@@ -7571,6 +7715,8 @@ if (typeof module !== "undefined") {
     buildPerformancePersistencePayload,
     hydratePerformanceEntry,
     summarizeRecentPerformance,
+    buildCoreWorkspaceModel,
+    normalizePerformanceViewCode,
     filterPerformanceEntries,
     removePerformanceEntry,
     derivePerformanceEmptyState,

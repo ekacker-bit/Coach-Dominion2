@@ -355,3 +355,35 @@
   .daily-execution-step{padding:12px}
   .daily-execution-queue .daily-orders-actions{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));z-index:8;padding:8px;margin:12px -4px -4px;background:rgba(9,14,19,.96);border-radius:10px}
 }
+
+/* Build 013B // Simplified training workspace */
+.performance-view-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.performance-view-tab{display:grid;place-items:center;min-height:48px;border-radius:10px;padding:10px;text-align:center}
+.performance-view-tab.active,.performance-view-tab[aria-selected="true"]{border-color:var(--green);background:rgba(56,212,141,.08);color:#f3fff9}
+.performance-view-panel[hidden]{display:none!important}
+.training-primary-action{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:16px 0;padding:16px;border:1px solid rgba(56,212,141,.42);border-radius:12px;background:linear-gradient(145deg,rgba(17,29,28,.9),rgba(10,14,20,.96))}
+.training-primary-action strong{display:block;margin-top:4px;font-size:22px}.training-primary-action p{margin:5px 0 0}
+.training-primary-action .button-link{flex:none;padding:11px 14px;border-radius:8px;background:var(--red);color:#fff;font-weight:900;text-decoration:none}
+.training-review-stack,.progress-review-stack{display:grid;gap:10px;margin-top:16px}
+.training-review-detail,.progress-review-detail{border:1px solid var(--line);border-radius:11px;background:rgba(10,14,20,.74);overflow:hidden}
+.training-review-detail>summary,.progress-review-detail>summary{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:48px;padding:14px 16px;cursor:pointer;color:var(--text);font-weight:900}
+.training-review-detail>summary span,.progress-review-detail>summary span{color:var(--muted);font-size:12px;font-weight:600;text-align:right}
+.training-review-detail[open]>summary,.progress-review-detail[open]>summary{border-bottom:1px solid var(--line);background:rgba(255,255,255,.025)}
+.training-review-detail>.section-heading,.training-review-detail>#programming-review-panel,.training-review-detail>#recovery-review-panel,.training-review-detail>#programming-feedback,.training-review-detail>#recovery-feedback{margin-left:16px;margin-right:16px}
+.training-review-detail>.section-heading{margin-top:16px}.training-review-detail>#programming-feedback,.training-review-detail>#recovery-feedback{margin-bottom:16px}
+.progress-review-detail>#performance-intelligence-panel,.progress-review-detail>.performance-subsection,.progress-review-detail>#performance-pr-list,.progress-review-detail>#performance-milestone-catalog,.progress-review-detail>#performance-milestone-history{margin:16px}
+.core-command-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.core-command-summary>div{border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--panel3)}
+.core-command-summary span{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.core-command-summary strong{display:block;margin-top:5px;font-size:20px}
+.core-command-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.core-command-actions button{min-height:44px}
+.core-command-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:12px}
+.core-command-card{border:1px solid var(--line);border-radius:12px;padding:16px;background:var(--panel3)}
+.core-command-card .kicker{display:block;margin-bottom:11px}.core-next-milestone strong{font-size:21px}.core-next-milestone p{color:var(--muted)}
+.core-next-milestone small{display:block;margin-top:8px;color:var(--muted)}
+.core-progress-track{height:7px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}
+.core-progress-track span{display:block;height:100%;background:linear-gradient(90deg,var(--green),#91f1c1)}
+.core-recent-list{display:grid;gap:8px}.core-recent-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.core-recent-entry:last-child{border-bottom:0}.core-recent-entry strong,.core-recent-entry span{display:block}.core-recent-entry span,.core-recent-entry small{color:var(--muted);font-size:12px}.core-recent-entry small{text-align:right}
+@media(max-width:900px){.performance-view-nav{grid-template-columns:repeat(3,minmax(0,1fr))}.core-command-summary{grid-template-columns:1fr 1fr}.core-command-grid{grid-template-columns:1fr}}
+@media(max-width:640px){.performance-view-nav{display:flex;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x proximity}.performance-view-tab{flex:0 0 140px;scroll-snap-align:start}.training-primary-action,.training-review-detail>summary,.progress-review-detail>summary,.core-recent-entry{align-items:flex-start;flex-direction:column}.training-primary-action .button-link{width:100%;text-align:center}.training-review-detail>summary span,.progress-review-detail>summary span,.core-recent-entry small{text-align:left}.core-command-summary{grid-template-columns:1fr 1fr}.core-command-actions{display:grid}.core-command-actions button{width:100%}}

@@ -10,19 +10,29 @@ const js = fs.readFileSync(path.join(root, "assets", "js", "app.js"), "utf8");
 
 assert.equal(app.normalizeSectionKey("nutrition"), "nutrition", "nutrition is a first-class workspace");
 assert.equal(app.normalizeSectionKey("fuel"), "nutrition", "fuel deep links resolve to nutrition");
-assert.match(html, /BUILD 009C \/\/ TODAY COMMAND SURFACE/);
+assert.match(html, /TODAY’S PLAN/);
 assert.match(html, /class="mobile-command-bar"/);
 assert.match(html, /id="today-sequence-training"/);
 assert.match(html, /id="today-sequence-fueling"/);
 assert.match(html, /id="today-sequence-recovery"/);
 assert.match(html, /id="today-sequence-evidence"/);
-assert.match(html, /BUILD 011C \/\/ TODAY ACCOUNTABILITY/);
+assert.match(html, /NEEDS ATTENTION/);
 assert.match(html, /id="today-standards-panel"/);
+assert.match(html, /id="today-command-state"/);
+assert.match(html, /id="today-setup-attention"/);
+assert.match(html, /class="today-supporting-detail today-workout-detail"/);
+assert.match(html, /class="today-supporting-detail today-intelligence-detail"/);
+assert.match(html, />Do this next</);
+assert.match(html, />Train · Fuel · Recover · Record</);
 assert.match(js, /function renderTodayStandardsDuty/);
+assert.match(js, /Training evidence is not current/);
 assert.match(js, /function detectStandardsPatterns/);
 assert.match(js, /function organizeWorkspaceSections/);
 assert.match(js, /element\.hidden = !isMatch/);
 assert.match(css, /\.mobile-command-bar\{display:none\}/);
 assert.match(css, /position:fixed;display:grid/);
+assert.match(css, /Build 012A/);
+assert.match(css, /#today>\.daily-coaching-loop\{order:1\}/);
 
 console.log("today command surface tests passed");
+

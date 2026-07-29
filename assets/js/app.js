@@ -4498,19 +4498,34 @@ function saveDailyAssignmentExecution(execution) {
 function renderTodayStandardsDuty() {
   const panel = document.getElementById("today-standards-panel");
   const badge = document.getElementById("today-standards-state");
-  if (!panel || !badge) return;
+  const setupPanel = document.getElementById("today-setup-attention");
+  const section = document.querySelector(".today-attention-card");
+  if (!panel || !badge || !setupPanel || !section) return;
   const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
   const duty = buildTodayStandardsDuty(items, todayISODate());
   const actionable = duty.filter((item) => ["OVERDUE", "DUE TODAY", "ACTIVE"].includes(item.actionStatus));
-  badge.textContent = actionable.some((item) => item.actionStatus === "OVERDUE") ? "OVERDUE" : actionable.length ? `${actionable.length} ACTIVE` : duty.length ? "AWAITING REVIEW" : "CLEAR";
-  badge.className = `state-pill ${actionable.some((item) => item.actionStatus === "OVERDUE") ? "red" : actionable.length ? "yellow" : "green"}`;
+  const setupItems = [];
+  const nutritionBaseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
+  const assignment = buildCurrentDailyAssignment();
+  if (!dailyState) setupItems.push({ title: "Complete Morning Roll Call", detail: "Readiness and today’s coaching decision need current energy, soreness, and pain evidence.", section: "today", action: "Complete roll call" });
+  if (!nutritionBaseline) setupItems.push({ title: "Approve your fueling baseline", detail: "Daily calorie, protein, and meal guidance remains unavailable until targets are approved.", section: "nutrition", action: "Set nutrition targets" });
+  if (assignment?.fitbod?.state === "AWAITING EVIDENCE") setupItems.push({ title: "Training evidence is not current", detail: "No Fitbod evidence is available for today. You can still execute the prescribed workout or refresh the import.", section: "connected", action: "Review imports" });
+  const attentionCount = actionable.length + setupItems.length;
+  badge.textContent = actionable.some((item) => item.actionStatus === "OVERDUE") ? "OVERDUE" : attentionCount ? `${attentionCount} TO REVIEW` : "CLEAR";
+  badge.className = `state-pill ${actionable.some((item) => item.actionStatus === "OVERDUE") ? "red" : attentionCount ? "yellow" : "green"}`;
   panel.innerHTML = duty.length ? duty.map((item) => `<article class="today-standard-order">
     <div><span class="kicker">${escapeHtml(item.standardCode || standardsDomainCode(item.domain))}</span><h3>${escapeHtml(item.title || "Corrective action")}</h3></div>
     <span class="state-pill ${item.actionStatus === "OVERDUE" ? "red" : item.actionStatus === "AWAITING REVIEW" ? "yellow" : "neutral"}">${item.actionStatus}</span>
     <p>${escapeHtml(item.correctiveAction?.description || "Review the confirmed standards action.")}</p>
     <div class="today-standard-meta"><span>Due ${escapeHtml(item.correctiveAction?.dueDate || "not set")}</span><span>${escapeHtml(item.correctiveAction?.successCriteria || "Success criteria pending")}</span></div>
     <a href="#standards" data-section="standards">${item.actionStatus === "AWAITING REVIEW" ? "Review case" : "Complete standards duty"}</a>
-  </article>`).join("") : '<div class="performance-empty">No confirmed corrective action needs attention today.</div>';
+  </article>`).join("") : "";
+  setupPanel.innerHTML = setupItems.map((item) => `<article class="today-attention-item">
+    <div><span class="kicker">SETUP OR EVIDENCE</span><h3>${escapeHtml(item.title)}</h3></div>
+    <p>${escapeHtml(item.detail)}</p>
+    <a href="#${escapeHtml(item.section)}" data-section="${escapeHtml(item.section)}">${escapeHtml(item.action)}</a>
+  </article>`).join("");
+  section.hidden = attentionCount === 0 && duty.length === 0;
 }
 
 function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
@@ -4627,8 +4642,11 @@ function renderDailyCoachingLoop() {
     return;
   }
   setText("daily-orders-state", loop.posture);
+  setText("today-command-state", loop.posture);
   const state = document.getElementById("daily-orders-state");
   state.className = `state-pill ${loop.priority === "CRITICAL" ? "red" : loop.priority === "HIGH" || loop.priority === "MODERATE" ? "yellow" : loop.posture === "ROLL CALL REQUIRED" ? "neutral" : "green"}`;
+  const commandState = document.getElementById("today-command-state");
+  if (commandState) commandState.className = state.className;
   phases.innerHTML = loop.phases.map((item) => `<div class="daily-loop-phase ${escapeHtml(item.state.toLowerCase())}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.state)}</strong><small>${escapeHtml(item.detail)}</small></div>`).join("");
   const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
   panel.innerHTML = `<div class="kicker">ATLAS // NEXT ACTION</div>

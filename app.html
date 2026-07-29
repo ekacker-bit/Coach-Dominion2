@@ -231,6 +231,17 @@
       </section>
 
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
+        <header class="today-command-header">
+          <div>
+            <div class="kicker">DAILY COMMAND</div>
+            <h2 id="today-heading">Today</h2>
+            <p>One decision, one plan, and only the exceptions that need your attention.</p>
+          </div>
+          <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
+        </header>
+
+        <details class="today-supporting-detail today-brief-detail">
+          <summary><span>Morning brief</span><small>The full Atlas command narrative</small></summary>
         <article class="card atlas-brief" aria-labelledby="atlas-brief-heading">
         <div class="section-heading compact">
           <div>
@@ -241,13 +252,14 @@
         </div>
         <pre id="atlas-brief-output" class="atlas-brief-output" aria-live="polite"></pre>
       </article>
+        </details>
 
       <section class="card daily-coaching-loop" aria-labelledby="daily-orders-heading">
         <div class="section-heading compact">
           <div>
-            <div class="kicker">BUILD 007C // DAILY COACHING LOOP</div>
-            <h2 id="daily-orders-heading">Today’s Orders</h2>
-            <p class="muted">One operating sequence from roll call through mission, connected evidence, and the Dominion Record.</p>
+            <div class="kicker">ATLAS PRIORITY</div>
+            <h2 id="daily-orders-heading">Do this next</h2>
+            <p class="muted">The single highest-value action based on today’s readiness, plan, and evidence.</p>
           </div>
           <span id="daily-orders-state" class="state-pill neutral">LOADING</span>
         </div>
@@ -258,6 +270,8 @@
         <p id="daily-orders-feedback" class="muted"></p>
       </section>
 
+      <details class="today-supporting-detail today-workout-detail">
+        <summary><span>Workout details</span><small>Prescription, substitutions, execution, and safety controls</small></summary>
       <section class="card daily-assignment-card" aria-labelledby="daily-assignment-heading">
         <div class="section-heading compact">
           <div>
@@ -270,22 +284,24 @@
         <div id="daily-assignment-panel" aria-live="polite"><div class="performance-empty">Atlas is building today’s assignment.</div></div>
         <p id="daily-assignment-feedback" class="muted"></p>
       </section>
+      </details>
 
-      <section class="card today-standards-duty" aria-labelledby="today-standards-heading">
+      <section class="card today-standards-duty today-attention-card" aria-labelledby="today-standards-heading">
         <div class="section-heading compact">
           <div>
-            <div class="kicker">BUILD 011C // TODAY ACCOUNTABILITY</div>
-            <h2 id="today-standards-heading">Standards Duty</h2>
-            <p class="muted">Only confirmed corrective work that needs your attention today appears here.</p>
+            <div class="kicker">NEEDS ATTENTION</div>
+            <h2 id="today-standards-heading">Exceptions</h2>
+            <p class="muted">Setup gaps, stale evidence, and confirmed corrective work appear only when action is required.</p>
           </div>
           <span id="today-standards-state" class="state-pill neutral">CLEAR</span>
         </div>
         <div id="today-standards-panel" aria-live="polite"><div class="performance-empty">No corrective action is due today.</div></div>
+        <div id="today-setup-attention" class="today-setup-attention" aria-live="polite"></div>
       </section>
 
       <section class="card today-operating-sequence" aria-labelledby="today-sequence-heading">
         <div class="section-heading compact">
-          <div><div class="kicker">BUILD 009C // TODAY COMMAND SURFACE</div><h2 id="today-sequence-heading">Complete Today</h2><p class="muted">Workout, fueling, recovery, and evidence in one operating sequence.</p></div>
+          <div><div class="kicker">TODAY’S PLAN</div><h2 id="today-sequence-heading">Train · Fuel · Recover · Record</h2><p class="muted">Your complete day at a glance. Open a step only when you need its details.</p></div>
           <span id="today-completion-state" class="state-pill neutral">ASSEMBLING</span>
         </div>
         <div class="today-sequence-grid">
@@ -296,6 +312,8 @@
         </div>
       </section>
 
+      <details class="today-supporting-detail today-baseline-detail">
+        <summary><span>Personal baseline</span><small>14- and 28-day readiness norms</small></summary>
       <section class="card readiness-baseline-card" aria-labelledby="baseline-heading">
         <div class="section-heading compact">
           <div>
@@ -309,7 +327,10 @@
           <div class="performance-empty">Atlas is looking for enough prior sleep and resting heart-rate evidence.</div>
         </div>
       </section>
+      </details>
 
+      <details class="today-supporting-detail today-intelligence-detail">
+        <summary><span>Supporting intelligence</span><small>Mission rationale, readiness evidence, posture, and event history</small></summary>
       <section class="card command-center-overview" aria-labelledby="command-center-overview-heading">
         <div class="section-heading compact">
           <div>
@@ -398,6 +419,7 @@
           </dl>
         </article>
       </section>
+      </details>
 
       <section id="record" class="card dominion-record scroll-anchor" aria-labelledby="dominion-record-heading" data-section="record">
         <div class="section-heading">

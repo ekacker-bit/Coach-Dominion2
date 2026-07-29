@@ -4551,6 +4551,19 @@ function readApprovedRunningPlan() {
   }
 }
 
+function runningReconciliationStorageKey() {
+  return `coach-dominion:running-reconciliation:${session?.user?.id || "local"}`;
+}
+
+function readApprovedRunningReconciliation() {
+  try {
+    const stored = window.localStorage.getItem(runningReconciliationStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function renderRunningCommand(entries = performanceEntries) {
   const panel = document.getElementById("running-command-panel");
   if (!panel || typeof DominionRunning === "undefined") return;
@@ -4558,6 +4571,9 @@ function renderRunningCommand(entries = performanceEntries) {
   const command = DominionRunning.buildRunningCommand(profile, entries, { today: todayISODate() });
   const plan = DominionRunning.buildWeeklyRunningPlan(profile, entries, { today: todayISODate() });
   const approvedPlan = readApprovedRunningPlan();
+  const activePlan = approvedPlan?.weekStart === plan.weekStart && approvedPlan.command?.profile?.updatedAt === profile.updatedAt ? approvedPlan : null;
+  const reconciliation = activePlan ? DominionRunning.reconcileWeeklyRunningPlan(activePlan, entries, { today: todayISODate() }) : null;
+  const approvedReconciliation = readApprovedRunningReconciliation();
   const status = document.getElementById("running-command-status");
   if (status) {
     status.textContent = command.readiness.replaceAll("_", " ");
@@ -4624,8 +4640,23 @@ function renderRunningCommand(entries = performanceEntries) {
         <div class="running-week-grid">${plan.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} | ${escapeHtml(session.zone)} | ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : ""}</article>`).join("")}</div>
         <p class="muted">Baseline source: ${escapeHtml(plan.baselineSource.replaceAll("_", " "))}. No progression is applied in this foundation week.</p>
         <div class="performance-actions"><button type="button" data-running-action="approve-plan">Approve weekly plan</button><button type="button" class="ghost" data-running-action="review-log">Review running evidence</button></div>
-        ${approvedPlan?.weekStart === plan.weekStart && approvedPlan.command?.profile?.updatedAt === profile.updatedAt ? `<div class="running-evidence"><strong>ACTIVE WEEK APPROVED</strong><p>Approved ${escapeHtml(approvedPlan.approvedAt || "")}. Changes to the profile require approval again.</p></div>` : ""}
+        ${activePlan ? `<div class="running-evidence"><strong>ACTIVE WEEK APPROVED</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Changes to the profile require approval again.</p></div>` : ""}
       ` : `<div class="performance-empty">${escapeHtml(plan.message)}</div>`}
+    </section>
+    <section class="running-reconciliation-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 010D // RUN IMPORT &amp; RECONCILIATION</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
+      ${reconciliation ? `
+        <div class="running-plan-summary">
+          <div><span>Prescribed runs</span><strong>${reconciliation.summary.prescribed}</strong></div>
+          <div><span>Evidence runs</span><strong>${reconciliation.summary.evidenceRunCount}</strong></div>
+          <div><span>Matched</span><strong>${reconciliation.summary.MATCHED || 0}</strong></div>
+          <div><span>Completion</span><strong>${reconciliation.summary.completionPercent}%</strong></div>
+        </div>
+        <div class="running-reconciliation-list">${reconciliation.days.map((day) => `<article class="running-reconciliation-card"><header><div><span class="kicker">${escapeHtml(day.date)} | ${escapeHtml(day.type)}</span><strong>${escapeHtml(day.title)}</strong></div>${connectedStatusPill(day.classification)}</header><div class="running-reconciliation-metrics"><span>Planned: ${day.distance} ${day.unit}</span><span>Observed: ${day.actualDistance} ${day.unit}</span><span>Sources: ${day.runs.length ? escapeHtml([...new Set(day.runs.map((run) => run.source))].join(", ")) : "None"}</span></div><p>${escapeHtml(day.reason)}</p>${day.actualPace ? `<small>Observed pace: ${DominionRunning.formatPace(day.actualPace, day.unit)}</small>` : ""}</article>`).join("")}</div>
+        <div class="performance-actions"><button type="button" data-running-action="approve-reconciliation" ${reconciliation.status !== "READY" ? "disabled" : ""}>Approve evidence review</button><button type="button" class="ghost" data-running-action="review-log">Review run log</button></div>
+        ${reconciliation.status === "REVIEW_REQUIRED" ? `<p class="muted">Resolve review-required or unplanned evidence in the run log before approval.</p>` : ""}
+        ${approvedReconciliation?.planApprovedAt === activePlan.approvedAt ? `<div class="running-evidence"><strong>EVIDENCE REVIEW APPROVED</strong><p>Approved ${escapeHtml(approvedReconciliation.approvedAt || "")}. The source entries remain unchanged and auditable.</p></div>` : ""}
+      ` : `<div class="performance-empty">No active approved plan. Weekly evidence remains in Performance and is not discarded.</div>`}
     </section>`;
 }
 
@@ -6479,6 +6510,21 @@ if (typeof document !== "undefined") {
       if (filter) filter.value = "running";
       setPerformanceActiveView("log");
       renderPerformanceSection();
+    }
+    if (button.dataset.runningAction === "approve-reconciliation") {
+      const plan = readApprovedRunningPlan();
+      if (!plan) return;
+      const reconciliation = DominionRunning.reconcileWeeklyRunningPlan(plan, performanceEntries, { today: todayISODate() });
+      if (reconciliation.status !== "READY") return;
+      window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify({
+        approvedAt: new Date().toISOString(),
+        planApprovedAt: plan.approvedAt,
+        weekStart: plan.weekStart,
+        summary: reconciliation.summary,
+        days: reconciliation.days.map((day) => ({ date: day.date, classification: day.classification, sourceIds: day.runs.map((run) => run.id) }))
+      }));
+      renderRunningCommand();
+      setText("running-command-feedback", "Weekly run evidence review approved. Source records and the approved plan remain unchanged.");
     }
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {

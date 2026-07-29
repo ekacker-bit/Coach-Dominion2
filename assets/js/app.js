@@ -4587,6 +4587,69 @@ function renderActivationGuide() {
   </article>`).join("");
 }
 
+function buildReviewJourney({ inspection = null, standardsItems = [], finalizedInspections = [] } = {}) {
+  const finalized = Boolean(inspection?.finalizedAt);
+  const candidates = standardsItems.filter((item) => !["RESOLVED", "DISMISSED", "EXCUSED"].includes(item.status || "CANDIDATE"));
+  const finalizedCount = finalizedInspections.filter((item) => item?.finalizedAt || item?.finalized_at).length;
+  const steps = [
+    {
+      id: "inspection", label: "Inspect", section: "inspection",
+      status: finalized ? "COMPLETE" : inspection?.canFinalize ? "READY" : "IN PROGRESS",
+      detail: finalized ? "The weekly evidence snapshot is finalized." : inspection?.canFinalize ? "Evidence is sufficient for deliberate finalization." : "Continue collecting required daily evidence."
+    },
+    {
+      id: "standards", label: "Resolve", section: "standards",
+      status: candidates.length ? `${candidates.length} OPEN` : "CLEAR",
+      detail: candidates.length ? "Standards cases require review or corrective follow-through." : "No unresolved standards case blocks the weekly loop."
+    },
+    {
+      id: "trends", label: "Understand", section: "trends",
+      status: finalizedCount >= 2 ? "AVAILABLE" : "LEARNING",
+      detail: finalizedCount >= 2 ? `${finalizedCount} finalized reviews support trajectory analysis.` : "Two finalized reviews are required for a meaningful trajectory."
+    },
+    {
+      id: "rank", label: "Advance", section: "rank",
+      status: finalizedCount ? "AVAILABLE" : "BUILDING EVIDENCE",
+      detail: finalizedCount ? "Promotion evidence can be reviewed without automatic advancement." : "Finalize a Weekly Review to begin rank evidence."
+    }
+  ];
+  const next = !finalized
+    ? { section: "inspection", title: inspection?.canFinalize ? "Finalize this Weekly Review" : "Complete the weekly evidence record", detail: steps[0].detail, action: "Open Inspection" }
+    : candidates.length
+      ? { section: "standards", title: "Resolve open standards work", detail: steps[1].detail, action: "Open Standards" }
+      : { section: finalizedCount >= 2 ? "trends" : "rank", title: finalizedCount >= 2 ? "Review the weekly trajectory" : "Review advancement evidence", detail: finalizedCount >= 2 ? steps[2].detail : steps[3].detail, action: finalizedCount >= 2 ? "Open Trends" : "Open Rank" };
+  return {
+    steps,
+    next,
+    state: !finalized ? inspection?.canFinalize ? "READY TO FINALIZE" : "IN PROGRESS" : candidates.length ? "ACTION NEEDED" : "REVIEW COMPLETE"
+  };
+}
+
+function ensureReviewWorkspaceNavigation() {
+  const markup = `<nav class="review-workspace-nav review-workspace-nav-secondary" aria-label="Weekly Review workspace">
+    <a href="#inspection" data-section="inspection">Inspection</a><a href="#standards" data-section="standards">Standards</a><a href="#trends" data-section="trends">Trends</a><a href="#rank" data-section="rank">Rank</a>
+  </nav>`;
+  ["standards", "trends", "rank"].forEach((id) => {
+    const section = document.getElementById(id);
+    if (section && !section.querySelector(".review-workspace-nav")) section.insertAdjacentHTML("afterbegin", markup);
+  });
+}
+
+function renderReviewHub() {
+  const journey = document.getElementById("review-journey");
+  const badge = document.getElementById("review-hub-state");
+  const nextPanel = document.getElementById("review-next-action");
+  if (!journey || !badge || !nextPanel) return;
+  const model = buildReviewJourney({ inspection: weeklyInspection, standardsItems: standardsReviewState, finalizedInspections: inspectionHistory });
+  badge.textContent = model.state;
+  badge.className = `state-pill ${model.state === "REVIEW COMPLETE" ? "green" : model.state === "ACTION NEEDED" || model.state === "READY TO FINALIZE" ? "yellow" : "neutral"}`;
+  journey.innerHTML = model.steps.map((step, index) => `<a class="review-journey-step" href="#${escapeHtml(step.section)}" data-section="${escapeHtml(step.section)}">
+    <span>${index + 1}</span><div><small>${escapeHtml(step.label)}</small><strong>${escapeHtml(step.status)}</strong><p>${escapeHtml(step.detail)}</p></div>
+  </a>`).join("");
+  nextPanel.innerHTML = `<div><span class="kicker">NEXT REVIEW ACTION</span><h3>${escapeHtml(model.next.title)}</h3><p>${escapeHtml(model.next.detail)}</p></div><a href="#${escapeHtml(model.next.section)}" data-section="${escapeHtml(model.next.section)}">${escapeHtml(model.next.action)}</a>`;
+  ensureReviewWorkspaceNavigation();
+}
+
 function buildCurrentDailyAssignment() {
   if (typeof DominionDailyAssignment === "undefined") return null;
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
@@ -7325,6 +7388,7 @@ if (typeof module !== "undefined") {
     dataTruthSource,
     buildDataTruthModel,
     buildActivationGuide,
+    buildReviewJourney,
     normalizeSectionKey,
     shouldWarnBeforeNavigation,
     deriveDirtyState,
@@ -7709,6 +7773,7 @@ function renderRankSection() {
   if (ladder) {
     ladder.innerHTML = getRankCatalog().map((rank) => `<div class="standards-item"><div class="standards-item-header"><strong>${rank.displayName}</strong><span class="state-pill ${rank.code === currentRank ? "green" : "neutral"}">${rank.code}</span></div><p>${rank.description}</p><small>Min inspections ${rank.minimumFinalizedInspections}; min score ${rank.minimumAverageDisciplineScore}; evidence ${rank.minimumAverageEvidenceCoverage}%</small></div>`).join("");
   }
+  renderReviewHub();
 }
 
 function renderStandardsSection() {
@@ -7789,6 +7854,7 @@ function renderStandardsSection() {
       : '<li class="feed-empty">Standards reviews are logged locally until a Supabase-backed audit table is applied.</li>';
   }
   renderTodayStandardsDuty();
+  renderReviewHub();
 }
 
 function emptyComplianceDomains() {
@@ -8260,6 +8326,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   renderWeeklyPlan(aggregate);
   renderStandardsSection();
   renderActivationGuide();
+  renderReviewHub();
 }
 
 async function loadWeeklyInspectionLegacy() {
@@ -8462,6 +8529,7 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
   setText("atlas-trend-report", report.text);
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || {}, trajectory.state);
   renderRankSection();
+  renderReviewHub();
 }
 
 async function loadTrendsAnalytics() {

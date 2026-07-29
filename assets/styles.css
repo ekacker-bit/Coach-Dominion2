@@ -249,7 +249,7 @@
 
 /* Build 010A // Running Command */
 .running-command-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.8fr);gap:14px;margin:16px 0}
-.running-profile-card,.running-zones-panel,.running-week-panel,.running-reconciliation-panel{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:16px}
+.running-profile-card,.running-zones-panel,.running-week-panel,.running-reconciliation-panel,.running-execution-panel{border:1px solid var(--line);border-radius:12px;background:var(--panel3);padding:16px}
 .running-profile-card{display:grid;gap:14px}.running-profile-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .running-baseline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .running-baseline-grid div,.running-evidence{border:1px solid var(--line);border-radius:9px;padding:11px;background:rgba(255,255,255,.02)}
@@ -268,5 +268,6 @@
 .running-reconciliation-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.running-reconciliation-card header strong{display:block;margin-top:5px}
 .running-reconciliation-card p{margin:8px 0 0;color:var(--muted)}.running-reconciliation-card small{display:block;margin-top:7px}
 .running-reconciliation-metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.running-reconciliation-metrics span{border:1px solid var(--line);border-radius:999px;padding:5px 8px;font-size:11px;color:#dce3ea}
+.running-execution-panel{margin-top:14px}.running-execution-steps{display:grid;gap:8px;margin:12px 0}.running-execution-steps article{display:flex;gap:12px;border:1px solid var(--line);border-radius:10px;padding:11px}.running-execution-steps article>span{display:grid;place-items:center;flex:0 0 28px;height:28px;border-radius:50%;background:var(--green);color:#07100c;font-weight:1000}.running-execution-steps p{margin:5px 0 0;color:var(--muted)}.running-adjustment{border:1px solid var(--yellow);border-radius:10px;padding:11px;background:rgba(229,185,79,.08)}
 @media(max-width:1100px){.running-command-grid{grid-template-columns:1fr}.running-zone-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.running-week-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:620px){.running-profile-fields,.running-baseline-grid,.running-zone-grid,.running-plan-summary,.running-week-grid{grid-template-columns:1fr}.running-reconciliation-card header{flex-direction:column}}

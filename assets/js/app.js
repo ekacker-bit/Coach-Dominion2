@@ -4564,6 +4564,14 @@ function readApprovedRunningReconciliation() {
   }
 }
 
+function runningExecutionStorageKey() {
+  return `coach-dominion:running-execution:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readRunningExecution() {
+  try { return JSON.parse(window.localStorage.getItem(runningExecutionStorageKey()) || "null"); } catch (_) { return null; }
+}
+
 function renderRunningCommand(entries = performanceEntries) {
   const panel = document.getElementById("running-command-panel");
   if (!panel || typeof DominionRunning === "undefined") return;
@@ -4572,6 +4580,8 @@ function renderRunningCommand(entries = performanceEntries) {
   const plan = DominionRunning.buildWeeklyRunningPlan(profile, entries, { today: todayISODate() });
   const approvedPlan = readApprovedRunningPlan();
   const activePlan = approvedPlan?.weekStart === plan.weekStart && approvedPlan.command?.profile?.updatedAt === profile.updatedAt ? approvedPlan : null;
+  const dailyRun = DominionRunning.buildDailyRunPrescription(activePlan || {}, { today: todayISODate(), readiness: dailyState || {} });
+  const execution = readRunningExecution();
   const reconciliation = activePlan ? DominionRunning.reconcileWeeklyRunningPlan(activePlan, entries, { today: todayISODate() }) : null;
   const approvedReconciliation = readApprovedRunningReconciliation();
   const status = document.getElementById("running-command-status");
@@ -4642,6 +4652,14 @@ function renderRunningCommand(entries = performanceEntries) {
         <div class="performance-actions"><button type="button" data-running-action="approve-plan">Approve weekly plan</button><button type="button" class="ghost" data-running-action="review-log">Review running evidence</button></div>
         ${activePlan ? `<div class="running-evidence"><strong>ACTIVE WEEK APPROVED</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Changes to the profile require approval again.</p></div>` : ""}
       ` : `<div class="performance-empty">${escapeHtml(plan.message)}</div>`}
+    </section>
+    <section class="running-execution-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 010C // DAILY RUN EXECUTION</span><h3>Today&apos;s run</h3><p class="muted">${escapeHtml(dailyRun.message)}</p></div><span class="state-pill ${dailyRun.status === "READY" ? "green" : dailyRun.status === "PAIN_HOLD" ? "red" : "yellow"}">${escapeHtml(dailyRun.status.replaceAll("_", " "))}</span></div>
+      ${dailyRun.session ? `<div class="running-plan-summary"><div><span>Session</span><strong>${escapeHtml(dailyRun.session.type)}</strong></div><div><span>Distance</span><strong>${dailyRun.session.distance} ${dailyRun.session.unit}</strong></div><div><span>Duration</span><strong>~${dailyRun.session.estimatedMinutes || Math.round(dailyRun.session.distance * ((dailyRun.session.paceFast + dailyRun.session.paceSlow) / 2) / 60)} min</strong></div><div><span>Execution</span><strong>${escapeHtml(execution?.state || "NOT STARTED")}</strong></div></div>
+      ${dailyRun.adjustment?.factor < 1 ? `<div class="running-adjustment"><strong>READINESS ADJUSTMENT</strong><p>${escapeHtml(dailyRun.adjustment.reason)} Distance delta: ${dailyRun.adjustment.distanceDelta} ${dailyRun.session.unit}.</p></div>` : ""}
+      <div class="running-execution-steps">${dailyRun.steps.map((step, index) => `<article><span>${index + 1}</span><div><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.instruction)}</p></div></article>`).join("")}</div>
+      ${dailyRun.session.paceFast ? `<p><strong>Target pace:</strong> ${DominionRunning.formatPace(dailyRun.session.paceFast, dailyRun.session.unit)} to ${DominionRunning.formatPace(dailyRun.session.paceSlow, dailyRun.session.unit)}</p>` : ""}
+      <div class="performance-actions"><button type="button" data-running-action="start-run" ${["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${execution?.state !== "IN_PROGRESS" ? "disabled" : ""}>Complete run</button><button type="button" class="ghost" data-running-action="modify-run">Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
     </section>
     <section class="running-reconciliation-panel">
       <div class="section-heading compact"><div><span class="kicker">BUILD 010D // RUN IMPORT &amp; RECONCILIATION</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
@@ -6525,6 +6543,22 @@ if (typeof document !== "undefined") {
       }));
       renderRunningCommand();
       setText("running-command-feedback", "Weekly run evidence review approved. Source records and the approved plan remain unchanged.");
+    }
+    if (button.dataset.runningAction === "start-run") {
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify({ state: "IN_PROGRESS", startedAt: new Date().toISOString() }));
+      renderRunningCommand();
+      setText("running-command-feedback", "Run started. Follow the prescribed steps and stop if pain develops.");
+    }
+    if (button.dataset.runningAction === "complete-run") {
+      const current = readRunningExecution() || {};
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify({ ...current, state: "COMPLETE", completedAt: new Date().toISOString() }));
+      renderRunningCommand();
+      setText("running-command-feedback", "Run marked complete. Imported or manual evidence will reconcile separately.");
+    }
+    if (button.dataset.runningAction === "modify-run") setText("running-command-feedback", "Use the readiness-adjusted easy alternative. The approved weekly plan remains unchanged.");
+    if (button.dataset.runningAction === "report-pain") {
+      setText("running-command-feedback", "Stop running and report pain in Morning Roll Call. Running progression is held.");
+      window.location.hash = "today";
     }
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {

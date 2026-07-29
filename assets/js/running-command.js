@@ -294,10 +294,44 @@
       message: "Imported and manual evidence is matched by calendar date. Ambiguous or excess work requires explicit review."
     };
   }
+  function buildDailyRunPrescription(plan = {}, options = {}) {
+    const today = dateIso(options.today) || new Date().toISOString().slice(0, 10);
+    if (plan.status !== "READY" || !Array.isArray(plan.sessions)) return { status: "PLAN_REQUIRED", date: today, session: null, steps: [], message: "Approve a weekly running plan first." };
+    const planned = plan.sessions.find((session) => session.date === today);
+    if (!planned || planned.type === "REST") return { status: "REST_DAY", date: today, session: planned || null, steps: [], message: "No run is prescribed today. Preserve recovery." };
+    const readiness = options.readiness || {};
+    const pain = readiness.pain === true || String(readiness.pain).toLowerCase() === "yes";
+    const energy = finite(readiness.energy);
+    const soreness = finite(readiness.soreness);
+    let factor = 1, type = planned.type, reason = "No readiness adjustment.";
+    if (pain) { factor = 0; reason = "Pain reported: running is held."; }
+    else if ((energy !== null && energy <= 3) || (soreness !== null && soreness >= 8)) { factor = 0.5; type = "RECOVERY"; reason = "Low readiness: distance reduced 50% and intensity removed."; }
+    else if ((energy !== null && energy <= 5) || (soreness !== null && soreness >= 6)) { factor = 0.8; type = "EASY"; reason = "Moderate readiness: distance reduced 20% and intensity capped at easy."; }
+    const distance = Number((planned.distance * factor).toFixed(1));
+    const paceZone = factor < 1 ? plan.command?.zones?.find((zone) => zone.code === (type === "RECOVERY" ? "RECOVERY" : "EASY")) : null;
+    const paceFast = paceZone?.fastSecondsPerUnit || planned.paceFast;
+    const paceSlow = paceZone?.slowSecondsPerUnit || planned.paceSlow;
+    const work = type === "INTERVAL"
+      ? `Complete controlled repetitions totaling ${distance} ${planned.unit}; recover easily between efforts.`
+      : type === "TEMPO"
+        ? `Run ${distance} ${planned.unit} with the middle portion at tempo effort.`
+        : `Run ${distance} ${planned.unit} continuously at ${type.toLowerCase()} effort.`;
+    return {
+      status: pain ? "PAIN_HOLD" : factor < 1 ? "ADJUSTED" : "READY",
+      date: today, original: planned, session: { ...planned, type, distance, paceFast, paceSlow },
+      adjustment: { factor, distanceDelta: Number((distance - planned.distance).toFixed(1)), typeChanged: type !== planned.type, reason },
+      steps: pain ? [{ code: "STOP", title: "Do not start", instruction: "Report pain and choose a non-impact recovery action." }] : [
+        { code: "WARM_UP", title: "Warm-up", instruction: "5–10 minutes easy movement, then dynamic drills and two relaxed strides." },
+        { code: "WORK", title: "Main run", instruction: work },
+        { code: "COOL_DOWN", title: "Cooldown", instruction: "5–10 minutes easy movement, then record pain, effort, distance, and duration." }
+      ],
+      message: reason
+    };
+  }
 
   return {
     GOALS, DISTANCE_KM, ZONE_RULES, normalizeProfile, distanceToKm, formatDuration, formatPace,
     runningEntryEvidence, selectBenchmark, equivalentFiveKilometerPace, derivePaceZones,
-    deriveMileageBaseline, buildRunningCommand, weekStartIso, runningDayIndexes, buildWeeklyRunningPlan, reconcileWeeklyRunningPlan
+    deriveMileageBaseline, buildRunningCommand, weekStartIso, runningDayIndexes, buildWeeklyRunningPlan, reconcileWeeklyRunningPlan, buildDailyRunPrescription
   };
 });

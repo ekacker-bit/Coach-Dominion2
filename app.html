@@ -317,6 +317,22 @@
       </section>
       </details>
 
+      <details id="today-core-detail" class="today-supporting-detail today-core-detail">
+        <summary><span>Today&apos;s core session</span><small>Approved prescription, movement cues, execution, and pain controls</small></summary>
+        <section class="card core-today-card" aria-labelledby="core-today-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 013C // CORE EXECUTION</div>
+              <h2 id="core-today-heading">Today&apos;s Core</h2>
+              <p class="muted">Execute the approved session. Readiness may reduce or remove work, but never silently increase it.</p>
+            </div>
+            <span id="core-today-state" class="state-pill neutral">PLAN REQUIRED</span>
+          </div>
+          <div id="core-today-panel" aria-live="polite"><div class="performance-empty">Approve a core plan in Train to activate today&apos;s session.</div></div>
+          <p id="core-today-feedback" class="muted" aria-live="polite"></p>
+        </section>
+      </details>
+
       <section class="card today-standards-duty today-attention-card legacy-today-surface" aria-labelledby="today-standards-heading" aria-hidden="true">
         <div class="section-heading compact">
           <div>
@@ -830,12 +846,14 @@
         <div id="performance-view-core" class="performance-view-panel" role="tabpanel" aria-labelledby="performance-tab-core" hidden>
           <div class="section-heading compact">
             <div>
-              <div class="kicker">BUILD 013B // ABS &amp; CORE COMMAND</div>
-              <h3>Abs &amp; Core</h3>
-              <p class="muted">Track weekly core work, start a focused entry, and see the next objective without digging through the general log.</p>
+              <div class="kicker">BUILD 013C // CORE PROGRAMMING &amp; EXECUTION</div>
+              <h3>Abs &amp; Core Command</h3>
+              <p class="muted">Build and approve a balanced four-week plan, execute today&apos;s session, and earn progression through controlled evidence.</p>
             </div>
-            <span id="core-command-status" class="state-pill neutral">NO CORE EVIDENCE</span>
+            <span id="core-command-status" class="state-pill neutral">PLAN REQUIRED</span>
           </div>
+          <div id="core-programming-panel" class="core-programming-panel"></div>
+          <p id="core-programming-feedback" class="muted" aria-live="polite"></p>
           <div class="core-command-summary">
             <div><span>Sessions this week</span><strong id="core-week-sessions">0</strong></div>
             <div><span>Repetitions</span><strong id="core-week-reps">0</strong></div>
@@ -978,6 +996,7 @@
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
 <script src="/assets/js/running-command.js"></script>
+<script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

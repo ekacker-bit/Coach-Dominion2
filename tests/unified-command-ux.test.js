@@ -19,6 +19,10 @@ assert(js.includes("function setNutritionActiveView"), "nutrition view controlle
 assert(js.includes("function renderNutritionNextAction"), "next action renderer missing");
 assert(js.includes('title: "Set your fueling baseline"'), "baseline setup priority missing");
 assert(css.includes(".nutrition-workspace-panel[hidden]{display:none!important}"), "hidden panel contract missing");
-assert(css.includes(".nav-group-label"), "grouped navigation styles missing");
+for (const label of ["TODAY", "TRAIN", "FUEL", "REVIEW", "MORE"]) {
+  assert(html.includes(`>${label}<`), `primary navigation is missing ${label}`);
+}
+assert(html.includes('class="nav-more"'), "More navigation menu missing");
+assert(css.includes(".nav-more-menu"), "More navigation styles missing");
 
 console.log("Unified command UX tests passed.");

@@ -94,7 +94,7 @@ The current scope is the 005A foundation only. Build 005B extends this with dete
 
 Build 005D adds a deterministic intelligence layer on top of existing 005A/005B performance data. It is additive and does not alter readiness, compliance, weekly inspection scoring, PR business rules, milestone qualification rules, or fitness-test completion rules.
 
-Performance navigation now includes OVERVIEW, LOG, FITNESS TESTS, RECORDS, MILESTONES, and INTELLIGENCE.
+Build 013B simplifies training navigation into five destinations: TODAY’S TRAINING, LOG, RUNNING, ABS / CORE, and PROGRESS. Existing programming and recovery reviews now live inside Today’s Training; intelligence, fitness tests, records, and milestones remain fully available inside Progress. Legacy destination requests are routed into their new consolidated homes.
 
 The Intelligence view adds:
 - an intelligence status strip
@@ -258,4 +258,3 @@ npm.cmd run test:atlas
 Alternatively, open Command Prompt in the repository and use the normal `npm` commands there. If `vercel` has the same PowerShell issue, use `vercel.cmd dev` or Command Prompt.
 
 If local authentication redirects incorrectly, confirm the local URL is allowed in Supabase Authentication settings. If `/api/config` returns an error, confirm both required environment variables are available to `vercel dev`; do not print their values while troubleshooting.
-

@@ -303,3 +303,23 @@
 @media(max-width:900px){.data-truth-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.data-date-summary{grid-template-columns:1fr}}
 @media(max-width:900px){.review-journey{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){.today-command-header,.today-supporting-detail>summary{align-items:flex-start;flex-direction:column}.today-supporting-detail>summary small{text-align:left}.today-attention-item{grid-template-columns:1fr}.today-attention-item p,.today-attention-item a{grid-column:auto}.data-truth-strip>summary{align-items:flex-start}.data-truth-grid{grid-template-columns:1fr}.activation-step{grid-template-columns:auto 1fr}.activation-step a{grid-column:2}.review-journey{grid-template-columns:1fr}.review-next-action{align-items:flex-start;flex-direction:column}}
+
+/* Build 012F // Product polish */
+.skip-link{position:fixed;left:16px;top:12px;z-index:1000;transform:translateY(-150%);padding:11px 14px;border-radius:8px;background:var(--green);color:#07100c;font-weight:1000;text-decoration:none;transition:transform .15s ease}
+.skip-link:focus{transform:translateY(0)}
+.developer-label{display:none!important}
+#app-content:focus{outline:none}
+.product-diagnostics{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;color:var(--muted)}
+.product-diagnostics summary{cursor:pointer;font-weight:900;color:var(--text)}
+.product-diagnostics dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 0}
+.product-diagnostics dl div{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel3)}
+.product-diagnostics dt{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.product-diagnostics dd{margin:4px 0 0;color:var(--text);font-weight:800}
+@media(max-width:720px){
+  .war-room-shell{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  .mobile-command-bar{bottom:max(10px,env(safe-area-inset-bottom));min-height:56px}
+  .mobile-command-bar a{display:grid;place-items:center;min-height:44px;padding:8px 4px;font-size:10px;letter-spacing:.02em}
+  .top-nav .nav-link,.nav-more>summary{min-height:44px}
+  .nav-more-menu{position:static;margin-top:6px;box-shadow:none}
+  .product-diagnostics dl{grid-template-columns:1fr}
+}

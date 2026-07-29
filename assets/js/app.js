@@ -4537,6 +4537,7 @@ function renderDataTruth() {
     storageMode: connectedStorageMode
   });
   setText("data-truth-summary", `${model.date} · ${model.summary}`);
+  setText("status-data", model.state);
   state.textContent = model.state;
   state.className = `state-pill ${model.state === "CURRENT" ? "green" : model.state === "ACTION NEEDED" ? "yellow" : "neutral"}`;
   grid.innerHTML = model.sources.map((item) => `<article class="data-truth-source ${item.status.toLowerCase()}">
@@ -5628,7 +5629,29 @@ function handleSectionNavigation(link) {
   }
   setActiveSection(nextSection);
   window.history.replaceState(null, "", `#${nextSection}`);
+  const target = document.getElementById(nextSection) || document.querySelector(`[data-section="${nextSection}"]`);
+  if (target) {
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  }
   return true;
+}
+
+function isDeveloperBuildLabel(text = "") {
+  return /^\s*BUILD\s+\d/i.test(String(text));
+}
+
+function applyProductPolish() {
+  if (typeof document === "undefined") return 0;
+  let hiddenCount = 0;
+  document.querySelectorAll(".kicker").forEach((label) => {
+    if (!isDeveloperBuildLabel(label.textContent)) return;
+    label.classList.add("developer-label");
+    label.setAttribute("aria-hidden", "true");
+    hiddenCount += 1;
+  });
+  document.body.dataset.productPolish = "012F";
+  return hiddenCount;
 }
 
 function connectedApi() {
@@ -6292,6 +6315,7 @@ function renderConnectedDominion() {
   if (!api || typeof document === "undefined") return;
   const overview = api.buildConnectedOverviewModel({ accounts: connectedAccounts, jobs: connectedSyncJobs, records: connectedImportedRecords, storageState: connectedStorageMode });
   setText("connected-storage", connectedStorageMode);
+  setText("diagnostic-storage", connectedStorageMode);
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
   setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "User-controlled Fitbod, MyFitnessPal, and Apple Health file imports are active. Live OAuth and background sync remain unavailable.");
   const overviewPanel = document.getElementById("connected-view-overview");
@@ -6694,6 +6718,7 @@ async function applyAppleHealthReadiness() {
 async function init() {
   try {
     setLoading(true);
+    applyProductPolish();
     const supabase = await getClient();
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
@@ -6730,6 +6755,7 @@ async function init() {
 }
 
 if (typeof document !== "undefined") {
+  applyProductPolish();
   initializeComplianceForm();
   document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
   document.getElementById("compliance-form").addEventListener("submit", saveDailyCompliance);
@@ -7202,6 +7228,17 @@ if (typeof document !== "undefined") {
       }
     });
   });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const more = document.querySelector(".nav-more[open]");
+    if (!more) return;
+    more.removeAttribute("open");
+    more.querySelector("summary")?.focus();
+  });
+  document.addEventListener("click", (event) => {
+    const more = document.querySelector(".nav-more[open]");
+    if (more && !more.contains(event.target)) more.removeAttribute("open");
+  });
   document.getElementById("help-onboarding").addEventListener("click", () => {
     onboardingDismissed = false;
     persistOnboardingState();
@@ -7389,6 +7426,8 @@ if (typeof module !== "undefined") {
     buildDataTruthModel,
     buildActivationGuide,
     buildReviewJourney,
+    isDeveloperBuildLabel,
+    applyProductPolish,
     normalizeSectionKey,
     shouldWarnBeforeNavigation,
     deriveDirtyState,

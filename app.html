@@ -301,7 +301,315 @@
 
       <section class="card today-operating-sequence" aria-labelledby="today-sequence-heading">
         <div class="section-heading compact">
-          <div><div class="kicker">TODAY’S PLAN</div><h2 id="today-sequence-heading">Train · Fuel · Recover · Record</h2><p class="muted">Your complete day at a glance. Open a step only when you need…4965 tokens truncated…"ghost" type="button">Review promotion</button>
+          <div><div class="kicker">TODAY’S PLAN</div><h2 id="today-sequence-heading">Train · Fuel · Recover · Record</h2><p class="muted">Your complete day at a glance. Open a step only when you need its details.</p></div>
+          <span id="today-completion-state" class="state-pill neutral">ASSEMBLING</span>
+        </div>
+        <div class="today-sequence-grid">
+          <article><span>1 · Train</span><strong id="today-sequence-training">Review assignment</strong><p id="today-sequence-training-detail">Today’s supported prescription.</p><a href="#today" data-section="today">Open workout</a></article>
+          <article><span>2 · Fuel</span><strong id="today-sequence-fueling">Review fueling</strong><p id="today-sequence-fueling-detail">Calories, protein, and timing.</p><a href="#nutrition" data-section="nutrition">Open nutrition</a></article>
+          <article><span>3 · Recover</span><strong id="today-sequence-recovery">Review recovery</strong><p id="today-sequence-recovery-detail">Readiness restrictions govern.</p><a href="#performance" data-section="performance">Open recovery</a></article>
+          <article><span>4 · Record</span><strong id="today-sequence-evidence">Evidence pending</strong><p id="today-sequence-evidence-detail">Resolve only missing or ambiguous evidence.</p><a href="#record" data-section="record">Open record</a></article>
+        </div>
+      </section>
+
+      <details class="today-supporting-detail today-baseline-detail">
+        <summary><span>Personal baseline</span><small>14- and 28-day readiness norms</small></summary>
+      <section class="card readiness-baseline-card" aria-labelledby="baseline-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">BUILD 007D // PERSONALIZED READINESS</div>
+            <h2 id="baseline-heading">Personal Baseline</h2>
+            <p class="muted">Your 14- and 28-day norms make readiness more personal without weakening pain or safety rules.</p>
+          </div>
+          <span id="baseline-state" class="state-pill neutral">LEARNING</span>
+        </div>
+        <div id="baseline-panel" aria-live="polite">
+          <div class="performance-empty">Atlas is looking for enough prior sleep and resting heart-rate evidence.</div>
+        </div>
+      </section>
+      </details>
+
+      <details class="today-supporting-detail today-intelligence-detail">
+        <summary><span>Supporting intelligence</span><small>Mission rationale, readiness evidence, posture, and event history</small></summary>
+      <section class="card command-center-overview" aria-labelledby="command-center-overview-heading">
+        <div class="section-heading compact">
+          <div>
+            <div class="kicker">UX COMMAND CENTER</div>
+            <h2 id="command-center-overview-heading">Command posture</h2>
+          </div>
+          <span id="command-center-overview-state" class="state-pill neutral">AWAITING SIGNAL</span>
+        </div>
+        <div class="overview-grid">
+          <div class="overview-metric"><span>Readiness</span><strong id="overview-readiness">—</strong></div>
+          <div class="overview-metric"><span>Weekly</span><strong id="overview-weekly">—</strong></div>
+          <div class="overview-metric"><span>Trend</span><strong id="overview-trend">—</strong></div>
+        </div>
+        <p id="overview-focus" class="overview-focus">The command center is preparing the next recommendation.</p>
+        <p id="overview-summary" class="muted">Submit Morning Roll Call to initialize the operating picture.</p>
+      </section>
+
+      <section class="command-grid" aria-label="War Room command center">
+        <article class="card mission-board">
+          <div class="section-heading">
+            <div>
+              <div class="kicker">MISSION BOARD</div>
+              <h2 id="mission">Morning Roll Call Required.</h2>
+            </div>
+            <span id="mission-status" class="state-pill neutral">PENDING</span>
+          </div>
+          <p id="mission-detail" class="mission-detail">No mission will be generated until today's state is saved.</p>
+          <dl class="mission-data">
+            <div><dt>Restrictions</dt><dd id="mission-restrictions">Awaiting roll call.</dd></div>
+            <div><dt>Readiness Source</dt><dd id="mission-source">No Daily State evidence.</dd></div>
+            <div><dt>Confidence</dt><dd id="mission-confidence">—</dd></div>
+            <div><dt>Context</dt><dd id="mission-context">Generated/current-state context unavailable.</dd></div>
+          </dl>
+        </article>
+
+        <article class="card readiness-card">
+          <div class="kicker">READINESS INTELLIGENCE</div>
+          <div id="readiness" class="metric">—</div>
+          <p id="readiness-detail">Submit Energy, Soreness, and Pain to calculate readiness.</p>
+          <div class="readiness-factors">
+            <div><span>Confidence</span><strong id="confidence">0%</strong></div>
+            <div><span>Energy</span><strong id="readiness-energy">—</strong></div>
+            <div><span>Soreness</span><strong id="readiness-soreness">—</strong></div>
+            <div><span>Pain</span><strong id="readiness-pain">—</strong></div>
+          </div>
+          <dl class="readiness-actions">
+            <div><dt>Primary risk</dt><dd id="readiness-risk">Operating without current readiness.</dd></div>
+            <div><dt>Instruction</dt><dd id="readiness-instruction">Complete Morning Roll Call.</dd></div>
+          </dl>
+          <details class="readiness-details" open>
+            <summary>Why this state?</summary>
+            <ul id="readiness-rationale"><li>Submit Daily State evidence.</li></ul>
+          </details>
+          <details class="readiness-details">
+            <summary>Evidence and confidence</summary>
+            <div id="readiness-evidence" class="evidence-list"></div>
+            <h3>Missing evidence</h3>
+            <ul id="evidence-missing"><li>Daily State required.</li></ul>
+            <p id="confidence-detail" class="muted">No Daily State evidence available yet.</p>
+          </details>
+          <details class="readiness-details">
+            <summary>Restrictions</summary>
+            <ul id="readiness-restrictions"><li>Awaiting roll call.</li></ul>
+          </details>
+        </article>
+
+        <article class="card command-feed-card">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">COMMAND FEED</div>
+              <h2>Today’s events</h2>
+            </div>
+          </div>
+          <ul id="command-feed" class="feed">
+            <li>Awaiting Morning Roll Call.</li>
+          </ul>
+        </article>
+
+        <article class="card daily-intelligence">
+          <div class="kicker">DAILY INTELLIGENCE</div>
+          <h2 id="daily-intel-title">Awaiting signal</h2>
+          <dl>
+            <div><dt>Primary condition</dt><dd id="daily-primary">Daily State not submitted.</dd></div>
+            <div><dt>Instruction</dt><dd id="daily-instruction">Complete Morning Roll Call.</dd></div>
+            <div><dt>Risk</dt><dd id="daily-risk">Operating without current readiness.</dd></div>
+          </dl>
+        </article>
+      </section>
+      </details>
+
+      <section id="record" class="card dominion-record scroll-anchor" aria-labelledby="dominion-record-heading" data-section="record">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">LONGITUDINAL EXECUTION RECORD</div>
+            <h2 id="dominion-record-heading">Dominion Record</h2>
+            <p class="muted">Record what was assigned, completed, modified, excused, or missed. Restrictions are evidence, not misconduct.</p>
+          </div>
+          <div class="compliance-scoreboard">
+            <span id="compliance-date">—</span>
+            <strong id="discipline-score">UNSCORED</strong>
+            <span id="compliance-status">UNSCORED</span>
+          </div>
+        </div>
+
+        <form id="compliance-form">
+          <div id="compliance-domains" class="compliance-domains"></div>
+          <div class="compliance-save-row">
+            <div>
+              <strong id="compliance-storage">RECORD NOT LOADED</strong>
+              <span id="compliance-updated" class="muted">Not saved yet</span>
+            </div>
+            <button id="save-compliance" type="submit">Save Dominion Record</button>
+          </div>
+        </form>
+
+        <details class="readiness-details compliance-explanation" open>
+          <summary>Score explanation and evidence</summary>
+          <p id="compliance-formula">No applicable assessed domains; no Discipline Score calculated.</p>
+          <div class="evidence-grid">
+            <div><h3>Included domains</h3><ul id="compliance-included"><li>No domains included.</li></ul></div>
+            <div><h3>Excluded domains</h3><ul id="compliance-excluded"><li>No domains excluded.</li></ul></div>
+          </div>
+        </details>
+      </section>
+
+      <section id="inspection" class="card weekly-inspection scroll-anchor" aria-labelledby="weekly-inspection-heading" data-section="inspection">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 009A // INSPECTION INTEGRITY</div>
+            <h2 id="weekly-inspection-heading">Weekly Inspection</h2>
+            <p class="muted">Monday through Sunday. Discipline and evidence are measured separately.</p>
+          </div>
+          <span id="weekly-status" class="state-pill neutral">NOT READY</span>
+        </div>
+        <div class="weekly-controls">
+          <label>Inspect week containing <input id="weekly-date" type="date"></label>
+          <button id="inspect-week" type="button" class="ghost">Refresh Inspection</button>
+          <button id="finalize-week" type="button">Finalize Inspection</button>
+        </div>
+        <p id="weekly-warning" class="status"></p>
+        <div class="weekly-score-grid">
+          <div><span>Week</span><strong id="weekly-range">—</strong></div>
+          <div><span>Discipline</span><strong id="weekly-score">UNSCORED</strong></div>
+          <div><span>Evidence through today</span><strong id="weekly-coverage">0%</strong></div>
+          <div><span>Storage</span><strong id="weekly-storage">NOT LOADED</strong></div>
+        </div>
+        <div id="weekly-domain-scores" class="weekly-domain-scores"></div>
+        <dl class="weekly-facts">
+          <div><dt>Assessed / fully assessed days</dt><dd id="weekly-assessed-days">0 / 0</dd></div>
+          <div><dt>Unscored days</dt><dd id="weekly-unscored-days">7</dd></div>
+          <div><dt>Complete / partial / missed</dt><dd id="weekly-result-counts">0 / 0 / 0</dd></div>
+          <div><dt>Excused / N/A</dt><dd id="weekly-excluded-counts">0 / 0</dd></div>
+          <div><dt>Approved modifications</dt><dd id="weekly-modification-count">0</dd></div>
+          <div><dt>Evidence through</dt><dd id="weekly-evidence-through">—</dd></div>
+          <div><dt>Projected full-week coverage</dt><dd id="weekly-projected-coverage">0%</dd></div>
+          <div><dt>Calculation integrity</dt><dd id="weekly-calculation-meta">009A.1</dd></div>
+          <div><dt>Strongest domain</dt><dd id="weekly-strongest">UNSCORED</dd></div>
+          <div><dt>Weakest domain</dt><dd id="weekly-weakest">UNSCORED</dd></div>
+          <div><dt>Missed requirements</dt><dd id="weekly-missed">None recorded.</dd></div>
+          <div><dt>Excused conditions</dt><dd id="weekly-excused">None recorded.</dd></div>
+        </dl>
+        <details class="readiness-details" open>
+          <summary>Calculation evidence</summary>
+          <div id="weekly-evidence" class="evidence-list"></div>
+        </details>
+        <h3>Standards review history</h3>
+        <div id="weekly-standards-summary" class="standards-queue"></div>
+        <h3>Atlas After Action Report</h3>
+        <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
+        <section class="weekly-plan-panel" aria-labelledby="weekly-plan-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">BUILD 007E // ADAPTIVE WEEKLY PLAN</div><h3 id="weekly-plan-heading">Next Week’s Operating Plan</h3></div>
+            <span id="weekly-plan-status" class="state-pill neutral">AWAITING INSPECTION</span>
+          </div>
+          <div id="weekly-plan-output" class="performance-empty">Finalize a supported inspection to generate a plan.</div>
+          <p id="weekly-plan-feedback" class="muted"></p>
+        </section>
+        <p><a href="#trends">Continue to Trends &amp; Analytics</a></p>
+      </section>
+
+      <section id="trends" class="card trends-analytics scroll-anchor" aria-labelledby="trends-heading" data-section="trends">
+        <div class="section-heading">
+          <div><div class="kicker">BUILD 004C // LONGITUDINAL INTELLIGENCE</div><h2 id="trends-heading">Trends &amp; Analytics</h2><p id="trend-window" class="muted">Most recent four finalized scored inspections.</p></div>
+          <span id="trajectory-status" class="state-pill neutral">INSUFFICIENT HISTORY</span>
+        </div>
+        <p id="analytics-storage" class="muted">ANALYTICS NOT LOADED</p>
+        <div class="trend-summary-grid" aria-label="Trend priorities">
+          <div><span>Trajectory</span><strong id="trend-summary-trajectory">—</strong></div>
+          <div><span>Score change</span><strong id="trend-summary-score-change">—</strong></div>
+          <div><span>Evidence quality</span><strong id="trend-summary-evidence">—</strong></div>
+          <div><span>Domain at risk</span><strong id="trend-summary-domain">—</strong></div>
+          <div><span>Consistency</span><strong id="trend-summary-consistency">—</strong></div>
+        </div>
+        <div class="analytics-summary-grid">
+          <div><span>Latest finalized</span><strong id="trend-latest-score">UNSCORED</strong></div>
+          <div><span>Recent average</span><strong id="trend-average-score">UNSCORED</strong></div>
+          <div><span>Score change</span><strong id="trend-score-change">—</strong></div>
+          <div><span>Evidence change</span><strong id="trend-evidence-change">—</strong></div>
+          <div><span>Best finalized week</span><strong id="trend-best-week">—</strong></div>
+          <div><span>Lowest finalized week</span><strong id="trend-lowest-week">—</strong></div>
+          <div><span>Finalized inspections</span><strong id="trend-finalized-count">0</strong></div>
+          <div><span>Recent completion rate</span><strong id="trend-completion-rate">—</strong></div>
+        </div>
+        <div class="chart-grid">
+          <figure><figcaption>Weekly Discipline Score</figcaption><div id="discipline-trend-chart" class="trend-chart"></div></figure>
+          <figure><figcaption>Weekly Evidence Coverage</figcaption><div id="evidence-trend-chart" class="trend-chart"></div></figure>
+        </div>
+        <div id="trend-domain-grid" class="trend-domain-grid"></div>
+        <div class="streak-grid">
+          <div><span>Current assessed streak</span><strong id="current-assessed-streak">0 days</strong></div>
+          <div><span>Current fully assessed streak</span><strong id="current-full-streak">0 days</strong></div>
+          <div><span>Longest assessed streak</span><strong id="longest-assessed-streak">0 days</strong></div>
+        </div>
+        <h3>Atlas Trend Report</h3>
+        <pre id="atlas-trend-report" class="atlas-brief-output" aria-live="polite">Historical analytics are loading.</pre>
+      </section>
+
+      <section id="standards" class="card standards-review scroll-anchor" aria-labelledby="standards-heading" data-section="standards">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 011B // CORRECTIVE ACTION PLANS</div>
+            <h2 id="standards-heading">Standards Operations</h2>
+            <p class="muted">Review evidence, make a deliberate decision, and track confirmed actions through resolution. Coach Dominion never confirms a violation automatically.</p>
+          </div>
+          <span id="standards-state" class="state-pill neutral">CLEAR</span>
+        </div>
+        <div class="standards-summary-grid">
+          <div><span>Standards catalog</span><strong id="standards-catalog-count">0</strong></div>
+          <div><span>Open candidates</span><strong id="standards-candidate-count">0</strong></div>
+          <div><span>Confirmed</span><strong id="standards-confirmed-count">0</strong></div>
+          <div><span>Resolved</span><strong id="standards-resolved-count">0</strong></div>
+        </div>
+        <p id="standards-feedback" class="save-state" aria-live="polite">Standards decisions are evidence-based and auditable.</p>
+        <section class="standards-pattern-panel" aria-labelledby="standards-pattern-heading">
+          <div class="section-heading compact">
+            <div><span class="kicker">BUILD 011D // PATTERN INTELLIGENCE</span><h3 id="standards-pattern-heading">Repeated Patterns</h3><p class="muted">Patterns require multiple reviewed cases on distinct dates. Recommendations never change severity automatically.</p></div>
+            <span id="standards-pattern-state" class="state-pill neutral">INSUFFICIENT EVIDENCE</span>
+          </div>
+          <div id="standards-patterns" class="standards-queue"></div>
+        </section>
+        <div class="standards-operations-grid">
+          <section class="standards-lane" aria-labelledby="standards-review-lane-heading">
+            <div class="standards-lane-heading"><div><span class="kicker">QUEUE 01</span><h3 id="standards-review-lane-heading">Needs Review</h3></div><strong id="standards-review-count">0</strong></div>
+            <div id="standards-review-queue" class="standards-queue"></div>
+          </section>
+          <section class="standards-lane" aria-labelledby="standards-active-lane-heading">
+            <div class="standards-lane-heading"><div><span class="kicker">QUEUE 02</span><h3 id="standards-active-lane-heading">Active Actions</h3></div><strong id="standards-active-count">0</strong></div>
+            <div id="standards-active-queue" class="standards-queue"></div>
+          </section>
+          <section class="standards-lane" aria-labelledby="standards-resolved-lane-heading">
+            <div class="standards-lane-heading"><div><span class="kicker">QUEUE 03</span><h3 id="standards-resolved-lane-heading">Resolved</h3></div><strong id="standards-closed-count">0</strong></div>
+            <div id="standards-resolved-queue" class="standards-queue"></div>
+          </section>
+        </div>
+        <details class="standards-reference">
+          <summary>Standards catalog and decision rules</summary>
+          <div id="standards-catalog" class="standards-queue"></div>
+        </details>
+        <h3>Audit trail</h3>
+        <ul id="standards-audit-trail" class="feed"></ul>
+      </section>
+
+      <section id="rank" class="card rank-review scroll-anchor" aria-labelledby="rank-heading" data-section="rank">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 004F // RANK &amp; PROMOTION</div>
+            <h2 id="rank-heading">Rank &amp; Promotion</h2>
+            <p class="muted">Promotion is earned through finalized inspection history, evidence quality, standards discipline, and deliberate confirmation.</p>
+          </div>
+          <span id="rank-state" class="state-pill neutral">NOT ELIGIBLE</span>
+        </div>
+        <div class="standards-summary-grid">
+          <div><span>Current rank</span><strong id="rank-current">RECRUIT</strong></div>
+          <div><span>Next rank</span><strong id="rank-next">CADET</strong></div>
+          <div><span>Status</span><strong id="rank-status">NOT ELIGIBLE</strong></div>
+          <div><span>Qualifying weeks</span><strong id="rank-qualifying-weeks">0</strong></div>
+        </div>
+        <div class="standards-controls">
+          <button id="review-promotion" class="ghost" type="button">Review promotion</button>
           <button id="finalize-promotion" type="button">Authorize promotion</button>
         </div>
         <h3>Requirements checklist</h3>
@@ -579,4 +887,3 @@
 <script src="/assets/js/app.js"></script>
 </body>
 </html>
-

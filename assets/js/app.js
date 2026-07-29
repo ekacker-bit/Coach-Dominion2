@@ -4479,6 +4479,72 @@ function readDailyAssignmentExecution() {
   catch (_) { return { state: "NOT STARTED", completedSets: {} }; }
 }
 
+function latestDatedItem(items = [], dateKey = "date") {
+  return [...items].filter((item) => item && item[dateKey]).sort((a, b) => String(b[dateKey]).localeCompare(String(a[dateKey])))[0] || null;
+}
+
+function dataTruthSource(label, date, targetDate, source, required = false) {
+  const normalizedDate = String(date || "").slice(0, 10);
+  const status = !normalizedDate ? "MISSING" : normalizedDate === targetDate ? "CURRENT" : "HISTORICAL";
+  return {
+    label,
+    date: normalizedDate || null,
+    source,
+    required,
+    status,
+    explanation: status === "CURRENT"
+      ? `${source} contains evidence dated ${targetDate}.`
+      : status === "HISTORICAL"
+        ? `Latest ${source} evidence is dated ${normalizedDate}; no record dated ${targetDate} is present.`
+        : `No ${source} evidence is available.`
+  };
+}
+
+function buildDataTruthModel({ date, dailyState: state, fitbodSessions = [], nutritionDays = [], appleHealthDays = [], compliance = null, storageMode = "LOCAL" } = {}) {
+  const targetDate = date || todayISODate();
+  const sources = [
+    dataTruthSource("Readiness", state?.date, targetDate, "Morning Roll Call", true),
+    dataTruthSource("Training", latestDatedItem(fitbodSessions)?.date, targetDate, "Fitbod"),
+    dataTruthSource("Nutrition", latestDatedItem(nutritionDays)?.date, targetDate, "MyFitnessPal"),
+    dataTruthSource("Recovery metrics", latestDatedItem(appleHealthDays)?.date, targetDate, "Apple Health"),
+    dataTruthSource("Dominion Record", compliance?.compliance_date, targetDate, storageMode === "SUPABASE" ? "Supabase" : "local record", true)
+  ];
+  const counts = sources.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});
+  const requiredMissing = sources.filter((item) => item.required && item.status !== "CURRENT");
+  return {
+    date: targetDate,
+    sources,
+    counts,
+    state: requiredMissing.length ? "ACTION NEEDED" : counts.HISTORICAL || counts.MISSING ? "MIXED DATES" : "CURRENT",
+    summary: `${counts.CURRENT || 0} current · ${counts.HISTORICAL || 0} historical · ${counts.MISSING || 0} missing`,
+    requiredMissing: requiredMissing.map((item) => item.label)
+  };
+}
+
+function renderDataTruth() {
+  const grid = document.getElementById("data-truth-grid");
+  const state = document.getElementById("data-truth-state");
+  const api = connectedApi();
+  if (!grid || !state || !api) return;
+  const model = buildDataTruthModel({
+    date: todayISODate(),
+    dailyState,
+    fitbodSessions: api.groupFitbodWorkoutSessions(connectedImportedRecords),
+    nutritionDays: api.aggregateNutritionByDate(connectedImportedRecords),
+    appleHealthDays: api.summarizeAppleHealthByDate(connectedImportedRecords),
+    compliance: dailyCompliance,
+    storageMode: connectedStorageMode
+  });
+  setText("data-truth-summary", `${model.date} · ${model.summary}`);
+  state.textContent = model.state;
+  state.className = `state-pill ${model.state === "CURRENT" ? "green" : model.state === "ACTION NEEDED" ? "yellow" : "neutral"}`;
+  grid.innerHTML = model.sources.map((item) => `<article class="data-truth-source ${item.status.toLowerCase()}">
+    <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.status)}</strong></div>
+    <small>${escapeHtml(item.date || "No dated evidence")}</small>
+    <p>${escapeHtml(item.explanation)}</p>
+  </article>`).join("");
+}
+
 function buildCurrentDailyAssignment() {
   if (typeof DominionDailyAssignment === "undefined") return null;
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
@@ -4550,6 +4616,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   setText("today-sequence-evidence", recordComplete ? "Dominion Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
   setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
   renderTodayStandardsDuty();
+  renderDataTruth();
 }
 
 function renderDailyAssignment() {
@@ -5844,7 +5911,10 @@ function renderNutritionCommand() {
   const manual = readManualNutrition(date);
   const actual = imported || manual || {};
   const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
-  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const trainingDay = trainingSessions.some((session) => session.date === date);
+  const latestTrainingDate = latestDatedItem(trainingSessions)?.date || null;
+  const trainingContext = trainingDay ? "TRAINING DAY" : latestTrainingDate ? `NO TRAINING TODAY · LAST ${latestTrainingDate}` : "NO TRAINING EVIDENCE";
   const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
   const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
@@ -5862,7 +5932,7 @@ function renderNutritionCommand() {
   output.innerHTML = `<div class="nutrition-command-context">
       <div><span>Date</span><strong>${escapeHtml(date)}</strong></div>
       <div><span>Intake source</span><strong>${escapeHtml(command.source)}</strong></div>
-      <div><span>Context</span><strong>${trainingDay ? "TRAINING DAY" : "NO TRAINING IMPORT"} · ${escapeHtml(readiness)} READINESS</strong></div>
+      <div><span>Context</span><strong>${escapeHtml(trainingContext)} · ${escapeHtml(readiness)} READINESS</strong></div>
     </div>
     <div class="nutrition-command-grid">${metrics}</div>
     <div class="nutrition-guidance"><strong>Atlas guidance</strong><ul>${command.guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
@@ -6114,12 +6184,15 @@ function renderConnectedDominion() {
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
   setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "User-controlled Fitbod, MyFitnessPal, and Apple Health file imports are active. Live OAuth and background sync remain unavailable.");
   const overviewPanel = document.getElementById("connected-view-overview");
+  const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
+  const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
+  const latestHealthDate = latestDatedItem(api.summarizeAppleHealthByDate(connectedImportedRecords))?.date || "—";
   if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
     <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
     <div><span>Recent sync</span><strong>${escapeHtml(overview.mostRecentSyncStatus)}</strong></div><div><span>Imported records</span><strong>${overview.importedRecordCount}</strong></div>
     <div><span>Duplicates</span><strong>${overview.duplicateCount}</strong></div><div><span>Rejected</span><strong>${overview.rejectedCount}</strong></div>
     <div><span>Unmapped</span><strong>${overview.unmappedCount}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div>
-  </div><div class="connected-notice"><strong>Architecture preview:</strong> demo fixtures are isolated, labeled DEMO, and never imply live provider access.</div>`;
+  </div><div class="connected-summary-grid data-date-summary"><div><span>Latest Fitbod date</span><strong>${escapeHtml(latestFitbodDate)}</strong></div><div><span>Latest nutrition date</span><strong>${escapeHtml(latestNutritionDate)}</strong></div><div><span>Latest Apple Health date</span><strong>${escapeHtml(latestHealthDate)}</strong></div></div><div class="connected-notice"><strong>Date integrity:</strong> imported records remain available historically, but only evidence matching the active date is treated as current.</div>`;
 
   const providerPanel = document.getElementById("connected-view-providers");
   if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
@@ -6201,6 +6274,7 @@ function renderConnectedDominion() {
   renderDailyCoachingLoop();
   renderBaselineIntelligence();
   renderNutritionCommand();
+  renderDataTruth();
   setConnectedActiveView(connectedActiveView);
 }
 
@@ -7198,6 +7272,9 @@ if (typeof module !== "undefined") {
     buildChartSeries,
     generateAtlasTrendReport,
     deriveCommandCenterOverview,
+    latestDatedItem,
+    dataTruthSource,
+    buildDataTruthModel,
     normalizeSectionKey,
     shouldWarnBeforeNavigation,
     deriveDirtyState,

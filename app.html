@@ -240,6 +240,15 @@
           <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
         </header>
 
+        <details class="data-truth-strip">
+          <summary>
+            <span><strong>Evidence status</strong><small id="data-truth-summary">Checking dates and sources…</small></span>
+            <span id="data-truth-state" class="state-pill neutral">CHECKING</span>
+          </summary>
+          <div id="data-truth-grid" class="data-truth-grid" aria-live="polite"></div>
+          <p class="data-truth-note">“Historical” means the source exists but does not contain a record dated today. It is not treated as missing or noncompliant.</p>
+        </details>
+
         <details class="today-supporting-detail today-brief-detail">
           <summary><span>Morning brief</span><small>The full Atlas command narrative</small></summary>
         <article class="card atlas-brief" aria-labelledby="atlas-brief-heading">

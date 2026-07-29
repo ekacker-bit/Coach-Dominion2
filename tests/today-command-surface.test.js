@@ -20,12 +20,15 @@ assert.match(html, /NEEDS ATTENTION/);
 assert.match(html, /id="today-standards-panel"/);
 assert.match(html, /id="today-command-state"/);
 assert.match(html, /id="today-setup-attention"/);
+assert.match(html, /id="data-truth-grid"/);
+assert.match(html, /id="data-truth-state"/);
 assert.match(html, /class="today-supporting-detail today-workout-detail"/);
 assert.match(html, /class="today-supporting-detail today-intelligence-detail"/);
 assert.match(html, />Do this next</);
 assert.match(html, />Train · Fuel · Recover · Record</);
 assert.match(js, /function renderTodayStandardsDuty/);
 assert.match(js, /Training evidence is not current/);
+assert.match(js, /function buildDataTruthModel/);
 assert.match(js, /function detectStandardsPatterns/);
 assert.match(js, /function organizeWorkspaceSections/);
 assert.match(js, /element\.hidden = !isMatch/);
@@ -33,5 +36,25 @@ assert.match(css, /\.mobile-command-bar\{display:none\}/);
 assert.match(css, /position:fixed;display:grid/);
 assert.match(css, /Build 012A/);
 assert.match(css, /#today>\.daily-coaching-loop\{order:1\}/);
+assert.match(css, /\.data-truth-grid/);
+
+const truth = app.buildDataTruthModel({
+  date: "2026-07-29",
+  dailyState: { date: "2026-07-29" },
+  fitbodSessions: [{ date: "2026-07-27" }],
+  nutritionDays: [{ date: "2026-07-29" }],
+  appleHealthDays: [],
+  compliance: { compliance_date: "2026-07-29" },
+  storageMode: "SUPABASE"
+});
+assert.equal(truth.state, "MIXED DATES");
+assert.equal(truth.counts.CURRENT, 3);
+assert.equal(truth.counts.HISTORICAL, 1);
+assert.equal(truth.counts.MISSING, 1);
+assert.equal(truth.sources.find((item) => item.label === "Training").status, "HISTORICAL");
+
+const missingRequired = app.buildDataTruthModel({ date: "2026-07-29" });
+assert.equal(missingRequired.state, "ACTION NEEDED");
+assert.deepEqual(missingRequired.requiredMissing, ["Readiness", "Dominion Record"]);
 
 console.log("today command surface tests passed");

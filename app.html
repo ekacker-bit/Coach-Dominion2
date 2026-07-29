@@ -681,25 +681,21 @@
       <section id="performance" class="card performance-log scroll-anchor" aria-labelledby="performance-heading" data-section="performance">
         <div class="section-heading">
           <div>
-            <div class="kicker">BUILD 005A // PERFORMANCE LOGGING FOUNDATION</div>
-            <h2 id="performance-heading">Performance Logging</h2>
-            <p class="muted">Capture strength, running, core, conditioning, formal tests, and body metrics with deterministic validation and reviewable evidence.</p>
+            <div class="kicker">BUILD 013B // SIMPLIFIED TRAINING WORKSPACE</div>
+            <h2 id="performance-heading">Training</h2>
+            <p class="muted">Move from today’s prescription to execution, running, abs/core, and long-term progress without losing the evidence behind the plan.</p>
           </div>
           <span id="performance-storage" class="state-pill neutral">LOADING</span>
         </div>
-        <div class="performance-view-nav" role="tablist" aria-label="Performance views">
-          <button type="button" class="performance-view-tab active" role="tab" aria-selected="true" data-performance-view="overview">OVERVIEW</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="log">LOG</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="fitness_tests">FITNESS TESTS</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="records">RECORDS</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="milestones">MILESTONES</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="intelligence">INTELLIGENCE</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="running">RUNNING</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="programming">PROGRAMMING</button>
-          <button type="button" class="performance-view-tab" role="tab" aria-selected="false" data-performance-view="recovery">RECOVERY &amp; FUELING</button>
+        <div class="performance-view-nav" role="tablist" aria-label="Training destinations">
+          <button type="button" id="performance-tab-today_training" class="performance-view-tab active" role="tab" aria-selected="true" aria-controls="performance-view-today_training" data-performance-view="today_training">TODAY’S TRAINING</button>
+          <button type="button" id="performance-tab-log" class="performance-view-tab" role="tab" aria-selected="false" aria-controls="performance-view-log" data-performance-view="log">LOG</button>
+          <button type="button" id="performance-tab-running" class="performance-view-tab" role="tab" aria-selected="false" aria-controls="performance-view-running" data-performance-view="running">RUNNING</button>
+          <button type="button" id="performance-tab-core" class="performance-view-tab" role="tab" aria-selected="false" aria-controls="performance-view-core" data-performance-view="core">ABS / CORE</button>
+          <button type="button" id="performance-tab-progress" class="performance-view-tab" role="tab" aria-selected="false" aria-controls="performance-view-progress" data-performance-view="progress">PROGRESS</button>
         </div>
 
-        <div id="performance-view-overview" class="performance-view-panel">
+        <div id="performance-view-today_training" class="performance-view-panel" role="tabpanel" aria-labelledby="performance-tab-today_training">
           <div class="performance-summary-grid">
             <div><span>Entries this week</span><strong id="performance-week-count">0</strong></div>
             <div><span>Last strength</span><strong id="performance-strength-last">—</strong></div>
@@ -711,9 +707,45 @@
             <h3>Atlas Performance Review</h3>
             <div id="performance-atlas-review-output"></div>
           </div>
+          <div class="training-primary-action">
+            <div>
+              <span class="kicker">EXECUTION QUEUE</span>
+              <strong>Ready to train?</strong>
+              <p class="muted">Open Today for the approved assignment, exercise-by-exercise execution, and completion evidence.</p>
+            </div>
+            <a class="button-link" href="#today">Open today’s training</a>
+          </div>
+          <div class="training-review-stack">
+            <details id="training-programming-detail" class="training-review-detail">
+              <summary>Programming review <span>Next-session recommendation and approval</span></summary>
+              <div class="section-heading compact">
+                <div>
+                  <div class="kicker">BUILD 007A // EVIDENCE-BASED PROGRAMMING</div>
+                  <h3>Atlas Programming Review</h3>
+                  <p class="muted">Explainable next-session recommendations. Nothing changes until you approve a local draft.</p>
+                </div>
+                <span id="programming-status" class="state-pill neutral">LOADING</span>
+              </div>
+              <div id="programming-review-panel"></div>
+              <p id="programming-feedback" class="muted"></p>
+            </details>
+            <details id="training-recovery-detail" class="training-review-detail">
+              <summary>Recovery &amp; fueling <span>Readiness and training-load posture</span></summary>
+              <div class="section-heading compact">
+                <div>
+                  <div class="kicker">BUILD 007B // RECOVERY &amp; FUELING ADJUSTMENTS</div>
+                  <h3>Atlas Recovery &amp; Fueling Review</h3>
+                  <p class="muted">Training load, nutrition coverage, readiness, pain, and bodyweight evidence combined into one recovery posture.</p>
+                </div>
+                <span id="recovery-status" class="state-pill neutral">LOADING</span>
+              </div>
+              <div id="recovery-review-panel"></div>
+              <p id="recovery-feedback" class="muted"></p>
+            </details>
+          </div>
         </div>
 
-        <div id="performance-view-log" class="performance-view-panel" hidden>
+        <div id="performance-view-log" class="performance-view-panel" role="tabpanel" aria-labelledby="performance-tab-log" hidden>
           <form id="performance-form" class="performance-form">
             <div class="performance-form-grid">
               <label>Date<input id="performance-date" name="performance_date" type="date"></label>
@@ -782,42 +814,7 @@
           <div id="performance-entry-list" class="performance-entry-list"></div>
         </div>
 
-        <div id="performance-view-fitness_tests" class="performance-view-panel" hidden>
-          <div class="performance-subsection">
-            <h3>Fitness Tests</h3>
-            <label>Protocol<select id="fitness-protocol-selector"><option value="DOMINION_MONTHLY_FITNESS_TEST">Dominion Monthly Fitness Test</option><option value="CUSTOM_TEST">Custom Test</option></select></label>
-            <button id="fitness-start-new-test" class="ghost" type="button">Start new test</button>
-            <div id="fitness-test-summary" class="muted"></div>
-            <div id="fitness-test-history" class="performance-entry-list"></div>
-          </div>
-        </div>
-
-        <div id="performance-view-records" class="performance-view-panel" hidden>
-          <div class="performance-subsection">
-            <h3>Personal Records</h3>
-            <div id="performance-pr-list" class="performance-entry-list"></div>
-          </div>
-        </div>
-
-        <div id="performance-view-milestones" class="performance-view-panel" hidden>
-          <div class="performance-subsection">
-            <h3>Milestones</h3>
-            <div id="performance-milestone-catalog" class="performance-entry-list"></div>
-            <div id="performance-milestone-history" class="performance-entry-list"></div>
-          </div>
-        </div>
-
-        <div id="performance-view-intelligence" class="performance-view-panel" hidden>
-          <div class="section-heading compact">
-            <div>
-              <div class="kicker">BUILD 005D // PERFORMANCE INTELLIGENCE</div>
-              <h3>Intelligence</h3>
-            </div>
-            <span id="performance-intelligence-status" class="state-pill neutral">LOADING</span>
-          </div>
-          <div id="performance-intelligence-panel" class="performance-intelligence-panel"></div>
-        </div>
-        <div id="performance-view-running" class="performance-view-panel" hidden>
+        <div id="performance-view-running" class="performance-view-panel" role="tabpanel" aria-labelledby="performance-tab-running" hidden>
           <div class="section-heading compact">
             <div>
               <div class="kicker">BUILD 010A // RUNNING COMMAND</div>
@@ -829,29 +826,71 @@
           <div id="running-command-panel"></div>
           <p id="running-command-feedback" class="muted" aria-live="polite"></p>
         </div>
-        <div id="performance-view-programming" class="performance-view-panel" hidden>
+
+        <div id="performance-view-core" class="performance-view-panel" role="tabpanel" aria-labelledby="performance-tab-core" hidden>
           <div class="section-heading compact">
             <div>
-              <div class="kicker">BUILD 007A // EVIDENCE-BASED PROGRAMMING</div>
-              <h3>Atlas Programming Review</h3>
-              <p class="muted">Explainable next-session recommendations. Nothing changes until you approve a local draft.</p>
+              <div class="kicker">BUILD 013B // ABS &amp; CORE COMMAND</div>
+              <h3>Abs &amp; Core</h3>
+              <p class="muted">Track weekly core work, start a focused entry, and see the next objective without digging through the general log.</p>
             </div>
-            <span id="programming-status" class="state-pill neutral">LOADING</span>
+            <span id="core-command-status" class="state-pill neutral">NO CORE EVIDENCE</span>
           </div>
-          <div id="programming-review-panel"></div>
-          <p id="programming-feedback" class="muted"></p>
+          <div class="core-command-summary">
+            <div><span>Sessions this week</span><strong id="core-week-sessions">0</strong></div>
+            <div><span>Repetitions</span><strong id="core-week-reps">0</strong></div>
+            <div><span>Time under tension</span><strong id="core-week-time">0 min</strong></div>
+            <div><span>Active days</span><strong id="core-active-days">0</strong></div>
+          </div>
+          <div class="core-command-actions">
+            <button type="button" data-core-action="log">Log abs/core session</button>
+            <button type="button" class="ghost" data-core-action="benchmark">Start core benchmark</button>
+          </div>
+          <div class="core-command-grid">
+            <article class="core-command-card">
+              <span class="kicker">NEXT OBJECTIVE</span>
+              <div id="core-next-milestone" class="core-next-milestone"></div>
+            </article>
+            <article class="core-command-card">
+              <span class="kicker">RECENT CORE WORK</span>
+              <div id="core-recent-list" class="core-recent-list"></div>
+            </article>
+          </div>
         </div>
-        <div id="performance-view-recovery" class="performance-view-panel" hidden>
+
+        <div id="performance-view-progress" class="performance-view-panel" role="tabpanel" aria-labelledby="performance-tab-progress" hidden>
           <div class="section-heading compact">
             <div>
-              <div class="kicker">BUILD 007B // RECOVERY &amp; FUELING ADJUSTMENTS</div>
-              <h3>Atlas Recovery &amp; Fueling Review</h3>
-              <p class="muted">Training load, nutrition coverage, readiness, pain, and bodyweight evidence combined into one recovery posture.</p>
+              <div class="kicker">BUILD 013B // CONSOLIDATED PROGRESS</div>
+              <h3>Progress</h3>
+              <p class="muted">Intelligence, formal tests, personal records, and milestones—organized as one evidence review.</p>
             </div>
-            <span id="recovery-status" class="state-pill neutral">LOADING</span>
+            <span id="performance-intelligence-status" class="state-pill neutral">LOADING</span>
           </div>
-          <div id="recovery-review-panel"></div>
-          <p id="recovery-feedback" class="muted"></p>
+          <div class="progress-review-stack">
+            <details id="training-intelligence-detail" class="progress-review-detail" open>
+              <summary>Performance intelligence <span>Trajectory, confidence, and next benchmark</span></summary>
+              <div id="performance-intelligence-panel" class="performance-intelligence-panel"></div>
+            </details>
+            <details id="training-fitness-tests-detail" class="progress-review-detail">
+              <summary>Fitness tests <span>Protocols, active attempt, and history</span></summary>
+              <div class="performance-subsection">
+                <label>Protocol<select id="fitness-protocol-selector"><option value="DOMINION_MONTHLY_FITNESS_TEST">Dominion Monthly Fitness Test</option><option value="CUSTOM_TEST">Custom Test</option></select></label>
+                <button id="fitness-start-new-test" class="ghost" type="button">Start new test</button>
+                <div id="fitness-test-summary" class="muted"></div>
+                <div id="fitness-test-history" class="performance-entry-list"></div>
+              </div>
+            </details>
+            <details id="training-records-detail" class="progress-review-detail">
+              <summary>Personal records <span>Best verified and self-reported performances</span></summary>
+              <div id="performance-pr-list" class="performance-entry-list"></div>
+            </details>
+            <details id="training-milestones-detail" class="progress-review-detail">
+              <summary>Milestones <span>Completed achievements and next thresholds</span></summary>
+              <div id="performance-milestone-catalog" class="performance-entry-list"></div>
+              <div id="performance-milestone-history" class="performance-entry-list"></div>
+            </details>
+          </div>
         </div>
       </section>
 

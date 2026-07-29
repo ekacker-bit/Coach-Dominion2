@@ -15,7 +15,8 @@ const {
   dedupeViolationCandidates,
   buildStandardsReviewState,
   deriveStandardsReviewStateFromRecord,
-  sanitizeStandardsReviewState
+  sanitizeStandardsReviewState,
+  deriveStandardsOperations
 } = require('../assets/js/app.js');
 
 const standards = getStandardsCatalog();
@@ -107,5 +108,15 @@ assert.equal(derivedReviewState.length, 1, 'a missed record can derive a standar
 
 const sanitized = sanitizeStandardsReviewState([{ id: 'one', status: 'CONFIRMED', protectedException: 'approved_modification', severity: { level: 'LEVEL II' } }]);
 assert.equal(sanitized[0].status, 'CONFIRMED', 'sanitized state preserves confirmed status');
+
+const operations = deriveStandardsOperations([
+  { id: 'review', status: 'CANDIDATE', evidence: 'missing record', sourceType: 'daily_compliance', sourceDate: '2026-07-27' },
+  { id: 'active', status: 'CONFIRMED', evidence: 'confirmed miss', sourceType: 'daily_compliance', sourceDate: '2026-07-26' },
+  { id: 'closed', status: 'RESOLVED', evidence: 'corrected', sourceType: 'daily_compliance', sourceDate: '2026-07-25' }
+], '2026-07-29');
+assert.equal(operations.needsReview.length, 1, 'operations center separates review candidates');
+assert.equal(operations.activeActions.length, 1, 'operations center separates active actions');
+assert.equal(operations.resolved.length, 1, 'operations center separates resolved history');
+assert.equal(operations.needsReview[0].evidenceConfidence, 'HIGH', 'operations center labels evidence confidence');
 
 console.log('standards violations tests passed');

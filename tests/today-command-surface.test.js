@@ -27,6 +27,9 @@ assert.match(html, /id="data-truth-grid"/);
 assert.match(html, /id="data-truth-state"/);
 assert.match(html, /id="activation-guide"/);
 assert.match(html, /id="activation-guide-list"/);
+assert.match(html, /id="review-hub-state"/);
+assert.match(html, /id="review-journey"/);
+assert.match(html, /BUILD 012E \/\/ UNIFIED WEEKLY REVIEW/);
 assert.match(html, /class="today-supporting-detail today-workout-detail"/);
 assert.match(html, /class="today-supporting-detail today-intelligence-detail"/);
 assert.match(html, />Do this next</);
@@ -35,6 +38,7 @@ assert.match(js, /function renderTodayStandardsDuty/);
 assert.match(js, /Training evidence is not current/);
 assert.match(js, /function buildDataTruthModel/);
 assert.match(js, /function buildActivationGuide/);
+assert.match(js, /function buildReviewJourney/);
 assert.match(js, /function detectStandardsPatterns/);
 assert.match(js, /function organizeWorkspaceSections/);
 assert.match(js, /element\.hidden = !isMatch/);
@@ -84,5 +88,29 @@ const operational = app.buildActivationGuide({
   inspections: [{ finalizedAt: "2026-07-29T12:00:00Z" }]
 });
 assert.equal(operational.complete, true);
+
+const reviewReady = app.buildReviewJourney({
+  inspection: { canFinalize: true },
+  standardsItems: [],
+  finalizedInspections: []
+});
+assert.equal(reviewReady.state, "READY TO FINALIZE");
+assert.equal(reviewReady.next.section, "inspection");
+
+const reviewBlocked = app.buildReviewJourney({
+  inspection: { finalizedAt: "2026-07-29T12:00:00Z" },
+  standardsItems: [{ status: "CONFIRMED" }],
+  finalizedInspections: [{ finalizedAt: "2026-07-29T12:00:00Z" }]
+});
+assert.equal(reviewBlocked.state, "ACTION NEEDED");
+assert.equal(reviewBlocked.next.section, "standards");
+
+const reviewComplete = app.buildReviewJourney({
+  inspection: { finalizedAt: "2026-07-29T12:00:00Z" },
+  standardsItems: [{ status: "RESOLVED" }],
+  finalizedInspections: [{ finalizedAt: "2026-07-22T12:00:00Z" }, { finalizedAt: "2026-07-29T12:00:00Z" }]
+});
+assert.equal(reviewComplete.state, "REVIEW COMPLETE");
+assert.equal(reviewComplete.next.section, "trends");
 
 console.log("today command surface tests passed");

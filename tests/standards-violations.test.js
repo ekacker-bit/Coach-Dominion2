@@ -7,6 +7,8 @@ const {
   calculateViolationSeverity,
   validateViolationTransition,
   selectCorrectiveAction,
+  buildCorrectiveActionPlan,
+  deriveCorrectiveActionStatus,
   generateAtlasStandardsReview,
   buildViolationAuditEvent,
   summarizeWeeklyViolationHistory,
@@ -82,6 +84,12 @@ assert.equal(resolvedStable.valid, false, 'resolved records remain stable');
 const action = selectCorrectiveAction({ classification: 'CONFIRMED', severity: 'LEVEL II', domain: 'mission' });
 assert.equal(action.type, 'review_the_standard', 'corrective action is safe and deterministic');
 
+const actionPlan = buildCorrectiveActionPlan({ classification: 'CONFIRMED', severity: 'LEVEL II', domain: 'mission' }, '2026-07-29');
+assert.equal(actionPlan.dueDate, '2026-08-01', 'level II action plans receive a deterministic three-day deadline');
+assert.ok(actionPlan.successCriteria.includes('mission'), 'action plans define domain-specific success criteria');
+assert.equal(deriveCorrectiveActionStatus(actionPlan, '2026-08-02'), 'OVERDUE', 'past-due incomplete actions are overdue');
+assert.equal(deriveCorrectiveActionStatus({ ...actionPlan, completionSubmittedAt: '2026-07-30T12:00:00Z' }, '2026-08-02'), 'AWAITING REVIEW', 'submitted evidence awaits explicit review');
+
 const review = generateAtlasStandardsReview({ standardCode: 'MISSION-EXECUTION-01', status: 'CONFIRMED', severity: 'LEVEL II', evidence: 'missed execution target' });
 assert.ok(review.text.includes('ATLAS // STANDARDS REVIEW'), 'review report includes expected header');
 
@@ -97,6 +105,8 @@ assert.equal(derivedState.storageLabel, 'LOCAL FALLBACK', 'local fallback is lab
 
 const payload = buildStandardsPersistencePayload({ id: 'v-1', standardCode: 'MISSION-EXECUTION-01' });
 assert.equal(payload.standard_code, 'MISSION-EXECUTION-01', 'persistence payload uses database field names');
+const actionPayload = buildStandardsPersistencePayload({ correctiveAction: actionPlan });
+assert.equal(actionPayload.corrective_action_success_criteria, actionPlan.successCriteria, 'persistence preserves action success criteria');
 
 const source = { domain: 'mission', evidence: 'missed', protectedException: null };
 const reviewState = buildStandardsReviewState(source, '2026-07-01');

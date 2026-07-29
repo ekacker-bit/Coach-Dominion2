@@ -29,6 +29,11 @@ assert.match(html, /id="activation-guide"/);
 assert.match(html, /id="activation-guide-list"/);
 assert.match(html, /id="review-hub-state"/);
 assert.match(html, /id="review-journey"/);
+assert.match(html, /class="skip-link" href="#app-content"/);
+assert.match(html, /id="app-content" tabindex="-1"/);
+assert.match(html, /id="status-data"/);
+assert.match(html, /<h2 id="connected-heading">Connections &amp; Data<\/h2>/);
+assert.match(html, /class="product-diagnostics"/);
 assert.match(html, /BUILD 012E \/\/ UNIFIED WEEKLY REVIEW/);
 assert.match(html, /class="today-supporting-detail today-workout-detail"/);
 assert.match(html, /class="today-supporting-detail today-intelligence-detail"/);
@@ -39,6 +44,9 @@ assert.match(js, /Training evidence is not current/);
 assert.match(js, /function buildDataTruthModel/);
 assert.match(js, /function buildActivationGuide/);
 assert.match(js, /function buildReviewJourney/);
+assert.match(js, /function applyProductPolish/);
+assert.match(js, /target\.focus\(\{ preventScroll: true \}\)/);
+assert.match(js, /event\.key !== "Escape"/);
 assert.match(js, /function detectStandardsPatterns/);
 assert.match(js, /function organizeWorkspaceSections/);
 assert.match(js, /element\.hidden = !isMatch/);
@@ -47,6 +55,12 @@ assert.match(css, /position:fixed;display:grid/);
 assert.match(css, /Build 012A/);
 assert.match(css, /#today>\.daily-coaching-loop\{order:1\}/);
 assert.match(css, /\.data-truth-grid/);
+assert.match(css, /\.skip-link/);
+assert.match(css, /\.developer-label\{display:none!important\}/);
+assert.match(css, /env\(safe-area-inset-bottom\)/);
+
+assert.equal(app.isDeveloperBuildLabel("BUILD 012F // Product polish"), true);
+assert.equal(app.isDeveloperBuildLabel("DATA CONNECTIONS"), false);
 
 const truth = app.buildDataTruthModel({
   date: "2026-07-29",

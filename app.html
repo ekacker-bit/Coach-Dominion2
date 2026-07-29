@@ -8,6 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+  <a class="skip-link" href="#app-content">Skip to main workspace</a>
   <main class="war-room-shell">
     <header class="command-header">
       <div>
@@ -43,13 +44,13 @@
       <div><span>Steps</span><strong id="status-steps">—</strong></div>
       <div><span>RHR</span><strong id="status-rhr">—</strong></div>
       <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
-      <div><span>Build</span><strong>0.3.2</strong></div>
+      <div><span>Data</span><strong id="status-data">CHECKING</strong></div>
     </section>
 
     <p class="status" id="status"></p>
     <p class="muted loading" id="loading">Loading today's Daily State…</p>
 
-    <div id="app-content" hidden>
+    <div id="app-content" tabindex="-1" hidden>
       <section id="roll-call-required" class="card alert" hidden>
         <div class="kicker">DAILY STATE</div>
         <h2>Morning Roll Call Required.</h2>
@@ -59,14 +60,14 @@
       <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
         <div class="section-heading">
           <div>
-            <div class="kicker">BUILD 006A · ARCHITECTURE PREVIEW</div>
-            <h2 id="connected-heading">Connected Dominion</h2>
-            <p class="muted">Provider-neutral import architecture. No live provider connections, OAuth, credentials, or external sync requests are active.</p>
+            <div class="kicker">DATA CONNECTIONS</div>
+            <h2 id="connected-heading">Connections &amp; Data</h2>
+            <p class="muted">Import files from Fitbod, MyFitnessPal, and Apple Health. Live account connections and automatic background sync are not yet available.</p>
           </div>
           <span id="connected-storage" class="state-pill neutral">LOADING</span>
         </div>
         <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
-        <div class="connected-view-nav" role="tablist" aria-label="Connected Dominion views">
+        <div class="connected-view-nav" role="tablist" aria-label="Connections and data views">
           <button type="button" class="connected-view-tab active" role="tab" aria-selected="true" data-connected-view="overview">OVERVIEW</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="providers">PROVIDERS</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="accounts">ACCOUNTS</button>
@@ -96,9 +97,17 @@
             <li>Permission selections are stored per simulated account and grant no live provider access.</li>
             <li>Remote storage is user-scoped when migration 009 is applied; otherwise state uses a clearly labeled user-scoped local fallback.</li>
             <li>Disconnecting preserves account, sync, imported-record, and provenance history for auditability.</li>
-            <li>This architecture-only build does not provide provider-side deletion or revoke data already copied into local history.</li>
+            <li>Deleting a connection here does not delete information from the original provider or remove records already copied into import history.</li>
             <li>Live integrations are not active. Demo sync uses built-in fixtures only and remains visibly marked DEMO.</li>
           </ul>
+          <details class="product-diagnostics">
+            <summary>Product diagnostics</summary>
+            <dl>
+              <div><dt>Version</dt><dd>0.3.2</dd></div>
+              <div><dt>Environment</dt><dd>Closed alpha</dd></div>
+              <div><dt>Storage</dt><dd id="diagnostic-storage">Checking</dd></div>
+            </dl>
+          </details>
         </div>
       </section>
 

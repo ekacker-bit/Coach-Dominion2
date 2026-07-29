@@ -256,9 +256,10 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "weekly" || normalized === "inspection" || normalized === "weekly-inspection") return "inspection";
   if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
-  if (normalized === "performance" || normalized === "performance-log") return "performance";
+  if (normalized === "performance" || normalized === "performance-log" || normalized === "train") return "performance";
   if (normalized === "nutrition" || normalized === "fuel") return "nutrition";
-  if (normalized === "connected" || normalized === "integrations") return "connected";
+  if (normalized === "connected" || normalized === "integrations" || normalized === "more" || normalized === "settings") return "connected";
+  if (normalized === "review") return "inspection";
   return "today";
 }
 
@@ -4545,6 +4546,47 @@ function renderDataTruth() {
   </article>`).join("");
 }
 
+function buildActivationGuide({ date, dailyState: state, hasFuelingBaseline = false, importedRecords = [], compliance = null, inspections = [], currentInspection = null } = {}) {
+  const targetDate = date || todayISODate();
+  const hasUserImport = importedRecords.some((record) => !record.isDemo && !["REJECTED", "DUPLICATE"].includes(record.importStatus));
+  const hasFinalizedInspection = Boolean(currentInspection?.finalizedAt) || inspections.some((inspection) => inspection?.finalizedAt);
+  const steps = [
+    { id: "roll-call", label: "Complete today’s Roll Call", detail: "Establish current readiness and safety constraints.", section: "today", action: "Complete Roll Call", complete: state?.date === targetDate },
+    { id: "fueling", label: "Approve a fueling baseline", detail: "Unlock daily calorie, protein, and meal guidance.", section: "nutrition", action: "Set fueling targets", complete: hasFuelingBaseline },
+    { id: "connections", label: "Import your first real data source", detail: "Add a Fitbod, MyFitnessPal, or Apple Health file.", section: "connected", action: "Import evidence", complete: hasUserImport },
+    { id: "record", label: "Save today’s Dominion Record", detail: "Create the execution evidence used by weekly review.", section: "record", action: "Open Dominion Record", complete: compliance?.compliance_date === targetDate },
+    { id: "inspection", label: "Finalize your first Weekly Review", detail: "Close the loop from daily evidence to the next operating plan.", section: "inspection", action: "Open Weekly Review", complete: hasFinalizedInspection }
+  ];
+  const completed = steps.filter((step) => step.complete).length;
+  return { steps, completed, total: steps.length, percent: Math.round(completed / steps.length * 100), complete: completed === steps.length };
+}
+
+function renderActivationGuide() {
+  const panel = document.getElementById("activation-guide");
+  const list = document.getElementById("activation-guide-list");
+  const badge = document.getElementById("activation-guide-state");
+  const progress = document.querySelector("#activation-guide-progress span");
+  if (!panel || !list || !badge || !progress) return;
+  const guide = buildActivationGuide({
+    date: todayISODate(),
+    dailyState,
+    hasFuelingBaseline: Boolean(typeof activeNutritionBaseline === "function" && activeNutritionBaseline(todayISODate())),
+    importedRecords: connectedImportedRecords,
+    compliance: dailyCompliance,
+    inspections: inspectionHistory,
+    currentInspection: weeklyInspection
+  });
+  panel.hidden = guide.complete;
+  badge.textContent = `${guide.completed}/${guide.total} COMPLETE`;
+  badge.className = `state-pill ${guide.completed ? "yellow" : "neutral"}`;
+  progress.style.width = `${guide.percent}%`;
+  list.innerHTML = guide.steps.filter((step) => !step.complete).map((step, index) => `<article class="activation-step">
+    <span class="activation-step-number">${guide.completed + index + 1}</span>
+    <div><h3>${escapeHtml(step.label)}</h3><p>${escapeHtml(step.detail)}</p></div>
+    <a href="#${escapeHtml(step.section)}" data-section="${escapeHtml(step.section)}">${escapeHtml(step.action)}</a>
+  </article>`).join("");
+}
+
 function buildCurrentDailyAssignment() {
   if (typeof DominionDailyAssignment === "undefined") return null;
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
@@ -4617,6 +4659,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
   renderTodayStandardsDuty();
   renderDataTruth();
+  renderActivationGuide();
 }
 
 function renderDailyAssignment() {
@@ -5469,6 +5512,11 @@ function setActiveSection(section = "today") {
     link.classList.toggle("active", isActive);
     link.setAttribute("aria-current", isActive ? "page" : "false");
   });
+  const more = document.querySelector(".nav-more");
+  if (more) {
+    more.classList.toggle("active", ["trends", "standards", "rank", "record", "connected"].includes(normalized));
+    if (more.open) more.removeAttribute("open");
+  }
   document.querySelectorAll(".scroll-anchor").forEach((element) => {
     const isMatch = element.id === normalized || element.dataset.section === normalized;
     element.classList.toggle("is-active", isMatch);
@@ -6275,6 +6323,7 @@ function renderConnectedDominion() {
   renderBaselineIntelligence();
   renderNutritionCommand();
   renderDataTruth();
+  renderActivationGuide();
   setConnectedActiveView(connectedActiveView);
 }
 
@@ -7275,6 +7324,7 @@ if (typeof module !== "undefined") {
     latestDatedItem,
     dataTruthSource,
     buildDataTruthModel,
+    buildActivationGuide,
     normalizeSectionKey,
     shouldWarnBeforeNavigation,
     deriveDirtyState,
@@ -8209,6 +8259,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
   renderWeeklyPlan(aggregate);
   renderStandardsSection();
+  renderActivationGuide();
 }
 
 async function loadWeeklyInspectionLegacy() {

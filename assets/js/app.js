@@ -749,6 +749,23 @@ function summarizeWeeklyViolationHistory(items = []) {
   return { confirmedCount, resolvedCount, dismissedCount, excusedCount };
 }
 
+function deriveStandardsOperations(items = [], today = todayISODate()) {
+  const ordered = sanitizeStandardsReviewState(items).slice().sort((left, right) =>
+    String(right.updatedAt || right.updated_at || right.sourceDate || "").localeCompare(String(left.updatedAt || left.updated_at || left.sourceDate || ""))
+  );
+  const decorate = (item) => {
+    const sourceDate = item.sourceDate || item.source_date || today;
+    const ageDays = Math.max(0, Math.floor((new Date(`${today}T12:00:00Z`) - new Date(`${sourceDate}T12:00:00Z`)) / 86400000));
+    const evidenceConfidence = item.evidence && (item.sourceType || item.source_type) ? "HIGH" : item.evidence ? "MODERATE" : "LOW";
+    return { ...item, ageDays, evidenceConfidence };
+  };
+  return {
+    needsReview: ordered.filter((item) => ["CANDIDATE", "UNDER REVIEW"].includes(item.status)).map(decorate),
+    activeActions: ordered.filter((item) => ["CONFIRMED", "CORRECTED"].includes(item.status)).map(decorate),
+    resolved: ordered.filter((item) => ["RESOLVED", "DISMISSED", "EXCUSED"].includes(item.status)).map(decorate)
+  };
+}
+
 function deriveStandardsState(item = {}, storageMode = "SUPABASE") {
   const stateLabel = item.status === "CONFIRMED" ? "Confirmed" : item.status === "RESOLVED" ? "Resolved" : item.status === "DISMISSED" ? "Dismissed" : item.status === "EXCUSED" ? "Excused" : item.status === "CORRECTED" ? "Corrected" : "Candidate";
   const normalizedStorageMode = String(storageMode || "SUPABASE").toUpperCase();
@@ -812,6 +829,36 @@ function sanitizeStandardsReviewState(items = []) {
     protectedException: item.protectedException || null,
     sourceDate: item.sourceDate || todayISODate()
   }));
+}
+
+function normalizeRemoteStandardsItem(item = {}) {
+  const sourceType = item.source_type || item.sourceType || "daily_compliance";
+  const sourceDate = item.source_date || item.sourceDate || todayISODate();
+  const domain = item.domain || "reporting";
+  return sanitizeStandardsReviewState([{
+    ...item,
+    id: sourceType === "daily_compliance" ? `${sourceDate}:${domain}` : `${sourceType}:${domain}:${sourceDate}`,
+    databaseId: item.id || item.databaseId || null,
+    standardCode: item.standard_code || item.standardCode || standardsDomainCode(domain),
+    sourceType,
+    sourceId: item.source_id || item.sourceId || null,
+    sourceDate,
+    protectedException: item.protected_exceptions || item.protectedException || null,
+    candidateReason: item.candidate_reason || item.candidateReason || null,
+    severity: { level: item.severity || "LEVEL I", explanation: "Loaded from Supabase." },
+    correctiveAction: item.corrective_action_type ? {
+      type: item.corrective_action_type,
+      description: item.corrective_action_description || "",
+      dueDate: item.corrective_action_due_date || null
+    } : null,
+    confirmedAt: item.confirmed_at || null,
+    correctedAt: item.corrected_at || null,
+    resolvedAt: item.resolved_at || null,
+    dismissedAt: item.dismissed_at || null,
+    excusedAt: item.excused_at || null,
+    createdAt: item.created_at || null,
+    updatedAt: item.updated_at || null
+  }])[0];
 }
 
 function buildStandardsPersistencePayload(item = {}) {
@@ -6880,24 +6927,32 @@ if (typeof document !== "undefined") {
       renderRankSection();
     });
   }
-  const reviewStandardsButton = document.getElementById("review-standards-candidate");
-  const confirmStandardsButton = document.getElementById("confirm-standards-candidate");
-  if (reviewStandardsButton) {
-    reviewStandardsButton.addEventListener("click", () => {
-      const selected = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance))[0];
-      if (!selected) return;
-      const updated = updateStandardsReviewItem(selected, "UNDER REVIEW");
-      if (updated) renderStandardsSection();
-    });
-  }
-  if (confirmStandardsButton) {
-    confirmStandardsButton.addEventListener("click", () => {
-      const selected = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance))[0];
-      if (!selected) return;
-      const updated = updateStandardsReviewItem(selected, "CONFIRMED");
-      if (updated) renderStandardsSection();
-    });
-  }
+  document.getElementById("standards")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-standard-action]");
+    if (!button) return;
+    const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
+    const selected = items.find((item) => item.id === button.dataset.standardId);
+    if (!selected) return;
+    const statusByAction = {
+      review: "UNDER REVIEW", clarify: "UNDER REVIEW", confirm: "CONFIRMED",
+      dismiss: "DISMISSED", excuse: "EXCUSED", correct: "CORRECTED", resolve: "RESOLVED"
+    };
+    const nextStatus = statusByAction[button.dataset.standardAction];
+    if (!nextStatus) return;
+    const note = button.dataset.standardAction === "clarify" ? "Clarification requested before a decision." : `Decision recorded: ${nextStatus.toLowerCase().replaceAll(" ", "_")}.`;
+    const updated = updateStandardsReviewItem(selected, nextStatus, note);
+    if (!updated) {
+      setText("standards-feedback", `That transition is not available from ${selected.status}.`);
+      return;
+    }
+    try {
+      await saveStandardsReviewStateToSupabase([updated]);
+      setText("standards-feedback", `${nextStatus.replaceAll("_", " ")} saved to your account.`);
+    } catch (_) {
+      setText("standards-feedback", `${nextStatus.replaceAll("_", " ")} saved locally. Remote standards storage is temporarily unavailable.`);
+    }
+    renderStandardsSection();
+  });
   document.getElementById("dismiss-onboarding").addEventListener("click", () => {
     onboardingDismissed = true;
     persistOnboardingState();
@@ -7005,6 +7060,7 @@ if (typeof module !== "undefined") {
     generateAtlasStandardsReview,
     buildViolationAuditEvent,
     summarizeWeeklyViolationHistory,
+    deriveStandardsOperations,
     deriveStandardsState,
     buildStandardsReviewState,
     deriveStandardsReviewStateFromRecord,
@@ -7142,7 +7198,7 @@ function deriveStandardsReviewItems(record = null) {
 
 function mergeStandardsReviewItems(items = []) {
   const existing = loadStandardsReviewState();
-  return items.map((item) => {
+  const mergedCurrent = items.map((item) => {
     const persisted = existing.find((record) => record.id === item.id);
     if (!persisted) return item;
     return {
@@ -7153,9 +7209,11 @@ function mergeStandardsReviewItems(items = []) {
       protectedException: persisted.protectedException || item.protectedException
     };
   });
+  const currentIds = new Set(mergedCurrent.map((item) => item.id));
+  return sanitizeStandardsReviewState([...mergedCurrent, ...existing.filter((item) => !currentIds.has(item.id))]);
 }
 
-function updateStandardsReviewItem(candidate, nextStatus) {
+function updateStandardsReviewItem(candidate, nextStatus, note = "") {
   const transition = validateViolationTransition(candidate.status || "CANDIDATE", nextStatus);
   if (!transition.valid) return null;
   const updated = {
@@ -7163,6 +7221,11 @@ function updateStandardsReviewItem(candidate, nextStatus) {
     status: nextStatus,
     classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : nextStatus === "DISMISSED" ? "DISMISSED" : nextStatus === "EXCUSED" ? "EXCUSED" : candidate.classification || "CANDIDATE",
     correctiveAction: candidate.correctiveAction || selectCorrectiveAction({ classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : candidate.classification || "CANDIDATE", severity: candidate.severity?.level || "LEVEL I", domain: candidate.domain }),
+    confirmedAt: nextStatus === "CONFIRMED" ? new Date().toISOString() : candidate.confirmedAt,
+    correctedAt: nextStatus === "CORRECTED" ? new Date().toISOString() : candidate.correctedAt,
+    resolvedAt: nextStatus === "RESOLVED" ? new Date().toISOString() : candidate.resolvedAt,
+    dismissedAt: nextStatus === "DISMISSED" ? new Date().toISOString() : candidate.dismissedAt,
+    excusedAt: nextStatus === "EXCUSED" ? new Date().toISOString() : candidate.excusedAt,
     updatedAt: new Date().toISOString()
   };
   const existingIndex = standardsReviewState.findIndex((item) => item.id === candidate.id);
@@ -7171,7 +7234,7 @@ function updateStandardsReviewItem(candidate, nextStatus) {
   } else {
     standardsReviewState.push(updated);
   }
-  const event = buildViolationAuditEvent(candidate.id, candidate.status || "CANDIDATE", nextStatus, `Reviewed via ${nextStatus.toLowerCase().replaceAll(" ", "_")}`);
+  const event = buildViolationAuditEvent(candidate.id, candidate.status || "CANDIDATE", nextStatus, note || `Reviewed via ${nextStatus.toLowerCase().replaceAll(" ", "_")}`);
   const events = loadStandardsAuditEvents();
   events.push({ ...event, violationId: candidate.id, userId: session?.user?.id || null, createdAt: new Date().toISOString() });
   saveStandardsAuditEvents(events);
@@ -7211,7 +7274,14 @@ function composeStandardsPersistencePayload(candidate, storageMode = "SUPABASE")
 
 async function saveStandardsReviewStateToSupabase(items = []) {
   const supabase = await getClient();
-  const payloads = sanitizeStandardsReviewState(items).map((item) => composeStandardsPersistencePayload(item, "SUPABASE"));
+  const payloads = sanitizeStandardsReviewState(items).map((item) => {
+    const payload = composeStandardsPersistencePayload(item, "SUPABASE");
+    const databaseId = item.databaseId || item.database_id;
+    if (databaseId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(databaseId)) payload.id = databaseId;
+    else delete payload.id;
+    Object.keys(payload).forEach((key) => payload[key] === null && delete payload[key]);
+    return payload;
+  });
   const { error } = await supabase.from("standards_violations").upsert(payloads, { onConflict: "user_id,standard_code,source_type,source_date,domain" });
   if (error) throw error;
 }
@@ -7332,8 +7402,8 @@ function renderStandardsSection() {
   if (!container) return;
   const catalog = getStandardsCatalog();
   const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
-  const openItems = items.filter((item) => !["RESOLVED", "DISMISSED", "EXCUSED"].includes(item.status));
-  const selected = items[0] || null;
+  const operations = deriveStandardsOperations(items);
+  const openItems = [...operations.needsReview, ...operations.activeActions];
   const summaryState = openItems.length ? (openItems.some((item) => item.status === "CONFIRMED") ? "REVIEWING" : "MONITORING") : "CLEAR";
   setText("standards-catalog-count", catalog.length);
   setText("standards-candidate-count", openItems.length);
@@ -7344,32 +7414,35 @@ function renderStandardsSection() {
     badge.textContent = summaryState;
     badge.className = `state-pill ${summaryState === "REVIEWING" ? "yellow" : summaryState === "MONITORING" ? "neutral" : "green"}`;
   }
-  const queue = document.getElementById("standards-queue");
-  if (queue) {
-    queue.innerHTML = items.length
-      ? items.map((item) => {
-        const pillClass = item.status === "CONFIRMED" ? "green" : item.status === "UNDER REVIEW" ? "yellow" : "neutral";
-        return `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${pillClass}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`;
-      }).join("")
-      : '<div class="standards-empty">No standards review candidates detected for the current Dominion Record.</div>';
-  }
-  const output = document.getElementById("standards-review-output");
-  if (output) {
-    if (!selected) {
-      output.textContent = "No standards review candidates yet. Save a Dominion Record with a missed domain to populate the queue.";
-    } else {
-      const review = generateAtlasStandardsReview({
-        status: selected.status || "CANDIDATE",
-        standardCode: selected.standardCode || standardsDomainCode(selected.domain),
-        severity: selected.severity,
-        evidence: selected.evidence || "No evidence recorded.",
-        protectedException: selected.protectedException || "None",
-        classification: selected.classification || "CANDIDATE",
-        correctiveAction: selected.correctiveAction || selectCorrectiveAction({ classification: selected.classification || "CANDIDATE", severity: selected.severity?.level || "LEVEL I", domain: selected.domain })
-      });
-      output.textContent = review.text;
-    }
-  }
+  setText("standards-review-count", operations.needsReview.length);
+  setText("standards-active-count", operations.activeActions.length);
+  setText("standards-closed-count", operations.resolved.length);
+  const renderCard = (item, lane) => {
+    const standard = catalog.find((entry) => entry.code === (item.standardCode || standardsDomainCode(item.domain)));
+    const actions = lane === "review"
+      ? `<button type="button" class="ghost" data-standard-action="clarify" data-standard-id="${escapeHtml(item.id)}">Request context</button><button type="button" data-standard-action="confirm" data-standard-id="${escapeHtml(item.id)}">Confirm</button><button type="button" class="ghost" data-standard-action="excuse" data-standard-id="${escapeHtml(item.id)}">Excuse</button><button type="button" class="ghost" data-standard-action="dismiss" data-standard-id="${escapeHtml(item.id)}">Dismiss</button>`
+      : lane === "active"
+        ? `${item.status === "CONFIRMED" ? `<button type="button" data-standard-action="correct" data-standard-id="${escapeHtml(item.id)}">Mark corrected</button>` : ""}<button type="button" class="ghost" data-standard-action="resolve" data-standard-id="${escapeHtml(item.id)}">Resolve</button>`
+        : "";
+    return `<article class="standards-item standards-case">
+      <div class="standards-item-header"><div><span class="kicker">${escapeHtml(item.standardCode || standardsDomainCode(item.domain))}</span><strong>${escapeHtml(item.title || standard?.title || "Standards review")}</strong></div><span class="state-pill ${item.status === "CONFIRMED" ? "yellow" : item.status === "RESOLVED" ? "green" : "neutral"}">${escapeHtml(item.status)}</span></div>
+      <p>${escapeHtml(item.evidence || "No supporting evidence recorded.")}</p>
+      <div class="standards-case-meta"><span>${escapeHtml(item.severity?.level || "LEVEL I")}</span><span>${item.evidenceConfidence} EVIDENCE</span><span>${item.ageDays}D OLD</span></div>
+      ${item.protectedException ? `<p class="standards-protection">Protected context: ${escapeHtml(item.protectedException)}</p>` : ""}
+      ${lane === "active" ? `<div class="standards-action-order"><strong>Required action</strong><p>${escapeHtml(item.correctiveAction?.description || selectCorrectiveAction({ classification: item.classification, severity: item.severity?.level, domain: item.domain }).description)}</p></div>` : ""}
+      ${actions ? `<div class="standards-controls">${actions}</div>` : ""}
+    </article>`;
+  };
+  [
+    ["standards-review-queue", operations.needsReview, "review", "No evidence requires a decision."],
+    ["standards-active-queue", operations.activeActions, "active", "No confirmed corrective actions are active."],
+    ["standards-resolved-queue", operations.resolved, "resolved", "No resolved cases yet."]
+  ].forEach(([id, laneItems, lane, empty]) => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = laneItems.length ? laneItems.map((item) => renderCard(item, lane)).join("") : `<div class="standards-empty">${empty}</div>`;
+  });
+  const catalogElement = document.getElementById("standards-catalog");
+  if (catalogElement) catalogElement.innerHTML = catalog.map((standard) => `<article class="standards-item"><div class="standards-item-header"><strong>${escapeHtml(standard.title)}</strong><span>${escapeHtml(standard.code)}</span></div><p>${escapeHtml(standard.description)}</p><small>${escapeHtml(standard.evidenceRule)}</small></article>`).join("");
   const auditTrail = document.getElementById("standards-audit-trail");
   if (auditTrail) {
     const events = loadStandardsAuditEvents().slice().sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || ""));
@@ -7580,7 +7653,7 @@ async function loadDailyCompliance() {
     renderComplianceRecord(dailyCompliance, "SUPABASE");
     try {
       const remoteStandards = await loadStandardsReviewStateFromSupabase();
-      standardsReviewState = sanitizeStandardsReviewState(remoteStandards.map((item) => ({ ...item, status: item.status || "CANDIDATE", severity: item.severity ? { level: item.severity, explanation: "Loaded from Supabase" } : { level: "LEVEL I", explanation: "Loaded from Supabase" } })));
+      standardsReviewState = remoteStandards.map((item) => normalizeRemoteStandardsItem(item));
       saveStandardsReviewState(standardsReviewState);
       saveStandardsAuditEvents([]);
     } catch (_) {

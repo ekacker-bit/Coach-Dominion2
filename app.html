@@ -517,9 +517,9 @@
       <section id="standards" class="card standards-review scroll-anchor" aria-labelledby="standards-heading" data-section="standards">
         <div class="section-heading">
           <div>
-            <div class="kicker">BUILD 004E // STANDARDS &amp; VIOLATIONS</div>
-            <h2 id="standards-heading">Standards &amp; Violations</h2>
-            <p class="muted">Candidate review is deterministic; protected exceptions remain visible and are never treated as misconduct.</p>
+            <div class="kicker">BUILD 011A // STANDARDS OPERATIONS CENTER</div>
+            <h2 id="standards-heading">Standards Operations</h2>
+            <p class="muted">Review evidence, make a deliberate decision, and track confirmed actions through resolution. Coach Dominion never confirms a violation automatically.</p>
           </div>
           <span id="standards-state" class="state-pill neutral">CLEAR</span>
         </div>
@@ -529,14 +529,25 @@
           <div><span>Confirmed</span><strong id="standards-confirmed-count">0</strong></div>
           <div><span>Resolved</span><strong id="standards-resolved-count">0</strong></div>
         </div>
-        <div class="standards-controls">
-          <button id="review-standards-candidate" class="ghost" type="button">Review candidate</button>
-          <button id="confirm-standards-candidate" type="button">Confirm review</button>
+        <p id="standards-feedback" class="save-state" aria-live="polite">Standards decisions are evidence-based and auditable.</p>
+        <div class="standards-operations-grid">
+          <section class="standards-lane" aria-labelledby="standards-review-lane-heading">
+            <div class="standards-lane-heading"><div><span class="kicker">QUEUE 01</span><h3 id="standards-review-lane-heading">Needs Review</h3></div><strong id="standards-review-count">0</strong></div>
+            <div id="standards-review-queue" class="standards-queue"></div>
+          </section>
+          <section class="standards-lane" aria-labelledby="standards-active-lane-heading">
+            <div class="standards-lane-heading"><div><span class="kicker">QUEUE 02</span><h3 id="standards-active-lane-heading">Active Actions</h3></div><strong id="standards-active-count">0</strong></div>
+            <div id="standards-active-queue" class="standards-queue"></div>
+          </section>
+          <section class="standards-lane" aria-labelledby="standards-resolved-lane-heading">
+            <div class="standards-lane-heading"><div><span class="kicker">QUEUE 03</span><h3 id="standards-resolved-lane-heading">Resolved</h3></div><strong id="standards-closed-count">0</strong></div>
+            <div id="standards-resolved-queue" class="standards-queue"></div>
+          </section>
         </div>
-        <h3>Review queue</h3>
-        <div id="standards-queue" class="standards-queue"></div>
-        <h3>Atlas Standards Review</h3>
-        <pre id="standards-review-output" class="atlas-brief-output" aria-live="polite">No standards review candidates yet.</pre>
+        <details class="standards-reference">
+          <summary>Standards catalog and decision rules</summary>
+          <div id="standards-catalog" class="standards-queue"></div>
+        </details>
         <h3>Audit trail</h3>
         <ul id="standards-audit-trail" class="feed"></ul>
       </section>

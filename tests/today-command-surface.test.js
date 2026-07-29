@@ -35,4 +35,3 @@ assert.match(css, /Build 012A/);
 assert.match(css, /#today>\.daily-coaching-loop\{order:1\}/);
 
 console.log("today command surface tests passed");
-

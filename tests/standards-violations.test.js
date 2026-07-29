@@ -9,6 +9,8 @@ const {
   selectCorrectiveAction,
   buildCorrectiveActionPlan,
   deriveCorrectiveActionStatus,
+  buildTodayStandardsDuty,
+  detectStandardsPatterns,
   generateAtlasStandardsReview,
   buildViolationAuditEvent,
   summarizeWeeklyViolationHistory,
@@ -128,5 +130,26 @@ assert.equal(operations.needsReview.length, 1, 'operations center separates revi
 assert.equal(operations.activeActions.length, 1, 'operations center separates active actions');
 assert.equal(operations.resolved.length, 1, 'operations center separates resolved history');
 assert.equal(operations.needsReview[0].evidenceConfidence, 'HIGH', 'operations center labels evidence confidence');
+
+const todayDuty = buildTodayStandardsDuty([
+  { id: 'later', status: 'CONFIRMED', evidence: 'confirmed', sourceType: 'daily_compliance', sourceDate: '2026-07-25', correctiveAction: { dueDate: '2026-08-02' } },
+  { id: 'overdue', status: 'CONFIRMED', evidence: 'confirmed', sourceType: 'daily_compliance', sourceDate: '2026-07-20', correctiveAction: { dueDate: '2026-07-28' } }
+], '2026-07-29');
+assert.equal(todayDuty[0].id, 'overdue', 'Today prioritizes overdue standards duty');
+assert.equal(todayDuty[0].actionStatus, 'OVERDUE', 'Today labels overdue action plans');
+
+const patterns = detectStandardsPatterns([
+  { id: 'p1', standardCode: 'MISSION-EXECUTION-01', domain: 'mission', status: 'RESOLVED', evidence: 'reviewed miss', sourceDate: '2026-07-01', severity: { level: 'LEVEL I' } },
+  { id: 'p2', standardCode: 'MISSION-EXECUTION-01', domain: 'mission', status: 'CONFIRMED', evidence: 'reviewed miss', sourceDate: '2026-07-08', severity: { level: 'LEVEL I' } }
+]);
+assert.equal(patterns[0].sufficient, true, 'two reviewed cases on distinct dates establish a pattern');
+assert.equal(patterns[0].recommendedLevel, 'LEVEL II', 'an established Level I pattern recommends escalation');
+assert.match(patterns[0].recommendation, /no automatic change/i, 'pattern recommendations explicitly prohibit automatic escalation');
+
+const weakPattern = detectStandardsPatterns([
+  { id: 'w1', standardCode: 'CARDIO-01', domain: 'cardio', status: 'CANDIDATE', evidence: 'unreviewed', sourceDate: '2026-07-01' },
+  { id: 'w2', standardCode: 'CARDIO-01', domain: 'cardio', status: 'CANDIDATE', evidence: 'unreviewed', sourceDate: '2026-07-08' }
+]);
+assert.equal(weakPattern.length, 0, 'unreviewed candidates cannot establish a pattern');
 
 console.log('standards violations tests passed');

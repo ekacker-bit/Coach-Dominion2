@@ -796,6 +796,57 @@ function deriveStandardsOperations(items = [], today = todayISODate()) {
   };
 }
 
+function buildTodayStandardsDuty(items = [], today = todayISODate()) {
+  const operations = deriveStandardsOperations(items, today);
+  return operations.activeActions
+    .map((item) => ({ ...item, actionStatus: deriveCorrectiveActionStatus(item.correctiveAction || {}, today) }))
+    .sort((left, right) => {
+      const priority = { OVERDUE: 0, "DUE TODAY": 1, ACTIVE: 2, "AWAITING REVIEW": 3, RESOLVED: 4 };
+      return (priority[left.actionStatus] ?? 9) - (priority[right.actionStatus] ?? 9)
+        || String(left.correctiveAction?.dueDate || "").localeCompare(String(right.correctiveAction?.dueDate || ""));
+    });
+}
+
+function detectStandardsPatterns(items = [], options = {}) {
+  const minimumCases = Math.max(2, Number(options.minimumCases || 2));
+  const reviewedStatuses = new Set(["CONFIRMED", "CORRECTED", "RESOLVED"]);
+  const reviewed = sanitizeStandardsReviewState(items).filter((item) => reviewedStatuses.has(item.status) && item.evidence);
+  const groups = new Map();
+  reviewed.forEach((item) => {
+    const key = `${item.standardCode || item.standard_code || standardsDomainCode(item.domain)}:${item.domain || "reporting"}`;
+    const group = groups.get(key) || [];
+    group.push(item);
+    groups.set(key, group);
+  });
+  return [...groups.entries()].map(([key, cases]) => {
+    const dates = [...new Set(cases.map((item) => item.sourceDate || item.source_date).filter(Boolean))].sort();
+    const evidenceCount = cases.filter((item) => String(item.evidence || "").trim()).length;
+    const sufficient = cases.length >= minimumCases && dates.length >= minimumCases && evidenceCount >= minimumCases;
+    const confidence = sufficient && cases.length >= 3 && dates.length >= 3 ? "HIGH" : sufficient ? "MODERATE" : "INSUFFICIENT";
+    const currentLevel = cases.reduce((level, item) => {
+      const candidate = item.severity?.level || item.severity || "LEVEL I";
+      return ["LEVEL I", "LEVEL II", "LEVEL III"].indexOf(candidate) > ["LEVEL I", "LEVEL II", "LEVEL III"].indexOf(level) ? candidate : level;
+    }, "LEVEL I");
+    const recommendedLevel = sufficient && currentLevel === "LEVEL I" ? "LEVEL II" : currentLevel;
+    return {
+      key,
+      standardCode: cases[0].standardCode || cases[0].standard_code || standardsDomainCode(cases[0].domain),
+      domain: cases[0].domain || "reporting",
+      caseCount: cases.length,
+      distinctDateCount: dates.length,
+      firstDate: dates[0] || null,
+      lastDate: dates.at(-1) || null,
+      confidence,
+      sufficient,
+      currentLevel,
+      recommendedLevel,
+      recommendation: sufficient && recommendedLevel !== currentLevel
+        ? `Review escalation from ${currentLevel} to ${recommendedLevel}; no automatic change has been made.`
+        : sufficient ? `Pattern established at ${currentLevel}; continue deliberate review.` : `At least ${minimumCases} reviewed cases on distinct dates are required.`
+    };
+  }).sort((left, right) => Number(right.sufficient) - Number(left.sufficient) || right.caseCount - left.caseCount);
+}
+
 function deriveStandardsState(item = {}, storageMode = "SUPABASE") {
   const stateLabel = item.status === "CONFIRMED" ? "Confirmed" : item.status === "RESOLVED" ? "Resolved" : item.status === "DISMISSED" ? "Dismissed" : item.status === "EXCUSED" ? "Excused" : item.status === "CORRECTED" ? "Corrected" : "Candidate";
   const normalizedStorageMode = String(storageMode || "SUPABASE").toUpperCase();
@@ -4444,6 +4495,24 @@ function saveDailyAssignmentExecution(execution) {
   window.localStorage.setItem(dailyAssignmentStorageKey(), JSON.stringify({ ...execution, updatedAt: new Date().toISOString() }));
 }
 
+function renderTodayStandardsDuty() {
+  const panel = document.getElementById("today-standards-panel");
+  const badge = document.getElementById("today-standards-state");
+  if (!panel || !badge) return;
+  const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
+  const duty = buildTodayStandardsDuty(items, todayISODate());
+  const actionable = duty.filter((item) => ["OVERDUE", "DUE TODAY", "ACTIVE"].includes(item.actionStatus));
+  badge.textContent = actionable.some((item) => item.actionStatus === "OVERDUE") ? "OVERDUE" : actionable.length ? `${actionable.length} ACTIVE` : duty.length ? "AWAITING REVIEW" : "CLEAR";
+  badge.className = `state-pill ${actionable.some((item) => item.actionStatus === "OVERDUE") ? "red" : actionable.length ? "yellow" : "green"}`;
+  panel.innerHTML = duty.length ? duty.map((item) => `<article class="today-standard-order">
+    <div><span class="kicker">${escapeHtml(item.standardCode || standardsDomainCode(item.domain))}</span><h3>${escapeHtml(item.title || "Corrective action")}</h3></div>
+    <span class="state-pill ${item.actionStatus === "OVERDUE" ? "red" : item.actionStatus === "AWAITING REVIEW" ? "yellow" : "neutral"}">${item.actionStatus}</span>
+    <p>${escapeHtml(item.correctiveAction?.description || "Review the confirmed standards action.")}</p>
+    <div class="today-standard-meta"><span>Due ${escapeHtml(item.correctiveAction?.dueDate || "not set")}</span><span>${escapeHtml(item.correctiveAction?.successCriteria || "Success criteria pending")}</span></div>
+    <a href="#standards" data-section="standards">${item.actionStatus === "AWAITING REVIEW" ? "Review case" : "Complete standards duty"}</a>
+  </article>`).join("") : '<div class="performance-empty">No confirmed corrective action needs attention today.</div>';
+}
+
 function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const state = document.getElementById("today-completion-state");
   if (!state || !assignment) return;
@@ -4465,6 +4534,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   setText("today-sequence-recovery-detail", recovery.actions?.[0] || assignment.recoveryActions[0] || "Preserve the recovery window.");
   setText("today-sequence-evidence", recordComplete ? "Dominion Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
   setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
+  renderTodayStandardsDuty();
 }
 
 function renderDailyAssignment() {
@@ -7150,6 +7220,8 @@ if (typeof module !== "undefined") {
     buildViolationAuditEvent,
     summarizeWeeklyViolationHistory,
     deriveStandardsOperations,
+    buildTodayStandardsDuty,
+    detectStandardsPatterns,
     deriveStandardsState,
     buildStandardsReviewState,
     deriveStandardsReviewStateFromRecord,
@@ -7501,6 +7573,7 @@ function renderStandardsSection() {
   const catalog = getStandardsCatalog();
   const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
   const operations = deriveStandardsOperations(items);
+  const patterns = detectStandardsPatterns(items);
   const openItems = [...operations.needsReview, ...operations.activeActions];
   const summaryState = openItems.length ? (openItems.some((item) => item.status === "CONFIRMED") ? "REVIEWING" : "MONITORING") : "CLEAR";
   setText("standards-catalog-count", catalog.length);
@@ -7515,6 +7588,21 @@ function renderStandardsSection() {
   setText("standards-review-count", operations.needsReview.length);
   setText("standards-active-count", operations.activeActions.length);
   setText("standards-closed-count", operations.resolved.length);
+  const establishedPatterns = patterns.filter((pattern) => pattern.sufficient);
+  const patternBadge = document.getElementById("standards-pattern-state");
+  if (patternBadge) {
+    patternBadge.textContent = establishedPatterns.length ? `${establishedPatterns.length} REVIEW` : patterns.length ? "INSUFFICIENT EVIDENCE" : "NO PATTERN";
+    patternBadge.className = `state-pill ${establishedPatterns.length ? "yellow" : "neutral"}`;
+  }
+  const patternPanel = document.getElementById("standards-patterns");
+  if (patternPanel) {
+    patternPanel.innerHTML = patterns.length ? patterns.map((pattern) => `<article class="standards-pattern ${pattern.sufficient ? "established" : "insufficient"}">
+      <div class="standards-item-header"><div><span class="kicker">${escapeHtml(pattern.standardCode)}</span><strong>${escapeHtml(pattern.domain)} pattern review</strong></div><span class="state-pill ${pattern.sufficient ? "yellow" : "neutral"}">${pattern.confidence}</span></div>
+      <div class="standards-case-meta"><span>${pattern.caseCount} REVIEWED CASES</span><span>${pattern.distinctDateCount} DISTINCT DATES</span><span>${pattern.firstDate || "—"} → ${pattern.lastDate || "—"}</span></div>
+      <p>${escapeHtml(pattern.recommendation)}</p>
+      <small>Current severity remains ${escapeHtml(pattern.currentLevel)} until a human confirms any change.</small>
+    </article>`).join("") : '<div class="standards-empty">No repeated reviewed standards cases are available for pattern analysis.</div>';
+  }
   const renderCard = (item, lane) => {
     const standard = catalog.find((entry) => entry.code === (item.standardCode || standardsDomainCode(item.domain)));
     const actions = lane === "review"
@@ -7555,6 +7643,7 @@ function renderStandardsSection() {
       ? events.map((event) => `<li class="feed-event info"><div class="feed-meta"><strong>${event.violationId || "Review"}</strong><span>${event.priorStatus} → ${event.newStatus}</span></div><p>${event.note || "Reviewed"}</p><time>${event.createdAt ? new Date(event.createdAt).toLocaleString() : "Pending"}</time></li>`).join("")
       : '<li class="feed-empty">Standards reviews are logged locally until a Supabase-backed audit table is applied.</li>';
   }
+  renderTodayStandardsDuty();
 }
 
 function emptyComplianceDomains() {

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Build 013C Core Programming & Execution
+
+- Added a deterministic four-week Abs/Core plan built from goal, experience, equipment, weekly frequency, and session length.
+- Added explicit draft and approval states so a newly generated cycle never silently replaces the active plan.
+- Balanced every cycle across anti-extension, anti-rotation, anti-lateral-flexion, trunk/hip-flexion, and carry/bracing work.
+- Added a Today core prescription with movement targets, coaching cues, substitutions, set completion, session quality, and effort capture.
+- Added readiness safeguards: Yellow may only reduce sets, while Red readiness or pain removes the session and blocks progression.
+- Added evidence-based next-cycle recommendations, automatic Performance entries, user-scoped local fallback, and RLS-protected account persistence.
+- Added deterministic engine, safety, execution, evidence, and persistence regression coverage.
+
 ## Unreleased — Build 013B Simplified Training Workspace
 
 - Replaced the nine-item Performance navigation with five clear training destinations: Today’s Training, Log, Running, Abs/Core, and Progress.

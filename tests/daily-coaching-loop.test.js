@@ -71,4 +71,57 @@ function loop(overrides = {}) {
   assert.match(daily.formatApprovedOrders(result), /Today’s loop is current/);
 }
 
+{
+  const queue = daily.buildDailyExecutionQueue({
+    date: "2026-07-29",
+    readinessComplete: false
+  });
+  assert.equal(queue.current.id, "roll_call");
+  assert.equal(queue.steps[1].status, "BLOCKED");
+  assert.equal(queue.completed, 0);
+}
+
+{
+  const queue = daily.buildDailyExecutionQueue({
+    date: "2026-07-29",
+    readinessComplete: true,
+    ordersApproved: true,
+    trainingComplete: true,
+    fuelingBaseline: false,
+    recoveryComplete: false,
+    recordComplete: false
+  });
+  assert.equal(queue.current.id, "fueling");
+  assert.equal(queue.current.action, "open_fuel");
+  assert.match(queue.current.detail, /fueling baseline/i);
+  assert.equal(queue.completed, 3);
+}
+
+{
+  const queue = daily.buildDailyExecutionQueue({
+    readinessComplete: true,
+    ordersApproved: false,
+    recoveryRequired: true,
+    recoveryApproved: false,
+    ordersAction: "approve_orders"
+  });
+  assert.equal(queue.current.id, "orders");
+  assert.equal(queue.current.action, "review_recovery");
+}
+
+{
+  const queue = daily.buildDailyExecutionQueue({
+    readinessComplete: true,
+    ordersApproved: true,
+    trainingComplete: true,
+    fuelingBaseline: true,
+    fuelingComplete: true,
+    recoveryComplete: true,
+    recordComplete: true
+  });
+  assert.equal(queue.complete, true);
+  assert.equal(queue.state, "DAY COMPLETE");
+  assert.equal(queue.percent, 100);
+}
+
 console.log("Daily coaching loop tests passed.");

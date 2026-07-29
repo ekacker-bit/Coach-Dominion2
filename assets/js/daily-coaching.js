@@ -115,5 +115,91 @@
     return `${loop.headline}. ${loop.directive}`.trim();
   }
 
-  return Object.freeze({ buildDailyCoachingLoop, formatApprovedOrders });
+  function buildDailyExecutionQueue(input = {}) {
+    const ordersAction = input.ordersAction || "approve_orders";
+    const recoveryRequiresApproval = Boolean(input.recoveryRequired && !input.recoveryApproved);
+    const definitions = [
+      {
+        id: "roll_call",
+        label: "Establish readiness",
+        detail: input.readinessComplete ? "Today’s Energy, Soreness, and Pain are current." : "Complete Morning Roll Call before the plan can be authorized.",
+        complete: Boolean(input.readinessComplete),
+        action: "roll_call",
+        actionLabel: "Complete Roll Call"
+      },
+      {
+        id: "orders",
+        label: "Authorize today’s plan",
+        detail: input.ordersApproved ? "Training and recovery constraints are approved." : recoveryRequiresApproval ? "Review the recovery adjustment before authorizing today’s plan." : "Approve the plan generated from today’s readiness and evidence.",
+        complete: Boolean(input.ordersApproved),
+        blockedBy: input.readinessComplete ? null : "Complete Roll Call first.",
+        action: recoveryRequiresApproval ? "review_recovery" : ordersAction,
+        actionLabel: recoveryRequiresApproval ? "Review recovery plan" : ordersAction === "review_programming" ? "Review programming" : "Approve today’s plan"
+      },
+      {
+        id: "training",
+        label: input.recoveryOnly ? "Honor the recovery-only order" : "Execute training",
+        detail: input.recoveryOnly ? "Loaded work is removed; protecting the recovery window completes this step." : input.trainingComplete ? "Today’s workout evidence is complete." : input.trainingStarted ? "Workout is in progress. Complete the remaining work sets." : "Start the approved workout and capture completion evidence.",
+        complete: Boolean(input.trainingComplete || input.recoveryOnly),
+        blockedBy: input.ordersApproved ? null : "Authorize today’s plan first.",
+        action: input.recoveryOnly ? "complete_recovery" : "start_training",
+        actionLabel: input.trainingStarted ? "Continue workout" : input.recoveryOnly ? "Confirm recovery-only day" : "Start workout"
+      },
+      {
+        id: "fueling",
+        label: "Complete today’s fueling",
+        detail: input.fuelingComplete ? "Current nutrition evidence is available against an approved baseline." : input.fuelingBaseline ? "Log today’s intake so Atlas can evaluate calories, protein, and timing." : "Approve a fueling baseline before today’s intake can be evaluated.",
+        complete: Boolean(input.fuelingComplete),
+        blockedBy: input.ordersApproved ? null : "Authorize today’s plan first.",
+        action: "open_fuel",
+        actionLabel: input.fuelingBaseline ? "Log today’s fueling" : "Set fueling targets"
+      },
+      {
+        id: "recovery",
+        label: "Complete the recovery action",
+        detail: input.recoveryComplete ? "Today’s recovery commitment is recorded." : recoveryRequiresApproval ? "Approve the prescribed recovery plan, then confirm completion." : "Complete the recovery action prescribed for today.",
+        complete: Boolean(input.recoveryComplete),
+        blockedBy: recoveryRequiresApproval ? "Recovery plan approval is required." : input.ordersApproved ? null : "Authorize today’s plan first.",
+        action: recoveryRequiresApproval ? "review_recovery" : "complete_recovery",
+        actionLabel: recoveryRequiresApproval ? "Review recovery plan" : "Mark recovery complete"
+      },
+      {
+        id: "record",
+        label: "Close the Dominion Record",
+        detail: input.recordComplete ? "Today’s execution record is saved." : "Review the day and preserve the evidence used by Weekly Review.",
+        complete: Boolean(input.recordComplete),
+        blockedBy: null,
+        action: "review_record",
+        actionLabel: "Complete Dominion Record"
+      }
+    ];
+
+    let priorIncomplete = false;
+    const steps = definitions.map((step) => {
+      const sequenceBlocked = priorIncomplete && !step.complete;
+      const status = step.complete ? "COMPLETE" : step.blockedBy || sequenceBlocked ? "BLOCKED" : "CURRENT";
+      if (!step.complete) priorIncomplete = true;
+      return {
+        ...step,
+        status,
+        blockedBy: step.blockedBy || (sequenceBlocked ? "Complete the current step first." : null)
+      };
+    });
+    const completed = steps.filter((step) => step.complete).length;
+    const current = steps.find((step) => step.status === "CURRENT")
+      || steps.find((step) => !step.complete && step.blockedBy && step.action)
+      || null;
+    return {
+      date: input.date || null,
+      steps,
+      current,
+      completed,
+      total: steps.length,
+      percent: Math.round(completed / steps.length * 100),
+      complete: completed === steps.length,
+      state: completed === steps.length ? "DAY COMPLETE" : `${completed}/${steps.length} COMPLETE`
+    };
+  }
+
+  return Object.freeze({ buildDailyCoachingLoop, buildDailyExecutionQueue, formatApprovedOrders });
 });

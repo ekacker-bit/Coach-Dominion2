@@ -702,6 +702,36 @@ function selectCorrectiveAction(input = {}) {
   return { type: "submit_missing_evidence", description: "Submit the missing evidence and acknowledge the review requirement.", dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
 }
 
+function buildCorrectiveActionPlan(input = {}, today = todayISODate()) {
+  const severity = typeof input.severity === "object" ? input.severity?.level || "LEVEL I" : input.severity || "LEVEL I";
+  const domain = input.domain || "reporting";
+  const base = selectCorrectiveAction({ classification: "CONFIRMED", severity, domain });
+  const dueDays = severity === "LEVEL III" ? 1 : severity === "LEVEL II" ? 3 : 7;
+  const due = new Date(`${today}T12:00:00Z`);
+  due.setUTCDate(due.getUTCDate() + dueDays);
+  const criteria = severity === "LEVEL III"
+    ? "Written after-action review submitted and the applicable safety standard acknowledged."
+    : severity === "LEVEL II"
+      ? `Missing ${domain} context or evidence submitted and the applicable standard reviewed.`
+      : "Missing evidence or clarification submitted and acknowledged.";
+  return {
+    ...base,
+    dueDate: due.toISOString().slice(0, 10),
+    successCriteria: criteria,
+    completionEvidence: "",
+    completionSubmittedAt: null,
+    planStatus: "ACTIVE"
+  };
+}
+
+function deriveCorrectiveActionStatus(action = {}, today = todayISODate()) {
+  if (action.resolvedAt) return "RESOLVED";
+  if (action.completionSubmittedAt || action.correctedAt) return "AWAITING REVIEW";
+  if (action.dueDate && action.dueDate < today) return "OVERDUE";
+  if (action.dueDate === today) return "DUE TODAY";
+  return "ACTIVE";
+}
+
 function generateAtlasStandardsReview(item = {}) {
   const risk = item.status === "CONFIRMED" ? "Execution failure" : item.status === "EXCUSED" ? "Approved exception" : item.status === "DISMISSED" ? "No violation established" : "Review required";
   const text = [
@@ -849,7 +879,12 @@ function normalizeRemoteStandardsItem(item = {}) {
     correctiveAction: item.corrective_action_type ? {
       type: item.corrective_action_type,
       description: item.corrective_action_description || "",
-      dueDate: item.corrective_action_due_date || null
+      dueDate: item.corrective_action_due_date ? String(item.corrective_action_due_date).slice(0, 10) : null,
+      successCriteria: item.corrective_action_success_criteria || "",
+      completionEvidence: item.completion_evidence || "",
+      completionSubmittedAt: item.completion_submitted_at || null,
+      correctedAt: item.corrected_at || null,
+      resolvedAt: item.resolved_at || null
     } : null,
     confirmedAt: item.confirmed_at || null,
     correctedAt: item.corrected_at || null,
@@ -881,6 +916,9 @@ function buildStandardsPersistencePayload(item = {}) {
     corrective_action_type: item.correctiveAction?.type || null,
     corrective_action_description: item.correctiveAction?.description || null,
     corrective_action_due_date: item.correctiveAction?.dueDate || null,
+    corrective_action_success_criteria: item.correctiveAction?.successCriteria || null,
+    completion_evidence: item.correctiveAction?.completionEvidence || item.completionEvidence || null,
+    completion_submitted_at: item.correctiveAction?.completionSubmittedAt || item.completionSubmittedAt || null,
     correction_note: item.correctionNote || item.correction_note || null,
     confirmed_at: item.confirmedAt || item.confirmed_at || null,
     corrected_at: item.correctedAt || item.corrected_at || null,
@@ -6933,6 +6971,55 @@ if (typeof document !== "undefined") {
     const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
     const selected = items.find((item) => item.id === button.dataset.standardId);
     if (!selected) return;
+    const caseElement = button.closest(".standards-case");
+    if (button.dataset.standardAction === "save-plan") {
+      const dueDate = caseElement?.querySelector("[data-standard-due]")?.value || "";
+      const successCriteria = caseElement?.querySelector("[data-standard-criteria]")?.value?.trim() || "";
+      if (!dueDate || !successCriteria) {
+        setText("standards-feedback", "A due date and success criteria are required.");
+        return;
+      }
+      const updated = {
+        ...selected,
+        correctiveAction: { ...selected.correctiveAction, dueDate, successCriteria },
+        updatedAt: new Date().toISOString()
+      };
+      standardsReviewState = standardsReviewState.map((item) => item.id === updated.id ? updated : item);
+      saveStandardsReviewState(standardsReviewState);
+      const events = loadStandardsAuditEvents();
+      events.push({ ...buildViolationAuditEvent(updated.id, updated.status, updated.status, "Corrective action plan updated."), userId: session?.user?.id || null });
+      saveStandardsAuditEvents(events);
+      try {
+        await saveStandardsReviewStateToSupabase([updated]);
+        setText("standards-feedback", "Corrective action plan updated.");
+      } catch (_) {
+        setText("standards-feedback", "Corrective action plan saved locally.");
+      }
+      renderStandardsSection();
+      return;
+    }
+    if (button.dataset.standardAction === "submit-evidence") {
+      const completionEvidence = caseElement?.querySelector("[data-standard-evidence]")?.value?.trim() || "";
+      if (!completionEvidence) {
+        setText("standards-feedback", "Describe the completion evidence before submitting it for review.");
+        return;
+      }
+      const submittedAt = new Date().toISOString();
+      const enriched = {
+        ...selected,
+        correctionNote: completionEvidence,
+        correctiveAction: { ...selected.correctiveAction, completionEvidence, completionSubmittedAt: submittedAt }
+      };
+      const updated = updateStandardsReviewItem(enriched, "CORRECTED", "Completion evidence submitted for review.");
+      try {
+        await saveStandardsReviewStateToSupabase([updated]);
+        setText("standards-feedback", "Completion evidence submitted. Resolution now requires explicit review.");
+      } catch (_) {
+        setText("standards-feedback", "Completion evidence saved locally for review.");
+      }
+      renderStandardsSection();
+      return;
+    }
     const statusByAction = {
       review: "UNDER REVIEW", clarify: "UNDER REVIEW", confirm: "CONFIRMED",
       dismiss: "DISMISSED", excuse: "EXCUSED", correct: "CORRECTED", resolve: "RESOLVED"
@@ -7057,6 +7144,8 @@ if (typeof module !== "undefined") {
     calculateViolationSeverity,
     validateViolationTransition,
     selectCorrectiveAction,
+    buildCorrectiveActionPlan,
+    deriveCorrectiveActionStatus,
     generateAtlasStandardsReview,
     buildViolationAuditEvent,
     summarizeWeeklyViolationHistory,
@@ -7216,17 +7305,26 @@ function mergeStandardsReviewItems(items = []) {
 function updateStandardsReviewItem(candidate, nextStatus, note = "") {
   const transition = validateViolationTransition(candidate.status || "CANDIDATE", nextStatus);
   if (!transition.valid) return null;
+  const now = new Date().toISOString();
+  const action = nextStatus === "CONFIRMED"
+    ? buildCorrectiveActionPlan({ domain: candidate.domain, severity: candidate.severity }, todayISODate())
+    : {
+      ...(candidate.correctiveAction || selectCorrectiveAction({ classification: candidate.classification || "CANDIDATE", severity: candidate.severity?.level || "LEVEL I", domain: candidate.domain })),
+      correctedAt: nextStatus === "CORRECTED" ? now : candidate.correctiveAction?.correctedAt || null,
+      resolvedAt: nextStatus === "RESOLVED" ? now : candidate.correctiveAction?.resolvedAt || null,
+      planStatus: nextStatus === "RESOLVED" ? "RESOLVED" : candidate.correctiveAction?.planStatus || "ACTIVE"
+    };
   const updated = {
     ...candidate,
     status: nextStatus,
     classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : nextStatus === "DISMISSED" ? "DISMISSED" : nextStatus === "EXCUSED" ? "EXCUSED" : candidate.classification || "CANDIDATE",
-    correctiveAction: candidate.correctiveAction || selectCorrectiveAction({ classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : candidate.classification || "CANDIDATE", severity: candidate.severity?.level || "LEVEL I", domain: candidate.domain }),
-    confirmedAt: nextStatus === "CONFIRMED" ? new Date().toISOString() : candidate.confirmedAt,
-    correctedAt: nextStatus === "CORRECTED" ? new Date().toISOString() : candidate.correctedAt,
-    resolvedAt: nextStatus === "RESOLVED" ? new Date().toISOString() : candidate.resolvedAt,
-    dismissedAt: nextStatus === "DISMISSED" ? new Date().toISOString() : candidate.dismissedAt,
-    excusedAt: nextStatus === "EXCUSED" ? new Date().toISOString() : candidate.excusedAt,
-    updatedAt: new Date().toISOString()
+    correctiveAction: action,
+    confirmedAt: nextStatus === "CONFIRMED" ? now : candidate.confirmedAt,
+    correctedAt: nextStatus === "CORRECTED" ? now : candidate.correctedAt,
+    resolvedAt: nextStatus === "RESOLVED" ? now : candidate.resolvedAt,
+    dismissedAt: nextStatus === "DISMISSED" ? now : candidate.dismissedAt,
+    excusedAt: nextStatus === "EXCUSED" ? now : candidate.excusedAt,
+    updatedAt: now
   };
   const existingIndex = standardsReviewState.findIndex((item) => item.id === candidate.id);
   if (existingIndex >= 0) {
@@ -7422,14 +7520,21 @@ function renderStandardsSection() {
     const actions = lane === "review"
       ? `<button type="button" class="ghost" data-standard-action="clarify" data-standard-id="${escapeHtml(item.id)}">Request context</button><button type="button" data-standard-action="confirm" data-standard-id="${escapeHtml(item.id)}">Confirm</button><button type="button" class="ghost" data-standard-action="excuse" data-standard-id="${escapeHtml(item.id)}">Excuse</button><button type="button" class="ghost" data-standard-action="dismiss" data-standard-id="${escapeHtml(item.id)}">Dismiss</button>`
       : lane === "active"
-        ? `${item.status === "CONFIRMED" ? `<button type="button" data-standard-action="correct" data-standard-id="${escapeHtml(item.id)}">Mark corrected</button>` : ""}<button type="button" class="ghost" data-standard-action="resolve" data-standard-id="${escapeHtml(item.id)}">Resolve</button>`
+        ? `<button type="button" class="ghost" data-standard-action="save-plan" data-standard-id="${escapeHtml(item.id)}">Save plan</button>${item.status === "CONFIRMED" ? `<button type="button" data-standard-action="submit-evidence" data-standard-id="${escapeHtml(item.id)}">Submit evidence</button>` : `<button type="button" data-standard-action="resolve" data-standard-id="${escapeHtml(item.id)}">Approve resolution</button>`}`
         : "";
     return `<article class="standards-item standards-case">
       <div class="standards-item-header"><div><span class="kicker">${escapeHtml(item.standardCode || standardsDomainCode(item.domain))}</span><strong>${escapeHtml(item.title || standard?.title || "Standards review")}</strong></div><span class="state-pill ${item.status === "CONFIRMED" ? "yellow" : item.status === "RESOLVED" ? "green" : "neutral"}">${escapeHtml(item.status)}</span></div>
       <p>${escapeHtml(item.evidence || "No supporting evidence recorded.")}</p>
       <div class="standards-case-meta"><span>${escapeHtml(item.severity?.level || "LEVEL I")}</span><span>${item.evidenceConfidence} EVIDENCE</span><span>${item.ageDays}D OLD</span></div>
       ${item.protectedException ? `<p class="standards-protection">Protected context: ${escapeHtml(item.protectedException)}</p>` : ""}
-      ${lane === "active" ? `<div class="standards-action-order"><strong>Required action</strong><p>${escapeHtml(item.correctiveAction?.description || selectCorrectiveAction({ classification: item.classification, severity: item.severity?.level, domain: item.domain }).description)}</p></div>` : ""}
+      ${lane === "active" ? `<div class="standards-action-order">
+        <div class="standards-action-heading"><strong>Corrective action plan</strong><span class="state-pill ${deriveCorrectiveActionStatus(item.correctiveAction) === "OVERDUE" ? "red" : deriveCorrectiveActionStatus(item.correctiveAction) === "AWAITING REVIEW" ? "yellow" : "neutral"}">${deriveCorrectiveActionStatus(item.correctiveAction)}</span></div>
+        <p>${escapeHtml(item.correctiveAction?.description || selectCorrectiveAction({ classification: item.classification, severity: item.severity?.level, domain: item.domain }).description)}</p>
+        <label>Due date<input type="date" data-standard-due value="${escapeHtml(item.correctiveAction?.dueDate || "")}"></label>
+        <label>Success criteria<textarea rows="2" data-standard-criteria>${escapeHtml(item.correctiveAction?.successCriteria || "")}</textarea></label>
+        <label>Completion evidence<textarea rows="3" data-standard-evidence placeholder="What was completed, where is the evidence, and what changed?">${escapeHtml(item.correctiveAction?.completionEvidence || "")}</textarea></label>
+        ${item.correctiveAction?.completionSubmittedAt ? `<small>Submitted ${new Date(item.correctiveAction.completionSubmittedAt).toLocaleString()} for explicit review.</small>` : ""}
+      </div>` : ""}
       ${actions ? `<div class="standards-controls">${actions}</div>` : ""}
     </article>`;
   };

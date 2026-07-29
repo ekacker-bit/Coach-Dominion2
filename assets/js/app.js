@@ -4352,6 +4352,7 @@ function renderCoreWorkspace(entries = performanceEntries) {
       }).join("")
       : `<div class="performance-empty">No abs/core evidence yet. Start with a training entry or a benchmark.</div>`;
   }
+  renderCoreProgramming();
 }
 
 function renderPerformanceIntelligenceSection(entries = performanceEntries) {
@@ -4972,6 +4973,7 @@ function buildCurrentDailyExecutionQueue() {
 }
 
 function renderDailyCoachingLoop() {
+  renderCoreToday();
   const panel = document.getElementById("daily-orders-panel");
   const phases = document.getElementById("daily-loop-phases");
   if (!panel || !phases) return;
@@ -5131,6 +5133,254 @@ async function loadRunningState() {
   } catch (_) {
     // Existing local state remains the explicit offline fallback.
   }
+}
+
+function coreProgramStorageKey(stateType, stateKey = "current") {
+  return `coach-dominion:core-program:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
+}
+
+function readCoreProgramState(stateType, stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(coreProgramStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveCoreProgramLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(coreProgramStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readCoreProfile() {
+  const stored = readCoreProgramState("PROFILE", "current", {});
+  return typeof DominionCoreProgramming === "undefined" ? stored : DominionCoreProgramming.normalizeProfile(stored);
+}
+
+function readCoreDraftPlan() {
+  return readCoreProgramState("DRAFT", "current", null);
+}
+
+function readApprovedCorePlan() {
+  return readCoreProgramState("PLAN", "current", null);
+}
+
+function readCoreExecution() {
+  return readCoreProgramState("EXECUTION", todayISODate(), null);
+}
+
+function readCurrentCoreExecution() {
+  const execution = readCoreExecution();
+  const plan = readApprovedCorePlan();
+  return execution?.planId && execution.planId === plan?.id && execution.date === todayISODate() ? execution : null;
+}
+
+function readCoreHistory() {
+  const history = readCoreProgramState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function persistCoreProgramState(stateType, stateKey, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("core_program_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    setText("core-programming-feedback", "Saved locally. Account sync will activate after migration 012 is applied.");
+    setText("core-today-feedback", "Saved on this device. Account sync is temporarily unavailable.");
+    return false;
+  }
+}
+
+async function loadCoreProgramState() {
+  if (!session?.user?.id || typeof DominionCoreProgramming === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("core_program_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    ["PROFILE", "DRAFT", "PLAN", "HISTORY"].forEach((stateType) => {
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
+      if (row) saveCoreProgramLocal(stateType, "current", row.payload);
+    });
+    const execution = rows.find((item) => item.state_type === "EXECUTION" && item.state_key === todayISODate());
+    if (execution) saveCoreProgramLocal("EXECUTION", todayISODate(), execution.payload);
+
+    const localStates = [
+      ["PROFILE", "current", readCoreProgramState("PROFILE", "current", null)],
+      ["DRAFT", "current", readCoreDraftPlan()],
+      ["PLAN", "current", readApprovedCorePlan()],
+      ["HISTORY", "current", readCoreHistory()],
+      ["EXECUTION", todayISODate(), readCoreExecution()]
+    ];
+    for (const [stateType, stateKey, payload] of localStates) {
+      const exists = rows.some((item) => item.state_type === stateType && item.state_key === stateKey);
+      if (!exists && payload && (stateType !== "HISTORY" || payload.length)) {
+        await persistCoreProgramState(stateType, stateKey, payload);
+      }
+    }
+  } catch (_) {
+    // Local state remains the explicit offline fallback.
+  }
+}
+
+function coreReadinessState() {
+  if (!dailyState) return { state: "UNKNOWN", pain: false };
+  const evaluated = evaluateReadiness(dailyState);
+  return { state: evaluated?.state || "UNKNOWN", pain: Boolean(dailyState.pain) };
+}
+
+function currentCorePrescription() {
+  if (typeof DominionCoreProgramming === "undefined") return null;
+  return DominionCoreProgramming.buildDailyPrescription(
+    readApprovedCorePlan() || {},
+    readCoreHistory(),
+    { today: todayISODate(), readiness: coreReadinessState() }
+  );
+}
+
+function coreGoalLabel(goal = "") {
+  return {
+    GENERAL_STRENGTH: "General core strength",
+    RUNNING_SUPPORT: "Running support",
+    LIFTING_STABILITY: "Lifting stability",
+    CORE_ENDURANCE: "Core endurance",
+    ABDOMINAL_DEVELOPMENT: "Abdominal development"
+  }[goal] || String(goal || "").replaceAll("_", " ");
+}
+
+function renderCoreSession(prescription, execution, options = {}) {
+  const compact = Boolean(options.compact);
+  if (!prescription) return `<div class="performance-empty">Core programming engine unavailable.</div>`;
+  if (!prescription.session) {
+    return `<div class="core-prescription-empty"><strong>${escapeHtml(prescription.status.replaceAll("_", " "))}</strong><p>${escapeHtml(prescription.message)}</p>${prescription.status === "PLAN_REQUIRED" ? `<button type="button" data-core-program-action="open-core-command">Build core plan</button>` : ""}</div>`;
+  }
+  if (prescription.status === "SAFETY_HOLD") {
+    return `<article class="core-safety-hold"><span class="kicker">SAFETY HOLD</span><h3>Session removed</h3><p>${escapeHtml(prescription.message)}</p><button type="button" class="ghost" data-core-program-action="open-roll-call">Review Roll Call</button></article>`;
+  }
+  const complete = execution?.state === "COMPLETE";
+  const inProgress = execution?.state === "IN_PROGRESS";
+  const exercises = prescription.exercises.map((exercise, index) => {
+    const done = Boolean(execution?.completedExercises?.[exercise.id]);
+    return `<article class="core-exercise-card ${done ? "complete" : ""}">
+      <div class="core-exercise-order">${done ? "✓" : index + 1}</div>
+      <div class="core-exercise-body">
+        <header><div><span>${escapeHtml(exercise.categoryLabel)}</span><strong>${escapeHtml(exercise.name)}</strong></div><em>${exercise.sets} × ${exercise.target} ${exercise.metric === "SECONDS" ? "sec" : "reps"}</em></header>
+        ${compact ? "" : `<p>${escapeHtml(exercise.cue)}</p><small>Rest ${exercise.restSeconds}s · Substitute: ${escapeHtml(exercise.substitution)}</small>`}
+      </div>
+      ${inProgress && !complete ? `<button type="button" class="${done ? "ghost" : ""}" data-core-program-action="complete-exercise" data-exercise-id="${escapeHtml(exercise.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Complete"}</button>` : ""}
+    </article>`;
+  }).join("");
+  const allExercisesComplete = prescription.exercises.length > 0 && prescription.exercises.every((exercise) => execution?.completedExercises?.[exercise.id]);
+  return `<section class="core-prescription ${compact ? "compact" : ""}">
+    <header class="core-prescription-header">
+      <div><span class="kicker">${escapeHtml(prescription.session.phase)} · ${escapeHtml(prescription.date)}</span><h3>${escapeHtml(prescription.session.title)}</h3><p>${escapeHtml(prescription.message)}</p></div>
+      <div class="core-session-meta"><strong>${prescription.session.estimatedMinutes} min</strong><span>${escapeHtml(execution?.state?.replaceAll("_", " ") || prescription.status.replaceAll("_", " "))}</span></div>
+    </header>
+    ${prescription.adjustment?.code === "VOLUME_REDUCED" ? `<div class="core-readiness-adjustment"><strong>READINESS ADJUSTMENT</strong><p>One set removed from every movement. Exercise selection and approved plan remain unchanged.</p></div>` : ""}
+    <div class="core-exercise-list">${exercises}</div>
+    <div class="core-execution-controls">
+      ${!execution && prescription.status === "READY" ? `<button type="button" data-core-program-action="start-session">Start core session</button>` : ""}
+      ${inProgress ? `<label>Session quality<select id="${compact ? "core-today-quality" : "core-session-quality"}"><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label><label>Effort (1–10)<input id="${compact ? "core-today-effort" : "core-session-effort"}" type="number" min="1" max="10" value="7"></label><button type="button" data-core-program-action="complete-session" ${allExercisesComplete ? "" : "disabled"}>Complete session</button>` : ""}
+      ${complete ? `<div class="core-complete-evidence"><strong>SESSION COMPLETE</strong><span>${escapeHtml(execution.quality || "CONTROLLED")} · effort ${execution.effort || "—"}/10</span></div>` : ""}
+      ${!complete ? `<button type="button" class="ghost danger" data-core-program-action="report-pain">Report pain</button>` : ""}
+    </div>
+  </section>`;
+}
+
+function renderCoreToday() {
+  const panel = document.getElementById("core-today-panel");
+  if (!panel || typeof DominionCoreProgramming === "undefined") return;
+  const prescription = currentCorePrescription();
+  const execution = readCurrentCoreExecution();
+  panel.innerHTML = renderCoreSession(prescription, execution, { compact: true });
+  const status = document.getElementById("core-today-state");
+  if (status) {
+    const state = execution?.state || prescription?.status || "PLAN_REQUIRED";
+    status.textContent = state.replaceAll("_", " ");
+    status.className = `state-pill ${state === "COMPLETE" ? "green" : state === "SAFETY_HOLD" || state === "PAIN_HOLD" ? "red" : state === "READY" || state === "IN_PROGRESS" ? "yellow" : "neutral"}`;
+  }
+}
+
+function renderCoreProgramming() {
+  const panel = document.getElementById("core-programming-panel");
+  if (!panel || typeof DominionCoreProgramming === "undefined") return;
+  const profile = readCoreProfile();
+  const draft = readCoreDraftPlan();
+  const plan = readApprovedCorePlan();
+  const history = readCoreHistory();
+  const prescription = currentCorePrescription();
+  const execution = readCurrentCoreExecution();
+  const review = plan ? DominionCoreProgramming.buildCycleReview(plan, history) : null;
+  const coverage = plan ? review.coverage : draft ? DominionCoreProgramming.movementCoverage(draft) : [];
+  const status = document.getElementById("core-command-status");
+  const commandState = execution?.state === "COMPLETE" ? "TODAY COMPLETE" : plan ? "PLAN APPROVED" : draft ? "DRAFT READY" : "PLAN REQUIRED";
+  if (status) {
+    status.textContent = commandState;
+    status.className = `state-pill ${execution?.state === "COMPLETE" ? "green" : plan || draft ? "yellow" : "neutral"}`;
+  }
+  const goalOptions = DominionCoreProgramming.GOALS.map((goal) => `<option value="${goal}" ${profile.goal === goal ? "selected" : ""}>${escapeHtml(coreGoalLabel(goal))}</option>`).join("");
+  const levelOptions = DominionCoreProgramming.EXPERIENCE_LEVELS.map((level) => `<option value="${level}" ${profile.experience === level ? "selected" : ""}>${escapeHtml(level.charAt(0) + level.slice(1).toLowerCase())}</option>`).join("");
+  const equipmentOptions = DominionCoreProgramming.EQUIPMENT_LEVELS.map((level) => `<option value="${level}" ${profile.equipment === level ? "selected" : ""}>${escapeHtml(level.replaceAll("_", " ").toLowerCase())}</option>`).join("");
+  const planForPreview = plan || draft;
+  panel.innerHTML = `
+    <details class="core-profile-panel" ${!planForPreview ? "open" : ""}>
+      <summary><span>Core profile</span><small>${escapeHtml(coreGoalLabel(profile.goal))} · ${profile.sessionsPerWeek} days · ${profile.sessionMinutes} min</small></summary>
+      <form id="core-profile-form" class="core-profile-form">
+        <label>Primary goal<select id="core-goal">${goalOptions}</select></label>
+        <label>Sessions per week<select id="core-days">${[2, 3, 4].map((value) => `<option value="${value}" ${profile.sessionsPerWeek === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+        <label>Experience<select id="core-experience">${levelOptions}</select></label>
+        <label>Equipment<select id="core-equipment">${equipmentOptions}</select></label>
+        <label>Session length<select id="core-minutes">${[10, 15, 20].map((value) => `<option value="${value}" ${profile.sessionMinutes === value ? "selected" : ""}>${value} minutes</option>`).join("")}</select></label>
+        <button type="submit">${planForPreview ? "Generate new draft" : "Build four-week plan"}</button>
+      </form>
+      <p class="muted">Generating a draft never changes an approved plan. You decide when a new cycle becomes active.</p>
+    </details>
+    ${draft && (!plan || draft.id !== plan.id) ? `<article class="core-approval-card"><div><span class="kicker">DRAFT READY</span><h3>Four-week ${escapeHtml(coreGoalLabel(draft.profile.goal))} cycle</h3><p>${DominionCoreProgramming.planSessions(draft).length} sessions · ${draft.profile.sessionMinutes} minutes · ${draft.startDate} to ${draft.endDate}</p></div><button type="button" data-core-program-action="approve-plan">Approve four-week plan</button></article>` : ""}
+    ${plan ? `<section class="core-plan-dashboard">
+      <div class="core-plan-heading"><div><span class="kicker">APPROVED CYCLE</span><h3>${escapeHtml(coreGoalLabel(plan.profile.goal))}</h3><p>${plan.startDate} to ${plan.endDate} · Approved ${escapeHtml(String(plan.approvedAt || "").slice(0, 10))}</p></div><div class="core-plan-compliance"><strong>${review.compliancePercent}%</strong><span>${review.completedSessions}/${review.prescribedSessions} sessions</span></div></div>
+      <div class="core-coverage-grid">${coverage.map((item) => `<article><span>${escapeHtml(item.label)}</span><strong>${item.exposures}</strong><small>planned exposures</small></article>`).join("")}</div>
+      <details class="core-cycle-details"><summary>View all four weeks</summary><div class="core-week-grid">${plan.weeks.map((week) => `<article><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phase)}</strong></header>${week.sessions.map((item) => `<div><time>${escapeHtml(item.date.slice(5))}</time><span>${escapeHtml(item.title)}</span><small>${item.exercises.length} movements</small></div>`).join("")}</article>`).join("")}</div></details>
+      <article class="core-progression-card"><span class="kicker">NEXT-CYCLE DECISION</span><h3>${escapeHtml(review.recommendation.label)}</h3><p>${escapeHtml(review.recommendation.reason)}</p><small>${review.controlledSessions} controlled sessions · ${review.painFlags} pain flags</small></article>
+    </section>` : ""}
+    <div class="core-today-command">${renderCoreSession(prescription, execution)}</div>
+    <div class="core-command-actions"><button type="button" class="ghost" data-core-action="log">Log extra core work</button><button type="button" class="ghost" data-core-action="benchmark">Log core benchmark</button></div>`;
+  renderCoreToday();
+}
+
+async function saveCorePerformanceEvidence(prescription, execution) {
+  const generated = DominionCoreProgramming.performanceEntriesForSession(prescription, execution, { userId: session?.user?.id || null });
+  const validEntries = generated.map((entry) => validatePerformanceEntry(entry)).filter((result) => result.valid).map((result) => result.entry);
+  if (!validEntries.length) return;
+  validEntries.forEach((entry) => syncFitnessAnalyticState(entry, null, null));
+  const ids = new Set(validEntries.map((entry) => entry.id));
+  try {
+    const supabase = await getClient();
+    const payloads = validEntries.map((entry) => buildPerformancePersistencePayload(entry, session?.user?.id || null));
+    const { data, error } = await supabase.from("performance_entries").upsert(payloads, { onConflict: "id" }).select("*");
+    if (error) throw error;
+    performanceEntries = [...(data || []).map((row) => hydratePerformanceEntry(row)), ...performanceEntries.filter((entry) => !ids.has(entry.id))];
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+  } catch (_) {
+    performanceEntries = [...validEntries, ...performanceEntries.filter((entry) => !ids.has(entry.id))];
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+  }
+  saveLocalPerformanceEntries(performanceEntries);
 }
 
 function renderRunningCommand(entries = performanceEntries) {
@@ -6914,6 +7164,7 @@ async function init() {
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
     await loadRunningState();
+    await loadCoreProgramState();
     await loadPerformanceEntries();
     await loadConnectedDominion();
     renderRankSection();
@@ -7116,6 +7367,119 @@ if (typeof document !== "undefined") {
     if (activityName) activityName.value = "Plank";
     refreshPerformanceFieldVisibility();
     document.getElementById(entryType === "BENCHMARK" ? "performance-core-duration-seconds" : "performance-activity-code")?.focus();
+  });
+  document.getElementById("core-programming-panel")?.addEventListener("submit", async (event) => {
+    if (event.target.id !== "core-profile-form" || typeof DominionCoreProgramming === "undefined") return;
+    event.preventDefault();
+    const now = new Date().toISOString();
+    const profile = DominionCoreProgramming.normalizeProfile({
+      goal: document.getElementById("core-goal")?.value,
+      sessionsPerWeek: document.getElementById("core-days")?.value,
+      experience: document.getElementById("core-experience")?.value,
+      equipment: document.getElementById("core-equipment")?.value,
+      sessionMinutes: document.getElementById("core-minutes")?.value,
+      updatedAt: now
+    });
+    const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now });
+    saveCoreProgramLocal("PROFILE", "current", profile);
+    saveCoreProgramLocal("DRAFT", "current", draft);
+    await persistCoreProgramState("PROFILE", "current", profile);
+    await persistCoreProgramState("DRAFT", "current", draft);
+    renderCoreProgramming();
+    setText("core-programming-feedback", "New four-week draft generated. Review it, then approve deliberately. Any active plan remains unchanged.");
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-core-program-action]");
+    if (!button || typeof DominionCoreProgramming === "undefined") return;
+    const action = button.dataset.coreProgramAction;
+    const plan = readApprovedCorePlan();
+    const prescription = currentCorePrescription();
+    if (action === "approve-plan") {
+      const draft = readCoreDraftPlan();
+      const approved = DominionCoreProgramming.approvePlan(draft, new Date().toISOString());
+      if (!approved) return;
+      saveCoreProgramLocal("PLAN", "current", approved);
+      saveCoreProgramLocal("DRAFT", "current", approved);
+      await persistCoreProgramState("PLAN", "current", approved);
+      await persistCoreProgramState("DRAFT", "current", approved);
+      renderPerformanceSection();
+      setText("core-programming-feedback", "Four-week core plan approved and saved. Readiness may reduce daily volume, but the plan will not change silently.");
+      return;
+    }
+    if (action === "open-core-command") {
+      setActiveSection("performance");
+      setPerformanceActiveView("core");
+      window.history.replaceState(null, "", "#performance");
+      return;
+    }
+    if (action === "open-roll-call") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("roll-call-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!plan || !prescription?.session) return;
+    if (action === "start-session") {
+      const execution = DominionCoreProgramming.startExecution(prescription, new Date().toISOString());
+      if (!execution) return;
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      renderCoreProgramming();
+      setText("core-programming-feedback", "Core session started. Complete each movement with controlled, pain-free technique.");
+      setText("core-today-feedback", "Session started. Complete each movement, then close the session.");
+      return;
+    }
+    if (action === "complete-exercise") {
+      const current = readCurrentCoreExecution();
+      const execution = DominionCoreProgramming.completeExercise(current || {}, button.dataset.exerciseId);
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      renderCoreProgramming();
+      return;
+    }
+    if (action === "report-pain") {
+      const base = readCurrentCoreExecution() || {
+        version: DominionCoreProgramming.VERSION,
+        planId: plan.id,
+        sessionId: prescription.session.id,
+        date: todayISODate(),
+        completedExercises: {}
+      };
+      const execution = DominionCoreProgramming.reportPain(base, new Date().toISOString());
+      const history = [...readCoreHistory().filter((item) => !(item.planId === plan.id && item.date === todayISODate())), execution];
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      saveCoreProgramLocal("HISTORY", "current", history);
+      await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      await persistCoreProgramState("HISTORY", "current", history);
+      renderCoreProgramming();
+      setText("core-programming-feedback", "Pain hold recorded. Today's session is closed and progression is blocked pending symptom resolution.");
+      setText("core-today-feedback", "Stop the session. Pain hold recorded; do not train through symptoms.");
+      return;
+    }
+    if (action === "complete-session") {
+      const current = readCurrentCoreExecution();
+      const fromToday = Boolean(button.closest("#core-today-panel"));
+      const quality = document.getElementById(fromToday ? "core-today-quality" : "core-session-quality")?.value || "CONTROLLED";
+      const effort = Number(document.getElementById(fromToday ? "core-today-effort" : "core-session-effort")?.value || 7);
+      const result = DominionCoreProgramming.completeSession(current || {}, prescription, {
+        quality,
+        effort,
+        completedAt: new Date().toISOString()
+      });
+      if (!result.valid) {
+        setText(fromToday ? "core-today-feedback" : "core-programming-feedback", result.message);
+        return;
+      }
+      const history = [...readCoreHistory().filter((item) => !(item.planId === plan.id && item.date === todayISODate())), result.execution];
+      saveCoreProgramLocal("EXECUTION", todayISODate(), result.execution);
+      saveCoreProgramLocal("HISTORY", "current", history);
+      await persistCoreProgramState("EXECUTION", todayISODate(), result.execution);
+      await persistCoreProgramState("HISTORY", "current", history);
+      await saveCorePerformanceEvidence(prescription, result.execution);
+      renderPerformanceSection();
+      setText("core-programming-feedback", `${result.message} Performance evidence was added automatically.`);
+      setText("core-today-feedback", `${result.message} Performance evidence was added automatically.`);
+    }
   });
   document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
     if (event.target.id !== "running-profile-form") return;

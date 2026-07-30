@@ -6608,6 +6608,19 @@ function nutritionBaselineStorageKey() {
   return `coach-dominion:nutrition-baselines:${connectedUserId()}`;
 }
 
+function adaptiveFuelingGoalStorageKey() {
+  return `coach-dominion:adaptive-fueling-goal:${connectedUserId()}`;
+}
+
+function readAdaptiveFuelingGoal() {
+  try {
+    const goal = window.localStorage.getItem(adaptiveFuelingGoalStorageKey()) || "MAINTAIN";
+    return ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].includes(goal) ? goal : "MAINTAIN";
+  } catch (_) {
+    return "MAINTAIN";
+  }
+}
+
 function readNutritionBaselineHistory() {
   try {
     const value = JSON.parse(window.localStorage.getItem(nutritionBaselineStorageKey()) || "[]");
@@ -6686,7 +6699,7 @@ function reviewNutritionBaseline(event) {
   setText("nutrition-baseline-feedback", nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "Review both variants, then approve to activate this dated baseline." : "Correct the flagged items before approval.");
 }
 
-function approveNutritionBaselineDraft() {
+async function approveNutritionBaselineDraft() {
   if (!nutritionBaselineDraft || typeof DominionNutritionBaseline === "undefined") return;
   try {
     const approved = DominionNutritionBaseline.approveNutritionBaseline(nutritionBaselineDraft);
@@ -6697,10 +6710,14 @@ function approveNutritionBaselineDraft() {
     nutritionBaselineDraft = null;
     const goal = document.getElementById("adaptive-fueling-goal");
     if (goal) goal.value = approved.goal;
+    window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), approved.goal);
+    const baselineSynced = await persistNutritionState("BASELINE_HISTORY", "current", { items: history });
+    await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: approved.goal });
+    await clearNutritionStateType("ADAPTIVE_APPROVAL");
     renderNutritionCommand();
     renderDailyCoachingLoop();
     setText("nutrition-baseline-feedback", approved.effectiveDate <= todayISODate()
-      ? "Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence."
+      ? `Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence.${baselineSynced ? " Saved to your account." : " Saved locally; account sync will retry next session."}`
       : `Baseline approved and scheduled for ${approved.effectiveDate}.`);
   } catch (error) {
     setText("nutrition-baseline-feedback", error.message);
@@ -6717,7 +6734,7 @@ function readApprovedAdaptiveFueling(goal) {
 }
 
 function currentAdaptiveFuelingGoal() {
-  return document.getElementById("adaptive-fueling-goal")?.value || "MAINTAIN";
+  return document.getElementById("adaptive-fueling-goal")?.value || readAdaptiveFuelingGoal();
 }
 
 function buildCurrentAdaptiveFuelingProposal() {
@@ -6879,15 +6896,16 @@ function renderNutritionReview() {
     `<div class="nutrition-review-history-item"><strong>Week ending ${escapeHtml(item.reviewEnd || item.approvedAt.slice(0, 10))}</strong><small>${item.evidenceDays} evidence days · ${item.actions.map((action) => escapeHtml(action.code)).join(" · ")}</small></div>`).join("")}</details>` : "";
 }
 
-function approveCurrentNutritionReview() {
+async function approveCurrentNutritionReview() {
   if (typeof DominionNutritionReview === "undefined") return;
   try {
     const approved = DominionNutritionReview.approveWeeklyNutritionReview(buildCurrentNutritionReview());
     const history = readNutritionReviewHistory();
     history.push(approved);
     window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(history));
+    const synced = await persistNutritionState("REVIEW_HISTORY", "current", { items: history });
     renderNutritionReview();
-    setText("nutrition-review-feedback", "Next-week behavior plan approved locally. Calorie and macro targets were not changed.");
+    setText("nutrition-review-feedback", `Next-week behavior plan approved${synced ? " and saved to your account" : " locally"}. Calorie and macro targets were not changed.`);
   } catch (error) {
     setText("nutrition-review-feedback", error.message);
   }
@@ -6903,6 +6921,117 @@ function readMealTrainingWindow() {
     return ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(value) ? value : "UNSCHEDULED";
   }
   catch (_) { return "UNSCHEDULED"; }
+}
+
+async function persistNutritionState(stateType, stateKey, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("nutrition_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function clearNutritionStateType(stateType) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("nutrition_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType);
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function applyNutritionStateRow(row) {
+  const payload = row?.payload || {};
+  if (row.state_type === "BASELINE_HISTORY" && Array.isArray(payload.items)) {
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(payload.items));
+  }
+  if (row.state_type === "ADAPTIVE_GOAL" && ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].includes(payload.goal)) {
+    window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), payload.goal);
+  }
+  if (row.state_type === "ADAPTIVE_APPROVAL" && payload.goal) {
+    window.localStorage.setItem(adaptiveFuelingStorageKey(payload.goal), JSON.stringify(payload));
+  }
+  if (row.state_type === "MEAL_WINDOW" && ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(payload.window)) {
+    window.localStorage.setItem(mealTrainingWindowStorageKey(), payload.window);
+  }
+  if (row.state_type === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
+    window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(payload.items));
+  }
+  if (row.state_type === "MANUAL_DAY" && payload.date) {
+    window.localStorage.setItem(nutritionManualStorageKey(payload.date), JSON.stringify(payload));
+  }
+}
+
+async function loadNutritionState() {
+  if (!session?.user?.id) return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("nutrition_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    rows.forEach(applyNutritionStateRow);
+    const hasState = (type, key = null) => rows.some((row) => row.state_type === type && (key === null || row.state_key === key));
+    const localBaselines = readNutritionBaselineHistory();
+    const localReviews = readNutritionReviewHistory();
+    const localGoal = readAdaptiveFuelingGoal();
+    const localWindow = readMealTrainingWindow();
+    if (!hasState("BASELINE_HISTORY") && localBaselines.length) {
+      await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines });
+    }
+    if (!hasState("REVIEW_HISTORY") && localReviews.length) {
+      await persistNutritionState("REVIEW_HISTORY", "current", { items: localReviews });
+    }
+    if (!hasState("ADAPTIVE_GOAL")) {
+      await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: localGoal });
+    }
+    if (!hasState("MEAL_WINDOW")) {
+      await persistNutritionState("MEAL_WINDOW", "current", { window: localWindow });
+    }
+    ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => {
+      const approval = readApprovedAdaptiveFueling(goalName);
+      if (approval && !hasState("ADAPTIVE_APPROVAL", goalName)) {
+        persistNutritionState("ADAPTIVE_APPROVAL", goalName, approval);
+      }
+    });
+    const manualPrefix = `coach-dominion:nutrition-manual:${connectedUserId()}:`;
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith(manualPrefix)) continue;
+      const date = key.slice(manualPrefix.length);
+      if (hasState("MANUAL_DAY", date)) continue;
+      try {
+        const record = JSON.parse(window.localStorage.getItem(key) || "null");
+        if (record?.date) persistNutritionState("MANUAL_DAY", date, record);
+      } catch (_) {
+        // Ignore malformed legacy local records.
+      }
+    }
+    const goalSelect = document.getElementById("adaptive-fueling-goal");
+    if (goalSelect) goalSelect.value = readAdaptiveFuelingGoal();
+    const mealWindow = document.getElementById("meal-training-window");
+    if (mealWindow) mealWindow.value = readMealTrainingWindow();
+  } catch (_) {
+    // Existing account-scoped local state remains the explicit offline fallback.
+  }
 }
 
 function nutritionMealsForDate(date) {
@@ -7073,7 +7202,7 @@ function renderNutritionNextAction({ imported = null, manual = null } = {}) {
     <button type="button" data-nutrition-next-action="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`;
 }
 
-function saveManualNutrition(event) {
+async function saveManualNutrition(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const data = new FormData(form);
@@ -7084,9 +7213,10 @@ function saveManualNutrition(event) {
     record[key] = value === "" || value === null ? null : Number(value);
   });
   window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
+  const synced = await persistNutritionState("MANUAL_DAY", date, record);
   renderNutritionCommand();
   if (date === todayISODate()) renderDailyCoachingLoop();
-  setText("nutrition-command-feedback", "Manual totals saved locally. MyFitnessPal data will take priority when available for this date.");
+  setText("nutrition-command-feedback", `Manual totals saved${synced ? " to your account" : " locally"}. MyFitnessPal data will take priority when available for this date.`);
 }
 
 function readConnectedLocal(kind, normalizer) {
@@ -7732,6 +7862,7 @@ async function init() {
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
+    await loadNutritionState();
     await loadRunningState();
     await loadCoreProgramState();
     await loadClosedLoopState();
@@ -7776,38 +7907,42 @@ if (typeof document !== "undefined") {
   });
   document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
   document.getElementById("nutrition-baseline-form")?.addEventListener("submit", reviewNutritionBaseline);
-  document.getElementById("nutrition-baseline-output")?.addEventListener("click", (event) => {
+  document.getElementById("nutrition-baseline-output")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-nutrition-baseline-action]");
     if (!button) return;
-    if (button.dataset.nutritionBaselineAction === "approve") approveNutritionBaselineDraft();
+    if (button.dataset.nutritionBaselineAction === "approve") await approveNutritionBaselineDraft();
     if (button.dataset.nutritionBaselineAction === "cancel") {
       nutritionBaselineDraft = null;
       renderNutritionBaseline();
       setText("nutrition-baseline-feedback", "Draft discarded. No approved baseline changed.");
     }
   });
-  document.getElementById("nutrition-review-output")?.addEventListener("click", (event) => {
+  document.getElementById("nutrition-review-output")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-nutrition-review-action]");
-    if (button?.dataset.nutritionReviewAction === "approve") approveCurrentNutritionReview();
+    if (button?.dataset.nutritionReviewAction === "approve") await approveCurrentNutritionReview();
   });
-  document.getElementById("meal-training-window")?.addEventListener("change", (event) => {
+  document.getElementById("meal-training-window")?.addEventListener("change", async (event) => {
     window.localStorage.setItem(mealTrainingWindowStorageKey(), event.currentTarget.value);
+    const synced = await persistNutritionState("MEAL_WINDOW", "current", { window: event.currentTarget.value });
     renderMealCoaching();
-    setText("meal-coaching-feedback", "Training window saved locally. Approved daily targets were not changed.");
+    setText("meal-coaching-feedback", `Training window saved${synced ? " to your account" : " locally"}. Approved daily targets were not changed.`);
   });
-  document.getElementById("adaptive-fueling-goal")?.addEventListener("change", () => {
+  document.getElementById("adaptive-fueling-goal")?.addEventListener("change", async (event) => {
+    window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), event.currentTarget.value);
+    const synced = await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: event.currentTarget.value });
     renderNutritionCommand();
-    setText("adaptive-fueling-feedback", "Goal updated. No target change has been approved.");
+    setText("adaptive-fueling-feedback", `Goal updated${synced ? " and saved to your account" : " locally"}. No target change has been approved.`);
   });
-  document.getElementById("adaptive-fueling-output")?.addEventListener("click", (event) => {
+  document.getElementById("adaptive-fueling-output")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-adaptive-fueling-action]");
     if (button?.dataset.adaptiveFuelingAction !== "approve" || typeof DominionAdaptiveFueling === "undefined") return;
     try {
       const proposal = buildCurrentAdaptiveFuelingProposal();
       const approved = DominionAdaptiveFueling.approveAdaptiveFuelingProposal(proposal);
       window.localStorage.setItem(adaptiveFuelingStorageKey(approved.goal), JSON.stringify(approved));
+      const synced = await persistNutritionState("ADAPTIVE_APPROVAL", approved.goal, approved);
       renderNutritionCommand();
-      setText("adaptive-fueling-feedback", "Fueling variant approved locally. The Dominion Record target was not changed.");
+      setText("adaptive-fueling-feedback", `Fueling variant approved${synced ? " and saved to your account" : " locally"}. The Dominion Record target was not changed.`);
     } catch (error) {
       setText("adaptive-fueling-feedback", error.message);
     }

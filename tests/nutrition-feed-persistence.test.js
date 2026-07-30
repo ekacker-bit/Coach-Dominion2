@@ -24,6 +24,7 @@ assert.match(app, /nutrition_feed_tokens/);
 assert.match(app, /runMfpNutritionFeedAction/);
 assert.match(app, /data-connected-action\^='mfp-feed-'/);
 assert.match(app, /stopImmediatePropagation/);
+assert.match(app, /\["Enter", " "\]\.includes\(event\.key\)/);
 assert.match(html, /assets\/js\/nutrition-feed\.js/);
 
-console.log("Nutrition feed persistence: 17 assertions passed.");
+console.log("Nutrition feed persistence: 18 assertions passed.");

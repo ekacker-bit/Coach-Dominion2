@@ -34,7 +34,7 @@ function prescription(plan = approved(), history = [], readiness = { state: "GRE
 
 test("profile defaults are bounded and conservative", () => {
   const profile = strength.normalizeProfile({ daysPerWeek: 9, sessionMinutes: 20, equipment: "UNKNOWN" });
-  assert.equal(profile.daysPerWeek, 4);
+  assert.equal(profile.daysPerWeek, 6);
   assert.equal(profile.sessionMinutes, 60);
   assert.equal(profile.equipment, "FULL_GYM");
 });
@@ -65,6 +65,18 @@ test("four-day split remains balanced", () => {
   plan.sessions.forEach((session) => assert.ok(session.exercises.length >= 5 && session.exercises.length <= 7));
   const coverage = new Set(strength.movementCoverage(plan).map((item) => item.code));
   ["SQUAT", "HINGE", "HORIZONTAL_PUSH", "HORIZONTAL_PULL", "UNILATERAL", "CORE"].forEach((code) => assert.ok(coverage.has(code)));
+});
+
+test("five- and six-day programs remain bounded and cover the full movement system", () => {
+  [5, 6].forEach((daysPerWeek) => {
+    ["FULL_GYM", "DUMBBELLS", "BODYWEIGHT_BANDS"].forEach((equipment) => {
+      const plan = draft({ daysPerWeek, equipment });
+      assert.equal(plan.sessions.length, daysPerWeek);
+      plan.sessions.forEach((session) => assert.ok(session.exercises.length >= 5 && session.exercises.length <= 7));
+      const coverage = new Set(strength.movementCoverage(plan).map((item) => item.code));
+      ["SQUAT", "HINGE", "HORIZONTAL_PUSH", "HORIZONTAL_PULL", "UNILATERAL", "CORE"].forEach((code) => assert.ok(coverage.has(code), `${equipment} ${daysPerWeek} missing ${code}`));
+    });
+  });
 });
 
 test("evidence personalizes load without determining exercise inclusion", () => {
@@ -114,6 +126,61 @@ test("workout supports start, set logging, and undo", () => {
   assert.equal(execution.setLogs[exercise.exerciseCode][0].rpe, 7);
   execution = strength.undoLastSet(execution, exercise.exerciseCode);
   assert.equal(strength.completedSetCount(execution), 0);
+});
+
+test("warm-ups, set edits, rest, pause, resume, and review form a recoverable attempt", () => {
+  const Rx = prescription();
+  const exercise = Rx.exercises[0];
+  let execution = strength.executionForPrescription(Rx);
+  execution = strength.startWorkout(execution, Rx, "2026-07-30T13:00:00.000Z");
+  execution = strength.recordSet(execution, exercise.exerciseCode, { reps: 5, load: 45, kind: "WARMUP" }, "2026-07-30T13:02:00.000Z");
+  execution = strength.recordSet(execution, exercise.exerciseCode, { reps: 5, load: 135, rpe: 8, kind: "WORK" }, "2026-07-30T13:05:00.000Z");
+  assert.equal(strength.completedSetCount(execution), 1);
+  assert.equal(execution.setLogs[exercise.exerciseCode].length, 2);
+  assert.equal(execution.restUntil, "2026-07-30T13:08:00.000Z");
+  const workSet = execution.setLogs[exercise.exerciseCode][1];
+  execution = strength.editSet(execution, exercise.exerciseCode, workSet.id, { reps: 6, load: 140, rpe: 7.5 }, "2026-07-30T13:06:00.000Z");
+  assert.equal(execution.setLogs[exercise.exerciseCode][1].load, 140);
+  execution = strength.pauseWorkout(execution, "2026-07-30T13:10:00.000Z");
+  assert.equal(execution.state, "PAUSED");
+  execution = strength.resumeWorkout(execution, "2026-07-30T13:20:00.000Z");
+  execution = strength.prepareWorkoutReview(execution, "2026-07-30T13:30:00.000Z");
+  assert.equal(execution.state, "REVIEW");
+  assert.equal(strength.activeDurationMinutes(execution), 20);
+  execution = strength.finishWorkout(execution, { notes: "Controlled work" }, "2026-07-30T13:31:00.000Z");
+  assert.equal(execution.state, "PARTIAL");
+  assert.equal(execution.summary.durationMinutes, 20);
+  assert.equal(execution.summary.volume, 840);
+});
+
+test("interrupted sessions auto-pause and terminal attempts can restart without erasing history identity", () => {
+  const Rx = prescription();
+  let execution = strength.startWorkout(strength.executionForPrescription(Rx), Rx, "2026-07-30T13:00:00.000Z");
+  execution = { ...execution, updatedAt: "2026-07-30T13:05:00.000Z" };
+  execution = strength.recoverInterruptedExecution(execution, "2026-07-30T14:00:00.000Z", 30);
+  assert.equal(execution.state, "PAUSED");
+  assert.match(execution.pauseReason, /inactivity/i);
+  execution = strength.finishWorkout(execution, { forceStop: true }, "2026-07-30T14:01:00.000Z");
+  const priorId = execution.id;
+  const retry = strength.restartWorkout(execution, "2026-07-30T14:02:00.000Z");
+  assert.equal(retry.state, "READY");
+  assert.equal(retry.attempt, 2);
+  assert.notEqual(retry.id, priorId);
+  assert.equal(retry.restartedFromExecutionId, priorId);
+});
+
+test("legacy wall-clock inflation is rejected when active-time segments are unavailable", () => {
+  const Rx = prescription();
+  const legacy = {
+    ...strength.executionForPrescription(Rx),
+    activeSegments: [],
+    state: "STOPPED",
+    startedAt: "2026-07-30T01:00:00.000Z",
+    completedAt: "2026-07-30T11:16:00.000Z"
+  };
+  const summary = strength.sessionSummary(legacy, Rx);
+  assert.equal(summary.durationMinutes, null);
+  assert.equal(summary.durationStatus, "UNRELIABLE_LEGACY");
 });
 
 test("finishing early creates a durable partial result", () => {
@@ -170,6 +237,9 @@ test("app integration includes account persistence and full lifecycle controls",
   assert.match(app, /data-assignment-action="finish"/);
   assert.match(app, /data-assignment-action="stop"/);
   assert.match(app, /data-assignment-action="undo-set"/);
+  assert.match(app, /data-assignment-action="restart"/);
+  assert.match(app, /data-assignment-action="pause"/);
+  assert.match(app, /data-strength-rest-until/);
   assert.match(app, /loadStrengthTrainingState/);
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /auth\.uid\(\) = user_id/);

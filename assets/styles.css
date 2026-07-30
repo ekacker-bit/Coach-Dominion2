@@ -464,3 +464,24 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .nutrition-feed-setup>ol,.nutrition-feed-setup>p{margin:14px 18px}.nutrition-feed-setup li{margin:8px 0;color:var(--muted)}
 .nutrition-feed-setup>pre{max-height:320px;margin:14px 18px 18px;padding:13px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#070b10;white-space:pre-wrap;word-break:break-word}
 @media(max-width:760px){.nutrition-feed-summary{grid-template-columns:1fr}.nutrition-feed-secret,.nutrition-feed-setup>summary{align-items:flex-start;flex-direction:column}.nutrition-feed-secret button{width:100%}.nutrition-feed-actions{display:grid}.nutrition-feed-actions button{width:100%}}
+
+/* Build 016B: Today fuel execution */
+.today-nutrition-card{grid-column:span 2;min-height:300px;border-color:rgba(56,212,141,.32)}
+.today-nutrition-context{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.today-nutrition-context div,.today-nutrition-metric{border:1px solid var(--line);border-radius:9px;background:var(--panel3);padding:12px}
+.today-nutrition-context span,.today-nutrition-metric>span{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}
+.today-nutrition-context strong,.today-nutrition-metric strong{display:block;margin-top:4px}
+.today-nutrition-context small,.today-nutrition-metric small{display:block;margin-top:3px;color:var(--muted)}
+.today-nutrition-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.today-nutrition-metric strong{font-size:22px}
+.today-nutrition-progress{height:5px;margin:9px 0 7px;border-radius:999px;background:var(--line);overflow:hidden}
+.today-nutrition-progress span{display:block;height:100%;border-radius:inherit;background:var(--green)}
+.today-nutrition-progress.over span{background:var(--yellow)}
+.today-nutrition-order{margin:16px 0;padding:16px;border:1px solid rgba(56,212,141,.28);border-left:4px solid var(--green);border-radius:9px;background:rgba(56,212,141,.06)}
+.today-nutrition-order p{margin:5px 0 0;color:#dce3ea;font-weight:750}
+.today-nutrition-warning{margin:10px 0 0;padding:11px 13px;border:1px solid rgba(229,185,79,.42);border-radius:8px;color:#f0d58f;background:rgba(229,185,79,.06)}
+.today-nutrition-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+.today-nutrition-actions button:not(.primary){background:var(--panel2);border:1px solid var(--line)}
+.today-nutrition-safeguards{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0;padding:0;list-style:none}
+.today-nutrition-safeguards li{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 8px}
+@media(max-width:720px){.today-nutrition-card{grid-column:auto}.today-nutrition-context,.today-nutrition-metrics{grid-template-columns:1fr}.today-nutrition-actions{display:grid}}

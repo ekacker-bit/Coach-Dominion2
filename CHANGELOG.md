@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Build 014A Closed-Loop Coaching
+
+- Added one deterministic daily coaching loop across Observe, Decide, Authorize, Execute, Verify, and Adapt.
+- Added immutable decision fingerprints so evidence is reconciled against the exact approved prescription.
+- Added cross-domain verification for strength, running, core, fueling, recovery, and the Dominion Record.
+- Added explicit evidence confidence, completion coverage, missing-domain blockers, and pain/technique safeguards.
+- Added bounded next-adjustment proposals for protect, regress, reduce, hold, repeat, or conservative progression.
+- Required deliberate approval for both the daily decision and any future adjustment; no approved plan is mutated automatically.
+- Added user-scoped Supabase persistence with device fallback, Today and Training review surfaces, migration 013, and regression coverage.
+
 ## Unreleased — Build 013C Core Programming & Execution
 
 - Added a deterministic four-week Abs/Core plan built from goal, experience, equipment, weekly frequency, and session length.

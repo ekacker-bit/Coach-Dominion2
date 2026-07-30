@@ -12,6 +12,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `app.html` contains the authenticated War Room interface.
 - `assets/js/app.js` contains Supabase client operations, the Daily State/readiness engine, mission generation, Atlas brief generation, and UI rendering.
 - `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
+- `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
 - `assets/styles.css` contains the application styles.
 - `api/health.js` and `api/config.js` are Vercel Node.js serverless functions.
 - `supabase/migrations/` contains the tracked PostgreSQL schema, constraints, row-level security policies, and trigger definitions.
@@ -23,6 +24,10 @@ Build 004A adds a daily Dominion Record with five equal-weight compliance domain
 ## Build 013C core programming
 
 The Abs/Core destination supports a profile-driven, four-week cycle covering five movement categories. Draft generation and approval are separate; readiness can reduce or remove today’s prescription but cannot increase or silently rewrite an approved plan. Completed movements, session quality, effort, and pain holds persist to user-scoped account storage with device-local fallback. Controlled completion evidence drives an explicit next-cycle recommendation, while each completed exercise also becomes auditable Performance evidence.
+
+## Build 014A closed-loop coaching
+
+Closed-loop coaching unifies the operating cycle across Observe, Decide, Authorize, Execute, Verify, and Adapt. The approved daily decision receives an immutable fingerprint, and strength, running, core, fueling, recovery, and Dominion Record evidence are reconciled against that exact prescription. A closing review is unavailable while required evidence is missing. Once verified, Coach Dominion proposes a bounded future adjustment—never an automatic plan mutation—and requires explicit approval before carrying that adjustment into the next planning cycle.
 
 ## Build 004B weekly inspection
 

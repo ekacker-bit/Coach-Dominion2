@@ -5007,7 +5007,351 @@ function renderDailyCoachingLoop() {
     <span class="daily-execution-number">${item.complete ? "✓" : index + 1}</span>
     <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
   </article>`).join("");
+  renderClosedLoopCoaching();
   applyProductPolish();
+}
+
+function closedLoopStorageKey(stateType, stateKey = "current") {
+  return `coach-dominion:closed-loop:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
+}
+
+function readClosedLoopState(stateType, stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(closedLoopStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveClosedLoopLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(closedLoopStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readClosedLoopHistory() {
+  const history = readClosedLoopState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function closedLoopPayloadTimestamp(payload) {
+  if (Array.isArray(payload)) {
+    return payload.reduce((latest, item) => Math.max(latest, closedLoopPayloadTimestamp(item)), 0);
+  }
+  if (!payload || typeof payload !== "object") return 0;
+  const direct = [
+    payload.updatedAt,
+    payload.approvedAt,
+    payload.closedAt,
+    payload.generatedAt,
+    payload.adaptation?.approvedAt,
+    payload.adaptation?.generatedAt,
+    payload.reconciliation?.generatedAt
+  ].map((value) => Date.parse(value || "") || 0);
+  return Math.max(0, ...direct);
+}
+
+async function persistClosedLoopState(stateType, stateKey, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    setText("closed-loop-feedback", "Saved on this device. Account sync will activate after migration 013 is applied.");
+    return false;
+  }
+}
+
+async function loadClosedLoopState() {
+  if (!session?.user?.id || typeof DominionClosedLoop === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("coaching_loop_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const keys = [
+      ["DECISION", todayISODate()],
+      ["REVIEW", todayISODate()],
+      ["ADAPTATION", "current"],
+      ["HISTORY", "current"]
+    ];
+    for (const [stateType, stateKey] of keys) {
+      const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === stateKey);
+      const hasLocal = Boolean(local) && (stateType !== "HISTORY" || local.length);
+      if (!row && hasLocal) {
+        await persistClosedLoopState(stateType, stateKey, local);
+        continue;
+      }
+      if (!row) continue;
+      const localTimestamp = closedLoopPayloadTimestamp(local);
+      const remoteTimestamp = Date.parse(row.updated_at || "") || 0;
+      if (hasLocal && localTimestamp > remoteTimestamp) {
+        await persistClosedLoopState(stateType, stateKey, local);
+      } else {
+        saveClosedLoopLocal(stateType, stateKey, row.payload);
+      }
+    }
+  } catch (_) {
+    // Device state remains the explicit fallback.
+  }
+}
+
+function addClosedLoopDays(date, days = 1) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function currentRunningPrescription() {
+  if (typeof DominionRunning === "undefined") return null;
+  const plan = readApprovedRunningPlan();
+  return DominionRunning.buildDailyRunPrescription(plan || {}, {
+    today: todayISODate(),
+    readiness: dailyState || {}
+  });
+}
+
+function buildCurrentClosedLoopInput() {
+  if (typeof DominionClosedLoop === "undefined") return null;
+  const date = todayISODate();
+  const currentDailyState = dailyState?.date === date ? dailyState : null;
+  const readiness = currentDailyState ? evaluateOperationalReadiness(currentDailyState) : evaluateReadiness(null);
+  const readinessMission = readiness.state ? generateMission(readiness) : null;
+  const painOverride = Boolean(currentDailyState?.pain) || readiness.state === "RED";
+  const decisionPosture = painOverride
+    ? "PROTECT / RECOVER"
+    : readiness.state === "YELLOW"
+      ? "REDUCED EXECUTION"
+      : readiness.state === "GREEN"
+        ? "EXECUTE"
+        : "UNSET";
+  const assignment = buildCurrentDailyAssignment();
+  const assignmentExecution = readDailyAssignmentExecution();
+  const runningPrescription = currentRunningPrescription();
+  const runningExecution = readRunningExecution();
+  const corePrescription = currentCorePrescription();
+  const coreExecution = readCurrentCoreExecution();
+  const queueState = readDailyExecutionQueueState();
+  const api = connectedApi();
+  const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(date) : null;
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const nutritionDay = nutritionDays.find((item) => item.date === date) || null;
+  const manualNutrition = typeof readManualNutrition === "function" ? readManualNutrition(date) : null;
+  const performanceToday = performanceEntries.filter((entry) => entry.performanceDate === date);
+  const strengthEvidence = performanceToday.filter((entry) => entry.domain === "strength");
+  const runningEvidence = performanceToday.filter((entry) => entry.domain === "running");
+  const coreEvidence = performanceToday.filter((entry) => entry.domain === "core");
+  const recordSaved = Boolean(dailyCompliance?.compliance_date === date);
+  const recoveryRequired = true;
+  const trainingPlanned = Boolean(assignment?.exercises?.length) && assignment?.state !== "RECOVERY ONLY";
+  const runningPlanned = Boolean(runningPrescription?.session) && !["REST_DAY", "PAIN_HOLD"].includes(runningPrescription?.status);
+  const corePlanned = Boolean(corePrescription?.session) && !["SAFETY_HOLD", "RECOVERY_DAY"].includes(corePrescription?.status);
+  const fuelingPlanned = Boolean(baseline);
+  const recoveryComplete = Boolean(queueState.recoveryComplete);
+  const trainingComplete = assignment?.fitbod?.state === "COMPLETE"
+    || assignmentExecution.state === "COMPLETE"
+    || (trainingPlanned && strengthEvidence.length > 0);
+  const runningComplete = runningExecution?.state === "COMPLETE"
+    || (runningPlanned && runningEvidence.length > 0);
+  const coreComplete = coreExecution?.state === "COMPLETE"
+    || (corePlanned && coreEvidence.length > 0);
+  const fuelingComplete = Boolean(fuelingPlanned && (nutritionDay || manualNutrition?.date === date));
+  const currentAdaptation = readClosedLoopState("ADAPTATION", "current", null);
+  const priorAdaptation = currentAdaptation?.status === "APPROVED" && currentAdaptation.date < date
+    ? currentAdaptation
+    : null;
+  return {
+    date,
+    readiness: {
+      state: currentDailyState ? readiness.state : null,
+      pain: Boolean(currentDailyState?.pain),
+      energy: currentDailyState?.energy,
+      soreness: currentDailyState?.soreness
+    },
+    prescription: {
+      posture: decisionPosture,
+      mission: readinessMission?.detail || readiness.instruction || "Complete Roll Call to establish today's mission.",
+      domains: {
+        training: {
+          planned: trainingPlanned,
+          title: "Strength training",
+          target: trainingPlanned ? `${assignment.exercises.length} prescribed movements · ~${assignment.estimatedMinutes} min` : "",
+          sourceId: assignment?.id || null
+        },
+        running: {
+          planned: runningPlanned,
+          title: "Running",
+          target: runningPlanned ? `${runningPrescription.session.distance} ${runningPrescription.session.unit} ${runningPrescription.session.type}` : "",
+          sourceId: runningPrescription?.session?.id || null
+        },
+        core: {
+          planned: corePlanned,
+          title: "Abs / core",
+          target: corePlanned ? `${corePrescription.exercises.length} movements · ${corePrescription.session.estimatedMinutes} min` : "",
+          sourceId: corePrescription?.session?.id || null
+        },
+        fueling: {
+          planned: fuelingPlanned,
+          title: "Fueling",
+          target: fuelingPlanned ? "Approved calorie and macro baseline" : "",
+          sourceId: baseline?.id || null
+        },
+          recovery: {
+            planned: recoveryRequired,
+            title: "Recovery",
+            target: painOverride ? "Complete recovery-only order" : "Complete prescribed recovery action",
+            sourceId: readRecoveryPlan()?.approvedAt || null
+        },
+        record: {
+          planned: true,
+          title: "Dominion Record",
+          target: "Close today's execution record",
+          sourceId: date
+        }
+      }
+    },
+    actual: {
+      training: {
+        complete: trainingComplete,
+        partial: assignmentExecution.state === "IN PROGRESS",
+        evidenceCount: strengthEvidence.length,
+        sourceIds: strengthEvidence.map((entry) => entry.id),
+        quality: "UNKNOWN",
+        painReported: Boolean(dailyState?.pain)
+      },
+      running: {
+        complete: runningComplete,
+        partial: runningExecution?.state === "IN_PROGRESS",
+        evidenceCount: runningEvidence.length,
+        sourceIds: runningEvidence.map((entry) => entry.id),
+        quality: "UNKNOWN",
+        painReported: runningExecution?.state === "PAIN_HOLD"
+      },
+      core: {
+        complete: coreComplete,
+        partial: coreExecution?.state === "IN_PROGRESS",
+        evidenceCount: coreEvidence.length,
+        sourceIds: coreEvidence.map((entry) => entry.id),
+        quality: coreExecution?.quality || "UNKNOWN",
+        effort: coreExecution?.effort,
+        painReported: Boolean(coreExecution?.painReported)
+      },
+      fueling: {
+        complete: fuelingComplete,
+        evidenceCount: fuelingComplete ? 1 : 0,
+        sourceIds: nutritionDay ? [`nutrition-${date}`] : manualNutrition?.date === date ? [`manual-nutrition-${date}`] : []
+      },
+      recovery: {
+        complete: recoveryComplete,
+        evidenceCount: recoveryComplete ? 1 : 0,
+        sourceIds: recoveryComplete ? [`recovery-${date}`] : []
+      },
+      record: {
+        complete: recordSaved,
+        evidenceCount: recordSaved ? 1 : 0,
+        sourceIds: recordSaved ? [`record-${date}`] : []
+      }
+    },
+    decision: readClosedLoopState("DECISION", date, null),
+    review: readClosedLoopState("REVIEW", date, null),
+    adaptation: currentAdaptation,
+    priorAdaptation,
+    history: readClosedLoopHistory()
+  };
+}
+
+function buildCurrentClosedLoopState() {
+  const input = buildCurrentClosedLoopInput();
+  return input ? DominionClosedLoop.buildLoopState(input) : null;
+}
+
+function closedLoopTone(state = "") {
+  if (state === "LOOP CLOSED") return "green";
+  if (["OBSERVATION REQUIRED", "EXECUTION OPEN"].includes(state)) return "yellow";
+  if (state === "ADAPTATION PROPOSED") return "yellow";
+  return "neutral";
+}
+
+function closedLoopActionLabel(action = "") {
+  return {
+    complete_observation: "Complete Roll Call",
+    approve_decision: "Authorize today's decision",
+    continue_execution: "Continue execution",
+    close_review: "Close evidence review",
+    approve_adaptation: "Approve next adjustment",
+    view_history: "Loop history"
+  }[action] || "Refresh loop";
+}
+
+function renderClosedLoopMarkup(state, options = {}) {
+  if (!state) return `<div class="performance-empty">Closed-loop coaching engine unavailable.</div>`;
+  const compact = Boolean(options.compact);
+  const decision = state.decision;
+  const reconciliation = state.reconciliation;
+  const adaptation = state.adaptation;
+  const domainRows = reconciliation?.domains?.filter((item) => item.required || item.evidenceCount > 0).map((item) => `
+    <article class="closed-loop-domain ${escapeHtml(item.status.toLowerCase())}">
+      <div><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.target || "No target")}</span></div>
+      <div><b>${escapeHtml(item.status.replaceAll("_", " "))}</b><small>${item.evidenceCount} evidence</small></div>
+    </article>`).join("") || "";
+  return `<div class="closed-loop-shell ${compact ? "compact" : ""}">
+    <div class="closed-loop-phase-rail" aria-label="Closed-loop coaching phases">
+      ${state.phases.map((phase) => `<div class="${escapeHtml(phase.status.toLowerCase())}" aria-current="${phase.status === "CURRENT" ? "step" : "false"}"><span>${phase.status === "COMPLETE" ? "✓" : phase.index}</span><strong>${escapeHtml(phase.label)}</strong><small>${escapeHtml(phase.status)}</small></div>`).join("")}
+    </div>
+    <div class="closed-loop-decision">
+      <div>
+        <span class="kicker">${escapeHtml(state.current.label)} · ${escapeHtml(state.state)}</span>
+        <h3>${escapeHtml(decision?.valid ? decision.mission : state.draft?.message || "Complete current observation")}</h3>
+        <p>${decision?.valid ? `${escapeHtml(decision.posture)} · Decision ${escapeHtml(decision.fingerprint)}` : "Current Energy, Soreness, and Pain are required before a coaching decision is issued."}</p>
+      </div>
+      ${reconciliation ? `<div class="closed-loop-score"><strong>${reconciliation.summary.completionPercent}%</strong><span>${escapeHtml(reconciliation.summary.confidence)} confidence</span></div>` : ""}
+    </div>
+    ${decision?.safeguards?.painOverride ? `<div class="closed-loop-safety"><strong>PAIN OVERRIDE</strong><p>Progression is blocked. Recovery governs until new readiness evidence is available.</p></div>` : ""}
+    ${!compact && domainRows ? `<div class="closed-loop-domain-grid">${domainRows}</div>` : ""}
+    ${adaptation ? `<article class="closed-loop-adaptation ${escapeHtml(adaptation.code.toLowerCase())}"><div><span class="kicker">${adaptation.status === "APPROVED" ? "APPROVED NEXT ADJUSTMENT" : "PROPOSED NEXT ADJUSTMENT"}</span><h3>${escapeHtml(adaptation.label)}</h3><p>${escapeHtml(adaptation.reason)}</p></div><div><strong>${adaptation.bounds?.maximumLoadIncreasePercent || 0}%</strong><small>max load increase</small></div></article>` : ""}
+    <div class="closed-loop-actions">
+      <button type="button" data-closed-loop-action="${escapeHtml(state.nextAction)}">${escapeHtml(closedLoopActionLabel(state.nextAction))}</button>
+      <button type="button" class="ghost" data-closed-loop-action="refresh">Refresh evidence</button>
+    </div>
+    <p class="closed-loop-rule">Approved plans remain immutable. Evidence may propose a bounded future adjustment; it never applies one automatically.</p>
+  </div>`;
+}
+
+function renderClosedLoopCoaching() {
+  if (typeof DominionClosedLoop === "undefined") return;
+  const state = buildCurrentClosedLoopState();
+  const panel = document.getElementById("closed-loop-panel");
+  const trainingPanel = document.getElementById("training-closed-loop-panel");
+  if (panel) panel.innerHTML = renderClosedLoopMarkup(state);
+  if (trainingPanel) trainingPanel.innerHTML = renderClosedLoopMarkup(state, { compact: true });
+  const status = document.getElementById("closed-loop-status");
+  if (status && state) {
+    status.textContent = state.state;
+    status.className = `state-pill ${closedLoopTone(state.state)}`;
+  }
+}
+
+async function approveCurrentClosedLoopDecision() {
+  const state = buildCurrentClosedLoopState();
+  if (!state?.draft?.valid) return null;
+  const approved = DominionClosedLoop.approveDecision(state.draft, new Date().toISOString());
+  if (!approved) return null;
+  saveClosedLoopLocal("DECISION", todayISODate(), approved);
+  await persistClosedLoopState("DECISION", todayISODate(), approved);
+  return approved;
 }
 
 function renderRecoveryReview() {
@@ -7165,6 +7509,7 @@ async function init() {
     await loadTrendsAnalytics();
     await loadRunningState();
     await loadCoreProgramState();
+    await loadClosedLoopState();
     await loadPerformanceEntries();
     await loadConnectedDominion();
     renderRankSection();
@@ -7607,7 +7952,99 @@ if (typeof document !== "undefined") {
       setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
     }
   });
-  document.getElementById("daily-orders-panel")?.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-closed-loop-action]");
+    if (!button || typeof DominionClosedLoop === "undefined") return;
+    const action = button.dataset.closedLoopAction;
+    if (action === "refresh") {
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", "Readiness, prescriptions, execution, and evidence were reconciled again.");
+      return;
+    }
+    if (action === "complete_observation") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("energy")?.focus();
+      return;
+    }
+    if (action === "approve_decision") {
+      const approved = await approveCurrentClosedLoopDecision();
+      if (!approved) {
+        setText("closed-loop-feedback", "Complete today's Roll Call before authorizing a coaching decision.");
+        return;
+      }
+      const coaching = buildCurrentDailyCoachingLoop() || {};
+      window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify({
+        approvedAt: approved.approvedAt,
+        decisionId: approved.id,
+        posture: approved.posture,
+        headline: approved.mission,
+        orders: approved.mission,
+        safeguards: approved.safeguards,
+        coachingPosture: coaching.posture || null
+      }));
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", "Today's decision is authorized. The approved prescription fingerprint is now fixed for evidence reconciliation.");
+      setText("daily-orders-feedback", "Today's coaching decision and execution orders are authorized.");
+      return;
+    }
+    if (action === "continue_execution") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("daily-orders-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "close_review") {
+      const state = buildCurrentClosedLoopState();
+      const result = DominionClosedLoop.closeReview(state?.decision || {}, state?.reconciliation || {}, {
+        history: readClosedLoopHistory(),
+        closedAt: new Date().toISOString(),
+        effectiveDate: addClosedLoopDays(todayISODate(), 1)
+      });
+      if (!result.valid) {
+        setText("closed-loop-feedback", result.message);
+        return;
+      }
+      const history = [...readClosedLoopHistory().filter((item) => item.decisionId !== result.review.decisionId), result.review];
+      saveClosedLoopLocal("REVIEW", todayISODate(), result.review);
+      saveClosedLoopLocal("ADAPTATION", "current", result.review.adaptation);
+      saveClosedLoopLocal("HISTORY", "current", history);
+      await persistClosedLoopState("REVIEW", todayISODate(), result.review);
+      await persistClosedLoopState("ADAPTATION", "current", result.review.adaptation);
+      await persistClosedLoopState("HISTORY", "current", history);
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", result.message);
+      return;
+    }
+    if (action === "approve_adaptation") {
+      const state = buildCurrentClosedLoopState();
+      const approved = DominionClosedLoop.approveAdaptation(
+        state?.adaptation || {},
+        new Date().toISOString(),
+        addClosedLoopDays(todayISODate(), 1)
+      );
+      if (!approved) return;
+      const review = state.review ? { ...state.review, adaptation: approved } : null;
+      const history = readClosedLoopHistory().map((item) => item.decisionId === approved.decisionId ? { ...item, adaptation: approved } : item);
+      saveClosedLoopLocal("ADAPTATION", "current", approved);
+      if (review) saveClosedLoopLocal("REVIEW", todayISODate(), review);
+      saveClosedLoopLocal("HISTORY", "current", history);
+      await persistClosedLoopState("ADAPTATION", "current", approved);
+      if (review) await persistClosedLoopState("REVIEW", todayISODate(), review);
+      await persistClosedLoopState("HISTORY", "current", history);
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", `Next adjustment approved for ${approved.effectiveDate}. Existing plans remain unchanged until their own approval workflow applies it.`);
+      return;
+    }
+    if (action === "view_history") {
+      const history = readClosedLoopHistory();
+      const last = history[history.length - 1];
+      setText("closed-loop-feedback", last
+        ? `${history.length} closed loop${history.length === 1 ? "" : "s"}. Latest: ${last.date} · ${last.adaptation?.label || "No adjustment"}.`
+        : "No prior closed loops yet.");
+    }
+  });
+  document.getElementById("daily-orders-panel")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-daily-action]");
     if (!button) return;
     const action = button.dataset.dailyAction;
@@ -7626,6 +8063,7 @@ if (typeof document !== "undefined") {
         safeguards: loop.safeguards
       };
       window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify(approval));
+      await approveCurrentClosedLoopDecision();
       renderDailyCoachingLoop();
       setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
     }

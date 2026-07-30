@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 015A Automated Nutrition Feed
+
+- Added a supported MyFitnessPal-to-Coach-Dominion path through Apple Health and a user-owned iPhone Shortcut.
+- Added revocable, one-time-visible feed keys; Coach Dominion never receives or stores MyFitnessPal credentials.
+- Added a serverless ingestion endpoint and security-definer Supabase function that accept only daily calories, protein, carbohydrates, fat, date, timezone, and sample count.
+- Added deterministic daily upserts, duplicate detection, sync history, delivery audit events, and a live MyFitnessPal Connected account state.
+- Added Nutrition setup, verification, rotation, revocation, delivery status, and privacy controls while retaining manual CSV import as a fallback.
+- Added migration 014 with row-level security and automated-feed regression coverage. Raw food diaries and raw Apple Health records are not stored.
+
 ## Unreleased — Build 014A Closed-Loop Coaching
 
 - Added one deterministic daily coaching loop across Observe, Decide, Authorize, Execute, Verify, and Adapt.

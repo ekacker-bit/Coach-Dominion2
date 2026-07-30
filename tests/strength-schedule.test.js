@@ -47,6 +47,15 @@ test("three-day strength defaults to Monday, Wednesday, and Friday", () => {
   assert.deepEqual(result.assignments.map((item) => item.sessionId), approvedPlan().sessions.map((item) => item.id));
 });
 
+test("five- and six-day programs schedule every approved session", () => {
+  const five = build(approvedPlan(5));
+  assert.deepEqual(five.preferredDays, [0, 1, 2, 4, 5]);
+  assert.equal(five.assignments.length, 5);
+  const six = build(approvedPlan(6));
+  assert.deepEqual(six.preferredDays, [0, 1, 2, 3, 4, 5]);
+  assert.equal(six.assignments.length, 6);
+});
+
 test("an incomplete current week rolls to the next complete operating week", () => {
   const result = build();
   assert.equal(result.weekStart, "2026-08-03");
@@ -67,6 +76,37 @@ test("hard running sessions are avoided without rewriting the run plan", () => {
   assert.ok(result.assignments.every((item) => !["2026-08-03", "2026-08-07"].includes(item.date)));
   assert.equal(result.approvalBlocked, false);
   assert.equal(JSON.stringify(runningPlan), before);
+});
+
+test("wrapped running and core plans with alternate date fields coordinate correctly", () => {
+  const context = {
+    runningPlan: {
+      plan: {
+        status: "READY",
+        sessions: [{ scheduledDate: "2026-08-03", sessionType: "INTERVAL" }]
+      }
+    },
+    corePlan: {
+      approvedPlan: {
+        status: "APPROVED",
+        weeks: [{ sessions: [{ scheduled_date: "2026-08-05", title: "Core wrapped" }] }]
+      }
+    }
+  };
+  assert.equal(schedule.contextForDate("2026-08-03", context).hardRun, true);
+  assert.equal(schedule.contextForDate("2026-08-05", context).core.title, "Core wrapped");
+  const coordinated = build(approvedPlan(), context);
+  assert.ok(coordinated.assignments.every((item) => !["2026-08-03", "2026-08-05"].includes(item.date)));
+});
+
+test("core assignments are separated when recovery space exists", () => {
+  const coreDates = ["2026-08-03", "2026-08-05", "2026-08-07"];
+  const corePlan = {
+    status: "APPROVED",
+    weeks: [{ sessions: coreDates.map((date, index) => ({ id: `core-${index}`, date, title: `Core ${index + 1}` })) }]
+  };
+  const result = build(approvedPlan(), { corePlan });
+  assert.ok(result.assignments.every((item) => !coreDates.includes(item.date)));
 });
 
 test("core overlap remains visible as an advisory", () => {
@@ -178,19 +218,20 @@ test("scheduled recovery is operational and never renders as a missing program",
   assert.equal(assignment.readinessDelta.code, "SCHEDULED_RECOVERY");
 });
 
-test("017C integration loads, persists, styles, tests, and migrates the schedule", () => {
+test("017E integration loads, persists, styles, tests, and migrates the schedule", () => {
   const root = path.join(__dirname, "..");
   const html = fs.readFileSync(path.join(root, "app.html"), "utf8");
   const app = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
   const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
   const migration = fs.readFileSync(path.join(root, "supabase/migrations/018_strength_schedule.sql"), "utf8");
   const pkg = fs.readFileSync(path.join(root, "package.json"), "utf8");
-  assert.match(html, /BUILD 017D/);
+  assert.match(html, /BUILD 017E/);
   assert.match(html, /strength-schedule\.js/);
   assert.match(app, /persistStrengthTrainingState\("SCHEDULE", "current"/);
   assert.match(app, /data-strength-schedule-action="approve"/);
   assert.match(app, /scheduledRecovery/);
   assert.match(styles, /\.strength-week-grid/);
+  assert.match(styles, /\.strength-live-player/);
   assert.match(migration, /'SCHEDULE'/);
   assert.match(pkg, /strength-schedule\.test\.js/);
 });

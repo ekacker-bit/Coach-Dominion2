@@ -4557,6 +4557,15 @@ function readApprovedStrengthSchedule() {
   return schedule?.status === "APPROVED" ? schedule : null;
 }
 
+function readStrengthWeekReview() {
+  return readStrengthState("WEEK_REVIEW", "current", null);
+}
+
+function readStrengthWeekReviewHistory() {
+  const history = readStrengthState("WEEK_REVIEW", "history", []);
+  return Array.isArray(history) ? history : [];
+}
+
 function readProgrammingDraft() {
   return readApprovedStrengthPlan();
 }
@@ -4609,12 +4618,14 @@ async function loadStrengthTrainingState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT", "SCHEDULE"].forEach((stateType) => {
+    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT", "SCHEDULE", "WEEK_REVIEW"].forEach((stateType) => {
       const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
       if (row) saveStrengthStateLocal(stateType, "current", row.payload);
     });
     const scheduleDraft = rows.find((item) => item.state_type === "SCHEDULE" && item.state_key === "draft");
     if (scheduleDraft) saveStrengthStateLocal("SCHEDULE", "draft", scheduleDraft.payload);
+    const reviewHistory = rows.find((item) => item.state_type === "WEEK_REVIEW" && item.state_key === "history");
+    if (reviewHistory) saveStrengthStateLocal("WEEK_REVIEW", "history", reviewHistory.payload);
     const execution = rows.find((item) => item.state_type === "EXECUTION" && item.state_key === todayISODate());
     if (execution) saveStrengthStateLocal("EXECUTION", todayISODate(), execution.payload);
     const localStates = [
@@ -4625,6 +4636,8 @@ async function loadStrengthTrainingState() {
       ["ADJUSTMENT", "current", readStrengthAdjustment()],
       ["SCHEDULE", "current", readStrengthSchedule()],
       ["SCHEDULE", "draft", readStrengthScheduleDraft()],
+      ["WEEK_REVIEW", "current", readStrengthWeekReview()],
+      ["WEEK_REVIEW", "history", readStrengthWeekReviewHistory()],
       ["EXECUTION", todayISODate(), readStrengthExecution()]
     ];
     for (const [stateType, stateKey, payload] of localStates) {
@@ -4846,6 +4859,93 @@ function renderStrengthSchedule(activePlan) {
   </section>`;
 }
 
+function buildCurrentStrengthWeekReview(activePlan, activeSchedule) {
+  if (typeof DominionStrengthWeekReview === "undefined" || !activePlan || !activeSchedule) return null;
+  const api = connectedApi();
+  const fitbodSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  return DominionStrengthWeekReview.buildWeekReview(
+    activeSchedule,
+    activePlan,
+    readStrengthHistory(),
+    fitbodSessions,
+    { today: todayISODate(), generatedAt: new Date().toISOString() }
+  );
+}
+
+function strengthReviewStateTone(state) {
+  if (state === "COMPLETE") return "green";
+  if (["STOPPED", "MISSED"].includes(state)) return "red";
+  if (["PARTIAL", "TODAY"].includes(state)) return "yellow";
+  return "neutral";
+}
+
+function renderStrengthWeekReview(activePlan) {
+  if (typeof DominionStrengthWeekReview === "undefined") return "";
+  const activeSchedule = readApprovedStrengthSchedule();
+  if (!activePlan || !activeSchedule || activeSchedule.planId !== activePlan.id) {
+    return `<section class="strength-week-review"><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>Close the loop after approval</h4><p>Approve a weekly strength schedule first. Coach Dominion will then reconcile each assignment without changing the program or awarding ambiguous imports.</p></div></section>`;
+  }
+  const stored = readStrengthWeekReview();
+  const finalized = stored?.scheduleId === activeSchedule.id && stored.status === "FINALIZED" ? stored : null;
+  const review = finalized || buildCurrentStrengthWeekReview(activePlan, activeSchedule);
+  if (!review) return "";
+  const summary = review.summary || {};
+  const historyCount = readStrengthWeekReviewHistory().length;
+  const assignments = (review.assignments || []).map((item) => {
+    const evidence = item.primaryEvidence;
+    const imported = item.importedEvidence;
+    const sourceText = evidence
+      ? `${evidence.sourceLabel} · ${evidence.completedSets || 0}/${item.prescribedSets || evidence.prescribedSets || 0} sets`
+      : item.evidenceStatus === "AMBIGUOUS_IMPORT"
+        ? "Multiple equally strong Fitbod matches · no credit awarded"
+        : item.evidenceStatus === "UNMATCHED_IMPORT"
+          ? "Unmatched Fitbod evidence retained · no credit awarded"
+          : "No terminal workout evidence";
+    const provenance = evidence?.sourceIds?.length
+      ? `${evidence.sourceIds.length} source record${evidence.sourceIds.length === 1 ? "" : "s"}`
+      : imported?.sourceIds?.length
+        ? `${imported.sourceIds.length} imported source record${imported.sourceIds.length === 1 ? "" : "s"} retained`
+        : "No source record";
+    const corroborated = item.evidenceStatus === "NATIVE_WITH_IMPORT_CORROBORATION"
+      ? `<span class="strength-evidence-tag">FITBOD CORROBORATED · NOT DOUBLE COUNTED</span>`
+      : "";
+    return `<article class="strength-review-assignment">
+      <div class="strength-review-assignment-main"><span>${escapeHtml(item.date)}</span><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><p>${escapeHtml(sourceText)}</p></div>
+      <div class="strength-review-assignment-state"><span class="state-pill ${strengthReviewStateTone(item.state)}">${escapeHtml(item.state)}</span><small>${escapeHtml(provenance)}</small>${corroborated}</div>
+    </article>`;
+  }).join("");
+  const recommendation = review.recommendation || {};
+  const statusTone = review.status === "FINALIZED" ? "green" : review.finalizable ? "yellow" : "neutral";
+  const draft = readStrengthScheduleDraft();
+  const expectedNextWeek = DominionStrengthSchedule.addDays(activeSchedule.weekStart, 7);
+  const rolloverReady = draft?.weekStart === expectedNextWeek && draft?.sourceWeekReviewId === review.id;
+  const protectedDraft = Boolean(draft && !rolloverReady);
+  const canFinalize = review.finalizable && review.status !== "FINALIZED";
+  const canRollover = review.status === "FINALIZED" && !rolloverReady && !protectedDraft;
+  return `<section class="strength-week-review">
+    <header><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>${escapeHtml(review.weekStart)} to ${escapeHtml(review.weekEnd)}</h4><p>One auditable closeout across Coach Dominion workout logs and exact-date Fitbod evidence.</p></div><span class="state-pill ${statusTone}">${escapeHtml(review.status.replaceAll("_", " "))}</span></header>
+    <div class="strength-review-scorecard">
+      <div><span>Session adherence</span><strong>${summary.adherencePercent || 0}%</strong><small>${summary.completed || 0} complete · ${summary.partial || 0} partial</small></div>
+      <div><span>Set completion</span><strong>${summary.setCompletionPercent || 0}%</strong><small>${summary.setsCompleted || 0}/${summary.setsPrescribed || 0} credited sets</small></div>
+      <div><span>Average RPE</span><strong>${summary.averageRpe === null || summary.averageRpe === undefined ? "—" : summary.averageRpe}</strong><small>${summary.rpeSampleCount || 0} native samples</small></div>
+      <div><span>Exceptions</span><strong>${Number(summary.missed || 0) + Number(summary.stopped || 0)}</strong><small>${summary.unmatchedImportCount || 0} unmatched imports</small></div>
+    </div>
+    <article class="strength-review-recommendation ${escapeHtml(recommendation.tone || "neutral")}">
+      <div><span class="kicker">COACHING POSTURE</span><h5>${escapeHtml(recommendation.label || "Keep recording")}</h5><p>${escapeHtml(recommendation.detail || "")}</p></div>
+      <span class="state-pill ${escapeHtml(recommendation.tone || "neutral")}">${escapeHtml((recommendation.code || "KEEP_RECORDING").replaceAll("_", " "))}</span>
+    </article>
+    <div class="strength-review-assignments">${assignments}</div>
+    ${summary.painCount ? `<div class="connected-notice warning"><strong>Safety hold active.</strong> Pain evidence blocks progression. Rollover remains a draft and still requires readiness review.</div>` : ""}
+    ${protectedDraft ? `<div class="connected-notice warning"><strong>Existing weekly draft protected.</strong> Review or approve the open schedule draft before creating a rollover.</div>` : ""}
+    <div class="performance-actions">
+      <button type="button" class="ghost" data-strength-review-action="refresh">Refresh evidence</button>
+      <button type="button" data-strength-review-action="finalize" ${canFinalize ? "" : "disabled"}>${review.status === "FINALIZED" ? "Week finalized" : "Finalize strength week"}</button>
+      <button type="button" data-strength-review-action="rollover" ${canRollover ? "" : "disabled"}>${rolloverReady ? "Next-week draft ready" : "Draft next coordinated week"}</button>
+    </div>
+    <p class="muted">${review.status === "FINALIZED" ? `Finalized ${escapeHtml(review.finalizedAt || "")}. ${historyCount} finalized review${historyCount === 1 ? "" : "s"} preserved.` : review.finalizable ? "Every assignment is resolved or the week has ended. Finalization freezes this evidence snapshot." : "This week remains open. Future and today assignments cannot be silently converted into misses."}</p>
+  </section>`;
+}
+
 function renderProgrammingReview() {
   const panel = document.getElementById("programming-review-panel");
   if (!panel) return;
@@ -4912,6 +5012,7 @@ function renderProgrammingReview() {
     <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
     ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
     ${renderStrengthSchedule(activePlan)}
+    ${renderStrengthWeekReview(activePlan)}
     ${renderStrengthAdjustment(adjustment, activePlan)}
     ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
   </div>`;
@@ -8813,6 +8914,69 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", async (event) => {
+    const reviewButton = event.target.closest("button[data-strength-review-action]");
+    if (reviewButton && typeof DominionStrengthWeekReview !== "undefined" && typeof DominionStrengthSchedule !== "undefined") {
+      const reviewAction = reviewButton.dataset.strengthReviewAction;
+      const plan = readApprovedStrengthPlan();
+      const schedule = readApprovedStrengthSchedule();
+      if (!plan || !schedule) {
+        setText("programming-feedback", "Approve the strength program and weekly schedule before reviewing the week.");
+        return;
+      }
+      if (reviewAction === "refresh") {
+        const refreshed = buildCurrentStrengthWeekReview(plan, schedule);
+        saveStrengthStateLocal("WEEK_REVIEW", "current", refreshed);
+        await persistStrengthTrainingState("WEEK_REVIEW", "current", refreshed);
+        renderProgrammingReview();
+        setText("programming-feedback", `Strength evidence refreshed. ${refreshed.summary.completed} complete, ${refreshed.summary.partial} partial, ${refreshed.summary.missed} missed; ambiguous imports remain uncredited.`);
+        return;
+      }
+      if (reviewAction === "finalize") {
+        try {
+          const liveReview = buildCurrentStrengthWeekReview(plan, schedule);
+          const finalized = DominionStrengthWeekReview.finalizeWeekReview(liveReview, new Date().toISOString());
+          const history = [finalized, ...readStrengthWeekReviewHistory().filter((item) => item.id !== finalized.id)].slice(0, 52);
+          saveStrengthStateLocal("WEEK_REVIEW", "current", finalized);
+          saveStrengthStateLocal("WEEK_REVIEW", "history", history);
+          await persistStrengthTrainingState("WEEK_REVIEW", "current", finalized);
+          await persistStrengthTrainingState("WEEK_REVIEW", "history", history);
+          renderProgrammingReview();
+          setText("programming-feedback", `Strength week finalized. Coaching posture: ${finalized.recommendation.label}. The program and source history were not changed.`);
+        } catch (error) {
+          setText("programming-feedback", error?.message || "The strength week could not be finalized.");
+        }
+        return;
+      }
+      if (reviewAction === "rollover") {
+        try {
+          const finalized = readStrengthWeekReview();
+          if (finalized?.scheduleId !== schedule.id) throw new Error("Finalize the active strength week before drafting its rollover.");
+          const intent = DominionStrengthWeekReview.rolloverIntent(finalized);
+          const existingDraft = readStrengthScheduleDraft();
+          if (existingDraft && !(existingDraft.weekStart === intent.weekStart && existingDraft.sourceWeekReviewId === finalized.id)) {
+            throw new Error("An existing weekly schedule draft is protected. Review or approve it before creating the rollover.");
+          }
+          const draft = {
+            ...DominionStrengthSchedule.buildWeeklySchedule(plan, readStrengthHistory(), strengthScheduleContext(), {
+              today: todayISODate(),
+              preferredDays: schedule.preferredDays,
+              weekStart: intent.weekStart,
+              createdAt: new Date().toISOString()
+            }),
+            sourceWeekReviewId: intent.sourceReviewId,
+            sourceScheduleId: intent.sourceScheduleId,
+            rolloverRecommendation: intent.recommendationCode
+          };
+          saveStrengthStateLocal("SCHEDULE", "draft", draft);
+          await persistStrengthTrainingState("SCHEDULE", "draft", draft);
+          renderProgrammingReview();
+          setText("programming-feedback", "Next coordinated strength week drafted. Review every day; no schedule or progression was approved automatically.");
+        } catch (error) {
+          setText("programming-feedback", error?.message || "The next strength week could not be drafted.");
+        }
+        return;
+      }
+    }
     const scheduleButton = event.target.closest("button[data-strength-schedule-action]");
     if (scheduleButton && typeof DominionStrengthSchedule !== "undefined") {
       const scheduleAction = scheduleButton.dataset.strengthScheduleAction;
@@ -8842,6 +9006,7 @@ if (typeof document !== "undefined") {
           saveStrengthStateLocal("SCHEDULE", "current", approved);
           await persistStrengthTrainingState("SCHEDULE", "current", approved);
           await clearStrengthTrainingState("SCHEDULE", "draft");
+          await clearStrengthTrainingState("WEEK_REVIEW", "current");
           renderProgrammingReview();
           renderDailyAssignment();
           renderDailyCoachingLoop();
@@ -8915,6 +9080,7 @@ if (typeof document !== "undefined") {
       await clearStrengthTrainingState("ADJUSTMENT", "current");
       await clearStrengthTrainingState("SCHEDULE", "current");
       await clearStrengthTrainingState("SCHEDULE", "draft");
+      await clearStrengthTrainingState("WEEK_REVIEW", "current");
       renderProgrammingReview();
       renderDailyAssignment();
       renderDailyCoachingLoop();

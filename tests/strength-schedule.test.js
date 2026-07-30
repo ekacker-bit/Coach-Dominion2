@@ -185,7 +185,7 @@ test("017C integration loads, persists, styles, tests, and migrates the schedule
   const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
   const migration = fs.readFileSync(path.join(root, "supabase/migrations/018_strength_schedule.sql"), "utf8");
   const pkg = fs.readFileSync(path.join(root, "package.json"), "utf8");
-  assert.match(html, /BUILD 017C/);
+  assert.match(html, /BUILD 017D/);
   assert.match(html, /strength-schedule\.js/);
   assert.match(app, /persistStrengthTrainingState\("SCHEDULE", "current"/);
   assert.match(app, /data-strength-schedule-action="approve"/);

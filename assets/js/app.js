@@ -7093,6 +7093,89 @@ function renderMealCoaching() {
     <ul class="baseline-safeguards">${plan.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
+function buildCurrentTodayNutritionExecution() {
+  if (typeof DominionTodayNutrition === "undefined" || !connectedApi()) return null;
+  const date = todayISODate();
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const imported = nutritionDays.find((day) => day.date === date) || null;
+  const manual = readManualNutrition(date);
+  const actual = imported || manual || {};
+  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
+  const sourceRecordedAt = imported?.records
+    ?.map((record) => record.sourceUpdatedAt || record.updatedAt || record.createdAt || record.occurredAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || manual?.updatedAt || null;
+  const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const trainingDay = trainingSessions.some((trainingSession) => trainingSession.date === date);
+  const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
+  const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
+  const readiness = dailyState?.date === date ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  return DominionTodayNutrition.buildTodayNutritionExecution({
+    date,
+    actualDate: imported?.date || manual?.date || null,
+    latestEvidenceDate: nutritionDays[0]?.date || null,
+    sourceRecordedAt,
+    actual,
+    targets,
+    source,
+    trainingDay,
+    trainingWindow: readMealTrainingWindow(),
+    readiness
+  });
+}
+
+function renderTodayNutritionExecution() {
+  const output = document.getElementById("today-nutrition-output");
+  const status = document.getElementById("today-nutrition-status");
+  if (!output || !status) return;
+  const execution = buildCurrentTodayNutritionExecution();
+  if (!execution) {
+    status.textContent = "UNAVAILABLE";
+    status.className = "state-pill neutral";
+    output.innerHTML = '<div class="performance-empty">Today’s nutrition evidence is not available yet.</div>';
+    return;
+  }
+  status.textContent = execution.status;
+  status.className = `state-pill ${execution.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(execution.status) ? "yellow" : "neutral"}`;
+  const labels = { calories: ["Calories", "kcal"], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
+  const metrics = Object.values(execution.metrics).map((metric) => {
+    const [label, unit] = labels[metric.key];
+    const actual = metric.actual === null ? "—" : `${Math.round(metric.actual)} ${unit}`;
+    const target = metric.target === null ? "No approved target" : `${Math.round(metric.target)} ${unit} target`;
+    const remaining = metric.target === null
+      ? metric.status
+      : metric.actual === null
+        ? "Awaiting intake"
+        : metric.remaining > 0
+          ? `${Math.round(metric.remaining)} ${unit} remaining`
+          : metric.status;
+    const progress = metric.percent === null ? 0 : Math.max(0, Math.min(100, metric.percent));
+    return `<article class="today-nutrition-metric">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(actual)}</strong>
+      <small>${escapeHtml(target)}</small>
+      <div class="today-nutrition-progress ${metric.status === "ABOVE PLAN" ? "over" : ""}" aria-hidden="true"><span style="width:${progress}%"></span></div>
+      <small>${escapeHtml(remaining)}</small>
+    </article>`;
+  }).join("");
+  const warnings = execution.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
+  const actions = execution.actions.map((action) =>
+    `<button type="button" class="${action.primary ? "primary" : ""}" data-today-nutrition-action="${escapeHtml(action.id)}">${escapeHtml(action.label)}</button>`
+  ).join("");
+  output.innerHTML = `<div class="today-nutrition-context">
+      <div><span>Operating date</span><strong>${escapeHtml(execution.date)}</strong><small>${escapeHtml(execution.readiness)} readiness</small></div>
+      <div><span>Intake evidence</span><strong>${escapeHtml(execution.sourceLabel)}</strong><small>${escapeHtml(execution.freshness.label)}</small></div>
+      <div><span>Training plan</span><strong>${execution.trainingDay ? "Training day" : "Recovery / unclassified"}</strong><small>${escapeHtml(execution.trainingWindowLabel)}</small></div>
+    </div>
+    <div class="today-nutrition-order"><span class="kicker">ATLAS // FUEL ORDER</span><p>${escapeHtml(execution.instruction)}</p></div>
+    <div class="today-nutrition-metrics">${metrics}</div>
+    ${warnings}
+    <div class="today-nutrition-actions">${actions}</div>
+    <ul class="today-nutrition-safeguards">${execution.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function renderNutritionCommand() {
   const output = document.getElementById("nutrition-command-output");
   const statusPill = document.getElementById("nutrition-command-status");
@@ -7140,6 +7223,7 @@ function renderNutritionCommand() {
   renderNutritionReview();
   renderMealCoaching();
   renderNutritionNextAction({ imported, manual });
+  renderTodayNutritionExecution();
 }
 
 function nutritionViewStorageKey() {
@@ -7207,7 +7291,7 @@ async function saveManualNutrition(event) {
   const form = event.currentTarget;
   const data = new FormData(form);
   const date = String(data.get("date") || todayISODate());
-  const record = { date };
+  const record = { date, updatedAt: new Date().toISOString() };
   ["calories", "protein", "carbs", "fat"].forEach((key) => {
     const value = data.get(key);
     record[key] = value === "" || value === null ? null : Number(value);
@@ -7925,6 +8009,7 @@ if (typeof document !== "undefined") {
     window.localStorage.setItem(mealTrainingWindowStorageKey(), event.currentTarget.value);
     const synced = await persistNutritionState("MEAL_WINDOW", "current", { window: event.currentTarget.value });
     renderMealCoaching();
+    renderTodayNutritionExecution();
     setText("meal-coaching-feedback", `Training window saved${synced ? " to your account" : " locally"}. Approved daily targets were not changed.`);
   });
   document.getElementById("adaptive-fueling-goal")?.addEventListener("change", async (event) => {
@@ -7959,6 +8044,33 @@ if (typeof document !== "undefined") {
       window.history.replaceState(null, "", "#connected");
       setConnectedActiveView("providers");
     }
+  });
+  document.getElementById("today-nutrition-card")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-today-nutrition-action]");
+    if (!button) return;
+    const action = button.dataset.todayNutritionAction;
+    if (action === "troubleshoot-sync") {
+      setActiveSection("connected");
+      window.history.replaceState(null, "", "#connected");
+      setConnectedActiveView("nutrition");
+      document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setActiveSection("nutrition");
+    window.history.replaceState(null, "", "#nutrition");
+    if (action === "set-baseline" || action === "review-targets") {
+      setNutritionActiveView("plan");
+      document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "log-intake") {
+      setNutritionActiveView("details");
+      document.querySelector('#nutrition-manual-form [name="calories"]')?.focus({ preventScroll: true });
+      document.getElementById("nutrition-manual-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setNutritionActiveView("today");
+    document.querySelector('[data-nutrition-view-panel="today"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   restoreNutritionActiveView();
   document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);

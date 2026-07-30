@@ -8378,6 +8378,14 @@ if (typeof document !== "undefined") {
     event.stopImmediatePropagation();
     await runMfpNutritionFeedAction(actionButton.dataset.connectedAction);
   }, true);
+  document.getElementById("connected")?.addEventListener("keydown", async (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    const actionButton = event.target.closest("button[data-connected-action^='mfp-feed-']");
+    if (!actionButton) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await runMfpNutritionFeedAction(actionButton.dataset.connectedAction);
+  }, true);
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {
       if (["reconciliation", "nutrition", "apple_health"].includes(button.dataset.connectedView)) renderConnectedDominion();

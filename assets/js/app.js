@@ -4832,14 +4832,16 @@ function renderStrengthSchedule(activePlan) {
       <header><div><span>${escapeHtml(day.dayLabel)}</span><strong>${escapeHtml(day.date)}</strong></div>${assignment ? `<span class="state-pill ${tone}">${escapeHtml(assignment.state)}</span>` : `<span class="state-pill neutral">RECOVERY</span>`}</header>
       ${assignment ? `<div class="strength-week-session"><span class="kicker">STRENGTH ${assignment.sequence}</span><h5>${escapeHtml(assignment.sessionName)}</h5><p>${escapeHtml(assignment.placementReason)}</p></div>` : `<p class="muted">No loaded strength session.</p>`}
       <div class="strength-week-overlap">
-        <span>${day.run && day.run.type !== "REST" ? `RUN · ${escapeHtml(day.run.type)}` : "RUN · REST"}</span>
-        <span>${day.core ? `CORE · ${escapeHtml(day.core.title || "SCHEDULED")}` : "CORE · REST"}</span>
+        <span>${day.run && day.run.type !== "REST" ? `RUN · ${escapeHtml(day.run.type)}` : day.runCoverage === "REST" ? "RUN · REST" : day.runCoverage === "OUT_OF_RANGE" ? "RUN · NEXT-WEEK PLAN REQUIRED" : "RUN · PLAN REQUIRED"}</span>
+        <span>${day.core ? `CORE · ${escapeHtml(day.core.title || "SCHEDULED")}` : day.coreCoverage === "REST" ? "CORE · REST" : day.coreCoverage === "OUT_OF_RANGE" ? "CORE · NEXT-CYCLE PLAN REQUIRED" : "CORE · PLAN REQUIRED"}</span>
       </div>
       ${conflicts.map((item) => `<p class="strength-schedule-conflict ${item.severity === "BLOCKING" ? "blocking" : ""}">${escapeHtml(item.detail)}</p>`).join("")}
       ${assignment && moveDates.length && !["COMPLETE"].includes(assignment.state) ? `<div class="strength-reschedule-control"><select data-strength-move-target="${escapeHtml(assignment.id)}"><option value="">Move to...</option>${moveDates.map((date) => `<option value="${date}">${escapeHtml(date)} · ${escapeHtml(DominionStrengthSchedule.DAY_LABELS[DominionStrengthSchedule.weekStartIso(date) === displayed.weekStart ? Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${displayed.weekStart}T00:00:00Z`)) / 86400000) : 0] || date)}</option>`).join("")}</select><button type="button" class="ghost" data-strength-schedule-action="move" data-assignment-id="${escapeHtml(assignment.id)}">Move</button></div>` : ""}
     </article>`;
   }).join("");
   const statusTone = displayed.status === "APPROVED" ? "green" : displayed.approvalBlocked ? "red" : "yellow";
+  const runningCoverage = days.some((day) => ["SCHEDULED", "REST"].includes(day.runCoverage)) ? "COORDINATED" : days.some((day) => day.runCoverage === "OUT_OF_RANGE") ? "NEXT-WEEK PLAN REQUIRED" : "PLAN REQUIRED";
+  const coreCoverage = days.some((day) => ["SCHEDULED", "REST"].includes(day.coreCoverage)) ? "COORDINATED" : days.some((day) => day.coreCoverage === "OUT_OF_RANGE") ? "NEXT-CYCLE PLAN REQUIRED" : "PLAN REQUIRED";
   return `<section class="strength-week-command">
     <header><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
     <div class="strength-week-summary">
@@ -4849,6 +4851,7 @@ function renderStrengthSchedule(activePlan) {
       <div><span>Upcoming</span><strong>${summary.upcoming}</strong></div>
     </div>
     <div class="strength-day-selector"><span>Preferred training days</span><div>${daySelectors}</div></div>
+    ${runningCoverage !== "COORDINATED" || coreCoverage !== "COORDINATED" ? `<div class="connected-notice warning"><strong>Coordination coverage is incomplete.</strong> Running: ${escapeHtml(runningCoverage)} · Core: ${escapeHtml(coreCoverage)}. Strength remains usable, but these gaps are not counted as recovery assignments.</div>` : ""}
     ${staleRevision ? `<div class="connected-notice warning"><strong>Plan revision changed.</strong> The schedule still points to the same sessions, but rebuilding will refresh its plan-revision audit stamp.</div>` : ""}
     <div class="strength-week-grid">${dayCards}</div>
     <div class="performance-actions">

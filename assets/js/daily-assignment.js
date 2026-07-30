@@ -31,6 +31,9 @@
 
   function reconcileFitbod(assignment = {}, sessions = []) {
     const date = assignment.date;
+    if (!(assignment.exercises || []).length) {
+      return { state: "AWAITING PRESCRIPTION", matchedExercises: 0, completedSets: 0, prescribedSets: 0, sourceSessionId: null };
+    }
     const session = (sessions || []).find((item) => item.date === date);
     if (!session) return { state: "AWAITING EVIDENCE", matchedExercises: 0, completedSets: 0, sourceSessionId: null };
     const performed = new Map((session.exercises || []).map((item) => [String(item.name || "").toLowerCase(), item]));

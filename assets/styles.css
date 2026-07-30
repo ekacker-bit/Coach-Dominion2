@@ -99,6 +99,45 @@
 .mobile-command-bar{display:none}
 .daily-orders-safeguard{margin:14px 0 0;color:var(--muted);font-size:12px}
 @media(max-width:720px){.daily-loop-phases,.daily-evidence-grid,.daily-assignment-summary,.daily-prescription-grid{grid-template-columns:1fr 1fr}.daily-orders-actions{display:grid}}
+
+/* Build 017A // Operational strength programming and execution */
+.strength-programming-panel{display:grid;gap:16px}
+.strength-profile-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.strength-profile-grid label,.strength-set-entry label{display:grid;gap:7px}
+.strength-profile-grid label>span,.strength-set-entry label>span{color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.strength-profile-grid select,.strength-set-entry input{width:100%;min-width:0}
+.strength-program-sessions{display:grid;gap:10px}
+.strength-program-session{border:1px solid var(--line-strong);border-radius:12px;background:rgba(5,9,13,.48);overflow:hidden}
+.strength-program-session>summary{display:flex;justify-content:space-between;gap:12px;padding:15px 16px;cursor:pointer;font-weight:900}
+.strength-program-session>summary strong{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em}
+.strength-program-session ol{display:grid;gap:0;margin:0;padding:0 16px 14px;list-style:none}
+.strength-program-session li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;padding:11px 0;border-top:1px solid var(--line)}
+.strength-program-session li>div{display:grid;gap:3px}
+.strength-program-session li>div:last-child{text-align:right}
+.strength-program-session li span{color:var(--muted);font-size:12px}
+.strength-active-plan{display:flex;align-items:flex-start;gap:12px;border:1px solid rgba(56,212,141,.38);border-radius:12px;padding:14px;background:rgba(56,212,141,.06)}
+.strength-active-plan p{margin:5px 0 0;color:var(--muted)}
+.strength-history{display:grid;gap:9px}
+.strength-history h4{margin:0}
+.strength-history article{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:12px}
+.strength-history article p{grid-column:1/-1;margin:0;color:var(--muted)}
+.strength-set-entry{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}
+.strength-set-log{display:grid;gap:6px;margin:12px 0 0;padding:0;list-style:none}
+.strength-set-log li{display:flex;justify-content:space-between;gap:12px;padding:9px 11px;border-radius:8px;background:rgba(56,212,141,.07)}
+.strength-set-log li span{color:var(--muted)}
+.strength-exercise-actions{flex-wrap:wrap}
+.danger-action{border-color:rgba(255,106,106,.45)!important;color:#ffb0b0!important}
+.strength-workout-controls{position:sticky;bottom:72px;z-index:3;padding:12px;border:1px solid var(--line-strong);border-radius:12px;background:rgba(9,14,20,.96);box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.strength-workout-result{display:grid;gap:14px;margin:18px 0;padding:18px;border:1px solid rgba(56,212,141,.4);border-radius:14px;background:rgba(56,212,141,.06)}
+.strength-workout-result h3{margin:4px 0}
+.strength-workout-result p{margin:0;color:var(--muted)}
+@media(max-width:980px){.strength-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){
+  .strength-profile-grid,.strength-set-entry{grid-template-columns:1fr}
+  .strength-program-session li{grid-template-columns:1fr}
+  .strength-program-session li>div:last-child{text-align:left;grid-template-columns:auto auto;justify-content:space-between}
+  .strength-exercise-actions button,.strength-workout-controls button{width:100%}
+}
 @media(max-width:900px){.today-sequence-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){
   body{padding-bottom:76px}

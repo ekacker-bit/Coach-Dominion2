@@ -4500,59 +4500,253 @@ function renderAtlasPerformanceReviewSection() {
   container.innerHTML = `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>ATLAS // PERFORMANCE REVIEW</strong><p>${review.status}</p></div><span class="state-pill neutral">${review.limitedEvidence ? "LIMITED EVIDENCE" : "READY"}</span></div><div class="performance-entry-meta"><span>${review.newRecords}</span><span>${review.milestones}</span></div></article>`;
 }
 
-function programmingStorageKey() {
-  return `coach-dominion:programming-draft:${session?.user?.id || "local"}`;
+function strengthStateStorageKey(stateType, stateKey = "current") {
+  return `coach-dominion:strength-training:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
+}
+
+function readStrengthState(stateType, stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(strengthStateStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveStrengthStateLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(strengthStateStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readStrengthProfile() {
+  const stored = readStrengthState("PROFILE", "current", {});
+  return typeof DominionStrengthTraining === "undefined" ? stored : DominionStrengthTraining.normalizeProfile(stored);
+}
+
+function readStrengthDraft() {
+  return readStrengthState("DRAFT", "current", null);
+}
+
+function readApprovedStrengthPlan() {
+  return readStrengthState("PLAN", "current", null);
+}
+
+function readStrengthHistory() {
+  const history = readStrengthState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readStrengthExecution() {
+  return readStrengthState("EXECUTION", todayISODate(), null);
 }
 
 function readProgrammingDraft() {
-  try { return JSON.parse(window.localStorage.getItem(programmingStorageKey()) || "null"); }
-  catch (_) { return null; }
+  return readApprovedStrengthPlan();
+}
+
+async function persistStrengthTrainingState(stateType, stateKey, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("strength_training_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    setText("programming-feedback", "Saved on this device. Account sync will resume when strength storage is available.");
+    setText("daily-assignment-feedback", "Workout saved on this device. Account sync is temporarily unavailable.");
+    return false;
+  }
+}
+
+async function clearStrengthTrainingState(stateType, stateKey = "current") {
+  window.localStorage.removeItem(strengthStateStorageKey(stateType, stateKey));
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("strength_training_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType)
+      .eq("state_key", stateKey);
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadStrengthTrainingState() {
+  if (!session?.user?.id || typeof DominionStrengthTraining === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("strength_training_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    ["PROFILE", "DRAFT", "PLAN", "HISTORY"].forEach((stateType) => {
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
+      if (row) saveStrengthStateLocal(stateType, "current", row.payload);
+    });
+    const execution = rows.find((item) => item.state_type === "EXECUTION" && item.state_key === todayISODate());
+    if (execution) saveStrengthStateLocal("EXECUTION", todayISODate(), execution.payload);
+    const localStates = [
+      ["PROFILE", "current", readStrengthState("PROFILE", "current", null)],
+      ["DRAFT", "current", readStrengthDraft()],
+      ["PLAN", "current", readApprovedStrengthPlan()],
+      ["HISTORY", "current", readStrengthHistory()],
+      ["EXECUTION", todayISODate(), readStrengthExecution()]
+    ];
+    for (const [stateType, stateKey, payload] of localStates) {
+      const exists = rows.some((item) => item.state_type === stateType && item.state_key === stateKey);
+      if (!exists && payload && (stateType !== "HISTORY" || payload.length)) {
+        await persistStrengthTrainingState(stateType, stateKey, payload);
+      }
+    }
+  } catch (_) {
+    // Local state remains the explicit offline fallback.
+  }
+}
+
+function currentStrengthPrescription() {
+  if (typeof DominionStrengthTraining === "undefined") return null;
+  const plan = readApprovedStrengthPlan();
+  if (!plan) return DominionStrengthTraining.buildDailyPrescription({}, [], { today: todayISODate() });
+  const existing = readStrengthExecution();
+  if (existing?.planId === plan.id && existing?.date === todayISODate() && existing.sessionSnapshot) {
+    return existing.sessionSnapshot;
+  }
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  return DominionStrengthTraining.buildDailyPrescription(plan, readStrengthHistory(), {
+    today: todayISODate(),
+    readiness: { state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) }
+  });
 }
 
 function buildCurrentProgrammingRecommendation() {
-  if (typeof DominionProgramming === "undefined") return null;
-  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : null;
-  const strengthStatus = document.getElementById("strength_status")?.value || lastSavedComplianceState?.strength?.status || "";
-  return DominionProgramming.buildProgrammingRecommendation({
-    entries: performanceEntries,
-    readiness: {
-      state: readinessResult?.state || null,
-      energy: dailyState?.energy,
-      soreness: dailyState?.soreness,
-      pain: Boolean(dailyState?.pain)
+  if (typeof DominionStrengthTraining === "undefined") return null;
+  const plan = readApprovedStrengthPlan();
+  const prescription = currentStrengthPrescription();
+  const exercises = (prescription?.exercises || []).map((item) => ({
+    ...item,
+    currentLoad: item.recommendedLoad,
+    currentSets: item.recommendedSets
+  }));
+  return {
+    status: plan ? "APPROVED PROGRAM" : "PLAN REQUIRED",
+    evidenceQuality: exercises.some((item) => item.evidenceCount > 0) ? "PERSONALIZED" : "TECHNIQUE FIRST",
+    policy: {
+      code: prescription?.adjustment?.code || "PLAN_REQUIRED",
+      reason: prescription?.adjustment?.detail || "Approve a balanced strength plan."
     },
-    compliance: { strengthStatus }
+    restrictions: plan?.safeguards || ["No workout will be generated until the program is approved."],
+    exercises,
+    requiresConfirmation: !plan
+  };
+}
+
+function optionMarkup(value, label, selected) {
+  return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
+}
+
+function strengthProfileFromForm() {
+  const form = document.getElementById("strength-profile-form");
+  if (!form || typeof DominionStrengthTraining === "undefined") return readStrengthProfile();
+  const data = new FormData(form);
+  return DominionStrengthTraining.normalizeProfile({
+    goal: data.get("goal"),
+    daysPerWeek: Number(data.get("daysPerWeek")),
+    equipment: data.get("equipment"),
+    sessionMinutes: Number(data.get("sessionMinutes")),
+    experience: data.get("experience")
   });
+}
+
+function renderStrengthSession(sessionItem = {}) {
+  const exercises = (sessionItem.exercises || []).map((item) => `<li>
+    <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)}</span></div>
+    <div><strong>${item.recommendedSets} × ${item.targetReps}</strong><span>${item.recommendedLoad > 0 ? `${item.recommendedLoad} ${escapeHtml(item.unit)}` : "Technique load"}</span></div>
+  </li>`).join("");
+  return `<details class="strength-program-session">
+    <summary><span>${escapeHtml(sessionItem.name)}</span><strong>${(sessionItem.exercises || []).length} exercises</strong></summary>
+    <ol>${exercises}</ol>
+  </details>`;
 }
 
 function renderProgrammingReview() {
   const panel = document.getElementById("programming-review-panel");
   if (!panel) return;
-  const recommendation = buildCurrentProgrammingRecommendation();
-  if (!recommendation) {
-    panel.innerHTML = `<div class="performance-empty">Programming engine unavailable.</div>`;
+  if (typeof DominionStrengthTraining === "undefined") {
+    panel.innerHTML = `<div class="performance-empty">Strength programming engine unavailable.</div>`;
     return;
   }
-  setText("programming-status", recommendation.status);
-  const draft = readProgrammingDraft();
-  const items = recommendation.exercises.map((item) => `<article class="performance-entry-card">
-    <div class="performance-entry-header"><div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.action.replaceAll("_", " "))}</p></div><span class="state-pill neutral">${item.evidenceCount} EVIDENCE</span></div>
-    <div class="performance-entry-meta"><span>${item.currentLoad} ${escapeHtml(item.unit)} → <strong>${item.recommendedLoad} ${escapeHtml(item.unit)}</strong></span><span>${item.currentSets} → <strong>${item.recommendedSets} sets</strong> × ${item.targetReps} reps</span></div>
-    <p class="muted">${escapeHtml(item.rationale)}</p>
-  </article>`).join("");
-  panel.innerHTML = `<div class="connected-summary-grid">
-      <div><span>Recommendation</span><strong>${escapeHtml(recommendation.status)}</strong></div>
-      <div><span>Evidence quality</span><strong>${escapeHtml(recommendation.evidenceQuality)}</strong></div>
-      <div><span>Readiness policy</span><strong>${escapeHtml(recommendation.policy.code)}</strong></div>
-      <div><span>Exercises covered</span><strong>${recommendation.exercises.length}</strong></div>
+  const profile = readStrengthProfile();
+  const activePlan = readApprovedStrengthPlan();
+  const savedDraft = readStrengthDraft();
+  const preview = savedDraft || DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+    startDate: todayISODate(),
+    generatedAt: new Date().toISOString()
+  });
+  const displayedPlan = activePlan || preview;
+  const history = readStrengthHistory().slice(0, 3);
+  const anchored = displayedPlan.sessions.flatMap((item) => item.exercises).filter((item) => item.evidenceCount > 0).length;
+  const total = displayedPlan.sessions.reduce((sum, item) => sum + item.exercises.length, 0);
+  setText("programming-status", activePlan ? "ACTIVE" : "APPROVAL NEEDED");
+  const badge = document.getElementById("programming-status");
+  if (badge) badge.className = `state-pill ${activePlan ? "green" : "yellow"}`;
+  panel.innerHTML = `<div class="strength-programming-panel">
+    <form id="strength-profile-form" class="strength-profile-grid">
+      <label><span>Primary goal</span><select name="goal">
+        ${optionMarkup("GENERAL_STRENGTH", "General strength", profile.goal)}
+        ${optionMarkup("MUSCLE", "Build muscle", profile.goal)}
+        ${optionMarkup("ATHLETIC_SUPPORT", "Athletic support", profile.goal)}
+      </select></label>
+      <label><span>Days per week</span><select name="daysPerWeek">
+        ${optionMarkup("2", "2 days", String(profile.daysPerWeek))}
+        ${optionMarkup("3", "3 days", String(profile.daysPerWeek))}
+        ${optionMarkup("4", "4 days", String(profile.daysPerWeek))}
+      </select></label>
+      <label><span>Equipment</span><select name="equipment">
+        ${optionMarkup("FULL_GYM", "Full gym", profile.equipment)}
+        ${optionMarkup("DUMBBELLS", "Dumbbells", profile.equipment)}
+        ${optionMarkup("BODYWEIGHT_BANDS", "Bodyweight + bands", profile.equipment)}
+      </select></label>
+      <label><span>Session length</span><select name="sessionMinutes">
+        ${optionMarkup("45", "45 minutes", String(profile.sessionMinutes))}
+        ${optionMarkup("60", "60 minutes", String(profile.sessionMinutes))}
+        ${optionMarkup("75", "75 minutes", String(profile.sessionMinutes))}
+      </select></label>
+      <label><span>Training experience</span><select name="experience">
+        ${optionMarkup("FOUNDATION", "Foundation", profile.experience)}
+        ${optionMarkup("INTERMEDIATE", "Intermediate", profile.experience)}
+        ${optionMarkup("EXPERIENCED", "Experienced", profile.experience)}
+      </select></label>
+    </form>
+    <div class="connected-summary-grid">
+      <div><span>Program status</span><strong>${activePlan ? "APPROVED" : "DRAFT"}</strong></div>
+      <div><span>Weekly sessions</span><strong>${displayedPlan.sessions.length}</strong></div>
+      <div><span>Exercises/session</span><strong>5–7</strong></div>
+      <div><span>Evidence anchored</span><strong>${anchored}/${total}</strong></div>
     </div>
-    <div class="connected-notice"><strong>Why:</strong> ${escapeHtml(recommendation.policy.reason)} Restrictions: ${escapeHtml(recommendation.restrictions.join(" "))}</div>
-    <div class="performance-entry-list">${items || `<div class="performance-empty">Import or log strength work before generating progression recommendations.</div>`}</div>
+    <article class="connected-notice"><strong>Coverage is program-driven.</strong> Existing evidence personalizes known loads, but missing evidence never deletes squat, hinge, push, pull, unilateral, carry, or core work.</article>
+    <div class="strength-program-sessions">${displayedPlan.sessions.map(renderStrengthSession).join("")}</div>
     <div class="performance-actions">
-      <button type="button" data-programming-action="approve" ${recommendation.requiresConfirmation ? "" : "disabled"}>Approve next-session draft</button>
+      <button type="button" data-programming-action="build-plan">${activePlan ? "Build revised draft" : "Generate draft"}</button>
+      <button type="button" data-programming-action="approve" ${savedDraft || !activePlan ? "" : "disabled"}>${activePlan ? "Approve revised program" : "Approve strength program"}</button>
       <button type="button" class="ghost" data-programming-action="refresh">Refresh evidence</button>
     </div>
-    ${draft ? `<article class="connected-detail-card"><strong>APPROVED LOCAL DRAFT</strong><p>${escapeHtml(draft.prescription || "")}</p><p class="muted">Approved ${escapeHtml(draft.approvedAt || "")}. This draft has not silently changed today’s mission.</p></article>` : ""}`;
+    <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
+    ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
+    ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
+  </div>`;
 }
 
 function recoveryStorageKey() {
@@ -4612,8 +4806,11 @@ function saveDailyExecutionQueueState(nextState = {}) {
 }
 
 function readDailyAssignmentExecution() {
-  try { return JSON.parse(window.localStorage.getItem(dailyAssignmentStorageKey()) || "null") || { state: "NOT STARTED", completedSets: {} }; }
-  catch (_) { return { state: "NOT STARTED", completedSets: {} }; }
+  if (typeof DominionStrengthTraining === "undefined") return { state: "READY", setLogs: {} };
+  const existing = readStrengthExecution();
+  const prescription = currentStrengthPrescription();
+  if (existing?.planId === prescription?.planId && existing?.sessionId === prescription?.sessionId && existing?.date === todayISODate()) return existing;
+  return DominionStrengthTraining.executionForPrescription(prescription || { date: todayISODate(), exercises: [] });
 }
 
 function latestDatedItem(items = [], dateKey = "date") {
@@ -4791,16 +4988,36 @@ function buildCurrentDailyAssignment() {
   if (typeof DominionDailyAssignment === "undefined") return null;
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
   const api = connectedApi();
-  return DominionDailyAssignment.buildDailyAssignment({
+  const prescription = currentStrengthPrescription();
+  const assignment = DominionDailyAssignment.buildDailyAssignment({
     date: todayISODate(),
     readiness: { state: readinessResult.state, pain: Boolean(dailyState?.pain) },
     programming: buildCurrentProgrammingRecommendation() || {},
     fitbodSessions: api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : []
   });
+  return {
+    ...assignment,
+    planId: prescription?.planId || null,
+    sessionId: prescription?.sessionId || null,
+    sessionName: prescription?.sessionName || null,
+    title: prescription?.sessionName ? `Today’s ${prescription.sessionName}` : assignment.title
+  };
 }
 
-function saveDailyAssignmentExecution(execution) {
-  window.localStorage.setItem(dailyAssignmentStorageKey(), JSON.stringify({ ...execution, updatedAt: new Date().toISOString() }));
+async function saveDailyAssignmentExecution(execution) {
+  const payload = { ...execution, updatedAt: new Date().toISOString() };
+  saveStrengthStateLocal("EXECUTION", todayISODate(), payload);
+  await persistStrengthTrainingState("EXECUTION", todayISODate(), payload);
+  return payload;
+}
+
+async function preserveStrengthWorkout(execution) {
+  if (!execution || typeof DominionStrengthTraining === "undefined" || !DominionStrengthTraining.isTerminal(execution.state)) return;
+  const history = [execution, ...readStrengthHistory().filter((item) => item.id !== execution.id)]
+    .sort((a, b) => String(b.completedAt || b.updatedAt || "").localeCompare(String(a.completedAt || a.updatedAt || "")))
+    .slice(0, 52);
+  saveStrengthStateLocal("HISTORY", "current", history);
+  await persistStrengthTrainingState("HISTORY", "current", history);
 }
 
 function renderTodayStandardsDuty() {
@@ -4842,14 +5059,14 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const execution = readDailyAssignmentExecution();
   const recovery = buildCurrentRecoveryRecommendation() || {};
   const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
-  const workoutComplete = assignment.fitbod?.state === "COMPLETE" || execution.state === "COMPLETE";
+  const workoutComplete = assignment.fitbod?.state === "COMPLETE" || (typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state));
   const recordComplete = Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate());
   const nutritionReady = Boolean(baseline);
   const completeCount = [workoutComplete, nutritionReady, !recovery.holdProgression, recordComplete].filter(Boolean).length;
-  const completionState = completeCount === 4 ? "DAY COMPLETE" : execution.state === "IN PROGRESS" ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
+  const completionState = completeCount === 4 ? "DAY COMPLETE" : execution.state === "IN_PROGRESS" ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
   state.textContent = completionState;
   state.className = `state-pill ${completeCount === 4 ? "green" : completeCount ? "yellow" : "neutral"}`;
-  setText("today-sequence-training", workoutComplete ? "Workout complete" : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN PROGRESS" ? "Workout in progress" : "Start today’s workout");
+  setText("today-sequence-training", workoutComplete ? `Workout ${String(execution.state || "complete").toLowerCase()}` : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN_PROGRESS" ? "Workout in progress" : "Start today’s workout");
   setText("today-sequence-training-detail", `${assignment.exercises.length} exercises · ~${assignment.estimatedMinutes} minutes · ${assignment.confidence.toLowerCase()} confidence.`);
   setText("today-sequence-fueling", nutritionReady ? "Fueling targets active" : "Approve fueling baseline");
   setText("today-sequence-fueling-detail", nutritionReady ? "Training-day targets and meal timing are available." : "A baseline is required before Atlas can calculate remaining intake.");
@@ -4872,27 +5089,58 @@ function renderDailyAssignment() {
   }
   const execution = readDailyAssignmentExecution();
   const fitbodComplete = assignment.fitbod.state === "COMPLETE";
-  const state = fitbodComplete ? "COMPLETE · FITBOD" : execution.state === "COMPLETE" ? "COMPLETE" : execution.state === "IN PROGRESS" ? "IN PROGRESS" : assignment.state;
+  const terminal = typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state);
+  const state = fitbodComplete && execution.state === "READY" ? "COMPLETE · FITBOD" : terminal || execution.state === "IN_PROGRESS" ? execution.state : assignment.state;
   setText("daily-assignment-state", state);
   const badge = document.getElementById("daily-assignment-state");
-  badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" ? "red" : "neutral"}`;
+  badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" || state === "STOPPED" ? "red" : state === "PARTIAL" || state === "IN_PROGRESS" ? "yellow" : "neutral"}`;
   const exerciseCards = assignment.exercises.map((item) => {
-    const completed = Math.min(item.sets, Number(execution.completedSets?.[item.id] || 0));
+    const logs = execution.setLogs?.[item.id] || [];
+    const completed = Math.min(item.sets, logs.length);
+    const skipped = execution.skipped?.[item.id];
+    const substitution = execution.substitutions?.[item.id]?.name;
+    const controlsDisabled = execution.state !== "IN_PROGRESS" || completed >= item.sets || skipped || fitbodComplete;
+    const logRows = logs.map((log) => `<li><span>Set ${log.setNumber}</span><strong>${log.reps} reps · ${log.load} ${escapeHtml(log.unit || item.unit)}${log.rpe ? ` · RPE ${log.rpe}` : ""}</strong></li>`).join("");
     return `<article class="daily-exercise-card">
-      <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(item.name)}</h3></div><span class="state-pill ${completed === item.sets ? "green" : "neutral"}">${completed}/${item.sets} SETS</span></header>
-      <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Load</span><strong>${item.load} ${escapeHtml(item.unit)}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
-      <p>${escapeHtml(item.rationale)}</p><details><summary>Substitutions and evidence</summary><p>${escapeHtml(item.substitutions.join(" "))}</p><p>${item.evidenceCount} supporting exposure(s).</p></details>
-      <div class="daily-orders-actions"><button type="button" data-assignment-action="complete-set" data-exercise-id="${escapeHtml(item.id)}" ${completed >= item.sets || fitbodComplete ? "disabled" : ""}>Complete set</button><button type="button" class="ghost" data-assignment-action="modify" data-exercise-id="${escapeHtml(item.id)}">Modify</button><button type="button" class="ghost" data-assignment-action="pain">Report pain</button></div>
+      <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(substitution || item.name)}</h3>${substitution ? `<p class="muted">Substituted for ${escapeHtml(item.name)}</p>` : ""}</div><span class="state-pill ${completed === item.sets ? "green" : skipped ? "yellow" : "neutral"}">${skipped ? "SKIPPED" : `${completed}/${item.sets} SETS`}</span></header>
+      <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Starting load</span><strong>${item.load > 0 ? `${item.load} ${escapeHtml(item.unit)}` : "Technique first"}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
+      <p>${escapeHtml(item.rationale)}</p>
+      ${logRows ? `<ol class="strength-set-log">${logRows}</ol>` : ""}
+      <div class="strength-set-entry">
+        <label><span>Next set reps</span><input type="number" data-set-field="reps" min="0" max="1000" value="${item.reps}" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>Load (${escapeHtml(item.unit)})</span><input type="number" data-set-field="load" min="0" step="0.5" value="${item.load || 0}" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>RPE</span><input type="number" data-set-field="rpe" min="1" max="10" step="0.5" placeholder="1–10" ${controlsDisabled ? "disabled" : ""}></label>
+      </div>
+      <details><summary>Substitutions and evidence</summary><p>${escapeHtml(item.substitutions.join(" · "))}</p><p>${item.evidenceCount} supporting exposure(s). ${item.evidenceCount ? "Evidence informed load only; the approved program governs exercise selection and sets." : "Use a controlled technique load with about three reps in reserve."}</p></details>
+      <div class="daily-orders-actions strength-exercise-actions">
+        <button type="button" data-assignment-action="record-set" data-exercise-id="${escapeHtml(item.id)}" ${controlsDisabled ? "disabled" : ""}>Record set</button>
+        <button type="button" class="ghost" data-assignment-action="undo-set" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || !completed ? "disabled" : ""}>Undo last</button>
+        <button type="button" class="ghost" data-assignment-action="substitute" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Use substitution</button>
+        <button type="button" class="ghost" data-assignment-action="skip" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Skip</button>
+        <button type="button" class="ghost danger-action" data-assignment-action="pain" ${execution.state !== "IN_PROGRESS" ? "disabled" : ""}>Report pain</button>
+      </div>
     </article>`;
   }).join("");
+  const summary = terminal ? (execution.summary || DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot)) : null;
+  const resultMarkup = summary ? `<article class="strength-workout-result">
+    <div><span class="kicker">SESSION PRESERVED</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
+    <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Duration</span><strong>${summary.durationMinutes ?? "—"} min</strong></div></div>
+    ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
+  </article>` : "";
+  const primaryActions = execution.state === "IN_PROGRESS"
+    ? `<button type="button" data-assignment-action="finish">Finish workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+    : terminal
+      ? `<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
+      : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
   panel.innerHTML = `<div class="daily-assignment-summary">
-      <div><span>Assignment</span><strong>${escapeHtml(assignment.title)}</strong></div><div><span>Duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Confidence</span><strong>${escapeHtml(assignment.confidence)}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>
+      <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>
     </div>
     <article class="connected-notice"><strong>Readiness adjustment:</strong> ${escapeHtml(assignment.readinessDelta.detail)}</article>
     <details open><summary>Warm-up</summary><ol>${assignment.warmup.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol></details>
-    <div class="daily-exercise-list">${exerciseCards || `<div class="performance-empty">${assignment.state === "RECOVERY ONLY" ? "Loaded training is removed today. Follow the recovery actions below." : "No supported exercise prescription exists yet. Log or import prior strength work, then approve the programming draft."}</div>`}</div>
+    <div class="daily-exercise-list">${exerciseCards || `<div class="performance-empty">${assignment.state === "RECOVERY ONLY" ? "Loaded training is removed today. Follow the recovery actions below." : `Approve a balanced strength program in Train before starting a workout.<div class="performance-actions"><button type="button" data-assignment-action="program">Build strength program</button></div>`}</div>`}</div>
     <details open><summary>Recovery and safety</summary><ul>${assignment.recoveryActions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>
-    <div class="daily-orders-actions"><button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>${execution.state === "IN PROGRESS" ? "Workout in progress" : "Start workout"}</button><button type="button" class="ghost" data-assignment-action="refresh">Refresh Fitbod evidence</button></div>`;
+    ${resultMarkup}
+    <div class="daily-orders-actions strength-workout-controls">${primaryActions}<button type="button" class="ghost" data-assignment-action="refresh">Refresh Fitbod evidence</button></div>`;
   renderTodayCommandSurface(assignment);
 }
 
@@ -4964,8 +5212,8 @@ function buildCurrentDailyExecutionQueue() {
     readinessComplete: dailyState?.date === todayISODate(),
     ordersApproved: Boolean(readApprovedDailyOrders()),
     ordersAction: loop?.nextAction || "approve_orders",
-    trainingStarted: execution.state === "IN PROGRESS",
-    trainingComplete: assignment?.fitbod?.state === "COMPLETE" || execution.state === "COMPLETE",
+    trainingStarted: execution.state === "IN_PROGRESS",
+    trainingComplete: assignment?.fitbod?.state === "COMPLETE" || (typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state)),
     recoveryOnly: assignment?.state === "RECOVERY ONLY",
     fuelingBaseline: Boolean(baseline),
     fuelingComplete: Boolean(baseline && (nutritionCurrent || manualNutritionCurrent)),
@@ -5230,7 +5478,7 @@ function buildCurrentClosedLoopInput() {
     actual: {
       training: {
         complete: trainingComplete,
-        partial: assignmentExecution.state === "IN PROGRESS",
+        partial: assignmentExecution.state === "IN_PROGRESS" || assignmentExecution.state === "PARTIAL",
         evidenceCount: strengthEvidence.length,
         sourceIds: strengthEvidence.map((entry) => entry.id),
         quality: "UNKNOWN",
@@ -7951,6 +8199,7 @@ async function init() {
     await loadCoreProgramState();
     await loadClosedLoopState();
     await loadPerformanceEntries();
+    await loadStrengthTrainingState();
     await loadConnectedDominion();
     renderRankSection();
     resetPerformanceForm();
@@ -8383,24 +8632,52 @@ if (typeof document !== "undefined") {
       window.location.hash = "today";
     }
   });
-  document.getElementById("programming-review-panel")?.addEventListener("click", (event) => {
+  document.getElementById("programming-review-panel")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-programming-action]");
     if (!button) return;
+    const action = button.dataset.programmingAction;
     if (button.dataset.programmingAction === "refresh") {
+      const profile = strengthProfileFromForm();
+      const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+        startDate: todayISODate(),
+        generatedAt: new Date().toISOString()
+      });
+      saveStrengthStateLocal("PROFILE", "current", profile);
+      saveStrengthStateLocal("DRAFT", "current", draft);
+      await persistStrengthTrainingState("PROFILE", "current", profile);
+      await persistStrengthTrainingState("DRAFT", "current", draft);
       renderProgrammingReview();
-      setText("programming-feedback", "Programming evidence refreshed.");
+      setText("programming-feedback", "Evidence refreshed. Review the revised draft before approval.");
     }
-    if (button.dataset.programmingAction === "approve") {
-      const recommendation = buildCurrentProgrammingRecommendation();
-      if (!recommendation?.requiresConfirmation) return;
-      const draft = {
-        approvedAt: new Date().toISOString(),
-        recommendation,
-        prescription: DominionProgramming.formatPrescription(recommendation)
-      };
-      window.localStorage.setItem(programmingStorageKey(), JSON.stringify(draft));
+    if (action === "build-plan") {
+      const profile = strengthProfileFromForm();
+      const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+        startDate: todayISODate(),
+        generatedAt: new Date().toISOString()
+      });
+      saveStrengthStateLocal("PROFILE", "current", profile);
+      saveStrengthStateLocal("DRAFT", "current", draft);
+      await persistStrengthTrainingState("PROFILE", "current", profile);
+      await persistStrengthTrainingState("DRAFT", "current", draft);
       renderProgrammingReview();
-      setText("programming-feedback", "Next-session draft approved locally. Today’s mission and Dominion Record were not changed.");
+      setText("programming-feedback", "Balanced draft generated. Review every session, then approve when it matches your constraints.");
+    }
+    if (action === "approve") {
+      const profile = strengthProfileFromForm();
+      const draft = readStrengthDraft() || DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+        startDate: todayISODate(),
+        generatedAt: new Date().toISOString()
+      });
+      const approved = DominionStrengthTraining.approvePlan(draft, new Date().toISOString());
+      saveStrengthStateLocal("PROFILE", "current", profile);
+      saveStrengthStateLocal("PLAN", "current", approved);
+      await persistStrengthTrainingState("PROFILE", "current", profile);
+      await persistStrengthTrainingState("PLAN", "current", approved);
+      await clearStrengthTrainingState("DRAFT", "current");
+      renderProgrammingReview();
+      renderDailyAssignment();
+      renderDailyCoachingLoop();
+      setText("programming-feedback", "Strength program approved and activated on Today. It now persists with your account.");
     }
   });
   document.getElementById("recovery-review-panel")?.addEventListener("click", (event) => {
@@ -8554,8 +8831,14 @@ if (typeof document !== "undefined") {
     if (action === "start_training") {
       const assignment = buildCurrentDailyAssignment();
       const execution = readDailyAssignmentExecution();
-      if (assignment?.exercises.length && execution.state === "NOT STARTED") {
-        saveDailyAssignmentExecution({ ...execution, state: "IN PROGRESS", startedAt: new Date().toISOString() });
+      if (assignment?.exercises.length && execution.state === "READY") {
+        const started = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+        await saveDailyAssignmentExecution(started);
+      } else if (!assignment?.exercises.length) {
+        setActiveSection("performance");
+        window.history.replaceState(null, "", "#performance");
+        setPerformanceActiveView("programming");
+        renderProgrammingReview();
       }
       const workoutDetail = document.querySelector(".today-workout-detail");
       if (workoutDetail) workoutDetail.open = true;
@@ -8581,37 +8864,86 @@ if (typeof document !== "undefined") {
       document.getElementById("energy")?.focus();
     }
   });
-  document.getElementById("daily-assignment-panel")?.addEventListener("click", (event) => {
+  document.getElementById("daily-assignment-panel")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-assignment-action]");
     if (!button) return;
     const action = button.dataset.assignmentAction;
     const assignment = buildCurrentDailyAssignment();
-    const execution = readDailyAssignmentExecution();
+    let execution = readDailyAssignmentExecution();
     if (action === "start" && assignment?.exercises.length) {
-      saveDailyAssignmentExecution({ ...execution, state: "IN PROGRESS", startedAt: execution.startedAt || new Date().toISOString() });
-      setText("daily-assignment-feedback", "Workout started. Complete each work set or allow matching Fitbod evidence to close the assignment.");
+      execution = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Workout started. Record actual reps, load, and effort for every work set, then finish the session explicitly.");
     }
-    if (action === "complete-set") {
+    if (action === "record-set") {
       const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
       if (!exercise) return;
-      const completedSets = { ...(execution.completedSets || {}) };
-      completedSets[exercise.id] = Math.min(exercise.sets, Number(completedSets[exercise.id] || 0) + 1);
-      const allComplete = assignment.exercises.every((item) => Number(completedSets[item.id] || 0) >= item.sets);
-      saveDailyAssignmentExecution({ ...execution, state: allComplete ? "COMPLETE" : "IN PROGRESS", completedSets, completedAt: allComplete ? new Date().toISOString() : null });
-      setText("daily-assignment-feedback", allComplete ? "Assignment complete. Preserve the evidence and complete today’s Dominion Record." : `${exercise.name}: set recorded.`);
+      const card = button.closest(".daily-exercise-card");
+      const reps = Number(card?.querySelector('[data-set-field="reps"]')?.value);
+      const load = Number(card?.querySelector('[data-set-field="load"]')?.value);
+      const rpeValue = card?.querySelector('[data-set-field="rpe"]')?.value;
+      execution = DominionStrengthTraining.recordSet(execution, exercise.id, {
+        reps,
+        load,
+        rpe: rpeValue === "" ? null : Number(rpeValue)
+      }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      const completed = DominionStrengthTraining.completedSetCount(execution);
+      const planned = DominionStrengthTraining.plannedSetCount(execution.sessionSnapshot);
+      setText("daily-assignment-feedback", completed >= planned ? "All prescribed sets are recorded. Review the session and select Finish workout." : `${exercise.name}: set ${execution.setLogs[exercise.id].length} recorded.`);
     }
-    if (action === "modify") {
-      setText("daily-assignment-feedback", "Use the listed substitution, then record the change in today’s Strength note. Load and volume will not change silently.");
-      window.location.hash = "record";
+    if (action === "undo-set") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      execution = DominionStrengthTraining.undoLastSet(execution, exercise.id, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${exercise.name}: the last set was removed.`);
+    }
+    if (action === "substitute") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      const substitution = exercise.substitutions[0];
+      execution = DominionStrengthTraining.useSubstitution(execution, exercise.id, substitution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${substitution} selected for ${exercise.name}. The change is preserved with this session.`);
+    }
+    if (action === "skip") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      execution = DominionStrengthTraining.skipExercise(execution, exercise.id, "Skipped during workout", new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${exercise.name} skipped. Finish the workout when the remaining work is complete.`);
+    }
+    if (action === "finish") {
+      execution = DominionStrengthTraining.finishWorkout(execution, {}, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      await preserveStrengthWorkout(execution);
+      setText("daily-assignment-feedback", execution.state === "COMPLETE" ? "Workout complete. The session summary is saved to your account." : "Workout preserved as partial. Completed work, skipped exercises, and the remaining gap are all retained.");
+    }
+    if (action === "stop") {
+      execution = DominionStrengthTraining.finishWorkout(execution, { forceStop: true, reason: "Workout stopped by user." }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      await preserveStrengthWorkout(execution);
+      setText("daily-assignment-feedback", "Workout stopped and preserved. No additional progression was authorized.");
     }
     if (action === "pain") {
-      setText("daily-assignment-feedback", "Stop the set. Report pain in Morning Roll Call; loaded work will be removed when readiness recalculates.");
-      window.location.hash = "today";
-      document.getElementById("pain-yes")?.focus();
+      execution = DominionStrengthTraining.reportPain(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      await preserveStrengthWorkout(execution);
+      setText("daily-assignment-feedback", "Workout stopped for pain. Loaded progression is held; update Morning Roll Call before the next session.");
+    }
+    if (action === "program") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("programming");
+      const detail = document.getElementById("training-programming-detail");
+      if (detail) detail.open = true;
+      renderProgrammingReview();
     }
     if (action === "refresh") setText("daily-assignment-feedback", "Fitbod evidence refreshed.");
     renderDailyAssignment();
     renderDailyCoachingLoop();
+    renderProgrammingReview();
   });
   document.getElementById("connected")?.addEventListener("click", async (event) => {
     const viewButton = event.target.closest("button[data-connected-view]");

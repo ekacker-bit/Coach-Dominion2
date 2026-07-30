@@ -21,6 +21,9 @@ assert.match(endpoint, /rest\/v1\/rpc\/ingest_nutrition_feed/);
 assert.match(endpoint, /NEXT_PUBLIC_SUPABASE_ANON_KEY/);
 assert.doesNotMatch(endpoint, /SERVICE_ROLE/);
 assert.match(app, /nutrition_feed_tokens/);
+assert.match(app, /runMfpNutritionFeedAction/);
+assert.match(app, /data-connected-action\^='mfp-feed-'/);
+assert.match(app, /stopImmediatePropagation/);
 assert.match(html, /assets\/js\/nutrition-feed\.js/);
 
-console.log("Nutrition feed persistence: 14 assertions passed.");
+console.log("Nutrition feed persistence: 17 assertions passed.");

@@ -6573,6 +6573,24 @@ async function testMfpNutritionFeed() {
   }
 }
 
+async function runMfpNutritionFeedAction(action) {
+  if (!String(action || "").startsWith("mfp-feed-")) return false;
+  if (action === "mfp-feed-open") {
+    setConnectedActiveView("nutrition");
+    document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (action === "mfp-feed-create") await createMfpNutritionFeed();
+  if (action === "mfp-feed-revoke") await revokeMfpNutritionFeed();
+  if (action === "mfp-feed-copy-endpoint") await copyMfpNutritionFeedValue(mfpNutritionFeedEndpoint(), "Feed endpoint");
+  if (action === "mfp-feed-copy-key" && mfpNutritionFeedSecret) await copyMfpNutritionFeedValue(mfpNutritionFeedSecret, "Private feed key");
+  if (action === "mfp-feed-copy-template" && typeof DominionNutritionFeed !== "undefined") {
+    const template = JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2);
+    await copyMfpNutritionFeedValue(template, "Shortcut payload");
+  }
+  if (action === "mfp-feed-test") await testMfpNutritionFeed();
+  return true;
+}
+
 function nutritionManualStorageKey(date) {
   return `coach-dominion:nutrition-manual:${connectedUserId()}:${date}`;
 }
@@ -8348,6 +8366,18 @@ if (typeof document !== "undefined") {
     renderDailyAssignment();
     renderDailyCoachingLoop();
   });
+  document.getElementById("connected")?.addEventListener("click", async (event) => {
+    const viewButton = event.target.closest("button[data-connected-view]");
+    if (viewButton) {
+      event.stopImmediatePropagation();
+      setConnectedActiveView(viewButton.dataset.connectedView || "overview");
+      return;
+    }
+    const actionButton = event.target.closest("button[data-connected-action^='mfp-feed-']");
+    if (!actionButton) return;
+    event.stopImmediatePropagation();
+    await runMfpNutritionFeedAction(actionButton.dataset.connectedAction);
+  }, true);
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     button.addEventListener("click", () => {
       if (["reconciliation", "nutrition", "apple_health"].includes(button.dataset.connectedView)) renderConnectedDominion();
@@ -8368,19 +8398,7 @@ if (typeof document !== "undefined") {
     const action = button.dataset.connectedAction;
     if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
     if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
-    if (action === "mfp-feed-open") {
-      setConnectedActiveView("nutrition");
-      document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    if (action === "mfp-feed-create") await createMfpNutritionFeed();
-    if (action === "mfp-feed-revoke") await revokeMfpNutritionFeed();
-    if (action === "mfp-feed-copy-endpoint") await copyMfpNutritionFeedValue(mfpNutritionFeedEndpoint(), "Feed endpoint");
-    if (action === "mfp-feed-copy-key" && mfpNutritionFeedSecret) await copyMfpNutritionFeedValue(mfpNutritionFeedSecret, "Private feed key");
-    if (action === "mfp-feed-copy-template" && typeof DominionNutritionFeed !== "undefined") {
-      const template = JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2);
-      await copyMfpNutritionFeedValue(template, "Shortcut payload");
-    }
-    if (action === "mfp-feed-test") await testMfpNutritionFeed();
+    if (await runMfpNutritionFeedAction(action)) return;
     if (action === "apple-health-import") document.getElementById("apple-health-import-file")?.click();
     if (action === "apply-apple-readiness") await applyAppleHealthReadiness();
     if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);

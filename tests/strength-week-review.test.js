@@ -158,14 +158,14 @@ test("pain creates a safety hold and blocks any implied progression", () => {
   assert.equal(result.summary.painCount, 1);
 });
 
-test("017D integration loads, persists, styles, tests, and migrates weekly review state", () => {
+test("017E integration preserves weekly review loading, persistence, styles, tests, and migration", () => {
   const root = path.join(__dirname, "..");
   const html = fs.readFileSync(path.join(root, "app.html"), "utf8");
   const app = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
   const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
   const migration = fs.readFileSync(path.join(root, "supabase/migrations/019_strength_week_review.sql"), "utf8");
   const pkg = fs.readFileSync(path.join(root, "package.json"), "utf8");
-  assert.match(html, /BUILD 017D/);
+  assert.match(html, /BUILD 017E/);
   assert.match(html, /strength-week-review\.js/);
   assert.match(app, /persistStrengthTrainingState\("WEEK_REVIEW", "current"/);
   assert.match(app, /data-strength-review-action="finalize"/);

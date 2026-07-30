@@ -28,7 +28,7 @@ function run(overrides = {}) {
 
 test("1 provider catalog is deterministic", () => assert.deepEqual(connected.getConnectedProviderCatalog(), connected.getConnectedProviderCatalog()));
 test("2 unknown providers are rejected", () => assert.equal(connected.normalizeProviderCode("unknown"), null));
-test("3 providers expose only approved implementation modes", () => assert.ok(connected.getConnectedProviderCatalog().every((item) => ["ARCHITECTURE_ONLY", "PLANNED", "FILE_IMPORT"].includes(item.implementationStatus))));
+test("3 providers expose only approved implementation modes", () => assert.ok(connected.getConnectedProviderCatalog().every((item) => ["ARCHITECTURE_ONLY", "PLANNED", "FILE_IMPORT", "HEALTHKIT_BRIDGE"].includes(item.implementationStatus))));
 test("4 account normalization supports camelCase", () => assert.equal(account.providerCode, "STRAVA"));
 test("5 account normalization supports snake_case", () => assert.equal(connected.normalizeConnectedAccount({ provider_code: "GARMIN", user_id: "u" }).providerCode, "GARMIN"));
 test("6 unsupported permissions are rejected", () => assert.equal(connected.validatePermissionSelection("STRAVA", ["READ_SLEEP"]).valid, false));
@@ -37,6 +37,17 @@ test("8 valid connection transitions pass", () => assert.equal(connected.validat
 test("9 invalid connection transitions fail", () => assert.equal(connected.validateConnectionTransition("DISCONNECTED", "CONNECTED"), false));
 test("10 disconnected accounts retain identity/history", () => assert.equal(connected.transitionConnectedAccount(account, "DISCONNECTED").account.id, account.id));
 test("11 simulated account stays visibly simulated", () => assert.equal(account.isSimulated, true));
+test("11b MyFitnessPal Apple Health bridge is an approved live connection", () => {
+  const result = connected.validateConnectedAccount({
+    userId: "user-1",
+    providerCode: "MYFITNESSPAL",
+    connectionStatus: "CONNECTED",
+    permissions: ["READ_NUTRITION"],
+    metadata: { connection_mode: "APPLE_HEALTH_SHORTCUT" },
+    isSimulated: false
+  });
+  assert.equal(result.valid, true);
+});
 test("12 sync normalization supports camelCase", () => assert.equal(job.connectedAccountId, "acct-1"));
 test("12b sync normalization supports snake_case", () => assert.equal(connected.normalizeSyncJob({ connected_account_id: "a", provider_code: "STRAVA" }).connectedAccountId, "a"));
 test("13 valid sync transitions pass", () => assert.equal(connected.validateSyncTransition("RUNNING", "SUCCEEDED"), true));

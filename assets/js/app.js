@@ -4540,6 +4540,10 @@ function readStrengthExecution() {
   return readStrengthState("EXECUTION", todayISODate(), null);
 }
 
+function readStrengthAdjustment() {
+  return readStrengthState("ADJUSTMENT", "current", null);
+}
+
 function readProgrammingDraft() {
   return readApprovedStrengthPlan();
 }
@@ -4592,7 +4596,7 @@ async function loadStrengthTrainingState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    ["PROFILE", "DRAFT", "PLAN", "HISTORY"].forEach((stateType) => {
+    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT"].forEach((stateType) => {
       const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
       if (row) saveStrengthStateLocal(stateType, "current", row.payload);
     });
@@ -4603,6 +4607,7 @@ async function loadStrengthTrainingState() {
       ["DRAFT", "current", readStrengthDraft()],
       ["PLAN", "current", readApprovedStrengthPlan()],
       ["HISTORY", "current", readStrengthHistory()],
+      ["ADJUSTMENT", "current", readStrengthAdjustment()],
       ["EXECUTION", todayISODate(), readStrengthExecution()]
     ];
     for (const [stateType, stateKey, payload] of localStates) {
@@ -4681,6 +4686,43 @@ function renderStrengthSession(sessionItem = {}) {
   </details>`;
 }
 
+function renderStrengthAdjustment(adjustment, activePlan) {
+  if (!activePlan) {
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 017B // ADAPTIVE STRENGTH</span><h4>Closed-loop progression</h4><p>Approve a strength program first. Every finished workout will then create a reviewable next-session recommendation.</p></div></section>`;
+  }
+  if (!adjustment) {
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 017B // ADAPTIVE STRENGTH</span><h4>Finish a workout to open the coaching loop</h4><p>Coach Dominion will compare completed sets, reps, load, RPE, substitutions, skips, and pain against the approved plan. No progression is inferred before then.</p></div><div class="strength-adaptation-guardrails"><span>2 successful exposures</span><span>Smallest load step</span><span>Approval required</span></div></section>`;
+  }
+  const pending = adjustment.status === "PENDING";
+  const decisions = (adjustment.decisions || []).map((item) => {
+    const loadText = item.currentLoad === item.proposedLoad
+      ? `${item.currentLoad || "Technique"} ${item.currentLoad ? escapeHtml(item.unit) : ""}`
+      : `${item.currentLoad || "Technique"} -> ${item.proposedLoad || "Technique"} ${escapeHtml(item.unit)}`;
+    const tone = item.action === "PROGRESS_LOAD" ? "green" : ["REDUCE_LOAD", "SAFETY_HOLD"].includes(item.action) ? "red" : "yellow";
+    return `<article class="strength-adaptation-decision">
+      <div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.reason)}</p></div>
+      <div><span class="state-pill ${tone}">${escapeHtml(item.label)}</span><strong>${escapeHtml(loadText.trim())}</strong><small>${item.completedSets}/${item.plannedSets} sets${item.averageRpe === null ? " · RPE missing" : ` · RPE ${item.averageRpe}`}</small></div>
+    </article>`;
+  }).join("");
+  const statusTone = adjustment.status === "APPROVED" ? "green" : adjustment.status === "HELD" || adjustment.safetyHold ? "red" : "yellow";
+  return `<section class="strength-adaptation-panel">
+    <header><div><span class="kicker">BUILD 017B // POST-SESSION REVIEW</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Plan revision ${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
+    <div class="connected-summary-grid">
+      <div><span>Load progressions</span><strong>${adjustment.summary?.progressedCount || 0}</strong></div>
+      <div><span>Load reductions</span><strong>${adjustment.summary?.reducedCount || 0}</strong></div>
+      <div><span>Repeats / holds</span><strong>${adjustment.summary?.repeatedCount || 0}</strong></div>
+      <div><span>Plan revision</span><strong>${activePlan.revision || 1}</strong></div>
+    </div>
+    ${adjustment.safetyHold ? `<div class="connected-notice warning"><strong>Safety hold.</strong> Pain or a stopped session prevents approval of loaded changes. Keep the current plan and review readiness first.</div>` : ""}
+    <div class="strength-adaptation-decisions">${decisions}</div>
+    ${pending ? `<div class="performance-actions">
+      <button type="button" data-programming-action="approve-adjustment" ${adjustment.safetyHold ? "disabled" : ""}>Approve for next rotation</button>
+      <button type="button" class="ghost" data-programming-action="hold-adjustment">Keep current plan</button>
+    </div>` : `<p class="muted">${adjustment.status === "APPROVED" ? `Approved ${escapeHtml(adjustment.approvedAt || "")}. The active plan was advanced to revision ${adjustment.appliedRevision || activePlan.revision || 1}.` : "The recommendation was held. The active plan remains unchanged."}</p>`}
+    <p class="muted">Coach Dominion never increases load and sets together. Two complete, pain-free exposures at RPE 8 or below are required before a load increase is proposed.</p>
+  </section>`;
+}
+
 function renderProgrammingReview() {
   const panel = document.getElementById("programming-review-panel");
   if (!panel) return;
@@ -4690,18 +4732,19 @@ function renderProgrammingReview() {
   }
   const profile = readStrengthProfile();
   const activePlan = readApprovedStrengthPlan();
+  const adjustment = readStrengthAdjustment();
   const savedDraft = readStrengthDraft();
   const preview = savedDraft || DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
     startDate: todayISODate(),
     generatedAt: new Date().toISOString()
   });
-  const displayedPlan = activePlan || preview;
+  const displayedPlan = savedDraft || activePlan || preview;
   const history = readStrengthHistory().slice(0, 3);
   const anchored = displayedPlan.sessions.flatMap((item) => item.exercises).filter((item) => item.evidenceCount > 0).length;
   const total = displayedPlan.sessions.reduce((sum, item) => sum + item.exercises.length, 0);
-  setText("programming-status", activePlan ? "ACTIVE" : "APPROVAL NEEDED");
+  setText("programming-status", savedDraft ? "DRAFT REVIEW" : adjustment?.status === "PENDING" ? "REVIEW READY" : activePlan ? "ACTIVE" : "APPROVAL NEEDED");
   const badge = document.getElementById("programming-status");
-  if (badge) badge.className = `state-pill ${activePlan ? "green" : "yellow"}`;
+  if (badge) badge.className = `state-pill ${savedDraft || adjustment?.status === "PENDING" ? "yellow" : activePlan ? "green" : "yellow"}`;
   panel.innerHTML = `<div class="strength-programming-panel">
     <form id="strength-profile-form" class="strength-profile-grid">
       <label><span>Primary goal</span><select name="goal">
@@ -4731,7 +4774,7 @@ function renderProgrammingReview() {
       </select></label>
     </form>
     <div class="connected-summary-grid">
-      <div><span>Program status</span><strong>${activePlan ? "APPROVED" : "DRAFT"}</strong></div>
+      <div><span>Program status</span><strong>${savedDraft ? "DRAFT REVISION" : activePlan ? `APPROVED · R${activePlan.revision || 1}` : "DRAFT"}</strong></div>
       <div><span>Weekly sessions</span><strong>${displayedPlan.sessions.length}</strong></div>
       <div><span>Exercises/session</span><strong>5–7</strong></div>
       <div><span>Evidence anchored</span><strong>${anchored}/${total}</strong></div>
@@ -4745,6 +4788,7 @@ function renderProgrammingReview() {
     </div>
     <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
     ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
+    ${renderStrengthAdjustment(adjustment, activePlan)}
     ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
   </div>`;
 }
@@ -5018,6 +5062,15 @@ async function preserveStrengthWorkout(execution) {
     .slice(0, 52);
   saveStrengthStateLocal("HISTORY", "current", history);
   await persistStrengthTrainingState("HISTORY", "current", history);
+  const plan = readApprovedStrengthPlan();
+  const existing = readStrengthAdjustment();
+  if (plan && existing?.sourceExecutionId !== execution.id) {
+    const adjustment = DominionStrengthTraining.buildAdjustmentProposal(plan, history, { createdAt: new Date().toISOString() });
+    if (adjustment) {
+      saveStrengthStateLocal("ADJUSTMENT", "current", adjustment);
+      await persistStrengthTrainingState("ADJUSTMENT", "current", adjustment);
+    }
+  }
 }
 
 function renderTodayStandardsDuty() {
@@ -5122,10 +5175,13 @@ function renderDailyAssignment() {
     </article>`;
   }).join("");
   const summary = terminal ? (execution.summary || DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot)) : null;
+  const adjustment = readStrengthAdjustment();
+  const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id;
   const resultMarkup = summary ? `<article class="strength-workout-result">
     <div><span class="kicker">SESSION PRESERVED</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
     <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Duration</span><strong>${summary.durationMinutes ?? "—"} min</strong></div></div>
     ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
+    ${adjustmentReady ? `<div class="strength-next-review"><div><strong>Post-session review ready</strong><p>See what stays, what changes, and why. Nothing applies without approval.</p></div><button type="button" data-assignment-action="review-adjustment">Review next session</button></div>` : ""}
   </article>` : "";
   const primaryActions = execution.state === "IN_PROGRESS"
     ? `<button type="button" data-assignment-action="finish">Finish workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
@@ -8674,10 +8730,36 @@ if (typeof document !== "undefined") {
       await persistStrengthTrainingState("PROFILE", "current", profile);
       await persistStrengthTrainingState("PLAN", "current", approved);
       await clearStrengthTrainingState("DRAFT", "current");
+      await clearStrengthTrainingState("ADJUSTMENT", "current");
       renderProgrammingReview();
       renderDailyAssignment();
       renderDailyCoachingLoop();
       setText("programming-feedback", "Strength program approved and activated on Today. It now persists with your account.");
+    }
+    if (action === "approve-adjustment") {
+      const plan = readApprovedStrengthPlan();
+      const adjustment = readStrengthAdjustment();
+      try {
+        const approved = DominionStrengthTraining.applyAdjustmentProposal(plan, adjustment, new Date().toISOString());
+        saveStrengthStateLocal("PLAN", "current", approved.plan);
+        saveStrengthStateLocal("ADJUSTMENT", "current", approved.adjustment);
+        await persistStrengthTrainingState("PLAN", "current", approved.plan);
+        await persistStrengthTrainingState("ADJUSTMENT", "current", approved.adjustment);
+        renderProgrammingReview();
+        renderDailyAssignment();
+        renderDailyCoachingLoop();
+        setText("programming-feedback", `Strength adjustment approved. Plan revision ${approved.plan.revision} will govern the next matching session.`);
+      } catch (error) {
+        setText("programming-feedback", error?.message || "The adjustment could not be approved.");
+      }
+    }
+    if (action === "hold-adjustment") {
+      const held = DominionStrengthTraining.holdAdjustment(readStrengthAdjustment(), new Date().toISOString());
+      saveStrengthStateLocal("ADJUSTMENT", "current", held);
+      await persistStrengthTrainingState("ADJUSTMENT", "current", held);
+      renderProgrammingReview();
+      renderDailyAssignment();
+      setText("programming-feedback", "Recommendation held. The active strength plan remains unchanged.");
     }
   });
   document.getElementById("recovery-review-panel")?.addEventListener("click", (event) => {
@@ -8939,6 +9021,15 @@ if (typeof document !== "undefined") {
       const detail = document.getElementById("training-programming-detail");
       if (detail) detail.open = true;
       renderProgrammingReview();
+    }
+    if (action === "review-adjustment") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("programming");
+      const detail = document.getElementById("training-programming-detail");
+      if (detail) detail.open = true;
+      renderProgrammingReview();
+      document.querySelector(".strength-adaptation-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     if (action === "refresh") setText("daily-assignment-feedback", "Fitbod evidence refreshed.");
     renderDailyAssignment();

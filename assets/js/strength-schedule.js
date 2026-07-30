@@ -89,12 +89,28 @@
       .filter((item) => item.date);
   }
 
+  function planSource(plan = {}) {
+    return plan?.plan || plan?.weeklyPlan || plan?.approvedPlan || plan || {};
+  }
+
+  function dateInsidePlan(date, source = {}, sessions = []) {
+    const start = dateIso(source.weekStart || source.startDate || source.start_date) || sessions.map((item) => item.date).sort()[0] || null;
+    const end = dateIso(source.weekEnd || source.endDate || source.end_date) || sessions.map((item) => item.date).sort().at(-1) || null;
+    return Boolean(start && end && date >= start && date <= end);
+  }
+
   function contextForDate(date, context = {}) {
-    const run = runningSessions(context.runningPlan).find((item) => item.date === date) || null;
-    const core = coreSessions(context.corePlan).find((item) => item.date === date) || null;
+    const runs = runningSessions(context.runningPlan);
+    const cores = coreSessions(context.corePlan);
+    const run = runs.find((item) => item.date === date) || null;
+    const core = cores.find((item) => item.date === date) || null;
+    const runCovered = dateInsidePlan(date, planSource(context.runningPlan), runs);
+    const coreCovered = dateInsidePlan(date, planSource(context.corePlan), cores);
     return {
       run,
       core,
+      runCoverage: run ? (run.type === "REST" ? "REST" : "SCHEDULED") : !runs.length ? "PLAN_REQUIRED" : runCovered ? "REST" : "OUT_OF_RANGE",
+      coreCoverage: core ? "SCHEDULED" : !cores.length ? "PLAN_REQUIRED" : coreCovered ? "REST" : "OUT_OF_RANGE",
       hardRun: Boolean(run && HARD_RUN_TYPES.includes(run.type)),
       easyRun: Boolean(run && run.type !== "REST" && !HARD_RUN_TYPES.includes(run.type)),
       runLabel: run && run.type !== "REST" ? `${run.type} run` : null,
@@ -173,6 +189,8 @@
         } : null,
         run: dayContext.run,
         core: dayContext.core,
+        runCoverage: dayContext.runCoverage,
+        coreCoverage: dayContext.coreCoverage,
         load: dayContext.hardRun || assignment ? "TRAINING" : dayContext.core ? "CORE" : "RECOVERY"
       };
     });
@@ -209,6 +227,11 @@
       };
     });
     const blockingConflicts = assignments.flatMap((item) => assignmentConflicts(item, context)).filter((item) => item.severity === "BLOCKING");
+    const coverage = Array.from({ length: 7 }, (_, index) => contextForDate(addDays(weekStart, index), context));
+    const coordinationStatus = {
+      running: coverage.some((item) => ["SCHEDULED", "REST"].includes(item.runCoverage)) ? "COORDINATED" : coverage.some((item) => item.runCoverage === "OUT_OF_RANGE") ? "NEXT_WEEK_REQUIRED" : "PLAN_REQUIRED",
+      core: coverage.some((item) => ["SCHEDULED", "REST"].includes(item.coreCoverage)) ? "COORDINATED" : coverage.some((item) => item.coreCoverage === "OUT_OF_RANGE") ? "NEXT_WEEK_REQUIRED" : "PLAN_REQUIRED"
+    };
     const schedule = {
       version: VERSION,
       id: `strength-week:${plan.id}:${weekStart}`,
@@ -223,6 +246,7 @@
       assignments,
       approvalBlocked: blockingConflicts.length > 0,
       blockingConflictCount: blockingConflicts.length,
+      coordinationStatus,
       safeguards: [
         "Hard running and strength sessions are not approved on the same day.",
         "Core and easy running are separated from strength when recovery space exists.",
@@ -236,6 +260,8 @@
       days: scheduleDays(schedule, context, history, today),
       message: schedule.approvalBlocked
         ? "Resolve the hard-session collision before approval."
+        : Object.values(coordinationStatus).some((item) => item !== "COORDINATED")
+          ? "Strength is scheduled. Complete the missing running/core plan coverage to finish cross-training coordination."
         : "The seven-day strength queue is coordinated and ready for approval."
     };
   }

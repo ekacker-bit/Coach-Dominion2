@@ -257,6 +257,19 @@
           <p class="data-truth-note">“Historical” means the source exists but does not contain a record dated today. It is not treated as missing or noncompliant.</p>
         </details>
 
+        <section id="closed-loop-command" class="card closed-loop-command" aria-labelledby="closed-loop-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 014A // CLOSED-LOOP COACHING</div>
+              <h2 id="closed-loop-heading">Coaching Loop</h2>
+              <p class="muted">Observe, decide, authorize, execute, verify, and adapt from one auditable coaching decision.</p>
+            </div>
+            <span id="closed-loop-status" class="state-pill neutral">OBSERVING</span>
+          </div>
+          <div id="closed-loop-panel" aria-live="polite"><div class="performance-empty">Atlas is assembling the current coaching loop.</div></div>
+          <p id="closed-loop-feedback" class="muted" aria-live="polite"></p>
+        </section>
+
         <section id="activation-guide" class="card activation-guide" aria-labelledby="activation-guide-heading">
           <div class="section-heading compact">
             <div>
@@ -732,6 +745,10 @@
             <a class="button-link" href="#today">Open today’s training</a>
           </div>
           <div class="training-review-stack">
+            <details id="training-closed-loop-detail" class="training-review-detail" open>
+              <summary>Closed-loop review <span>Decision, evidence reconciliation, and next adjustment</span></summary>
+              <div id="training-closed-loop-panel" class="training-closed-loop-panel"></div>
+            </details>
             <details id="training-programming-detail" class="training-review-detail">
               <summary>Programming review <span>Next-session recommendation and approval</span></summary>
               <div class="section-heading compact">
@@ -997,6 +1014,7 @@
 <script src="/assets/js/meal-coaching.js"></script>
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
+<script src="/assets/js/closed-loop.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

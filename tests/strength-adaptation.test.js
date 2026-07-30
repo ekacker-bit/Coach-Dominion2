@@ -166,7 +166,7 @@ test("017B UI and account persistence expose explicit adjustment approval", () =
   const app = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
   const html = fs.readFileSync(path.join(root, "app.html"), "utf8");
   const migration = fs.readFileSync(path.join(root, "supabase/migrations/017_strength_adaptation.sql"), "utf8");
-  assert.match(html, /BUILD 017[BC]/);
+  assert.match(html, /BUILD 017[BCD]/);
   assert.match(app, /data-programming-action="approve-adjustment"/);
   assert.match(app, /data-programming-action="hold-adjustment"/);
   assert.match(app, /persistStrengthTrainingState\("ADJUSTMENT"/);

@@ -969,7 +969,19 @@
         </section>
 
         <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training assignment</h2><p class="muted">Today’s executable prescription is shown above with evidence and completion controls.</p></article>
-        <article class="card module-placeholder"><div class="kicker">NUTRITION</div><h2>Fuel module</h2><p class="muted">Placeholder for nutrition guidance.</p></article>
+        <article id="today-nutrition-card" class="card today-nutrition-card" aria-labelledby="today-nutrition-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 016B // DAILY FUEL ORDER</div>
+              <h2 id="today-nutrition-heading">Fuel execution</h2>
+            </div>
+            <span id="today-nutrition-status" class="state-pill neutral" aria-live="polite">LOADING</span>
+          </div>
+          <div id="today-nutrition-output">
+            <div class="performance-empty">Atlas is assembling today’s fuel order.</div>
+          </div>
+          <p id="today-nutrition-feedback" class="muted" aria-live="polite"></p>
+        </article>
         <article class="card module-placeholder"><div class="kicker">RECOVERY</div><h2>Recovery module</h2><p class="muted">Placeholder for recovery actions.</p></article>
       </section>
       </section>
@@ -1015,6 +1027,7 @@
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
+<script src="/assets/js/today-nutrition.js"></script>
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>

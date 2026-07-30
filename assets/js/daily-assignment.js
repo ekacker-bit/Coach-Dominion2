@@ -61,11 +61,12 @@
     const date = input.date || new Date().toISOString().slice(0, 10);
     const exercises = (programming.exercises || []).map(buildExercise);
     const blocked = readiness.pain === true || readiness.state === "RED";
+    const scheduledRecovery = programming.scheduledRecovery === true;
     const assignment = {
       version: VERSION,
       date,
       generatedAt: input.generatedAt || new Date().toISOString(),
-      state: blocked ? "RECOVERY ONLY" : exercises.length ? "READY" : "NEEDS PROGRAM",
+      state: blocked || scheduledRecovery ? "RECOVERY ONLY" : exercises.length ? "READY" : "NEEDS PROGRAM",
       title: blocked ? "Recovery protocol" : exercises.length ? "Today’s strength assignment" : "Training program required",
       estimatedMinutes: blocked ? 20 : estimateDuration(exercises),
       exercises: blocked ? [] : exercises,
@@ -75,6 +76,12 @@
       evidence: exercises.map((item) => ({ exerciseId: item.id, sources: item.evidenceCount, rationale: item.rationale })),
       confidence: exercises.length && exercises.every((item) => item.evidenceCount >= 2) ? "MODERATE" : exercises.length ? "LIMITED" : "INSUFFICIENT"
     };
+    if (scheduledRecovery && !blocked) {
+      assignment.title = "Scheduled strength recovery";
+      assignment.warmup = ["No loaded strength warm-up is required today."];
+      assignment.recoveryActions = ["Preserve the approved recovery day.", "Do not add missed strength volume without deliberately rescheduling it."];
+      assignment.readinessDelta = { code: "SCHEDULED_RECOVERY", detail: "The approved weekly strength schedule preserves recovery today." };
+    }
     assignment.fitbod = reconcileFitbod(assignment, input.fitbodSessions || []);
     if (assignment.fitbod.state === "COMPLETE") assignment.state = "COMPLETE";
     return assignment;

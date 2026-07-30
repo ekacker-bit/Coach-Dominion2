@@ -4544,6 +4544,19 @@ function readStrengthAdjustment() {
   return readStrengthState("ADJUSTMENT", "current", null);
 }
 
+function readStrengthSchedule() {
+  return readStrengthState("SCHEDULE", "current", null);
+}
+
+function readStrengthScheduleDraft() {
+  return readStrengthState("SCHEDULE", "draft", null);
+}
+
+function readApprovedStrengthSchedule() {
+  const schedule = readStrengthSchedule();
+  return schedule?.status === "APPROVED" ? schedule : null;
+}
+
 function readProgrammingDraft() {
   return readApprovedStrengthPlan();
 }
@@ -4596,10 +4609,12 @@ async function loadStrengthTrainingState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT"].forEach((stateType) => {
+    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT", "SCHEDULE"].forEach((stateType) => {
       const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
       if (row) saveStrengthStateLocal(stateType, "current", row.payload);
     });
+    const scheduleDraft = rows.find((item) => item.state_type === "SCHEDULE" && item.state_key === "draft");
+    if (scheduleDraft) saveStrengthStateLocal("SCHEDULE", "draft", scheduleDraft.payload);
     const execution = rows.find((item) => item.state_type === "EXECUTION" && item.state_key === todayISODate());
     if (execution) saveStrengthStateLocal("EXECUTION", todayISODate(), execution.payload);
     const localStates = [
@@ -4608,6 +4623,8 @@ async function loadStrengthTrainingState() {
       ["PLAN", "current", readApprovedStrengthPlan()],
       ["HISTORY", "current", readStrengthHistory()],
       ["ADJUSTMENT", "current", readStrengthAdjustment()],
+      ["SCHEDULE", "current", readStrengthSchedule()],
+      ["SCHEDULE", "draft", readStrengthScheduleDraft()],
       ["EXECUTION", todayISODate(), readStrengthExecution()]
     ];
     for (const [stateType, stateKey, payload] of localStates) {
@@ -4630,9 +4647,46 @@ function currentStrengthPrescription() {
     return existing.sessionSnapshot;
   }
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const readiness = { state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) };
+  const schedule = readApprovedStrengthSchedule();
+  if (schedule?.planId === plan.id && typeof DominionStrengthSchedule !== "undefined") {
+    if (todayISODate() < schedule.weekStart || todayISODate() > schedule.weekEnd) {
+      return {
+        version: DominionStrengthTraining.VERSION,
+        planId: plan.id,
+        sessionId: null,
+        sessionName: "Weekly schedule required",
+        date: todayISODate(),
+        status: "WEEKLY SCHEDULE REQUIRED",
+        state: "RECOVERY ONLY",
+        exercises: [],
+        adjustment: { code: "SCHEDULED_RECOVERY", detail: "The last approved strength week has ended. Approve the next coordinated week before resuming loaded training." },
+        profile: plan.profile
+      };
+    }
+    const assignment = DominionStrengthSchedule.assignmentForDate(schedule, todayISODate());
+    if (!assignment) {
+      return {
+        version: DominionStrengthTraining.VERSION,
+        planId: plan.id,
+        sessionId: null,
+        sessionName: "Scheduled recovery",
+        date: todayISODate(),
+        status: "SCHEDULED RECOVERY",
+        state: "RECOVERY ONLY",
+        exercises: [],
+        adjustment: { code: "SCHEDULED_RECOVERY", detail: "The approved weekly strength schedule does not assign loaded training today." },
+        profile: plan.profile
+      };
+    }
+    return DominionStrengthTraining.buildSessionPrescription(plan, assignment.sessionId, {
+      today: todayISODate(),
+      readiness
+    });
+  }
   return DominionStrengthTraining.buildDailyPrescription(plan, readStrengthHistory(), {
     today: todayISODate(),
-    readiness: { state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) }
+    readiness
   });
 }
 
@@ -4647,6 +4701,7 @@ function buildCurrentProgrammingRecommendation() {
   }));
   return {
     status: plan ? "APPROVED PROGRAM" : "PLAN REQUIRED",
+    scheduledRecovery: prescription?.adjustment?.code === "SCHEDULED_RECOVERY",
     evidenceQuality: exercises.some((item) => item.evidenceCount > 0) ? "PERSONALIZED" : "TECHNIQUE FIRST",
     policy: {
       code: prescription?.adjustment?.code || "PLAN_REQUIRED",
@@ -4723,6 +4778,74 @@ function renderStrengthAdjustment(adjustment, activePlan) {
   </section>`;
 }
 
+function strengthScheduleContext() {
+  return {
+    runningPlan: readApprovedRunningPlan(),
+    corePlan: readApprovedCorePlan()
+  };
+}
+
+function strengthSchedulePreferredDaysFromForm(plan) {
+  const selected = [...document.querySelectorAll("[data-strength-schedule-day]:checked")].map((item) => Number(item.value));
+  if (typeof DominionStrengthSchedule === "undefined") return selected;
+  return DominionStrengthSchedule.normalizePreferredDays(plan?.profile?.daysPerWeek || 3, selected);
+}
+
+function renderStrengthSchedule(activePlan) {
+  if (typeof DominionStrengthSchedule === "undefined") return "";
+  if (!activePlan) {
+    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017C // WEEKLY STRENGTH COMMAND</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate its sessions with running, core, recovery, and Today.</p></div></section>`;
+  }
+  const context = strengthScheduleContext();
+  const storedSchedule = readApprovedStrengthSchedule();
+  const activeSchedule = storedSchedule?.planId === activePlan.id ? storedSchedule : null;
+  const storedDraft = readStrengthScheduleDraft();
+  const savedDraft = storedDraft?.planId === activePlan.id ? storedDraft : null;
+  const preview = DominionStrengthSchedule.buildWeeklySchedule(activePlan, readStrengthHistory(), context, { today: todayISODate() });
+  const displayed = savedDraft || activeSchedule || preview;
+  const preferredDays = displayed.preferredDays || preview.preferredDays;
+  const days = DominionStrengthSchedule.scheduleDays(displayed, context, readStrengthHistory(), todayISODate());
+  const summary = DominionStrengthSchedule.scheduleSummary(displayed, readStrengthHistory(), todayISODate());
+  const staleRevision = activeSchedule && Number(activeSchedule.planRevision || 1) !== Number(activePlan.revision || 1);
+  const daySelectors = DominionStrengthSchedule.DAY_LABELS.map((label, index) => `<label class="strength-day-choice"><input type="checkbox" value="${index}" data-strength-schedule-day ${preferredDays.includes(index) ? "checked" : ""}><span>${label}</span></label>`).join("");
+  const dayCards = days.map((day) => {
+    const assignment = day.assignment;
+    const tone = !assignment ? "neutral" : assignment.state === "COMPLETE" ? "green" : ["MISSED", "STOPPED"].includes(assignment.state) ? "red" : ["TODAY", "PARTIAL"].includes(assignment.state) ? "yellow" : "neutral";
+    const conflicts = assignment?.conflicts || [];
+    const moveDates = assignment && displayed.status === "APPROVED"
+      ? DominionStrengthSchedule.availableMoveDates(displayed, assignment.id, context, todayISODate()).filter((date) => date !== assignment.date)
+      : [];
+    return `<article class="strength-week-day ${assignment ? "has-strength" : ""}">
+      <header><div><span>${escapeHtml(day.dayLabel)}</span><strong>${escapeHtml(day.date)}</strong></div>${assignment ? `<span class="state-pill ${tone}">${escapeHtml(assignment.state)}</span>` : `<span class="state-pill neutral">RECOVERY</span>`}</header>
+      ${assignment ? `<div class="strength-week-session"><span class="kicker">STRENGTH ${assignment.sequence}</span><h5>${escapeHtml(assignment.sessionName)}</h5><p>${escapeHtml(assignment.placementReason)}</p></div>` : `<p class="muted">No loaded strength session.</p>`}
+      <div class="strength-week-overlap">
+        <span>${day.run && day.run.type !== "REST" ? `RUN · ${escapeHtml(day.run.type)}` : "RUN · REST"}</span>
+        <span>${day.core ? `CORE · ${escapeHtml(day.core.title || "SCHEDULED")}` : "CORE · REST"}</span>
+      </div>
+      ${conflicts.map((item) => `<p class="strength-schedule-conflict ${item.severity === "BLOCKING" ? "blocking" : ""}">${escapeHtml(item.detail)}</p>`).join("")}
+      ${assignment && moveDates.length && !["COMPLETE"].includes(assignment.state) ? `<div class="strength-reschedule-control"><select data-strength-move-target="${escapeHtml(assignment.id)}"><option value="">Move to...</option>${moveDates.map((date) => `<option value="${date}">${escapeHtml(date)} · ${escapeHtml(DominionStrengthSchedule.DAY_LABELS[DominionStrengthSchedule.weekStartIso(date) === displayed.weekStart ? Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${displayed.weekStart}T00:00:00Z`)) / 86400000) : 0] || date)}</option>`).join("")}</select><button type="button" class="ghost" data-strength-schedule-action="move" data-assignment-id="${escapeHtml(assignment.id)}">Move</button></div>` : ""}
+    </article>`;
+  }).join("");
+  const statusTone = displayed.status === "APPROVED" ? "green" : displayed.approvalBlocked ? "red" : "yellow";
+  return `<section class="strength-week-command">
+    <header><div><span class="kicker">BUILD 017C // WEEKLY STRENGTH COMMAND</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
+    <div class="strength-week-summary">
+      <div><span>Scheduled</span><strong>${summary.scheduled}</strong></div>
+      <div><span>Completed</span><strong>${summary.completed}</strong></div>
+      <div><span>Missed</span><strong>${summary.missed}</strong></div>
+      <div><span>Upcoming</span><strong>${summary.upcoming}</strong></div>
+    </div>
+    <div class="strength-day-selector"><span>Preferred training days</span><div>${daySelectors}</div></div>
+    ${staleRevision ? `<div class="connected-notice warning"><strong>Plan revision changed.</strong> The schedule still points to the same sessions, but rebuilding will refresh its plan-revision audit stamp.</div>` : ""}
+    <div class="strength-week-grid">${dayCards}</div>
+    <div class="performance-actions">
+      <button type="button" data-strength-schedule-action="generate">${activeSchedule ? "Build revised week" : "Generate coordinated week"}</button>
+      <button type="button" data-strength-schedule-action="approve" ${savedDraft && !savedDraft.approvalBlocked ? "" : "disabled"}>Approve weekly schedule</button>
+    </div>
+    <p class="muted">Hard running and strength cannot be approved on the same day. Moving a missed session never creates completion credit or compensatory volume.</p>
+  </section>`;
+}
+
 function renderProgrammingReview() {
   const panel = document.getElementById("programming-review-panel");
   if (!panel) return;
@@ -4788,6 +4911,7 @@ function renderProgrammingReview() {
     </div>
     <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
     ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
+    ${renderStrengthSchedule(activePlan)}
     ${renderStrengthAdjustment(adjustment, activePlan)}
     ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
   </div>`;
@@ -8689,6 +8813,64 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", async (event) => {
+    const scheduleButton = event.target.closest("button[data-strength-schedule-action]");
+    if (scheduleButton && typeof DominionStrengthSchedule !== "undefined") {
+      const scheduleAction = scheduleButton.dataset.strengthScheduleAction;
+      const plan = readApprovedStrengthPlan();
+      const context = strengthScheduleContext();
+      if (!plan) {
+        setText("programming-feedback", "Approve the strength program before scheduling the week.");
+        return;
+      }
+      if (scheduleAction === "generate") {
+        const draft = DominionStrengthSchedule.buildWeeklySchedule(plan, readStrengthHistory(), context, {
+          today: todayISODate(),
+          preferredDays: strengthSchedulePreferredDaysFromForm(plan),
+          createdAt: new Date().toISOString()
+        });
+        saveStrengthStateLocal("SCHEDULE", "draft", draft);
+        await persistStrengthTrainingState("SCHEDULE", "draft", draft);
+        renderProgrammingReview();
+        setText("programming-feedback", draft.approvalBlocked
+          ? "Weekly draft generated, but a hard-session collision must be resolved before approval."
+          : "Coordinated seven-day strength draft generated. Review each day before approval.");
+        return;
+      }
+      if (scheduleAction === "approve") {
+        try {
+          const approved = DominionStrengthSchedule.approveSchedule(readStrengthScheduleDraft(), new Date().toISOString());
+          saveStrengthStateLocal("SCHEDULE", "current", approved);
+          await persistStrengthTrainingState("SCHEDULE", "current", approved);
+          await clearStrengthTrainingState("SCHEDULE", "draft");
+          renderProgrammingReview();
+          renderDailyAssignment();
+          renderDailyCoachingLoop();
+          setText("programming-feedback", "Weekly strength schedule approved. Scheduled sessions and recovery days now govern Today.");
+        } catch (error) {
+          setText("programming-feedback", error?.message || "The weekly strength schedule could not be approved.");
+        }
+        return;
+      }
+      if (scheduleAction === "move") {
+        const schedule = readApprovedStrengthSchedule();
+        const target = scheduleButton.closest(".strength-reschedule-control")?.querySelector("select")?.value || "";
+        const result = DominionStrengthSchedule.moveAssignment(schedule, scheduleButton.dataset.assignmentId, target, context, {
+          today: todayISODate(),
+          history: readStrengthHistory(),
+          changedAt: new Date().toISOString(),
+          reason: "Moved deliberately by the athlete in Weekly Strength Command."
+        });
+        if (result.valid) {
+          saveStrengthStateLocal("SCHEDULE", "current", result.schedule);
+          await persistStrengthTrainingState("SCHEDULE", "current", result.schedule);
+          renderProgrammingReview();
+          renderDailyAssignment();
+          renderDailyCoachingLoop();
+        }
+        setText("programming-feedback", result.message);
+        return;
+      }
+    }
     const button = event.target.closest("button[data-programming-action]");
     if (!button) return;
     const action = button.dataset.programmingAction;
@@ -8731,6 +8913,8 @@ if (typeof document !== "undefined") {
       await persistStrengthTrainingState("PLAN", "current", approved);
       await clearStrengthTrainingState("DRAFT", "current");
       await clearStrengthTrainingState("ADJUSTMENT", "current");
+      await clearStrengthTrainingState("SCHEDULE", "current");
+      await clearStrengthTrainingState("SCHEDULE", "draft");
       renderProgrammingReview();
       renderDailyAssignment();
       renderDailyCoachingLoop();

@@ -539,3 +539,35 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .today-nutrition-safeguards{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0;padding:0;list-style:none}
 .today-nutrition-safeguards li{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 8px}
 @media(max-width:720px){.today-nutrition-card{grid-column:auto}.today-nutrition-context,.today-nutrition-metrics{grid-template-columns:1fr}.today-nutrition-actions{display:grid}}
+
+/* Build 017C: Weekly Strength Command */
+.strength-week-command{display:grid;gap:15px;padding:18px;border:1px solid rgba(56,212,141,.42);border-radius:14px;background:linear-gradient(145deg,rgba(15,29,28,.94),rgba(7,12,18,.98))}
+.strength-week-command>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.strength-week-command h4{margin:5px 0 4px;font-size:22px}.strength-week-command p{margin:4px 0 0;color:var(--muted)}
+.strength-week-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.strength-week-summary>div{padding:12px;border:1px solid var(--line);border-radius:9px;background:rgba(5,10,14,.54)}
+.strength-week-summary span{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.strength-week-summary strong{display:block;margin-top:4px;font-size:21px}
+.strength-day-selector{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}
+.strength-day-selector>span{color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.strength-day-selector>div{display:flex;gap:6px;flex-wrap:wrap}
+.strength-day-choice{position:relative;cursor:pointer}.strength-day-choice input{position:absolute;opacity:0;pointer-events:none}
+.strength-day-choice span{display:grid;place-items:center;min-width:44px;min-height:38px;padding:7px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:11px;font-weight:900}
+.strength-day-choice input:checked+span{border-color:var(--green);background:rgba(56,212,141,.12);color:#eafff4}
+.strength-day-choice input:focus-visible+span{outline:2px solid var(--green);outline-offset:2px}
+.strength-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.strength-week-day{display:grid;align-content:start;gap:10px;min-width:0;padding:11px;border:1px solid var(--line);border-radius:10px;background:rgba(5,9,13,.52)}
+.strength-week-day.has-strength{border-color:rgba(56,212,141,.35);background:rgba(56,212,141,.045)}
+.strength-week-day>header{display:flex;align-items:flex-start;justify-content:space-between;gap:7px}
+.strength-week-day>header div span,.strength-week-day>header div strong{display:block}
+.strength-week-day>header div span{color:var(--green);font-size:11px;font-weight:1000;letter-spacing:.09em}
+.strength-week-day>header div strong{margin-top:2px;color:var(--muted);font-size:10px}
+.strength-week-day .state-pill{padding:4px 6px;font-size:8px}.strength-week-session h5{margin:3px 0 5px;font-size:14px}
+.strength-week-session p{font-size:11px;line-height:1.4}.strength-week-overlap{display:grid;gap:4px}
+.strength-week-overlap span{overflow:hidden;text-overflow:ellipsis;color:var(--dim);font-size:9px;font-weight:900;letter-spacing:.05em;white-space:nowrap}
+.strength-schedule-conflict{padding:8px;border-left:3px solid var(--yellow);border-radius:5px;background:rgba(240,180,41,.07);font-size:10px!important}
+.strength-schedule-conflict.blocking{border-left-color:var(--red);background:rgba(255,85,85,.08);color:#ffb2b2!important}
+.strength-reschedule-control{display:grid;gap:6px;margin-top:auto}.strength-reschedule-control select,.strength-reschedule-control button{min-width:0;width:100%;min-height:38px;padding:7px;font-size:10px}
+@media(max-width:1200px){.strength-week-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){.strength-week-command>header,.strength-day-selector{align-items:stretch;flex-direction:column}.strength-week-summary,.strength-week-grid{grid-template-columns:1fr 1fr}.strength-day-selector>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.strength-day-choice span{min-width:0}.strength-week-command .performance-actions{display:grid}.strength-week-command .performance-actions button{width:100%}}
+@media(max-width:460px){.strength-week-summary,.strength-week-grid{grid-template-columns:1fr}}

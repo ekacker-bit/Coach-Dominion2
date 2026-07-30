@@ -269,18 +269,7 @@
     return { code: "APPROVED_VOLUME", state: "READY", detail: "The approved session is available without an automatic increase." };
   }
 
-  function buildDailyPrescription(plan = {}, history = [], options = {}) {
-    if (plan.status !== "APPROVED") {
-      return {
-        version: VERSION,
-        date: options.today || new Date().toISOString().slice(0, 10),
-        status: "PLAN REQUIRED",
-        state: "NEEDS PROGRAM",
-        exercises: [],
-        adjustment: { code: "PLAN_REQUIRED", detail: "Approve a balanced strength plan before training." }
-      };
-    }
-    const selected = selectSession(plan, history);
+  function prescriptionFromSession(plan = {}, selected = null, options = {}) {
     const policy = readinessPolicy(options.readiness || {});
     const blocked = policy.state === "RECOVERY ONLY";
     const exercises = blocked ? [] : (selected?.exercises || []).map((item) => ({
@@ -300,6 +289,37 @@
       adjustment: policy,
       profile: plan.profile
     };
+  }
+
+  function planRequiredPrescription(options = {}) {
+    return {
+      version: VERSION,
+      date: options.today || new Date().toISOString().slice(0, 10),
+      status: "PLAN REQUIRED",
+      state: "NEEDS PROGRAM",
+      exercises: [],
+      adjustment: { code: "PLAN_REQUIRED", detail: "Approve a balanced strength plan before training." }
+    };
+  }
+
+  function buildSessionPrescription(plan = {}, sessionId, options = {}) {
+    if (plan.status !== "APPROVED") return planRequiredPrescription(options);
+    const selected = (plan.sessions || []).find((item) => item.id === sessionId);
+    if (!selected) {
+      return {
+        ...planRequiredPrescription(options),
+        planId: plan.id,
+        status: "SESSION REQUIRED",
+        state: "NEEDS SCHEDULE",
+        adjustment: { code: "SESSION_REQUIRED", detail: "The scheduled strength session is no longer part of the approved plan." }
+      };
+    }
+    return prescriptionFromSession(plan, selected, options);
+  }
+
+  function buildDailyPrescription(plan = {}, history = [], options = {}) {
+    if (plan.status !== "APPROVED") return planRequiredPrescription(options);
+    return prescriptionFromSession(plan, selectSession(plan, history), options);
   }
 
   function executionForPrescription(prescription = {}) {
@@ -693,6 +713,7 @@
     selectSession,
     readinessPolicy,
     buildDailyPrescription,
+    buildSessionPrescription,
     executionForPrescription,
     startWorkout,
     recordSet,

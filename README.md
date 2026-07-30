@@ -13,8 +13,9 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `assets/js/app.js` contains Supabase client operations, the Daily State/readiness engine, mission generation, Atlas brief generation, and UI rendering.
 - `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
 - `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
+- `assets/js/nutrition-feed.js` validates the privacy-limited daily nutrition payload and generates the iPhone Shortcut request contract.
 - `assets/styles.css` contains the application styles.
-- `api/health.js` and `api/config.js` are Vercel Node.js serverless functions.
+- `api/health.js`, `api/config.js`, and `api/nutrition-feed.js` are Vercel Node.js serverless functions.
 - `supabase/migrations/` contains the tracked PostgreSQL schema, constraints, row-level security policies, and trigger definitions.
 - `tests/` contains dependency-free Node.js assertion tests.
 - `vercel.json` defines clean URLs and the `/app` rewrite.
@@ -28,6 +29,14 @@ The Abs/Core destination supports a profile-driven, four-week cycle covering fiv
 ## Build 014A closed-loop coaching
 
 Closed-loop coaching unifies the operating cycle across Observe, Decide, Authorize, Execute, Verify, and Adapt. The approved daily decision receives an immutable fingerprint, and strength, running, core, fueling, recovery, and Dominion Record evidence are reconciled against that exact prescription. A closing review is unavailable while required evidence is missing. Once verified, Coach Dominion proposes a bounded future adjustment—never an automatic plan mutation—and requires explicit approval before carrying that adjustment into the next planning cycle.
+
+## Build 015A automated nutrition feed
+
+Build 015A adds a credential-free automated nutrition path: MyFitnessPal writes supported Food totals to Apple Health, and a user-owned iPhone Shortcut sends one daily aggregate to Coach Dominion. The feed accepts only date, timezone, sample count, calories, protein, carbohydrates, and fat. It does not accept food names, meal names, diary notes, MyFitnessPal credentials, or raw Apple Health records.
+
+The Connections & Data → Nutrition view creates a private feed key, shows it once, generates the Shortcut request contract, verifies authorization, records deliveries, and supports rotation or immediate revocation. One canonical MyFitnessPal nutrition record exists per user and date, so repeated deliveries are classified as duplicates or updates rather than creating double-counted nutrition. Manual MyFitnessPal CSV import remains available.
+
+Persistence uses [supabase/migrations/014_myfitnesspal_health_bridge.sql](supabase/migrations/014_myfitnesspal_health_bridge.sql). The migration adds user-scoped feed-key metadata, delivery events, the secured ingestion function, and the permitted live Connected-account state. The raw key is never stored; only its SHA-256 digest and a short display hint are retained.
 
 ## Build 004B weekly inspection
 

@@ -40,6 +40,16 @@ test("weekly scheduling requires an approved strength program", () => {
   assert.equal(result.assignments.length, 0);
 });
 
+test("missing running and core plans are explicit and never masquerade as rest", () => {
+  const result = build();
+  assert.equal(result.coordinationStatus.running, "PLAN_REQUIRED");
+  assert.equal(result.coordinationStatus.core, "PLAN_REQUIRED");
+  result.days.forEach((day) => {
+    assert.equal(day.runCoverage, "PLAN_REQUIRED");
+    assert.equal(day.coreCoverage, "PLAN_REQUIRED");
+  });
+});
+
 test("three-day strength defaults to Monday, Wednesday, and Friday", () => {
   const result = build();
   assert.deepEqual(result.preferredDays, [0, 2, 4]);
@@ -97,6 +107,18 @@ test("wrapped running and core plans with alternate date fields coordinate corre
   assert.equal(schedule.contextForDate("2026-08-05", context).core.title, "Core wrapped");
   const coordinated = build(approvedPlan(), context);
   assert.ok(coordinated.assignments.every((item) => !["2026-08-03", "2026-08-05"].includes(item.date)));
+});
+
+test("an approved plan outside the strength week requests next-week coverage", () => {
+  const runningPlan = {
+    status: "READY",
+    weekStart: "2026-07-27",
+    weekEnd: "2026-08-02",
+    sessions: [{ date: "2026-07-27", type: "EASY" }]
+  };
+  const result = build(approvedPlan(), { runningPlan });
+  assert.equal(result.coordinationStatus.running, "NEXT_WEEK_REQUIRED");
+  assert.ok(result.days.every((day) => day.runCoverage === "OUT_OF_RANGE"));
 });
 
 test("core assignments are separated when recovery space exists", () => {

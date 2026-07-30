@@ -7100,7 +7100,7 @@ function buildCurrentTodayNutritionExecution() {
   const imported = nutritionDays.find((day) => day.date === date) || null;
   const manual = readManualNutrition(date);
   const actual = imported || manual || {};
-  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
+  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : nutritionDays.length ? "MYFITNESSPAL" : "NONE";
   const sourceRecordedAt = imported?.records
     ?.map((record) => record.sourceUpdatedAt || record.updatedAt || record.createdAt || record.occurredAt)
     .filter(Boolean)

@@ -5,8 +5,9 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "017B.1";
+  const VERSION = "017E.1";
   const TERMINAL_STATES = Object.freeze(["COMPLETE", "PARTIAL", "STOPPED"]);
+  const ACTIVE_STATES = Object.freeze(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const PATTERN_LABELS = Object.freeze({
     SQUAT: "Squat",
     HINGE: "Hinge",
@@ -72,6 +73,21 @@
         session("UPPER_A", "Upper A", ["BENCH_PRESS", "ONE_ARM_ROW", "OVERHEAD_PRESS", "LAT_PULLDOWN", "INCLINE_DB_PRESS", "PALLOF_PRESS"]),
         session("LOWER_B", "Lower B", ["TRAP_BAR_DEADLIFT", "FRONT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "FARMER_CARRY", "PLANK"]),
         session("UPPER_B", "Upper B", ["INCLINE_DB_PRESS", "SEATED_CABLE_ROW", "DB_SHOULDER_PRESS", "LAT_PULLDOWN", "PUSH_UP", "DEAD_BUG"])
+      ],
+      5: [
+        session("LOWER_A", "Lower A", ["BACK_SQUAT", "ROMANIAN_DEADLIFT", "REVERSE_LUNGE", "HIP_THRUST", "FARMER_CARRY", "DEAD_BUG"]),
+        session("UPPER_A", "Upper A", ["BENCH_PRESS", "ONE_ARM_ROW", "OVERHEAD_PRESS", "LAT_PULLDOWN", "PALLOF_PRESS"]),
+        session("LOWER_B", "Lower B", ["TRAP_BAR_DEADLIFT", "FRONT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "PLANK"]),
+        session("UPPER_B", "Upper B", ["INCLINE_DB_PRESS", "SEATED_CABLE_ROW", "DB_SHOULDER_PRESS", "PULL_UP", "DEAD_BUG"]),
+        session("FULL_BODY_C", "Full Body C", ["GOBLET_SQUAT", "BENCH_PRESS", "ONE_ARM_ROW", "DB_ROMANIAN_DEADLIFT", "FARMER_CARRY"])
+      ],
+      6: [
+        session("PUSH_A", "Push A", ["BENCH_PRESS", "OVERHEAD_PRESS", "INCLINE_DB_PRESS", "PUSH_UP", "PALLOF_PRESS"]),
+        session("PULL_A", "Pull A", ["DEADLIFT", "ONE_ARM_ROW", "LAT_PULLDOWN", "SEATED_CABLE_ROW", "FARMER_CARRY"]),
+        session("LEGS_A", "Legs A", ["BACK_SQUAT", "ROMANIAN_DEADLIFT", "REVERSE_LUNGE", "HIP_THRUST", "DEAD_BUG"]),
+        session("PUSH_B", "Push B", ["INCLINE_DB_PRESS", "DB_SHOULDER_PRESS", "BENCH_PRESS", "PUSH_UP", "PLANK"]),
+        session("PULL_B", "Pull B", ["TRAP_BAR_DEADLIFT", "SEATED_CABLE_ROW", "PULL_UP", "ONE_ARM_ROW", "FARMER_CARRY"]),
+        session("LEGS_B", "Legs B", ["FRONT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "HIP_THRUST", "PALLOF_PRESS"])
       ]
     }),
     DUMBBELLS: Object.freeze({
@@ -89,6 +105,21 @@
         session("DB_UPPER_A", "Dumbbell Upper A", ["DB_BENCH_PRESS", "ONE_ARM_ROW", "DB_SHOULDER_PRESS", "PUSH_UP", "FARMER_CARRY", "PALLOF_PRESS"]),
         session("DB_LOWER_B", "Dumbbell Lower B", ["SPLIT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "HIP_THRUST", "FARMER_CARRY", "PLANK"]),
         session("DB_UPPER_B", "Dumbbell Upper B", ["INCLINE_DB_PRESS", "ONE_ARM_ROW", "DB_SHOULDER_PRESS", "PUSH_UP", "FARMER_CARRY", "DEAD_BUG"])
+      ],
+      5: [
+        session("DB_LOWER_A", "Dumbbell Lower A", ["GOBLET_SQUAT", "DB_ROMANIAN_DEADLIFT", "REVERSE_LUNGE", "HIP_THRUST", "DEAD_BUG"]),
+        session("DB_UPPER_A", "Dumbbell Upper A", ["DB_BENCH_PRESS", "ONE_ARM_ROW", "DB_SHOULDER_PRESS", "PUSH_UP", "PALLOF_PRESS"]),
+        session("DB_LOWER_B", "Dumbbell Lower B", ["SPLIT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "HIP_THRUST", "PLANK"]),
+        session("DB_UPPER_B", "Dumbbell Upper B", ["INCLINE_DB_PRESS", "ONE_ARM_ROW", "DB_SHOULDER_PRESS", "PUSH_UP", "FARMER_CARRY"]),
+        session("DB_FULL_BODY_C", "Dumbbell Full Body C", ["GOBLET_SQUAT", "DB_BENCH_PRESS", "ONE_ARM_ROW", "DB_ROMANIAN_DEADLIFT", "DEAD_BUG"])
+      ],
+      6: [
+        session("DB_PUSH_A", "Dumbbell Push A", ["DB_BENCH_PRESS", "DB_SHOULDER_PRESS", "INCLINE_DB_PRESS", "PUSH_UP", "PALLOF_PRESS"]),
+        session("DB_PULL_A", "Dumbbell Pull A", ["DB_ROMANIAN_DEADLIFT", "ONE_ARM_ROW", "BAND_ROW", "FARMER_CARRY", "DEAD_BUG"]),
+        session("DB_LEGS_A", "Dumbbell Legs A", ["GOBLET_SQUAT", "DB_ROMANIAN_DEADLIFT", "REVERSE_LUNGE", "HIP_THRUST", "PLANK"]),
+        session("DB_PUSH_B", "Dumbbell Push B", ["INCLINE_DB_PRESS", "DB_SHOULDER_PRESS", "DB_BENCH_PRESS", "PUSH_UP", "DEAD_BUG"]),
+        session("DB_PULL_B", "Dumbbell Pull B", ["SINGLE_LEG_RDL", "ONE_ARM_ROW", "BAND_ROW", "FARMER_CARRY", "PALLOF_PRESS"]),
+        session("DB_LEGS_B", "Dumbbell Legs B", ["SPLIT_SQUAT", "STEP_UP", "HIP_THRUST", "GOBLET_SQUAT", "PLANK"])
       ]
     }),
     BODYWEIGHT_BANDS: Object.freeze({
@@ -106,6 +137,21 @@
         session("MINIMAL_UPPER_A", "Minimal Upper A", ["PUSH_UP", "BAND_ROW", "DB_SHOULDER_PRESS", "PULL_UP", "PALLOF_PRESS", "PLANK"]),
         session("MINIMAL_LOWER_B", "Minimal Lower B", ["SPLIT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "HIP_THRUST", "GOBLET_SQUAT", "PLANK"]),
         session("MINIMAL_UPPER_B", "Minimal Upper B", ["PUSH_UP", "ONE_ARM_ROW", "DB_SHOULDER_PRESS", "BAND_ROW", "DEAD_BUG", "PALLOF_PRESS"])
+      ],
+      5: [
+        session("MINIMAL_LOWER_A", "Minimal Lower A", ["GOBLET_SQUAT", "DB_ROMANIAN_DEADLIFT", "REVERSE_LUNGE", "HIP_THRUST", "DEAD_BUG"]),
+        session("MINIMAL_UPPER_A", "Minimal Upper A", ["PUSH_UP", "BAND_ROW", "DB_SHOULDER_PRESS", "PULL_UP", "PALLOF_PRESS"]),
+        session("MINIMAL_LOWER_B", "Minimal Lower B", ["SPLIT_SQUAT", "SINGLE_LEG_RDL", "STEP_UP", "HIP_THRUST", "PLANK"]),
+        session("MINIMAL_UPPER_B", "Minimal Upper B", ["PUSH_UP", "ONE_ARM_ROW", "DB_SHOULDER_PRESS", "BAND_ROW", "DEAD_BUG"]),
+        session("MINIMAL_FULL_BODY", "Minimal Full Body", ["GOBLET_SQUAT", "PUSH_UP", "BAND_ROW", "DB_ROMANIAN_DEADLIFT", "FARMER_CARRY"])
+      ],
+      6: [
+        session("MINIMAL_PUSH_A", "Minimal Push A", ["PUSH_UP", "DB_SHOULDER_PRESS", "INCLINE_DB_PRESS", "PALLOF_PRESS", "PLANK"]),
+        session("MINIMAL_PULL_A", "Minimal Pull A", ["DB_ROMANIAN_DEADLIFT", "BAND_ROW", "PULL_UP", "ONE_ARM_ROW", "FARMER_CARRY"]),
+        session("MINIMAL_LEGS_A", "Minimal Legs A", ["GOBLET_SQUAT", "REVERSE_LUNGE", "HIP_THRUST", "STEP_UP", "DEAD_BUG"]),
+        session("MINIMAL_PUSH_B", "Minimal Push B", ["PUSH_UP", "DB_SHOULDER_PRESS", "DB_BENCH_PRESS", "PALLOF_PRESS", "DEAD_BUG"]),
+        session("MINIMAL_PULL_B", "Minimal Pull B", ["SINGLE_LEG_RDL", "BAND_ROW", "PULL_UP", "ONE_ARM_ROW", "FARMER_CARRY"]),
+        session("MINIMAL_LEGS_B", "Minimal Legs B", ["SPLIT_SQUAT", "DB_ROMANIAN_DEADLIFT", "STEP_UP", "HIP_THRUST", "PLANK"])
       ]
     })
   });
@@ -129,7 +175,7 @@
     const experience = ["FOUNDATION", "INTERMEDIATE", "EXPERIENCED"].includes(profile.experience) ? profile.experience : DEFAULT_PROFILE.experience;
     return {
       goal,
-      daysPerWeek: clamp(profile.daysPerWeek, 2, 4, DEFAULT_PROFILE.daysPerWeek),
+      daysPerWeek: clamp(profile.daysPerWeek, 2, 6, DEFAULT_PROFILE.daysPerWeek),
       equipment,
       sessionMinutes: [45, 60, 75].includes(Number(profile.sessionMinutes)) ? Number(profile.sessionMinutes) : DEFAULT_PROFILE.sessionMinutes,
       experience
@@ -256,7 +302,8 @@
   function selectSession(plan = {}, history = []) {
     const sessions = plan.sessions || [];
     if (!sessions.length) return null;
-    return sessions[terminalHistory(history, plan.id).length % sessions.length];
+    const completedOccurrences = new Set(terminalHistory(history, plan.id).map((item) => `${item.date || "undated"}:${item.sessionId || item.id}`)).size;
+    return sessions[completedOccurrences % sessions.length];
   }
 
   function readinessPolicy(readiness = {}) {
@@ -322,32 +369,88 @@
     return prescriptionFromSession(plan, selectSession(plan, history), options);
   }
 
-  function executionForPrescription(prescription = {}) {
+  function executionForPrescription(prescription = {}, options = {}) {
+    const attempt = Math.max(1, Number(options.attempt || 1));
     return {
       version: VERSION,
-      id: `${prescription.planId || "plan"}:${prescription.sessionId || "session"}:${prescription.date || "date"}`,
+      id: `${prescription.planId || "plan"}:${prescription.sessionId || "session"}:${prescription.date || "date"}:attempt-${attempt}`,
       planId: prescription.planId || null,
       sessionId: prescription.sessionId || null,
       sessionName: prescription.sessionName || "Strength Session",
       date: prescription.date || new Date().toISOString().slice(0, 10),
+      attempt,
       state: "READY",
       sessionSnapshot: JSON.parse(JSON.stringify(prescription)),
       setLogs: {},
       skipped: {},
       substitutions: {},
       painReported: false,
+      activeSegments: [],
+      restUntil: null,
+      reviewNotes: "",
       updatedAt: new Date().toISOString()
     };
   }
 
   function startWorkout(execution = {}, prescription = execution.sessionSnapshot || {}, startedAt = new Date().toISOString()) {
     if (isTerminal(execution.state)) return { ...execution };
+    const segments = [...(execution.activeSegments || [])];
+    if (!segments.some((item) => !item.endedAt)) segments.push({ startedAt, endedAt: null });
     return {
       ...executionForPrescription(prescription),
       ...execution,
       state: "IN_PROGRESS",
       startedAt: execution.startedAt || startedAt,
+      activeSegments: segments,
+      pauseReason: null,
       updatedAt: startedAt
+    };
+  }
+
+  function closeActiveSegment(execution = {}, endedAt = new Date().toISOString()) {
+    const segments = [...(execution.activeSegments || [])];
+    const index = segments.findLastIndex((item) => !item.endedAt);
+    if (index >= 0) segments[index] = { ...segments[index], endedAt };
+    return segments;
+  }
+
+  function pauseWorkout(execution = {}, pausedAt = new Date().toISOString(), reason = "Paused by user") {
+    if (execution.state !== "IN_PROGRESS") return { ...execution };
+    return {
+      ...execution,
+      state: "PAUSED",
+      activeSegments: closeActiveSegment(execution, pausedAt),
+      pausedAt,
+      pauseReason: reason,
+      updatedAt: pausedAt
+    };
+  }
+
+  function resumeWorkout(execution = {}, resumedAt = new Date().toISOString()) {
+    if (!["PAUSED", "REVIEW"].includes(execution.state)) return { ...execution };
+    return {
+      ...execution,
+      state: "IN_PROGRESS",
+      activeSegments: [...(execution.activeSegments || []), { startedAt: resumedAt, endedAt: null }],
+      resumedAt,
+      pauseReason: null,
+      updatedAt: resumedAt
+    };
+  }
+
+  function recoverInterruptedExecution(execution = {}, now = new Date().toISOString(), idleMinutes = 30) {
+    if (execution.state !== "IN_PROGRESS") return { ...execution };
+    const lastActivity = Date.parse(execution.updatedAt || execution.startedAt || "");
+    const current = Date.parse(now);
+    if (!Number.isFinite(lastActivity) || !Number.isFinite(current) || current - lastActivity < idleMinutes * 60000) return { ...execution };
+    return {
+      ...execution,
+      state: "PAUSED",
+      activeSegments: closeActiveSegment(execution, new Date(lastActivity).toISOString()),
+      pausedAt: new Date(lastActivity).toISOString(),
+      pauseReason: "Paused automatically after inactivity",
+      recoveredAt: now,
+      updatedAt: now
     };
   }
 
@@ -361,13 +464,17 @@
     if (!exerciseItem) throw new Error("Exercise is not part of the active session.");
     const setLogs = { ...(execution.setLogs || {}) };
     const logs = [...(setLogs[exerciseId] || [])];
+    const kind = String(values.kind || "WORK").toUpperCase() === "WARMUP" ? "WARMUP" : "WORK";
+    const workLogs = logs.filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP");
     const setTarget = Number(exerciseItem.recommendedSets || exerciseItem.sets || 1);
-    if (logs.length >= setTarget) return { ...execution };
+    if (kind === "WORK" && workLogs.length >= setTarget) return { ...execution };
     const reps = clamp(values.reps, 0, 1000, Number(exerciseItem.targetReps || 0));
     const loadValue = Number(values.load);
     const rpeValue = values.rpe === null || values.rpe === undefined || values.rpe === "" ? null : Number(values.rpe);
     logs.push({
-      setNumber: logs.length + 1,
+      id: `${exerciseId}:${completedAt}:${logs.length + 1}`,
+      setNumber: kind === "WORK" ? workLogs.length + 1 : logs.filter((item) => item.kind === "WARMUP").length + 1,
+      kind,
       reps,
       load: Number.isFinite(loadValue) && loadValue >= 0 ? loadValue : Number(exerciseItem.recommendedLoad || 0),
       unit: exerciseItem.unit || "lb",
@@ -375,7 +482,36 @@
       completedAt
     });
     setLogs[exerciseId] = logs;
-    return { ...execution, setLogs, updatedAt: completedAt };
+    const restSeconds = kind === "WORK" ? Number(exerciseItem.restSeconds || 0) : 0;
+    return {
+      ...execution,
+      setLogs,
+      restUntil: restSeconds ? new Date(Date.parse(completedAt) + restSeconds * 1000).toISOString() : null,
+      updatedAt: completedAt
+    };
+  }
+
+  function editSet(execution = {}, exerciseId, setId, values = {}, updatedAt = new Date().toISOString()) {
+    if (!["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state)) return { ...execution };
+    const logs = [...(execution.setLogs?.[exerciseId] || [])];
+    const index = logs.findIndex((item) => item.id === setId);
+    if (index < 0) return { ...execution };
+    const current = logs[index];
+    const reps = clamp(values.reps, 0, 1000, Number(current.reps || 0));
+    const load = Number(values.load);
+    const rpe = values.rpe === "" || values.rpe === null || values.rpe === undefined ? null : Number(values.rpe);
+    logs[index] = {
+      ...current,
+      reps,
+      load: Number.isFinite(load) && load >= 0 ? load : Number(current.load || 0),
+      rpe: rpe !== null && Number.isFinite(rpe) ? Math.max(1, Math.min(10, Math.round(rpe * 2) / 2)) : null,
+      editedAt: updatedAt
+    };
+    return {
+      ...execution,
+      setLogs: { ...(execution.setLogs || {}), [exerciseId]: logs },
+      updatedAt
+    };
   }
 
   function undoLastSet(execution = {}, exerciseId, updatedAt = new Date().toISOString()) {
@@ -410,20 +546,40 @@
   }
 
   function completedSetCount(execution = {}) {
-    return Object.values(execution.setLogs || {}).reduce((sum, logs) => sum + (Array.isArray(logs) ? logs.length : 0), 0);
+    return Object.values(execution.setLogs || {}).reduce((sum, logs) => sum + (Array.isArray(logs)
+      ? logs.filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP").length
+      : 0), 0);
+  }
+
+  function activeDurationMinutes(execution = {}, endedAt = null) {
+    const segments = execution.activeSegments || [];
+    if (segments.length) {
+      const fallbackEnd = Date.parse(endedAt || execution.completedAt || new Date().toISOString());
+      const milliseconds = segments.reduce((sum, item) => {
+        const start = Date.parse(item.startedAt || "");
+        const end = Date.parse(item.endedAt || "") || fallbackEnd;
+        return Number.isFinite(start) && Number.isFinite(end) && end >= start ? sum + (end - start) : sum;
+      }, 0);
+      return Math.max(0, Math.round(milliseconds / 60000));
+    }
+    const start = Date.parse(execution.startedAt || "");
+    const end = Date.parse(endedAt || execution.completedAt || "");
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+    const legacyMinutes = Math.round((end - start) / 60000);
+    return legacyMinutes <= 240 ? legacyMinutes : null;
   }
 
   function sessionSummary(execution = {}, prescription = execution.sessionSnapshot || {}) {
     const setsPlanned = plannedSetCount(prescription);
     const setsCompleted = completedSetCount(execution);
-    const volume = Object.values(execution.setLogs || {}).flat().reduce((sum, item) => sum + Number(item.reps || 0) * Number(item.load || 0), 0);
+    const volume = Object.values(execution.setLogs || {}).flat()
+      .filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP")
+      .reduce((sum, item) => sum + Number(item.reps || 0) * Number(item.load || 0), 0);
     const exercisesCompleted = (prescription.exercises || []).filter((item) => {
       const id = item.exerciseCode || item.id;
-      return Number((execution.setLogs?.[id] || []).length) >= Number(item.recommendedSets || item.sets || 1);
+      return Number((execution.setLogs?.[id] || []).filter((log) => String(log.kind || "WORK").toUpperCase() !== "WARMUP").length) >= Number(item.recommendedSets || item.sets || 1);
     }).length;
-    const started = execution.startedAt ? Date.parse(execution.startedAt) : NaN;
-    const ended = execution.completedAt ? Date.parse(execution.completedAt) : Date.now();
-    const durationMinutes = Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, Math.round((ended - started) / 60000)) : null;
+    const durationMinutes = activeDurationMinutes(execution);
     return {
       setsPlanned,
       setsCompleted,
@@ -432,7 +588,19 @@
       skippedExercises: Object.keys(execution.skipped || {}).length,
       substitutions: Object.keys(execution.substitutions || {}).length,
       volume: Math.round(volume),
-      durationMinutes
+      durationMinutes,
+      durationStatus: durationMinutes === null && execution.startedAt ? "UNRELIABLE_LEGACY" : "VERIFIED_ACTIVE_TIME"
+    };
+  }
+
+  function prepareWorkoutReview(execution = {}, reviewedAt = new Date().toISOString()) {
+    if (execution.state !== "IN_PROGRESS" && execution.state !== "PAUSED") return { ...execution };
+    return {
+      ...execution,
+      state: "REVIEW",
+      activeSegments: execution.state === "IN_PROGRESS" ? closeActiveSegment(execution, reviewedAt) : [...(execution.activeSegments || [])],
+      reviewStartedAt: reviewedAt,
+      updatedAt: reviewedAt
     };
   }
 
@@ -446,6 +614,7 @@
     const next = {
       ...execution,
       state,
+      activeSegments: execution.state === "IN_PROGRESS" ? closeActiveSegment(execution, completedAt) : [...(execution.activeSegments || [])],
       completedAt,
       reason: options.reason || (state === "COMPLETE" ? "All prescribed work recorded." : state === "PARTIAL" ? "Workout finished before every prescribed set was completed." : "Workout stopped before work sets were completed."),
       painReported: Boolean(execution.painReported || options.painReported),
@@ -461,6 +630,15 @@
       painReported: true,
       reason: "Pain reported during the workout. Loaded work stopped."
     }, completedAt);
+  }
+
+  function restartWorkout(execution = {}, restartedAt = new Date().toISOString()) {
+    if (!isTerminal(execution.state)) return { ...execution };
+    return {
+      ...executionForPrescription(execution.sessionSnapshot || {}, { attempt: Number(execution.attempt || 1) + 1 }),
+      restartedFromExecutionId: execution.id,
+      updatedAt: restartedAt
+    };
   }
 
   function roundLoad(value, unit = "lb") {
@@ -489,7 +667,7 @@
 
   function exerciseExposure(execution = {}, exerciseItem = {}) {
     const exerciseCode = exerciseItem.exerciseCode || exerciseItem.id;
-    const logs = execution.setLogs?.[exerciseCode] || [];
+    const logs = (execution.setLogs?.[exerciseCode] || []).filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP");
     const plannedSets = Number(exerciseItem.recommendedSets || exerciseItem.sets || 0);
     const targetReps = Number(exerciseItem.targetReps || exerciseItem.reps || 0);
     const completedSets = logs.length;
@@ -716,15 +894,22 @@
     buildSessionPrescription,
     executionForPrescription,
     startWorkout,
+    pauseWorkout,
+    resumeWorkout,
+    recoverInterruptedExecution,
     recordSet,
+    editSet,
     undoLastSet,
     skipExercise,
     useSubstitution,
     plannedSetCount,
     completedSetCount,
+    activeDurationMinutes,
     sessionSummary,
+    prepareWorkoutReview,
     finishWorkout,
     reportPain,
+    restartWorkout,
     averageRpe,
     exerciseExposure,
     qualityExposureCount,

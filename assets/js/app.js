@@ -4807,7 +4807,7 @@ function strengthSchedulePreferredDaysFromForm(plan) {
 function renderStrengthSchedule(activePlan) {
   if (typeof DominionStrengthSchedule === "undefined") return "";
   if (!activePlan) {
-    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017C // WEEKLY STRENGTH COMMAND</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate its sessions with running, core, recovery, and Today.</p></div></section>`;
+    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate 2–6 strength sessions with running, core, recovery, and Today.</p></div></section>`;
   }
   const context = strengthScheduleContext();
   const storedSchedule = readApprovedStrengthSchedule();
@@ -4841,7 +4841,7 @@ function renderStrengthSchedule(activePlan) {
   }).join("");
   const statusTone = displayed.status === "APPROVED" ? "green" : displayed.approvalBlocked ? "red" : "yellow";
   return `<section class="strength-week-command">
-    <header><div><span class="kicker">BUILD 017C // WEEKLY STRENGTH COMMAND</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
+    <header><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
     <div class="strength-week-summary">
       <div><span>Scheduled</span><strong>${summary.scheduled}</strong></div>
       <div><span>Completed</span><strong>${summary.completed}</strong></div>
@@ -4855,7 +4855,7 @@ function renderStrengthSchedule(activePlan) {
       <button type="button" data-strength-schedule-action="generate">${activeSchedule ? "Build revised week" : "Generate coordinated week"}</button>
       <button type="button" data-strength-schedule-action="approve" ${savedDraft && !savedDraft.approvalBlocked ? "" : "disabled"}>Approve weekly schedule</button>
     </div>
-    <p class="muted">Hard running and strength cannot be approved on the same day. Moving a missed session never creates completion credit or compensatory volume.</p>
+    <p class="muted">Hard running and strength cannot be approved on the same day. Core and easy running are separated when the week has room; any necessary combined day is labeled explicitly. Moving a missed session never creates completion credit or compensatory volume.</p>
   </section>`;
 }
 
@@ -4979,6 +4979,8 @@ function renderProgrammingReview() {
         ${optionMarkup("2", "2 days", String(profile.daysPerWeek))}
         ${optionMarkup("3", "3 days", String(profile.daysPerWeek))}
         ${optionMarkup("4", "4 days", String(profile.daysPerWeek))}
+        ${optionMarkup("5", "5 days", String(profile.daysPerWeek))}
+        ${optionMarkup("6", "6 days", String(profile.daysPerWeek))}
       </select></label>
       <label><span>Equipment</span><select name="equipment">
         ${optionMarkup("FULL_GYM", "Full gym", profile.equipment)}
@@ -5078,7 +5080,9 @@ function readDailyAssignmentExecution() {
   if (typeof DominionStrengthTraining === "undefined") return { state: "READY", setLogs: {} };
   const existing = readStrengthExecution();
   const prescription = currentStrengthPrescription();
-  if (existing?.planId === prescription?.planId && existing?.sessionId === prescription?.sessionId && existing?.date === todayISODate()) return existing;
+  if (existing?.planId === prescription?.planId && existing?.sessionId === prescription?.sessionId && existing?.date === todayISODate()) {
+    return DominionStrengthTraining.recoverInterruptedExecution(existing, new Date().toISOString());
+  }
   return DominionStrengthTraining.executionForPrescription(prescription || { date: todayISODate(), exercises: [] });
 }
 
@@ -5337,11 +5341,11 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const execution = readDailyAssignmentExecution();
   const recovery = buildCurrentRecoveryRecommendation() || {};
   const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
-  const workoutComplete = assignment.fitbod?.state === "COMPLETE" || (typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state));
+  const workoutComplete = assignment.fitbod?.state === "COMPLETE" || ["COMPLETE", "PARTIAL"].includes(execution.state);
   const recordComplete = Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate());
   const nutritionReady = Boolean(baseline);
   const completeCount = [workoutComplete, nutritionReady, !recovery.holdProgression, recordComplete].filter(Boolean).length;
-  const completionState = completeCount === 4 ? "DAY COMPLETE" : execution.state === "IN_PROGRESS" ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
+  const completionState = completeCount === 4 ? "DAY COMPLETE" : ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state) ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
   state.textContent = completionState;
   state.className = `state-pill ${completeCount === 4 ? "green" : completeCount ? "yellow" : "neutral"}`;
   setText("today-sequence-training", workoutComplete ? `Workout ${String(execution.state || "complete").toLowerCase()}` : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN_PROGRESS" ? "Workout in progress" : "Start today’s workout");
@@ -5357,6 +5361,26 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   renderActivationGuide();
 }
 
+let strengthRestTimer = null;
+
+function strengthWorkLogs(execution, exerciseId) {
+  return (execution.setLogs?.[exerciseId] || []).filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP");
+}
+
+function updateStrengthRestCountdown() {
+  document.querySelectorAll("[data-strength-rest-until]").forEach((item) => {
+    const remaining = Math.max(0, Math.ceil((Date.parse(item.dataset.strengthRestUntil || "") - Date.now()) / 1000));
+    item.textContent = remaining > 0 ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}` : "READY";
+    item.classList.toggle("ready", remaining === 0);
+  });
+}
+
+function startStrengthRestCountdown() {
+  if (strengthRestTimer) window.clearInterval(strengthRestTimer);
+  updateStrengthRestCountdown();
+  if (document.querySelector("[data-strength-rest-until]")) strengthRestTimer = window.setInterval(updateStrengthRestCountdown, 1000);
+}
+
 function renderDailyAssignment() {
   const panel = document.getElementById("daily-assignment-panel");
   if (!panel) return;
@@ -5368,60 +5392,111 @@ function renderDailyAssignment() {
   const execution = readDailyAssignmentExecution();
   const fitbodComplete = assignment.fitbod.state === "COMPLETE";
   const terminal = typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state);
-  const state = fitbodComplete && execution.state === "READY" ? "COMPLETE · FITBOD" : terminal || execution.state === "IN_PROGRESS" ? execution.state : assignment.state;
+  const liveState = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
+  const state = fitbodComplete && execution.state === "READY" ? "COMPLETE · FITBOD" : terminal || liveState ? execution.state : assignment.state;
   setText("daily-assignment-state", state);
   const badge = document.getElementById("daily-assignment-state");
-  badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" || state === "STOPPED" ? "red" : state === "PARTIAL" || state === "IN_PROGRESS" ? "yellow" : "neutral"}`;
+  badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" || state === "STOPPED" ? "red" : ["PARTIAL", "IN_PROGRESS", "PAUSED", "REVIEW"].includes(state) ? "yellow" : "neutral"}`;
+  const plannedSets = DominionStrengthTraining.plannedSetCount(execution.sessionSnapshot || {});
+  const completedSets = DominionStrengthTraining.completedSetCount(execution);
+  const progressPercent = plannedSets ? Math.min(100, Math.round(completedSets / plannedSets * 100)) : 0;
+  const activeExercise = assignment.exercises.find((item) => !execution.skipped?.[item.id] && strengthWorkLogs(execution, item.id).length < item.sets) || null;
+  const priorExecution = activeExercise ? readStrengthHistory().find((item) => strengthWorkLogs(item, activeExercise.id).length) : null;
+  const priorExercise = priorExecution?.sessionSnapshot?.exercises?.find((item) => (item.exerciseCode || item.id) === activeExercise?.id);
+  const priorExposure = priorExecution && priorExercise ? DominionStrengthTraining.exerciseExposure(priorExecution, priorExercise) : null;
+  const activeMinutes = liveState ? DominionStrengthTraining.activeDurationMinutes(execution, new Date().toISOString()) : null;
+  const restActive = execution.restUntil && Date.parse(execution.restUntil) > Date.now();
+  const playerMarkup = liveState ? `<section class="strength-live-player">
+    <header><div><span class="kicker">BUILD 017E // LIVE WORKOUT</span><h3>${escapeHtml(activeExercise?.name || "Review the session")}</h3><p>${activeExercise ? `Next work set ${strengthWorkLogs(execution, activeExercise.id).length + 1} of ${activeExercise.sets}` : "All planned work is accounted for. Review before finalizing."}</p></div><span class="state-pill yellow">${escapeHtml(execution.state)}</span></header>
+    <div class="strength-player-progress"><span style="width:${progressPercent}%"></span></div>
+    <div class="strength-player-metrics">
+      <div><span>Work sets</span><strong>${completedSets}/${plannedSets}</strong></div>
+      <div><span>Active time</span><strong>${activeMinutes ?? 0} min</strong></div>
+      <div><span>Rest timer</span><strong ${restActive ? `data-strength-rest-until="${escapeHtml(execution.restUntil)}"` : ""}>${restActive ? "—" : "READY"}</strong></div>
+      <div><span>Last exposure</span><strong>${priorExposure ? `${priorExposure.completedSets} sets · ${priorExposure.workingLoad || "technique"} ${escapeHtml(priorExercise.unit || "")}` : "No prior log"}</strong></div>
+    </div>
+    ${execution.pauseReason ? `<p class="strength-player-notice">${escapeHtml(execution.pauseReason)}. Resume when you are ready; inactive time is excluded.</p>` : ""}
+    ${activeExercise ? `<button type="button" class="ghost" data-assignment-action="jump-active" data-exercise-id="${escapeHtml(activeExercise.id)}">Jump to active exercise</button>` : ""}
+  </section>` : "";
   const exerciseCards = assignment.exercises.map((item) => {
     const logs = execution.setLogs?.[item.id] || [];
-    const completed = Math.min(item.sets, logs.length);
+    const workLogs = strengthWorkLogs(execution, item.id);
+    const completed = Math.min(item.sets, workLogs.length);
     const skipped = execution.skipped?.[item.id];
     const substitution = execution.substitutions?.[item.id]?.name;
     const controlsDisabled = execution.state !== "IN_PROGRESS" || completed >= item.sets || skipped || fitbodComplete;
-    const logRows = logs.map((log) => `<li><span>Set ${log.setNumber}</span><strong>${log.reps} reps · ${log.load} ${escapeHtml(log.unit || item.unit)}${log.rpe ? ` · RPE ${log.rpe}` : ""}</strong></li>`).join("");
-    return `<article class="daily-exercise-card">
+    const editable = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
+    const lastWorkSet = workLogs[workLogs.length - 1] || null;
+    const logRows = logs.map((log) => `<li class="strength-set-log-row">
+      <span>${String(log.kind || "WORK").toUpperCase() === "WARMUP" ? "Warm-up" : `Set ${log.setNumber}`}</span>
+      <label><small>Reps</small><input type="number" data-log-field="reps" value="${log.reps}" min="0" max="1000" ${editable ? "" : "disabled"}></label>
+      <label><small>Load</small><input type="number" data-log-field="load" value="${log.load}" min="0" step="0.5" ${editable ? "" : "disabled"}></label>
+      <label><small>RPE</small><input type="number" data-log-field="rpe" value="${log.rpe ?? ""}" min="1" max="10" step="0.5" ${editable ? "" : "disabled"}></label>
+      <button type="button" class="ghost" data-assignment-action="edit-set" data-exercise-id="${escapeHtml(item.id)}" data-set-id="${escapeHtml(log.id || "")}" ${editable && log.id ? "" : "disabled"}>Save</button>
+    </li>`).join("");
+    return `<article id="strength-exercise-${escapeHtml(item.id)}" class="daily-exercise-card ${activeExercise?.id === item.id ? "active-exercise" : ""}">
       <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(substitution || item.name)}</h3>${substitution ? `<p class="muted">Substituted for ${escapeHtml(item.name)}</p>` : ""}</div><span class="state-pill ${completed === item.sets ? "green" : skipped ? "yellow" : "neutral"}">${skipped ? "SKIPPED" : `${completed}/${item.sets} SETS`}</span></header>
       <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Starting load</span><strong>${item.load > 0 ? `${item.load} ${escapeHtml(item.unit)}` : "Technique first"}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
       <p>${escapeHtml(item.rationale)}</p>
       ${logRows ? `<ol class="strength-set-log">${logRows}</ol>` : ""}
       <div class="strength-set-entry">
-        <label><span>Next set reps</span><input type="number" data-set-field="reps" min="0" max="1000" value="${item.reps}" ${controlsDisabled ? "disabled" : ""}></label>
-        <label><span>Load (${escapeHtml(item.unit)})</span><input type="number" data-set-field="load" min="0" step="0.5" value="${item.load || 0}" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>Reps</span><input type="number" data-set-field="reps" min="0" max="1000" value="${item.reps}" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>Load (${escapeHtml(item.unit)})</span><input type="number" data-set-field="load" min="0" step="0.5" value="${lastWorkSet?.load ?? item.load ?? 0}" ${controlsDisabled ? "disabled" : ""}></label>
         <label><span>RPE</span><input type="number" data-set-field="rpe" min="1" max="10" step="0.5" placeholder="1–10" ${controlsDisabled ? "disabled" : ""}></label>
+        <label class="strength-warmup-choice"><input type="checkbox" data-set-field="warmup" ${execution.state !== "IN_PROGRESS" || skipped ? "disabled" : ""}><span>Warm-up set</span></label>
       </div>
-      <details><summary>Substitutions and evidence</summary><p>${escapeHtml(item.substitutions.join(" · "))}</p><p>${item.evidenceCount} supporting exposure(s). ${item.evidenceCount ? "Evidence informed load only; the approved program governs exercise selection and sets." : "Use a controlled technique load with about three reps in reserve."}</p></details>
+      <div class="strength-exercise-decisions">
+        <label><span>Substitution</span><select data-substitution-choice ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}><option value="">Choose an option</option>${item.substitutions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label>
+        <label><span>Skip reason</span><select data-skip-reason ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}><option value="Equipment unavailable">Equipment unavailable</option><option value="Readiness adjustment">Readiness adjustment</option><option value="Time constrained">Time constrained</option><option value="Technique concern">Technique concern</option></select></label>
+      </div>
+      <details><summary>Evidence and coaching rationale</summary><p>${item.evidenceCount} supporting exposure(s). ${item.evidenceCount ? "Evidence informed load only; the approved program governs exercise selection and sets." : "Use a controlled technique load with about three reps in reserve."}</p></details>
       <div class="daily-orders-actions strength-exercise-actions">
         <button type="button" data-assignment-action="record-set" data-exercise-id="${escapeHtml(item.id)}" ${controlsDisabled ? "disabled" : ""}>Record set</button>
-        <button type="button" class="ghost" data-assignment-action="undo-set" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || !completed ? "disabled" : ""}>Undo last</button>
-        <button type="button" class="ghost" data-assignment-action="substitute" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Use substitution</button>
+        <button type="button" class="ghost" data-assignment-action="repeat-set" data-exercise-id="${escapeHtml(item.id)}" ${controlsDisabled || !lastWorkSet ? "disabled" : ""}>Repeat last</button>
+        <button type="button" class="ghost" data-assignment-action="undo-set" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || !logs.length ? "disabled" : ""}>Undo last</button>
+        <button type="button" class="ghost" data-assignment-action="substitute" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Apply substitution</button>
         <button type="button" class="ghost" data-assignment-action="skip" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Skip</button>
         <button type="button" class="ghost danger-action" data-assignment-action="pain" ${execution.state !== "IN_PROGRESS" ? "disabled" : ""}>Report pain</button>
       </div>
     </article>`;
   }).join("");
-  const summary = terminal ? (execution.summary || DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot)) : null;
+  const summary = terminal ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
+  const reviewSummary = execution.state === "REVIEW" ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
   const adjustment = readStrengthAdjustment();
   const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id;
+  const durationText = summary?.durationMinutes === null || summary?.durationMinutes === undefined ? "Unavailable" : `${summary.durationMinutes} min`;
   const resultMarkup = summary ? `<article class="strength-workout-result">
-    <div><span class="kicker">SESSION PRESERVED</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
-    <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Duration</span><strong>${summary.durationMinutes ?? "—"} min</strong></div></div>
+    <div><span class="kicker">SESSION PRESERVED · ATTEMPT ${execution.attempt || 1}</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
+    <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Active duration</span><strong>${durationText}</strong></div></div>
+    ${summary.durationStatus === "UNRELIABLE_LEGACY" ? `<p class="muted">This older attempt had no activity segments, so the inflated wall-clock duration was intentionally discarded.</p>` : ""}
     ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
     ${adjustmentReady ? `<div class="strength-next-review"><div><strong>Post-session review ready</strong><p>See what stays, what changes, and why. Nothing applies without approval.</p></div><button type="button" data-assignment-action="review-adjustment">Review next session</button></div>` : ""}
   </article>` : "";
+  const reviewMarkup = reviewSummary ? `<section class="strength-final-review">
+    <div><span class="kicker">FINAL CHECK</span><h3>Review before preserving</h3><p>Confirm the work below. You can return to the workout or finalize this attempt.</p></div>
+    <div class="connected-summary-grid"><div><span>Sets</span><strong>${reviewSummary.setsCompleted}/${reviewSummary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${reviewSummary.exercisesCompleted}/${reviewSummary.exercisesPlanned}</strong></div><div><span>Skipped</span><strong>${reviewSummary.skippedExercises}</strong></div><div><span>Active time</span><strong>${reviewSummary.durationMinutes ?? 0} min</strong></div></div>
+    <label><span>Session notes (optional)</span><textarea data-strength-review-notes rows="3" placeholder="Technique, energy, constraints, or context">${escapeHtml(execution.reviewNotes || "")}</textarea></label>
+  </section>` : "";
   const primaryActions = execution.state === "IN_PROGRESS"
-    ? `<button type="button" data-assignment-action="finish">Finish workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
-    : terminal
-      ? `<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
-      : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
-  panel.innerHTML = `<div class="daily-assignment-summary">
-      <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>
+    ? `<button type="button" data-assignment-action="finish">Review workout</button><button type="button" class="ghost" data-assignment-action="pause">Pause</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+    : execution.state === "PAUSED"
+      ? `<button type="button" data-assignment-action="resume">Resume workout</button><button type="button" class="ghost" data-assignment-action="finish">Review workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+      : execution.state === "REVIEW"
+        ? `<button type="button" data-assignment-action="finalize">Finalize session</button><button type="button" class="ghost" data-assignment-action="resume">Back to workout</button>`
+        : terminal
+          ? `${["STOPPED", "PARTIAL"].includes(execution.state) ? `<button type="button" data-assignment-action="restart">Restart as attempt ${(execution.attempt || 1) + 1}</button>` : ""}<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
+          : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
+  panel.innerHTML = `${playerMarkup}<div class="daily-assignment-summary">
+      <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>
     </div>
     <article class="connected-notice"><strong>Readiness adjustment:</strong> ${escapeHtml(assignment.readinessDelta.detail)}</article>
-    <details open><summary>Warm-up</summary><ol>${assignment.warmup.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol></details>
+    <details open><summary>Warm-up guidance</summary><ol>${assignment.warmup.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol><p class="muted">Log ramp-up work inside the exercise as a warm-up set. Warm-ups never count toward prescribed work sets.</p></details>
     <div class="daily-exercise-list">${exerciseCards || `<div class="performance-empty">${assignment.state === "RECOVERY ONLY" ? "Loaded training is removed today. Follow the recovery actions below." : `Approve a balanced strength program in Train before starting a workout.<div class="performance-actions"><button type="button" data-assignment-action="program">Build strength program</button></div>`}</div>`}</div>
     <details open><summary>Recovery and safety</summary><ul>${assignment.recoveryActions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>
+    ${reviewMarkup}
     ${resultMarkup}
     <div class="daily-orders-actions strength-workout-controls">${primaryActions}<button type="button" class="ghost" data-assignment-action="refresh">Refresh Fitbod evidence</button></div>`;
+  startStrengthRestCountdown();
   renderTodayCommandSurface(assignment);
 }
 
@@ -5493,8 +5568,8 @@ function buildCurrentDailyExecutionQueue() {
     readinessComplete: dailyState?.date === todayISODate(),
     ordersApproved: Boolean(readApprovedDailyOrders()),
     ordersAction: loop?.nextAction || "approve_orders",
-    trainingStarted: execution.state === "IN_PROGRESS",
-    trainingComplete: assignment?.fitbod?.state === "COMPLETE" || (typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state)),
+    trainingStarted: ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state),
+    trainingComplete: assignment?.fitbod?.state === "COMPLETE" || ["COMPLETE", "PARTIAL"].includes(execution.state),
     recoveryOnly: assignment?.state === "RECOVERY ONLY",
     fuelingBaseline: Boolean(baseline),
     fuelingComplete: Boolean(baseline && (nutritionCurrent || manualNutritionCurrent)),
@@ -9314,15 +9389,40 @@ if (typeof document !== "undefined") {
       const reps = Number(card?.querySelector('[data-set-field="reps"]')?.value);
       const load = Number(card?.querySelector('[data-set-field="load"]')?.value);
       const rpeValue = card?.querySelector('[data-set-field="rpe"]')?.value;
+      const warmup = Boolean(card?.querySelector('[data-set-field="warmup"]')?.checked);
       execution = DominionStrengthTraining.recordSet(execution, exercise.id, {
         reps,
         load,
-        rpe: rpeValue === "" ? null : Number(rpeValue)
+        rpe: rpeValue === "" ? null : Number(rpeValue),
+        kind: warmup ? "WARMUP" : "WORK"
       }, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
       const completed = DominionStrengthTraining.completedSetCount(execution);
       const planned = DominionStrengthTraining.plannedSetCount(execution.sessionSnapshot);
-      setText("daily-assignment-feedback", completed >= planned ? "All prescribed sets are recorded. Review the session and select Finish workout." : `${exercise.name}: set ${execution.setLogs[exercise.id].length} recorded.`);
+      setText("daily-assignment-feedback", warmup ? `${exercise.name}: warm-up set recorded without work-set credit.` : completed >= planned ? "All prescribed sets are recorded. Review the session before finalizing." : `${exercise.name}: work set ${strengthWorkLogs(execution, exercise.id).length} recorded. Rest timer started.`);
+    }
+    if (action === "repeat-set") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      const previous = exercise ? strengthWorkLogs(execution, exercise.id).at(-1) : null;
+      if (!exercise || !previous) return;
+      execution = DominionStrengthTraining.recordSet(execution, exercise.id, {
+        reps: previous.reps,
+        load: previous.load,
+        rpe: previous.rpe,
+        kind: "WORK"
+      }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${exercise.name}: repeated the previous work set and started the rest timer.`);
+    }
+    if (action === "edit-set") {
+      const row = button.closest(".strength-set-log-row");
+      execution = DominionStrengthTraining.editSet(execution, button.dataset.exerciseId, button.dataset.setId, {
+        reps: Number(row?.querySelector('[data-log-field="reps"]')?.value),
+        load: Number(row?.querySelector('[data-log-field="load"]')?.value),
+        rpe: row?.querySelector('[data-log-field="rpe"]')?.value || null
+      }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Set correction saved with its audit timestamp.");
     }
     if (action === "undo-set") {
       const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
@@ -9334,7 +9434,11 @@ if (typeof document !== "undefined") {
     if (action === "substitute") {
       const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
       if (!exercise) return;
-      const substitution = exercise.substitutions[0];
+      const substitution = button.closest(".daily-exercise-card")?.querySelector("[data-substitution-choice]")?.value;
+      if (!substitution) {
+        setText("daily-assignment-feedback", "Choose a substitution first.");
+        return;
+      }
       execution = DominionStrengthTraining.useSubstitution(execution, exercise.id, substitution, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
       setText("daily-assignment-feedback", `${substitution} selected for ${exercise.name}. The change is preserved with this session.`);
@@ -9342,12 +9446,29 @@ if (typeof document !== "undefined") {
     if (action === "skip") {
       const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
       if (!exercise) return;
-      execution = DominionStrengthTraining.skipExercise(execution, exercise.id, "Skipped during workout", new Date().toISOString());
+      const reason = button.closest(".daily-exercise-card")?.querySelector("[data-skip-reason]")?.value || "Skipped during workout";
+      execution = DominionStrengthTraining.skipExercise(execution, exercise.id, reason, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
-      setText("daily-assignment-feedback", `${exercise.name} skipped. Finish the workout when the remaining work is complete.`);
+      setText("daily-assignment-feedback", `${exercise.name} skipped: ${reason}. The reason will remain with this attempt.`);
+    }
+    if (action === "pause") {
+      execution = DominionStrengthTraining.pauseWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Workout paused. Inactive time will not count toward duration.");
+    }
+    if (action === "resume") {
+      execution = DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Workout resumed. Active-time tracking restarted.");
     }
     if (action === "finish") {
-      execution = DominionStrengthTraining.finishWorkout(execution, {}, new Date().toISOString());
+      execution = DominionStrengthTraining.prepareWorkoutReview(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Review the session summary and notes, then finalize or return to the workout.");
+    }
+    if (action === "finalize") {
+      const notes = document.querySelector("[data-strength-review-notes]")?.value || "";
+      execution = DominionStrengthTraining.finishWorkout({ ...execution, reviewNotes: notes }, { notes }, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
       setText("daily-assignment-feedback", execution.state === "COMPLETE" ? "Workout complete. The session summary is saved to your account." : "Workout preserved as partial. Completed work, skipped exercises, and the remaining gap are all retained.");
@@ -9363,6 +9484,16 @@ if (typeof document !== "undefined") {
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
       setText("daily-assignment-feedback", "Workout stopped for pain. Loaded progression is held; update Morning Roll Call before the next session.");
+    }
+    if (action === "restart") {
+      await preserveStrengthWorkout(execution);
+      execution = DominionStrengthTraining.restartWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `Attempt ${execution.attempt} is ready. The prior stopped or partial attempt remains in history.`);
+    }
+    if (action === "jump-active") {
+      document.getElementById(`strength-exercise-${button.dataset.exerciseId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
     }
     if (action === "program") {
       setActiveSection("performance");

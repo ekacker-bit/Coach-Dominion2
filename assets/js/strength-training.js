@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "017A.1";
+  const VERSION = "017B.1";
   const TERMINAL_STATES = Object.freeze(["COMPLETE", "PARTIAL", "STOPPED"]);
   const PATTERN_LABELS = Object.freeze({
     SQUAT: "Squat",
@@ -234,7 +234,7 @@
 
   function approvePlan(plan = {}, approvedAt = new Date().toISOString()) {
     if (!Array.isArray(plan.sessions) || !plan.sessions.length) throw new Error("A complete strength draft is required before approval.");
-    return JSON.parse(JSON.stringify({ ...plan, status: "APPROVED", approvedAt }));
+    return JSON.parse(JSON.stringify({ ...plan, status: "APPROVED", revision: Number(plan.revision || 1), approvedAt }));
   }
 
   function movementCoverage(plan = {}) {
@@ -345,13 +345,13 @@
     if (logs.length >= setTarget) return { ...execution };
     const reps = clamp(values.reps, 0, 1000, Number(exerciseItem.targetReps || 0));
     const loadValue = Number(values.load);
-    const rpeValue = Number(values.rpe);
+    const rpeValue = values.rpe === null || values.rpe === undefined || values.rpe === "" ? null : Number(values.rpe);
     logs.push({
       setNumber: logs.length + 1,
       reps,
       load: Number.isFinite(loadValue) && loadValue >= 0 ? loadValue : Number(exerciseItem.recommendedLoad || 0),
       unit: exerciseItem.unit || "lb",
-      rpe: Number.isFinite(rpeValue) ? Math.max(1, Math.min(10, Math.round(rpeValue * 2) / 2)) : null,
+      rpe: rpeValue !== null && Number.isFinite(rpeValue) ? Math.max(1, Math.min(10, Math.round(rpeValue * 2) / 2)) : null,
       completedAt
     });
     setLogs[exerciseId] = logs;
@@ -443,6 +443,244 @@
     }, completedAt);
   }
 
+  function roundLoad(value, unit = "lb") {
+    const increment = String(unit || "lb").toLowerCase() === "kg" ? 2.5 : 5;
+    return Math.max(0, Math.round(Number(value || 0) / increment) * increment);
+  }
+
+  function averageRpe(logs = []) {
+    const values = logs
+      .filter((item) => item.rpe !== null && item.rpe !== undefined && item.rpe !== "")
+      .map((item) => Number(item.rpe))
+      .filter((value) => Number.isFinite(value));
+    if (!values.length) return null;
+    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10;
+  }
+
+  function workingLoad(logs = []) {
+    const values = logs.map((item) => Number(item.load)).filter((value) => Number.isFinite(value) && value > 0);
+    if (!values.length) return 0;
+    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 2) / 2;
+  }
+
+  function exerciseFromExecution(execution = {}, exerciseCode) {
+    return (execution.sessionSnapshot?.exercises || []).find((item) => (item.exerciseCode || item.id) === exerciseCode) || null;
+  }
+
+  function exerciseExposure(execution = {}, exerciseItem = {}) {
+    const exerciseCode = exerciseItem.exerciseCode || exerciseItem.id;
+    const logs = execution.setLogs?.[exerciseCode] || [];
+    const plannedSets = Number(exerciseItem.recommendedSets || exerciseItem.sets || 0);
+    const targetReps = Number(exerciseItem.targetReps || exerciseItem.reps || 0);
+    const completedSets = logs.length;
+    const rpe = averageRpe(logs);
+    const load = workingLoad(logs);
+    const targetMet = completedSets >= plannedSets
+      && logs.every((item) => Number(item.reps || 0) >= targetReps);
+    return {
+      exerciseCode,
+      completedSets,
+      plannedSets,
+      targetReps,
+      averageRpe: rpe,
+      workingLoad: load,
+      targetMet,
+      skipped: Boolean(execution.skipped?.[exerciseCode]),
+      substituted: Boolean(execution.substitutions?.[exerciseCode])
+    };
+  }
+
+  function qualityExposureCount(history = [], exerciseCode) {
+    let count = 0;
+    let anchorLoad = null;
+    for (const execution of history) {
+      const item = exerciseFromExecution(execution, exerciseCode);
+      if (!item) continue;
+      const exposure = exerciseExposure(execution, item);
+      const qualifies = execution.state === "COMPLETE"
+        && !execution.painReported
+        && !exposure.skipped
+        && !exposure.substituted
+        && exposure.targetMet
+        && exposure.averageRpe !== null
+        && exposure.averageRpe <= 8;
+      if (!qualifies) break;
+      if (anchorLoad === null) anchorLoad = exposure.workingLoad;
+      if (Math.abs(exposure.workingLoad - anchorLoad) > 0.01) break;
+      count += 1;
+    }
+    return count;
+  }
+
+  function adjustmentDecision(planExercise = {}, execution = {}, matchingHistory = []) {
+    const exerciseCode = planExercise.exerciseCode || planExercise.id;
+    const performedExercise = exerciseFromExecution(execution, exerciseCode) || planExercise;
+    const exposure = exerciseExposure(execution, performedExercise);
+    const currentLoad = Number(planExercise.recommendedLoad || 0);
+    const actualLoad = exposure.workingLoad;
+    const unit = planExercise.unit || "lb";
+    const repeatLoad = roundLoad(actualLoad || currentLoad, unit);
+    const base = {
+      exerciseCode,
+      exerciseName: planExercise.exerciseName,
+      sessionId: execution.sessionId,
+      currentLoad,
+      actualLoad,
+      proposedLoad: currentLoad,
+      unit,
+      completedSets: exposure.completedSets,
+      plannedSets: exposure.plannedSets,
+      averageRpe: exposure.averageRpe,
+      qualityExposures: qualityExposureCount(matchingHistory, exerciseCode),
+      changed: false
+    };
+
+    if (execution.painReported || execution.state === "STOPPED") {
+      return { ...base, action: "SAFETY_HOLD", label: "Safety hold", reason: "Pain or a stopped session blocks loaded progression until readiness is reviewed." };
+    }
+    if (execution.state !== "COMPLETE") {
+      return { ...base, action: "REPEAT", label: "Repeat", reason: "The session was not fully completed, so the approved prescription stays unchanged." };
+    }
+    if (exposure.substituted) {
+      return { ...base, action: "HOLD_FOR_REVIEW", label: "Review substitution", reason: "A substituted movement does not change the approved load for the original exercise." };
+    }
+    if (exposure.skipped || !exposure.targetMet) {
+      return { ...base, action: "REPEAT", label: "Repeat", reason: "All prescribed sets and reps must be completed before progression is considered." };
+    }
+    if (exposure.averageRpe === null) {
+      return { ...base, action: "REPEAT", label: "Repeat", reason: "RPE was not recorded, so Coach Dominion will not infer readiness to progress." };
+    }
+    if (!actualLoad) {
+      return { ...base, action: "REPEAT", label: "Repeat", reason: "No external load was recorded. Bodyweight and timed work stay unchanged for manual review." };
+    }
+    if (exposure.averageRpe >= 9) {
+      const reduced = roundLoad(actualLoad * 0.95, unit);
+      return {
+        ...base,
+        action: "REDUCE_LOAD",
+        label: "Reduce load",
+        proposedLoad: reduced,
+        changed: reduced !== currentLoad,
+        reason: "Average RPE reached 9 or higher. A small load reduction is proposed; sets do not increase."
+      };
+    }
+    if (exposure.averageRpe > 8) {
+      return {
+        ...base,
+        action: "REPEAT",
+        label: "Repeat load",
+        proposedLoad: repeatLoad,
+        changed: repeatLoad !== currentLoad,
+        reason: "The work was completed near the limit. Repeat the working load before adding difficulty."
+      };
+    }
+    if (base.qualityExposures < 2) {
+      return {
+        ...base,
+        action: currentLoad > 0 ? "REPEAT" : "ESTABLISH_BASELINE",
+        label: currentLoad > 0 ? "Repeat load" : "Set baseline",
+        proposedLoad: repeatLoad,
+        changed: repeatLoad !== currentLoad,
+        reason: currentLoad > 0
+          ? "One controlled exposure is recorded. A second successful exposure is required before progression."
+          : "The first controlled exposure establishes a working baseline without counting as progression."
+      };
+    }
+    const progressed = roundLoad(actualLoad + (String(unit).toLowerCase() === "kg" ? 2.5 : 5), unit);
+    return {
+      ...base,
+      action: "PROGRESS_LOAD",
+      label: "Progress load",
+      proposedLoad: progressed,
+      changed: progressed !== currentLoad,
+      reason: "Two consecutive complete, pain-free exposures at RPE 8 or below support the smallest load increase."
+    };
+  }
+
+  function buildAdjustmentProposal(plan = {}, history = [], options = {}) {
+    if (plan.status !== "APPROVED") return null;
+    const matchingHistory = terminalHistory(history, plan.id)
+      .sort((a, b) => String(b.completedAt || b.updatedAt || "").localeCompare(String(a.completedAt || a.updatedAt || "")));
+    const source = matchingHistory[0];
+    if (!source) return null;
+    const planSession = (plan.sessions || []).find((item) => item.id === source.sessionId);
+    if (!planSession) return null;
+    const decisions = (planSession.exercises || []).map((item) => adjustmentDecision(item, source, matchingHistory));
+    const changedCount = decisions.filter((item) => item.changed).length;
+    const safetyHold = decisions.some((item) => item.action === "SAFETY_HOLD");
+    const revision = Number(plan.revision || 1);
+    return {
+      version: VERSION,
+      id: `strength-adjustment:${source.id}:r${revision}`,
+      status: "PENDING",
+      planId: plan.id,
+      planRevision: revision,
+      sourceExecutionId: source.id,
+      sourceState: source.state,
+      sessionId: source.sessionId,
+      sessionName: source.sessionName,
+      createdAt: options.createdAt || new Date().toISOString(),
+      safetyHold,
+      decisions,
+      summary: {
+        changedCount,
+        progressedCount: decisions.filter((item) => item.action === "PROGRESS_LOAD").length,
+        reducedCount: decisions.filter((item) => item.action === "REDUCE_LOAD").length,
+        repeatedCount: decisions.filter((item) => ["REPEAT", "HOLD_FOR_REVIEW", "SAFETY_HOLD"].includes(item.action)).length
+      },
+      safeguards: [
+        "No change applies without explicit approval.",
+        "Load and volume never increase together.",
+        "Pain blocks loaded progression.",
+        "Two successful exposures are required before adding load."
+      ]
+    };
+  }
+
+  function applyAdjustmentProposal(plan = {}, proposal = {}, approvedAt = new Date().toISOString()) {
+    if (plan.status !== "APPROVED" || proposal.status !== "PENDING" || proposal.planId !== plan.id) {
+      throw new Error("A pending adjustment for the active plan is required.");
+    }
+    if (proposal.safetyHold) throw new Error("Resolve the pain hold before approving loaded changes.");
+    const decisions = new Map((proposal.decisions || []).map((item) => [item.exerciseCode, item]));
+    const sessions = (plan.sessions || []).map((sessionItem) => ({
+      ...sessionItem,
+      exercises: (sessionItem.exercises || []).map((exerciseItem) => {
+        const decision = decisions.get(exerciseItem.exerciseCode || exerciseItem.id);
+        if (!decision || !decision.changed || !["PROGRESS_LOAD", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"].includes(decision.action)) return { ...exerciseItem };
+        return {
+          ...exerciseItem,
+          recommendedLoad: decision.proposedLoad,
+          unit: decision.unit || exerciseItem.unit,
+          action: decision.action === "PROGRESS_LOAD" ? "PROGRESSED" : decision.action === "REDUCE_LOAD" ? "DELOADED" : "EVIDENCE ANCHORED",
+          rationale: decision.reason
+        };
+      })
+    }));
+    const nextPlan = JSON.parse(JSON.stringify({
+      ...plan,
+      version: VERSION,
+      revision: Number(plan.revision || 1) + 1,
+      sessions,
+      adjustedAt: approvedAt,
+      lastAdjustmentId: proposal.id
+    }));
+    return {
+      plan: nextPlan,
+      adjustment: {
+        ...proposal,
+        status: "APPROVED",
+        approvedAt,
+        appliedRevision: nextPlan.revision
+      }
+    };
+  }
+
+  function holdAdjustment(proposal = {}, heldAt = new Date().toISOString()) {
+    if (proposal.status !== "PENDING") return { ...proposal };
+    return { ...proposal, status: "HELD", heldAt };
+  }
+
   return Object.freeze({
     VERSION,
     DEFAULT_PROFILE,
@@ -466,6 +704,12 @@
     sessionSummary,
     finishWorkout,
     reportPain,
+    averageRpe,
+    exerciseExposure,
+    qualityExposureCount,
+    buildAdjustmentProposal,
+    applyAdjustmentProposal,
+    holdAdjustment,
     isTerminal
   });
 });

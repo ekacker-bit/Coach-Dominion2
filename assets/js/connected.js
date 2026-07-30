@@ -10,7 +10,7 @@
     provider("GARMIN", "Garmin", "HEALTH", ["RUN", "RIDE", "SWIM", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_2", "Architecture preview for activity and health metrics."),
     provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "FILE_IMPORT", "PHASE_3", "User-controlled Apple Health export.xml import; no Apple credentials or live HealthKit access."),
     provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "FILE_IMPORT", "PHASE_2", "User-controlled Fitbod workout-file import; no Fitbod credentials are stored."),
-    provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "FILE_IMPORT", "PHASE_4", "User-controlled MyFitnessPal nutrition-file import; no MyFitnessPal credentials are stored.")
+    provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "HEALTHKIT_BRIDGE", "PHASE_5", "Automatic daily calorie and macro totals through Apple Health and a revocable iPhone Shortcut feed; no MyFitnessPal credentials are stored.")
   ]);
   const PROVIDER_CODES = new Set(PROVIDER_CATALOG.map((item) => item.providerCode));
   const PERMISSIONS = Object.freeze(["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_STRENGTH_WORKOUTS", "READ_NUTRITION", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"]);
@@ -146,7 +146,9 @@
     if (!account.providerCode) errors.push("Unsupported provider code.");
     if (!CONNECTION_STATUSES.includes(account.connectionStatus)) errors.push("Invalid connection status.");
     if (!permissionCheck.valid) errors.push("Permission selection is unsupported.");
-    if (account.connectionStatus === "CONNECTED" && !account.isSimulated) errors.push("Live provider connections are not available.");
+    const connectionMode = upper(account.metadata?.connectionMode || account.metadata?.connection_mode);
+    const supportedLiveBridge = account.providerCode === "MYFITNESSPAL" && connectionMode === "APPLE_HEALTH_SHORTCUT";
+    if (account.connectionStatus === "CONNECTED" && !account.isSimulated && !supportedLiveBridge) errors.push("Live provider connections are not available.");
     return { valid: errors.length === 0, errors, account };
   }
   function validateConnectionTransition(from, to) {

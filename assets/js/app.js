@@ -35,6 +35,10 @@ let connectedImportedRecords = [];
 let connectedStorageMode = "LOADING";
 let connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: false, localFallback: false };
 let connectedActiveView = "overview";
+let mfpNutritionFeedTokens = [];
+let mfpNutritionFeedEvents = [];
+let mfpNutritionFeedSecret = null;
+let mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: false };
 let nutritionBaselineDraft = null;
 let nutritionActiveView = "today";
 
@@ -6426,6 +6430,149 @@ function connectedUserId() {
   return session?.user?.id || "local";
 }
 
+function activeMfpNutritionFeedToken() {
+  return mfpNutritionFeedTokens.find((item) => item.status === "ACTIVE") || null;
+}
+
+function mfpNutritionFeedEndpoint() {
+  if (typeof window === "undefined") return "/api/nutrition-feed";
+  return `${window.location.origin}/api/nutrition-feed`;
+}
+
+function mfpNutritionFeedAccount() {
+  return connectedAccounts.find((item) => item.providerCode === "MYFITNESSPAL"
+    && (item.metadata?.connection_mode || item.metadata?.connectionMode) === "APPLE_HEALTH_SHORTCUT"
+    && item.connectionStatus !== "DISCONNECTED") || null;
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+function createMfpNutritionFeedSecret() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const encoded = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  return `cdnf_${encoded}`;
+}
+
+async function loadMfpNutritionFeedState() {
+  mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: !session?.user?.id };
+  if (!session?.user?.id) {
+    mfpNutritionFeedTokens = [];
+    mfpNutritionFeedEvents = [];
+    return;
+  }
+  try {
+    const supabase = await getClient();
+    const [tokensResult, eventsResult] = await Promise.all([
+      supabase.from("nutrition_feed_tokens").select("id,label,token_hint,status,last_used_at,created_at,revoked_at").eq("user_id", session.user.id).order("created_at", { ascending: false }),
+      supabase.from("nutrition_feed_events").select("id,nutrition_date,outcome,sample_count,received_at").eq("user_id", session.user.id).order("received_at", { ascending: false }).limit(20)
+    ]);
+    if (tokensResult.error || eventsResult.error) throw tokensResult.error || eventsResult.error;
+    mfpNutritionFeedTokens = tokensResult.data || [];
+    mfpNutritionFeedEvents = eventsResult.data || [];
+    mfpNutritionFeedState = { loading: false, available: true, migrationRequired: false, authRequired: false };
+  } catch (_) {
+    mfpNutritionFeedTokens = [];
+    mfpNutritionFeedEvents = [];
+    mfpNutritionFeedState = { loading: false, available: false, migrationRequired: true, authRequired: false };
+  }
+}
+
+async function createMfpNutritionFeed() {
+  if (!session?.user?.id) {
+    setText("connected-feedback", "Sign in before creating a private nutrition feed.");
+    return;
+  }
+  if (!mfpNutritionFeedState.available) {
+    setText("connected-feedback", "Apply migration 014 before creating the automated nutrition feed.");
+    return;
+  }
+  const token = createMfpNutritionFeedSecret();
+  const now = new Date().toISOString();
+  const tokenHash = await sha256Hex(token);
+  try {
+    const supabase = await getClient();
+    const activeIds = mfpNutritionFeedTokens.filter((item) => item.status === "ACTIVE").map((item) => item.id);
+    if (activeIds.length) {
+      const revoked = await supabase.from("nutrition_feed_tokens")
+        .update({ status: "REVOKED", revoked_at: now })
+        .eq("user_id", session.user.id)
+        .in("id", activeIds);
+      if (revoked.error) throw revoked.error;
+    }
+    const result = await supabase.from("nutrition_feed_tokens").insert({
+      user_id: session.user.id,
+      label: "MyFitnessPal via Apple Health",
+      token_hash: tokenHash,
+      token_hint: token.slice(-8),
+      status: "ACTIVE"
+    }).select("id,label,token_hint,status,last_used_at,created_at,revoked_at").single();
+    if (result.error) throw result.error;
+    mfpNutritionFeedSecret = token;
+    await loadMfpNutritionFeedState();
+    renderConnectedDominion();
+    setText("connected-feedback", "Private feed key created. Copy it into your iPhone Shortcut now; Coach Dominion will not show it again after this page closes.");
+  } catch (_) {
+    setText("connected-feedback", "Coach Dominion could not create the feed key. Confirm migration 014 is applied, then try again.");
+  }
+}
+
+async function revokeMfpNutritionFeed() {
+  const active = activeMfpNutritionFeedToken();
+  if (!active || !session?.user?.id) return;
+  try {
+    const supabase = await getClient();
+    const result = await supabase.from("nutrition_feed_tokens")
+      .update({ status: "REVOKED", revoked_at: new Date().toISOString() })
+      .eq("user_id", session.user.id)
+      .eq("id", active.id);
+    if (result.error) throw result.error;
+    mfpNutritionFeedSecret = null;
+    await loadMfpNutritionFeedState();
+    await loadConnectedDominion();
+    setText("connected-feedback", "Automated MyFitnessPal feed revoked. Existing nutrition history was preserved.");
+  } catch (_) {
+    setText("connected-feedback", "The feed could not be revoked. Try again after the account connection is restored.");
+  }
+}
+
+async function copyMfpNutritionFeedValue(value, successMessage) {
+  try {
+    await navigator.clipboard.writeText(value);
+    setText("connected-feedback", successMessage);
+  } catch (_) {
+    setText("connected-feedback", "Copy was unavailable. Select the value shown in the setup panel and copy it manually.");
+  }
+}
+
+async function testMfpNutritionFeed() {
+  if (!mfpNutritionFeedSecret) {
+    setText("connected-feedback", "The private key is hidden after setup. Rotate the feed key if you need to test or configure it again.");
+    return;
+  }
+  try {
+    const response = await fetch(mfpNutritionFeedEndpoint(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mfpNutritionFeedSecret}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ dryRun: true })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || "Feed test failed.");
+    await loadMfpNutritionFeedState();
+    renderConnectedDominion();
+    setText("connected-feedback", "Feed authorization verified. No nutrition record was created by this test.");
+  } catch (_) {
+    setText("connected-feedback", "Feed test failed. Confirm migration 014 and the production endpoint are active.");
+  }
+}
+
 function nutritionManualStorageKey(date) {
   return `coach-dominion:nutrition-manual:${connectedUserId()}:${date}`;
 }
@@ -7017,6 +7164,7 @@ async function loadConnectedDominion() {
   const api = connectedApi();
   if (!api) return;
   connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: !session?.user?.id, localFallback: false };
+  mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: !session?.user?.id };
   renderConnectedDominion();
   try {
     if (!session?.user?.id) throw new Error("Authentication required.");
@@ -7041,6 +7189,7 @@ async function loadConnectedDominion() {
     connectedStorageMode = "LOCAL FALLBACK";
     connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
   }
+  await loadMfpNutritionFeedState();
   renderConnectedDominion();
 }
 
@@ -7076,6 +7225,57 @@ function renderImportJobSummary(job = {}) {
   return `<strong>${readable}</strong>${summary.repeatedBatch ? `<p class="muted">Exact file previously imported${summary.priorJobId ? ` in batch ${escapeHtml(summary.priorJobId)}` : ""}.</p>` : ""}${job.errorMessage ? `<p>${escapeHtml(job.errorMessage)}</p>` : ""}${details}${rollback}`;
 }
 
+function renderMfpNutritionFeedCard() {
+  const active = activeMfpNutritionFeedToken();
+  const account = mfpNutritionFeedAccount();
+  const latestEvent = mfpNutritionFeedEvents[0] || null;
+  const endpoint = mfpNutritionFeedEndpoint();
+  let status = "NOT CONFIGURED";
+  if (mfpNutritionFeedState.loading) status = "CHECKING";
+  else if (mfpNutritionFeedState.authRequired) status = "SIGN IN REQUIRED";
+  else if (mfpNutritionFeedState.migrationRequired) status = "MIGRATION REQUIRED";
+  else if (active && account?.connectionStatus === "CONNECTED") status = "CONNECTED";
+  else if (active) status = "READY FOR SHORTCUT";
+  const statusTone = status === "CONNECTED" ? "green" : ["READY FOR SHORTCUT", "MIGRATION REQUIRED"].includes(status) ? "yellow" : "neutral";
+  const template = typeof DominionNutritionFeed !== "undefined"
+    ? JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2)
+    : "";
+  const secretPanel = mfpNutritionFeedSecret ? `<div class="nutrition-feed-secret">
+    <div><span>Private feed key · shown once</span><code>${escapeHtml(mfpNutritionFeedSecret)}</code></div>
+    <button type="button" data-connected-action="mfp-feed-copy-key">Copy key</button>
+  </div>` : active ? `<div class="connected-notice"><strong>Feed key ending ${escapeHtml(active.token_hint)}</strong><p>The full key is hidden. Rotate it only if you need to configure the Shortcut again.</p></div>` : "";
+  const eventText = latestEvent
+    ? `${escapeHtml(latestEvent.nutrition_date)} · ${escapeHtml(latestEvent.outcome)} · ${latestEvent.sample_count} Health sample(s)`
+    : "No nutrition delivery received yet.";
+  return `<article class="connected-detail-card nutrition-feed-card">
+    <header><div><span class="kicker">BUILD 015A // AUTOMATED NUTRITION FEED</span><h3>MyFitnessPal → Apple Health → Coach Dominion</h3><p>Daily calorie and macro totals without storing your MyFitnessPal password or raw food diary.</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
+    <div class="nutrition-feed-summary">
+      <div><span>Endpoint</span><strong>${escapeHtml(endpoint)}</strong></div>
+      <div><span>Last delivery</span><strong>${active?.last_used_at ? escapeHtml(new Date(active.last_used_at).toLocaleString()) : "Never"}</strong></div>
+      <div><span>Latest result</span><strong>${eventText}</strong></div>
+    </div>
+    ${secretPanel}
+    <div class="connected-actions nutrition-feed-actions">
+      ${mfpNutritionFeedState.available ? `<button type="button" data-connected-action="mfp-feed-create">${active ? "Rotate feed key" : "Create private feed key"}</button>` : ""}
+      <button type="button" class="ghost" data-connected-action="mfp-feed-copy-endpoint">Copy endpoint</button>
+      ${mfpNutritionFeedSecret ? '<button type="button" class="ghost" data-connected-action="mfp-feed-copy-template">Copy Shortcut payload</button><button type="button" class="ghost" data-connected-action="mfp-feed-test">Verify feed</button>' : ""}
+      ${active ? '<button type="button" class="danger" data-connected-action="mfp-feed-revoke">Revoke feed</button>' : ""}
+    </div>
+    ${mfpNutritionFeedState.migrationRequired ? '<div class="connected-notice"><strong>Setup dependency</strong><p>Apply Supabase migration 014 to enable revocable keys and automated ingestion. Manual CSV import remains available.</p></div>' : ""}
+    <details class="nutrition-feed-setup" ${mfpNutritionFeedSecret ? "open" : ""}>
+      <summary>One-time iPhone Shortcut setup <span>Four Health totals · one secure POST</span></summary>
+      <ol>
+        <li>In MyFitnessPal, enable HealthKit Sharing for Food so meal calories and supported nutrients are written to Apple Health.</li>
+        <li>In Shortcuts, sum today’s MyFitnessPal samples for Dietary Energy, Protein, Carbohydrates, and Total Fat.</li>
+        <li>Send those four totals to the endpoint above with an <code>Authorization: Bearer YOUR_FEED_KEY</code> header.</li>
+        <li>Create a daily Personal Automation after your final meal. Disable “Ask Before Running” if your iOS version permits it.</li>
+      </ol>
+      <p class="muted">MyFitnessPal does not send meal timestamps to Apple Health, so Coach Dominion intentionally treats this as one daily-total record.</p>
+      ${mfpNutritionFeedSecret ? `<pre>${escapeHtml(template)}</pre>` : ""}
+    </details>
+  </article>`;
+}
+
 function renderConnectedDominion() {
   const api = connectedApi();
   if (!api || typeof document === "undefined") return;
@@ -7083,7 +7283,7 @@ function renderConnectedDominion() {
   setText("connected-storage", connectedStorageMode);
   setText("diagnostic-storage", connectedStorageMode);
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
-  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "User-controlled Fitbod, MyFitnessPal, and Apple Health file imports are active. Live OAuth and background sync remain unavailable.");
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "Fitbod and Apple Health file imports are active. MyFitnessPal can also deliver daily nutrition totals automatically through Apple Health and a private iPhone Shortcut.");
   const overviewPanel = document.getElementById("connected-view-overview");
   const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
   const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
@@ -7101,12 +7301,13 @@ function renderConnectedDominion() {
     const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
     const fitbodImport = provider.providerCode === "FITBOD" ? `<button type="button" data-connected-action="fitbod-import">Import Fitbod workout CSV</button>` : "";
     const mfpImport = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-import">Import MyFitnessPal nutrition CSV</button>` : "";
+    const mfpFeed = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-feed-open">Set up automatic feed</button>` : "";
     const appleHealthImport = provider.providerCode === "APPLE_HEALTH" ? `<button type="button" data-connected-action="apple-health-import">Import Apple Health export.xml</button>` : "";
     const previewAction = account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review account</button>` : `<button type="button" class="ghost" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`;
     return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
       <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
       <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
-      <div class="connected-actions">${fitbodImport}${mfpImport}${appleHealthImport}${previewAction}</div>
+      <div class="connected-actions">${fitbodImport}${mfpImport}${mfpFeed}${appleHealthImport}${previewAction}</div>
     </article>`;
   }).join("")}</div>`;
 
@@ -7115,9 +7316,14 @@ function renderConnectedDominion() {
     const jobs = connectedSyncJobs.filter((job) => job.connectedAccountId === account.id);
     const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
     const counts = api.summarizeSyncJob(records);
-    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : "USER FILE IMPORT"}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
+    const connectionMode = account.metadata?.connection_mode || account.metadata?.connectionMode || "";
+    const accountKind = account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : connectionMode === "APPLE_HEALTH_SHORTCUT" ? "AUTOMATED · APPLE HEALTH SHORTCUT" : "USER FILE IMPORT";
+    const accountActions = account.isSimulated && account.connectionStatus === "CONNECTED"
+      ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>`
+      : connectionMode === "APPLE_HEALTH_SHORTCUT" ? `<button type="button" data-connected-action="mfp-feed-open">Review automatic feed</button>` : "";
+    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${accountKind}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
       <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
-      <div class="connected-actions">${account.connectionStatus === "CONNECTED" ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>` : ""}</div>
+      <div class="connected-actions">${accountActions}</div>
     </article>`;
   }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
 
@@ -7149,7 +7355,7 @@ function renderConnectedDominion() {
   if (nutritionPanel) {
     const days = api.aggregateNutritionByDate(connectedImportedRecords);
     const nutritionTarget = document.getElementById("nutrition_target")?.value || "";
-    nutritionPanel.innerHTML = days.length ? `<div class="connected-card-list">${days.map((day) => {
+    const nutritionDaysMarkup = days.length ? `<div class="connected-card-list">${days.map((day) => {
       const review = api.reconcileNutritionDay(day, nutritionTarget);
       const metricRows = [["Calories", day.calories, review.target.calories], ["Protein", day.protein, review.target.protein], ["Carbs", day.carbs, review.target.carbs], ["Fat", day.fat, review.target.fat]]
         .map(([label, actual, goal]) => `<div><span>${label}</span><strong>${Math.round(actual)}${label === "Calories" ? "" : "g"}${goal ? ` / ${goal}${label === "Calories" ? "" : "g"}` : ""}</strong></div>`).join("");
@@ -7159,6 +7365,7 @@ function renderConnectedDominion() {
         <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
       </article>`;
     }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
+    nutritionPanel.innerHTML = `${renderMfpNutritionFeedCard()}${nutritionDaysMarkup}`;
   }
   const appleHealthPanel = document.getElementById("connected-view-apple_health");
   if (appleHealthPanel) {
@@ -8161,6 +8368,19 @@ if (typeof document !== "undefined") {
     const action = button.dataset.connectedAction;
     if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
     if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
+    if (action === "mfp-feed-open") {
+      setConnectedActiveView("nutrition");
+      document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (action === "mfp-feed-create") await createMfpNutritionFeed();
+    if (action === "mfp-feed-revoke") await revokeMfpNutritionFeed();
+    if (action === "mfp-feed-copy-endpoint") await copyMfpNutritionFeedValue(mfpNutritionFeedEndpoint(), "Feed endpoint");
+    if (action === "mfp-feed-copy-key" && mfpNutritionFeedSecret) await copyMfpNutritionFeedValue(mfpNutritionFeedSecret, "Private feed key");
+    if (action === "mfp-feed-copy-template" && typeof DominionNutritionFeed !== "undefined") {
+      const template = JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2);
+      await copyMfpNutritionFeedValue(template, "Shortcut payload");
+    }
+    if (action === "mfp-feed-test") await testMfpNutritionFeed();
     if (action === "apple-health-import") document.getElementById("apple-health-import-file")?.click();
     if (action === "apply-apple-readiness") await applyAppleHealthReadiness();
     if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);

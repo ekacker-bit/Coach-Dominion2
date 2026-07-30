@@ -447,3 +447,20 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .closed-loop-shell.compact .closed-loop-phase-rail>div{min-height:54px}.closed-loop-shell.compact .closed-loop-domain-grid{display:none}
 @media(max-width:980px){.closed-loop-phase-rail{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.closed-loop-phase-rail{grid-template-columns:repeat(2,minmax(0,1fr))}.closed-loop-decision,.closed-loop-adaptation{align-items:flex-start;flex-direction:column}.closed-loop-score,.closed-loop-adaptation>div:last-child{justify-items:start}.closed-loop-domain-grid{grid-template-columns:1fr}.closed-loop-actions{display:grid}.closed-loop-actions button{width:100%}}
+
+/* Build 015A // Automated MyFitnessPal nutrition feed */
+.nutrition-feed-card{margin-bottom:16px;border-color:rgba(56,212,141,.38);background:linear-gradient(145deg,rgba(14,28,28,.96),rgba(9,13,19,.98))}
+.nutrition-feed-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:15px 0}
+.nutrition-feed-summary>div{min-width:0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel3)}
+.nutrition-feed-summary span,.nutrition-feed-secret span{display:block;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.nutrition-feed-summary strong{display:block;margin-top:5px;overflow-wrap:anywhere;font-size:13px}
+.nutrition-feed-secret{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;padding:13px;border:1px solid rgba(240,180,41,.48);border-radius:10px;background:rgba(240,180,41,.07)}
+.nutrition-feed-secret>div{min-width:0}.nutrition-feed-secret code{display:block;margin-top:5px;overflow:hidden;text-overflow:ellipsis;color:var(--yellow);font-size:12px;white-space:nowrap}
+.nutrition-feed-actions{margin:14px 0}.nutrition-feed-actions button{min-height:44px}
+.nutrition-feed-setup{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:rgba(7,12,17,.62);overflow:hidden}
+.nutrition-feed-setup>summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 15px;cursor:pointer;font-weight:900}
+.nutrition-feed-setup>summary span{color:var(--muted);font-size:11px;font-weight:600}
+.nutrition-feed-setup[open]>summary{border-bottom:1px solid var(--line)}
+.nutrition-feed-setup>ol,.nutrition-feed-setup>p{margin:14px 18px}.nutrition-feed-setup li{margin:8px 0;color:var(--muted)}
+.nutrition-feed-setup>pre{max-height:320px;margin:14px 18px 18px;padding:13px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#070b10;white-space:pre-wrap;word-break:break-word}
+@media(max-width:760px){.nutrition-feed-summary{grid-template-columns:1fr}.nutrition-feed-secret,.nutrition-feed-setup>summary{align-items:flex-start;flex-direction:column}.nutrition-feed-secret button{width:100%}.nutrition-feed-actions{display:grid}.nutrition-feed-actions button{width:100%}}

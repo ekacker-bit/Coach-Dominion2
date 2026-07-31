@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "018B.1";
+  const VERSION = "018E.1";
   const PRIMARY_GOALS = Object.freeze([
     "BALANCED_FITNESS",
     "BUILD_STRENGTH",
@@ -259,6 +259,51 @@
     };
   }
 
+  function resolveNutritionPlanReadiness(input = {}, baseline = null, options = {}) {
+    const contract = normalizeContractDraft(input, options);
+    const planningInputs = input.planningInputs || contractPlanningInputs(contract, options);
+    const expected = planningInputs.nutrition;
+    const contextDate = dateIso(options.date || options.today) || contract.effectiveDate;
+    const approved = baseline?.status === "APPROVED";
+    if (!approved) {
+      return {
+        status: "TARGETS_REQUIRED",
+        message: "No approved Nutrition baseline is linked to this operating week.",
+        baseline: null,
+        expectedGoal: expected.goal,
+        aligned: false,
+        scheduled: false
+      };
+    }
+    const effectiveDate = dateIso(baseline.effectiveDate) || contextDate;
+    const scheduled = effectiveDate > contextDate;
+    const aligned = baseline.goal === expected.goal;
+    const targets = baseline.recoveryTargets || baseline.trainingTargets || {};
+    const targetSummary = `${Math.round(Number(targets.calories || 0)) || "—"} kcal · ${Math.round(Number(targets.protein || 0)) || "—"}g protein`;
+    if (scheduled) {
+      return {
+        status: "SCHEDULED",
+        message: `Approved Nutrition baseline is linked and activates ${effectiveDate}.`,
+        baseline,
+        expectedGoal: expected.goal,
+        aligned,
+        scheduled,
+        targetSummary
+      };
+    }
+    return {
+      status: aligned ? "PLAN_LINKED" : "PLAN_REVIEW",
+      message: aligned
+        ? "Approved Nutrition targets are linked to the Recruit Contract and weekly plan."
+        : `Approved Nutrition targets are linked, but the ${String(baseline.goal || "current").replaceAll("_", " ")} goal differs from the contract's ${expected.goal.replaceAll("_", " ")} goal.`,
+      baseline,
+      expectedGoal: expected.goal,
+      aligned,
+      scheduled,
+      targetSummary
+    };
+  }
+
   function stableSerialize(value) {
     if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
     if (value && typeof value === "object") {
@@ -339,6 +384,7 @@
     validateRecruitContract,
     buildCommitmentSchedule,
     contractPlanningInputs,
+    resolveNutritionPlanReadiness,
     buildRecruitContract,
     approveRecruitContract,
     fingerprint

@@ -95,6 +95,11 @@ test("a complete week coordinates every committed module", () => {
   assert.ok(result.recoveryDays >= 1);
 });
 
+test("current-week nutrition uses today's effective baseline instead of Monday's stale state", () => {
+  assert.equal(orchestrator.planningDateForWeek("2026-07-27", "2026-07-31"), "2026-07-31");
+  assert.equal(orchestrator.planningDateForWeek("2026-08-03", "2026-07-31"), "2026-08-03");
+});
+
 test("loaded Strength is moved away from hard running", () => {
   const result = draft();
   result.days.forEach((day) => {

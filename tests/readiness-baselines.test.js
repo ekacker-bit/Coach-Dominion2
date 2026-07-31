@@ -16,6 +16,7 @@ function history(currentDate, count, overrides = {}) {
     date: dateOffset(currentDate, -(index + 1)),
     sleep: 8,
     resting_heart_rate: 50,
+    heart_rate_variability: 50,
     steps: 9000,
     weight: 180,
     ...overrides
@@ -93,6 +94,21 @@ assert.strictEqual(median([4, 2, 1, 3]), 2.5);
   const current = { date: "2026-07-27", sleep: null, resting_heart_rate: null };
   const profile = buildReadinessBaselineProfile(history(current.date, 14), current);
   assert.strictEqual(evaluatePersonalizedReadiness(green, profile).state, "GREEN");
+}
+
+{
+  const current = { date: "2026-07-27", sleep: 8, resting_heart_rate: 50, heart_rate_variability: 30 };
+  const profile = buildReadinessBaselineProfile(history(current.date, 14), current);
+  assert.strictEqual(profile.metrics.heart_rate_variability.signal.status, "SEVERE");
+  assert.strictEqual(evaluatePersonalizedReadiness(green, profile).state, "GREEN", "HRV alone is not used as a punitive readiness trigger");
+}
+
+{
+  const current = { date: "2026-07-27", sleep: 6.5, resting_heart_rate: 50, heart_rate_variability: 40 };
+  const profile = buildReadinessBaselineProfile(history(current.date, 14), current);
+  const result = evaluatePersonalizedReadiness(green, profile);
+  assert.strictEqual(result.state, "YELLOW");
+  assert.match(result.rationale.join(" "), /HRV/);
 }
 
 console.log("readiness baseline tests passed");

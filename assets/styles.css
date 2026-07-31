@@ -1130,3 +1130,403 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
     min-height: 0;
   }
 }
+
+/* Build 018H: thumb-first Mobile Command and installable app shell. */
+.mobile-command {
+  display: none;
+}
+
+.mobile-command-bar [data-mobile-nav] {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .mobile-command {
+    display: grid;
+    gap: 12px;
+    order: 0;
+    padding: 14px;
+    border-color: rgba(56, 212, 141, 0.38);
+    background: linear-gradient(150deg, rgba(13, 31, 26, 0.96), rgba(7, 13, 18, 0.98));
+  }
+
+  .mobile-command-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-command-heading h2 {
+    margin: 4px 0 2px;
+    font-size: clamp(26px, 8vw, 36px);
+  }
+
+  .mobile-command-heading p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .mobile-command-progress {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-command-progress span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--yellow), var(--green));
+    transition: width 180ms ease;
+  }
+
+  .mobile-command-next {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(240, 180, 41, 0.35);
+    border-radius: 12px;
+    background: rgba(240, 180, 41, 0.065);
+  }
+
+  .mobile-command-next > div {
+    display: grid;
+    gap: 4px;
+  }
+
+  .mobile-command-next span {
+    color: var(--yellow);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .mobile-command-next strong {
+    font-size: 17px;
+    line-height: 1.15;
+  }
+
+  .mobile-command-next p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .mobile-command-next button,
+  .mobile-command-module button,
+  .mobile-quick-form > button,
+  .mobile-install-card button {
+    min-height: 48px;
+    touch-action: manipulation;
+  }
+
+  .mobile-command-modules {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-command-module {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(4, 9, 13, 0.54);
+  }
+
+  .mobile-command-module.active {
+    border-color: rgba(240, 180, 41, 0.48);
+    background: rgba(240, 180, 41, 0.055);
+  }
+
+  .mobile-command-module.complete {
+    border-color: rgba(56, 212, 141, 0.34);
+  }
+
+  .mobile-command-module > span {
+    color: var(--dim);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .mobile-command-module strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-command-module small {
+    min-height: 28px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .mobile-command-module button {
+    width: 100%;
+    margin-top: auto;
+    padding: 8px 6px;
+    font-size: 9px;
+  }
+
+  .mobile-command-sheet {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: rgba(4, 9, 13, 0.55);
+  }
+
+  .mobile-command-sheet > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 50px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-weight: 900;
+    touch-action: manipulation;
+  }
+
+  .mobile-command-sheet > summary small {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .mobile-command-sheet[open] > summary {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mobile-quick-form {
+    display: grid;
+    gap: 13px;
+    padding: 14px;
+  }
+
+  .mobile-range-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .mobile-range-field > span {
+    font-weight: 900;
+  }
+
+  .mobile-range-field output {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 32px;
+    border-radius: 8px;
+    color: #06110c;
+    background: var(--green);
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  .mobile-range-field input[type="range"] {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 36px;
+    accent-color: var(--green);
+  }
+
+  .mobile-range-field small {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 9px;
+  }
+
+  .mobile-pain-choice {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .mobile-pain-choice legend {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .mobile-pain-choice label {
+    position: relative;
+  }
+
+  .mobile-pain-choice input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .mobile-pain-choice span {
+    display: grid;
+    place-items: center;
+    min-height: 50px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--muted);
+    text-align: center;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .mobile-pain-choice input:checked + span {
+    border-color: var(--green);
+    color: var(--text);
+    background: rgba(56, 212, 141, 0.1);
+  }
+
+  .mobile-pain-choice input[value="yes"]:checked + span {
+    border-color: rgba(255, 88, 88, 0.6);
+    background: rgba(255, 88, 88, 0.09);
+  }
+
+  .mobile-optional-fields {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .mobile-optional-fields > summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .mobile-optional-fields > summary small {
+    color: var(--muted);
+  }
+
+  .mobile-optional-fields > div,
+  .mobile-nutrition-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .mobile-optional-fields > div {
+    padding: 0 12px 12px;
+  }
+
+  .mobile-quick-form label {
+    display: grid;
+    gap: 5px;
+    color: var(--dim);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .mobile-quick-form input:not([type="range"]):not([type="radio"]) {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .mobile-comments,
+  .mobile-nutrition-form > button {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-install-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px dashed rgba(56, 212, 141, 0.4);
+    border-radius: 10px;
+  }
+
+  .mobile-install-card[hidden] {
+    display: none;
+  }
+
+  .mobile-install-card p {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .mobile-command-bar [data-mobile-nav] {
+    display: grid;
+    place-items: center;
+    min-height: 44px;
+    padding: 8px 3px;
+    border: 0;
+    border-radius: 9px;
+    color: var(--muted);
+    background: transparent;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .mobile-command-bar [data-mobile-nav].active {
+    color: var(--text);
+    background: var(--panel2);
+    box-shadow: inset 0 -2px 0 var(--green);
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-command-next {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-command-next button {
+    width: 100%;
+  }
+
+  .mobile-command-modules {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-command-module {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .mobile-command-module > span,
+  .mobile-command-module small {
+    grid-column: 1;
+  }
+
+  .mobile-command-module button {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    width: auto;
+  }
+}

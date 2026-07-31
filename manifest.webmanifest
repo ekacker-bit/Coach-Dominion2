@@ -1,0 +1,20 @@
+{
+  "name": "Coach Dominion",
+  "short_name": "Dominion",
+  "description": "Daily readiness, training, running, core, and nutrition command.",
+  "start_url": "/app#today",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07100d",
+  "theme_color": "#0b1713",
+  "categories": ["fitness", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/assets/icons/dominion-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

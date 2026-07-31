@@ -4771,20 +4771,36 @@ async function stageRecruitContractPlans() {
   }
 
   if (inputs.running && typeof DominionRunning !== "undefined") {
-    const activeRunningPlan = readApprovedRunningPlan();
-    const currentWeek = DominionRunning.weekStartIso(todayISODate());
-    if (activeRunningPlan?.weekStart === currentWeek) {
-      protectedPlans.push("current Running week");
+    const existingProfile = readRunningProfile();
+    const activeRunningBlock = readApprovedRunningBlock();
+    const profile = saveRunningProfile({
+      ...existingProfile,
+      ...inputs.running,
+      benchmarkDistance: existingProfile.benchmarkDistance,
+      benchmarkSeconds: existingProfile.benchmarkSeconds,
+      benchmarkDate: existingProfile.benchmarkDate,
+      approvedAt: now,
+      updatedAt: now,
+      recruitContractId: contract.id,
+      recruitContractRevision: contract.revision
+    });
+    const draft = DominionRunning.buildRunningBlock(profile, performanceEntries, {
+      today: todayISODate(),
+      startDate: todayISODate(),
+      generatedAt: now,
+      contractSchedule: contract.schedule,
+      recruitContractId: contract.id,
+      recruitContractRevision: contract.revision
+    });
+    await persistRunningState("PROFILE", "current", profile);
+    if (draft.status === "DRAFT") {
+      saveRunningBlockLocal("draft", draft);
+      await persistRunningState("PLAN", "draft", draft);
+      staged.push("Running block");
     } else {
-      const profile = {
-        ...DominionRunning.normalizeProfile({ ...inputs.running, approvedAt: now, updatedAt: now }),
-        recruitContractId: contract.id,
-        recruitContractRevision: contract.revision
-      };
-      window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(profile));
-      await persistRunningState("PROFILE", "current", profile);
-      staged.push("Running");
+      staged.push("Running setup");
     }
+    if (activeRunningBlock) protectedPlans.push("active Running block");
   }
 
   const nutritionForm = document.getElementById("nutrition-baseline-form");
@@ -6591,13 +6607,53 @@ function runningPlanStorageKey() {
   return `coach-dominion:running-plan:${session?.user?.id || "local"}`;
 }
 
-function readApprovedRunningPlan() {
+function readLegacyApprovedRunningPlan() {
   try {
     const stored = window.localStorage.getItem(runningPlanStorageKey());
     return stored ? JSON.parse(stored) : null;
   } catch (_) {
     return null;
   }
+}
+
+function runningBlockStorageKey(stateKey = "active") {
+  return `coach-dominion:running-block:${session?.user?.id || "local"}:${stateKey}`;
+}
+
+function readRunningBlockDraft() {
+  try {
+    const stored = window.localStorage.getItem(runningBlockStorageKey("draft"));
+    const value = stored ? JSON.parse(stored) : null;
+    return value?.status === "DRAFT" ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function readApprovedRunningBlock() {
+  try {
+    const stored = window.localStorage.getItem(runningBlockStorageKey("active"));
+    const value = stored ? JSON.parse(stored) : null;
+    return value?.status === "APPROVED" ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveRunningBlockLocal(stateKey, payload) {
+  window.localStorage.setItem(runningBlockStorageKey(stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readApprovedRunningPlan() {
+  const block = readApprovedRunningBlock();
+  if (block && typeof DominionRunning !== "undefined") {
+    const week = DominionRunning.weeklyPlanForDate(block, todayISODate());
+    if (week) return { ...week, approvedAt: block.approvedAt, recruitContractId: block.recruitContractId, recruitContractRevision: block.recruitContractRevision };
+  }
+  const legacy = readLegacyApprovedRunningPlan();
+  const today = todayISODate();
+  return legacy?.weekStart && legacy?.weekEnd && today >= legacy.weekStart && today <= legacy.weekEnd ? legacy : null;
 }
 
 function runningReconciliationStorageKey() {
@@ -6637,6 +6693,22 @@ async function persistRunningState(stateType, stateKey, payload) {
   }
 }
 
+async function deleteRunningState(stateType, stateKey) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("running_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType)
+      .eq("state_key", stateKey);
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function loadRunningState() {
   if (!session?.user?.id) return;
   try {
@@ -6647,18 +6719,26 @@ async function loadRunningState() {
     const profile = rows.find((row) => row.state_type === "PROFILE");
     const week = DominionRunning.weekStartIso(todayISODate());
     const plan = rows.find((row) => row.state_type === "PLAN" && row.state_key === week);
+    const blockDraft = rows.find((row) => row.state_type === "PLAN" && row.state_key === "draft");
+    const activeBlock = rows.find((row) => row.state_type === "PLAN" && row.state_key === "active");
     const reconciliation = rows.find((row) => row.state_type === "RECONCILIATION" && row.state_key === week);
     const execution = rows.find((row) => row.state_type === "EXECUTION" && row.state_key === todayISODate());
     if (profile) window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(profile.payload));
     if (plan) window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(plan.payload));
+    if (blockDraft) saveRunningBlockLocal("draft", blockDraft.payload);
+    if (activeBlock) saveRunningBlockLocal("active", activeBlock.payload);
     if (reconciliation) window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(reconciliation.payload));
     if (execution) window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution.payload));
     const localProfile = readRunningProfile();
-    const localPlan = readApprovedRunningPlan();
+    const localPlan = readLegacyApprovedRunningPlan();
+    const localBlockDraft = readRunningBlockDraft();
+    const localActiveBlock = readApprovedRunningBlock();
     const localReconciliation = readApprovedRunningReconciliation();
     const localExecution = readRunningExecution();
     if (!profile && localProfile.approvedAt) await persistRunningState("PROFILE", "current", localProfile);
     if (!plan && localPlan?.weekStart === week) await persistRunningState("PLAN", week, localPlan);
+    if (!blockDraft && localBlockDraft) await persistRunningState("PLAN", "draft", localBlockDraft);
+    if (!activeBlock && localActiveBlock) await persistRunningState("PLAN", "active", localActiveBlock);
     if (!reconciliation && localReconciliation?.weekStart === week) await persistRunningState("RECONCILIATION", week, localReconciliation);
     if (!execution && localExecution) await persistRunningState("EXECUTION", todayISODate(), localExecution);
   } catch (_) {
@@ -6918,26 +6998,47 @@ function renderRunningCommand(entries = performanceEntries) {
   const panel = document.getElementById("running-command-panel");
   if (!panel || typeof DominionRunning === "undefined") return;
   const profile = readRunningProfile();
+  const contract = readApprovedRecruitContract();
   const command = DominionRunning.buildRunningCommand(profile, entries, { today: todayISODate() });
-  const plan = DominionRunning.buildWeeklyRunningPlan(profile, entries, { today: todayISODate() });
-  const approvedPlan = readApprovedRunningPlan();
-  const activePlan = approvedPlan?.weekStart === plan.weekStart && approvedPlan.command?.profile?.updatedAt === profile.updatedAt ? approvedPlan : null;
+  const draftBlock = readRunningBlockDraft();
+  const activeBlock = readApprovedRunningBlock();
+  const blockCandidate = DominionRunning.buildRunningBlock(profile, entries, {
+    today: todayISODate(),
+    startDate: draftBlock?.startDate || todayISODate(),
+    contractSchedule: contract?.schedule || [],
+    recruitContractId: contract?.id || profile.recruitContractId || null,
+    recruitContractRevision: contract?.revision || profile.recruitContractRevision || null
+  });
+  const activePlan = readApprovedRunningPlan();
   const dailyRun = DominionRunning.buildDailyRunPrescription(activePlan || {}, { today: todayISODate(), readiness: dailyState || {} });
   const execution = readRunningExecution();
   const reconciliation = activePlan ? DominionRunning.reconcileWeeklyRunningPlan(activePlan, entries, { today: todayISODate() }) : null;
   const approvedReconciliation = readApprovedRunningReconciliation();
+  const contractState = DominionRunning.blockContractState(activeBlock || draftBlock, contract);
+  const candidateState = blockCandidate.status === "DRAFT" ? "READY TO BUILD" : blockCandidate.status.replaceAll("_", " ");
+  const blockState = activeBlock ? "BLOCK ACTIVE" : draftBlock ? "DRAFT READY" : candidateState;
   const status = document.getElementById("running-command-status");
   if (status) {
-    status.textContent = command.readiness.replaceAll("_", " ");
-    status.className = `state-pill ${command.readiness === "READY" ? "green" : "yellow"}`;
+    status.textContent = blockState;
+    status.className = `state-pill ${activeBlock ? "green" : draftBlock ? "yellow" : "neutral"}`;
   }
   const minutes = profile.benchmarkSeconds ? Math.floor(profile.benchmarkSeconds / 60) : "";
   const seconds = profile.benchmarkSeconds ? profile.benchmarkSeconds % 60 : "";
   const benchmark = command.benchmark;
+  const previewBlock = draftBlock || activeBlock;
+  const currentBlockWeek = draftBlock
+    ? draftBlock.weeks?.find((week) => todayISODate() >= week.weekStart && todayISODate() <= week.weekEnd) || draftBlock.weeks?.[0] || null
+    : activePlan || activeBlock?.weeks?.[0] || null;
+  const blockStatus = activeBlock ? "APPROVED" : draftBlock ? "DRAFT" : blockCandidate.status === "DRAFT" ? "READY_TO_BUILD" : blockCandidate.status;
+  const blockMessage = draftBlock?.message || activeBlock?.message || blockCandidate.message;
   panel.innerHTML = `
     <div class="running-command-grid">
+      <article class="running-contract-bridge ${contractState === "CONTRACT_UPDATE_AVAILABLE" ? "update" : ""}">
+        <div><span class="kicker">BUILD 018C // CONTRACT TO PLAN</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} · ${contract.declaredWeeklyDistance || "—"} ${escapeHtml(contract.preferredUnit)} baseline · contract revision ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
+        <div class="running-contract-bridge-actions"><span class="state-pill ${contractState === "ALIGNED" ? "green" : contractState === "CONTRACT_UPDATE_AVAILABLE" ? "yellow" : "neutral"}">${escapeHtml(contractState.replaceAll("_", " "))}</span><button type="button" class="ghost" data-running-action="open-contract">${contract ? "Review contract" : "Create contract"}</button></div>
+      </article>
       <form id="running-profile-form" class="running-profile-card">
-        <div><span class="kicker">ATHLETE CONTRACT</span><h3>Running profile</h3></div>
+        <div><span class="kicker">RUNNING SETUP</span><h3>Goal &amp; baseline</h3></div>
         <div class="running-profile-fields">
           <label>Primary goal<select id="running-goal">
             <option value="GENERAL_FITNESS" ${profile.goal === "GENERAL_FITNESS" ? "selected" : ""}>General fitness</option>
@@ -6951,18 +7052,21 @@ function renderRunningCommand(entries = performanceEntries) {
           <label>Preferred unit<select id="running-unit"><option value="mi" ${profile.preferredUnit === "mi" ? "selected" : ""}>Miles</option><option value="km" ${profile.preferredUnit === "km" ? "selected" : ""}>Kilometers</option></select></label>
           <label>Current weekly distance<input id="running-declared-distance" type="number" min="0" step="0.1" value="${profile.declaredWeeklyDistance ?? ""}" placeholder="Used only if recent evidence is unavailable"></label>
         </div>
-        <fieldset>
-          <legend>Optional benchmark</legend>
-          <p class="muted">Leave blank to use the most recent timed race, formal test, or benchmark in Performance.</p>
-          <div class="running-profile-fields">
-            <label>Distance<select id="running-benchmark-distance"><option value="">Use performance evidence</option>${Object.keys(DominionRunning.DISTANCE_KM).map((code) => `<option value="${code}" ${profile.benchmarkDistance === code ? "selected" : ""}>${code.replaceAll("_", " ")}</option>`).join("")}</select></label>
-            <label>Minutes<input id="running-benchmark-minutes" type="number" min="0" step="1" value="${minutes}"></label>
-            <label>Seconds<input id="running-benchmark-seconds" type="number" min="0" max="59" step="1" value="${seconds}"></label>
-            <label>Benchmark date<input id="running-benchmark-date" type="date" value="${escapeHtml(profile.benchmarkDate || "")}"></label>
-          </div>
-        </fieldset>
-        <div class="performance-actions"><button type="submit">Approve running profile</button></div>
-        <p class="muted">${profile.approvedAt ? `Approved ${escapeHtml(profile.approvedAt)}. Saving creates a new current profile; it does not rewrite past runs.` : "Not yet approved."}</p>
+        <details class="running-benchmark-details">
+          <summary>Benchmark &amp; pace (optional)</summary>
+          <fieldset>
+            <legend>Optional benchmark</legend>
+            <p class="muted">Leave blank to use recent timed evidence. A benchmark sharpens pace targets but no longer blocks a plan.</p>
+            <div class="running-profile-fields">
+              <label>Distance<select id="running-benchmark-distance"><option value="">Use performance evidence</option>${Object.keys(DominionRunning.DISTANCE_KM).map((code) => `<option value="${code}" ${profile.benchmarkDistance === code ? "selected" : ""}>${code.replaceAll("_", " ")}</option>`).join("")}</select></label>
+              <label>Minutes<input id="running-benchmark-minutes" type="number" min="0" step="1" value="${minutes}"></label>
+              <label>Seconds<input id="running-benchmark-seconds" type="number" min="0" max="59" step="1" value="${seconds}"></label>
+              <label>Benchmark date<input id="running-benchmark-date" type="date" value="${escapeHtml(profile.benchmarkDate || "")}"></label>
+            </div>
+          </fieldset>
+        </details>
+        <div class="performance-actions"><button type="submit">Save running setup</button></div>
+        <p class="muted">${profile.approvedAt ? "Setup saved. Build a draft below; the active block will not change until approval." : "Save the setup to build a plan."}</p>
       </form>
       <section class="running-profile-card">
         <div><span class="kicker">OBSERVED BASELINE</span><h3>Recent running evidence</h3></div>
@@ -6978,22 +7082,22 @@ function renderRunningCommand(entries = performanceEntries) {
     </div>
     <section class="running-zones-panel">
       <div class="section-heading compact"><div><span class="kicker">PLANNING ESTIMATES</span><h3>Pace zones</h3></div><span class="state-pill ${command.zones.length ? "green" : "neutral"}">${command.zones.length ? "CALCULATED" : "INSUFFICIENT EVIDENCE"}</span></div>
-      ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)} to ${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">These are deterministic planning ranges, not medical thresholds. Terrain, weather, readiness, and pain take priority.</p>` : `<div class="performance-empty">Approve a valid benchmark or log a timed race/test to unlock pace ranges.</div>`}
+      ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)} to ${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">Terrain, weather, readiness, and pain take priority over pace.</p>` : `<div class="running-effort-ready"><strong>EFFORT MODE READY</strong><p>No benchmark yet. The plan will use RPE and talk-test guidance so training can begin safely now.</p></div>`}
     </section>
-    <section class="running-week-panel">
-      <div class="section-heading compact"><div><span class="kicker">BUILD 010B // WEEKLY RUNNING PLAN</span><h3>${escapeHtml(plan.weekStart)}${plan.weekEnd ? ` to ${escapeHtml(plan.weekEnd)}` : ""}</h3><p class="muted">${escapeHtml(plan.message)}</p></div><span class="state-pill ${plan.status === "READY" ? "green" : "yellow"}">${escapeHtml(plan.status.replaceAll("_", " "))}</span></div>
-      ${plan.status === "READY" ? `
-        <div class="running-plan-summary">
-          <div><span>Weekly distance</span><strong>${plan.weeklyDistance} ${plan.unit}</strong></div>
-          <div><span>Progression</span><strong>${plan.safeguards.progressionPercent}%</strong></div>
-          <div><span>Long-run share</span><strong>${plan.safeguards.longRunSharePercent}%</strong></div>
-          <div><span>Quality sessions</span><strong>${plan.safeguards.qualitySessions}</strong></div>
+    <section class="running-week-panel running-block-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 018C // FOUR-WEEK RUNNING PLAN</span><h3>${activeBlock ? "Active running block" : draftBlock ? "Draft ready for approval" : "Build a committable plan"}</h3><p class="muted">${escapeHtml(blockMessage || "Save the running setup to begin.")}</p></div><span class="state-pill ${activeBlock ? "green" : draftBlock ? "yellow" : "neutral"}">${escapeHtml(blockStatus.replaceAll("_", " "))}</span></div>
+      ${previewBlock ? `
+        <div class="running-plan-summary running-block-summary">
+          <div><span>Block dates</span><strong>${escapeHtml(previewBlock.startDate)} to ${escapeHtml(previewBlock.endDate)}</strong></div>
+          <div><span>Commitment</span><strong>${previewBlock.profile.runningDaysPerWeek} days/week</strong></div>
+          <div><span>Baseline</span><strong>${previewBlock.baselineDistance} ${previewBlock.profile.preferredUnit}</strong></div>
+          <div><span>Guidance</span><strong>${escapeHtml(previewBlock.prescriptionMode)}</strong></div>
         </div>
-        <div class="running-week-grid">${plan.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} | ${escapeHtml(session.zone)} | ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : ""}</article>`).join("")}</div>
-        <p class="muted">Baseline source: ${escapeHtml(plan.baselineSource.replaceAll("_", " "))}. No progression is applied in this foundation week.</p>
-        <div class="performance-actions"><button type="button" data-running-action="approve-plan">Approve weekly plan</button><button type="button" class="ghost" data-running-action="review-log">Review running evidence</button></div>
-        ${activePlan ? `<div class="running-evidence"><strong>ACTIVE WEEK APPROVED</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Changes to the profile require approval again.</p></div>` : ""}
-      ` : `<div class="performance-empty">${escapeHtml(plan.message)}</div>`}
+        <div class="running-block-phases">${previewBlock.weeks.map((week) => `<article class="running-block-week ${currentBlockWeek?.weekStart === week.weekStart ? "current" : ""}"><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phaseLabel)}</strong></header><p>${week.weeklyDistance} ${week.unit} · ${week.sessions.filter((session) => session.type !== "REST").length} runs</p><small>${week.progressionFromBaselinePercent > 0 ? "+" : ""}${week.progressionFromBaselinePercent}% from baseline</small></article>`).join("")}</div>
+        ${currentBlockWeek ? `<details class="running-current-week" open><summary>Current week · ${escapeHtml(currentBlockWeek.weekStart)} to ${escapeHtml(currentBlockWeek.weekEnd)}</summary><div class="running-week-grid">${currentBlockWeek.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} · ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : session.type !== "REST" ? `<small>RPE ${escapeHtml(session.effortRpe || "3-5")} · ${escapeHtml(session.effortCue || "Controlled effort")}</small>` : ""}</article>`).join("")}</div></details>` : ""}
+        ${draftBlock ? `<div class="running-block-approval"><div><strong>Approval activates all four weeks.</strong><p>${activeBlock ? "Your current block remains active until you approve this replacement." : "The draft is saved, but it will not appear in Today until approved."}</p></div><button type="button" data-running-action="approve-block">Approve 4-week plan</button></div>` : `<div class="running-evidence"><strong>BLOCK ${previewBlock.revision} ACTIVE</strong><p>Approved ${escapeHtml(previewBlock.approvedAt || "")}. Contract changes create a separate draft and never replace this block silently.</p></div>`}
+      ` : `<div class="performance-empty">${escapeHtml(blockCandidate.message || "Save the setup to build a plan.")}</div>`}
+      <div class="running-block-actions"><label>Block starts<input id="running-block-start" type="date" value="${escapeHtml(draftBlock?.startDate || DominionRunning.weekStartIso(todayISODate()))}"></label><button type="button" class="${draftBlock ? "ghost" : ""}" data-running-action="generate-block">${draftBlock ? "Rebuild draft" : "Build 4-week draft"}</button>${activeBlock ? `<button type="button" class="ghost" data-running-action="review-log">Review run evidence</button>` : ""}</div>
     </section>
     <section class="running-execution-panel">
       <div class="section-heading compact"><div><span class="kicker">BUILD 010C // DAILY RUN EXECUTION</span><h3>Today&apos;s run</h3><p class="muted">${escapeHtml(dailyRun.message)}</p></div><span class="state-pill ${dailyRun.status === "READY" ? "green" : dailyRun.status === "PAIN_HOLD" ? "red" : "yellow"}">${escapeHtml(dailyRun.status.replaceAll("_", " "))}</span></div>
@@ -9657,6 +9761,7 @@ if (typeof document !== "undefined") {
       return;
     }
     const now = new Date().toISOString();
+    const contract = readApprovedRecruitContract();
     const savedProfile = saveRunningProfile({
       goal: document.getElementById("running-goal")?.value,
       targetDate: document.getElementById("running-target-date")?.value,
@@ -9667,24 +9772,62 @@ if (typeof document !== "undefined") {
       benchmarkSeconds: distance ? (minutes * 60) + seconds : null,
       benchmarkDate: document.getElementById("running-benchmark-date")?.value,
       approvedAt: now,
-      updatedAt: now
+      updatedAt: now,
+      recruitContractId: contract?.id || null,
+      recruitContractRevision: contract?.revision || null
     });
     await persistRunningState("PROFILE", "current", savedProfile);
     renderRunningCommand();
-    setText("running-command-feedback", "Running profile approved. Pace zones and baseline now use the current performance evidence.");
+    setText("running-command-feedback", "Running setup saved. Build the four-week draft when you are ready; the active plan remains unchanged.");
   });
   document.getElementById("running-command-panel")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-running-action]");
     if (!button) return;
-    if (button.dataset.runningAction === "approve-plan") {
+    if (button.dataset.runningAction === "open-contract") {
+      window.location.hash = "contract";
+      return;
+    }
+    if (button.dataset.runningAction === "generate-block" || button.dataset.runningAction === "approve-plan") {
       const profile = readRunningProfile();
-      const plan = DominionRunning.buildWeeklyRunningPlan(profile, performanceEntries, { today: todayISODate() });
-      if (plan.status !== "READY") return;
-      const approved = { ...plan, approvedAt: new Date().toISOString() };
-      window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(approved));
-      await persistRunningState("PLAN", plan.weekStart, approved);
+      const contract = readApprovedRecruitContract();
+      const startDate = document.getElementById("running-block-start")?.value || todayISODate();
+      const draft = DominionRunning.buildRunningBlock(profile, performanceEntries, {
+        today: todayISODate(),
+        startDate,
+        generatedAt: new Date().toISOString(),
+        contractSchedule: contract?.schedule || [],
+        recruitContractId: contract?.id || profile.recruitContractId || null,
+        recruitContractRevision: contract?.revision || profile.recruitContractRevision || null
+      });
+      if (draft.status !== "DRAFT") {
+        setText("running-command-feedback", draft.message || "The running draft is not ready yet.");
+        return;
+      }
+      saveRunningBlockLocal("draft", draft);
+      await persistRunningState("PLAN", "draft", draft);
       renderRunningCommand();
-      setText("running-command-feedback", "Weekly running plan approved and saved to your account. Future evidence may recommend a new draft but will not silently change this week.");
+      setText("running-command-feedback", "Four-week running draft saved. Review all four weeks, then approve it to make the plan active.");
+      return;
+    }
+    if (button.dataset.runningAction === "approve-block") {
+      const draft = readRunningBlockDraft();
+      const previous = readApprovedRunningBlock();
+      if (!draft) return;
+      try {
+        const approved = DominionRunning.approveRunningBlock(draft, previous, { approvedAt: new Date().toISOString() });
+        if (previous) await persistRunningState("PLAN", `archive:${previous.id}`, previous);
+        saveRunningBlockLocal("active", approved);
+        window.localStorage.removeItem(runningBlockStorageKey("draft"));
+        await persistRunningState("PLAN", "active", approved);
+        await deleteRunningState("PLAN", "draft");
+        renderRunningCommand();
+        renderTodayCommandSurface();
+        renderDailyAssignment();
+        setText("running-command-feedback", `Four-week running block revision ${approved.revision} approved and saved to your account. Today now follows the active block.`);
+      } catch (error) {
+        setText("running-command-feedback", error?.message || "The running block could not be approved.");
+      }
+      return;
     }
     if (button.dataset.runningAction === "review-log") {
       performanceFilters.domain = "running";
@@ -9711,7 +9854,18 @@ if (typeof document !== "undefined") {
       setText("running-command-feedback", "Weekly run evidence review approved. Source records and the approved plan remain unchanged.");
     }
     if (button.dataset.runningAction === "start-run") {
-      const state = { state: "IN_PROGRESS", startedAt: new Date().toISOString() };
+      const plan = readApprovedRunningPlan();
+      const prescription = DominionRunning.buildDailyRunPrescription(plan || {}, { today: todayISODate(), readiness: dailyState || {} });
+      if (!prescription.session || prescription.status === "PAIN_HOLD") return;
+      const state = {
+        state: "IN_PROGRESS",
+        date: todayISODate(),
+        blockId: plan?.blockId || null,
+        blockRevision: plan?.blockRevision || null,
+        weekStart: plan?.weekStart || null,
+        session: prescription.session,
+        startedAt: new Date().toISOString()
+      };
       window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
       await persistRunningState("EXECUTION", todayISODate(), state);
       renderRunningCommand();

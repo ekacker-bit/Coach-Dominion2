@@ -756,3 +756,28 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
   .recruit-contract-actions button{width:100%}
   .recruit-contract-status-stack{justify-items:start}
 }
+
+/* Build 018C: contract-driven running blocks */
+.running-contract-bridge{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px;padding:15px;border:1px solid rgba(56,212,141,.34);border-radius:12px;background:linear-gradient(135deg,rgba(56,212,141,.08),rgba(7,12,17,.88))}
+.running-contract-bridge.update{border-color:rgba(240,180,41,.5);background:linear-gradient(135deg,rgba(240,180,41,.08),rgba(7,12,17,.88))}
+.running-contract-bridge h3{margin:4px 0}.running-contract-bridge p{margin:0;color:var(--muted)}
+.running-contract-bridge-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.running-benchmark-details{border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
+.running-benchmark-details>summary{cursor:pointer;padding:11px 13px;color:var(--text);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.running-benchmark-details fieldset{margin:0;border:0;border-top:1px solid var(--line);border-radius:0}
+.running-effort-ready{padding:13px;border:1px solid rgba(56,212,141,.28);border-radius:10px;background:rgba(56,212,141,.045)}
+.running-effort-ready p{margin:5px 0 0;color:var(--muted)}
+.running-block-summary div:first-child{grid-column:span 1}
+.running-block-phases{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}
+.running-block-week{padding:12px;border:1px solid var(--line);border-top:3px solid var(--line-strong);border-radius:10px;background:rgba(5,9,13,.55)}
+.running-block-week.current{border-top-color:var(--green);background:rgba(56,212,141,.045)}
+.running-block-week header{display:flex;justify-content:space-between;gap:8px}.running-block-week header span{color:var(--dim);font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.running-block-week p{margin:9px 0 4px;color:var(--text);font-weight:800}.running-block-week small{color:var(--muted)}
+.running-current-week{margin:12px 0;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018)}
+.running-current-week>summary{cursor:pointer;padding:12px 14px;font-weight:900}.running-current-week .running-week-grid{padding:0 12px 12px}
+.running-block-approval{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding:14px;border:1px solid rgba(240,180,41,.4);border-radius:11px;background:rgba(240,180,41,.055)}
+.running-block-approval p{margin:5px 0 0;color:var(--muted)}
+.running-block-actions{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin-top:12px}
+.running-block-actions label{display:grid;gap:5px;color:var(--dim);font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.running-block-actions input{min-height:42px}
+@media(max-width:820px){.running-contract-bridge{grid-template-columns:1fr}.running-contract-bridge-actions{justify-content:flex-start}.running-block-phases{grid-template-columns:1fr 1fr}.running-block-approval{align-items:stretch;flex-direction:column}.running-block-approval button{width:100%}}
+@media(max-width:520px){.running-block-phases{grid-template-columns:1fr}.running-block-actions{display:grid;grid-template-columns:1fr}.running-block-actions button{width:100%}.running-contract-bridge-actions{display:grid;grid-template-columns:1fr}.running-contract-bridge-actions button{width:100%}}

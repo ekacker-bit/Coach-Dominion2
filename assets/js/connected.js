@@ -8,7 +8,7 @@
   const PROVIDER_CATALOG = Object.freeze([
     provider("STRAVA", "Strava", "ACTIVITY", ["RUN", "RIDE", "WALK", "SWIM"], ["READ_ACTIVITY"], "PLANNED", "PHASE_2", "Planned endurance activity import."),
     provider("GARMIN", "Garmin", "HEALTH", ["RUN", "RIDE", "SWIM", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_2", "Architecture preview for activity and health metrics."),
-    provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "FILE_IMPORT", "PHASE_3", "User-controlled Apple Health export.xml import; no Apple credentials or live HealthKit access."),
+    provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["STEPS", "HEART_RATE", "HEART_RATE_VARIABILITY", "SLEEP", "BODYWEIGHT"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "FILE_IMPORT", "PHASE_3", "User-controlled Apple Health export.xml import; no Apple credentials or live HealthKit access."),
     provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "FILE_IMPORT", "PHASE_2", "User-controlled Fitbod workout-file import; no Fitbod credentials are stored."),
     provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "HEALTHKIT_BRIDGE", "PHASE_5", "Automatic daily calorie and macro totals through Apple Health and a revocable iPhone Shortcut feed; no MyFitnessPal credentials are stored.")
   ]);
@@ -18,7 +18,7 @@
   const SYNC_TYPES = Object.freeze(["INITIAL", "INCREMENTAL", "MANUAL", "RETRY"]);
   const SYNC_STATUSES = Object.freeze(["QUEUED", "RUNNING", "SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED"]);
   const TERMINAL_SYNC_STATUSES = new Set(["SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED"]);
-  const DATA_TYPES = Object.freeze(["RUN", "WALK", "RIDE", "SWIM", "STRENGTH_SESSION", "EXERCISE_SET", "CORE_SESSION", "CONDITIONING_SESSION", "BODYWEIGHT", "BODY_METRIC", "STEPS", "HEART_RATE", "SLEEP", "CALORIES", "MACRONUTRIENTS"]);
+  const DATA_TYPES = Object.freeze(["RUN", "WALK", "RIDE", "SWIM", "STRENGTH_SESSION", "EXERCISE_SET", "CORE_SESSION", "CONDITIONING_SESSION", "BODYWEIGHT", "BODY_METRIC", "STEPS", "HEART_RATE", "HEART_RATE_VARIABILITY", "SLEEP", "CALORIES", "MACRONUTRIENTS"]);
   const IMPORT_STATUSES = Object.freeze(["RECEIVED", "VALIDATED", "DUPLICATE", "REJECTED", "MAPPED", "UNMAPPED", "INVALIDATED"]);
   const VALIDATION_STATUSES = Object.freeze(["VALID", "INVALID", "PARTIAL", "UNSUPPORTED"]);
   const CONNECTION_TRANSITIONS = Object.freeze({
@@ -601,6 +601,7 @@
   const APPLE_HEALTH_TYPES = Object.freeze({
     HKQuantityTypeIdentifierStepCount: { dataType: "STEPS", permission: "READ_STEPS" },
     HKQuantityTypeIdentifierRestingHeartRate: { dataType: "HEART_RATE", permission: "READ_HEART_RATE" },
+    HKQuantityTypeIdentifierHeartRateVariabilitySDNN: { dataType: "HEART_RATE_VARIABILITY", permission: "READ_HEART_RATE" },
     HKQuantityTypeIdentifierBodyMass: { dataType: "BODYWEIGHT", permission: "READ_BODY_METRICS" },
     HKCategoryTypeIdentifierSleepAnalysis: { dataType: "SLEEP", permission: "READ_SLEEP" }
   });
@@ -701,11 +702,12 @@
     records.filter((record) => record.providerCode === "APPLE_HEALTH" && record.validationStatus === "VALID" && record.importStatus !== "DUPLICATE")
       .forEach((record) => {
         const date = text(record.occurredAt).slice(0, 10);
-        const day = byDate.get(date) || { date, steps: null, restingHeartRate: null, weight: null, weightUnit: null, sleepAsleep: 0, sleepInBed: 0, records: 0 };
+        const day = byDate.get(date) || { date, steps: null, restingHeartRate: null, heartRateVariability: null, weight: null, weightUnit: null, sleepAsleep: 0, sleepInBed: 0, records: 0 };
         const payload = record.normalizedPayload || {};
         day.records += 1;
         if (record.dataType === "STEPS") day.steps = Math.round(Number(payload.value) || 0);
         if (record.dataType === "HEART_RATE") day.restingHeartRate = Number(payload.value) || null;
+        if (record.dataType === "HEART_RATE_VARIABILITY") day.heartRateVariability = Number(payload.value) || null;
         if (record.dataType === "BODYWEIGHT") { day.weight = Number(payload.value) || null; day.weightUnit = payload.unit || null; }
         if (record.dataType === "SLEEP" && /Asleep/i.test(payload.sleep_stage || "")) day.sleepAsleep += Number(payload.value) || 0;
         if (record.dataType === "SLEEP" && /InBed/i.test(payload.sleep_stage || "")) day.sleepInBed += Number(payload.value) || 0;

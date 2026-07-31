@@ -43,6 +43,7 @@
       <div><span>Weight</span><strong id="status-weight">—</strong></div>
       <div><span>Steps</span><strong id="status-steps">—</strong></div>
       <div><span>RHR</span><strong id="status-rhr">—</strong></div>
+      <div><span>HRV</span><strong id="status-hrv">—</strong></div>
       <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
       <div><span>Data</span><strong id="status-data">CHECKING</strong></div>
     </section>
@@ -65,6 +66,10 @@
             <p class="muted">Import Fitbod and Apple Health files, or automatically deliver daily MyFitnessPal totals through Apple Health and a private iPhone Shortcut.</p>
           </div>
           <span id="connected-storage" class="state-pill neutral">LOADING</span>
+        </div>
+        <div class="connected-mobile-account-actions" aria-label="Account actions">
+          <button id="mobile-help-onboarding" class="ghost" type="button">Help</button>
+          <button id="mobile-logout" class="ghost" type="button">Sign out</button>
         </div>
         <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
         <div class="connected-view-nav" role="tablist" aria-label="Connections and data views">
@@ -948,16 +953,37 @@
           <div class="kicker">MORNING ROLL CALL</div>
           <h2>Report current state.</h2>
           <form id="roll-call-form">
-            <label>Energy (1-10)
-              <input name="energy" type="number" min="1" max="10" step="1" required>
-            </label>
-            <label>Soreness (1-10)
-              <input name="soreness" type="number" min="1" max="10" step="1" required>
-            </label>
-            <fieldset>
-              <legend>Pain</legend>
-              <label class="radio"><input type="radio" name="pain" value="no" required> No</label>
-              <label class="radio"><input type="radio" name="pain" value="yes" required> Yes</label>
+            <div class="roll-call-subjective-grid">
+              <label>Energy (1-10)
+                <input name="energy" type="number" min="1" max="10" step="1" required>
+              </label>
+              <label>Soreness (1-10)
+                <input name="soreness" type="number" min="1" max="10" step="1" required>
+              </label>
+              <fieldset>
+                <legend>Pain</legend>
+                <label class="radio"><input type="radio" name="pain" value="no" required> No</label>
+                <label class="radio"><input type="radio" name="pain" value="yes" required> Yes</label>
+              </fieldset>
+            </div>
+            <fieldset class="objective-metrics-fieldset">
+              <legend>Morning biometrics <span>Optional</span></legend>
+              <p>Enter what you have. Missing metrics remain neutral and never count as a failed standard.</p>
+              <div class="objective-metrics-grid">
+                <label>Weight (lb)
+                  <input name="weight" inputmode="decimal" type="number" min="50" max="1000" step="0.1">
+                  <small data-metric-source="weight">Manual or Apple Health</small>
+                </label>
+                <label>Resting HR (bpm)
+                  <input name="resting_heart_rate" inputmode="numeric" type="number" min="25" max="250" step="1">
+                  <small data-metric-source="resting_heart_rate">Manual or Apple Health</small>
+                </label>
+                <label>HRV (ms)
+                  <input name="heart_rate_variability" inputmode="decimal" type="number" min="1" max="500" step="0.1">
+                  <small data-metric-source="heart_rate_variability">Manual or Apple Health</small>
+                </label>
+              </div>
+              <small class="objective-metrics-note">HRV is evaluated only against your own history after at least 10 prior observations.</small>
             </fieldset>
             <label>Comments (optional, 250 characters)
               <textarea name="comments" maxlength="250" rows="3" placeholder="Travel, illness, poor sleep, unusual soreness…"></textarea>
@@ -973,11 +999,16 @@
             <div><dt>Energy</dt><dd id="summary-energy">—</dd></div>
             <div><dt>Soreness</dt><dd id="summary-soreness">—</dd></div>
             <div><dt>Pain</dt><dd id="summary-pain">—</dd></div>
+            <div><dt>Weight</dt><dd id="summary-weight">—</dd></div>
+            <div><dt>Resting HR</dt><dd id="summary-rhr">—</dd></div>
+            <div><dt>HRV</dt><dd id="summary-hrv">—</dd></div>
             <div><dt>Confidence</dt><dd id="summary-confidence">—</dd></div>
           </dl>
+          <p id="summary-objective-sources" class="objective-source-summary">No optional biometrics recorded.</p>
           <dl class="comments-summary">
             <div><dt>Comments</dt><dd id="summary-comments">—</dd></div>
           </dl>
+          <button id="edit-roll-call" class="ghost" type="button">Update morning roll call</button>
         </section>
 
         <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training assignment</h2><p class="muted">Today’s executable prescription is shown above with evidence and completion controls.</p></article>

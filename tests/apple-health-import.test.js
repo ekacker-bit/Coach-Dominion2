@@ -6,6 +6,7 @@ const exportXml = `<?xml version="1.0" encoding="UTF-8"?>
   <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Apple Watch" unit="count" creationDate="2026-07-27 08:00:00 -0500" startDate="2026-07-27 07:00:00 -0500" endDate="2026-07-27 08:00:00 -0500" value="1250"/>
   <Record type="HKQuantityTypeIdentifierStepCount" sourceName="iPhone" unit="count" creationDate="2026-07-27 12:00:00 -0500" startDate="2026-07-27 08:00:00 -0500" endDate="2026-07-27 12:00:00 -0500" value="2750"/>
   <Record type="HKQuantityTypeIdentifierRestingHeartRate" sourceName="Apple Watch" unit="count/min" creationDate="2026-07-27 07:00:00 -0500" startDate="2026-07-27 07:00:00 -0500" endDate="2026-07-27 07:00:00 -0500" value="56"/>
+  <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" sourceName="Apple Watch" unit="ms" creationDate="2026-07-27 07:05:00 -0500" startDate="2026-07-27 07:05:00 -0500" endDate="2026-07-27 07:05:00 -0500" value="48.5"/>
   <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Smart Scale" unit="kg" creationDate="2026-07-27 06:00:00 -0500" startDate="2026-07-27 06:00:00 -0500" endDate="2026-07-27 06:00:00 -0500" value="82.5"/>
   <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" creationDate="2026-07-27 06:00:00 -0500" startDate="2026-07-26 22:00:00 -0500" endDate="2026-07-27 06:00:00 -0500" value="HKCategoryValueSleepAnalysisInBed"/>
   <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" creationDate="2026-07-27 06:00:00 -0500" startDate="2026-07-26 22:30:00 -0500" endDate="2026-07-27 05:30:00 -0500" value="HKCategoryValueSleepAnalysisAsleepCore"/>
@@ -19,9 +20,9 @@ const exportXml = `<?xml version="1.0" encoding="UTF-8"?>
     sourceSyncJobId: "job-1"
   });
   assert.equal(parsed.errors.length, 0);
-  assert.equal(parsed.supportedCount, 6);
+  assert.equal(parsed.supportedCount, 7);
   assert.equal(parsed.ignoredCount, 1);
-  assert.equal(parsed.records.length, 5);
+  assert.equal(parsed.records.length, 6);
   const steps = parsed.records.find((record) => record.dataType === "STEPS");
   assert.equal(steps.normalizedPayload.value, 4000);
   assert.equal(steps.rawPayload.contributing_records, 2);
@@ -31,6 +32,7 @@ const exportXml = `<?xml version="1.0" encoding="UTF-8"?>
   assert.equal(summary.length, 1);
   assert.equal(summary[0].steps, 4000);
   assert.equal(summary[0].restingHeartRate, 56);
+  assert.equal(summary[0].heartRateVariability, 48.5);
   assert.equal(summary[0].weight, 82.5);
   assert.equal(summary[0].weightUnit, "kg");
   assert.equal(summary[0].sleep, 7);

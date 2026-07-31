@@ -4730,6 +4730,7 @@ async function loadWeeklyOrchestrationState() {
   } catch (_) {
     weeklyOrchestrationStorageMode = "LOCAL";
   }
+  await refreshUnifiedWeekDraftForNutrition();
   renderWeeklyOrchestrator();
   renderTodayCommittedWeek();
 }
@@ -4744,6 +4745,29 @@ function unifiedWeekTargetStart() {
     : DominionWeeklyOrchestrator.weekStartIso(todayISODate());
 }
 
+function nutritionBaselineForUnifiedWeek(weekStart = unifiedWeekTargetStart()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined" || typeof activeNutritionBaseline !== "function") return null;
+  const planningDate = DominionWeeklyOrchestrator.planningDateForWeek(weekStart, todayISODate());
+  return activeNutritionBaseline(planningDate);
+}
+
+function nutritionBaselineReference(baseline = null) {
+  return baseline?.id || baseline?.approvedAt || null;
+}
+
+async function refreshUnifiedWeekDraftForNutrition() {
+  const existing = readUnifiedWeekDraft();
+  if (!existing || typeof DominionWeeklyOrchestrator === "undefined") return false;
+  const currentBaseline = nutritionBaselineForUnifiedWeek(existing.weekStart);
+  const currentId = nutritionBaselineReference(currentBaseline);
+  if ((existing.sourceRefs?.nutritionBaselineId || null) === currentId) return false;
+  const refreshed = buildUnifiedWeekDraft(existing.weekStart);
+  if (!refreshed) return false;
+  saveWeeklyOrchestrationLocal("DRAFT", "current", refreshed);
+  await persistWeeklyOrchestrationState("DRAFT", "current", refreshed);
+  return true;
+}
+
 function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
   if (typeof DominionWeeklyOrchestrator === "undefined") return null;
   return DominionWeeklyOrchestrator.buildUnifiedWeek({
@@ -4751,7 +4775,7 @@ function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
     strengthPlan: readApprovedStrengthPlan(),
     runningBlock: readApprovedRunningBlock(),
     corePlan: readApprovedCorePlan(),
-    nutritionBaseline: typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(weekStart) : null
+    nutritionBaseline: nutritionBaselineForUnifiedWeek(weekStart)
   }, {
     today: todayISODate(),
     weekStart,
@@ -4891,10 +4915,23 @@ function recruitContractFromForm() {
 }
 
 function recruitContractStateTone(status = "") {
-  if (["APPROVED", "READY_TO_STAGE"].includes(status)) return "green";
-  if (["READY_FOR_APPROVAL", "BASELINE_REQUIRED", "TARGETS_REQUIRED"].includes(status)) return "yellow";
+  if (["APPROVED", "READY_TO_STAGE", "PLAN_LINKED"].includes(status)) return "green";
+  if (["READY_FOR_APPROVAL", "BASELINE_REQUIRED", "TARGETS_REQUIRED", "SCHEDULED", "PLAN_REVIEW"].includes(status)) return "yellow";
   if (status === "REVIEW_REQUIRED") return "red";
   return "neutral";
+}
+
+function recruitContractNutritionConnection(contract = {}) {
+  if (typeof DominionRecruitContract === "undefined") return null;
+  const targetWeekStart = unifiedWeekTargetStart();
+  const planningDate = typeof DominionWeeklyOrchestrator !== "undefined"
+    ? DominionWeeklyOrchestrator.planningDateForWeek(targetWeekStart, todayISODate())
+    : todayISODate();
+  const history = readNutritionBaselineHistory().filter((item) => item?.status === "APPROVED");
+  const active = activeNutritionBaseline(planningDate);
+  const scheduled = history.filter((item) => item.effectiveDate > planningDate)
+    .sort((left, right) => left.effectiveDate.localeCompare(right.effectiveDate))[0] || null;
+  return DominionRecruitContract.resolveNutritionPlanReadiness(contract, active || scheduled, { date: planningDate, today: todayISODate() });
 }
 
 function renderRecruitContract() {
@@ -4931,16 +4968,21 @@ function renderRecruitContract() {
     <div class="recruit-contract-day-tags">${day.activities.length ? day.activities.map((item) => `<span>${escapeHtml(item)}</span>`).join("") : "<span>OFF</span>"}</div>
     <small>${day.isRecoveryDay ? "No assigned training." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
   </article>`).join("");
-  const modules = Object.entries(current.moduleReadiness || {}).map(([key, item]) => {
+  const nutritionConnection = recruitContractNutritionConnection(current);
+  const modules = Object.entries(current.moduleReadiness || {}).map(([key, originalItem]) => {
+    const item = key === "nutrition" && nutritionConnection ? nutritionConnection : originalItem;
     const labels = { strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition" };
     const inputs = current.planningInputs?.[key];
     const detail = key === "strength" && inputs ? `${inputs.daysPerWeek} days · ${inputs.sessionMinutes} min` :
       key === "running" && inputs ? `${inputs.runningDaysPerWeek} days · ${inputs.declaredWeeklyDistance || "—"} ${inputs.preferredUnit}` :
       key === "core" && inputs ? `${inputs.sessionsPerWeek} days · ${inputs.sessionMinutes} min` :
-      key === "nutrition" && inputs ? recruitContractNutritionLabel(inputs.commitment) : "Not included";
+      key === "nutrition" && inputs ? `${recruitContractNutritionLabel(inputs.commitment)}${nutritionConnection?.targetSummary ? ` · ${nutritionConnection.targetSummary}` : ""}` : "Not included";
+    const planAction = key === "nutrition"
+      ? `<button type="button" class="ghost recruit-contract-module-action" data-recruit-contract-action="nutrition-plan">${nutritionConnection?.baseline ? "Open nutrition plan" : "Set nutrition targets"}</button>`
+      : "";
     return `<article class="recruit-contract-module">
       <header><h4>${labels[key]}</h4><span class="state-pill ${recruitContractStateTone(item.status)}">${escapeHtml(item.status.replaceAll("_", " "))}</span></header>
-      <p>${escapeHtml(item.message)}</p><small>${escapeHtml(detail)}</small>
+      <p>${escapeHtml(item.message)}</p><small>${escapeHtml(detail)}</small>${planAction}
     </article>`;
   }).join("");
   const approval = current.status === "READY_FOR_APPROVAL"
@@ -5024,11 +5066,14 @@ async function stageRecruitContractPlans() {
   }
 
   const nutritionForm = document.getElementById("nutrition-baseline-form");
-  if (nutritionForm && inputs.nutrition) {
+  const linkedNutrition = nutritionBaselineForUnifiedWeek(unifiedWeekTargetStart());
+  if (linkedNutrition) {
+    staged.push("Nutrition plan linked");
+    protectedPlans.push("active Nutrition baseline");
+  } else if (nutritionForm && inputs.nutrition) {
     nutritionForm.elements.goal.value = inputs.nutrition.goal;
     nutritionForm.elements.effectiveDate.value = inputs.nutrition.effectiveDate;
     staged.push("Nutrition setup");
-    if (activeNutritionBaseline(todayISODate())) protectedPlans.push("active Nutrition baseline");
   }
 
   renderProgrammingReview();
@@ -8331,8 +8376,10 @@ async function approveNutritionBaselineDraft() {
     const baselineSynced = await persistNutritionState("BASELINE_HISTORY", "current", { items: history });
     await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: approved.goal });
     await clearNutritionStateType("ADAPTIVE_APPROVAL");
+    await refreshUnifiedWeekDraftForNutrition();
     renderNutritionCommand();
     renderDailyCoachingLoop();
+    renderRecruitContract();
     renderWeeklyOrchestrator();
     setText("nutrition-baseline-feedback", approved.effectiveDate <= todayISODate()
       ? `Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence.${baselineSynced ? " Saved to your account." : " Saved locally; account sync will retry next session."}`
@@ -9672,6 +9719,13 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-recruit-contract-action]");
     if (!button || typeof DominionRecruitContract === "undefined") return;
     const action = button.dataset.recruitContractAction;
+    if (action === "nutrition-plan") {
+      setNutritionActiveView("plan");
+      setActiveSection("nutrition");
+      window.history.replaceState(null, "", "#nutrition");
+      document.querySelector('[data-nutrition-view-panel="plan"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     if (action === "restore") {
       await clearRecruitContractState("DRAFT");
       renderRecruitContract();

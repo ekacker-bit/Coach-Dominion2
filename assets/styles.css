@@ -731,6 +731,7 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .recruit-contract-module header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .recruit-contract-module h4{margin:0}.recruit-contract-module p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
 .recruit-contract-module small{color:var(--dim);font-size:9px}
+.recruit-contract-module-action{justify-self:start;margin-top:2px;padding:7px 9px;font-size:9px}
 .recruit-contract-approval{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border:1px solid rgba(240,180,41,.34);border-radius:11px;background:rgba(240,180,41,.045)}
 .recruit-contract-approval h4{margin:4px 0}.recruit-contract-approval p{margin:0;color:var(--muted);font-size:11px}
 .recruit-contract-approval-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}

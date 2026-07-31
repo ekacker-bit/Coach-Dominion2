@@ -27,6 +27,13 @@
     return date.toISOString().slice(0, 10);
   }
 
+  function planningDateForWeek(value, todayValue = null) {
+    const weekStart = weekStartIso(value);
+    const weekEnd = addDays(weekStart, 6);
+    const today = dateIso(todayValue) || new Date().toISOString().slice(0, 10);
+    return today >= weekStart && today <= weekEnd ? today : weekStart;
+  }
+
   function stableSerialize(value) {
     if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
     if (value && typeof value === "object") {
@@ -377,6 +384,7 @@
     HARD_RUN_TYPES,
     addDays,
     weekStartIso,
+    planningDateForWeek,
     buildUnifiedWeek,
     approveWeek,
     weekState,

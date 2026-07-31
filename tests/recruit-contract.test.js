@@ -103,6 +103,48 @@ test("contract inputs map cleanly into every planning module", () => {
   assert.equal(inputs.nutrition.goal, "PERFORMANCE");
 });
 
+test("an approved nutrition baseline is linked into the contract", () => {
+  const draft = contract.buildRecruitContract(validInput(), options);
+  const readiness = contract.resolveNutritionPlanReadiness(draft, {
+    id: "nutrition-1",
+    status: "APPROVED",
+    goal: "MAINTAIN",
+    effectiveDate: "2026-08-03",
+    recoveryTargets: { calories: 2200, protein: 170, carbs: 230, fat: 70 }
+  }, { date: "2026-08-03" });
+  assert.equal(readiness.status, "PLAN_LINKED");
+  assert.equal(readiness.aligned, true);
+  assert.equal(readiness.targetSummary, "2200 kcal · 170g protein");
+});
+
+test("a future nutrition baseline is visible as scheduled", () => {
+  const draft = contract.buildRecruitContract(validInput(), options);
+  const readiness = contract.resolveNutritionPlanReadiness(draft, {
+    id: "nutrition-future",
+    status: "APPROVED",
+    goal: "MAINTAIN",
+    effectiveDate: "2026-08-10",
+    recoveryTargets: { calories: 2200, protein: 170 }
+  }, { date: "2026-08-03" });
+  assert.equal(readiness.status, "SCHEDULED");
+  assert.equal(readiness.scheduled, true);
+  assert.match(readiness.message, /2026-08-10/);
+});
+
+test("a linked nutrition goal mismatch is reviewable without hiding the plan", () => {
+  const draft = contract.buildRecruitContract(validInput({ primaryGoal: "LOSE_FAT" }), options);
+  const readiness = contract.resolveNutritionPlanReadiness(draft, {
+    id: "nutrition-maintain",
+    status: "APPROVED",
+    goal: "MAINTAIN",
+    effectiveDate: "2026-08-03",
+    recoveryTargets: { calories: 2200, protein: 170 }
+  }, { date: "2026-08-03" });
+  assert.equal(readiness.status, "PLAN_REVIEW");
+  assert.equal(readiness.baseline.id, "nutrition-maintain");
+  assert.match(readiness.message, /differs from the contract/i);
+});
+
 test("approval is explicit, revisioned, and preserves the prior contract identity", () => {
   const draft = contract.buildRecruitContract(validInput(), options);
   const first = contract.approveRecruitContract(draft, null, {

@@ -185,10 +185,24 @@
           </div>
         </form>
         <p id="recruit-contract-feedback" class="muted" aria-live="polite"></p>
-        <div id="recruit-contract-output" class="recruit-contract-output">
-          <div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>
-        </div>
-      </section>
+         <div id="recruit-contract-output" class="recruit-contract-output">
+           <div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>
+         </div>
+        <section class="weekly-orchestrator" aria-labelledby="weekly-orchestrator-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 018D // UNIFIED PLAN ORCHESTRATOR</div>
+              <h3 id="weekly-orchestrator-heading">Commit the complete week</h3>
+              <p class="muted">Review Strength, Running, Core, Nutrition, workload conflicts, and recovery before one deliberate approval.</p>
+            </div>
+            <span id="weekly-orchestrator-status" class="state-pill neutral">CONTRACT REQUIRED</span>
+          </div>
+          <div id="weekly-orchestrator-panel" aria-live="polite">
+            <div class="performance-empty">Approve the Recruit Contract to coordinate the operating week.</div>
+          </div>
+          <p id="weekly-orchestrator-feedback" class="muted" aria-live="polite"></p>
+        </section>
+       </section>
 
       <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
         <div class="section-heading">
@@ -378,14 +392,22 @@
       </section>
 
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
-        <header class="today-command-header">
+         <header class="today-command-header">
           <div>
             <div class="kicker">DAILY COMMAND</div>
             <h2 id="today-heading">Today</h2>
             <p>One decision, one plan, and only the exceptions that need your attention.</p>
           </div>
-          <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
-        </header>
+           <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
+         </header>
+
+        <section id="today-committed-week" class="card today-committed-week" aria-labelledby="today-committed-week-heading" hidden>
+          <div class="section-heading compact">
+            <div><div class="kicker">BUILD 018D // COMMITTED WEEK</div><h2 id="today-committed-week-heading">Today from the approved calendar</h2></div>
+            <span id="today-committed-week-state" class="state-pill neutral">NOT COMMITTED</span>
+          </div>
+          <div id="today-committed-week-panel"></div>
+        </section>
 
         <details class="data-truth-strip">
           <summary>
@@ -1211,7 +1233,8 @@
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>
-<script src="/assets/js/recruit-contract.js"></script>
-<script src="/assets/js/app.js"></script>
+ <script src="/assets/js/recruit-contract.js"></script>
+<script src="/assets/js/weekly-orchestrator.js"></script>
+ <script src="/assets/js/app.js"></script>
 </body>
 </html>

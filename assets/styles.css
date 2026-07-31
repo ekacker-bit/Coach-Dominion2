@@ -828,3 +828,120 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 @media(max-width:1050px){.weekly-orchestrator-week{grid-template-columns:repeat(4,minmax(0,1fr))}.weekly-orchestrator-module-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.weekly-orchestrator-week{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.weekly-orchestrator-day{flex:0 0 178px;scroll-snap-align:start}.weekly-orchestrator-controls{grid-template-columns:1fr 1fr}.weekly-orchestrator-actions{align-items:stretch;flex-direction:column}.weekly-orchestrator-actions>div{display:grid;grid-template-columns:1fr}.weekly-orchestrator-actions button{width:100%}.today-committed-assignments{grid-template-columns:1fr}.today-committed-week-meta{grid-template-columns:1fr 1fr}.today-committed-week-meta>div:first-child{grid-column:1/-1}}
 @media(max-width:520px){.weekly-orchestrator-module-grid,.weekly-orchestrator-summary,.weekly-orchestrator-controls{grid-template-columns:1fr 1fr}.weekly-orchestrator-active,.today-committed-week-empty{align-items:stretch;flex-direction:column}.today-committed-week-empty a{text-align:center}.weekly-orchestrator-summary strong{font-size:15px}}
+/* Build 018F: focused operating experience and progressive disclosure. */
+.recruit-contract-editor {
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(10, 14, 20, 0.62);
+  overflow: hidden;
+}
+
+.recruit-contract-editor > summary,
+.daily-sequence-detail > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.recruit-contract-editor > summary small,
+.daily-sequence-detail > summary small {
+  color: var(--muted);
+  font-weight: 700;
+  text-align: right;
+}
+
+.recruit-contract-editor[open] > summary,
+.daily-sequence-detail[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.recruit-contract-editor > .recruit-contract-form {
+  margin: 0;
+  padding: 16px;
+}
+
+.daily-sequence-detail {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 13, 18, 0.42);
+  overflow: hidden;
+}
+
+.daily-sequence-detail > .daily-execution-list {
+  margin: 0;
+  padding: 12px;
+}
+
+#today > .today-committed-week {
+  order: 1;
+}
+
+#today > .daily-execution-queue {
+  order: 2;
+}
+
+#today > .activation-guide {
+  order: 3;
+}
+
+#today > .today-coaching-reason {
+  order: 4;
+}
+
+#today > .data-truth-strip {
+  order: 5;
+}
+
+#today > .today-workout-detail {
+  order: 6;
+}
+
+#today > .today-core-detail {
+  order: 7;
+}
+
+#today > .today-brief-detail {
+  order: 8;
+}
+
+#today .daily-orders-panel > h3 {
+  margin: 5px 0 8px;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+#today .daily-orders-panel > p {
+  max-width: 720px;
+}
+
+.today-coaching-reason > .closed-loop-command {
+  margin: 0;
+  border: 0;
+}
+
+.activation-guide-list .activation-step {
+  border-color: rgba(56, 212, 141, 0.34);
+}
+
+@media (max-width: 720px) {
+  .recruit-contract-editor > summary,
+  .daily-sequence-detail > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recruit-contract-editor > summary small,
+  .daily-sequence-detail > summary small {
+    text-align: left;
+  }
+
+  .recruit-contract-editor > .recruit-contract-form {
+    padding: 12px;
+  }
+}

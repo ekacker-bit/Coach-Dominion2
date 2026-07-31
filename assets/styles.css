@@ -656,3 +656,38 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .strength-block-week>header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.strength-block-week>header span:first-child{display:block;color:var(--dim);font-size:8px;font-weight:900;letter-spacing:.1em}.strength-block-week>header strong{display:block;margin-top:3px}.strength-block-week p{margin:0;color:var(--muted);font-size:10px;line-height:1.4}.strength-block-week>div{display:flex;gap:5px;flex-wrap:wrap}.strength-block-week>div span{padding:4px 6px;border-radius:999px;background:rgba(255,255,255,.045);color:var(--muted);font-size:8px;font-weight:800}.strength-block-week>small{padding-top:7px;border-top:1px solid var(--line);color:var(--dim);font-size:8px;line-height:1.4}
 @media(max-width:900px){.strength-block-config{grid-template-columns:1fr 1fr}.strength-block-command>header,.strength-block-signal,.strength-block-now{align-items:flex-start;flex-direction:column}.strength-block-now>div:last-child{justify-content:flex-start}}
 @media(max-width:560px){.strength-block-config{grid-template-columns:1fr}.strength-block-timeline{grid-template-columns:1fr}.strength-block-command .performance-actions button{width:100%}}
+
+/* Build 018A: operational mobile shell and morning biometrics */
+[hidden]{display:none!important}
+.status-bar{grid-template-columns:repeat(7,minmax(0,1fr))}
+.connected-mobile-account-actions{display:none}
+.roll-call-subjective-grid{display:grid;grid-template-columns:1fr 1fr minmax(180px,.8fr);gap:12px;align-items:stretch}
+.roll-call-subjective-grid fieldset{min-height:100%}
+.objective-metrics-fieldset{display:grid;gap:12px;border-color:rgba(56,212,141,.34);background:rgba(56,212,141,.035)}
+.objective-metrics-fieldset>legend{color:var(--text);font-weight:900}
+.objective-metrics-fieldset>legend span{margin-left:6px;color:var(--green);font-size:9px;letter-spacing:.1em;text-transform:uppercase}
+.objective-metrics-fieldset>p{margin:0;color:var(--muted);font-size:12px}
+.objective-metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.objective-metrics-grid label{min-width:0}
+.objective-metrics-grid small,.objective-metrics-note,.objective-source-summary{color:var(--muted);font-size:10px}
+.objective-metrics-note{display:block;line-height:1.45}
+.objective-source-summary{margin:12px 0;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel3)}
+#edit-roll-call{margin-top:14px}
+@media(max-width:900px){
+  .roll-call-subjective-grid,.objective-metrics-grid{grid-template-columns:1fr}
+}
+@media(max-width:720px){
+  .war-room-shell{padding-top:12px}
+  .command-header{display:block;padding:4px 0 10px}
+  .command-header h1{margin:7px 0 4px;font-size:32px;line-height:.95}
+  .command-header #identity{max-width:100%;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+  .command-header .header-actions{display:none}
+  .status-bar{display:flex;gap:1px;overflow-x:auto;scrollbar-width:thin;scroll-snap-type:x proximity}
+  .status-bar div{flex:0 0 86px;padding:9px 10px;scroll-snap-align:start}
+  .status-bar span{font-size:9px}
+  .status-bar strong{font-size:15px}
+  .connected-mobile-account-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+  .connected-mobile-account-actions button{min-height:44px}
+  .roll-call-card{padding:16px}
+  .objective-metrics-fieldset{padding:11px}
+}

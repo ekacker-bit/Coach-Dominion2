@@ -191,6 +191,21 @@
          <div id="recruit-contract-output" class="recruit-contract-output">
            <div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>
          </div>
+        <section id="contract-activation" class="contract-activation" aria-labelledby="contract-activation-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 018G // CONTRACT ACTIVATION</div>
+              <h3 id="contract-activation-heading">Activate the commitment</h3>
+              <p class="muted">Link every approved plan to this Contract, then commit one coordinated week.</p>
+            </div>
+            <span id="contract-activation-status" class="state-pill neutral">CONTRACT REQUIRED</span>
+          </div>
+          <div class="contract-activation-progress" aria-hidden="true"><span id="contract-activation-progress"></span></div>
+          <div id="contract-activation-panel" aria-live="polite">
+            <div class="performance-empty">Approve the Recruit Contract to begin activation.</div>
+          </div>
+          <p id="contract-activation-feedback" class="muted" aria-live="polite"></p>
+        </section>
         <section class="weekly-orchestrator" aria-labelledby="weekly-orchestrator-heading">
           <div class="section-heading compact">
             <div>
@@ -1244,6 +1259,7 @@
 <script src="/assets/js/closed-loop.js"></script>
  <script src="/assets/js/recruit-contract.js"></script>
 <script src="/assets/js/weekly-orchestrator.js"></script>
+<script src="/assets/js/contract-activation.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

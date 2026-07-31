@@ -6441,7 +6441,7 @@ function buildCurrentDailyAssignment() {
     programming: buildCurrentProgrammingRecommendation() || {},
     fitbodSessions: api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : []
   });
-  return {
+  const adaptiveAssignment = {
     ...assignment,
     planId: prescription?.planId || null,
     sessionId: prescription?.sessionId || null,
@@ -6449,6 +6449,9 @@ function buildCurrentDailyAssignment() {
     block: prescription?.block || null,
     title: prescription?.sessionName ? `Today’s ${prescription.sessionName}` : assignment.title
   };
+  return typeof DominionAdaptiveCoaching === "undefined"
+    ? adaptiveAssignment
+    : DominionAdaptiveCoaching.adaptStrengthAssignment(adaptiveAssignment, readActiveAdaptiveDirective(), todayISODate());
 }
 
 function currentMobileNutrition(date = todayISODate()) {
@@ -6994,6 +6997,7 @@ function renderDailyCoachingLoop() {
     <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
   </article>`).join("");
   renderClosedLoopCoaching();
+  renderAdaptiveCoaching();
   renderMobileCommand();
   applyProductPolish();
 }
@@ -7072,7 +7076,9 @@ async function loadClosedLoopState() {
       ["DECISION", todayISODate()],
       ["REVIEW", todayISODate()],
       ["ADAPTATION", "current"],
-      ["HISTORY", "current"]
+      ["HISTORY", "current"],
+      ["ADAPTATION", "adaptive-current"],
+      ["HISTORY", "adaptive"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -7102,13 +7108,185 @@ function addClosedLoopDays(date, days = 1) {
   return value.toISOString().slice(0, 10);
 }
 
+function readAdaptiveCoachingState() {
+  return readClosedLoopState("ADAPTATION", "adaptive-current", null);
+}
+
+function readAdaptiveCoachingHistory() {
+  const history = readClosedLoopState("HISTORY", "adaptive", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function adaptiveEvidenceDate(item = {}) {
+  const value = item.date || item.performanceDate || item.performance_date || item.completedAt || item.completed_at || item.updatedAt || item.updated_at;
+  const text = String(value || "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+function adaptiveUniqueDates(items = [], cutoff = addClosedLoopDays(todayISODate(), -6)) {
+  return [...new Set((Array.isArray(items) ? items : [])
+    .map(adaptiveEvidenceDate)
+    .filter((date) => date && date >= cutoff && date <= todayISODate()))];
+}
+
+function buildAdaptiveCoachingEvidence(contract = {}) {
+  const cutoff = addClosedLoopDays(todayISODate(), -6);
+  const api = connectedApi();
+  const fitbodSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const strengthDates = adaptiveUniqueDates(fitbodSessions, cutoff);
+  const runningDates = adaptiveUniqueDates(performanceEntries.filter((entry) => entry.domain === "running"), cutoff);
+  const coreDates = adaptiveUniqueDates(readCoreHistory(), cutoff);
+  const nutritionDates = adaptiveUniqueDates(nutritionDays, cutoff);
+  const todayStrength = readDailyAssignmentExecution()?.state === "COMPLETE";
+  const todayRun = readRunningExecution()?.state === "COMPLETE";
+  const todayCore = readCurrentCoreExecution()?.state === "COMPLETE";
+  if (todayStrength && !strengthDates.includes(todayISODate())) strengthDates.push(todayISODate());
+  if (todayRun && !runningDates.includes(todayISODate())) runningDates.push(todayISODate());
+  if (todayCore && !coreDates.includes(todayISODate())) coreDates.push(todayISODate());
+  if (readManualNutrition(todayISODate()) && !nutritionDates.includes(todayISODate())) nutritionDates.push(todayISODate());
+  const nutritionCommitment = {
+    TRACK_DAILY: 7,
+    TRACK_5_DAYS: 5,
+    PROTEIN_FIRST: 5,
+    FOUNDATION_ONLY: 3
+  }[contract.nutritionCommitment] || 0;
+  return {
+    STRENGTH: {
+      planned: Number(contract.strengthDaysPerWeek || 0),
+      completed: strengthDates.length,
+      sourceCount: strengthDates.length
+    },
+    RUNNING: {
+      planned: Number(contract.runningDaysPerWeek || 0),
+      completed: runningDates.length,
+      sourceCount: runningDates.length
+    },
+    CORE: {
+      planned: Number(contract.coreDaysPerWeek || 0),
+      completed: coreDates.length,
+      sourceCount: coreDates.length
+    },
+    FUELING: {
+      planned: nutritionCommitment,
+      completed: nutritionDates.length,
+      sourceCount: nutritionDates.length
+    }
+  };
+}
+
+function adaptivePlanCoverage() {
+  return [
+    readApprovedStrengthPlan(),
+    readApprovedRunningPlan(),
+    readApprovedCorePlan(),
+    typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null
+  ].filter(Boolean).length;
+}
+
+function buildCurrentAdaptiveCoaching() {
+  if (typeof DominionAdaptiveCoaching === "undefined") return null;
+  const contract = readApprovedRecruitContract() || {};
+  const history = readinessHistory.map((item) => {
+    let state = "UNKNOWN";
+    try { state = evaluateOperationalReadiness(item).state; } catch (_) {}
+    return { ...item, state };
+  });
+  return DominionAdaptiveCoaching.buildProposal({
+    date: todayISODate(),
+    contractApproved: contract.status === "APPROVED",
+    contractId: contract.id || null,
+    contractRevision: contract.revision || null,
+    planCoverage: adaptivePlanCoverage(),
+    readinessHistory: history,
+    evidence: buildAdaptiveCoachingEvidence(contract),
+    priorProposal: readAdaptiveCoachingState(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function readActiveAdaptiveDirective(date = todayISODate()) {
+  if (typeof DominionAdaptiveCoaching === "undefined") return null;
+  return DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
+}
+
+async function saveAdaptiveCoachingRecord(record) {
+  if (!record?.id) return false;
+  const history = [
+    record,
+    ...readAdaptiveCoachingHistory().filter((item) => item.id !== record.id)
+  ].slice(0, 24);
+  saveClosedLoopLocal("ADAPTATION", "adaptive-current", record);
+  saveClosedLoopLocal("HISTORY", "adaptive", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "adaptive-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "adaptive", history);
+  return currentSaved && historySaved;
+}
+
+function adaptiveCoachingTone(status = "", code = "") {
+  if (status === "APPROVED" || status === "CURRENT") return "green";
+  if (code === "PROTECT" || code === "DELOAD") return "red";
+  if (status === "PROPOSED" || status === "MONITORING") return "yellow";
+  return "neutral";
+}
+
+function renderAdaptiveCoaching() {
+  const panel = document.getElementById("adaptive-coaching-panel");
+  const status = document.getElementById("adaptive-coaching-status");
+  if (!panel || !status || typeof DominionAdaptiveCoaching === "undefined") return;
+  const proposal = buildCurrentAdaptiveCoaching();
+  if (!proposal) {
+    panel.innerHTML = '<div class="performance-empty">Adaptive coaching is unavailable.</div>';
+    return;
+  }
+  status.textContent = proposal.status;
+  status.className = `state-pill ${adaptiveCoachingTone(proposal.status, proposal.code)}`;
+  const readiness = proposal.signals.readiness;
+  const evidence = proposal.signals.evidence;
+  const changeMarkup = (proposal.changes || []).map((change) => `
+    <article class="adaptive-domain ${escapeHtml(change.domain.toLowerCase())}">
+      <span>${escapeHtml(change.domain)}</span>
+      <strong>${escapeHtml(change.label)}</strong>
+      <p>${escapeHtml(change.detail)}</p>
+      ${change.requiresPlanApproval ? '<small>Plan approval required</small>' : '<small>Applies only after directive approval</small>'}
+    </article>`).join("");
+  let actions = '<button type="button" class="ghost" data-adaptive-action="refresh">Refresh signals</button>';
+  if (proposal.status === "PROPOSED") {
+    actions = `<button type="button" data-adaptive-action="approve">Approve for ${escapeHtml(proposal.effectiveDate)}</button>
+      <button type="button" class="ghost" data-adaptive-action="hold">Keep current plan</button>`;
+  } else if (proposal.status === "APPROVED") {
+    actions = `<button type="button" class="ghost" data-adaptive-action="hold">End directive</button>
+      <button type="button" class="ghost" data-adaptive-action="refresh">Refresh signals</button>`;
+  } else if (proposal.code === "SETUP_REQUIRED") {
+    actions = '<button type="button" data-adaptive-action="open-contract">Finish Contract setup</button>';
+  }
+  panel.innerHTML = `<div class="adaptive-coaching-shell ${escapeHtml(proposal.code.toLowerCase())}">
+    <article class="adaptive-primary">
+      <div><span class="kicker">ATLAS RECOMMENDS</span><h3>${escapeHtml(proposal.label)}</h3><p>${escapeHtml(proposal.reason)}</p></div>
+      <div class="adaptive-confidence"><strong>${escapeHtml(proposal.confidence)}</strong><span>signal confidence</span></div>
+    </article>
+    <div class="adaptive-signal-strip">
+      <div><span>Readiness</span><strong>${readiness.days} days</strong><small>${readiness.greenDays} green · ${readiness.redDays} red</small></div>
+      <div><span>Recovery</span><strong>${readiness.painDays ? `${readiness.painDays} pain flag${readiness.painDays === 1 ? "" : "s"}` : readiness.strainFlag ? "Strain flag" : "No red flag"}</strong><small>Energy ${readiness.averageEnergy ?? "—"} · Soreness ${readiness.averageSoreness ?? "—"}</small></div>
+      <div><span>Execution</span><strong>${evidence.adherencePercent === null ? "—" : `${evidence.adherencePercent}%`}</strong><small>${evidence.completed}/${evidence.planned} committed exposures</small></div>
+      <div><span>Plans linked</span><strong>${proposal.planCoverage}/4</strong><small>Contract revision ${proposal.contractRevision || "—"}</small></div>
+    </div>
+    ${changeMarkup ? `<div class="adaptive-domain-grid">${changeMarkup}</div>` : ""}
+    <aside class="adaptive-guardrail"><strong>No silent plan changes.</strong><span>Protection and deload reductions require this directive. Progressions still return to each module's plan approval workflow.</span></aside>
+    <div class="adaptive-actions">${actions}<small>Effective ${escapeHtml(proposal.effectiveDate)} · Review ${escapeHtml(proposal.reviewDate)} · ${readAdaptiveCoachingHistory().length} prior decision${readAdaptiveCoachingHistory().length === 1 ? "" : "s"}</small></div>
+  </div>`;
+}
+
 function currentRunningPrescription() {
   if (typeof DominionRunning === "undefined") return null;
   const plan = readApprovedRunningPlan();
-  return DominionRunning.buildDailyRunPrescription(plan || {}, {
+  const prescription = DominionRunning.buildDailyRunPrescription(plan || {}, {
     today: todayISODate(),
     readiness: dailyState || {}
   });
+  return typeof DominionAdaptiveCoaching === "undefined"
+    ? prescription
+    : DominionAdaptiveCoaching.adaptRunningPrescription(prescription, readActiveAdaptiveDirective(), todayISODate());
 }
 
 function buildCurrentClosedLoopInput() {
@@ -7118,9 +7296,11 @@ function buildCurrentClosedLoopInput() {
   const readiness = currentDailyState ? evaluateOperationalReadiness(currentDailyState) : evaluateReadiness(null);
   const readinessMission = readiness.state ? generateMission(readiness) : null;
   const painOverride = Boolean(currentDailyState?.pain) || readiness.state === "RED";
-  const decisionPosture = painOverride
+  const adaptiveDirective = readActiveAdaptiveDirective(date);
+  const adaptiveProtection = ["PROTECT", "DELOAD"].includes(adaptiveDirective?.code);
+  const decisionPosture = painOverride || adaptiveDirective?.code === "PROTECT"
     ? "PROTECT / RECOVER"
-    : readiness.state === "YELLOW"
+    : readiness.state === "YELLOW" || adaptiveProtection || adaptiveDirective?.code === "REBALANCE"
       ? "REDUCED EXECUTION"
       : readiness.state === "GREEN"
         ? "EXECUTE"
@@ -7157,9 +7337,11 @@ function buildCurrentClosedLoopInput() {
     || (corePlanned && coreEvidence.length > 0);
   const fuelingComplete = Boolean(fuelingPlanned && (nutritionDay || manualNutrition?.date === date));
   const currentAdaptation = readClosedLoopState("ADAPTATION", "current", null);
-  const priorAdaptation = currentAdaptation?.status === "APPROVED" && currentAdaptation.date < date
-    ? currentAdaptation
-    : null;
+  const priorAdaptation = adaptiveDirective || (
+    currentAdaptation?.status === "APPROVED" && currentAdaptation.date < date
+      ? currentAdaptation
+      : null
+  );
   return {
     date,
     readiness: {
@@ -7170,7 +7352,9 @@ function buildCurrentClosedLoopInput() {
     },
     prescription: {
       posture: decisionPosture,
-      mission: readinessMission?.detail || readiness.instruction || "Complete Roll Call to establish today's mission.",
+      mission: adaptiveDirective
+        ? `${adaptiveDirective.label}. ${adaptiveDirective.reason}`
+        : readinessMission?.detail || readiness.instruction || "Complete Roll Call to establish today's mission.",
       domains: {
         training: {
           planned: trainingPlanned,
@@ -7658,11 +7842,14 @@ function currentCorePrescription() {
       message: "The committed weekly calendar does not assign Core today. Preserve recovery."
     };
   }
-  return DominionCoreProgramming.buildDailyPrescription(
+  const prescription = DominionCoreProgramming.buildDailyPrescription(
     readApprovedCorePlan() || {},
     readCoreHistory(),
     { today: todayISODate(), readiness: coreReadinessState() }
   );
+  return typeof DominionAdaptiveCoaching === "undefined"
+    ? prescription
+    : DominionAdaptiveCoaching.adaptCorePrescription(prescription, readActiveAdaptiveDirective(), todayISODate());
 }
 
 function coreGoalLabel(goal = "") {
@@ -10187,6 +10374,7 @@ async function init() {
     renderActivationGuide();
     renderTodayStandardsDuty();
     renderRankSection();
+    renderAdaptiveCoaching();
     renderMobileCommand();
     resetPerformanceForm();
     setPerformanceActiveView("overview");
@@ -11356,6 +11544,46 @@ if (typeof document !== "undefined") {
       setText("closed-loop-feedback", last
         ? `${history.length} closed loop${history.length === 1 ? "" : "s"}. Latest: ${last.date} · ${last.adaptation?.label || "No adjustment"}.`
         : "No prior closed loops yet.");
+    }
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-adaptive-action]");
+    if (!button || typeof DominionAdaptiveCoaching === "undefined") return;
+    const action = button.dataset.adaptiveAction;
+    if (action === "refresh") {
+      renderAdaptiveCoaching();
+      setText("adaptive-coaching-feedback", "Signals refreshed from readiness, execution, and current plan coverage.");
+      return;
+    }
+    if (action === "open-contract") {
+      setActiveSection("contract");
+      window.history.replaceState(null, "", "#contract");
+      document.getElementById("recruit-contract-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const proposal = buildCurrentAdaptiveCoaching();
+    if (!proposal) return;
+    if (action === "approve") {
+      const approved = DominionAdaptiveCoaching.approveProposal(
+        proposal,
+        new Date().toISOString(),
+        proposal.effectiveDate
+      );
+      if (!approved) {
+        setText("adaptive-coaching-feedback", "This coaching state does not require approval.");
+        return;
+      }
+      const synced = await saveAdaptiveCoachingRecord(approved);
+      renderDailyCoachingLoop();
+      setText("adaptive-coaching-feedback", `Directive approved for ${approved.effectiveDate}${synced ? " and synced to your account" : " on this device"}. Existing plans remain unchanged; only the bounded approved execution rules can carry forward.`);
+      return;
+    }
+    if (action === "hold") {
+      const held = DominionAdaptiveCoaching.holdProposal(proposal, new Date().toISOString());
+      if (!held) return;
+      const synced = await saveAdaptiveCoachingRecord(held);
+      renderDailyCoachingLoop();
+      setText("adaptive-coaching-feedback", `Current plan retained${synced ? " and the decision was synced" : " on this device"}. Atlas will propose again when the evidence fingerprint changes.`);
     }
   });
   document.getElementById("daily-orders-panel")?.addEventListener("click", async (event) => {

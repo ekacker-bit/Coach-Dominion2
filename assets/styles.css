@@ -1530,3 +1530,251 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
     width: auto;
   }
 }
+
+/* Build 018I: evidence-led adaptive coaching. */
+#today > .adaptive-coaching {
+  order: 3;
+}
+
+.adaptive-coaching {
+  border-color: rgba(56, 212, 141, 0.32);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(56, 212, 141, 0.09), transparent 28%),
+    linear-gradient(145deg, rgba(10, 24, 21, 0.9), rgba(7, 12, 17, 0.96));
+}
+
+.adaptive-coaching-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.adaptive-primary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid rgba(56, 212, 141, 0.28);
+  border-radius: 12px;
+  background: rgba(4, 10, 13, 0.54);
+}
+
+.adaptive-primary h3 {
+  margin: 5px 0;
+  font-size: clamp(21px, 3vw, 30px);
+}
+
+.adaptive-primary p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.adaptive-confidence {
+  display: grid;
+  min-width: 112px;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.adaptive-confidence strong {
+  color: var(--green);
+  font-size: 18px;
+}
+
+.adaptive-confidence span {
+  color: var(--dim);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.adaptive-signal-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.adaptive-signal-strip > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(4, 9, 12, 0.45);
+}
+
+.adaptive-signal-strip span,
+.adaptive-domain > span {
+  color: var(--dim);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.adaptive-signal-strip strong {
+  font-size: 15px;
+}
+
+.adaptive-signal-strip small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.adaptive-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.adaptive-domain {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 132px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--green);
+  border-radius: 10px;
+  background: var(--panel3);
+}
+
+.adaptive-domain.running {
+  border-top-color: var(--yellow);
+}
+
+.adaptive-domain.core {
+  border-top-color: #7da4ff;
+}
+
+.adaptive-domain.fueling {
+  border-top-color: #ff996d;
+}
+
+.adaptive-domain.recovery {
+  border-top-color: #70d7c7;
+}
+
+.adaptive-domain strong {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.adaptive-domain p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.adaptive-domain small {
+  align-self: end;
+  color: var(--dim);
+  font-size: 8px;
+}
+
+.adaptive-guardrail {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--green);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(56, 212, 141, 0.055);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.adaptive-guardrail strong {
+  flex: 0 0 auto;
+  color: var(--text);
+}
+
+.adaptive-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.adaptive-actions small {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 9px;
+}
+
+.adaptive-coaching-shell.protect .adaptive-primary,
+.adaptive-coaching-shell.deload .adaptive-primary {
+  border-color: rgba(255, 88, 88, 0.42);
+}
+
+.adaptive-coaching-shell.protect .adaptive-confidence strong,
+.adaptive-coaching-shell.deload .adaptive-confidence strong {
+  color: #ff9b9b;
+}
+
+.adaptive-coaching-shell.progress .adaptive-primary {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+@media (max-width: 980px) {
+  .adaptive-domain-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .adaptive-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .adaptive-confidence {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    justify-content: start;
+    text-align: left;
+  }
+
+  .adaptive-signal-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .adaptive-domain-grid {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .adaptive-domain {
+    flex: 0 0 210px;
+    min-height: 126px;
+    scroll-snap-align: start;
+  }
+
+  .adaptive-guardrail {
+    display: grid;
+  }
+
+  .adaptive-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .adaptive-actions button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .adaptive-actions small {
+    margin-left: 0;
+    text-align: center;
+  }
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Coach Dominion</title>
+  <rect width="512" height="512" rx="112" fill="#07100d"/>
+  <path fill="#38d48d" d="M128 112h118c91 0 150 54 150 144s-59 144-150 144H128V112Zm112 224c52 0 82-29 82-80s-30-80-82-80h-38v160h38Z"/>
+  <path fill="#f0b429" d="M128 112h74v288h-74z" opacity=".96"/>
+</svg>

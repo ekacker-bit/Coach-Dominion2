@@ -3,7 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1713">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Dominion">
   <title>Coach Dominion — War Room</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/assets/icons/dominion-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -418,6 +425,70 @@
           </div>
            <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
          </header>
+
+        <section id="mobile-command" class="card mobile-command" aria-labelledby="mobile-command-heading">
+          <header class="mobile-command-heading">
+            <div>
+              <div class="kicker">BUILD 018H // MOBILE COMMAND</div>
+              <h2 id="mobile-command-heading">Command the day</h2>
+              <p>Roll Call, training, and fuel—built for one hand.</p>
+            </div>
+            <span id="mobile-sync-state" class="state-pill neutral">CHECKING</span>
+          </header>
+          <div class="mobile-command-progress" aria-hidden="true"><span id="mobile-command-progress"></span></div>
+          <article id="mobile-command-next" class="mobile-command-next" aria-live="polite">
+            <div class="performance-empty">Atlas is finding the next action.</div>
+          </article>
+          <div id="mobile-command-modules" class="mobile-command-modules" aria-label="Today’s training launches"></div>
+
+          <details id="mobile-roll-call-sheet" class="mobile-command-sheet">
+            <summary><span>Quick Roll Call</span><small id="mobile-roll-call-summary">About 20 seconds</small></summary>
+            <form id="mobile-roll-call-form" class="mobile-quick-form">
+              <label class="mobile-range-field" for="mobile-energy">
+                <span>Energy</span><output id="mobile-energy-value" for="mobile-energy">7</output>
+                <input id="mobile-energy" name="energy" type="range" min="1" max="10" step="1" value="7">
+                <small>1 drained · 10 fully charged</small>
+              </label>
+              <label class="mobile-range-field" for="mobile-soreness">
+                <span>Soreness</span><output id="mobile-soreness-value" for="mobile-soreness">3</output>
+                <input id="mobile-soreness" name="soreness" type="range" min="1" max="10" step="1" value="3">
+                <small>1 fresh · 10 severely sore</small>
+              </label>
+              <fieldset class="mobile-pain-choice">
+                <legend>Pain right now?</legend>
+                <label><input type="radio" name="pain" value="no" checked><span>No pain</span></label>
+                <label><input type="radio" name="pain" value="yes"><span>Yes—protect me</span></label>
+              </fieldset>
+              <details class="mobile-optional-fields">
+                <summary>Add morning metrics <small>Optional</small></summary>
+                <div>
+                  <label>Weight (lb)<input name="weight" inputmode="decimal" type="number" min="50" max="1000" step="0.1"></label>
+                  <label>Resting HR<input name="resting_heart_rate" inputmode="numeric" type="number" min="25" max="250" step="1"></label>
+                  <label>HRV (ms)<input name="heart_rate_variability" inputmode="decimal" type="number" min="1" max="500" step="0.1"></label>
+                  <label class="mobile-comments">Notes<input name="comments" maxlength="250" placeholder="Travel, poor sleep, unusual soreness…"></label>
+                </div>
+              </details>
+              <button type="submit">Save Roll Call</button>
+            </form>
+          </details>
+
+          <details id="mobile-nutrition-sheet" class="mobile-command-sheet">
+            <summary><span>Quick Fuel Log</span><small id="mobile-nutrition-summary">Today’s totals</small></summary>
+            <form id="mobile-nutrition-form" class="mobile-quick-form mobile-nutrition-form">
+              <label>Calories<input name="calories" inputmode="numeric" type="number" min="0" max="10000" step="1" placeholder="2200"></label>
+              <label>Protein (g)<input name="protein" inputmode="numeric" type="number" min="0" max="1500" step="1" placeholder="180"></label>
+              <label>Carbs (g)<input name="carbs" inputmode="numeric" type="number" min="0" max="1500" step="1" placeholder="240"></label>
+              <label>Fat (g)<input name="fat" inputmode="numeric" type="number" min="0" max="1500" step="1" placeholder="70"></label>
+              <button type="submit">Save Fuel Totals</button>
+            </form>
+          </details>
+
+          <aside id="mobile-install-card" class="mobile-install-card" hidden>
+            <div><strong>Put Dominion on your Home Screen</strong><p id="mobile-install-copy">Launch directly into Today without hunting for a browser tab.</p></div>
+            <button id="mobile-install" type="button" class="ghost">Install</button>
+          </aside>
+          <p id="mobile-command-feedback" class="muted" aria-live="polite"></p>
+        </section>
 
         <section id="today-committed-week" class="card today-committed-week" aria-labelledby="today-committed-week-heading" hidden>
           <div class="section-heading compact">
@@ -1226,12 +1297,12 @@
       </section>
     </div>
   </main>
-  <nav class="mobile-command-bar" aria-label="Mobile command bar">
-    <a href="#today" data-section="today">Today</a>
-    <a href="#performance" data-section="performance">Train</a>
-    <a href="#nutrition" data-section="nutrition">Fuel</a>
-    <a href="#contract" data-section="contract">Contract</a>
-    <a href="#inspection" data-section="inspection">Review</a>
+  <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
+    <a data-mobile-nav="today" href="#today">Today</a>
+    <a data-mobile-nav="roll-call" href="#today">Roll Call</a>
+    <a data-mobile-nav="train" href="#today">Train</a>
+    <a data-mobile-nav="fuel" href="#nutrition">Fuel</a>
+    <a data-mobile-nav="contract" href="#contract" data-section="contract">Contract</a>
   </nav>
 
 <script src="/assets/js/connected.js"></script>
@@ -1260,6 +1331,7 @@
  <script src="/assets/js/recruit-contract.js"></script>
 <script src="/assets/js/weekly-orchestrator.js"></script>
 <script src="/assets/js/contract-activation.js"></script>
+<script src="/assets/js/mobile-command.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

@@ -4949,6 +4949,124 @@ function renderStrengthWeekReview(activePlan) {
   </section>`;
 }
 
+function strengthRecordText(record = {}) {
+  if (!record) return "No verified best";
+  if (record.type === "LOAD") return `${record.value} ${escapeHtml(record.unit || "lb")} × ${record.reps}`;
+  return `${record.value} ${escapeHtml(record.unit || "reps")}`;
+}
+
+function currentStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
+  if (typeof DominionStrengthIntelligence === "undefined") return null;
+  return DominionStrengthIntelligence.buildStrengthIntelligence(readStrengthHistory(), activePlan || {}, {
+    today: todayISODate(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function renderStrengthIntelligenceBrief(activePlan) {
+  const intelligence = currentStrengthIntelligence(activePlan);
+  if (!intelligence) return "";
+  const tone = intelligence.posture?.tone || "neutral";
+  return `<article class="strength-intelligence-brief">
+    <div><span class="kicker">BUILD 017F // STRENGTH INTELLIGENCE</span><strong>${escapeHtml(intelligence.posture?.label || "Establish baselines")}</strong><p>${escapeHtml(intelligence.posture?.detail || "")}</p></div>
+    <div class="strength-intelligence-brief-metrics">
+      <span><b>${intelligence.summary.sessions || 0}</b> sessions</span>
+      <span><b>${intelligence.summary.workSets || 0}</b> work sets</span>
+      <span><b>${intelligence.summary.exercisesWithEvidence || 0}</b> exercise baselines</span>
+      <span class="state-pill ${escapeHtml(tone)}">${escapeHtml((intelligence.posture?.code || "BASELINE_REQUIRED").replaceAll("_", " "))}</span>
+    </div>
+    <button type="button" class="ghost" data-programming-action="view-intelligence">Open strength intelligence</button>
+  </article>`;
+}
+
+function renderStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
+  const panel = document.getElementById("strength-intelligence-panel");
+  if (!panel) return;
+  const intelligence = currentStrengthIntelligence(activePlan);
+  if (!intelligence) {
+    panel.innerHTML = `<div class="performance-empty">Strength intelligence engine unavailable.</div>`;
+    setText("strength-intelligence-status", "UNAVAILABLE");
+    return;
+  }
+  const posture = intelligence.posture || {};
+  const postureTone = posture.tone || "neutral";
+  const status = document.getElementById("strength-intelligence-status");
+  if (status) status.className = `state-pill ${postureTone}`;
+  setText("strength-intelligence-status", (posture.code || intelligence.status || "READY").replaceAll("_", " "));
+
+  const records = intelligence.verifiedRecords.slice(0, 6).map((item) => `<article class="strength-record-card">
+    <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)}</span></div>
+    <div><strong>${strengthRecordText(item.record)}</strong><span>${escapeHtml(item.record?.date || "Date unavailable")}</span></div>
+    ${item.record?.newRecord ? `<span class="state-pill green">NEW VERIFIED BEST</span>` : `<span class="state-pill neutral">VERIFIED BEST</span>`}
+  </article>`).join("");
+
+  const weeks = intelligence.weeks.slice(-6);
+  const maxVolume = Math.max(1, ...weeks.map((item) => Number(item.volume || 0)));
+  const workload = weeks.map((item) => {
+    const volumeLabel = item.mixedUnits
+      ? "Mixed units"
+      : item.volume === null
+        ? "No external load"
+        : `${item.volume.toLocaleString()} ${escapeHtml(item.unit || "load")}·reps`;
+    return `<article class="strength-workload-week">
+      <div><strong>${escapeHtml(item.weekStart)}</strong><span>${item.sessions} session${item.sessions === 1 ? "" : "s"} · ${item.workSets} sets${item.averageRpe === null ? "" : ` · RPE ${item.averageRpe}`}</span></div>
+      <div class="strength-workload-track" aria-label="${escapeHtml(volumeLabel)} of recorded set volume"><span style="width:${Math.max(3, Math.round(Number(item.volume || 0) / maxVolume * 100))}%"></span></div>
+      <strong>${volumeLabel}</strong>
+    </article>`;
+  }).join("");
+
+  const evidenceFirst = [
+    ...intelligence.trajectories.filter((item) => item.exposureCount > 0),
+    ...intelligence.trajectories.filter((item) => !item.exposureCount)
+  ].slice(0, 12);
+  const trajectories = evidenceFirst.map((item) => {
+    const latest = item.latest;
+    const latestText = !latest
+      ? "Awaiting first recorded work set"
+      : latest.topLoad > 0
+        ? `${latest.topLoad} ${escapeHtml(latest.unit)} × ${latest.topLoadReps} · ${latest.sets} set${latest.sets === 1 ? "" : "s"}`
+        : `${latest.repBest} ${escapeHtml(item.record?.unit || "reps")} · ${latest.sets} set${latest.sets === 1 ? "" : "s"}`;
+    return `<article class="strength-trajectory-row">
+      <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)} · ${item.exposureCount} exposure${item.exposureCount === 1 ? "" : "s"}</span></div>
+      <div><strong>${latestText}</strong><span>${latest?.averageRpe === null || latest?.averageRpe === undefined ? "RPE not available" : `Average RPE ${latest.averageRpe}`}</span></div>
+      <div><span class="state-pill ${escapeHtml(item.status?.tone || "neutral")}">${escapeHtml(item.status?.label || "Baseline needed")}</span><small>${escapeHtml(item.status?.detail || "")}</small></div>
+    </article>`;
+  }).join("");
+
+  const maxPatternSets = Math.max(1, ...intelligence.patterns.map((item) => Number(item.workSets || 0)));
+  const patterns = intelligence.patterns.map((item) => `<article class="strength-pattern-row">
+    <div><strong>${escapeHtml(item.label)}</strong><span>${item.exposures} exposure${item.exposures === 1 ? "" : "s"}</span></div>
+    <div class="strength-pattern-track"><span style="width:${Math.max(4, Math.round(Number(item.workSets || 0) / maxPatternSets * 100))}%"></span></div>
+    <strong>${item.workSets} sets</strong>
+  </article>`).join("");
+
+  panel.innerHTML = `<section class="strength-intelligence-command">
+    <div class="strength-intelligence-summary">
+      <div><span>Training sessions</span><strong>${intelligence.summary.sessions || 0}</strong><small>${intelligence.summary.attempts || 0} preserved attempt${intelligence.summary.attempts === 1 ? "" : "s"}</small></div>
+      <div><span>Recorded work sets</span><strong>${intelligence.summary.workSets || 0}</strong><small>Warm-ups excluded</small></div>
+      <div><span>Exercise baselines</span><strong>${intelligence.summary.exercisesWithEvidence || 0}</strong><small>Missing evidence stays neutral</small></div>
+      <div><span>New verified bests</span><strong>${intelligence.summary.newRecords || 0}</strong><small>No estimated maxes</small></div>
+    </div>
+    <article class="strength-intelligence-posture ${escapeHtml(postureTone)}">
+      <div><span class="kicker">ATLAS // STRENGTH POSTURE</span><h4>${escapeHtml(posture.label || "Establish baselines")}</h4><p>${escapeHtml(posture.detail || "")}</p></div>
+      <span class="state-pill ${escapeHtml(postureTone)}">${escapeHtml((posture.code || "BASELINE_REQUIRED").replaceAll("_", " "))}</span>
+    </article>
+    <div class="strength-intelligence-grid">
+      <section><header><div><span class="kicker">VERIFIED SET RECORDS</span><h4>Best recorded work</h4></div><small>Load and reps only · no max estimate</small></header>${records || `<div class="performance-empty">Complete recorded work sets to establish verified bests.</div>`}</section>
+      <section><header><div><span class="kicker">WEEKLY WORKLOAD</span><h4>Recorded training load</h4></div><small>Retries count once as sessions; every work set remains visible</small></header>${workload || `<div class="performance-empty">No weekly strength workload is recorded yet.</div>`}</section>
+    </div>
+    <details class="strength-intelligence-detail" open>
+      <summary>Exercise trajectories <span>${intelligence.trajectories.filter((item) => item.exposureCount > 0).length}/${intelligence.trajectories.length} exercises have evidence</span></summary>
+      <div class="strength-trajectory-list">${trajectories || `<div class="performance-empty">Approve a program to establish the exercise roster.</div>`}</div>
+    </details>
+    <details class="strength-intelligence-detail">
+      <summary>Movement-pattern balance <span>Recorded work sets from the last 28 days</span></summary>
+      <div class="strength-pattern-list">${patterns || `<div class="performance-empty">No recent movement-pattern evidence is available.</div>`}</div>
+    </details>
+    <ul class="strength-intelligence-safeguards">${intelligence.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+  </section>`;
+}
+
 function renderProgrammingReview() {
   const panel = document.getElementById("programming-review-panel");
   if (!panel) return;
@@ -5016,11 +5134,13 @@ function renderProgrammingReview() {
     </div>
     <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
     ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
+    ${renderStrengthIntelligenceBrief(activePlan)}
     ${renderStrengthSchedule(activePlan)}
     ${renderStrengthWeekReview(activePlan)}
     ${renderStrengthAdjustment(adjustment, activePlan)}
     ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
   </div>`;
+  renderStrengthIntelligence(activePlan);
 }
 
 function recoveryStorageKey() {
@@ -9117,6 +9237,16 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-programming-action]");
     if (!button) return;
     const action = button.dataset.programmingAction;
+    if (action === "view-intelligence") {
+      setPerformanceActiveView("progress");
+      renderStrengthIntelligence(readApprovedStrengthPlan());
+      const detail = document.getElementById("strength-intelligence-detail");
+      if (detail) {
+        detail.open = true;
+        detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
     if (button.dataset.programmingAction === "refresh") {
       const profile = strengthProfileFromForm();
       const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {

@@ -597,3 +597,49 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .strength-final-review textarea{width:100%;margin-top:6px;resize:vertical}
 @media(max-width:800px){.strength-player-metrics{grid-template-columns:1fr 1fr}.strength-set-entry,.strength-set-log li.strength-set-log-row{grid-template-columns:1fr 1fr}.strength-set-log-row>span,.strength-set-log-row button{grid-column:1/-1}.strength-exercise-decisions{grid-template-columns:1fr}}
 @media(max-width:520px){.strength-live-player>header{align-items:stretch;flex-direction:column}.strength-player-metrics,.strength-set-entry,.strength-set-log li.strength-set-log-row{grid-template-columns:1fr}}
+
+/* Build 017F: Longitudinal strength intelligence */
+.strength-intelligence-heading{margin:16px 16px 0}
+.strength-intelligence-panel{margin:16px}
+.strength-intelligence-command{display:grid;gap:14px}
+.strength-intelligence-brief{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:15px;border:1px solid rgba(56,212,141,.34);border-radius:12px;background:linear-gradient(145deg,rgba(15,29,28,.76),rgba(7,12,18,.94))}
+.strength-intelligence-brief>div:first-child strong{display:block;margin-top:5px;font-size:20px}
+.strength-intelligence-brief p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.strength-intelligence-brief-metrics{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.strength-intelligence-brief-metrics>span:not(.state-pill){padding:7px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:10px;font-weight:800}
+.strength-intelligence-brief-metrics b{color:var(--text)}
+.strength-intelligence-brief>button{grid-column:2;min-height:42px}
+.strength-intelligence-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.strength-intelligence-summary>div{display:grid;gap:3px;padding:13px;border:1px solid var(--line);border-radius:10px;background:var(--panel3)}
+.strength-intelligence-summary span{color:var(--dim);font-size:9px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.strength-intelligence-summary strong{font-size:23px}
+.strength-intelligence-summary small{color:var(--muted);font-size:10px}
+.strength-intelligence-posture{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:15px;border:1px solid var(--line);border-left:4px solid var(--dim);border-radius:11px;background:rgba(5,10,14,.55)}
+.strength-intelligence-posture.green{border-left-color:var(--green)}.strength-intelligence-posture.yellow{border-left-color:var(--yellow)}.strength-intelligence-posture.red{border-left-color:var(--red)}
+.strength-intelligence-posture h4{margin:4px 0;font-size:20px}.strength-intelligence-posture p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.strength-intelligence-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.strength-intelligence-grid>section{display:grid;align-content:start;gap:8px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:11px;background:rgba(5,9,13,.5)}
+.strength-intelligence-grid>section>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.strength-intelligence-grid h4{margin:4px 0 0}.strength-intelligence-grid>section>header small{max-width:210px;color:var(--muted);font-size:9px;text-align:right}
+.strength-record-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--panel3)}
+.strength-record-card>div strong,.strength-record-card>div span{display:block}.strength-record-card>div span{margin-top:2px;color:var(--muted);font-size:10px}.strength-record-card>div:nth-child(2){text-align:right}
+.strength-workload-week{display:grid;grid-template-columns:minmax(110px,.8fr) minmax(100px,1.2fr) auto;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)}
+.strength-workload-week:last-child{border-bottom:0}.strength-workload-week>div:first-child strong,.strength-workload-week>div:first-child span{display:block}.strength-workload-week>div:first-child span{margin-top:2px;color:var(--muted);font-size:9px}.strength-workload-week>strong{font-size:11px;text-align:right}
+.strength-workload-track,.strength-pattern-track{height:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.08)}
+.strength-workload-track span,.strength-pattern-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--yellow),var(--green))}
+.strength-intelligence-detail{border:1px solid var(--line);border-radius:11px;background:rgba(5,9,13,.44);overflow:hidden}
+.strength-intelligence-detail>summary{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:13px 14px;cursor:pointer;font-weight:900}
+.strength-intelligence-detail>summary span{color:var(--muted);font-size:10px;font-weight:700}
+.strength-intelligence-detail[open]>summary{border-bottom:1px solid var(--line)}
+.strength-trajectory-list,.strength-pattern-list{display:grid;padding:7px 13px}
+.strength-trajectory-row{display:grid;grid-template-columns:minmax(130px,.8fr) minmax(160px,1fr) minmax(180px,1.2fr);align-items:center;gap:13px;padding:11px 0;border-bottom:1px solid var(--line)}
+.strength-trajectory-row:last-child,.strength-pattern-row:last-child{border-bottom:0}
+.strength-trajectory-row>div strong,.strength-trajectory-row>div span,.strength-trajectory-row>div small{display:block}
+.strength-trajectory-row>div>span:not(.state-pill),.strength-trajectory-row small{margin-top:3px;color:var(--muted);font-size:9px}.strength-trajectory-row small{line-height:1.4}
+.strength-pattern-row{display:grid;grid-template-columns:minmax(130px,.8fr) minmax(120px,1.4fr) auto;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid var(--line)}
+.strength-pattern-row>div:first-child strong,.strength-pattern-row>div:first-child span{display:block}.strength-pattern-row>div:first-child span{margin-top:2px;color:var(--muted);font-size:9px}.strength-pattern-row>strong{font-size:11px}
+.strength-intelligence-safeguards{display:flex;gap:7px;flex-wrap:wrap;margin:0;padding:0;list-style:none}
+.strength-intelligence-safeguards li{padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:9px}
+@media(max-width:980px){.strength-intelligence-grid{grid-template-columns:1fr}.strength-intelligence-summary{grid-template-columns:1fr 1fr}.strength-intelligence-brief{grid-template-columns:1fr}.strength-intelligence-brief>button{grid-column:auto}.strength-intelligence-brief-metrics{justify-content:flex-start}}
+@media(max-width:700px){.strength-intelligence-heading,.strength-intelligence-panel{margin-left:12px;margin-right:12px}.strength-intelligence-summary{grid-template-columns:1fr 1fr}.strength-intelligence-posture,.strength-intelligence-grid>section>header,.strength-intelligence-detail>summary{align-items:flex-start;flex-direction:column}.strength-intelligence-grid>section>header small{text-align:left}.strength-record-card,.strength-workload-week,.strength-trajectory-row,.strength-pattern-row{grid-template-columns:1fr}.strength-record-card>div:nth-child(2),.strength-workload-week>strong{text-align:left}.strength-intelligence-brief>button{width:100%}}
+@media(max-width:460px){.strength-intelligence-summary{grid-template-columns:1fr}}

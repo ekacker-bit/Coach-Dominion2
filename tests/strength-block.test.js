@@ -191,6 +191,8 @@ test("017G is integrated into the product, persistence contract, and full test s
   assert.match(app, /DominionStrengthBlock/);
   assert.match(app, /BUILD 017G/);
   assert.match(app, /"BLOCK"/);
+  assert.match(app, /stateType === "BLOCK"/);
+  assert.match(app, /`block-\$\{stateKey\}`/);
   assert.match(css, /Build 017G/);
   assert.match(migration, /'BLOCK'/);
   assert.match(pkg.scripts.test, /strength-block\.test\.js/);

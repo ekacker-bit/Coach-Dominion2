@@ -62,15 +62,17 @@
       <section id="contract" class="card recruit-contract scroll-anchor" aria-labelledby="recruit-contract-heading" data-section="contract">
         <div class="section-heading">
           <div>
-            <div class="kicker">BUILD 018E // RECRUIT CONTRACT · LIVE PLAN LINKS</div>
-            <h2 id="recruit-contract-heading">Define the commitment</h2>
-            <p class="muted">Set one outcome and the weekly capacity you will actually protect. Coach Dominion will coordinate the planning inputs.</p>
+            <div class="kicker">BUILD 018F // FOCUSED OPERATING EXPERIENCE</div>
+            <h2 id="recruit-contract-heading">Set the plan</h2>
+            <p class="muted">One goal. Real weekly capacity. One coordinated plan.</p>
           </div>
           <div class="recruit-contract-status-stack">
             <span id="recruit-contract-status" class="state-pill neutral">NOT SET</span>
             <small id="recruit-contract-storage">LOCAL READY</small>
           </div>
         </div>
+        <details id="recruit-contract-editor" class="recruit-contract-editor" open>
+          <summary><span>Contract inputs</span><small id="recruit-contract-editor-summary">Set goal, capacity, and constraints</small></summary>
         <form id="recruit-contract-form" class="recruit-contract-form">
           <fieldset class="recruit-contract-outcome">
             <legend>Outcome</legend>
@@ -184,6 +186,7 @@
             <button type="button" class="ghost" data-recruit-contract-action="restore">Restore approved</button>
           </div>
         </form>
+        </details>
         <p id="recruit-contract-feedback" class="muted" aria-live="polite"></p>
          <div id="recruit-contract-output" class="recruit-contract-output">
            <div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>
@@ -394,16 +397,16 @@
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
          <header class="today-command-header">
           <div>
-            <div class="kicker">DAILY COMMAND</div>
+            <div class="kicker">BUILD 018F // FOCUS MODE</div>
             <h2 id="today-heading">Today</h2>
-            <p>One decision, one plan, and only the exceptions that need your attention.</p>
+            <p>Do the next action. Open details only when you need them.</p>
           </div>
            <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
          </header>
 
         <section id="today-committed-week" class="card today-committed-week" aria-labelledby="today-committed-week-heading" hidden>
           <div class="section-heading compact">
-            <div><div class="kicker">BUILD 018D // COMMITTED WEEK</div><h2 id="today-committed-week-heading">Today from the approved calendar</h2></div>
+            <div><div class="kicker">APPROVED WEEK</div><h2 id="today-committed-week-heading">Today&apos;s committed plan</h2></div>
             <span id="today-committed-week-state" class="state-pill neutral">NOT COMMITTED</span>
           </div>
           <div id="today-committed-week-panel"></div>
@@ -418,25 +421,28 @@
           <p class="data-truth-note">“Historical” means the source exists but does not contain a record dated today. It is not treated as missing or noncompliant.</p>
         </details>
 
+        <details id="closed-loop-detail" class="today-supporting-detail today-coaching-reason">
+          <summary><span>Why this action</span><small id="closed-loop-summary">Readiness, evidence, and safeguards</small></summary>
         <section id="closed-loop-command" class="card closed-loop-command" aria-labelledby="closed-loop-heading">
           <div class="section-heading compact">
             <div>
-              <div class="kicker">BUILD 014A // CLOSED-LOOP COACHING</div>
-              <h2 id="closed-loop-heading">Coaching Loop</h2>
-              <p class="muted">Observe, decide, authorize, execute, verify, and adapt from one auditable coaching decision.</p>
+              <div class="kicker">COACHING LOGIC</div>
+              <h2 id="closed-loop-heading">Why Atlas chose this</h2>
+              <p class="muted">Readiness, evidence, and the guardrails behind today&apos;s action.</p>
             </div>
             <span id="closed-loop-status" class="state-pill neutral">OBSERVING</span>
           </div>
           <div id="closed-loop-panel" aria-live="polite"><div class="performance-empty">Atlas is assembling the current coaching loop.</div></div>
           <p id="closed-loop-feedback" class="muted" aria-live="polite"></p>
         </section>
+        </details>
 
         <section id="activation-guide" class="card activation-guide" aria-labelledby="activation-guide-heading">
           <div class="section-heading compact">
             <div>
-              <div class="kicker">GET OPERATIONAL</div>
-              <h2 id="activation-guide-heading">Activation path</h2>
-              <p class="muted">Complete each milestone once. Finished steps stay out of your way.</p>
+              <div class="kicker">SETUP</div>
+              <h2 id="activation-guide-heading">Finish setup</h2>
+              <p class="muted">Only the next incomplete milestone is shown.</p>
             </div>
             <span id="activation-guide-state" class="state-pill neutral">CHECKING</span>
           </div>
@@ -461,9 +467,9 @@
       <section class="card daily-coaching-loop daily-execution-queue" aria-labelledby="daily-orders-heading">
         <div class="section-heading compact">
           <div>
-            <div class="kicker">DAILY EXECUTION</div>
-            <h2 id="daily-orders-heading">Your execution queue</h2>
-            <p class="muted">One ordered plan. Complete the current action and Coach Dominion advances the queue.</p>
+            <div class="kicker">BUILD 018F // NEXT ACTION</div>
+            <h2 id="daily-orders-heading">Do this next</h2>
+            <p class="muted">One action at a time.</p>
           </div>
           <span id="daily-orders-state" class="state-pill neutral">LOADING</span>
         </div>
@@ -471,7 +477,10 @@
         <article id="daily-orders-panel" class="daily-orders-panel" aria-live="polite">
           <div class="performance-empty">Atlas is assembling today’s operating picture.</div>
         </article>
-        <div id="daily-loop-phases" class="daily-execution-list" aria-label="Today’s ordered execution steps"></div>
+        <details class="daily-sequence-detail">
+          <summary><span>Full day sequence</span><small id="daily-sequence-summary">Checking progress</small></summary>
+          <div id="daily-loop-phases" class="daily-execution-list" aria-label="Today’s ordered execution steps"></div>
+        </details>
         <p id="daily-orders-feedback" class="muted"></p>
       </section>
 

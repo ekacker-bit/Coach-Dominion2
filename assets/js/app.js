@@ -4938,11 +4938,23 @@ function renderRecruitContract() {
   const output = document.getElementById("recruit-contract-output");
   const status = document.getElementById("recruit-contract-status");
   const storage = document.getElementById("recruit-contract-storage");
+  const editor = document.getElementById("recruit-contract-editor");
+  const editorSummary = document.getElementById("recruit-contract-editor-summary");
   if (!output || !status || typeof DominionRecruitContract === "undefined") return;
   const draft = readRecruitContractDraft();
   const approved = readApprovedRecruitContract();
   const current = draft || approved;
+  if (editorSummary) {
+    editorSummary.textContent = current
+      ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.sessionMinutes} min`
+      : "Set goal, capacity, and constraints";
+  }
+  if (editor && !editor.dataset.focusInitialized) {
+    editor.open = !approved || Boolean(draft);
+    editor.dataset.focusInitialized = "true";
+  }
   if (!current) {
+    if (editor) editor.open = true;
     const defaults = DominionRecruitContract.defaultContract({ today: todayISODate() });
     hydrateRecruitContractForm(defaults);
     status.textContent = "NOT SET";
@@ -6047,8 +6059,8 @@ function renderActivationGuide() {
   badge.textContent = `${guide.completed}/${guide.total} COMPLETE`;
   badge.className = `state-pill ${guide.completed ? "yellow" : "neutral"}`;
   progress.style.width = `${guide.percent}%`;
-  list.innerHTML = guide.steps.filter((step) => !step.complete).map((step, index) => `<article class="activation-step">
-    <span class="activation-step-number">${guide.completed + index + 1}</span>
+  list.innerHTML = guide.steps.filter((step) => !step.complete).slice(0, 1).map((step) => `<article class="activation-step">
+    <span class="activation-step-number">${guide.completed + 1}</span>
     <div><h3>${escapeHtml(step.label)}</h3><p>${escapeHtml(step.detail)}</p></div>
     <a href="#${escapeHtml(step.section)}" data-section="${escapeHtml(step.section)}">${escapeHtml(step.action)}</a>
   </article>`).join("");
@@ -6466,6 +6478,9 @@ function renderDailyCoachingLoop() {
   const progress = document.getElementById("daily-queue-progress");
   if (progress) progress.style.width = `${queue.percent}%`;
   const current = queue.current;
+  setText("daily-sequence-summary", queue.complete
+    ? "All steps complete"
+    : `${queue.completed}/${queue.total} complete · Next: ${current?.label || "Review today"}`);
   panel.innerHTML = queue.complete
     ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Today’s execution is complete</h3><p>Readiness, plan, training, fueling, recovery, and the Dominion Record are all current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
     : `<div class="kicker">CURRENT ACTION</div>
@@ -6809,6 +6824,7 @@ function renderClosedLoopCoaching() {
   const state = buildCurrentClosedLoopState();
   const panel = document.getElementById("closed-loop-panel");
   const trainingPanel = document.getElementById("training-closed-loop-panel");
+  setText("closed-loop-summary", state ? `${state.state} · ${state.current?.label || "Current decision"}` : "Readiness, evidence, and safeguards");
   if (panel) panel.innerHTML = renderClosedLoopMarkup(state);
   if (trainingPanel) trainingPanel.innerHTML = renderClosedLoopMarkup(state, { compact: true });
   const status = document.getElementById("closed-loop-status");
@@ -9728,6 +9744,8 @@ if (typeof document !== "undefined") {
     }
     if (action === "restore") {
       await clearRecruitContractState("DRAFT");
+      const editor = document.getElementById("recruit-contract-editor");
+      if (editor) editor.open = !readApprovedRecruitContract();
       renderRecruitContract();
       setText("recruit-contract-feedback", readApprovedRecruitContract()
         ? "Approved contract restored. No module plan changed."
@@ -9748,6 +9766,8 @@ if (typeof document !== "undefined") {
         const synced = await persistRecruitContractState("APPROVED", approved);
         await persistRecruitContractState("HISTORY", history);
         await clearRecruitContractState("DRAFT");
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = false;
         renderRecruitContract();
         renderActivationGuide();
         renderTodayStandardsDuty();
@@ -9762,6 +9782,8 @@ if (typeof document !== "undefined") {
       return;
     }
     if (action === "edit") {
+      const editor = document.getElementById("recruit-contract-editor");
+      if (editor) editor.open = true;
       document.querySelector('#recruit-contract-form [name="target"]')?.focus({ preventScroll: true });
       document.getElementById("recruit-contract-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
       setText("recruit-contract-feedback", "Edit the commitment, then choose Review contract. The approved revision stays active until a replacement is approved.");

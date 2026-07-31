@@ -41,6 +41,7 @@ let mfpNutritionFeedSecret = null;
 let mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: false };
 let nutritionBaselineDraft = null;
 let nutritionActiveView = "today";
+let recruitContractStorageMode = "LOCAL";
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -251,9 +252,10 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
+const SECTION_ORDER = ["today", "contract", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
 const SECTION_LABELS = {
   today: "Today",
+  contract: "Contract",
   nutrition: "Nutrition",
   record: "Record",
   inspection: "Inspection",
@@ -272,6 +274,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
   if (normalized === "performance" || normalized === "performance-log" || normalized === "train") return "performance";
+  if (normalized === "contract" || normalized === "recruit-contract" || normalized === "commitment") return "contract";
   if (normalized === "nutrition" || normalized === "fuel") return "nutrition";
   if (normalized === "connected" || normalized === "integrations" || normalized === "more" || normalized === "settings") return "connected";
   if (normalized === "review") return "inspection";
@@ -4529,6 +4532,277 @@ function renderAtlasPerformanceReviewSection() {
   container.innerHTML = `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>ATLAS // PERFORMANCE REVIEW</strong><p>${review.status}</p></div><span class="state-pill neutral">${review.limitedEvidence ? "LIMITED EVIDENCE" : "READY"}</span></div><div class="performance-entry-meta"><span>${review.newRecords}</span><span>${review.milestones}</span></div></article>`;
 }
 
+function recruitContractStorageKey(stateType = "APPROVED") {
+  return `coach-dominion:recruit-contract:${session?.user?.id || "local"}:${String(stateType).toLowerCase()}`;
+}
+
+function readRecruitContractState(stateType = "APPROVED", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(recruitContractStorageKey(stateType));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveRecruitContractLocal(stateType, payload) {
+  window.localStorage.setItem(recruitContractStorageKey(stateType), JSON.stringify(payload));
+  return payload;
+}
+
+function readRecruitContractDraft() {
+  return readRecruitContractState("DRAFT", null);
+}
+
+function readApprovedRecruitContract() {
+  const contract = readRecruitContractState("APPROVED", null);
+  return contract?.status === "APPROVED" ? contract : null;
+}
+
+function readRecruitContractHistory() {
+  const history = readRecruitContractState("HISTORY", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function persistRecruitContractState(stateType, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("recruit_contract_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: "current",
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    recruitContractStorageMode = "REMOTE";
+    return true;
+  } catch (_) {
+    recruitContractStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function clearRecruitContractState(stateType = "DRAFT") {
+  window.localStorage.removeItem(recruitContractStorageKey(stateType));
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("recruit_contract_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType)
+      .eq("state_key", "current");
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadRecruitContractState() {
+  if (!session?.user?.id || typeof DominionRecruitContract === "undefined") return;
+  const stateTypes = ["DRAFT", "APPROVED", "HISTORY"];
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("recruit_contract_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    stateTypes.forEach((stateType) => {
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
+      if (row) saveRecruitContractLocal(stateType, row.payload);
+    });
+    recruitContractStorageMode = "REMOTE";
+    for (const stateType of stateTypes) {
+      const local = readRecruitContractState(stateType, stateType === "HISTORY" ? [] : null);
+      const exists = rows.some((item) => item.state_type === stateType && item.state_key === "current");
+      if (!exists && local && (stateType !== "HISTORY" || local.length)) {
+        await persistRecruitContractState(stateType, local);
+      }
+    }
+  } catch (_) {
+    recruitContractStorageMode = "LOCAL";
+  }
+  renderRecruitContract();
+}
+
+function recruitContractGoalLabel(value = "") {
+  return {
+    BALANCED_FITNESS: "Balanced fitness",
+    BUILD_STRENGTH: "Build strength",
+    RUN_FASTER: "Run faster",
+    BUILD_ENDURANCE: "Build endurance",
+    LOSE_FAT: "Lose fat"
+  }[value] || String(value || "").replaceAll("_", " ");
+}
+
+function recruitContractNutritionLabel(value = "") {
+  return {
+    TRACK_DAILY: "Track daily",
+    TRACK_5_DAYS: "Track 5 days/week",
+    PROTEIN_FIRST: "Protein first",
+    FOUNDATION_ONLY: "Foundation habits"
+  }[value] || String(value || "").replaceAll("_", " ");
+}
+
+function hydrateRecruitContractForm(value = {}) {
+  const form = document.getElementById("recruit-contract-form");
+  if (!form || typeof DominionRecruitContract === "undefined") return;
+  const contract = DominionRecruitContract.normalizeContractDraft(value, { today: todayISODate() });
+  Object.entries(contract).forEach(([name, fieldValue]) => {
+    const field = form.elements.namedItem(name);
+    if (!field) return;
+    field.value = fieldValue ?? "";
+  });
+  const runningFields = form.querySelector("[data-recruit-running-fields]");
+  if (runningFields) runningFields.hidden = contract.runningDaysPerWeek === 0;
+}
+
+function recruitContractFromForm() {
+  const form = document.getElementById("recruit-contract-form");
+  if (!form || typeof DominionRecruitContract === "undefined") return null;
+  return DominionRecruitContract.buildRecruitContract(Object.fromEntries(new FormData(form).entries()), {
+    today: todayISODate(),
+    createdAt: new Date().toISOString()
+  });
+}
+
+function recruitContractStateTone(status = "") {
+  if (["APPROVED", "READY_TO_STAGE"].includes(status)) return "green";
+  if (["READY_FOR_APPROVAL", "BASELINE_REQUIRED", "TARGETS_REQUIRED"].includes(status)) return "yellow";
+  if (status === "REVIEW_REQUIRED") return "red";
+  return "neutral";
+}
+
+function renderRecruitContract() {
+  const output = document.getElementById("recruit-contract-output");
+  const status = document.getElementById("recruit-contract-status");
+  const storage = document.getElementById("recruit-contract-storage");
+  if (!output || !status || typeof DominionRecruitContract === "undefined") return;
+  const draft = readRecruitContractDraft();
+  const approved = readApprovedRecruitContract();
+  const current = draft || approved;
+  if (!current) {
+    const defaults = DominionRecruitContract.defaultContract({ today: todayISODate() });
+    hydrateRecruitContractForm(defaults);
+    status.textContent = "NOT SET";
+    status.className = "state-pill neutral";
+    if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL READY";
+    output.innerHTML = `<div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>`;
+    return;
+  }
+  hydrateRecruitContractForm(current);
+  status.textContent = current.status.replaceAll("_", " ");
+  status.className = `state-pill ${recruitContractStateTone(current.status)}`;
+  if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL FALLBACK";
+  const targetDate = current.targetDate ? ` by ${current.targetDate}` : "";
+  const alerts = current.errors?.length
+    ? `<ul class="recruit-contract-alerts errors">${current.errors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : current.warnings?.length
+      ? `<ul class="recruit-contract-alerts">${current.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+      : "";
+  const schedule = (current.schedule || []).map((day) => `<article class="recruit-contract-day ${day.isRecoveryDay ? "recovery" : ""}">
+    <header><strong>${escapeHtml(day.weekday)}</strong><span>${escapeHtml(day.date.slice(5))}</span></header>
+    <strong>${day.isRecoveryDay ? "Recovery" : day.load === "STACKED" ? "Combined day" : "Training"}</strong>
+    <div class="recruit-contract-day-tags">${day.activities.length ? day.activities.map((item) => `<span>${escapeHtml(item)}</span>`).join("") : "<span>OFF</span>"}</div>
+    <small>${day.isRecoveryDay ? "No assigned training." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
+  </article>`).join("");
+  const modules = Object.entries(current.moduleReadiness || {}).map(([key, item]) => {
+    const labels = { strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition" };
+    const inputs = current.planningInputs?.[key];
+    const detail = key === "strength" && inputs ? `${inputs.daysPerWeek} days · ${inputs.sessionMinutes} min` :
+      key === "running" && inputs ? `${inputs.runningDaysPerWeek} days · ${inputs.declaredWeeklyDistance || "—"} ${inputs.preferredUnit}` :
+      key === "core" && inputs ? `${inputs.sessionsPerWeek} days · ${inputs.sessionMinutes} min` :
+      key === "nutrition" && inputs ? recruitContractNutritionLabel(inputs.commitment) : "Not included";
+    return `<article class="recruit-contract-module">
+      <header><h4>${labels[key]}</h4><span class="state-pill ${recruitContractStateTone(item.status)}">${escapeHtml(item.status.replaceAll("_", " "))}</span></header>
+      <p>${escapeHtml(item.message)}</p><small>${escapeHtml(detail)}</small>
+    </article>`;
+  }).join("");
+  const approval = current.status === "READY_FOR_APPROVAL"
+    ? `<div class="recruit-contract-approval"><div><span class="kicker">READY FOR APPROVAL</span><h4>Lock this commitment</h4><p>Approval saves the contract. No active module plan changes yet.</p></div><div class="recruit-contract-approval-actions"><button type="button" data-recruit-contract-action="approve">Approve contract</button></div></div>`
+    : current.status === "APPROVED"
+      ? `<div class="recruit-contract-approval"><div><span class="kicker">APPROVED · REVISION ${current.revision}</span><h4>Stage coordinated plan inputs</h4><p>Create reviewable module drafts. Existing approved plans stay active.</p></div><div class="recruit-contract-approval-actions"><button type="button" data-recruit-contract-action="stage">Stage module drafts</button><button type="button" class="ghost" data-recruit-contract-action="edit">Edit commitment</button></div></div>`
+      : "";
+  output.innerHTML = `
+    <article class="recruit-contract-brief">
+      <div><span class="kicker">${current.status === "APPROVED" ? `CONTRACT ${current.revision}` : "CONTRACT PREVIEW"}</span><h3>${escapeHtml(current.target)}</h3><p>${escapeHtml(recruitContractGoalLabel(current.primaryGoal))}${escapeHtml(targetDate)}. ${current.trainingDaysPerWeek} training days and ${7 - current.trainingDaysPerWeek} recovery day${7 - current.trainingDaysPerWeek === 1 ? "" : "s"}.</p></div>
+      <div class="recruit-contract-brief-meta"><div><span>Strength</span><strong>${current.strengthDaysPerWeek}/wk</strong></div><div><span>Running</span><strong>${current.runningDaysPerWeek}/wk</strong></div><div><span>Core</span><strong>${current.coreDaysPerWeek}/wk</strong></div><div><span>Session</span><strong>${current.sessionMinutes} min</strong></div></div>
+    </article>
+    ${alerts}
+    <div class="recruit-contract-week" aria-label="Coordinated weekly commitment">${schedule}</div>
+    <div class="recruit-contract-modules">${modules}</div>
+    ${approval}`;
+}
+
+async function stageRecruitContractPlans() {
+  const contract = readApprovedRecruitContract();
+  if (!contract || typeof DominionRecruitContract === "undefined") return;
+  const inputs = contract.planningInputs || DominionRecruitContract.contractPlanningInputs(contract, { today: todayISODate() });
+  const staged = [];
+  const protectedPlans = [];
+  const now = new Date().toISOString();
+
+  if (inputs.strength && typeof DominionStrengthTraining !== "undefined") {
+    const profile = DominionStrengthTraining.normalizeProfile(inputs.strength);
+    const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, { startDate: todayISODate(), generatedAt: now });
+    saveStrengthStateLocal("PROFILE", "current", profile);
+    saveStrengthStateLocal("DRAFT", "current", { ...draft, recruitContractId: contract.id, recruitContractRevision: contract.revision });
+    await persistStrengthTrainingState("PROFILE", "current", profile);
+    await persistStrengthTrainingState("DRAFT", "current", readStrengthDraft());
+    staged.push("Strength");
+    if (readApprovedStrengthPlan()) protectedPlans.push("active Strength plan");
+  }
+
+  if (inputs.core && typeof DominionCoreProgramming !== "undefined") {
+    const profile = DominionCoreProgramming.normalizeProfile({ ...inputs.core, updatedAt: now });
+    const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now });
+    saveCoreProgramLocal("PROFILE", "current", profile);
+    saveCoreProgramLocal("DRAFT", "current", { ...draft, recruitContractId: contract.id, recruitContractRevision: contract.revision });
+    await persistCoreProgramState("PROFILE", "current", profile);
+    await persistCoreProgramState("DRAFT", "current", readCoreDraftPlan());
+    staged.push("Core");
+    if (readApprovedCorePlan()) protectedPlans.push("active Core plan");
+  }
+
+  if (inputs.running && typeof DominionRunning !== "undefined") {
+    const activeRunningPlan = readApprovedRunningPlan();
+    const currentWeek = DominionRunning.weekStartIso(todayISODate());
+    if (activeRunningPlan?.weekStart === currentWeek) {
+      protectedPlans.push("current Running week");
+    } else {
+      const profile = {
+        ...DominionRunning.normalizeProfile({ ...inputs.running, approvedAt: now, updatedAt: now }),
+        recruitContractId: contract.id,
+        recruitContractRevision: contract.revision
+      };
+      window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(profile));
+      await persistRunningState("PROFILE", "current", profile);
+      staged.push("Running");
+    }
+  }
+
+  const nutritionForm = document.getElementById("nutrition-baseline-form");
+  if (nutritionForm && inputs.nutrition) {
+    nutritionForm.elements.goal.value = inputs.nutrition.goal;
+    nutritionForm.elements.effectiveDate.value = inputs.nutrition.effectiveDate;
+    staged.push("Nutrition setup");
+    if (activeNutritionBaseline(todayISODate())) protectedPlans.push("active Nutrition baseline");
+  }
+
+  renderProgrammingReview();
+  renderCoreProgramming();
+  renderRunningCommand();
+  renderNutritionBaseline();
+  const protectedText = protectedPlans.length ? ` Protected: ${protectedPlans.join(", ")}.` : "";
+  setText("recruit-contract-feedback", `${staged.length ? `${staged.join(", ")} staged for review.` : "No new drafts staged."}${protectedText} Nothing was activated automatically.`);
+}
+
 function strengthStateStorageKey(stateType, stateKey = "current") {
   return `coach-dominion:strength-training:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
 }
@@ -5451,12 +5725,13 @@ function renderDataTruth() {
   </article>`).join("");
 }
 
-function buildActivationGuide({ date, dailyState: state, hasFuelingBaseline = false, importedRecords = [], compliance = null, inspections = [], currentInspection = null } = {}) {
+function buildActivationGuide({ date, dailyState: state, hasRecruitContract = null, hasFuelingBaseline = false, importedRecords = [], compliance = null, inspections = [], currentInspection = null } = {}) {
   const targetDate = date || todayISODate();
   const hasUserImport = importedRecords.some((record) => !record.isDemo && !["REJECTED", "DUPLICATE"].includes(record.importStatus));
   const hasFinalizedInspection = Boolean(currentInspection?.finalizedAt) || inspections.some((inspection) => inspection?.finalizedAt);
   const steps = [
     { id: "roll-call", label: "Complete today’s Roll Call", detail: "Establish current readiness and safety constraints.", section: "today", action: "Complete Roll Call", complete: state?.date === targetDate },
+    ...(typeof hasRecruitContract === "boolean" ? [{ id: "contract", label: "Approve your Recruit Contract", detail: "Define the goal and weekly capacity that coordinate every plan.", section: "contract", action: "Set commitment", complete: hasRecruitContract }] : []),
     { id: "fueling", label: "Approve a fueling baseline", detail: "Unlock daily calorie, protein, and meal guidance.", section: "nutrition", action: "Set fueling targets", complete: hasFuelingBaseline },
     { id: "connections", label: "Import your first real data source", detail: "Add a Fitbod, MyFitnessPal, or Apple Health file.", section: "connected", action: "Import evidence", complete: hasUserImport },
     { id: "record", label: "Save today’s Dominion Record", detail: "Create the execution evidence used by weekly review.", section: "record", action: "Open Dominion Record", complete: compliance?.compliance_date === targetDate },
@@ -5475,6 +5750,7 @@ function renderActivationGuide() {
   const guide = buildActivationGuide({
     date: todayISODate(),
     dailyState,
+    hasRecruitContract: Boolean(readApprovedRecruitContract()),
     hasFuelingBaseline: Boolean(typeof activeNutritionBaseline === "function" && activeNutritionBaseline(todayISODate())),
     importedRecords: connectedImportedRecords,
     compliance: dailyCompliance,
@@ -5614,6 +5890,7 @@ function renderTodayStandardsDuty() {
   const nutritionBaseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
   const assignment = buildCurrentDailyAssignment();
   if (!dailyState) setupItems.push({ title: "Complete Morning Roll Call", detail: "Readiness and today’s coaching decision need current energy, soreness, and pain evidence.", section: "today", action: "Complete roll call" });
+  if (!readApprovedRecruitContract()) setupItems.push({ title: "Approve your Recruit Contract", detail: "Set one goal and a sustainable weekly commitment before coordinating module plans.", section: "contract", action: "Set commitment" });
   if (!nutritionBaseline) setupItems.push({ title: "Approve your fueling baseline", detail: "Daily calorie, protein, and meal guidance remains unavailable until targets are approved.", section: "nutrition", action: "Set nutrition targets" });
   if (assignment?.fitbod?.state === "AWAITING EVIDENCE") setupItems.push({ title: "Training evidence is not current", detail: "No Fitbod evidence is available for today. You can still execute the prescribed workout or refresh the import.", section: "connected", action: "Review imports" });
   const attentionCount = actionable.length + setupItems.length;
@@ -8952,6 +9229,7 @@ async function init() {
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
+    await loadRecruitContractState();
     await loadNutritionState();
     await loadRunningState();
     await loadCoreProgramState();
@@ -8959,6 +9237,9 @@ async function init() {
     await loadPerformanceEntries();
     await loadStrengthTrainingState();
     await loadConnectedDominion();
+    renderRecruitContract();
+    renderActivationGuide();
+    renderTodayStandardsDuty();
     renderRankSection();
     resetPerformanceForm();
     setPerformanceActiveView("overview");
@@ -8972,6 +9253,66 @@ async function init() {
 if (typeof document !== "undefined") {
   applyProductPolish();
   initializeComplianceForm();
+  document.getElementById("recruit-contract-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const draft = recruitContractFromForm();
+    if (!draft) return;
+    saveRecruitContractLocal("DRAFT", draft);
+    const synced = await persistRecruitContractState("DRAFT", draft);
+    renderRecruitContract();
+    setText("recruit-contract-feedback", draft.status === "READY_FOR_APPROVAL"
+      ? `Contract ready for approval.${synced ? " Draft saved to your account." : " Draft saved on this device."}`
+      : "Review the flagged commitment before approval.");
+  });
+  document.querySelector('#recruit-contract-form [name="runningDaysPerWeek"]')?.addEventListener("change", (event) => {
+    const runningFields = document.querySelector("[data-recruit-running-fields]");
+    if (runningFields) runningFields.hidden = Number(event.currentTarget.value) === 0;
+  });
+  document.getElementById("contract")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-recruit-contract-action]");
+    if (!button || typeof DominionRecruitContract === "undefined") return;
+    const action = button.dataset.recruitContractAction;
+    if (action === "restore") {
+      await clearRecruitContractState("DRAFT");
+      renderRecruitContract();
+      setText("recruit-contract-feedback", readApprovedRecruitContract()
+        ? "Approved contract restored. No module plan changed."
+        : "Draft cleared. No approved contract exists yet.");
+      return;
+    }
+    if (action === "approve") {
+      try {
+        const draft = readRecruitContractDraft();
+        const previous = readApprovedRecruitContract();
+        const approved = DominionRecruitContract.approveRecruitContract(draft || {}, previous, {
+          today: todayISODate(),
+          approvedAt: new Date().toISOString()
+        });
+        const history = [approved, ...readRecruitContractHistory().filter((item) => item.id !== approved.id)].slice(0, 24);
+        saveRecruitContractLocal("APPROVED", approved);
+        saveRecruitContractLocal("HISTORY", history);
+        const synced = await persistRecruitContractState("APPROVED", approved);
+        await persistRecruitContractState("HISTORY", history);
+        await clearRecruitContractState("DRAFT");
+        renderRecruitContract();
+        renderActivationGuide();
+        renderTodayStandardsDuty();
+        setText("recruit-contract-feedback", `Recruit Contract revision ${approved.revision} approved${synced ? " and saved to your account" : " on this device"}. Active module plans remain unchanged.`);
+      } catch (error) {
+        setText("recruit-contract-feedback", error?.message || "The Recruit Contract could not be approved.");
+      }
+      return;
+    }
+    if (action === "stage") {
+      await stageRecruitContractPlans();
+      return;
+    }
+    if (action === "edit") {
+      document.querySelector('#recruit-contract-form [name="target"]')?.focus({ preventScroll: true });
+      document.getElementById("recruit-contract-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setText("recruit-contract-feedback", "Edit the commitment, then choose Review contract. The approved revision stays active until a replacement is approved.");
+    }
+  });
   document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
   document.getElementById("compliance-form").addEventListener("submit", saveDailyCompliance);
   document.getElementById("compliance-form").addEventListener("input", () => {

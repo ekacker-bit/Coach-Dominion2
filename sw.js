@@ -1,0 +1,82 @@
+const CACHE_NAME = "coach-dominion-018h-v1";
+const APP_SHELL = [
+  "/",
+  "/app",
+  "/app.html",
+  "/manifest.webmanifest",
+  "/assets/styles.css",
+  "/assets/icons/dominion-mark.svg",
+  "/assets/js/connected.js",
+  "/assets/js/nutrition-feed.js",
+  "/assets/js/programming.js",
+  "/assets/js/strength-training.js",
+  "/assets/js/strength-schedule.js",
+  "/assets/js/strength-week-review.js",
+  "/assets/js/strength-intelligence.js",
+  "/assets/js/strength-block.js",
+  "/assets/js/recovery.js",
+  "/assets/js/daily-coaching.js",
+  "/assets/js/daily-assignment.js",
+  "/assets/js/readiness-baselines.js",
+  "/assets/js/weekly-plan.js",
+  "/assets/js/nutrition-command.js",
+  "/assets/js/adaptive-fueling.js",
+  "/assets/js/nutrition-intelligence.js",
+  "/assets/js/nutrition-baseline.js",
+  "/assets/js/nutrition-review.js",
+  "/assets/js/meal-coaching.js",
+  "/assets/js/today-nutrition.js",
+  "/assets/js/running-command.js",
+  "/assets/js/core-programming.js",
+  "/assets/js/closed-loop.js",
+  "/assets/js/recruit-contract.js",
+  "/assets/js/weekly-orchestrator.js",
+  "/assets/js/contract-activation.js",
+  "/assets/js/app.js",
+  "/assets/js/mobile-command.js"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("coach-dominion-") && key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(async () => (await caches.match(request)) || (await caches.match("/app.html")))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const refreshed = fetch(request)
+        .then((response) => {
+          if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+          return response;
+        })
+        .catch(() => cached);
+      return cached || refreshed;
+    })
+  );
+});

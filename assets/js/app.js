@@ -4755,22 +4755,34 @@ function nutritionBaselineReference(baseline = null) {
   return baseline?.id || baseline?.approvedAt || null;
 }
 
-async function refreshUnifiedWeekDraftForNutrition() {
+function unifiedWeekSourceSignature(week = null) {
+  if (!week) return "";
+  return JSON.stringify({
+    contractId: week.contractId || null,
+    contractRevision: Number(week.contractRevision || 0),
+    sourceRefs: week.sourceRefs || {},
+    blocking: (week.conflicts || []).filter((item) => item.severity === "BLOCKING").map((item) => item.code).sort()
+  });
+}
+
+async function refreshUnifiedWeekDraftForPlans() {
   const existing = readUnifiedWeekDraft();
   if (!existing || typeof DominionWeeklyOrchestrator === "undefined") return false;
-  const currentBaseline = nutritionBaselineForUnifiedWeek(existing.weekStart);
-  const currentId = nutritionBaselineReference(currentBaseline);
-  if ((existing.sourceRefs?.nutritionBaselineId || null) === currentId) return false;
   const refreshed = buildUnifiedWeekDraft(existing.weekStart);
   if (!refreshed) return false;
+  if (unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
   saveWeeklyOrchestrationLocal("DRAFT", "current", refreshed);
   await persistWeeklyOrchestrationState("DRAFT", "current", refreshed);
   return true;
 }
 
+async function refreshUnifiedWeekDraftForNutrition() {
+  return refreshUnifiedWeekDraftForPlans();
+}
+
 function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
   if (typeof DominionWeeklyOrchestrator === "undefined") return null;
-  return DominionWeeklyOrchestrator.buildUnifiedWeek({
+  const draft = DominionWeeklyOrchestrator.buildUnifiedWeek({
     contract: readApprovedRecruitContract(),
     strengthPlan: readApprovedStrengthPlan(),
     runningBlock: readApprovedRunningBlock(),
@@ -4781,6 +4793,77 @@ function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
     weekStart,
     generatedAt: new Date().toISOString()
   });
+  return applyContractActivationGuards(draft, weekStart);
+}
+
+function applyContractActivationGuards(draft = null, weekStart = unifiedWeekTargetStart()) {
+  if (!draft || typeof DominionContractActivation === "undefined") return draft;
+  const state = DominionContractActivation.buildActivation(contractActivationInputs(weekStart, {
+    weekDraft: null,
+    committedWeeks: [],
+    currentWeek: null
+  }));
+  const pending = (state.modules || []).filter((item) => item.included && !item.complete);
+  if (!pending.length) return draft;
+  const activationConflicts = pending.map((item) => ({
+    code: `${item.id.toUpperCase()}_CONTRACT_LINK_REQUIRED`,
+    severity: "BLOCKING",
+    module: item.id.toUpperCase(),
+    date: null,
+    detail: `${item.label} must be approved against Recruit Contract ${readApprovedRecruitContract()?.revision || "current"} before this week can be committed.`
+  }));
+  const conflicts = [...(draft.conflicts || []).filter((item) => !String(item.code || "").endsWith("_CONTRACT_LINK_REQUIRED")), ...activationConflicts];
+  return {
+    ...draft,
+    conflicts,
+    blockingConflictCount: conflicts.filter((item) => item.severity === "BLOCKING").length,
+    advisoryCount: conflicts.filter((item) => item.severity === "ADVISORY").length,
+    approvalBlocked: true,
+    message: "Link every required plan to the current Recruit Contract before committing this week."
+  };
+}
+
+async function saveUnifiedWeekDraftForActivation(weekStart = unifiedWeekTargetStart()) {
+  const draft = buildUnifiedWeekDraft(weekStart);
+  if (!draft) return null;
+  saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
+  await persistWeeklyOrchestrationState("DRAFT", "current", draft);
+  renderWeeklyOrchestrator();
+  renderContractActivation();
+  return draft;
+}
+
+async function commitUnifiedWeekDraft() {
+  const draft = readUnifiedWeekDraft();
+  if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const activation = typeof DominionContractActivation === "undefined"
+    ? null
+    : DominionContractActivation.buildActivation(contractActivationInputs(draft.weekStart));
+  if (activation && activation.next.action !== "COMMIT_WEEK") {
+    throw new Error("Finish the Contract activation steps before committing this week.");
+  }
+  const history = readUnifiedWeekHistory();
+  const previous = history.find((item) => item.status !== "REPLACED" && item.weekStart === draft.weekStart) || null;
+  const approved = DominionWeeklyOrchestrator.approveWeek(draft, previous, { approvedAt: new Date().toISOString() });
+  const nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(history, approved);
+  saveWeeklyOrchestrationLocal("HISTORY", "current", nextHistory);
+  saveWeeklyOrchestrationLocal("WEEK", approved.weekStart, approved);
+  const strengthSchedule = DominionWeeklyOrchestrator.strengthScheduleFromWeek(approved);
+  saveStrengthStateLocal("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
+  const synced = await persistWeeklyOrchestrationState("WEEK", approved.weekStart, approved);
+  await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory);
+  await persistStrengthTrainingState("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
+  await clearWeeklyOrchestrationDraft();
+  renderWeeklyOrchestrator();
+  renderContractActivation();
+  renderTodayCommittedWeek();
+  renderTodayCommandSurface();
+  renderDailyAssignment();
+  renderCoreProgramming();
+  const message = `Week ${approved.weekStart} committed as revision ${approved.revision}${synced ? " and saved to your account" : " on this device"}. Today will activate it on schedule.`;
+  setText("weekly-orchestrator-feedback", message);
+  setText("contract-activation-feedback", message);
+  return approved;
 }
 
 function weeklyOrchestrationTone(state = "") {
@@ -4921,17 +5004,102 @@ function recruitContractStateTone(status = "") {
   return "neutral";
 }
 
-function recruitContractNutritionConnection(contract = {}) {
+function recruitContractNutritionConnection(contract = {}, weekStart = unifiedWeekTargetStart()) {
   if (typeof DominionRecruitContract === "undefined") return null;
-  const targetWeekStart = unifiedWeekTargetStart();
   const planningDate = typeof DominionWeeklyOrchestrator !== "undefined"
-    ? DominionWeeklyOrchestrator.planningDateForWeek(targetWeekStart, todayISODate())
+    ? DominionWeeklyOrchestrator.planningDateForWeek(weekStart, todayISODate())
     : todayISODate();
   const history = readNutritionBaselineHistory().filter((item) => item?.status === "APPROVED");
   const active = activeNutritionBaseline(planningDate);
   const scheduled = history.filter((item) => item.effectiveDate > planningDate)
     .sort((left, right) => left.effectiveDate.localeCompare(right.effectiveDate))[0] || null;
   return DominionRecruitContract.resolveNutritionPlanReadiness(contract, active || scheduled, { date: planningDate, today: todayISODate() });
+}
+
+function contractActivationInputs(weekStart = unifiedWeekTargetStart(), overrides = {}) {
+  const contract = readApprovedRecruitContract();
+  const baseline = nutritionBaselineForUnifiedWeek(weekStart);
+  const base = {
+    contract,
+    strengthPlan: readApprovedStrengthPlan(),
+    strengthDraft: readStrengthDraft(),
+    runningPlan: readApprovedRunningBlock(),
+    runningDraft: readRunningBlockDraft(),
+    corePlan: readApprovedCorePlan(),
+    coreDraft: readCoreDraftPlan(),
+    nutritionBaseline: baseline,
+    nutritionConnection: contract ? recruitContractNutritionConnection(contract, weekStart) : null,
+    weekDraft: readUnifiedWeekDraft(),
+    committedWeeks: readUnifiedWeekHistory(),
+    currentWeek: readCommittedUnifiedWeek(todayISODate())
+  };
+  return { ...base, ...overrides };
+}
+
+function contractActivationTone(status = "") {
+  if (["ACTIVE", "LINKED", "SCHEDULED"].includes(status)) return "green";
+  if (["READY_TO_BUILD", "WEEK_READY", "DRAFT_READY", "ACTION_REQUIRED"].includes(status)) return "yellow";
+  if (["PLAN_REQUIRED", "UPDATE_REQUIRED"].includes(status)) return "red";
+  return "neutral";
+}
+
+function renderContractActivation() {
+  const panel = document.getElementById("contract-activation-panel");
+  const status = document.getElementById("contract-activation-status");
+  const progress = document.getElementById("contract-activation-progress");
+  if (!panel || !status || typeof DominionContractActivation === "undefined") return;
+  const state = DominionContractActivation.buildActivation(contractActivationInputs());
+  status.textContent = state.status.replaceAll("_", " ");
+  status.className = `state-pill ${contractActivationTone(state.status)}`;
+  if (progress) progress.style.width = `${state.progress.percent}%`;
+  if (state.status === "CONTRACT_REQUIRED") {
+    panel.innerHTML = `<div class="contract-activation-empty"><p>${escapeHtml(state.message)}</p><button type="button" data-contract-activation-action="EDIT_CONTRACT">Set the Contract</button></div>`;
+    return;
+  }
+  const modules = state.modules.map((item) => {
+    const changes = item.changes?.length
+      ? `<details class="contract-activation-changes"><summary>${item.changes.length} Contract change${item.changes.length === 1 ? "" : "s"}</summary><ul>${item.changes.map((change) => `<li><span>${escapeHtml(change.label)}</span><strong>${escapeHtml(change.from)} → ${escapeHtml(change.to)}</strong></li>`).join("")}</ul></details>`
+      : "";
+    return `<article class="contract-activation-module ${item.complete ? "complete" : "pending"}">
+      <div class="contract-activation-module-head"><span>${escapeHtml(item.label)}</span><strong class="state-pill ${contractActivationTone(item.status)}">${escapeHtml(item.status.replaceAll("_", " "))}</strong></div>
+      <p>${escapeHtml(item.message)}</p>${changes}
+    </article>`;
+  }).join("");
+  const protectedWeek = state.protectedWeek
+    ? `<div class="contract-activation-protected"><strong>Current week protected</strong><p>${escapeHtml(state.protectedWeek.weekStart || "Current week")} continues unchanged while Contract ${readApprovedRecruitContract()?.revision || "current"} is activated for the next coordinated week.</p></div>`
+    : "";
+  panel.innerHTML = `
+    <div class="contract-activation-summary"><div><span>${state.progress.complete}/${state.progress.total} activated</span><strong>${escapeHtml(state.message)}</strong></div><button type="button" data-contract-activation-action="${escapeHtml(state.next.action)}" data-contract-activation-module="${escapeHtml(state.next.module || "")}">${escapeHtml(state.next.label)}</button></div>
+    ${protectedWeek}
+    <div class="contract-activation-modules">${modules}</div>`;
+}
+
+function openContractActivationModule(module = "") {
+  if (module === "nutrition") {
+    setNutritionActiveView("plan");
+    setActiveSection("nutrition");
+    window.history.replaceState(null, "", "#nutrition");
+    document.querySelector('[data-nutrition-view-panel="plan"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setActiveSection("performance");
+  window.history.replaceState(null, "", "#performance");
+  if (module === "running") {
+    setPerformanceActiveView("running");
+    document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (module === "core") {
+    setPerformanceActiveView("core");
+    document.getElementById("core-programming-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setPerformanceActiveView("today_training");
+  const detail = document.getElementById("training-programming-detail");
+  if (detail) {
+    detail.open = true;
+    detail.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function renderRecruitContract() {
@@ -4961,6 +5129,7 @@ function renderRecruitContract() {
     status.className = "state-pill neutral";
     if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL READY";
     output.innerHTML = `<div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>`;
+    renderContractActivation();
     renderWeeklyOrchestrator();
     return;
   }
@@ -5011,6 +5180,7 @@ function renderRecruitContract() {
     <div class="recruit-contract-week" aria-label="Coordinated weekly commitment">${schedule}</div>
     <div class="recruit-contract-modules">${modules}</div>
     ${approval}`;
+  renderContractActivation();
   renderWeeklyOrchestrator();
 }
 
@@ -5092,6 +5262,7 @@ async function stageRecruitContractPlans() {
   renderCoreProgramming();
   renderRunningCommand();
   renderNutritionBaseline();
+  renderContractActivation();
   renderWeeklyOrchestrator();
   const protectedText = protectedPlans.length ? ` Protected: ${protectedPlans.join(", ")}.` : "";
   setText("recruit-contract-feedback", `${staged.length ? `${staged.join(", ")} staged for review.` : "No new drafts staged."}${protectedText} Nothing was activated automatically.`);
@@ -9690,45 +9861,72 @@ if (typeof document !== "undefined") {
           setText("weekly-orchestrator-feedback", `The active week is protected. Build the next week beginning ${DominionWeeklyOrchestrator.addDays(active.weekStart, 7)}.`);
           return;
         }
-        const draft = buildUnifiedWeekDraft(weekStart);
+        const draft = await saveUnifiedWeekDraftForActivation(weekStart);
         if (!draft) return;
-        saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
-        const synced = await persistWeeklyOrchestrationState("DRAFT", "current", draft);
-        renderWeeklyOrchestrator();
-        setText("weekly-orchestrator-feedback", `${draft.message}${synced ? " Draft saved to your account." : " Draft saved on this device."}`);
+        setText("weekly-orchestrator-feedback", `${draft.message} Draft saved for review.`);
+        setText("contract-activation-feedback", `${draft.message} Draft saved for review.`);
         return;
       }
       if (action === "discard") {
         await clearWeeklyOrchestrationDraft();
         renderWeeklyOrchestrator();
+        renderContractActivation();
         setText("weekly-orchestrator-feedback", "Weekly draft discarded. Every committed week remains unchanged.");
         return;
       }
       if (action === "commit") {
-        const draft = readUnifiedWeekDraft();
-        if (!draft) return;
         try {
-          const history = readUnifiedWeekHistory();
-          const previous = history.find((item) => item.status !== "REPLACED" && item.weekStart === draft.weekStart) || null;
-          const approved = DominionWeeklyOrchestrator.approveWeek(draft, previous, { approvedAt: new Date().toISOString() });
-          const nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(history, approved);
-          saveWeeklyOrchestrationLocal("HISTORY", "current", nextHistory);
-          saveWeeklyOrchestrationLocal("WEEK", approved.weekStart, approved);
-          const strengthSchedule = DominionWeeklyOrchestrator.strengthScheduleFromWeek(approved);
-          saveStrengthStateLocal("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
-          const synced = await persistWeeklyOrchestrationState("WEEK", approved.weekStart, approved);
-          await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory);
-          await persistStrengthTrainingState("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
-          await clearWeeklyOrchestrationDraft();
-          renderWeeklyOrchestrator();
-          renderTodayCommittedWeek();
-          renderTodayCommandSurface();
-          renderDailyAssignment();
-          renderCoreProgramming();
-          setText("weekly-orchestrator-feedback", `Week ${approved.weekStart} committed as revision ${approved.revision}${synced ? " and saved to your account" : " on this device"}. Today will activate it on schedule.`);
+          await commitUnifiedWeekDraft();
         } catch (error) {
           setText("weekly-orchestrator-feedback", error?.message || "The complete week could not be committed.");
+          setText("contract-activation-feedback", error?.message || "The complete week could not be committed.");
         }
+        return;
+      }
+    }
+    const activationButton = event.target.closest("button[data-contract-activation-action]");
+    if (activationButton && typeof DominionContractActivation !== "undefined") {
+      const activationAction = activationButton.dataset.contractActivationAction;
+      if (activationAction === "EDIT_CONTRACT") {
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = true;
+        document.querySelector('#recruit-contract-form [name="target"]')?.focus({ preventScroll: true });
+        document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (activationAction === "STAGE_DRAFTS") {
+        await stageRecruitContractPlans();
+        renderContractActivation();
+        setText("contract-activation-feedback", "Plan updates are staged. Review and approve each draft; the current plans remain active until then.");
+        return;
+      }
+      if (activationAction === "OPEN_MODULE") {
+        openContractActivationModule(activationButton.dataset.contractActivationModule);
+        return;
+      }
+      if (activationAction === "BUILD_WEEK") {
+        const active = readCommittedUnifiedWeek(todayISODate());
+        const weekStart = active
+          ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+          : unifiedWeekTargetStart();
+        const draft = await saveUnifiedWeekDraftForActivation(weekStart);
+        setText("contract-activation-feedback", draft?.approvalBlocked
+          ? "The week was rebuilt, but an activation requirement still needs attention."
+          : "Coordinated week built. Review the calendar, then commit it deliberately.");
+        return;
+      }
+      if (activationAction === "COMMIT_WEEK") {
+        try {
+          await commitUnifiedWeekDraft();
+        } catch (error) {
+          setText("contract-activation-feedback", error?.message || "The coordinated week could not be committed.");
+        }
+        return;
+      }
+      if (activationAction === "OPEN_TODAY") {
+        setActiveSection("today");
+        window.history.replaceState(null, "", "#today");
+        document.getElementById("today")?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
     }
@@ -9766,6 +9964,7 @@ if (typeof document !== "undefined") {
         const synced = await persistRecruitContractState("APPROVED", approved);
         await persistRecruitContractState("HISTORY", history);
         await clearRecruitContractState("DRAFT");
+        await refreshUnifiedWeekDraftForPlans();
         const editor = document.getElementById("recruit-contract-editor");
         if (editor) editor.open = false;
         renderRecruitContract();
@@ -10044,7 +10243,10 @@ if (typeof document !== "undefined") {
       saveCoreProgramLocal("DRAFT", "current", approved);
       await persistCoreProgramState("PLAN", "current", approved);
       await persistCoreProgramState("DRAFT", "current", approved);
+      await refreshUnifiedWeekDraftForPlans();
       renderPerformanceSection();
+      renderContractActivation();
+      renderWeeklyOrchestrator();
       setText("core-programming-feedback", "Four-week core plan approved and saved. Readiness may reduce daily volume, but the plan will not change silently.");
       return;
     }
@@ -10193,9 +10395,11 @@ if (typeof document !== "undefined") {
         window.localStorage.removeItem(runningBlockStorageKey("draft"));
         await persistRunningState("PLAN", "active", approved);
         await deleteRunningState("PLAN", "draft");
+        await refreshUnifiedWeekDraftForPlans();
         renderRunningCommand();
         renderTodayCommandSurface();
         renderDailyAssignment();
+        renderContractActivation();
         renderWeeklyOrchestrator();
         setText("running-command-feedback", `Four-week running block revision ${approved.revision} approved and saved to your account. Today now follows the active block.`);
       } catch (error) {
@@ -10517,9 +10721,11 @@ if (typeof document !== "undefined") {
       await clearStrengthTrainingState("WEEK_REVIEW", "current");
       await clearStrengthTrainingState("BLOCK", "current");
       await clearStrengthTrainingState("BLOCK", "draft");
+      await refreshUnifiedWeekDraftForPlans();
       renderProgrammingReview();
       renderDailyAssignment();
       renderDailyCoachingLoop();
+      renderContractActivation();
       renderWeeklyOrchestrator();
       setText("programming-feedback", "Strength program approved and activated on Today. It now persists with your account.");
     }

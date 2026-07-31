@@ -691,3 +691,68 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
   .roll-call-card{padding:16px}
   .objective-metrics-fieldset{padding:11px}
 }
+
+/* Build 018B: centralized Recruit Contract */
+.recruit-contract{display:grid;gap:18px}
+.recruit-contract-status-stack{display:grid;justify-items:end;gap:6px}
+.recruit-contract-status-stack small{color:var(--dim);font-size:9px;font-weight:900;letter-spacing:.08em}
+.recruit-contract-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.recruit-contract-form fieldset{display:grid;align-content:start;gap:11px;margin:0;padding:15px;border:1px solid var(--line);border-radius:12px;background:rgba(5,10,14,.52)}
+.recruit-contract-form legend{padding:0 7px;color:var(--text);font-weight:900}
+.recruit-contract-form label{display:grid;gap:6px;min-width:0;color:var(--dim);font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
+.recruit-contract-form input,.recruit-contract-form select{width:100%;min-width:0}
+.recruit-contract-outcome{grid-template-columns:minmax(150px,.8fr) minmax(240px,1.5fr) minmax(145px,.7fr);grid-column:1/-1}
+.recruit-contract-outcome legend{grid-column:1/-1}
+.recruit-contract-target{min-width:0}
+.recruit-contract-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.recruit-contract-recovery-note{margin:0;padding:9px 11px;border-left:3px solid var(--green);border-radius:7px;background:rgba(56,212,141,.055);color:var(--muted);font-size:11px}
+.recruit-contract-actions{display:flex;align-items:center;gap:9px;grid-column:1/-1}
+.recruit-contract-actions button{min-width:160px}
+.recruit-contract-output{display:grid;gap:13px}
+.recruit-contract-brief{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:18px;padding:17px;border:1px solid rgba(56,212,141,.36);border-radius:13px;background:linear-gradient(145deg,rgba(12,28,26,.72),rgba(6,11,16,.96))}
+.recruit-contract-brief h3{margin:5px 0;font-size:25px}.recruit-contract-brief p{max-width:720px;margin:0;color:var(--muted);line-height:1.5}
+.recruit-contract-brief-meta{display:grid;grid-template-columns:repeat(2,minmax(95px,1fr));gap:7px}
+.recruit-contract-brief-meta>div{display:grid;gap:3px;padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(4,8,12,.55)}
+.recruit-contract-brief-meta span{color:var(--dim);font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.recruit-contract-brief-meta strong{font-size:14px}
+.recruit-contract-alerts{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.recruit-contract-alerts li{padding:9px 11px;border-left:3px solid var(--yellow);border-radius:7px;background:rgba(240,180,41,.06);color:var(--muted);font-size:11px}
+.recruit-contract-alerts.errors li{border-left-color:var(--red);background:rgba(255,88,88,.06)}
+.recruit-contract-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.recruit-contract-day{display:grid;align-content:start;gap:8px;min-height:118px;padding:11px;border:1px solid var(--line);border-radius:10px;background:rgba(5,9,13,.56)}
+.recruit-contract-day.recovery{border-color:rgba(56,212,141,.25);background:rgba(56,212,141,.035)}
+.recruit-contract-day header{display:flex;align-items:flex-start;justify-content:space-between;gap:5px}
+.recruit-contract-day header strong{font-size:11px}.recruit-contract-day header span{color:var(--dim);font-size:8px}
+.recruit-contract-day>strong{font-size:12px}.recruit-contract-day>small{color:var(--muted);font-size:9px;line-height:1.4}
+.recruit-contract-day-tags{display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap}
+.recruit-contract-day-tags span{padding:4px 5px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:7px;font-weight:900;letter-spacing:.05em}
+.recruit-contract-modules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.recruit-contract-module{display:grid;align-content:start;gap:7px;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--panel3)}
+.recruit-contract-module header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.recruit-contract-module h4{margin:0}.recruit-contract-module p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
+.recruit-contract-module small{color:var(--dim);font-size:9px}
+.recruit-contract-approval{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border:1px solid rgba(240,180,41,.34);border-radius:11px;background:rgba(240,180,41,.045)}
+.recruit-contract-approval h4{margin:4px 0}.recruit-contract-approval p{margin:0;color:var(--muted);font-size:11px}
+.recruit-contract-approval-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media(max-width:1040px){
+  .recruit-contract-week{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .recruit-contract-modules{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .recruit-contract-form{grid-template-columns:1fr}
+  .recruit-contract-form fieldset,.recruit-contract-outcome{grid-column:auto;grid-template-columns:1fr}
+  .recruit-contract-outcome legend{grid-column:auto}
+  .recruit-contract-grid{grid-template-columns:1fr 1fr}
+  .recruit-contract-brief{grid-template-columns:1fr}
+  .recruit-contract-week{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
+  .recruit-contract-day{flex:0 0 142px;scroll-snap-align:start}
+  .recruit-contract-approval{align-items:stretch;flex-direction:column}
+  .recruit-contract-approval-actions{display:grid;grid-template-columns:1fr}
+  .recruit-contract-approval-actions button{width:100%}
+}
+@media(max-width:520px){
+  .recruit-contract-grid,.recruit-contract-modules,.recruit-contract-brief-meta{grid-template-columns:1fr}
+  .recruit-contract-actions{display:grid;grid-template-columns:1fr}
+  .recruit-contract-actions button{width:100%}
+  .recruit-contract-status-stack{justify-items:start}
+}

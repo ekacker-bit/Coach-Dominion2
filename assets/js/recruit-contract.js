@@ -1,0 +1,346 @@
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.DominionRecruitContract = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+
+  const VERSION = "018B.1";
+  const PRIMARY_GOALS = Object.freeze([
+    "BALANCED_FITNESS",
+    "BUILD_STRENGTH",
+    "RUN_FASTER",
+    "BUILD_ENDURANCE",
+    "LOSE_FAT"
+  ]);
+  const NUTRITION_COMMITMENTS = Object.freeze([
+    "TRACK_DAILY",
+    "TRACK_5_DAYS",
+    "PROTEIN_FIRST",
+    "FOUNDATION_ONLY"
+  ]);
+  const EQUIPMENT_LEVELS = Object.freeze(["FULL_GYM", "DUMBBELLS", "BODYWEIGHT_BANDS"]);
+  const EXPERIENCE_LEVELS = Object.freeze(["FOUNDATION", "INTERMEDIATE", "EXPERIENCED"]);
+  const RUNNING_GOALS = Object.freeze(["GENERAL_FITNESS", "5K", "10K", "HALF_MARATHON", "MARATHON"]);
+  const WEEKDAYS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
+  const TRAINING_DAY_PATTERNS = Object.freeze({
+    2: [1, 4],
+    3: [0, 2, 5],
+    4: [0, 1, 3, 5],
+    5: [0, 1, 2, 4, 5],
+    6: [0, 1, 2, 3, 4, 5]
+  });
+
+  function integer(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
+  }
+
+  function decimal(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function clamp(value, min, max, fallback) {
+    return Math.max(min, Math.min(max, integer(value, fallback)));
+  }
+
+  function dateIso(value) {
+    const text = String(value || "").trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+  }
+
+  function cleanText(value, maximum = 120) {
+    return String(value || "").replace(/\s+/g, " ").trim().slice(0, maximum);
+  }
+
+  function enumValue(value, allowed, fallback) {
+    const normalized = String(value || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+    return allowed.includes(normalized) ? normalized : fallback;
+  }
+
+  function addDays(date, days) {
+    const value = new Date(`${date}T12:00:00Z`);
+    value.setUTCDate(value.getUTCDate() + Number(days || 0));
+    return value.toISOString().slice(0, 10);
+  }
+
+  function weekStartIso(value) {
+    const candidate = dateIso(value) || new Date().toISOString().slice(0, 10);
+    const date = new Date(`${candidate}T12:00:00Z`);
+    const offset = (date.getUTCDay() + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - offset);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function nearest(value, choices, fallback) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return [...choices].sort((a, b) => Math.abs(a - numeric) - Math.abs(b - numeric))[0];
+  }
+
+  function defaultContract(options = {}) {
+    return {
+      version: VERSION,
+      primaryGoal: "BALANCED_FITNESS",
+      target: "",
+      targetDate: null,
+      trainingDaysPerWeek: 5,
+      strengthDaysPerWeek: 3,
+      runningDaysPerWeek: 3,
+      coreDaysPerWeek: 3,
+      sessionMinutes: 60,
+      equipment: "FULL_GYM",
+      experience: "INTERMEDIATE",
+      runningGoal: "GENERAL_FITNESS",
+      preferredUnit: "mi",
+      declaredWeeklyDistance: 0,
+      nutritionCommitment: "TRACK_5_DAYS",
+      effectiveDate: dateIso(options.today) || new Date().toISOString().slice(0, 10)
+    };
+  }
+
+  function normalizeContractDraft(input = {}, options = {}) {
+    const defaults = defaultContract(options);
+    return {
+      version: VERSION,
+      primaryGoal: enumValue(input.primaryGoal || input.primary_goal, PRIMARY_GOALS, defaults.primaryGoal),
+      target: cleanText(input.target || input.goalStatement || input.goal_statement, 120),
+      targetDate: dateIso(input.targetDate || input.target_date),
+      trainingDaysPerWeek: clamp(input.trainingDaysPerWeek ?? input.training_days_per_week, 2, 6, defaults.trainingDaysPerWeek),
+      strengthDaysPerWeek: clamp(input.strengthDaysPerWeek ?? input.strength_days_per_week, 0, 6, defaults.strengthDaysPerWeek),
+      runningDaysPerWeek: clamp(input.runningDaysPerWeek ?? input.running_days_per_week, 0, 6, defaults.runningDaysPerWeek),
+      coreDaysPerWeek: clamp(input.coreDaysPerWeek ?? input.core_days_per_week, 0, 4, defaults.coreDaysPerWeek),
+      sessionMinutes: nearest(input.sessionMinutes ?? input.session_minutes, [30, 45, 60, 75, 90], defaults.sessionMinutes),
+      equipment: enumValue(input.equipment, EQUIPMENT_LEVELS, defaults.equipment),
+      experience: enumValue(input.experience, EXPERIENCE_LEVELS, defaults.experience),
+      runningGoal: enumValue(input.runningGoal || input.running_goal, RUNNING_GOALS, defaults.runningGoal),
+      preferredUnit: String(input.preferredUnit || input.preferred_unit || defaults.preferredUnit).toLowerCase() === "km" ? "km" : "mi",
+      declaredWeeklyDistance: Math.max(0, Number(decimal(input.declaredWeeklyDistance ?? input.declared_weekly_distance, defaults.declaredWeeklyDistance).toFixed(1))),
+      nutritionCommitment: enumValue(input.nutritionCommitment || input.nutrition_commitment, NUTRITION_COMMITMENTS, defaults.nutritionCommitment),
+      effectiveDate: dateIso(input.effectiveDate || input.effective_date) || defaults.effectiveDate
+    };
+  }
+
+  function validateRecruitContract(input = {}, options = {}) {
+    const contract = normalizeContractDraft(input, options);
+    const today = dateIso(options.today) || new Date().toISOString().slice(0, 10);
+    const errors = [];
+    const warnings = [];
+
+    if (contract.target.length < 3) errors.push("Name the outcome this contract is meant to achieve.");
+    if (contract.targetDate && contract.targetDate < today) errors.push("Target date cannot be in the past.");
+    if (contract.strengthDaysPerWeek > contract.trainingDaysPerWeek) errors.push("Strength days cannot exceed total training days.");
+    if (contract.runningDaysPerWeek > contract.trainingDaysPerWeek) errors.push("Running days cannot exceed total training days.");
+    if (contract.coreDaysPerWeek > contract.trainingDaysPerWeek) errors.push("Core days cannot exceed total training days.");
+    if (contract.strengthDaysPerWeek === 1) errors.push("Strength planning requires either zero or at least two strength days.");
+    if (contract.coreDaysPerWeek === 1) errors.push("Core planning requires either zero or at least two core days.");
+    if (contract.strengthDaysPerWeek + contract.runningDaysPerWeek + contract.coreDaysPerWeek === 0) {
+      errors.push("Commit to at least one Strength, Running, or Core session.");
+    }
+    if (contract.primaryGoal === "BUILD_STRENGTH" && contract.strengthDaysPerWeek < 2) {
+      errors.push("A strength goal requires at least two strength days.");
+    }
+    if (["RUN_FASTER", "BUILD_ENDURANCE"].includes(contract.primaryGoal) && contract.runningDaysPerWeek < 2) {
+      errors.push("A running goal requires at least two running days.");
+    }
+    if (contract.primaryGoal === "BALANCED_FITNESS" && (contract.strengthDaysPerWeek < 2 || contract.runningDaysPerWeek < 2)) {
+      warnings.push("Balanced fitness works best with at least two Strength and two Running days.");
+    }
+    if (contract.runningDaysPerWeek > 0 && contract.declaredWeeklyDistance <= 0) {
+      warnings.push("Running can be staged, but a weekly-distance baseline is still required before a plan can be approved.");
+    }
+    if (contract.trainingDaysPerWeek === 6) warnings.push("Six training days preserves exactly one full recovery day.");
+    if (contract.sessionMinutes === 90 && contract.trainingDaysPerWeek >= 5) {
+      warnings.push("Five or more 90-minute training days is a high time commitment; confirm it is sustainable.");
+    }
+
+    return {
+      valid: errors.length === 0,
+      status: errors.length ? "REVIEW_REQUIRED" : "READY_FOR_APPROVAL",
+      contract,
+      errors,
+      warnings
+    };
+  }
+
+  function spreadActivities(trainingIndexes, count, preferredOrder) {
+    const allowed = preferredOrder.filter((index) => trainingIndexes.includes(index));
+    const remaining = trainingIndexes.filter((index) => !allowed.includes(index));
+    return [...allowed, ...remaining].slice(0, count);
+  }
+
+  function buildCommitmentSchedule(input = {}, options = {}) {
+    const contract = normalizeContractDraft(input, options);
+    const weekStart = weekStartIso(options.weekStart || options.today || contract.effectiveDate);
+    const trainingIndexes = TRAINING_DAY_PATTERNS[contract.trainingDaysPerWeek];
+    const strengthIndexes = spreadActivities(trainingIndexes, contract.strengthDaysPerWeek, [0, 2, 4, 5, 1, 3]);
+    const runningIndexes = spreadActivities(trainingIndexes, contract.runningDaysPerWeek, [1, 3, 5, 0, 4, 2]);
+    const coreIndexes = spreadActivities(trainingIndexes, contract.coreDaysPerWeek, [0, 2, 5, 3, 1, 4]);
+
+    return WEEKDAYS.map((weekday, index) => {
+      const activities = [];
+      if (strengthIndexes.includes(index)) activities.push("STRENGTH");
+      if (runningIndexes.includes(index)) activities.push("RUNNING");
+      if (coreIndexes.includes(index)) activities.push("CORE");
+      const isTrainingDay = trainingIndexes.includes(index);
+      return {
+        weekday,
+        date: addDays(weekStart, index),
+        isTrainingDay,
+        isRecoveryDay: !isTrainingDay,
+        activities,
+        load: !isTrainingDay ? "RECOVERY" : activities.length > 1 ? "STACKED" : "SINGLE"
+      };
+    });
+  }
+
+  function contractPlanningInputs(input = {}, options = {}) {
+    const contract = normalizeContractDraft(input, options);
+    const strengthGoal = contract.primaryGoal === "BUILD_STRENGTH"
+      ? "MUSCLE"
+      : ["RUN_FASTER", "BUILD_ENDURANCE"].includes(contract.primaryGoal) ? "ATHLETIC_SUPPORT" : "GENERAL_STRENGTH";
+    const coreGoal = ["RUN_FASTER", "BUILD_ENDURANCE"].includes(contract.primaryGoal)
+      ? "RUNNING_SUPPORT"
+      : contract.primaryGoal === "BUILD_STRENGTH" ? "LIFTING_STABILITY" : "GENERAL_STRENGTH";
+    const coreEquipment = contract.equipment === "FULL_GYM" ? "FULL_GYM" : contract.equipment === "DUMBBELLS" ? "MINIMAL" : "BODYWEIGHT";
+    const coreExperience = contract.experience === "EXPERIENCED" ? "ADVANCED" : contract.experience;
+    const nutritionGoal = contract.primaryGoal === "LOSE_FAT"
+      ? "FAT_LOSS"
+      : ["RUN_FASTER", "BUILD_ENDURANCE"].includes(contract.primaryGoal) ? "PERFORMANCE" : "MAINTAIN";
+
+    return {
+      strength: contract.strengthDaysPerWeek > 0 ? {
+        goal: strengthGoal,
+        daysPerWeek: contract.strengthDaysPerWeek,
+        equipment: contract.equipment,
+        sessionMinutes: nearest(contract.sessionMinutes, [45, 60, 75], 60),
+        experience: contract.experience
+      } : null,
+      running: contract.runningDaysPerWeek > 0 ? {
+        goal: contract.runningGoal,
+        targetDate: contract.targetDate,
+        runningDaysPerWeek: contract.runningDaysPerWeek,
+        preferredUnit: contract.preferredUnit,
+        declaredWeeklyDistance: contract.declaredWeeklyDistance,
+        benchmarkDistance: null,
+        benchmarkSeconds: null,
+        benchmarkDate: null
+      } : null,
+      core: contract.coreDaysPerWeek > 0 ? {
+        goal: coreGoal,
+        sessionsPerWeek: Math.max(2, contract.coreDaysPerWeek),
+        experience: coreExperience,
+        equipment: coreEquipment,
+        sessionMinutes: nearest(contract.sessionMinutes / 3, [10, 15, 20], 15)
+      } : null,
+      nutrition: {
+        goal: nutritionGoal,
+        commitment: contract.nutritionCommitment,
+        effectiveDate: contract.effectiveDate
+      }
+    };
+  }
+
+  function buildModuleReadiness(contract, planningInputs) {
+    return {
+      strength: planningInputs.strength
+        ? { status: "READY_TO_STAGE", message: `${contract.strengthDaysPerWeek} strength day${contract.strengthDaysPerWeek === 1 ? "" : "s"} committed.` }
+        : { status: "NOT_COMMITTED", message: "No strength work in this contract." },
+      running: !planningInputs.running
+        ? { status: "NOT_COMMITTED", message: "No running work in this contract." }
+        : contract.declaredWeeklyDistance > 0
+          ? { status: "READY_TO_STAGE", message: `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} with a declared baseline.` }
+          : { status: "BASELINE_REQUIRED", message: "Add current weekly distance before approving a running week." },
+      core: planningInputs.core
+        ? { status: "READY_TO_STAGE", message: `${contract.coreDaysPerWeek} core exposure${contract.coreDaysPerWeek === 1 ? "" : "s"} committed.` }
+        : { status: "NOT_COMMITTED", message: "No core work in this contract." },
+      nutrition: { status: "TARGETS_REQUIRED", message: "Commitment is set; calorie and macro targets still require deliberate entry." }
+    };
+  }
+
+  function stableSerialize(value) {
+    if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  }
+
+  function fingerprint(value) {
+    const text = stableSerialize(value);
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `rc-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  }
+
+  function buildRecruitContract(input = {}, options = {}) {
+    const validation = validateRecruitContract(input, options);
+    const planningInputs = contractPlanningInputs(validation.contract, options);
+    const schedule = buildCommitmentSchedule(validation.contract, options);
+    return {
+      ...validation.contract,
+      id: null,
+      revision: null,
+      status: validation.status,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      schedule,
+      planningInputs,
+      moduleReadiness: buildModuleReadiness(validation.contract, planningInputs),
+      safeguards: [
+        "At least one full recovery day is protected every week.",
+        "Approving this contract does not activate or replace a module plan.",
+        "Contract inputs create reviewable drafts; each plan keeps its own approval boundary.",
+        "Pain and RED readiness override every commitment."
+      ],
+      createdAt: options.createdAt || new Date().toISOString(),
+      approvedAt: null
+    };
+  }
+
+  function approveRecruitContract(draft = {}, previousApproved = null, options = {}) {
+    const rebuilt = buildRecruitContract(draft, {
+      today: options.today,
+      weekStart: options.weekStart,
+      createdAt: draft.createdAt || options.approvedAt
+    });
+    if (rebuilt.status !== "READY_FOR_APPROVAL") {
+      throw new Error(rebuilt.errors[0] || "Only a ready Recruit Contract can be approved.");
+    }
+    const approvedAt = options.approvedAt || new Date().toISOString();
+    const revision = previousApproved?.status === "APPROVED" ? Number(previousApproved.revision || 0) + 1 : 1;
+    const identity = fingerprint({ version: VERSION, revision, contract: normalizeContractDraft(rebuilt, options) });
+    return {
+      ...rebuilt,
+      id: options.id || `${identity}-r${revision}`,
+      fingerprint: identity,
+      revision,
+      status: "APPROVED",
+      errors: [],
+      approvedAt,
+      supersedesId: previousApproved?.id || null
+    };
+  }
+
+  return {
+    VERSION,
+    PRIMARY_GOALS,
+    NUTRITION_COMMITMENTS,
+    EQUIPMENT_LEVELS,
+    EXPERIENCE_LEVELS,
+    RUNNING_GOALS,
+    WEEKDAYS,
+    defaultContract,
+    normalizeContractDraft,
+    validateRecruitContract,
+    buildCommitmentSchedule,
+    contractPlanningInputs,
+    buildRecruitContract,
+    approveRecruitContract,
+    fingerprint
+  };
+});

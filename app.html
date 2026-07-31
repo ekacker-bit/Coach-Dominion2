@@ -21,6 +21,7 @@
           <a class="nav-link active" href="#today" data-section="today">TODAY</a>
           <a class="nav-link" href="#performance" data-section="performance">TRAIN</a>
           <a class="nav-link" href="#nutrition" data-section="nutrition">FUEL</a>
+          <a class="nav-link" href="#contract" data-section="contract">CONTRACT</a>
           <a class="nav-link" href="#inspection" data-section="inspection">REVIEW</a>
           <details class="nav-more">
             <summary>MORE</summary>
@@ -56,6 +57,137 @@
         <div class="kicker">DAILY STATE</div>
         <h2>Morning Roll Call Required.</h2>
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
+      </section>
+
+      <section id="contract" class="card recruit-contract scroll-anchor" aria-labelledby="recruit-contract-heading" data-section="contract">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 018B // RECRUIT CONTRACT</div>
+            <h2 id="recruit-contract-heading">Define the commitment</h2>
+            <p class="muted">Set one outcome and the weekly capacity you will actually protect. Coach Dominion will coordinate the planning inputs.</p>
+          </div>
+          <div class="recruit-contract-status-stack">
+            <span id="recruit-contract-status" class="state-pill neutral">NOT SET</span>
+            <small id="recruit-contract-storage">LOCAL READY</small>
+          </div>
+        </div>
+        <form id="recruit-contract-form" class="recruit-contract-form">
+          <fieldset class="recruit-contract-outcome">
+            <legend>Outcome</legend>
+            <label>Primary goal
+              <select name="primaryGoal">
+                <option value="BALANCED_FITNESS">Balanced fitness</option>
+                <option value="BUILD_STRENGTH">Build strength</option>
+                <option value="RUN_FASTER">Run faster</option>
+                <option value="BUILD_ENDURANCE">Build endurance</option>
+                <option value="LOSE_FAT">Lose fat</option>
+              </select>
+            </label>
+            <label class="recruit-contract-target">What are you working toward?
+              <input name="target" maxlength="120" required placeholder="Example: Finish a fall 10K feeling strong">
+            </label>
+            <label>Target date
+              <input name="targetDate" type="date">
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>Weekly capacity</legend>
+            <div class="recruit-contract-grid">
+              <label>Training days
+                <select name="trainingDaysPerWeek">
+                  <option value="2">2 days</option>
+                  <option value="3">3 days</option>
+                  <option value="4">4 days</option>
+                  <option value="5" selected>5 days</option>
+                  <option value="6">6 days</option>
+                </select>
+              </label>
+              <label>Strength days
+                <select name="strengthDaysPerWeek">
+                  <option value="0">None</option><option value="2">2 days</option>
+                  <option value="3" selected>3 days</option><option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option>
+                </select>
+              </label>
+              <label>Running days
+                <select name="runningDaysPerWeek">
+                  <option value="0">None</option><option value="1">1 day</option><option value="2">2 days</option>
+                  <option value="3" selected>3 days</option><option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option>
+                </select>
+              </label>
+              <label>Core days
+                <select name="coreDaysPerWeek">
+                  <option value="0">None</option><option value="2">2 days</option>
+                  <option value="3" selected>3 days</option><option value="4">4 days</option>
+                </select>
+              </label>
+              <label>Session length
+                <select name="sessionMinutes">
+                  <option value="30">30 min</option><option value="45">45 min</option><option value="60" selected>60 min</option>
+                  <option value="75">75 min</option><option value="90">90 min</option>
+                </select>
+              </label>
+            </div>
+            <p class="recruit-contract-recovery-note"><strong>Recovery protected:</strong> training is capped at six days per week.</p>
+          </fieldset>
+          <fieldset>
+            <legend>Operating constraints</legend>
+            <div class="recruit-contract-grid">
+              <label>Equipment
+                <select name="equipment">
+                  <option value="FULL_GYM">Full gym</option>
+                  <option value="DUMBBELLS">Dumbbells</option>
+                  <option value="BODYWEIGHT_BANDS">Bodyweight + bands</option>
+                </select>
+              </label>
+              <label>Experience
+                <select name="experience">
+                  <option value="FOUNDATION">Foundation</option>
+                  <option value="INTERMEDIATE" selected>Intermediate</option>
+                  <option value="EXPERIENCED">Experienced</option>
+                </select>
+              </label>
+              <label>Nutrition commitment
+                <select name="nutritionCommitment">
+                  <option value="TRACK_DAILY">Track daily</option>
+                  <option value="TRACK_5_DAYS" selected>Track 5 days/week</option>
+                  <option value="PROTEIN_FIRST">Protein first</option>
+                  <option value="FOUNDATION_ONLY">Foundation habits</option>
+                </select>
+              </label>
+              <label>Effective date
+                <input name="effectiveDate" type="date" required>
+              </label>
+            </div>
+          </fieldset>
+          <fieldset data-recruit-running-fields>
+            <legend>Running commitment</legend>
+            <div class="recruit-contract-grid">
+              <label>Running target
+                <select name="runningGoal">
+                  <option value="GENERAL_FITNESS">General fitness</option>
+                  <option value="5K">5K</option>
+                  <option value="10K">10K</option>
+                  <option value="HALF_MARATHON">Half marathon</option>
+                  <option value="MARATHON">Marathon</option>
+                </select>
+              </label>
+              <label>Distance unit
+                <select name="preferredUnit"><option value="mi">Miles</option><option value="km">Kilometers</option></select>
+              </label>
+              <label>Current weekly distance
+                <input name="declaredWeeklyDistance" type="number" min="0" step="0.1" value="0">
+              </label>
+            </div>
+          </fieldset>
+          <div class="recruit-contract-actions">
+            <button type="submit">Review contract</button>
+            <button type="button" class="ghost" data-recruit-contract-action="restore">Restore approved</button>
+          </div>
+        </form>
+        <p id="recruit-contract-feedback" class="muted" aria-live="polite"></p>
+        <div id="recruit-contract-output" class="recruit-contract-output">
+          <div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>
+        </div>
       </section>
 
       <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
@@ -1052,8 +1184,8 @@
     <a href="#today" data-section="today">Today</a>
     <a href="#performance" data-section="performance">Train</a>
     <a href="#nutrition" data-section="nutrition">Fuel</a>
+    <a href="#contract" data-section="contract">Contract</a>
     <a href="#inspection" data-section="inspection">Review</a>
-    <a href="#connected" data-section="connected">More</a>
   </nav>
 
 <script src="/assets/js/connected.js"></script>
@@ -1079,6 +1211,7 @@
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>
+<script src="/assets/js/recruit-contract.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

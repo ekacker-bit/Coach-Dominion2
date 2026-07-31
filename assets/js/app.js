@@ -42,7 +42,7 @@ let mfpNutritionFeedState = { loading: true, available: false, migrationRequired
 let nutritionBaselineDraft = null;
 let nutritionActiveView = "today";
 
-const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,confidence,comments";
+const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
 const PERFORMANCE_DOMAINS = ["strength", "running", "core", "conditioning", "fitness_test", "body_metrics"];
 const PERFORMANCE_DOMAIN_LABELS = {
@@ -1025,6 +1025,33 @@ function isAvailable(value) {
   return value !== null && value !== undefined && value !== "";
 }
 
+const OBJECTIVE_METRIC_CONFIG = Object.freeze({
+  weight: Object.freeze({ label: "Weight", min: 50, max: 1000, unit: "lb" }),
+  resting_heart_rate: Object.freeze({ label: "Resting HR", min: 25, max: 250, unit: "bpm" }),
+  heart_rate_variability: Object.freeze({ label: "HRV", min: 1, max: 500, unit: "ms" })
+});
+
+function parseOptionalMetric(value, config) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < config.min || parsed > config.max) {
+    throw new Error(`${config.label} must be between ${config.min} and ${config.max} ${config.unit}.`);
+  }
+  return parsed;
+}
+
+function formatObjectiveMetric(value, unit) {
+  return isAvailable(value) ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${unit}` : "—";
+}
+
+function objectiveSourceLabel(source) {
+  const normalized = String(source || "").trim().toUpperCase();
+  if (normalized === "APPLE_HEALTH") return "Apple Health";
+  if (normalized === "MANUAL") return "Manual";
+  if (normalized === "SAVED") return "Saved";
+  return "";
+}
+
 function calculateConfidence(state) {
   if (!state) return 0;
   const total = Object.entries(READINESS_EVIDENCE_WEIGHTS).reduce((sum, [key, weight]) => {
@@ -1042,6 +1069,7 @@ function evidenceValue(key, state) {
   if (key === "energy" || key === "soreness") return `${state[key]}/10`;
   if (key === "sleep") return `${state[key]}h`;
   if (key === "resting_heart_rate") return `${state[key]} bpm`;
+  if (key === "heart_rate_variability") return `${state[key]} ms`;
   return String(state[key]);
 }
 
@@ -1145,6 +1173,7 @@ function mergeReadinessHistory() {
         date: item.date,
         sleep: item.sleep,
         resting_heart_rate: item.restingHeartRate,
+        heart_rate_variability: item.heartRateVariability,
         steps: item.steps,
         weight: item.weight
       });
@@ -1195,7 +1224,7 @@ function renderBaselineIntelligence() {
   statePill.textContent = profile.state;
   statePill.className = `state-pill ${profile.state === "ACTIVE" ? "green" : "neutral"}`;
   const result = dailyState ? evaluateOperationalReadiness(dailyState) : null;
-  const metrics = ["sleep", "resting_heart_rate", "steps", "weight"].map((key) => {
+  const metrics = ["sleep", "resting_heart_rate", "heart_rate_variability", "steps", "weight"].map((key) => {
     const metric = profile.metrics[key];
     const signal = metric.signal.status === "UNAVAILABLE" ? `${metric.baseline28.count}/${profile.minimumObservations} observations` : metric.signal.status;
     return `<article class="baseline-metric">
@@ -1211,7 +1240,7 @@ function renderBaselineIntelligence() {
     : result?.baselineAdjustment === "GREEN_TO_YELLOW"
       ? "Personal baseline reduced today’s readiness from GREEN to YELLOW."
       : profile.state === "LEARNING"
-        ? "No readiness adjustment. Atlas needs 10 prior observations for sleep or resting heart rate."
+        ? "No readiness adjustment. Atlas needs 10 prior observations for sleep, resting heart rate, or HRV."
         : "Personal baseline reviewed. No additional restriction was required.";
   panel.innerHTML = `<div class="baseline-summary-grid">${metrics}</div>
     <div class="baseline-decision"><strong>Decision impact</strong><p>${escapeHtml(decision)}</p></div>
@@ -6921,11 +6950,78 @@ function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspec
   stateElement.className = `state-pill ${overview.readinessLabel === "GREEN" ? "green" : overview.readinessLabel === "RED" ? "red" : overview.readinessLabel === "YELLOW" ? "yellow" : "neutral"}`;
 }
 
+function appleHealthReadinessForDate(date = todayISODate()) {
+  if (!connectedApi()) return null;
+  return connectedApi().summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === date) || null;
+}
+
+function weightInPounds(value, unit = "") {
+  if (!isAvailable(value)) return null;
+  return /kg/i.test(unit) ? Math.round(Number(value) * 2.2046226218 * 10) / 10 : Number(value);
+}
+
+function setRollCallMetric(name, value, source = "") {
+  const input = document.querySelector(`#roll-call-form [name="${name}"]`);
+  if (!input) return;
+  const normalized = isAvailable(value) ? String(value) : "";
+  input.value = normalized;
+  input.dataset.initialValue = normalized;
+  input.dataset.metricSource = source || "";
+  const hint = document.querySelector(`[data-metric-source="${name}"]`);
+  if (hint) hint.textContent = source ? `${objectiveSourceLabel(source)} · ${todayISODate()}` : "Manual or Apple Health";
+}
+
+function prefillMorningRollCallForm(state = dailyState) {
+  const form = document.getElementById("roll-call-form");
+  if (!form) return;
+  if (state) {
+    form.elements.energy.value = state.energy ?? "";
+    form.elements.soreness.value = state.soreness ?? "";
+    const pain = form.querySelector(`[name="pain"][value="${state.pain ? "yes" : "no"}"]`);
+    if (pain) pain.checked = true;
+    form.elements.comments.value = state.comments || "";
+  }
+  const health = appleHealthReadinessForDate();
+  const sources = state?.objective_metric_sources && typeof state.objective_metric_sources === "object" ? state.objective_metric_sources : {};
+  const values = {
+    weight: isAvailable(state?.weight) ? state.weight : weightInPounds(health?.weight, health?.weightUnit),
+    resting_heart_rate: isAvailable(state?.resting_heart_rate) ? state.resting_heart_rate : health?.restingHeartRate,
+    heart_rate_variability: isAvailable(state?.heart_rate_variability) ? state.heart_rate_variability : health?.heartRateVariability
+  };
+  Object.keys(OBJECTIVE_METRIC_CONFIG).forEach((key) => {
+    const source = sources[key] || (isAvailable(state?.[key]) ? "SAVED" : isAvailable(values[key]) ? "APPLE_HEALTH" : "");
+    setRollCallMetric(key, values[key], source);
+  });
+}
+
+function objectiveMetricsFromForm(formElement, formData) {
+  const values = {};
+  const sources = {};
+  Object.entries(OBJECTIVE_METRIC_CONFIG).forEach(([key, config]) => {
+    const value = parseOptionalMetric(formData.get(key), config);
+    values[key] = value;
+    if (!isAvailable(value)) return;
+    const input = formElement.elements[key];
+    const unchanged = String(value) === String(input?.dataset.initialValue || "");
+    sources[key] = unchanged && input?.dataset.metricSource ? input.dataset.metricSource : "MANUAL";
+  });
+  return { values, sources };
+}
+
+function summarizeObjectiveMetricSources(state) {
+  const sources = state?.objective_metric_sources || {};
+  const recorded = Object.entries(OBJECTIVE_METRIC_CONFIG)
+    .filter(([key]) => isAvailable(state?.[key]))
+    .map(([key, config]) => `${config.label}: ${objectiveSourceLabel(sources[key]) || "Saved"}`);
+  return recorded.length ? `${recorded.join(" · ")}${state?.objective_metrics_updated_at ? ` · Updated ${String(state.objective_metrics_updated_at).slice(0, 10)}` : ""}` : "No optional biometrics recorded.";
+}
+
 function renderStatusBar(state) {
   setText("status-sleep", state ? valueOrDash(state.sleep, "h") : "—");
   setText("status-weight", state ? valueOrDash(state.weight) : "—");
   setText("status-steps", state ? valueOrDash(state.steps) : "—");
   setText("status-rhr", state ? valueOrDash(state.resting_heart_rate, " bpm") : "—");
+  setText("status-hrv", state ? valueOrDash(state.heart_rate_variability, " ms") : "—");
   setText("status-confidence", state ? confidencePercent(state.confidence) : "—");
 }
 
@@ -7007,6 +7103,7 @@ function renderWarRoom(state) {
     setText("readiness-soreness", "—");
     setText("readiness-pain", "—");
     renderStatusBar(null);
+    prefillMorningRollCallForm(null);
     const readinessResult = evaluateReadiness(null);
     const morningBrief = generateMorningBrief(readinessResult);
     setText("atlas-brief-state", morningBrief.commandState);
@@ -7074,7 +7171,12 @@ function renderWarRoom(state) {
   setText("summary-energy", `${state.energy}/10`);
   setText("summary-soreness", `${state.soreness}/10`);
   setText("summary-pain", state.pain ? "Yes" : "No");
+  setText("summary-weight", formatObjectiveMetric(state.weight, "lb"));
+  setText("summary-rhr", formatObjectiveMetric(state.resting_heart_rate, "bpm"));
+  setText("summary-hrv", formatObjectiveMetric(state.heart_rate_variability, "ms"));
   setText("summary-confidence", confidencePercent(readinessResult.confidence));
+  setText("summary-objective-sources", summarizeObjectiveMetricSources(state));
+  prefillMorningRollCallForm(state);
   renderDailyCoachingLoop();
   renderBaselineIntelligence();
   renderNutritionCommand();
@@ -7179,12 +7281,16 @@ async function saveMorningRollCall(event) {
   try {
     const form = new FormData(event.currentTarget);
     const comments = String(form.get("comments") || "").trim();
+    const objectiveMetrics = objectiveMetricsFromForm(event.currentTarget, form);
     const payload = {
       user_id: session.user.id,
       date: todayISODate(),
       energy: Number(form.get("energy")),
       soreness: Number(form.get("soreness")),
       pain: form.get("pain") === "yes",
+      ...objectiveMetrics.values,
+      objective_metric_sources: objectiveMetrics.sources,
+      objective_metrics_updated_at: Object.keys(objectiveMetrics.sources).length ? new Date().toISOString() : null,
       comments: comments || null
     };
     payload.confidence = evaluateReadiness(payload).confidence;
@@ -7264,6 +7370,20 @@ function renderOnboarding() {
   if (!panel) return;
   panel.hidden = onboardingDismissed;
   panel.setAttribute("aria-hidden", onboardingDismissed ? "true" : "false");
+}
+
+function openOnboarding() {
+  onboardingDismissed = false;
+  persistOnboardingState();
+  renderOnboarding();
+  setActiveSection("today");
+  window.history.replaceState(null, "", "#today");
+}
+
+async function signOutUser() {
+  const supabase = await getClient();
+  await supabase.auth.signOut();
+  window.location.replace("/");
 }
 
 function handleSectionNavigation(link) {
@@ -8300,6 +8420,7 @@ async function loadConnectedDominion() {
   }
   await loadMfpNutritionFeedState();
   renderConnectedDominion();
+  prefillMorningRollCallForm(dailyState);
 }
 
 function connectedStatusPill(value) {
@@ -8481,10 +8602,10 @@ function renderConnectedDominion() {
     const days = api.summarizeAppleHealthByDate(connectedImportedRecords);
     appleHealthPanel.innerHTML = `<article class="connected-detail-card"><header><div><span class="kicker">BUILD 006E // APPLE HEALTH IMPORT</span><h3>Readiness evidence</h3><p>Upload the export.xml produced by Apple Health. Coach Dominion reads supported metrics only and never stores the raw XML file.</p></div>${connectedStatusPill(days.length ? "VALID" : "NOT_IMPORTED")}</header>
       <div class="connected-actions"><button type="button" data-connected-action="apple-health-import">Choose Apple Health export.xml</button></div>
-      <p class="muted">Supported: daily steps, resting heart rate, body weight, and sleep analysis. Other health categories are ignored.</p>
+      <p class="muted">Supported: daily steps, resting heart rate, HRV, body weight, and sleep analysis. Other health categories are ignored.</p>
     </article>
     ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODate() ? connectedStatusPill("TODAY") : ""}</header>
-      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
+      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>HRV</span><strong>${day.heartRateVariability === null ? "—" : `${day.heartRateVariability} ms`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
       ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
     </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
   }
@@ -8781,7 +8902,15 @@ async function applyAppleHealthReadiness() {
     sleep: day.sleep || dailyState.sleep,
     weight,
     steps: day.steps ?? dailyState.steps,
-    resting_heart_rate: day.restingHeartRate ?? dailyState.resting_heart_rate
+    resting_heart_rate: day.restingHeartRate ?? dailyState.resting_heart_rate,
+    heart_rate_variability: day.heartRateVariability ?? dailyState.heart_rate_variability,
+    objective_metric_sources: {
+      ...(dailyState.objective_metric_sources || {}),
+      ...(day.weight !== null ? { weight: "APPLE_HEALTH" } : {}),
+      ...(day.restingHeartRate !== null ? { resting_heart_rate: "APPLE_HEALTH" } : {}),
+      ...(day.heartRateVariability !== null ? { heart_rate_variability: "APPLE_HEALTH" } : {})
+    },
+    objective_metrics_updated_at: new Date().toISOString()
   };
   payload.confidence = evaluateReadiness(payload).confidence;
   const supabase = await getClient();
@@ -10030,11 +10159,13 @@ if (typeof document !== "undefined") {
     const more = document.querySelector(".nav-more[open]");
     if (more && !more.contains(event.target)) more.removeAttribute("open");
   });
-  document.getElementById("help-onboarding").addEventListener("click", () => {
-    onboardingDismissed = false;
-    persistOnboardingState();
-    renderOnboarding();
-    setActiveSection("today");
+  document.getElementById("help-onboarding").addEventListener("click", openOnboarding);
+  document.getElementById("mobile-help-onboarding")?.addEventListener("click", openOnboarding);
+  document.getElementById("edit-roll-call")?.addEventListener("click", () => {
+    prefillMorningRollCallForm(dailyState);
+    document.getElementById("roll-call-card").hidden = false;
+    document.getElementById("roll-call-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector('#roll-call-form [name="energy"]')?.focus({ preventScroll: true });
   });
   const reviewPromotionButton = document.getElementById("review-promotion");
   const finalizePromotionButton = document.getElementById("finalize-promotion");
@@ -10148,11 +10279,8 @@ if (typeof document !== "undefined") {
     renderOnboarding();
   });
   window.addEventListener("hashchange", restoreSectionFromHash);
-  document.getElementById("logout").addEventListener("click", async () => {
-    const supabase = await getClient();
-    await supabase.auth.signOut();
-    window.location.replace("/");
-  });
+  document.getElementById("logout").addEventListener("click", signOutUser);
+  document.getElementById("mobile-logout")?.addEventListener("click", signOutUser);
 
   init();
 }
@@ -10179,6 +10307,9 @@ if (typeof module !== "undefined") {
     evaluateReadiness,
     calculateConfidence,
     calculateReadiness,
+    parseOptionalMetric,
+    OBJECTIVE_METRIC_CONFIG,
+    objectiveSourceLabel,
     generateMission,
     generateMorningBrief,
     formatAtlasBriefVoice,

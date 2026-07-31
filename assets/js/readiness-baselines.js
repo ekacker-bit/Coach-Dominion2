@@ -6,6 +6,7 @@
   const METRICS = {
     sleep: { label: "Sleep", unit: "h", direction: "lower" },
     resting_heart_rate: { label: "Resting heart rate", unit: "bpm", direction: "higher" },
+    heart_rate_variability: { label: "HRV", unit: "ms", direction: "lower" },
     steps: { label: "Steps", unit: "", direction: "informational" },
     weight: { label: "Weight", unit: "", direction: "informational" }
   };
@@ -61,6 +62,10 @@
       if (ratio > 1.20) return { key, status: "SEVERE", ratio, severity: 2 };
       if (ratio > 1.10) return { key, status: "CONCERN", ratio, severity: 1 };
     }
+    if (key === "heart_rate_variability") {
+      if (ratio < 0.70) return { key, status: "SEVERE", ratio, severity: 2 };
+      if (ratio < 0.85) return { key, status: "CONCERN", ratio, severity: 1 };
+    }
     return { key, status: "WITHIN BASELINE", ratio, severity: 0 };
   }
 
@@ -78,7 +83,7 @@
       };
       metrics[key].signal = signalFor(key, metrics[key].current, metrics[key].baseline28);
     });
-    const eligibleSignals = ["sleep", "resting_heart_rate"].filter((key) => metrics[key].baseline28.count >= 10);
+    const eligibleSignals = ["sleep", "resting_heart_rate", "heart_rate_variability"].filter((key) => metrics[key].baseline28.count >= 10);
     const active = eligibleSignals.length > 0;
     return {
       state: active ? "ACTIVE" : "LEARNING",
@@ -90,7 +95,8 @@
       safeguards: [
         "Pain and an existing RED state always take priority.",
         "Personalization can only preserve or reduce readiness.",
-        "Steps and weight are informational in Build 007D."
+        "HRV is evaluated only against a personal 28-day median after 10 prior observations.",
+        "Steps and weight remain informational."
       ]
     };
   }
@@ -103,18 +109,19 @@
     if (base.state !== "GREEN") {
       return { ...base, baseline: profile, baselineAdjustment: "NONE" };
     }
-    const signals = ["sleep", "resting_heart_rate"]
+    const signals = ["sleep", "resting_heart_rate", "heart_rate_variability"]
       .map((key) => profile.metrics[key]?.signal)
       .filter((signal) => signal && signal.status !== "UNAVAILABLE");
-    const severe = signals.some((signal) => signal.severity >= 2);
     const concerns = signals.filter((signal) => signal.severity >= 1);
-    if (!severe && concerns.length < 2) {
+    const severeNonHrv = concerns.some((signal) => signal.severity >= 2 && signal.key !== "heart_rate_variability");
+    const corroboratedSevereHrv = concerns.some((signal) => signal.severity >= 2 && signal.key === "heart_rate_variability") && concerns.length >= 2;
+    if (!severeNonHrv && !corroboratedSevereHrv && concerns.length < 2) {
       return { ...base, baseline: profile, baselineAdjustment: "NONE" };
     }
     const reasons = concerns.map((signal) => {
       const metric = profile.metrics[signal.key];
       const percent = Math.round(Math.abs(1 - signal.ratio) * 100);
-      const direction = signal.key === "sleep" ? "below" : "above";
+      const direction = signal.key === "resting_heart_rate" ? "above" : "below";
       return `${metric.label} is ${percent}% ${direction} the 28-day personal median.`;
     });
     return {

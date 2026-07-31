@@ -43,6 +43,8 @@ let nutritionBaselineDraft = null;
 let nutritionActiveView = "today";
 let recruitContractStorageMode = "LOCAL";
 let weeklyOrchestrationStorageMode = "LOCAL";
+let mobileInstallPrompt = null;
+let mobileSyncInFlight = false;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -5380,8 +5382,10 @@ async function persistStrengthTrainingState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    if (stateType === "EXECUTION") acknowledgeMobileWrite("STRENGTH_EXECUTION", stateKey);
     return true;
   } catch (_) {
+    if (stateType === "EXECUTION") enqueueMobileWrite("STRENGTH_EXECUTION", stateKey, payload);
     setText("programming-feedback", "Saved on this device. Account sync will resume when strength storage is available.");
     setText("daily-assignment-feedback", "Workout saved on this device. Account sync is temporarily unavailable.");
     return false;
@@ -6104,6 +6108,132 @@ function dailyExecutionQueueStorageKey() {
   return `coach-dominion:daily-execution-queue:${session?.user?.id || "local"}:${todayISODate()}`;
 }
 
+function mobileDailyStateStorageKey(date = todayISODate()) {
+  return `coach-dominion:daily-state:${session?.user?.id || "local"}:${date}`;
+}
+
+function mobilePendingWritesStorageKey() {
+  return `coach-dominion:mobile-pending:${session?.user?.id || "local"}`;
+}
+
+function readMobileDailyState(date = todayISODate()) {
+  try { return JSON.parse(window.localStorage.getItem(mobileDailyStateStorageKey(date)) || "null"); }
+  catch (_) { return null; }
+}
+
+function saveMobileDailyState(payload = {}) {
+  if (!payload?.date) return null;
+  const saved = { ...payload, deviceSavedAt: new Date().toISOString() };
+  window.localStorage.setItem(mobileDailyStateStorageKey(payload.date), JSON.stringify(saved));
+  return saved;
+}
+
+function readMobilePendingWrites() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(mobilePendingWritesStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveMobilePendingWrites(writes = []) {
+  window.localStorage.setItem(mobilePendingWritesStorageKey(), JSON.stringify(writes));
+  renderMobileCommand();
+  return writes;
+}
+
+function enqueueMobileWrite(resource, key, payload) {
+  if (typeof DominionMobileCommand === "undefined") return [];
+  return saveMobilePendingWrites(DominionMobileCommand.enqueueWrite(readMobilePendingWrites(), {
+    resource,
+    key,
+    payload,
+    updatedAt: new Date().toISOString()
+  }));
+}
+
+function acknowledgeMobileWrite(resource, key) {
+  if (typeof DominionMobileCommand === "undefined") return [];
+  return saveMobilePendingWrites(DominionMobileCommand.acknowledgeWrite(readMobilePendingWrites(), `${resource}:${key}`));
+}
+
+async function syncMobileWrite(write = {}) {
+  if (!session?.user?.id) throw new Error("Sign-in is required to sync.");
+  const supabase = await getClient();
+  let result;
+  if (write.resource === "DAILY_STATE") {
+    result = await supabase.from("daily_state").upsert({ ...write.payload, user_id: session.user.id }, { onConflict: "user_id,date" });
+  } else if (write.resource === "STRENGTH_EXECUTION") {
+    result = await supabase.from("strength_training_state").upsert({
+      user_id: session.user.id,
+      state_type: "EXECUTION",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else if (write.resource === "RUNNING_EXECUTION") {
+    result = await supabase.from("running_state").upsert({
+      user_id: session.user.id,
+      state_type: "EXECUTION",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else if (write.resource === "CORE_EXECUTION") {
+    result = await supabase.from("core_program_state").upsert({
+      user_id: session.user.id,
+      state_type: "EXECUTION",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else if (write.resource === "NUTRITION_MANUAL") {
+    result = await supabase.from("nutrition_state").upsert({
+      user_id: session.user.id,
+      state_type: "MANUAL_DAY",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else {
+    throw new Error("Unsupported mobile sync record.");
+  }
+  if (result?.error) throw result.error;
+  return true;
+}
+
+async function flushMobilePendingWrites() {
+  if (mobileSyncInFlight || typeof navigator === "undefined" || navigator.onLine === false) {
+    renderMobileCommand();
+    return false;
+  }
+  mobileSyncInFlight = true;
+  try {
+    for (const write of [...readMobilePendingWrites()]) {
+      try {
+        await syncMobileWrite(write);
+        acknowledgeMobileWrite(write.resource, write.key);
+      } catch (_) {
+        const pending = readMobilePendingWrites();
+        const current = pending.find((item) => item.id === write.id);
+        if (current) {
+          saveMobilePendingWrites(DominionMobileCommand.enqueueWrite(pending, {
+            ...current,
+            attempts: Number(current.attempts || 0) + 1,
+            updatedAt: new Date().toISOString()
+          }));
+        }
+        break;
+      }
+    }
+    return readMobilePendingWrites().length === 0;
+  } finally {
+    mobileSyncInFlight = false;
+    renderMobileCommand();
+  }
+}
+
 function readDailyExecutionQueueState() {
   try { return JSON.parse(window.localStorage.getItem(dailyExecutionQueueStorageKey()) || "null") || {}; }
   catch (_) { return {}; }
@@ -6321,10 +6451,205 @@ function buildCurrentDailyAssignment() {
   };
 }
 
+function currentMobileNutrition(date = todayISODate()) {
+  const api = connectedApi();
+  const imported = api ? api.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date) : null;
+  return imported || readManualNutrition(date) || null;
+}
+
+function buildCurrentMobileCommand() {
+  if (typeof DominionMobileCommand === "undefined") return null;
+  return DominionMobileCommand.buildMobileCommand({
+    date: todayISODate(),
+    dailyState,
+    strengthAssignment: buildCurrentDailyAssignment(),
+    strengthExecution: readDailyAssignmentExecution(),
+    runningPrescription: currentRunningPrescription(),
+    runningExecution: readRunningExecution(),
+    corePrescription: currentCorePrescription(),
+    coreExecution: readCurrentCoreExecution(),
+    nutrition: currentMobileNutrition(),
+    online: typeof navigator === "undefined" ? true : navigator.onLine,
+    pendingWrites: readMobilePendingWrites().length
+  });
+}
+
+function prefillMobileCommandForms(force = false) {
+  const rollCallForm = document.getElementById("mobile-roll-call-form");
+  if (rollCallForm && (force || rollCallForm.dataset.dirty !== "true")) {
+    const state = dailyState?.date === todayISODate() ? dailyState : readMobileDailyState();
+    rollCallForm.elements.energy.value = state?.energy ?? 7;
+    rollCallForm.elements.soreness.value = state?.soreness ?? 3;
+    const pain = rollCallForm.querySelector(`[name="pain"][value="${state?.pain ? "yes" : "no"}"]`);
+    if (pain) pain.checked = true;
+    rollCallForm.elements.weight.value = state?.weight ?? "";
+    rollCallForm.elements.resting_heart_rate.value = state?.resting_heart_rate ?? "";
+    rollCallForm.elements.heart_rate_variability.value = state?.heart_rate_variability ?? "";
+    rollCallForm.elements.comments.value = state?.comments || "";
+    setText("mobile-energy-value", rollCallForm.elements.energy.value);
+    setText("mobile-soreness-value", rollCallForm.elements.soreness.value);
+  }
+  const nutritionForm = document.getElementById("mobile-nutrition-form");
+  if (nutritionForm && (force || nutritionForm.dataset.dirty !== "true")) {
+    const record = readManualNutrition(todayISODate()) || {};
+    ["calories", "protein", "carbs", "fat"].forEach((key) => {
+      nutritionForm.elements[key].value = record[key] ?? "";
+    });
+  }
+}
+
+function renderMobileCommand() {
+  const panel = document.getElementById("mobile-command");
+  const nextPanel = document.getElementById("mobile-command-next");
+  const modulePanel = document.getElementById("mobile-command-modules");
+  const sync = document.getElementById("mobile-sync-state");
+  const progress = document.getElementById("mobile-command-progress");
+  if (!panel || !nextPanel || !modulePanel || !sync || typeof DominionMobileCommand === "undefined") return;
+  let command;
+  try { command = buildCurrentMobileCommand(); }
+  catch (_) { return; }
+  if (!command) return;
+  sync.textContent = command.sync.label.toUpperCase();
+  sync.className = `state-pill ${!command.sync.online || command.sync.pending ? "yellow" : "green"}`;
+  if (progress) progress.style.width = `${command.progress.percent}%`;
+  nextPanel.innerHTML = `<div><span>Next action · ${command.progress.completed}/${command.progress.total}</span><strong>${escapeHtml(command.next.label)}</strong><p>${escapeHtml(command.next.detail)}</p></div>
+    <button type="button" data-mobile-action="${escapeHtml(command.next.action)}" data-mobile-module="${escapeHtml(command.next.module || "")}">${escapeHtml(command.next.label)}</button>`;
+  modulePanel.innerHTML = command.modules.map((item) => `<article class="mobile-command-module ${item.active ? "active" : ""} ${item.complete ? "complete" : ""}">
+    <span>${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail || "Today’s assignment")}</small>
+    <button type="button" class="ghost" data-mobile-action="MODULE" data-mobile-module="${escapeHtml(item.id)}">${escapeHtml(item.actionLabel)}</button>
+  </article>`).join("");
+  setText("mobile-roll-call-summary", command.rollCallComplete ? "Saved today" : "About 20 seconds");
+  setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Today’s totals");
+  prefillMobileCommandForms();
+  renderMobileInstallExperience();
+  document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mobileNav === "today" && activeSection === "today");
+  });
+}
+
+function openMobileCommandSheet(kind = "roll-call") {
+  setActiveSection("today");
+  window.history.replaceState(null, "", "#today");
+  const sheet = document.getElementById(kind === "nutrition" ? "mobile-nutrition-sheet" : "mobile-roll-call-sheet");
+  if (sheet) {
+    sheet.open = true;
+    sheet.scrollIntoView({ behavior: "smooth", block: "center" });
+    const field = kind === "nutrition"
+      ? sheet.querySelector('[name="calories"]')
+      : sheet.querySelector('[name="energy"]');
+    field?.focus({ preventScroll: true });
+  }
+}
+
+async function launchMobileModule(module = "strength") {
+  if (module === "strength") {
+    const assignment = buildCurrentDailyAssignment();
+    let execution = readDailyAssignmentExecution();
+    if (assignment?.state === "RECOVERY ONLY") {
+      setText("mobile-command-feedback", "Strength remains on safety hold. Review today’s readiness before training.");
+    } else if (assignment?.exercises?.length && execution.state === "READY") {
+      execution = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+    } else if (execution.state === "PAUSED") {
+      execution = DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+    } else if (!assignment?.exercises?.length) {
+      setActiveSection("performance");
+      setPerformanceActiveView("today_training");
+      window.history.replaceState(null, "", "#performance");
+      document.getElementById("training-programming-detail")?.setAttribute("open", "");
+      return;
+    }
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    const detail = document.querySelector(".today-workout-detail");
+    if (detail) detail.open = true;
+    renderDailyAssignment();
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (module === "running") {
+    const prescription = currentRunningPrescription();
+    let execution = readRunningExecution();
+    if (prescription?.session && !["PAIN_HOLD", "REST_DAY"].includes(prescription.status) && execution?.state !== "IN_PROGRESS" && execution?.state !== "COMPLETE") {
+      const plan = readApprovedRunningPlan();
+      execution = {
+        state: "IN_PROGRESS",
+        date: todayISODate(),
+        blockId: plan?.blockId || null,
+        blockRevision: plan?.blockRevision || null,
+        weekStart: plan?.weekStart || null,
+        session: prescription.session,
+        startedAt: new Date().toISOString()
+      };
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+      const synced = await persistRunningState("EXECUTION", todayISODate(), execution);
+      if (!synced) enqueueMobileWrite("RUNNING_EXECUTION", todayISODate(), execution);
+    }
+    setActiveSection("performance");
+    setPerformanceActiveView("running");
+    window.history.replaceState(null, "", "#performance");
+    renderRunningCommand();
+    document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (module === "core") {
+    const prescription = currentCorePrescription();
+    let execution = readCurrentCoreExecution();
+    if (!execution && prescription?.session && prescription.status === "READY") {
+      execution = DominionCoreProgramming.startExecution(prescription, new Date().toISOString());
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      const synced = await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      if (!synced) enqueueMobileWrite("CORE_EXECUTION", todayISODate(), execution);
+    }
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    const detail = document.getElementById("today-core-detail");
+    if (detail) detail.open = true;
+    renderCoreToday();
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  renderMobileCommand();
+}
+
+function mobileStandaloneMode() {
+  return Boolean(window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true);
+}
+
+function renderMobileInstallExperience() {
+  const card = document.getElementById("mobile-install-card");
+  const button = document.getElementById("mobile-install");
+  if (!card || !button) return;
+  card.hidden = mobileStandaloneMode();
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
+  button.textContent = mobileInstallPrompt ? "Install" : isIos ? "Show steps" : "Add to Home";
+}
+
+async function requestMobileInstall() {
+  if (mobileInstallPrompt) {
+    mobileInstallPrompt.prompt();
+    const choice = await mobileInstallPrompt.userChoice;
+    mobileInstallPrompt = null;
+    setText("mobile-command-feedback", choice?.outcome === "accepted" ? "Dominion added to your Home Screen." : "Install dismissed. You can add it later.");
+    renderMobileInstallExperience();
+    return;
+  }
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
+  setText("mobile-install-copy", isIos
+    ? "Tap Share in Safari, then choose Add to Home Screen."
+    : "Open your browser menu and choose Add to Home Screen or Install app.");
+}
+
+function registerMobileServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
 async function saveDailyAssignmentExecution(execution) {
   const payload = { ...execution, updatedAt: new Date().toISOString() };
   saveStrengthStateLocal("EXECUTION", todayISODate(), payload);
-  await persistStrengthTrainingState("EXECUTION", todayISODate(), payload);
+  const synced = await persistStrengthTrainingState("EXECUTION", todayISODate(), payload);
+  if (synced) acknowledgeMobileWrite("STRENGTH_EXECUTION", todayISODate());
+  else enqueueMobileWrite("STRENGTH_EXECUTION", todayISODate(), payload);
+  renderMobileCommand();
   return payload;
 }
 
@@ -6638,6 +6963,7 @@ function renderDailyCoachingLoop() {
   const queue = buildCurrentDailyExecutionQueue();
   if (!loop || !queue) {
     panel.innerHTML = `<div class="performance-empty">Daily coaching engine unavailable.</div>`;
+    renderMobileCommand();
     return;
   }
   setText("daily-orders-state", queue.state);
@@ -6668,6 +6994,7 @@ function renderDailyCoachingLoop() {
     <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
   </article>`).join("");
   renderClosedLoopCoaching();
+  renderMobileCommand();
   applyProductPolish();
 }
 
@@ -7144,8 +7471,10 @@ async function persistRunningState(stateType, stateKey, payload) {
       payload, updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    if (stateType === "EXECUTION") acknowledgeMobileWrite("RUNNING_EXECUTION", stateKey);
     return true;
   } catch (_) {
+    if (stateType === "EXECUTION") enqueueMobileWrite("RUNNING_EXECUTION", stateKey, payload);
     setText("running-command-feedback", "Saved locally. Remote running storage is unavailable until migration 010 is applied.");
     return false;
   }
@@ -7262,8 +7591,10 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
     return true;
   } catch (_) {
+    if (stateType === "EXECUTION") enqueueMobileWrite("CORE_EXECUTION", stateKey, payload);
     setText("core-programming-feedback", "Saved locally. Account sync will activate after migration 012 is applied.");
     setText("core-today-feedback", "Saved on this device. Account sync is temporarily unavailable.");
     return false;
@@ -8036,20 +8367,28 @@ function renderWarRoom(state) {
 }
 
 async function loadDailyState() {
-  const supabase = await getClient();
-  const cutoff = new Date(`${todayISODate()}T00:00:00Z`);
-  cutoff.setUTCDate(cutoff.getUTCDate() - 28);
-  const { data, error } = await supabase
-    .from("daily_state")
-    .select(DAILY_STATE_COLUMNS)
-    .eq("user_id", session.user.id)
-    .gte("date", cutoff.toISOString().slice(0, 10))
-    .lte("date", todayISODate())
-    .order("date", { ascending: true });
-
-  if (error) throw error;
-  readinessHistory = data || [];
-  dailyState = readinessHistory.find((item) => item.date === todayISODate()) || null;
+  const local = readMobileDailyState();
+  try {
+    const supabase = await getClient();
+    const cutoff = new Date(`${todayISODate()}T00:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - 28);
+    const { data, error } = await supabase
+      .from("daily_state")
+      .select(DAILY_STATE_COLUMNS)
+      .eq("user_id", session.user.id)
+      .gte("date", cutoff.toISOString().slice(0, 10))
+      .lte("date", todayISODate())
+      .order("date", { ascending: true });
+    if (error) throw error;
+    readinessHistory = data || [];
+    const remote = readinessHistory.find((item) => item.date === todayISODate()) || null;
+    const hasPendingLocal = readMobilePendingWrites().some((item) => item.resource === "DAILY_STATE" && item.key === todayISODate());
+    dailyState = hasPendingLocal && local ? local : remote || local;
+    if (dailyState) saveMobileDailyState(dailyState);
+  } catch (_) {
+    readinessHistory = local ? [local] : [];
+    dailyState = local;
+  }
   renderWarRoom(dailyState);
 }
 
@@ -8123,6 +8462,43 @@ async function writeCommandEvents(newState, previousState) {
   if (error) throw error;
 }
 
+async function saveMorningRollCallPayload(payload = {}, options = {}) {
+  const normalized = { ...payload, user_id: session.user.id, date: todayISODate() };
+  normalized.confidence = evaluateReadiness(normalized).confidence;
+  const previousState = dailyState;
+  saveMobileDailyState(normalized);
+  enqueueMobileWrite("DAILY_STATE", normalized.date, normalized);
+  dailyState = normalized;
+  readinessHistory = [...readinessHistory.filter((item) => item.date !== normalized.date), normalized];
+  renderWarRoom(dailyState);
+  setStatus("Roll Call saved on this device. Syncing…");
+
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("daily_state")
+      .upsert(normalized, { onConflict: "user_id,date" })
+      .select(DAILY_STATE_COLUMNS)
+      .single();
+    if (error) throw error;
+    acknowledgeMobileWrite("DAILY_STATE", normalized.date);
+    saveMobileDailyState(data);
+    dailyState = data;
+    readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+    renderWarRoom(dailyState);
+    try {
+      await writeCommandEvents(data, previousState);
+      await loadCommandFeed();
+    } catch (_) {}
+    setStatus(options.mobile ? "Roll Call saved and synced." : "Morning Roll Call saved.");
+    return { data, synced: true };
+  } catch (_) {
+    setStatus("Roll Call saved on this device. It will sync automatically when the connection returns.");
+    renderMobileCommand();
+    return { data: normalized, synced: false };
+  }
+}
+
 async function saveMorningRollCall(event) {
   event.preventDefault();
   const button = document.getElementById("save-roll-call");
@@ -8134,9 +8510,7 @@ async function saveMorningRollCall(event) {
     const form = new FormData(event.currentTarget);
     const comments = String(form.get("comments") || "").trim();
     const objectiveMetrics = objectiveMetricsFromForm(event.currentTarget, form);
-    const payload = {
-      user_id: session.user.id,
-      date: todayISODate(),
+    await saveMorningRollCallPayload({
       energy: Number(form.get("energy")),
       soreness: Number(form.get("soreness")),
       pain: form.get("pain") === "yes",
@@ -8144,27 +8518,9 @@ async function saveMorningRollCall(event) {
       objective_metric_sources: objectiveMetrics.sources,
       objective_metrics_updated_at: Object.keys(objectiveMetrics.sources).length ? new Date().toISOString() : null,
       comments: comments || null
-    };
-    payload.confidence = evaluateReadiness(payload).confidence;
-
-    const previousState = dailyState;
-    const supabase = await getClient();
-    const { data, error } = await supabase
-      .from("daily_state")
-      .upsert(payload, { onConflict: "user_id,date" })
-      .select(DAILY_STATE_COLUMNS)
-      .single();
-
-    if (error) throw error;
-    await writeCommandEvents(data, previousState);
-
-    dailyState = data;
-    readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
-    renderWarRoom(dailyState);
-    await loadCommandFeed();
-    setStatus("Morning Roll Call saved.");
+    });
   } catch (error) {
-    setStatus(error.message);
+    setStatus(error.message || "Roll Call could not be saved.");
   } finally {
     button.disabled = false;
     button.textContent = "Submit Morning Roll Call";
@@ -8189,6 +8545,10 @@ function setActiveSection(section = "today") {
     element.classList.toggle("is-active", isMatch);
     element.hidden = !isMatch;
     element.setAttribute("aria-hidden", isMatch ? "false" : "true");
+  });
+  const mobileSectionMap = { today: "today", performance: "train", nutrition: "fuel", contract: "contract" };
+  document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mobileNav === mobileSectionMap[normalized]);
   });
   const target = document.getElementById(normalized) || document.querySelector(`[data-section="${normalized}"]`);
   if (target) {
@@ -8787,8 +9147,10 @@ async function persistNutritionState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    if (stateType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
     return true;
   } catch (_) {
+    if (stateType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
     return false;
   }
 }
@@ -9076,6 +9438,7 @@ function renderNutritionCommand() {
   renderMealCoaching();
   renderNutritionNextAction({ imported, manual });
   renderTodayNutritionExecution();
+  renderMobileCommand();
 }
 
 function nutritionViewStorageKey() {
@@ -9152,6 +9515,7 @@ async function saveManualNutrition(event) {
   const synced = await persistNutritionState("MANUAL_DAY", date, record);
   renderNutritionCommand();
   if (date === todayISODate()) renderDailyCoachingLoop();
+  renderMobileCommand();
   setText("nutrition-command-feedback", `Manual totals saved${synced ? " to your account" : " locally"}. MyFitnessPal data will take priority when available for this date.`);
 }
 
@@ -9794,6 +10158,7 @@ async function init() {
     }
     session = data.session;
     setText("identity", "Signed in as " + session.user.email);
+    await flushMobilePendingWrites();
     onboardingDismissed = window.localStorage.getItem("coach-dominion:onboarding-dismissed") === "true";
     loadStandardsReviewState();
     loadRankStatus();
@@ -9802,7 +10167,7 @@ async function init() {
     organizeWorkspaceSections();
     restoreSectionFromHash();
     await loadDailyState();
-    await loadCommandFeed();
+    try { await loadCommandFeed(); } catch (_) { renderCommandFeed([]); }
     await loadDailyCompliance();
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
@@ -9822,6 +10187,7 @@ async function init() {
     renderActivationGuide();
     renderTodayStandardsDuty();
     renderRankSection();
+    renderMobileCommand();
     resetPerformanceForm();
     setPerformanceActiveView("overview");
   } catch (error) {
@@ -9833,6 +10199,130 @@ async function init() {
 
 if (typeof document !== "undefined") {
   applyProductPolish();
+  registerMobileServiceWorker();
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    mobileInstallPrompt = event;
+    renderMobileInstallExperience();
+  });
+  window.addEventListener("appinstalled", () => {
+    mobileInstallPrompt = null;
+    setText("mobile-command-feedback", "Dominion is installed and ready from your Home Screen.");
+    renderMobileInstallExperience();
+  });
+  window.addEventListener("online", async () => {
+    renderMobileCommand();
+    const synced = await flushMobilePendingWrites();
+    setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
+  });
+  window.addEventListener("offline", () => {
+    renderMobileCommand();
+    setText("mobile-command-feedback", "You’re offline. Today’s changes will stay on this device and sync automatically.");
+  });
+  document.getElementById("mobile-roll-call-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+    if (event.target.name === "energy") setText("mobile-energy-value", event.target.value);
+    if (event.target.name === "soreness") setText("mobile-soreness-value", event.target.value);
+  });
+  document.getElementById("mobile-nutrition-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+  });
+  document.getElementById("mobile-roll-call-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving…";
+    }
+    try {
+      const values = Object.fromEntries(new FormData(form));
+      const payload = DominionMobileCommand.normalizeRollCall(values, {
+        userId: session.user.id,
+        date: todayISODate(),
+        now: new Date().toISOString()
+      });
+      const result = await saveMorningRollCallPayload(payload, { mobile: true });
+      form.dataset.dirty = "false";
+      document.getElementById("mobile-roll-call-sheet").open = false;
+      setText("mobile-command-feedback", result.synced
+        ? "Roll Call saved. Today’s training guardrails are updated."
+        : "Roll Call saved offline. It will sync automatically.");
+      prefillMobileCommandForms(true);
+    } catch (error) {
+      setText("mobile-command-feedback", error?.message || "Roll Call could not be saved.");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Roll Call";
+      }
+      renderMobileCommand();
+    }
+  });
+  document.getElementById("mobile-nutrition-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving…";
+    }
+    try {
+      const record = DominionMobileCommand.normalizeNutrition(Object.fromEntries(new FormData(form)), {
+        date: todayISODate(),
+        now: new Date().toISOString()
+      });
+      window.localStorage.setItem(nutritionManualStorageKey(record.date), JSON.stringify(record));
+      enqueueMobileWrite("NUTRITION_MANUAL", record.date, record);
+      const synced = await persistNutritionState("MANUAL_DAY", record.date, record);
+      form.dataset.dirty = "false";
+      document.getElementById("mobile-nutrition-sheet").open = false;
+      renderNutritionCommand();
+      renderDailyCoachingLoop();
+      setText("mobile-command-feedback", synced
+        ? "Fuel totals saved and synced."
+        : "Fuel totals saved offline. They will sync automatically.");
+      prefillMobileCommandForms(true);
+    } catch (error) {
+      setText("mobile-command-feedback", error?.message || "Fuel totals could not be saved.");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Fuel Totals";
+      }
+      renderMobileCommand();
+    }
+  });
+  document.getElementById("mobile-command")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-mobile-action]");
+    if (!button) return;
+    const action = button.dataset.mobileAction;
+    if (action === "ROLL_CALL") openMobileCommandSheet("roll-call");
+    if (action === "NUTRITION") openMobileCommandSheet("nutrition");
+    if (action === "MODULE") await launchMobileModule(button.dataset.mobileModule || "strength");
+    if (action === "TODAY") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+    }
+  });
+  document.getElementById("mobile-command-dock")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mobile-nav]");
+    if (!button) return;
+    event.preventDefault();
+    const action = button.dataset.mobileNav;
+    if (action === "roll-call") return openMobileCommandSheet("roll-call");
+    if (action === "fuel") return openMobileCommandSheet("nutrition");
+    if (action === "train") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("mobile-command-modules")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const section = action === "contract" ? "contract" : "today";
+    setActiveSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+  });
+  document.getElementById("mobile-install")?.addEventListener("click", requestMobileInstall);
   initializeComplianceForm();
   document.getElementById("recruit-contract-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();

@@ -4588,14 +4588,22 @@ function readProgrammingDraft() {
   return readApprovedStrengthPlan();
 }
 
+function strengthRemoteStateCoordinates(stateType, stateKey = "current") {
+  if (stateType === "BLOCK") {
+    return { stateType: "SCHEDULE", stateKey: `block-${stateKey}` };
+  }
+  return { stateType, stateKey };
+}
+
 async function persistStrengthTrainingState(stateType, stateKey, payload) {
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
+    const remote = strengthRemoteStateCoordinates(stateType, stateKey);
     const { error } = await supabase.from("strength_training_state").upsert({
       user_id: session.user.id,
-      state_type: stateType,
-      state_key: stateKey,
+      state_type: remote.stateType,
+      state_key: remote.stateKey,
       payload,
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
@@ -4613,11 +4621,12 @@ async function clearStrengthTrainingState(stateType, stateKey = "current") {
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
+    const remote = strengthRemoteStateCoordinates(stateType, stateKey);
     const { error } = await supabase.from("strength_training_state")
       .delete()
       .eq("user_id", session.user.id)
-      .eq("state_type", stateType)
-      .eq("state_key", stateKey);
+      .eq("state_type", remote.stateType)
+      .eq("state_key", remote.stateKey);
     if (error) throw error;
     return true;
   } catch (_) {
@@ -4636,7 +4645,7 @@ async function loadStrengthTrainingState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT", "SCHEDULE", "WEEK_REVIEW", "BLOCK"].forEach((stateType) => {
+    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT", "SCHEDULE", "WEEK_REVIEW"].forEach((stateType) => {
       const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
       if (row) saveStrengthStateLocal(stateType, "current", row.payload);
     });
@@ -4644,9 +4653,20 @@ async function loadStrengthTrainingState() {
     if (scheduleDraft) saveStrengthStateLocal("SCHEDULE", "draft", scheduleDraft.payload);
     const reviewHistory = rows.find((item) => item.state_type === "WEEK_REVIEW" && item.state_key === "history");
     if (reviewHistory) saveStrengthStateLocal("WEEK_REVIEW", "history", reviewHistory.payload);
-    const blockDraft = rows.find((item) => item.state_type === "BLOCK" && item.state_key === "draft");
+    const blockCurrent = rows.find((item) =>
+      (item.state_type === "BLOCK" && item.state_key === "current")
+      || (item.state_type === "SCHEDULE" && item.state_key === "block-current")
+    );
+    if (blockCurrent) saveStrengthStateLocal("BLOCK", "current", blockCurrent.payload);
+    const blockDraft = rows.find((item) =>
+      (item.state_type === "BLOCK" && item.state_key === "draft")
+      || (item.state_type === "SCHEDULE" && item.state_key === "block-draft")
+    );
     if (blockDraft) saveStrengthStateLocal("BLOCK", "draft", blockDraft.payload);
-    const blockHistory = rows.find((item) => item.state_type === "BLOCK" && item.state_key === "history");
+    const blockHistory = rows.find((item) =>
+      (item.state_type === "BLOCK" && item.state_key === "history")
+      || (item.state_type === "SCHEDULE" && item.state_key === "block-history")
+    );
     if (blockHistory) saveStrengthStateLocal("BLOCK", "history", blockHistory.payload);
     const execution = rows.find((item) => item.state_type === "EXECUTION" && item.state_key === todayISODate());
     if (execution) saveStrengthStateLocal("EXECUTION", todayISODate(), execution.payload);
@@ -4666,7 +4686,8 @@ async function loadStrengthTrainingState() {
       ["EXECUTION", todayISODate(), readStrengthExecution()]
     ];
     for (const [stateType, stateKey, payload] of localStates) {
-      const exists = rows.some((item) => item.state_type === stateType && item.state_key === stateKey);
+      const remote = strengthRemoteStateCoordinates(stateType, stateKey);
+      const exists = rows.some((item) => item.state_type === remote.stateType && item.state_key === remote.stateKey);
       if (!exists && payload && (stateType !== "HISTORY" || payload.length)) {
         await persistStrengthTrainingState(stateType, stateKey, payload);
       }

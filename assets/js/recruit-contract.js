@@ -5,7 +5,9 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "018E.1";
+  const VERSION = "019G.1";
+  const TWO_A_DAY_TARGET_MINUTES = 121;
+  const TWO_A_DAY_MAX_MINUTES = 240;
   const PRIMARY_GOALS = Object.freeze([
     "BALANCED_FITNESS",
     "BUILD_STRENGTH",
@@ -43,6 +45,12 @@
 
   function clamp(value, min, max, fallback) {
     return Math.max(min, Math.min(max, integer(value, fallback)));
+  }
+
+  function booleanValue(value, fallback = false) {
+    if (typeof value === "boolean") return value;
+    if (value === null || value === undefined || value === "") return fallback;
+    return ["1", "true", "yes", "on"].includes(String(value).trim().toLowerCase());
   }
 
   function dateIso(value) {
@@ -90,6 +98,7 @@
       runningDaysPerWeek: 3,
       coreDaysPerWeek: 3,
       sessionMinutes: 60,
+      twoADays: false,
       equipment: "FULL_GYM",
       experience: "INTERMEDIATE",
       runningGoal: "GENERAL_FITNESS",
@@ -112,6 +121,7 @@
       runningDaysPerWeek: clamp(input.runningDaysPerWeek ?? input.running_days_per_week, 0, 6, defaults.runningDaysPerWeek),
       coreDaysPerWeek: clamp(input.coreDaysPerWeek ?? input.core_days_per_week, 0, 4, defaults.coreDaysPerWeek),
       sessionMinutes: nearest(input.sessionMinutes ?? input.session_minutes, [30, 45, 60, 75, 90], defaults.sessionMinutes),
+      twoADays: booleanValue(input.twoADays ?? input.two_a_days, defaults.twoADays),
       equipment: enumValue(input.equipment, EQUIPMENT_LEVELS, defaults.equipment),
       experience: enumValue(input.experience, EXPERIENCE_LEVELS, defaults.experience),
       runningGoal: enumValue(input.runningGoal || input.running_goal, RUNNING_GOALS, defaults.runningGoal),
@@ -154,6 +164,9 @@
     if (contract.sessionMinutes === 90 && contract.trainingDaysPerWeek >= 5) {
       warnings.push("Five or more 90-minute training days is a high time commitment; confirm it is sustainable.");
     }
+    if (contract.twoADays) {
+      warnings.push("Two-a-Days permits two scheduled sessions and more than 120 combined minutes on a training day, up to 240 minutes. Long-run duration remains uncapped by time.");
+    }
 
     return {
       valid: errors.length === 0,
@@ -190,7 +203,10 @@
         isTrainingDay,
         isRecoveryDay: !isTrainingDay,
         activities,
-        load: !isTrainingDay ? "RECOVERY" : activities.length > 1 ? "STACKED" : "SINGLE"
+        twoADayEligible: Boolean(contract.twoADays && activities.length > 1),
+        dailyMinuteTarget: contract.twoADays && activities.length > 1 ? TWO_A_DAY_TARGET_MINUTES : contract.sessionMinutes,
+        dailyMinuteCap: contract.twoADays && activities.length > 1 ? TWO_A_DAY_MAX_MINUTES : contract.sessionMinutes,
+        load: !isTrainingDay ? "RECOVERY" : contract.twoADays && activities.length > 1 ? "TWO_A_DAY" : activities.length > 1 ? "STACKED" : "SINGLE"
       };
     });
   }
@@ -338,6 +354,9 @@
       moduleReadiness: buildModuleReadiness(validation.contract, planningInputs),
       safeguards: [
         "At least one full recovery day is protected every week.",
+        validation.contract.twoADays
+          ? "Two-a-Day calendar days may contain no more than two sessions and 240 combined minutes; long runs have no time ceiling."
+          : "Combined training remains within the standard daily session commitment.",
         "Approving this contract does not activate or replace a module plan.",
         "Contract inputs create reviewable drafts; each plan keeps its own approval boundary.",
         "Pain and RED readiness override every commitment."
@@ -373,6 +392,8 @@
 
   return {
     VERSION,
+    TWO_A_DAY_TARGET_MINUTES,
+    TWO_A_DAY_MAX_MINUTES,
     PRIMARY_GOALS,
     NUTRITION_COMMITMENTS,
     EQUIPMENT_LEVELS,

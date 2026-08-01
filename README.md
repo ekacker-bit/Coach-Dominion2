@@ -59,6 +59,10 @@ The Daily Seal gives Today a meaningful ending. It reads the canonical execution
 
 Build 019D makes every major surface answer from one state hierarchy: Contract → Plans → Week → Today → Evidence → Review. A module can only show `COMPLETE` when a committed assignment, terminal execution, and preserved evidence agree. Unsigned contracts, stale plan links, uncommitted weeks, missing evidence, and review work now produce one named blocker and one repair action across the mission rail, mobile command, and Daily Seal.
 
+## Build 019E One Command UX
+
+Today now presents one authoritative order with one primary action. The same operating truth chooses the instruction, destination, evidence state, and closeout action; plan context and the full daily sequence remain available through progressive disclosure. On mobile, the duplicate command dashboard is removed while quick Roll Call and fuel capture remain directly accessible.
+
 ## Build 004B weekly inspection
 
 The Weekly Inspection reviews a normalized Monday-through-Sunday period and can move backward across prior weeks. It aggregates the underlying included domain observations: completed = 100, partial = 50, and missed = 0. Excused and intentionally not-applicable observations are excluded from the score denominator. Missing or invalid observations receive no credit and remain unassessed. Scores retain full precision internally and round only in the interface.

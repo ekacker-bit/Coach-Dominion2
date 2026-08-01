@@ -76,6 +76,12 @@ The Recruit Contract can now authorize designated Two-a-Days. When enabled, the 
 
 Long runs are exempt from time clipping: their duration remains open even when estimated above the standard or Two-a-Day ceiling. The exemption does not remove recovery-day protection, readiness and pain restrictions, the hard-run plus loaded-strength block, or the requirement to separate and refuel between compatible sessions.
 
+## Build 020A Split-Day Command
+
+A committed Two-a-Day now becomes an executable sequence instead of one oversized calendar block. Coach Dominion orders Session 1 and Session 2 from the signed goal, keeps a long run first and time-open, and carries the sequence into Today with independent module status and launch controls.
+
+Session 2 remains unavailable until Session 1 has terminal execution evidence. Between sessions, the recruit receives one explicit recovery bridge: refuel, rehydrate, and separate exposures by at least four hours. Current nutrition evidence is visible without inventing another meal log or silently modifying the approved baseline.
+
 ## Build 004B weekly inspection
 
 The Weekly Inspection reviews a normalized Monday-through-Sunday period and can move backward across prior weeks. It aggregates the underlying included domain observations: completed = 100, partial = 50, and missed = 0. Excused and intentionally not-applicable observations are excluded from the score denominator. Missing or invalid observations receive no credit and remain unassessed. Scores retain full precision internally and round only in the interface.

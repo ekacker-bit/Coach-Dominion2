@@ -32,7 +32,7 @@ assert.match(running, /durationCapMinutes: run\.type === "LONG" \? null/);
 assert.match(running, /longRunDurationPolicy: "UNCAPPED_BY_TIME"/);
 assert.match(styles, /\.recruit-contract-two-a-days/);
 assert.match(styles, /\.weekly-orchestrator-day\.two_a_day/);
-assert.match(worker, /coach-dominion-019g-v2/);
+assert.match(worker, /coach-dominion-[0-9]{3}[a-z]-v\d+/i);
 assert.match(packageJson, /node tests\/build-019g\.test\.js/);
 
 console.log("Build 019G Two-a-Day capacity integration passed.");

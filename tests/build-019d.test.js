@@ -40,7 +40,7 @@ assert.match(styles, /\.shell-truth-alert/);
 assert.match(styles, /data-dominion-phase="conflict"/);
 assert.match(styles, /grid-template-columns: repeat\(6/);
 
-assert.match(worker, /coach-dominion-019[a-z]-v\d+/);
+assert.match(worker, /coach-dominion-[0-9]{3}[a-z]-v\d+/i);
 assert.match(worker, /\/assets\/js\/operating-truth\.js/);
 assert.match(packageJson, /node tests\/operating-truth\.test\.js/);
 assert.match(packageJson, /node tests\/build-019d\.test\.js/);

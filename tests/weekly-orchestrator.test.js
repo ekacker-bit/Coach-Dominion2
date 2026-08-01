@@ -190,6 +190,35 @@ test("long-run duration is never capped by standard or Two-a-Day time limits", (
   assert.equal(policy.estimatedMinutes, 380);
 });
 
+test("Two-a-Day sessions receive a deterministic execution order and recovery bridge", () => {
+  const sessions = orchestrator.buildSessionSequence(
+    { twoADays: true, primaryGoal: "BUILD_STRENGTH", sessionMinutes: 75 },
+    [
+      { id: "easy-run", module: "RUNNING", type: "EASY", estimatedMinutes: 70 },
+      { id: "lift", module: "STRENGTH", type: "STRENGTH", estimatedMinutes: 75 }
+    ]
+  );
+  assert.deepEqual(sessions.map((item) => item.id), ["lift", "easy-run"]);
+  assert.deepEqual(sessions.map((item) => item.sessionLabel), ["SESSION 1", "SESSION 2"]);
+  assert.equal(sessions[0].separationBeforeMinutes, 0);
+  assert.equal(sessions[1].separationBeforeMinutes, 240);
+  assert.equal(sessions[1].fuelingCheckpoint, true);
+  assert.equal(sessions[1].command, "EXECUTE AFTER REFUEL");
+});
+
+test("a long run remains first and time-open inside a split-day command", () => {
+  const activities = [
+    { id: "core", module: "CORE", type: "CORE", estimatedMinutes: 20 },
+    { id: "long", module: "RUNNING", type: "LONG", estimatedMinutes: 180 }
+  ];
+  const policy = orchestrator.dailyDurationPolicy({ twoADays: true, sessionMinutes: 60 }, activities);
+  const sessions = orchestrator.buildSessionSequence({ twoADays: true, primaryGoal: "BUILD_STRENGTH", sessionMinutes: 60 }, activities, policy);
+  assert.equal(policy.longRunUncapped, true);
+  assert.equal(policy.maximumMinutes, null);
+  assert.equal(sessions[0].id, "long");
+  assert.equal(sessions[1].id, "core");
+});
+
 test("missing module approvals are explicit blockers", () => {
   const input = modules();
   const result = draft({ ...input, runningBlock: null, nutritionBaseline: null });

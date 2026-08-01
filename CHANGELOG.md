@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 020A Split-Day Command
+
+- Turned a committed Two-a-Day into an ordered Session 1 and Session 2 execution sequence.
+- Prioritized the first session from the Recruit Contract goal while keeping long runs first and time-open.
+- Added a four-hour minimum separation and visible refuel/rehydration bridge between sessions.
+- Prevented Session 2 from opening before Session 1 has terminal execution evidence.
+- Added direct session launch controls, module status, and current fueling evidence to Today.
+- Kept RED readiness, pain holds, the 240-minute non-long-run ceiling, and one protected recovery day authoritative.
+
 ## Unreleased — Build 019G Two-a-Day Capacity
 
 - Added an explicit Two-a-Days commitment to the Recruit Contract and bound it to the signed Contract revision.

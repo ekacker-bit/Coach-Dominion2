@@ -5,11 +5,12 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019G.2";
+  const VERSION = "020A.1";
   const DAY_LABELS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const HARD_RUN_TYPES = Object.freeze(["INTERVAL", "TEMPO", "LONG"]);
   const TWO_A_DAY_TARGET_MINUTES = 121;
   const TWO_A_DAY_MAX_MINUTES = 240;
+  const TWO_A_DAY_MINIMUM_SEPARATION_MINUTES = 240;
 
   function dateIso(value) {
     const text = String(value || "").slice(0, 10);
@@ -141,6 +142,35 @@
     };
   }
 
+  function sessionPriority(contract = {}, item = {}, originalIndex = 0) {
+    const module = String(item.module || "").toUpperCase();
+    const type = String(item.type || "").toUpperCase();
+    const goal = String(contract.primaryGoal || "").toUpperCase();
+    if (module === "RUNNING" && type === "LONG") return -100;
+    if (["RUN_FASTER", "BUILD_ENDURANCE"].includes(goal) && module === "RUNNING") return -50;
+    if (goal === "BUILD_STRENGTH" && module === "STRENGTH") return -50;
+    return ({ STRENGTH: 10, RUNNING: 20, CORE: 30 }[module] ?? 40) + originalIndex / 100;
+  }
+
+  function buildSessionSequence(contract = {}, activities = [], durationPolicy = null) {
+    const sessions = Array.isArray(activities) ? activities : [];
+    const duration = durationPolicy || dailyDurationPolicy(contract, sessions);
+    const ordered = sessions.map((item, originalIndex) => ({ item, originalIndex }));
+    if (duration.twoADay) {
+      ordered.sort((left, right) => sessionPriority(contract, left.item, left.originalIndex) - sessionPriority(contract, right.item, right.originalIndex));
+    }
+    return ordered.map(({ item }, index) => ({
+      ...item,
+      sessionOrder: index + 1,
+      sessionLabel: duration.twoADay ? `SESSION ${index + 1}` : sessions.length > 1 ? `BLOCK ${index + 1}` : "SESSION",
+      separationBeforeMinutes: duration.twoADay && index > 0 ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0,
+      fuelingCheckpoint: Boolean(duration.twoADay && index > 0),
+      command: duration.twoADay
+        ? index === 0 ? "EXECUTE FIRST" : "EXECUTE AFTER REFUEL"
+        : "EXECUTE"
+    }));
+  }
+
   function strengthPlacementScore(index, preferred, placed, runningByDay, coreByDay) {
     const run = runningByDay.get(index);
     let score = Math.abs(index - preferred) * 12;
@@ -265,6 +295,19 @@
       }
       if (modules.size >= 3) day.conflicts.push(conflict("TRIPLE_SESSION_DAY", "ADVISORY", "Three training modules share this day; use readiness to reduce, never add, work.", day.date));
       const duration = dailyDurationPolicy(contract, day.activities);
+      day.activities = buildSessionSequence(contract, day.activities, duration);
+      day.sessionSequence = day.activities.map((item) => ({
+        activityId: item.id,
+        module: item.module,
+        title: item.title,
+        type: item.type,
+        estimatedMinutes: item.estimatedMinutes,
+        sessionOrder: item.sessionOrder,
+        sessionLabel: item.sessionLabel,
+        separationBeforeMinutes: item.separationBeforeMinutes,
+        fuelingCheckpoint: item.fuelingCheckpoint,
+        command: item.command
+      }));
       day.estimatedMinutes = duration.estimatedMinutes;
       day.sessionCount = duration.sessionCount;
       day.twoADayCandidate = duration.twoADayCandidate;
@@ -272,6 +315,8 @@
       day.durationTargetMinutes = duration.targetMinutes;
       day.durationLimitMinutes = duration.maximumMinutes;
       day.longRunUncapped = duration.longRunUncapped;
+      day.minimumSeparationMinutes = duration.twoADay ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0;
+      day.betweenSessionFuelingRequired = duration.twoADay;
       day.durationPolicy = duration.longRunUncapped ? "LONG_RUN_UNCAPPED" : duration.twoADay ? "TWO_A_DAY" : duration.twoADayCandidate ? "TWO_A_DAY_TARGET_UNMET" : "STANDARD";
       if (duration.sessionLimitExceeded) {
         day.conflicts.push(conflict("TWO_A_DAY_SESSION_LIMIT", "BLOCKING", "Two-a-Days permit no more than two scheduled sessions on one day.", day.date));
@@ -343,7 +388,7 @@
         "Hard running and loaded Strength cannot share a committed day.",
         "At least one full recovery day remains protected.",
         contract.twoADays === true
-          ? "Two-a-Days permit two sessions and up to 240 combined minutes; long-run time remains uncapped."
+          ? "Two-a-Days permit two sequenced sessions and up to 240 combined minutes, with at least four hours and refueling between them; long-run time remains uncapped."
           : "Standard daily session limits remain active.",
         "Completion credit still requires execution evidence."
       ],
@@ -438,10 +483,12 @@
     HARD_RUN_TYPES,
     TWO_A_DAY_TARGET_MINUTES,
     TWO_A_DAY_MAX_MINUTES,
+    TWO_A_DAY_MINIMUM_SEPARATION_MINUTES,
     addDays,
     weekStartIso,
     planningDateForWeek,
     dailyDurationPolicy,
+    buildSessionSequence,
     buildUnifiedWeek,
     approveWeek,
     weekState,

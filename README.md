@@ -15,6 +15,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
 - `assets/js/contract-experience.js` contains the revision-bound Dominion oath, signature validation, signed artifact, and post-sign progression model.
 - `assets/js/experience-shell.js` derives the global current order and Contract-to-Today operating journey from existing canonical state.
+- `assets/js/daily-ritual.js` derives the Daily Seal, secured-day chain, and Execute-to-Adapt close progression from the existing daily queue and closed-loop record.
 - `assets/js/nutrition-feed.js` validates the privacy-limited daily nutrition payload and generates the iPhone Shortcut request contract.
 - `assets/styles.css` contains the application styles.
 - `api/health.js`, `api/config.js`, and `api/nutrition-feed.js` are Vercel Node.js serverless functions.
@@ -49,6 +50,10 @@ The Recruit Contract is now a guided commitment and signed operating artifact ra
 The authenticated product now presents one Coach Dominion operating system instead of a collection of independent dashboards. A persistent current-order rail derives the recruit's next meaningful action from the signed Contract, linked module plans, coordinated week, and today's Daily State. The same rail moves through Commit, Link, Plan, Report, Protect, and Execute states without duplicating or rewriting any underlying data.
 
 The global shell carries section identity, rank, primary navigation, and a four-stage Contract → Plans → Week → Today journey across every module. Rendered build labels are translated into product language, primary page copy is shorter, crimson is reserved for danger, and the navy/forest/gold hierarchy adapts for mobile and reduced-motion preferences.
+
+## Build 019C Daily Seal
+
+The Daily Seal gives Today a meaningful ending. It reads the canonical execution queue and closed-loop coaching record, then guides the recruit through Execute, Record, Verify, and Adapt. When the evidence is ready, the close action preserves the review; when Atlas proposes a bounded next move, the recruit must still approve it deliberately. A sealed day displays evidence confidence, secured-day history, the current consecutive chain, and rank without introducing another source of truth.
 
 ## Build 004B weekly inspection
 

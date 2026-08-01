@@ -8,7 +8,7 @@ const app = fs.readFileSync(path.join(root, "assets", "js", "app.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "assets", "styles.css"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 
-assert.match(html, /BUILD 019A \/\/ THE DOMINION CONTRACT/);
+assert.match(html, /BUILD (?:019A \/\/ THE DOMINION CONTRACT|021C \/\/ RECRUIT ENTRY)/);
 assert.match(html, /id="recruit-contract-editor"/);
 assert.match(html, /id="recruit-contract-editor-summary"/);
 assert.match(html, /BUILD 018F \/\/ FOCUS MODE/);

@@ -94,6 +94,18 @@ function matchingWeek(context, overrides = {}) {
 }
 
 {
+  const previousRevisionPlans = linkedContext({
+    strengthPlan: { ...plan("strength-previous", { daysPerWeek: 4, sessionMinutes: 60, goal: "MUSCLE", equipment: "FULL_GYM" }), recruitContractRevision: 1 },
+    runningPlan: { ...plan("running-previous", { runningDaysPerWeek: 3, declaredWeeklyDistance: 18, preferredUnit: "mi", goal: "10K" }), recruitContractRevision: 1 },
+    corePlan: { ...plan("core-previous", { sessionsPerWeek: 3, sessionMinutes: 15, goal: "GENERAL_STRENGTH" }), recruitContractRevision: 1 }
+  });
+  const state = activation.buildActivation(previousRevisionPlans);
+  assert.equal(state.status, "READY_TO_BUILD");
+  assert.deepEqual(state.modules.filter((item) => item.id !== "nutrition").map((item) => item.status), ["COMPATIBLE", "COMPATIBLE", "COMPATIBLE"]);
+  assert.equal(state.modules.every((item) => item.complete), true);
+}
+
+{
   const context = linkedContext();
   const committed = matchingWeek(context, { status: "APPROVED" });
   context.committedWeeks = [committed];

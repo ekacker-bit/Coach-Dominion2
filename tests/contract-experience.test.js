@@ -22,9 +22,9 @@ function approvedContract(overrides = {}) {
 }
 
 {
-  assert.equal(experience.VERSION, "019A.1");
-  assert.equal(experience.SETUP_STEPS.length, 4);
-  assert.deepEqual(experience.SETUP_STEPS.map((step) => step.id), ["outcome", "capacity", "standards", "review"]);
+  assert.equal(experience.VERSION, "021C.1");
+  assert.equal(experience.SETUP_STEPS.length, 5);
+  assert.deepEqual(experience.SETUP_STEPS.map((step) => step.id), ["profile", "outcome", "capacity", "standards", "review"]);
 }
 
 {

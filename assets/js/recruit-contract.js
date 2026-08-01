@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019G.2";
+  const VERSION = "021C.1";
   const TWO_A_DAY_TARGET_MINUTES = 121;
   const TWO_A_DAY_MAX_MINUTES = 240;
   const PRIMARY_GOALS = Object.freeze([
@@ -23,6 +23,8 @@
   ]);
   const EQUIPMENT_LEVELS = Object.freeze(["FULL_GYM", "DUMBBELLS", "BODYWEIGHT_BANDS"]);
   const EXPERIENCE_LEVELS = Object.freeze(["FOUNDATION", "INTERMEDIATE", "EXPERIENCED"]);
+  const GENDER_OPTIONS = Object.freeze(["WOMAN", "MAN", "NON_BINARY", "SELF_DESCRIBE", "PREFER_NOT_TO_SAY"]);
+  const ATHLETE_TYPES = Object.freeze(["FOUNDATION", "DEVELOPING", "TRAINED", "VETERAN"]);
   const RUNNING_GOALS = Object.freeze(["GENERAL_FITNESS", "5K", "10K", "HALF_MARATHON", "MARATHON"]);
   const WEEKDAYS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const TRAINING_DAY_PATTERNS = Object.freeze({
@@ -41,6 +43,12 @@
   function decimal(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function numberOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   function clamp(value, min, max, fallback) {
@@ -87,9 +95,54 @@
     return [...choices].sort((a, b) => Math.abs(a - numeric) - Math.abs(b - numeric))[0];
   }
 
+  function deriveAthleteType(trainingYears) {
+    const years = numberOrNull(trainingYears);
+    if (years === null || years < 0) return null;
+    if (years <= 1) return "FOUNDATION";
+    if (years <= 3) return "DEVELOPING";
+    if (years <= 7) return "TRAINED";
+    return "VETERAN";
+  }
+
+  function normalizeRecruitProfile(input = {}) {
+    const source = input.athleteProfile || input;
+    const heightUnit = String(source.heightUnit || source.height_unit || "in").toLowerCase() === "cm" ? "cm" : "in";
+    const storedHeightCm = numberOrNull(source.heightCm ?? source.height_cm);
+    const enteredHeight = numberOrNull(source.heightValue ?? source.height_value);
+    const heightCm = storedHeightCm !== null
+      ? Number(storedHeightCm.toFixed(1))
+      : enteredHeight === null
+        ? null
+        : Number((heightUnit === "cm" ? enteredHeight : enteredHeight * 2.54).toFixed(1));
+    const trainingYears = numberOrNull(source.trainingYears ?? source.training_years);
+    const athleteType = deriveAthleteType(trainingYears);
+    return {
+      age: numberOrNull(source.age) === null ? null : Math.round(Number(source.age)),
+      heightCm,
+      heightUnit,
+      heightValue: heightCm === null ? null : Number((heightUnit === "cm" ? heightCm : heightCm / 2.54).toFixed(1)),
+      gender: enumValue(source.gender, GENDER_OPTIONS, "PREFER_NOT_TO_SAY"),
+      trainingYears: trainingYears === null ? null : Math.max(0, Number(trainingYears.toFixed(1))),
+      athleteType
+    };
+  }
+
+  function experienceFromAthleteType(athleteType) {
+    if (athleteType === "FOUNDATION") return "FOUNDATION";
+    if (athleteType === "VETERAN") return "EXPERIENCED";
+    return "INTERMEDIATE";
+  }
+
   function defaultContract(options = {}) {
     return {
       version: VERSION,
+      age: null,
+      heightCm: null,
+      heightUnit: "in",
+      heightValue: null,
+      gender: "PREFER_NOT_TO_SAY",
+      trainingYears: null,
+      athleteType: null,
       primaryGoal: "BALANCED_FITNESS",
       target: "",
       targetDate: null,
@@ -111,8 +164,11 @@
 
   function normalizeContractDraft(input = {}, options = {}) {
     const defaults = defaultContract(options);
+    const athleteProfile = normalizeRecruitProfile(input);
     return {
       version: VERSION,
+      ...athleteProfile,
+      athleteProfile,
       primaryGoal: enumValue(input.primaryGoal || input.primary_goal, PRIMARY_GOALS, defaults.primaryGoal),
       target: cleanText(input.target || input.goalStatement || input.goal_statement, 120),
       targetDate: dateIso(input.targetDate || input.target_date),
@@ -123,7 +179,9 @@
       sessionMinutes: nearest(input.sessionMinutes ?? input.session_minutes, [30, 45, 60, 75, 90], defaults.sessionMinutes),
       twoADays: booleanValue(input.twoADays ?? input.two_a_days, defaults.twoADays),
       equipment: enumValue(input.equipment, EQUIPMENT_LEVELS, defaults.equipment),
-      experience: enumValue(input.experience, EXPERIENCE_LEVELS, defaults.experience),
+      experience: input.experience
+        ? enumValue(input.experience, EXPERIENCE_LEVELS, defaults.experience)
+        : experienceFromAthleteType(athleteProfile.athleteType),
       runningGoal: enumValue(input.runningGoal || input.running_goal, RUNNING_GOALS, defaults.runningGoal),
       preferredUnit: String(input.preferredUnit || input.preferred_unit || defaults.preferredUnit).toLowerCase() === "km" ? "km" : "mi",
       declaredWeeklyDistance: Math.max(0, Number(decimal(input.declaredWeeklyDistance ?? input.declared_weekly_distance, defaults.declaredWeeklyDistance).toFixed(1))),
@@ -138,6 +196,9 @@
     const errors = [];
     const warnings = [];
 
+    if (contract.age === null || contract.age < 13 || contract.age > 100) errors.push("Enter an age between 13 and 100.");
+    if (contract.heightCm === null || contract.heightCm < 120 || contract.heightCm > 230) errors.push("Enter a height between 120 and 230 cm (47 to 91 in).");
+    if (contract.trainingYears === null || contract.trainingYears > 70) errors.push("Enter total years of structured training between 0 and 70.");
     if (contract.target.length < 3) errors.push("Name the outcome this contract is meant to achieve.");
     if (contract.targetDate && contract.targetDate < today) errors.push("Target date cannot be in the past.");
     if (contract.strengthDaysPerWeek > contract.trainingDaysPerWeek) errors.push("Strength days cannot exceed total training days.");
@@ -171,6 +232,8 @@
         errors.push("Two-a-Days can schedule no more than two Strength, Running, or Core sessions per training day. Reduce weekly sessions or add training days.");
       }
     }
+    if (contract.athleteType === "FOUNDATION") warnings.push("Week One will remain a calibration week; Atlas will hold progression until baseline evidence is established.");
+    if (Number(contract.age || 0) >= 50) warnings.push("Atlas will give recovery, pain, resting heart rate, and HRV extra weight before recommending additional workload.");
 
     return {
       valid: errors.length === 0,
@@ -254,6 +317,7 @@
       : ["RUN_FASTER", "BUILD_ENDURANCE"].includes(contract.primaryGoal) ? "PERFORMANCE" : "MAINTAIN";
 
     return {
+      athleteProfile: contract.athleteProfile,
       strength: contract.strengthDaysPerWeek > 0 ? {
         goal: strengthGoal,
         daysPerWeek: contract.strengthDaysPerWeek,
@@ -404,7 +468,10 @@
       throw new Error(rebuilt.errors[0] || "Only a ready Recruit Contract can be approved.");
     }
     const approvedAt = options.approvedAt || new Date().toISOString();
-    const revision = previousApproved?.status === "APPROVED" ? Number(previousApproved.revision || 0) + 1 : 1;
+    const priorRevision = ["APPROVED", "DELETED", "RETIRED"].includes(previousApproved?.status)
+      ? Number(previousApproved.revision || 0)
+      : 0;
+    const revision = priorRevision + 1;
     const identity = fingerprint({ version: VERSION, revision, contract: normalizeContractDraft(rebuilt, options) });
     return {
       ...rebuilt,
@@ -414,7 +481,7 @@
       status: "APPROVED",
       errors: [],
       approvedAt,
-      supersedesId: previousApproved?.id || null
+      supersedesId: previousApproved?.status === "DELETED" ? previousApproved.deletedContractId || previousApproved.id : previousApproved?.id || null
     };
   }
 
@@ -426,8 +493,12 @@
     NUTRITION_COMMITMENTS,
     EQUIPMENT_LEVELS,
     EXPERIENCE_LEVELS,
+    GENDER_OPTIONS,
+    ATHLETE_TYPES,
     RUNNING_GOALS,
     WEEKDAYS,
+    deriveAthleteType,
+    normalizeRecruitProfile,
     defaultContract,
     normalizeContractDraft,
     validateRecruitContract,

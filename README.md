@@ -82,6 +82,12 @@ A committed Two-a-Day now becomes an executable sequence instead of one oversize
 
 Session 2 remains unavailable until Session 1 has terminal execution evidence. Between sessions, the recruit receives one explicit recovery bridge: refuel, rehydrate, and separate exposures by at least four hours. Current nutrition evidence is visible without inventing another meal log or silently modifying the approved baseline.
 
+## Build 020B Between-Session Gate
+
+The split-day recovery bridge is now operational. Coach Dominion records the actual Session 1 completion time, counts down the four-hour separation, and requires a short midday checkpoint covering current energy, new pain, refueling, and hydration. The checkpoint persists across refreshes and reconciles to the recruit account when the supporting migration is available.
+
+Session 2 cannot launch from Today or another direct training control until the gate is cleared. RED morning readiness, new pain, low midday energy, an unfinished recovery interval, or incomplete fueling evidence keeps the second session on hold without modifying the signed Contract or committed week.
+
 ## Build 004B weekly inspection
 
 The Weekly Inspection reviews a normalized Monday-through-Sunday period and can move backward across prior weeks. It aggregates the underlying included domain observations: completed = 100, partial = 50, and missed = 0. Excused and intentionally not-applicable observations are excluded from the score denominator. Missing or invalid observations receive no credit and remain unassessed. Scores retain full precision internally and round only in the interface.

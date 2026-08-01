@@ -41,7 +41,11 @@ let mfpNutritionFeedState = { loading: true, available: false, migrationRequired
 let nutritionBaselineDraft = null;
 let nutritionActiveView = "today";
 let recruitContractStorageMode = "LOCAL";
+let recruitOnboardingStorageMode = "LOCAL";
 let recruitContractSetupStep = 0;
+let recruitContractAutosaveTimer = null;
+let recruitContractAutosaveRevision = 0;
+let recruitContractAutosavePromise = Promise.resolve(null);
 let weeklyOrchestrationStorageMode = "LOCAL";
 let splitDayStorageMode = "LOCAL";
 let splitDayRefreshTimer = null;
@@ -406,7 +410,7 @@ function buildCurrentContinuityManifest() {
   if (typeof DominionContinuity === "undefined") return null;
   const date = todayISODate();
   return DominionContinuity.buildManifest({
-    contract: { payload: readApprovedRecruitContract(), options: { stateType: "APPROVED", immutable: true } },
+    contract: { payload: readApprovedRecruitContract() || readRecruitContractTombstone(), options: { stateType: readApprovedRecruitContract() ? "APPROVED" : "TOMBSTONE", immutable: true } },
     strength: { payload: readApprovedStrengthPlan(), options: { stateType: "PLAN", immutable: true } },
     running: { payload: readApprovedRunningBlock(), options: { stateType: "PLAN", stateKey: "active", immutable: true } },
     core: { payload: readApprovedCorePlan(), options: { stateType: "PLAN", immutable: true } },
@@ -448,8 +452,11 @@ function renderDominionContinuity() {
   if (grid && manifest) {
     grid.innerHTML = DominionContinuity.CANONICAL_DOMAINS.map((domain) => {
       const item = manifest.modules?.[domain];
-      const value = item ? `${item.status}${item.revision ? ` · R${item.revision}` : ""}` : "NOT ACTIVE";
-      return `<article class="continuity-domain ${item ? "active" : "missing"}"><span>${escapeHtml(continuityDomainLabel(domain))}</span><strong>${escapeHtml(value)}</strong><small>${item?.id ? escapeHtml(item.id) : "No canonical revision"}</small></article>`;
+      const active = Boolean(item && item.status !== "DELETED");
+      const value = active
+        ? `${item.status}${item.revision ? ` · R${item.revision}` : ""}`
+        : item?.status === "DELETED" ? "NO ACTIVE CONTRACT" : "NOT ACTIVE";
+      return `<article class="continuity-domain ${active ? "active" : "missing"}"><span>${escapeHtml(continuityDomainLabel(domain))}</span><strong>${escapeHtml(value)}</strong><small>${item?.id ? escapeHtml(item.id) : "No canonical revision"}</small></article>`;
     }).join("");
   }
   const conflictCount = continuityRecordConflicts.size + (continuityState.manifestConflicts?.length || 0);
@@ -1582,6 +1589,16 @@ function generateMission(readinessResultOrState) {
   };
 }
 
+function recruitProfileForAtlas() {
+  if (typeof DominionFirstWeekOrientation === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  if (!contract) return null;
+  const orientation = currentRecruitOrientation(contract);
+  const profile = orientation?.profile || contract.athleteProfile || contract;
+  const validation = DominionFirstWeekOrientation.validateProfile(profile);
+  return validation.valid ? DominionFirstWeekOrientation.atlasProfileContext(validation.profile, orientation) : null;
+}
+
 function generateMorningBrief(readinessResult) {
   const result = readinessResult || evaluateReadiness(null);
   const commandState = result.state === "GREEN"
@@ -1603,6 +1620,7 @@ function generateMorningBrief(readinessResult) {
       ? "AUTHORIZED WITH REDUCTIONS"
       : "NOT AUTHORIZED";
 
+  const recruitContext = recruitProfileForAtlas();
   return {
     title: "ATLAS // MORNING BRIEF",
     commandState,
@@ -1618,7 +1636,8 @@ function generateMorningBrief(readinessResult) {
       ? [mission.title, mission.detail]
       : ["Complete Morning Roll Call before mission generation."],
     restrictions,
-    mission
+    mission,
+    recruitContext
   };
 }
 
@@ -1627,6 +1646,14 @@ function formatAtlasBriefVoice(brief) {
   const missing = brief.missingEvidence.length ? brief.missingEvidence.join(", ") : "None";
   const orders = brief.orders.map((order) => `- ${order}`).join("\n");
   const restrictions = brief.restrictions.map((restriction) => `- ${restriction}`).join("\n");
+  const recruitContext = brief.recruitContext
+    ? [
+        "",
+        "RECRUIT CONTEXT",
+        `${brief.recruitContext.athleteTypeLabel} // ${brief.recruitContext.trainingYears} training years // Age ${brief.recruitContext.age}`,
+        brief.recruitContext.guardrails?.[0] || "Progression remains evidence governed."
+      ]
+    : [];
 
   return [
     brief.title,
@@ -1641,6 +1668,7 @@ function formatAtlasBriefVoice(brief) {
     "",
     "COMMAND NOTE",
     `${brief.commandNote} Risk: ${brief.risk} Missing evidence: ${missing}.`,
+    ...recruitContext,
     "",
     "ORDERS",
     orders,
@@ -5145,12 +5173,12 @@ function unifiedWeekSourceSignature(week = null) {
   });
 }
 
-async function refreshUnifiedWeekDraftForPlans() {
+async function refreshUnifiedWeekDraftForPlans({ force = false } = {}) {
   const existing = readUnifiedWeekDraft();
-  if (!existing || typeof DominionWeeklyOrchestrator === "undefined") return false;
-  const refreshed = buildUnifiedWeekDraft(existing.weekStart);
+  if (typeof DominionWeeklyOrchestrator === "undefined") return false;
+  const refreshed = buildUnifiedWeekDraft(existing?.weekStart || unifiedWeekTargetStart());
   if (!refreshed) return false;
-  if (unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
+  if (!force && existing && unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
   saveWeeklyOrchestrationLocal("DRAFT", "current", refreshed);
   await persistWeeklyOrchestrationState("DRAFT", "current", refreshed);
   return true;
@@ -5502,16 +5530,79 @@ function hydrateRecruitContractForm(value = {}) {
   });
   const runningFields = form.querySelector("[data-recruit-running-fields]");
   if (runningFields) runningFields.hidden = contract.runningDaysPerWeek === 0;
+  renderContractAthleteType(contract.trainingYears);
   renderRecruitContractSetupStep();
+}
+
+function renderContractAthleteType(trainingYears) {
+  const output = document.getElementById("contract-athlete-type");
+  if (!output || typeof DominionRecruitContract === "undefined") return;
+  const type = DominionRecruitContract.deriveAthleteType(trainingYears);
+  const labels = {
+    FOUNDATION: "Foundation athlete · 0–1 years",
+    DEVELOPING: "Developing athlete · 2–3 years",
+    TRAINED: "Trained athlete · 4–7 years",
+    VETERAN: "Veteran athlete · 8+ years"
+  };
+  output.querySelector("strong").textContent = labels[type] || "Complete training history";
+  output.classList.toggle("complete", Boolean(type));
 }
 
 function recruitContractFromForm() {
   const form = document.getElementById("recruit-contract-form");
   if (!form || typeof DominionRecruitContract === "undefined") return null;
+  const existing = readRecruitContractDraft();
   return DominionRecruitContract.buildRecruitContract(Object.fromEntries(new FormData(form).entries()), {
     today: todayISODate(),
-    createdAt: new Date().toISOString()
+    createdAt: existing?.createdAt || new Date().toISOString()
   });
+}
+
+async function saveRecruitContractDraftFromForm({ render = false, announce = true } = {}) {
+  const draft = recruitContractFromForm();
+  if (!draft) return null;
+  saveRecruitContractLocal("DRAFT", draft);
+  const synced = await persistRecruitContractState("DRAFT", draft);
+  if (render) renderRecruitContract();
+  if (announce) {
+    const approved = readApprovedRecruitContract();
+    setText("recruit-contract-autosave-status", approved
+      ? `Amendment saved${synced ? " to your account" : " on this device"}. Signed Contract ${approved.revision} remains active until you sign the replacement.`
+      : `Contract draft saved${synced ? " to your account" : " on this device"}.`);
+  }
+  return draft;
+}
+
+function updateRecruitContractAmendmentPreview(draft, approved = readApprovedRecruitContract()) {
+  if (!draft || !approved) return;
+  setText("contract-amendment-heading", draft.twoADays
+    ? "Two-a-Days are ON in the draft—not yet in force."
+    : "Contract changes are saved—not yet in force.");
+  setText("contract-amendment-draft-capacity", draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF");
+  setText("contract-amendment-draft-detail", draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`);
+  const editorSummary = document.getElementById("recruit-contract-editor-summary");
+  if (editorSummary) editorSummary.textContent = `${recruitContractGoalLabel(draft.primaryGoal)} · ${draft.trainingDaysPerWeek} days · ${draft.twoADays ? "Two-a-Days" : `${draft.sessionMinutes} min`}`;
+}
+
+function queueRecruitContractAutosave() {
+  window.clearTimeout(recruitContractAutosaveTimer);
+  const revision = ++recruitContractAutosaveRevision;
+  setText("recruit-contract-autosave-status", "Saving amendment draft…");
+  recruitContractAutosaveTimer = window.setTimeout(async () => {
+    recruitContractAutosavePromise = recruitContractAutosavePromise.then(() => saveRecruitContractDraftFromForm({ announce: false }));
+    const draft = await recruitContractAutosavePromise;
+    if (!draft || revision !== recruitContractAutosaveRevision) return;
+    const approved = readApprovedRecruitContract();
+    updateRecruitContractAmendmentPreview(draft, approved);
+    setText("recruit-contract-autosave-status", approved
+      ? `Draft saved. Signed Contract ${approved.revision} is still in force until this replacement is signed.`
+      : "Draft saved. Review and sign to activate it.");
+    const status = document.getElementById("recruit-contract-status");
+    if (status && approved) {
+      status.textContent = "AMENDMENT UNSIGNED";
+      status.className = "state-pill yellow";
+    }
+  }, 350);
 }
 
 function recruitContractStateTone(status = "") {
@@ -5524,7 +5615,7 @@ function recruitContractStateTone(status = "") {
 function renderRecruitContractSetupStep() {
   const form = document.getElementById("recruit-contract-form");
   if (!form) return;
-  const step = Math.max(0, Math.min(3, Number(recruitContractSetupStep || 0)));
+  const step = Math.max(0, Math.min(4, Number(recruitContractSetupStep || 0)));
   form.querySelectorAll("[data-contract-form-step]").forEach((element) => {
     const elementStep = Number(element.dataset.contractFormStep);
     const runningExcluded = element.hasAttribute("data-recruit-running-fields")
@@ -5541,7 +5632,7 @@ function renderRecruitContractSetupStep() {
   const back = form.querySelector('[data-contract-experience-action="setup-back"]');
   const next = form.querySelector('[data-contract-experience-action="setup-next"]');
   if (back) back.hidden = step === 0;
-  if (next) next.textContent = step === 2 ? "Review the Contract" : step === 3 ? "Read and sign" : "Continue";
+  if (next) next.textContent = step === 3 ? "Review the Contract" : step === 4 ? "Read and sign" : "Continue";
   const stepMeta = typeof DominionContractExperience !== "undefined"
     ? DominionContractExperience.SETUP_STEPS[step]
     : null;
@@ -5582,7 +5673,7 @@ function contractActivationInputs(weekStart = unifiedWeekTargetStart(), override
 }
 
 function contractActivationTone(status = "") {
-  if (["ACTIVE", "LINKED", "SCHEDULED"].includes(status)) return "green";
+  if (["ACTIVE", "LINKED", "SCHEDULED", "COMPATIBLE"].includes(status)) return "green";
   if (["READY_TO_BUILD", "WEEK_READY", "DRAFT_READY", "ACTION_REQUIRED"].includes(status)) return "yellow";
   if (["PLAN_REQUIRED", "UPDATE_REQUIRED"].includes(status)) return "red";
   return "neutral";
@@ -5647,6 +5738,136 @@ function openContractActivationModule(module = "") {
   }
 }
 
+function recruitProfileHeight(profile = {}) {
+  if (!profile.heightCm) return "Height pending";
+  if (profile.heightUnit === "cm") return `${Number(profile.heightCm).toFixed(0)} cm`;
+  const inches = Math.round(Number(profile.heightCm) / 2.54);
+  return `${Math.floor(inches / 12)}′ ${inches % 12}″`;
+}
+
+function currentRecruitOrientation(contract = readApprovedRecruitContract()) {
+  if (!contract || typeof DominionFirstWeekOrientation === "undefined") return null;
+  const normalized = DominionFirstWeekOrientation.normalizeOrientation(readRecruitOnboardingState(), contract, { today: todayISODate() });
+  saveRecruitOnboardingLocal(normalized);
+  return normalized;
+}
+
+function renderFirstWeekOrientation() {
+  const section = document.getElementById("first-week-orientation");
+  const panel = document.getElementById("first-week-orientation-panel");
+  const status = document.getElementById("first-week-orientation-status");
+  const progress = document.getElementById("first-week-orientation-progress");
+  const steps = document.getElementById("first-week-orientation-steps");
+  const contract = readApprovedRecruitContract();
+  const signed = contract && typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.signatureStatus(contract).valid
+    : false;
+  if (!section || !panel || !status || !steps || !contract || !signed || typeof DominionFirstWeekOrientation === "undefined") {
+    if (section) section.hidden = true;
+    return null;
+  }
+  section.hidden = false;
+  const orientation = currentRecruitOrientation(contract);
+  const view = DominionFirstWeekOrientation.presentation(orientation, contract);
+  status.textContent = view.status === "COMPLETE" ? "WEEK ONE READY" : view.status.replaceAll("_", " ");
+  status.className = `state-pill ${view.status === "COMPLETE" ? "green" : view.status === "PROFILE_REQUIRED" ? "red" : "yellow"}`;
+  if (progress) progress.style.width = `${view.percent}%`;
+  steps.innerHTML = view.steps.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
+  const profile = view.profile || {};
+  const athleteLabel = view.atlas.athleteTypeLabel || "Athlete type pending";
+  const atlasOrder = view.atlas.guardrails?.[0] || "Week One establishes the evidence Atlas needs before progression.";
+  if (view.status === "COMPLETE") {
+    panel.innerHTML = `<article class="orientation-stage orientation-complete">
+      <div><span class="kicker">ORIENTATION COMPLETE</span><h4>Week One is cleared to build.</h4></div>
+      <p>Atlas will treat ${escapeHtml(view.weekStart)} through ${escapeHtml(view.weekEnd)} as the baseline window. Execution quality and recovery evidence govern every adjustment.</p>
+      <div class="orientation-launch-grid">
+        <article><span>ATHLETE TYPE</span><strong>${escapeHtml(athleteLabel)}</strong><p>${escapeHtml(String(profile.trainingYears ?? "—"))} years structured training</p></article>
+        <article><span>PROFILE</span><strong>Age ${escapeHtml(String(profile.age || "—"))} · ${escapeHtml(recruitProfileHeight(profile))}</strong><p>${escapeHtml(String(profile.gender || "PREFER_NOT_TO_SAY").replaceAll("_", " "))}</p></article>
+        <article><span>BASELINE WINDOW</span><strong>${escapeHtml(view.weekStart)} → ${escapeHtml(view.weekEnd)}</strong><p>No automatic progression during calibration.</p></article>
+      </div>
+      <div class="orientation-atlas-order"><strong>ATLAS ORDER:</strong> ${escapeHtml(atlasOrder)}</div>
+    </article>`;
+    return view;
+  }
+  if (view.currentStep === 0) {
+    panel.innerHTML = `<form id="first-week-profile-form" class="orientation-stage">
+      <div><span class="kicker">STEP 1 // RECRUIT PROFILE</span><h4>Give Atlas the correct operating context.</h4></div>
+      <p>This information calibrates progression and recovery caution. It does not lower the standard or replace daily evidence.</p>
+      <div class="recruit-contract-grid">
+        <label>Age<input name="age" type="number" min="13" max="100" required value="${escapeHtml(profile.age ?? "")}"></label>
+        <label>Height<span class="recruit-height-control"><input name="heightValue" type="number" min="47" max="230" step="0.1" required value="${escapeHtml(profile.heightValue ?? "")}"><select name="heightUnit" aria-label="Height unit"><option value="in" ${profile.heightUnit !== "cm" ? "selected" : ""}>in</option><option value="cm" ${profile.heightUnit === "cm" ? "selected" : ""}>cm</option></select></span></label>
+        <label>Gender<select name="gender"><option value="PREFER_NOT_TO_SAY" ${profile.gender === "PREFER_NOT_TO_SAY" ? "selected" : ""}>Prefer not to say</option><option value="WOMAN" ${profile.gender === "WOMAN" ? "selected" : ""}>Woman</option><option value="MAN" ${profile.gender === "MAN" ? "selected" : ""}>Man</option><option value="NON_BINARY" ${profile.gender === "NON_BINARY" ? "selected" : ""}>Non-binary</option><option value="SELF_DESCRIBE" ${profile.gender === "SELF_DESCRIBE" ? "selected" : ""}>Self-describe</option></select></label>
+        <label>Years of structured training<input name="trainingYears" type="number" min="0" max="70" step="0.5" required value="${escapeHtml(profile.trainingYears ?? "")}"></label>
+      </div>
+      <div class="orientation-stage-actions"><button type="submit">Save recruit profile</button></div>
+    </form>`;
+    return view;
+  }
+  if (view.currentStep === 1) {
+    panel.innerHTML = `<article class="orientation-stage">
+      <div><span class="kicker">STEP 2 // DAILY RHYTHM</span><h4>Run the same operating loop every day.</h4></div>
+      <div class="orientation-rhythm-grid">
+        <article><span>01 // ROLL CALL</span><strong>Report before prescription.</strong><p>Energy, soreness, pain, sleep, weight, RHR, and HRV establish readiness.</p></article>
+        <article><span>02 // EXECUTE</span><strong>Follow the authorized work.</strong><p>Train, fuel, and recover inside the Contract and current readiness constraints.</p></article>
+        <article><span>03 // CLOSE</span><strong>Preserve the evidence.</strong><p>Finish the workout, confirm fueling, and close the Dominion Record.</p></article>
+      </div>
+      <div class="orientation-atlas-order"><strong>${escapeHtml(athleteLabel)}:</strong> ${escapeHtml(atlasOrder)}</div>
+      <div class="orientation-stage-actions"><button type="button" data-first-week-action="acknowledge-rhythm">I understand the daily rhythm</button></div>
+    </article>`;
+    return view;
+  }
+  if (view.currentStep === 2) {
+    panel.innerHTML = `<article class="orientation-stage">
+      <div><span class="kicker">STEP 3 // BASELINE WEEK</span><h4>Do not audition. Calibrate.</h4></div>
+      <p>The first seven days establish truthful workload, recovery, and execution baselines. Week One is not a test week.</p>
+      <div class="orientation-baseline-grid">
+        <article><span>NO EGO LOADS</span><strong>Leave clean reps available.</strong><p>Atlas needs repeatable execution before it can recommend progression.</p></article>
+        <article><span>REPORT FRICTION</span><strong>Pain and recovery override.</strong><p>Record poor sleep, elevated RHR, suppressed HRV, soreness, and pain honestly.</p></article>
+        <article><span>COMPLETE THE LOOP</span><strong>Evidence beats intensity.</strong><p>A fully recorded moderate day is more valuable than an untracked heroic day.</p></article>
+      </div>
+      <div class="orientation-stage-actions"><button type="button" data-first-week-action="acknowledge-baseline">Protect the baseline week</button></div>
+    </article>`;
+    return view;
+  }
+  panel.innerHTML = `<article class="orientation-stage">
+    <div><span class="kicker">STEP 4 // LAUNCH</span><h4>Turn the Contract into Week One.</h4></div>
+    <p>Atlas will stage the Strength, Running, Core, and Nutrition work implied by Contract ${escapeHtml(String(contract.revision))}. Nothing becomes active until each plan and the coordinated week are deliberately approved.</p>
+    <div class="orientation-launch-grid">
+      <article><span>TRAINING</span><strong>${contract.strengthDaysPerWeek} strength · ${contract.runningDaysPerWeek} running</strong><p>${contract.coreDaysPerWeek} core exposures · ${contract.twoADays ? "Two-a-Days enabled" : `${contract.sessionMinutes}-minute standard sessions`}</p></article>
+      <article><span>RECOVERY</span><strong>${7 - contract.trainingDaysPerWeek} protected day${7 - contract.trainingDaysPerWeek === 1 ? "" : "s"}</strong><p>Readiness can reduce work at any time.</p></article>
+      <article><span>ATLAS CONTEXT</span><strong>${escapeHtml(athleteLabel)}</strong><p>Age ${escapeHtml(String(profile.age))} · ${escapeHtml(recruitProfileHeight(profile))} · ${escapeHtml(String(profile.trainingYears))} training years</p></article>
+    </div>
+    <div class="orientation-stage-actions"><button type="button" data-first-week-action="launch">Build my first week</button></div>
+  </article>`;
+  return view;
+}
+
+async function retireActiveRecruitContract() {
+  const contract = readApprovedRecruitContract();
+  if (!contract || typeof DominionFirstWeekOrientation === "undefined") return false;
+  const lifecycle = DominionFirstWeekOrientation.retireContract(contract, { deletedAt: new Date().toISOString() });
+  const history = [lifecycle.retired, ...readRecruitContractHistory().filter((item) => item.id !== contract.id)].slice(0, 24);
+  saveRecruitContractLocal("HISTORY", history);
+  saveRecruitContractLocal("APPROVED", lifecycle.tombstone);
+  recordContinuityWrite("contract", "TOMBSTONE", "current", lifecycle.tombstone);
+  await persistRecruitContractState("HISTORY", history);
+  await persistRecruitContractState("APPROVED", lifecycle.tombstone);
+  await clearRecruitContractState("DRAFT");
+  await clearRecruitOnboardingState();
+  recruitContractSetupStep = 0;
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) {
+    editor.dataset.focusInitialized = "";
+    editor.open = true;
+  }
+  renderRecruitContract();
+  renderActivationGuide();
+  renderTodayStandardsDuty();
+  setText("recruit-contract-feedback", "Active Contract deleted. Historical weeks and evidence remain preserved. Complete a new recruit profile to create the replacement Contract.");
+  scheduleContinuitySync(0);
+  return true;
+}
+
 function renderRecruitContract() {
   const output = document.getElementById("recruit-contract-output");
   const status = document.getElementById("recruit-contract-status");
@@ -5661,11 +5882,14 @@ function renderRecruitContract() {
   const signed = approved && typeof DominionContractExperience !== "undefined"
     ? DominionContractExperience.signatureStatus(approved).valid
     : false;
+  const amendmentPending = Boolean(signed && draft);
+  const orientation = signed ? currentRecruitOrientation(approved) : null;
+  const orientationComplete = orientation?.status === "COMPLETE";
   if (setupProgress) setupProgress.hidden = Boolean(signed && !draft);
   const activationSurface = document.getElementById("contract-activation");
   const weeklySurface = document.querySelector("#contract > .weekly-orchestrator");
-  if (activationSurface) activationSurface.hidden = Boolean(approved && !signed);
-  if (weeklySurface) weeklySurface.hidden = Boolean(approved && !signed);
+  if (activationSurface) activationSurface.hidden = Boolean(approved && (!signed || !orientationComplete));
+  if (weeklySurface) weeklySurface.hidden = Boolean(approved && (!signed || !orientationComplete));
   if (editorSummary) {
     editorSummary.textContent = current
       ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.twoADays ? "Two-a-Days" : `${current.sessionMinutes} min`}`
@@ -5683,17 +5907,21 @@ function renderRecruitContract() {
     status.textContent = "NOT SET";
     status.className = "state-pill neutral";
     if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL READY";
-    output.innerHTML = `<div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>`;
+    const deleted = readRecruitContractTombstone();
+    output.innerHTML = `<div class="performance-empty"><strong>${deleted ? "Previous Contract retired." : "No active Contract."}</strong><p>Complete the recruit profile and commitment to create a new coordinated program.</p><button type="button" data-contract-lifecycle-action="new-contract">Create new Contract</button></div>`;
+    renderFirstWeekOrientation();
     renderContractActivation();
     renderWeeklyOrchestrator();
     renderDominionExperienceShell();
     return;
   }
   hydrateRecruitContractForm(current);
-  status.textContent = signed && !draft
-    ? "CONTRACT SIGNED"
-    : current.status === "APPROVED" ? "SIGNATURE REQUIRED" : current.status.replaceAll("_", " ");
-  status.className = `state-pill ${signed && !draft ? "green" : recruitContractStateTone(current.status)}`;
+  status.textContent = amendmentPending
+    ? "AMENDMENT UNSIGNED"
+    : signed
+      ? "CONTRACT SIGNED"
+      : current.status === "APPROVED" ? "SIGNATURE REQUIRED" : current.status.replaceAll("_", " ");
+  status.className = `state-pill ${amendmentPending ? "yellow" : signed ? "green" : recruitContractStateTone(current.status)}`;
   if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL FALLBACK";
   const targetDate = current.targetDate ? ` by ${current.targetDate}` : "";
   const alerts = current.errors?.length
@@ -5734,37 +5962,53 @@ function renderRecruitContract() {
     <div class="recruit-contract-modules">${modules}</div>`;
   const canSign = ["READY_FOR_APPROVAL", "APPROVED"].includes(current.status)
     && typeof DominionContractExperience !== "undefined";
-  const artifact = typeof DominionContractExperience !== "undefined"
-    ? DominionContractExperience.artifact(approved || current)
+  const signedArtifact = typeof DominionContractExperience !== "undefined" && approved
+    ? DominionContractExperience.artifact(approved)
     : null;
-  const oath = artifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
-  const commitments = artifact?.commitments?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
-  const signatureCeremony = canSign && !signed
+  const currentArtifact = typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.artifact(current)
+    : null;
+  const oath = signedArtifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
+  const commitments = signedArtifact?.commitments?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
+  const ceremonyOath = currentArtifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
+  const signatureCeremony = canSign && (!signed || amendmentPending)
     ? `<section class="contract-signature-ceremony" aria-labelledby="contract-signature-heading">
-        <div class="contract-ceremony-oath"><span class="kicker">THE DOMINION OATH</span><h3 id="contract-signature-heading">Commit with intent.</h3><ul>${oath}</ul></div>
+        <div class="contract-ceremony-oath"><span class="kicker">${amendmentPending ? "REPLACEMENT CONTRACT" : "THE DOMINION OATH"}</span><h3 id="contract-signature-heading">${amendmentPending ? "Sign the amended standard." : "Commit with intent."}</h3><ul>${ceremonyOath}</ul></div>
         <div class="contract-signature-block">
           <label>Signature
             <input id="contract-signer-name" maxlength="80" autocomplete="name" placeholder="Type your full name">
           </label>
           <label class="contract-signature-affirmation"><input id="contract-signature-accepted" type="checkbox"> <span>I have read this Contract. I accept its commitments, safeguards, and weekly standard.</span></label>
           <button type="button" data-contract-experience-action="sign-request">Enter the signing ceremony</button>
-          <small>Signing ${current.status === "APPROVED" ? `completes approved revision ${current.revision}` : "approves this new revision"}. Active plans remain protected.</small>
+          <small>${amendmentPending ? `Contract ${approved.revision} remains active until this replacement is signed.` : `Signing ${current.status === "APPROVED" ? `completes approved revision ${current.revision}` : "approves this new revision"}.`} Compatible active plans remain protected.</small>
         </div>
       </section>`
     : "";
-  if (signed && artifact) {
+  const amendmentHandoff = amendmentPending
+    ? `<section class="contract-amendment-handoff" aria-label="Unsigned Contract amendment">
+        <div><span class="kicker">UNSIGNED AMENDMENT</span><h3 id="contract-amendment-heading">${draft.twoADays ? "Two-a-Days are ON in the draft—not yet in force." : "Contract changes are saved—not yet in force."}</h3><p>Signed Contract ${approved.revision} still governs Today and the calendar until you sign the replacement.</p></div>
+        <div class="contract-amendment-comparison">
+          <article><span>SIGNED · R${approved.revision}</span><strong>${approved.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small>${approved.twoADays ? "Up to 240 min" : `${approved.sessionMinutes} min standard`}</small></article>
+          <article><span>DRAFT REPLACEMENT</span><strong id="contract-amendment-draft-capacity">${draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small id="contract-amendment-draft-detail">${draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`}</small></article>
+        </div>
+        <button type="button" data-contract-experience-action="review-amendment">Review & sign replacement</button>
+      </section>`
+    : "";
+  if (signed && signedArtifact) {
     const activationState = typeof DominionContractActivation !== "undefined"
       ? DominionContractActivation.buildActivation(contractActivationInputs())
       : { status: "ACTION_REQUIRED", next: {} };
     const journey = DominionContractExperience.progression(approved, activationState.status);
     const next = DominionContractExperience.nextAction(approved, activationState);
     const journeyMarkup = journey.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
-    const nextButton = `<button type="button" data-contract-activation-action="${escapeHtml(next.action)}" data-contract-activation-module="${escapeHtml(next.module || "")}">${escapeHtml(next.label)}</button>`;
+    const nextButton = orientationComplete
+      ? `<button type="button" data-contract-activation-action="${escapeHtml(next.action)}" data-contract-activation-module="${escapeHtml(next.module || "")}">${escapeHtml(next.label)}</button>`
+      : `<button type="button" data-contract-lifecycle-action="open-orientation">Complete Week One Orientation</button>`;
     output.innerHTML = `
       <article class="dominion-contract-artifact">
         <header>
           <div class="dominion-contract-artifact-seal"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
-          <div><span class="kicker">CONTRACT ACTIVE · REVISION ${approved.revision}</span><h3>The Dominion Contract</h3><p>${escapeHtml(artifact.preamble)}</p></div>
+          <div><span class="kicker">CONTRACT ACTIVE · REVISION ${approved.revision}</span><h3>The Dominion Contract</h3><p>${escapeHtml(signedArtifact.preamble)}</p></div>
           <span class="contract-signed-badge">SIGNED</span>
         </header>
         <div class="dominion-contract-declaration"><span>DECLARATION OF INTENT</span><strong>${escapeHtml(approved.target)}</strong><p>${escapeHtml(recruitContractGoalLabel(approved.primaryGoal))}${escapeHtml(targetDate)} · Effective ${escapeHtml(approved.effectiveDate)}</p></div>
@@ -5773,20 +6017,24 @@ function renderRecruitContract() {
           <section><h4>My commitments</h4><ul class="dominion-contract-commitments">${commitments}</ul></section>
         </div>
         <footer class="dominion-contract-signature">
-          <div><span>Signed by</span><strong>${escapeHtml(artifact.signature.signature.signerName)}</strong></div>
-          <div><span>Signed</span><strong>${escapeHtml(new Date(artifact.signature.signature.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
+          <div><span>Signed by</span><strong>${escapeHtml(signedArtifact.signature.signature.signerName)}</strong></div>
+          <div><span>Signed</span><strong>${escapeHtml(new Date(signedArtifact.signature.signature.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
           <div><span>Contract ID</span><strong>${escapeHtml(approved.id)}</strong></div>
         </footer>
       </article>
+      ${amendmentHandoff}
+      ${amendmentPending ? signatureCeremony : ""}
       <section class="contract-momentum" aria-labelledby="contract-momentum-heading">
         <div><span class="kicker">THE PATH FORWARD</span><h3 id="contract-momentum-heading">Turn the vow into the week.</h3></div>
         <ol>${journeyMarkup}</ol>
         <div class="contract-momentum-action">${nextButton}<button type="button" class="ghost" data-contract-experience-action="amend">Amend Contract</button></div>
       </section>
-      <details class="contract-operating-terms"><summary><span>Operating terms</span><small>Schedule, module handoffs, and safeguards</small></summary><div>${operatingTerms}</div></details>`;
+      <details class="contract-operating-terms"><summary><span>Operating terms</span><small>Schedule, module handoffs, and safeguards</small></summary><div>${operatingTerms}</div></details>
+      <div class="contract-lifecycle-actions"><span class="muted">Need a clean restart?</span><button type="button" class="ghost danger" data-contract-lifecycle-action="delete-request">Delete previous Contract</button></div>`;
   } else {
     output.innerHTML = `${operatingTerms}${signatureCeremony}`;
   }
+  renderFirstWeekOrientation();
   renderContractActivation();
   renderWeeklyOrchestrator();
   renderDominionExperienceShell();
@@ -5805,7 +6053,8 @@ async function signRecruitContractFromCeremony() {
   }
   try {
     const draft = readRecruitContractDraft();
-    const previous = readApprovedRecruitContract();
+    const previous = readRecruitContractState("APPROVED", null);
+    const previousOrientation = readRecruitOnboardingState();
     const approved = draft
       ? DominionRecruitContract.approveRecruitContract(draft, previous, {
           today: todayISODate(),
@@ -5823,14 +6072,21 @@ async function signRecruitContractFromCeremony() {
     const synced = await persistRecruitContractState("APPROVED", signed);
     await persistRecruitContractState("HISTORY", history);
     await clearRecruitContractState("DRAFT");
-    await refreshUnifiedWeekDraftForPlans();
+    if (typeof DominionFirstWeekOrientation !== "undefined") {
+      const orientation = previous?.status === "APPROVED"
+        ? DominionFirstWeekOrientation.rebaseOrientation(previousOrientation, previous, signed, { today: todayISODate() })
+        : DominionFirstWeekOrientation.createOrientation(signed, { today: todayISODate() });
+      saveRecruitOnboardingLocal(orientation);
+      await persistRecruitOnboardingState(orientation);
+    }
+    const calendarRefreshed = await refreshUnifiedWeekDraftForPlans({ force: true });
     recruitContractSetupStep = 0;
     const editor = document.getElementById("recruit-contract-editor");
     if (editor) editor.open = false;
     renderRecruitContract();
     renderActivationGuide();
     renderTodayStandardsDuty();
-    setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}. Your active plans remain protected until you deliberately activate replacements.`);
+    setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}.${calendarRefreshed ? ` The calendar draft now uses ${signed.twoADays ? "AM/PM Two-a-Day capacity" : `${signed.sessionMinutes}-minute standard capacity`}.` : ""} First Week Orientation is ready below.`);
   } catch (error) {
     setText("recruit-contract-feedback", error?.message || "The Dominion Contract could not be signed.");
   }
@@ -7962,7 +8218,7 @@ function buildCurrentAdaptiveCoaching() {
     try { state = evaluateOperationalReadiness(item).state; } catch (_) {}
     return { ...item, state };
   });
-  return DominionAdaptiveCoaching.buildProposal({
+  const proposal = DominionAdaptiveCoaching.buildProposal({
     date: todayISODate(),
     contractApproved: contract.status === "APPROVED",
     contractId: contract.id || null,
@@ -7973,6 +8229,19 @@ function buildCurrentAdaptiveCoaching() {
     priorProposal: readAdaptiveCoachingState(),
     generatedAt: new Date().toISOString()
   });
+  const recruitContext = recruitProfileForAtlas();
+  if (proposal.code === "PROGRESS" && recruitContext?.progressionPolicy === "HOLD_PROGRESSION") {
+    return {
+      ...proposal,
+      code: "MONITOR",
+      status: "MONITORING",
+      label: "Hold progression through Week One",
+      reason: recruitContext.guardrails[0],
+      changes: [],
+      recruitContext
+    };
+  }
+  return { ...proposal, recruitContext };
 }
 
 function readActiveAdaptiveDirective(date = todayISODate()) {
@@ -8013,6 +8282,9 @@ function renderAdaptiveCoaching() {
   status.className = `state-pill ${adaptiveCoachingTone(proposal.status, proposal.code)}`;
   const readiness = proposal.signals.readiness;
   const evidence = proposal.signals.evidence;
+  const recruitSignal = proposal.recruitContext
+    ? `<div><span>Recruit profile</span><strong>${escapeHtml(proposal.recruitContext.athleteTypeLabel)}</strong><small>${escapeHtml(String(proposal.recruitContext.trainingYears))} years · ${proposal.recruitContext.progressionPolicy === "HOLD_PROGRESSION" ? "Baseline hold" : "Evidence governed"}</small></div>`
+    : "";
   const changeMarkup = (proposal.changes || []).map((change) => `
     <article class="adaptive-domain ${escapeHtml(change.domain.toLowerCase())}">
       <span>${escapeHtml(change.domain)}</span>
@@ -8040,6 +8312,7 @@ function renderAdaptiveCoaching() {
       <div><span>Recovery</span><strong>${readiness.painDays ? `${readiness.painDays} pain flag${readiness.painDays === 1 ? "" : "s"}` : readiness.strainFlag ? "Strain flag" : "No red flag"}</strong><small>Energy ${readiness.averageEnergy ?? "—"} · Soreness ${readiness.averageSoreness ?? "—"}</small></div>
       <div><span>Execution</span><strong>${evidence.adherencePercent === null ? "—" : `${evidence.adherencePercent}%`}</strong><small>${evidence.completed}/${evidence.planned} committed exposures</small></div>
       <div><span>Plans linked</span><strong>${proposal.planCoverage}/4</strong><small>Contract revision ${proposal.contractRevision || "—"}</small></div>
+      ${recruitSignal}
     </div>
     ${changeMarkup ? `<div class="adaptive-domain-grid">${changeMarkup}</div>` : ""}
     <aside class="adaptive-guardrail"><strong>No silent plan changes.</strong><span>Protection and deload reductions require this directive. Progressions still return to each module's plan approval workflow.</span></aside>
@@ -11754,6 +12027,7 @@ async function init() {
     await loadWeeklyInspection();
     await loadTrendsAnalytics();
     await loadRecruitContractState();
+    await loadRecruitOnboardingState();
     await loadNutritionState();
     await loadRunningState();
     await loadCoreProgramState();
@@ -12022,18 +12296,54 @@ if (typeof document !== "undefined") {
   initializeComplianceForm();
   document.getElementById("recruit-contract-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const draft = recruitContractFromForm();
+    window.clearTimeout(recruitContractAutosaveTimer);
+    recruitContractAutosaveRevision += 1;
+    await recruitContractAutosavePromise;
+    const draft = await saveRecruitContractDraftFromForm({ announce: false });
     if (!draft) return;
-    recruitContractSetupStep = 3;
-    saveRecruitContractLocal("DRAFT", draft);
-    const synced = await persistRecruitContractState("DRAFT", draft);
+    recruitContractSetupStep = 4;
     renderRecruitContract();
     setText("recruit-contract-feedback", draft.status === "READY_FOR_APPROVAL"
-      ? `Contract ready for approval.${synced ? " Draft saved to your account." : " Draft saved on this device."}`
+      ? "Replacement Contract is ready. Read the change, enter your signature, and sign it into force."
       : "Review the flagged commitment before approval.");
   });
+  document.getElementById("recruit-contract-form")?.addEventListener("input", queueRecruitContractAutosave);
   document.querySelector('#recruit-contract-form [name="runningDaysPerWeek"]')?.addEventListener("change", (event) => {
     renderRecruitContractSetupStep();
+  });
+  document.querySelector('#recruit-contract-form [name="trainingYears"]')?.addEventListener("input", (event) => {
+    renderContractAthleteType(event.currentTarget.value);
+  });
+  document.querySelector('#recruit-contract-form [name="heightUnit"]')?.addEventListener("change", (event) => {
+    const height = event.currentTarget.form?.elements.namedItem("heightValue");
+    if (!height) return;
+    const centimeters = event.currentTarget.value === "cm";
+    height.min = centimeters ? "120" : "47";
+    height.max = centimeters ? "230" : "91";
+    height.placeholder = centimeters ? "175" : "69";
+  });
+  document.getElementById("contract-delete-confirmation")?.addEventListener("input", (event) => {
+    const confirm = document.getElementById("contract-delete-confirm");
+    if (confirm) confirm.disabled = event.currentTarget.value.trim().toUpperCase() !== "DELETE";
+  });
+  document.getElementById("contract")?.addEventListener("submit", async (event) => {
+    if (event.target.id !== "first-week-profile-form" || typeof DominionFirstWeekOrientation === "undefined") return;
+    event.preventDefault();
+    try {
+      const orientation = currentRecruitOrientation();
+      const updated = DominionFirstWeekOrientation.transition(
+        orientation,
+        "SAVE_PROFILE",
+        Object.fromEntries(new FormData(event.target).entries()),
+        { now: new Date().toISOString() }
+      );
+      saveRecruitOnboardingLocal(updated);
+      const synced = await persistRecruitOnboardingState(updated);
+      renderFirstWeekOrientation();
+      setText("first-week-orientation-feedback", `Recruit profile saved${synced ? " to your account" : " on this device"}. Atlas classified the training history and opened the daily-rhythm briefing.`);
+    } catch (error) {
+      setText("first-week-orientation-feedback", error?.message || "The recruit profile could not be saved.");
+    }
   });
   document.getElementById("contract")?.addEventListener("click", async (event) => {
     const experienceButton = event.target.closest("button[data-contract-experience-action]");
@@ -12046,18 +12356,42 @@ if (typeof document !== "undefined") {
         return;
       }
       if (action === "setup-next") {
-        if (recruitContractSetupStep < 2) {
+        window.clearTimeout(recruitContractAutosaveTimer);
+        recruitContractAutosaveRevision += 1;
+        await recruitContractAutosavePromise;
+        await saveRecruitContractDraftFromForm({ announce: false });
+        if (recruitContractSetupStep < 3) {
           recruitContractSetupStep += 1;
           renderRecruitContractSetupStep();
           document.querySelector(`#recruit-contract-form [data-contract-form-step="${recruitContractSetupStep}"] input, #recruit-contract-form [data-contract-form-step="${recruitContractSetupStep}"] select`)?.focus();
           return;
         }
-        if (recruitContractSetupStep === 2) {
+        if (recruitContractSetupStep === 3) {
           document.getElementById("recruit-contract-form")?.requestSubmit();
           return;
         }
         document.getElementById("contract-signature-heading")?.scrollIntoView({ behavior: "smooth", block: "center" });
         document.getElementById("contract-signer-name")?.focus({ preventScroll: true });
+        return;
+      }
+      if (action === "review-amendment") {
+        window.clearTimeout(recruitContractAutosaveTimer);
+        recruitContractAutosaveRevision += 1;
+        await recruitContractAutosavePromise;
+        const draft = await saveRecruitContractDraftFromForm({ announce: false });
+        if (!draft || draft.status !== "READY_FOR_APPROVAL") {
+          setText("recruit-contract-feedback", draft?.errors?.[0] || "Complete the amendment before signing it.");
+          const editor = document.getElementById("recruit-contract-editor");
+          if (editor) editor.open = true;
+          return;
+        }
+        recruitContractSetupStep = 4;
+        renderRecruitContract();
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = true;
+        document.getElementById("contract-signature-heading")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("contract-signer-name")?.focus({ preventScroll: true });
+        setText("recruit-contract-feedback", `Contract ${readApprovedRecruitContract()?.revision || "current"} is still active. Sign the replacement below to update the calendar.`);
         return;
       }
       if (action === "sign-request") {
@@ -12099,6 +12433,72 @@ if (typeof document !== "undefined") {
         return;
       }
     }
+    const lifecycleButton = event.target.closest("button[data-contract-lifecycle-action]");
+    if (lifecycleButton) {
+      const action = lifecycleButton.dataset.contractLifecycleAction;
+      if (action === "new-contract") {
+        await clearRecruitContractState("DRAFT");
+        recruitContractSetupStep = 0;
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) {
+          editor.open = true;
+          editor.dataset.focusInitialized = "true";
+        }
+        hydrateRecruitContractForm(DominionRecruitContract.defaultContract({ today: todayISODate() }));
+        document.querySelector('#recruit-contract-form [name="age"]')?.focus({ preventScroll: true });
+        editor?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (action === "open-orientation") {
+        document.getElementById("first-week-orientation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (action === "delete-request") {
+        const approved = readApprovedRecruitContract();
+        if (!approved) return;
+        setText("contract-delete-dialog-summary", `Contract ${approved.revision} — ${approved.target} — will be retired. Completed weeks, evidence, and inspection history remain preserved.`);
+        const input = document.getElementById("contract-delete-confirmation");
+        if (input) input.value = "";
+        const confirm = document.getElementById("contract-delete-confirm");
+        if (confirm) confirm.disabled = true;
+        const dialog = document.getElementById("contract-delete-dialog");
+        if (dialog?.showModal) dialog.showModal();
+        return;
+      }
+      if (action === "delete-confirm") {
+        const input = document.getElementById("contract-delete-confirmation");
+        if (input?.value.trim().toUpperCase() !== "DELETE") return;
+        lifecycleButton.disabled = true;
+        await retireActiveRecruitContract();
+        document.getElementById("contract-delete-dialog")?.close();
+        return;
+      }
+    }
+    const orientationButton = event.target.closest("button[data-first-week-action]");
+    if (orientationButton && typeof DominionFirstWeekOrientation !== "undefined") {
+      try {
+        const action = orientationButton.dataset.firstWeekAction;
+        const transitions = {
+          "acknowledge-rhythm": "ACKNOWLEDGE_RHYTHM",
+          "acknowledge-baseline": "ACKNOWLEDGE_BASELINE",
+          launch: "COMPLETE"
+        };
+        const updated = DominionFirstWeekOrientation.transition(currentRecruitOrientation(), transitions[action], {}, { now: new Date().toISOString() });
+        saveRecruitOnboardingLocal(updated);
+        await persistRecruitOnboardingState(updated);
+        renderFirstWeekOrientation();
+        if (action === "launch") {
+          await stageRecruitContractPlans();
+          renderRecruitContract();
+          setText("first-week-orientation-feedback", "Orientation complete. Week One plan drafts are staged for deliberate review and approval.");
+        } else {
+          setText("first-week-orientation-feedback", action === "acknowledge-rhythm" ? "Daily rhythm acknowledged. Baseline-week protocol is next." : "Baseline protocol protected. Review the Week One launch order.");
+        }
+      } catch (error) {
+        setText("first-week-orientation-feedback", error?.message || "First Week Orientation could not advance.");
+      }
+      return;
+    }
     const weekButton = event.target.closest("button[data-weekly-orchestrator-action]");
     if (weekButton && typeof DominionWeeklyOrchestrator !== "undefined") {
       const action = weekButton.dataset.weeklyOrchestratorAction;
@@ -12114,7 +12514,7 @@ if (typeof document !== "undefined") {
           saveRecruitContractLocal("DRAFT", draft);
           await persistRecruitContractState("DRAFT", draft);
         }
-        recruitContractSetupStep = 1;
+        recruitContractSetupStep = 2;
         setActiveSection("contract");
         window.history.replaceState(null, "", "#contract");
         const editor = document.getElementById("recruit-contract-editor");
@@ -12226,7 +12626,7 @@ if (typeof document !== "undefined") {
     if (action === "approve") {
       try {
         const draft = readRecruitContractDraft();
-        const previous = readApprovedRecruitContract();
+        const previous = readRecruitContractState("APPROVED", null);
         const approved = DominionRecruitContract.approveRecruitContract(draft || {}, previous, {
           today: todayISODate(),
           approvedAt: new Date().toISOString()

@@ -14,6 +14,11 @@ function test(name, fn) {
 
 function approvedContract(overrides = {}) {
   const draft = recruit.buildRecruitContract({
+    age: 42,
+    heightValue: 70,
+    heightUnit: "in",
+    gender: "MAN",
+    trainingYears: 8,
     primaryGoal: "BALANCED_FITNESS",
     target: "Build a durable hybrid base",
     trainingDaysPerWeek: 5,

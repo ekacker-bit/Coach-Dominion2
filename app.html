@@ -127,7 +127,7 @@
         <div class="dominion-contract-hero">
           <div class="dominion-contract-seal" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
           <div class="dominion-contract-intro">
-            <div class="kicker">BUILD 019A // THE DOMINION CONTRACT</div>
+            <div class="kicker">BUILD 021C // RECRUIT ENTRY</div>
             <h2 id="recruit-contract-heading">The Dominion Contract</h2>
             <p>This is your commitment to disciplined action, honest evidence, responsible recovery, and weekly inspection.</p>
           </div>
@@ -137,15 +137,44 @@
           </div>
         </div>
         <ol id="contract-setup-progress" class="contract-setup-progress" aria-label="Contract setup progress">
-          <li class="current" data-contract-progress-step="0"><span>1</span><strong>Outcome</strong></li>
-          <li data-contract-progress-step="1"><span>2</span><strong>Capacity</strong></li>
-          <li data-contract-progress-step="2"><span>3</span><strong>Standards</strong></li>
-          <li data-contract-progress-step="3"><span>4</span><strong>Review</strong></li>
+          <li class="current" data-contract-progress-step="0"><span>1</span><strong>Profile</strong></li>
+          <li data-contract-progress-step="1"><span>2</span><strong>Outcome</strong></li>
+          <li data-contract-progress-step="2"><span>3</span><strong>Capacity</strong></li>
+          <li data-contract-progress-step="3"><span>4</span><strong>Standards</strong></li>
+          <li data-contract-progress-step="4"><span>5</span><strong>Review</strong></li>
         </ol>
         <details id="recruit-contract-editor" class="recruit-contract-editor" open>
           <summary><span>Build your commitment</span><small id="recruit-contract-editor-summary">Name the outcome</small></summary>
         <form id="recruit-contract-form" class="recruit-contract-form">
-          <fieldset class="recruit-contract-outcome" data-contract-form-step="0">
+          <fieldset class="recruit-contract-profile" data-contract-form-step="0">
+            <legend>Recruit profile</legend>
+            <p class="recruit-contract-profile-note">Atlas uses this context to calibrate Week One, recovery caution, and progression—not to lower the standard.</p>
+            <div class="recruit-contract-grid">
+              <label>Age
+                <input name="age" type="number" min="13" max="100" inputmode="numeric" required placeholder="Age">
+              </label>
+              <label>Height
+                <span class="recruit-height-control">
+                  <input name="heightValue" type="number" min="47" max="230" step="0.1" inputmode="decimal" required placeholder="Height">
+                  <select name="heightUnit" aria-label="Height unit"><option value="in">in</option><option value="cm">cm</option></select>
+                </span>
+              </label>
+              <label>Gender
+                <select name="gender">
+                  <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                  <option value="WOMAN">Woman</option>
+                  <option value="MAN">Man</option>
+                  <option value="NON_BINARY">Non-binary</option>
+                  <option value="SELF_DESCRIBE">Self-describe</option>
+                </select>
+              </label>
+              <label>Years of structured training
+                <input name="trainingYears" type="number" min="0" max="70" step="0.5" inputmode="decimal" required placeholder="0">
+              </label>
+            </div>
+            <div id="contract-athlete-type" class="contract-athlete-type"><span>ATHLETE TYPE</span><strong>Complete training history</strong><small>Derived from total years of structured training.</small></div>
+          </fieldset>
+          <fieldset class="recruit-contract-outcome" data-contract-form-step="1">
             <legend>Outcome</legend>
             <label>Primary goal
               <select name="primaryGoal">
@@ -163,7 +192,7 @@
               <input name="targetDate" type="date">
             </label>
           </fieldset>
-          <fieldset data-contract-form-step="1" hidden>
+          <fieldset data-contract-form-step="2" hidden>
             <legend>Weekly capacity</legend>
             <div class="recruit-contract-grid">
               <label>Training days
@@ -207,7 +236,7 @@
             </div>
             <p class="recruit-contract-recovery-note"><strong>Recovery protected:</strong> training is capped at six days per week.</p>
           </fieldset>
-          <fieldset data-contract-form-step="2" hidden>
+          <fieldset data-contract-form-step="3" hidden>
             <legend>Operating constraints</legend>
             <div class="recruit-contract-grid">
               <label>Equipment
@@ -215,13 +244,6 @@
                   <option value="FULL_GYM">Full gym</option>
                   <option value="DUMBBELLS">Dumbbells</option>
                   <option value="BODYWEIGHT_BANDS">Bodyweight + bands</option>
-                </select>
-              </label>
-              <label>Experience
-                <select name="experience">
-                  <option value="FOUNDATION">Foundation</option>
-                  <option value="INTERMEDIATE" selected>Intermediate</option>
-                  <option value="EXPERIENCED">Experienced</option>
                 </select>
               </label>
               <label>Nutrition commitment
@@ -237,7 +259,7 @@
               </label>
             </div>
           </fieldset>
-          <fieldset data-recruit-running-fields data-contract-form-step="2" hidden>
+          <fieldset data-recruit-running-fields data-contract-form-step="3" hidden>
             <legend>Running commitment</legend>
             <div class="recruit-contract-grid">
               <label>Running target
@@ -257,7 +279,7 @@
               </label>
             </div>
           </fieldset>
-          <div class="contract-review-step" data-contract-form-step="3" hidden>
+          <div class="contract-review-step" data-contract-form-step="4" hidden>
             <span class="kicker">FINAL REVIEW</span>
             <h3>Read the commitment below.</h3>
             <p>Your signature will approve this revision. Current plans remain protected until you activate their replacements.</p>
@@ -268,6 +290,7 @@
             <button type="button" data-contract-experience-action="setup-next">Continue</button>
             <button type="button" class="ghost" data-recruit-contract-action="restore">Restore approved</button>
           </div>
+          <p id="recruit-contract-autosave-status" class="contract-autosave-status" aria-live="polite">Changes save as an amendment draft. The signed Contract remains active until you sign its replacement.</p>
         </form>
         </details>
         <p id="recruit-contract-feedback" class="muted" aria-live="polite"></p>
@@ -286,6 +309,34 @@
             </div>
           </form>
         </dialog>
+        <dialog id="contract-delete-dialog" class="contract-signing-dialog contract-delete-dialog" aria-labelledby="contract-delete-dialog-title">
+          <form method="dialog">
+            <span class="kicker">CONTRACT LIFECYCLE</span>
+            <h3 id="contract-delete-dialog-title">Delete the active Contract?</h3>
+            <p id="contract-delete-dialog-summary">The active Contract will be retired. Completed weeks and evidence remain preserved.</p>
+            <label>Type DELETE to confirm
+              <input id="contract-delete-confirmation" autocomplete="off" placeholder="DELETE">
+            </label>
+            <div class="contract-signing-dialog-actions">
+              <button value="cancel" class="ghost">Keep Contract</button>
+              <button id="contract-delete-confirm" type="button" class="danger" data-contract-lifecycle-action="delete-confirm" disabled>Delete and restart</button>
+            </div>
+          </form>
+        </dialog>
+        <section id="first-week-orientation" class="first-week-orientation" aria-labelledby="first-week-orientation-heading" hidden>
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">BUILD 021C // FIRST WEEK ORIENTATION</div>
+              <h3 id="first-week-orientation-heading">Earn the baseline week</h3>
+              <p class="muted">Learn the daily rhythm, protect honest baselines, then launch the first coordinated week.</p>
+            </div>
+            <span id="first-week-orientation-status" class="state-pill neutral">CONTRACT REQUIRED</span>
+          </div>
+          <div class="first-week-orientation-progress" aria-hidden="true"><span id="first-week-orientation-progress"></span></div>
+          <ol id="first-week-orientation-steps" class="first-week-orientation-steps" aria-label="First Week Orientation progress"></ol>
+          <div id="first-week-orientation-panel" aria-live="polite"></div>
+          <p id="first-week-orientation-feedback" class="muted" aria-live="polite"></p>
+        </section>
         <section id="contract-activation" class="contract-activation" aria-labelledby="contract-activation-heading">
           <div class="section-heading compact">
             <div>
@@ -1535,6 +1586,7 @@
 <script src="/assets/js/activation-repair.js"></script>
 <script src="/assets/js/one-command.js"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
+<script src="/assets/js/first-week-orientation.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

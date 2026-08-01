@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "018G.1";
+  const VERSION = "021D.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength", section: "performance", view: "today_training" },
     { id: "running", label: "Running", section: "performance", view: "running" },
@@ -110,6 +110,9 @@
     }
     if (draftLinked) {
       return { ...definition, included: true, complete: false, status: "DRAFT_READY", message: `Review and approve the Contract ${contract.revision} ${definition.label} draft.`, changes };
+    }
+    if (active && changes.length === 0) {
+      return { ...definition, included: true, complete: true, status: "COMPATIBLE", message: `Approved ${definition.label} plan remains compatible with Contract ${contract.revision}; no prescription change is required.`, changes: [] };
     }
     if (active) {
       return { ...definition, included: true, complete: false, status: "UPDATE_REQUIRED", message: `The active ${definition.label} plan predates Contract ${contract.revision}.`, changes };

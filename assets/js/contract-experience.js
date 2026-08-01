@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019A.1";
+  const VERSION = "021C.1";
   const OATH_VERSION = "DOMINION_OATH_019A";
   const OATH_LINES = Object.freeze([
     "I commit to discipline.",
@@ -15,6 +15,7 @@
     "I commit to the Dominion standard."
   ]);
   const SETUP_STEPS = Object.freeze([
+    { id: "profile", label: "Profile", prompt: "Give Atlas the recruit context it needs." },
     { id: "outcome", label: "Outcome", prompt: "Name the mission." },
     { id: "capacity", label: "Capacity", prompt: "Commit only what you can sustain." },
     { id: "standards", label: "Standards", prompt: "Define the conditions of execution." },

@@ -10,6 +10,11 @@ function test(name, fn) {
 
 function validInput(overrides = {}) {
   return {
+    age: 42,
+    heightValue: 70,
+    heightUnit: "in",
+    gender: "MAN",
+    trainingYears: 8,
     primaryGoal: "BALANCED_FITNESS",
     target: "Build durable all-around fitness",
     targetDate: "2026-12-31",
@@ -133,6 +138,29 @@ test("contract inputs map cleanly into every planning module", () => {
   assert.equal(inputs.core.goal, "RUNNING_SUPPORT");
   assert.equal(inputs.core.experience, "ADVANCED");
   assert.equal(inputs.nutrition.goal, "PERFORMANCE");
+  assert.equal(inputs.athleteProfile.athleteType, "VETERAN");
+});
+
+test("recruit context derives athlete type and training experience", () => {
+  const foundation = contract.normalizeContractDraft(validInput({ trainingYears: 1, experience: undefined }), options);
+  const trained = contract.normalizeContractDraft(validInput({ trainingYears: 5, experience: undefined }), options);
+  assert.equal(foundation.athleteType, "FOUNDATION");
+  assert.equal(foundation.experience, "FOUNDATION");
+  assert.equal(trained.athleteType, "TRAINED");
+  assert.equal(trained.experience, "INTERMEDIATE");
+  assert.equal(trained.heightCm, 177.8);
+});
+
+test("a deleted contract remains a revision boundary for its replacement", () => {
+  const draft = contract.buildRecruitContract(validInput(), options);
+  const next = contract.approveRecruitContract(draft, {
+    id: "deleted-prior",
+    deletedContractId: "prior-contract",
+    status: "DELETED",
+    revision: 3
+  }, { ...options, approvedAt: "2026-08-01T13:00:00.000Z" });
+  assert.equal(next.revision, 4);
+  assert.equal(next.supersedesId, "prior-contract");
 });
 
 test("an approved nutrition baseline is linked into the contract", () => {

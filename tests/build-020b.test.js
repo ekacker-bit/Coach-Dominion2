@@ -31,4 +31,3 @@ assert.match(worker, /assets\/js\/split-day-command\.js/);
 assert.match(packageJson, /node tests\/build-020b\.test\.js/);
 
 console.log("Build 020B split-day checkpoint integration passed.");
-

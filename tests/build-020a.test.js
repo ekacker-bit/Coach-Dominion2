@@ -10,7 +10,7 @@ const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
 const worker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 
-assert.equal(orchestrator.VERSION, "020A.1");
+assert.equal(orchestrator.VERSION, "020B.2");
 assert.equal(orchestrator.TWO_A_DAY_MINIMUM_SEPARATION_MINUTES, 240);
 assert.equal(typeof orchestrator.buildSessionSequence, "function");
 
@@ -22,13 +22,14 @@ const sessions = orchestrator.buildSessionSequence(
   ]
 );
 assert.deepEqual(sessions.map((item) => item.id), ["run", "strength"]);
+assert.deepEqual(sessions.map((item) => item.sessionWindow), ["AM", "PM"]);
 assert.equal(sessions[1].separationBeforeMinutes, 240);
 assert.equal(sessions[1].fuelingCheckpoint, true);
 
 assert.match(html, /Today&apos;s training order/);
 assert.match(app, /data-today-session-module/);
 assert.match(app, /data-two-a-day-action="fuel"/);
-assert.match(app, /Finish Session 1 first/);
+assert.match(app, /Finish the AM session first/);
 assert.match(app, /function todaySessionExecution/);
 assert.match(styles, /\.two-a-day-bridge/);
 assert.match(styles, /\.today-session-card\.two-a-day-session/);
@@ -36,3 +37,4 @@ assert.match(worker, /coach-dominion-020[a-z]-v\d+/i);
 assert.match(packageJson, /node tests\/build-020a\.test\.js/);
 
 console.log("Build 020A split-day command integration passed.");
+

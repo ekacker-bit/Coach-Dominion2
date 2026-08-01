@@ -5173,6 +5173,7 @@ function renderRecruitContract() {
     output.innerHTML = `<div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>`;
     renderContractActivation();
     renderWeeklyOrchestrator();
+    renderDominionExperienceShell();
     return;
   }
   hydrateRecruitContractForm(current);
@@ -5275,6 +5276,7 @@ function renderRecruitContract() {
   }
   renderContractActivation();
   renderWeeklyOrchestrator();
+  renderDominionExperienceShell();
 }
 
 async function signRecruitContractFromCeremony() {
@@ -6663,6 +6665,7 @@ function renderMobileCommand() {
   document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
     button.classList.toggle("active", button.dataset.mobileNav === "today" && activeSection === "today");
   });
+  renderDominionExperienceShell();
 }
 
 function openMobileCommandSheet(kind = "roll-call") {
@@ -8628,6 +8631,7 @@ function renderWarRoom(state) {
     renderDailyCoachingLoop();
     renderBaselineIntelligence();
     renderNutritionCommand();
+    renderDominionExperienceShell();
     return;
   }
 
@@ -8686,6 +8690,7 @@ function renderWarRoom(state) {
   renderBaselineIntelligence();
   renderNutritionCommand();
   setText("summary-comments", state.comments || "—");
+  renderDominionExperienceShell();
 }
 
 async function loadDailyState() {
@@ -8849,6 +8854,59 @@ async function saveMorningRollCall(event) {
   }
 }
 
+function renderDominionExperienceShell() {
+  if (typeof DominionExperienceShell === "undefined") return;
+  const contract = readApprovedRecruitContract();
+  const contractSigned = Boolean(contract && typeof DominionContractExperience !== "undefined"
+    && DominionContractExperience.signatureStatus(contract).valid);
+  let activation = { status: contract ? "ACTION_REQUIRED" : "CONTRACT_REQUIRED", next: {} };
+  if (contract && typeof DominionContractActivation !== "undefined") {
+    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    catch (_) {}
+  }
+  let readinessState = "";
+  if (dailyState?.date === todayISODate()) {
+    try { readinessState = evaluateOperationalReadiness(dailyState).state; }
+    catch (_) {}
+  }
+  const mission = DominionExperienceShell.buildMissionState({
+    hasApprovedContract: Boolean(contract),
+    contractSigned,
+    activationStatus: activation.status,
+    activationNextModule: activation.next?.module || "",
+    hasDailyState: Boolean(dailyState?.date === todayISODate()),
+    readinessState
+  });
+  setText("shell-mission-phase", mission.phase);
+  setText("shell-mission-heading", mission.title);
+  setText("shell-mission-detail", mission.detail);
+  const action = document.getElementById("shell-mission-action");
+  if (action) {
+    action.textContent = mission.actionLabel;
+    action.href = mission.actionHref;
+    action.dataset.section = mission.actionSection;
+    action.classList.remove("active");
+    action.setAttribute("aria-current", "false");
+  }
+  mission.journey.forEach((step) => {
+    const item = document.querySelector(`[data-shell-step="${step.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", step.complete);
+    item.classList.toggle("current", step.current);
+    item.setAttribute("aria-current", step.current ? "step" : "false");
+  });
+  const section = DominionExperienceShell.sectionMeta(activeSection);
+  setText("shell-section-context", `${section.mode} · ${section.label}`);
+  setText("shell-rank-badge", String(rankStatus?.currentRank || "RECRUIT").replaceAll("_", " "));
+  document.title = `${section.label} | Coach Dominion`;
+  document.body.dataset.dominionPhase = mission.phase.toLowerCase();
+  document.body.dataset.dominionSection = activeSection;
+  document.querySelectorAll(".kicker:not([data-humanized])").forEach((element) => {
+    element.textContent = DominionExperienceShell.cleanBuildKicker(element.textContent);
+    element.dataset.humanized = "true";
+  });
+}
+
 function setActiveSection(section = "today") {
   const normalized = normalizeSectionKey(section);
   activeSection = normalized;
@@ -8876,6 +8934,7 @@ function setActiveSection(section = "today") {
   if (target) {
     target.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+  renderDominionExperienceShell();
 }
 
 function organizeWorkspaceSections() {

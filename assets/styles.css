@@ -153,6 +153,458 @@
   .strength-adaptation-decision{grid-template-columns:1fr}
   .strength-adaptation-decision>div:last-child{justify-items:start;text-align:left}
 }
+
+/* Build 019B: Dominion experience shell and unified operating journey. */
+:root {
+  --dominion-navy: #07111b;
+  --dominion-navy-soft: #0d1a24;
+  --dominion-forest: #0b241c;
+  --dominion-gold: #f0b429;
+  --dominion-gold-soft: rgba(240, 180, 41, 0.13);
+  --dominion-crimson: #b7333d;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% -5%, rgba(34, 108, 80, 0.24), transparent 31%),
+    radial-gradient(circle at 92% 4%, rgba(240, 180, 41, 0.09), transparent 23%),
+    linear-gradient(180deg, #050b10, #071019 46%, #05090d);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.war-room-shell[data-product-shell="019B"] {
+  max-width: 1480px;
+  padding-top: 18px;
+}
+
+.war-room-shell[data-product-shell="019B"] .command-header {
+  position: sticky;
+  z-index: 50;
+  top: 0;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(240, 180, 41, 0.15);
+  border-radius: 16px;
+  background: rgba(5, 12, 17, 0.9);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.command-brand-block,
+.dominion-brand,
+.shell-account {
+  display: flex;
+  align-items: center;
+}
+
+.command-brand-block {
+  min-width: 270px;
+  gap: 16px;
+}
+
+.dominion-brand {
+  gap: 11px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.dominion-brand-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 46px;
+  height: 46px;
+  border: 1px solid rgba(240, 180, 41, 0.42);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 180, 41, 0.12), rgba(5, 13, 17, 0.94) 68%);
+  box-shadow: inset 0 0 20px rgba(240, 180, 41, 0.06);
+}
+
+.dominion-brand-mark img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.dominion-brand-copy {
+  display: grid;
+  line-height: 1.05;
+}
+
+.dominion-brand-copy .kicker {
+  font-size: 8px;
+  color: var(--dominion-gold);
+}
+
+.dominion-brand-copy > strong {
+  margin-top: 3px;
+  font-size: 18px;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+}
+
+.dominion-brand-copy > small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.shell-account {
+  display: grid;
+  gap: 2px;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.shell-account > span {
+  color: var(--dominion-gold);
+  font-size: 9px;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+}
+
+.shell-account #identity {
+  max-width: 190px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.war-room-shell[data-product-shell="019B"] .top-nav {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.war-room-shell[data-product-shell="019B"] .nav-link.active,
+.war-room-shell[data-product-shell="019B"] .nav-more.active > summary {
+  border-color: rgba(240, 180, 41, 0.26);
+  color: #fff4d3;
+  background: var(--dominion-gold-soft);
+  box-shadow: inset 0 -2px 0 var(--dominion-gold);
+}
+
+.dominion-mission-rail {
+  position: relative;
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  margin: 18px 0 12px;
+  padding: 21px 22px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(240, 180, 41, 0.09), transparent 30%),
+    linear-gradient(135deg, rgba(10, 29, 23, 0.98), rgba(8, 17, 26, 0.98));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+.dominion-mission-rail::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  content: "";
+  background: linear-gradient(90deg, transparent, var(--dominion-gold) 20%, rgba(240, 180, 41, 0.18) 75%, transparent);
+}
+
+.shell-mission-phase {
+  display: grid;
+  gap: 4px;
+  align-self: stretch;
+  align-content: center;
+  padding-right: 18px;
+  border-right: 1px solid rgba(240, 180, 41, 0.2);
+}
+
+.shell-mission-phase span,
+.shell-journey li strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.shell-mission-phase strong {
+  color: var(--dominion-gold);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.shell-mission-copy h2 {
+  margin: 5px 0 4px;
+  font-size: clamp(25px, 3vw, 38px);
+  letter-spacing: -0.04em;
+}
+
+.shell-mission-copy p {
+  max-width: 720px;
+  margin: 0;
+  color: #b8c3cd;
+}
+
+.shell-mission-action {
+  min-width: 138px;
+  justify-content: center;
+}
+
+.shell-journey {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 2px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  list-style: none;
+}
+
+.shell-journey li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--dim);
+}
+
+.shell-journey li:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: 8px;
+  left: 36px;
+  height: 1px;
+  content: "";
+  background: var(--line);
+}
+
+.shell-journey li > span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #08121a;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.shell-journey li > strong {
+  position: relative;
+  z-index: 1;
+  padding-right: 10px;
+  background: #0b191a;
+}
+
+.shell-journey li.complete > span {
+  border-color: var(--green);
+  color: #03110b;
+  background: var(--green);
+}
+
+.shell-journey li.complete > strong {
+  color: #d9f8e9;
+}
+
+.shell-journey li.current > span {
+  border-color: var(--dominion-gold);
+  color: var(--dominion-gold);
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.08);
+}
+
+.shell-journey li.current > strong {
+  color: #fff4d3;
+}
+
+.war-room-shell[data-product-shell="019B"] .status-bar {
+  margin-bottom: 4px;
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.war-room-shell[data-product-shell="019B"] .status-bar div {
+  padding-block: 10px;
+  background: rgba(7, 16, 23, 0.92);
+}
+
+.war-room-shell[data-product-shell="019B"] .card {
+  padding: clamp(22px, 3vw, 32px);
+  border-color: rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(15, 27, 36, 0.97), rgba(7, 14, 21, 0.99));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.26);
+}
+
+.war-room-shell[data-product-shell="019B"] .scroll-anchor.is-active {
+  outline: 0;
+}
+
+.war-room-shell[data-product-shell="019B"] .section-heading h2,
+.war-room-shell[data-product-shell="019B"] .today-command-header h2 {
+  margin-top: 6px;
+  font-size: clamp(30px, 4vw, 48px);
+  letter-spacing: -0.045em;
+}
+
+.war-room-shell[data-product-shell="019B"] .section-heading p,
+.war-room-shell[data-product-shell="019B"] .today-command-header p {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.war-room-shell[data-product-shell="019B"] .kicker {
+  color: #c8a85c;
+}
+
+button:not(.ghost):not(.danger):not(.danger-action),
+.btn:not(.ghost) {
+  color: #101006;
+  background: linear-gradient(135deg, #f3c34d, var(--dominion-gold));
+  box-shadow: 0 8px 24px rgba(240, 180, 41, 0.12);
+}
+
+button.danger,
+button.danger-action,
+button[data-action="delete"] {
+  color: #fff;
+  background: var(--dominion-crimson);
+}
+
+.ghost {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+body[data-dominion-phase="protect"] .dominion-mission-rail {
+  border-color: rgba(183, 51, 61, 0.55);
+}
+
+body[data-dominion-phase="protect"] .shell-mission-phase strong {
+  color: #ff9ca4;
+}
+
+@media (max-width: 1050px) {
+  .command-brand-block {
+    min-width: 220px;
+  }
+
+  .shell-account {
+    display: none;
+  }
+
+  .war-room-shell[data-product-shell="019B"] .header-actions {
+    gap: 6px;
+  }
+
+  .war-room-shell[data-product-shell="019B"] .nav-link,
+  .war-room-shell[data-product-shell="019B"] .nav-more > summary {
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .war-room-shell[data-product-shell="019B"] {
+    padding-top: 8px;
+  }
+
+  .war-room-shell[data-product-shell="019B"] .command-header {
+    position: relative;
+    padding: 9px 10px;
+  }
+
+  .command-brand-block {
+    min-width: 0;
+  }
+
+  .dominion-brand-mark {
+    flex-basis: 40px;
+    height: 40px;
+  }
+
+  .dominion-brand-copy > strong {
+    font-size: 16px;
+  }
+
+  .dominion-mission-rail {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-top: 10px;
+    padding: 18px 16px 15px;
+  }
+
+  .shell-mission-phase {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(240, 180, 41, 0.16);
+  }
+
+  .shell-mission-copy h2 {
+    font-size: 27px;
+  }
+
+  .shell-mission-copy p {
+    font-size: 13px;
+  }
+
+  .shell-mission-action {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .shell-journey {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 12px;
+  }
+
+  .shell-journey li::after {
+    display: none;
+  }
+
+  .shell-journey li > strong {
+    background: transparent;
+  }
+
+  .war-room-shell[data-product-shell="019B"] .card {
+    padding: 20px 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .war-room-shell[data-product-shell="019B"] *,
+  .war-room-shell[data-product-shell="019B"] *::before,
+  .war-room-shell[data-product-shell="019B"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 @media(max-width:900px){.today-sequence-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){
   body{padding-bottom:76px}

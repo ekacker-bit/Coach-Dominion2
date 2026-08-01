@@ -14,6 +14,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
 - `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
 - `assets/js/contract-experience.js` contains the revision-bound Dominion oath, signature validation, signed artifact, and post-sign progression model.
+- `assets/js/experience-shell.js` derives the global current order and Contract-to-Today operating journey from existing canonical state.
 - `assets/js/nutrition-feed.js` validates the privacy-limited daily nutrition payload and generates the iPhone Shortcut request contract.
 - `assets/styles.css` contains the application styles.
 - `api/health.js`, `api/config.js`, and `api/nutrition-feed.js` are Vercel Node.js serverless functions.
@@ -42,6 +43,12 @@ Persistence uses [supabase/migrations/014_myfitnesspal_health_bridge.sql](supaba
 ## Build 019A Dominion Contract experience
 
 The Recruit Contract is now a guided commitment and signed operating artifact rather than a permanent setup form. A recruit defines the outcome, sustainable capacity, and operating standards, reviews the exact weekly commitments, types a signature, affirms the Dominion oath, and confirms the effective date in a deliberate signing dialog. The signature is bound to the Contract ID and revision; amendments create a draft while the signed revision and active module plans remain protected. After signing, one progression rail guides the recruit through plan linking, week commitment, and Day One.
+
+## Build 019B Dominion experience shell
+
+The authenticated product now presents one Coach Dominion operating system instead of a collection of independent dashboards. A persistent current-order rail derives the recruit's next meaningful action from the signed Contract, linked module plans, coordinated week, and today's Daily State. The same rail moves through Commit, Link, Plan, Report, Protect, and Execute states without duplicating or rewriting any underlying data.
+
+The global shell carries section identity, rank, primary navigation, and a four-stage Contract → Plans → Week → Today journey across every module. Rendered build labels are translated into product language, primary page copy is shorter, crimson is reserved for danger, and the navy/forest/gold hierarchy adapts for mobile and reduced-motion preferences.
 
 ## Build 004B weekly inspection
 

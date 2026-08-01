@@ -189,6 +189,74 @@
   --font-body: "Raleway", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Build 021B: visible continuity truth and deliberate conflict repair. */
+.continuity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 158px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--stone);
+  background: #111213;
+  box-shadow: none;
+  text-align: left;
+}
+
+.continuity-status:hover { border-color: var(--victory-gold); transform: none; }
+.continuity-status > span:last-child { display: grid; gap: 2px; }
+.continuity-status strong { font-family: var(--font-command); font-size: 14px; font-weight: 400; letter-spacing: 0.09em; }
+.continuity-status small { max-width: 160px; overflow: hidden; color: var(--muted); font-size: 8px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.continuity-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); box-shadow: 0 0 0 4px rgba(120, 123, 120, 0.1); }
+.continuity-status.green .continuity-status-dot { background: var(--green); box-shadow: 0 0 0 4px rgba(114, 169, 127, 0.12); }
+.continuity-status.yellow .continuity-status-dot { background: var(--victory-gold); box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.12); }
+.continuity-status.red { border-color: rgba(185, 68, 68, 0.62); }
+.continuity-status.red .continuity-status-dot { background: var(--red); box-shadow: 0 0 0 4px rgba(185, 68, 68, 0.13); }
+
+.continuity-repair-dialog {
+  width: min(760px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  padding: 0;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 4px;
+  color: var(--stone);
+  background: #0d0e0f;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+}
+
+.continuity-repair-dialog::backdrop { background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(6px); }
+.continuity-repair-shell { display: grid; gap: 20px; padding: clamp(20px, 4vw, 36px); }
+.continuity-repair-shell > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.continuity-repair-shell h2 { margin-top: 7px; font-size: clamp(35px, 6vw, 52px); }
+.continuity-repair-shell > p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.continuity-dialog-close { flex: 0 0 auto; }
+.continuity-canonical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.continuity-domain { display: grid; min-width: 0; gap: 7px; padding: 14px; border: 1px solid var(--line); background: #141516; }
+.continuity-domain > span { color: var(--victory-gold); font-family: var(--font-command); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; }
+.continuity-domain > strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.continuity-domain > small { overflow: hidden; color: var(--dim); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.continuity-domain.missing { opacity: 0.63; border-style: dashed; }
+.continuity-conflict-panel { padding: 18px; border: 1px solid rgba(185, 68, 68, 0.65); background: rgba(143, 47, 53, 0.13); }
+.continuity-conflict-panel > div:first-child { display: grid; gap: 6px; }
+.continuity-conflict-panel p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.continuity-conflict-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.continuity-repair-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+
+@media (max-width: 1080px) {
+  .continuity-status { min-width: auto; }
+  .continuity-status small { display: none; }
+}
+
+@media (max-width: 760px) {
+  .continuity-status { position: absolute; right: 12px; bottom: -36px; min-height: 30px; padding: 5px 9px; background: rgba(17, 18, 19, 0.96); }
+  .continuity-status strong { font-size: 12px; }
+  .continuity-status-dot { width: 6px; height: 6px; }
+  .continuity-canonical-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .continuity-repair-shell > footer { align-items: stretch; flex-direction: column; }
+  .continuity-repair-shell > footer button { width: 100%; }
+}
+
 html {
   background: var(--dominion-black);
   scrollbar-color: var(--victory-gold) #121314;

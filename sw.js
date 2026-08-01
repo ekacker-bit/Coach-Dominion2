@@ -1,4 +1,4 @@
-const CACHE_NAME = "coach-dominion-019f-v1";
+const CACHE_NAME = "coach-dominion-019g-v1";
 const APP_SHELL = [
   "/",
   "/app",

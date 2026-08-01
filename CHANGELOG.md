@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 019C Daily Seal
+
+- Turned end-of-day reconciliation into a deliberate Daily Seal ritual rather than an administrative close button.
+- Added an Execute → Record → Verify → Adapt progression rail driven entirely by the existing daily queue and closed-loop coaching state.
+- Added contextual states for work in motion, evidence verification, final review, proposed adaptation, protected RED-readiness days, and a fully secured day.
+- Added live evidence confidence, secured-day count, consecutive-day chain, and current rank to the closing artifact.
+- Added a subtle signed-day ceremony and clear next action while preserving reduced-motion behavior and mobile usability.
+- Reused canonical Daily State, execution, Dominion Record, review, adaptation, and history data without adding storage or silently changing a plan.
+
 ## Unreleased — Build 019B Dominion Experience Shell
 
 - Replaced the generic War Room masthead with a persistent Coach Dominion identity, current section context, and visible rank.

@@ -25,7 +25,7 @@ assert.match(app, /DominionRunning\.weeklyPlanForDate\(block, todayISODate\(\)\)
 assert.match(app, /persistRunningState\("PLAN", "draft", draft\)/);
 assert.match(app, /persistRunningState\("PLAN", "active", approved\)/);
 assert.match(app, /data-running-action="approve-block"/);
-assert.match(app, /Stage module drafts/);
+assert.match(app, /async function stageRecruitContractPlans/);
 assert.match(app, /active Running block/);
 assert.match(app, /Today now follows the active block/);
 

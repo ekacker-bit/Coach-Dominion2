@@ -16,6 +16,7 @@ The latest completed release is **Release 0.3.1 â€” Atlas Morning Brief**. Build
 - `assets/js/contract-experience.js` contains the revision-bound Dominion oath, signature validation, signed artifact, and post-sign progression model.
 - `assets/js/experience-shell.js` derives the global current order and Contract-to-Today operating journey from existing canonical state.
 - `assets/js/daily-ritual.js` derives the Daily Seal, secured-day chain, and Execute-to-Adapt close progression from the existing daily queue and closed-loop record.
+- `assets/js/activation-repair.js` derives the guided Contract-to-Today repair flow and exact domain handoff from canonical activation state.
 - `assets/js/nutrition-feed.js` validates the privacy-limited daily nutrition payload and generates the iPhone Shortcut request contract.
 - `assets/styles.css` contains the application styles.
 - `api/health.js`, `api/config.js`, and `api/nutrition-feed.js` are Vercel Node.js serverless functions.
@@ -62,6 +63,12 @@ Build 019D makes every major surface answer from one state hierarchy: Contract â
 ## Build 019E One Command UX
 
 Today now presents one authoritative order with one primary action. The same operating truth chooses the instruction, destination, evidence state, and closeout action; plan context and the full daily sequence remain available through progressive disclosure. On mobile, the duplicate command dashboard is removed while quick Roll Call and fuel capture remain directly accessible.
+
+## Build 019F Activation Repair Loop
+
+One Command now turns setup blockers into a guided recovery path. It names the exact plan that does not match the signed Contract, opens the correct Strength, Running, Core, or Nutrition destination, and then advances through coordinated-week build and deliberate commitment. A final reconciliation returns the recruit to an operational Today, while a timed fallback prevents an unresolved loading state from becoming a dead end.
+
+The same release sharpens the Coach Dominion shield for small mobile surfaces and makes Recovery operational on Today. The card reads current readiness, training load, and fueling evidence; gives a clear recovery prescription; records deliberate completion in the canonical daily queue; and updates closed-loop evidence and the Daily Seal. Completion never removes a pain safeguard or silently changes an approved training plan.
 
 ## Build 004B weekly inspection
 

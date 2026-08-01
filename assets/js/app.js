@@ -9053,6 +9053,106 @@ function buildCurrentOperatingTruth() {
   return currentOperatingTruth;
 }
 
+function renderOneCommand(truth = buildCurrentOperatingTruth()) {
+  const section = document.getElementById("one-command");
+  if (!section || !truth || typeof DominionOneCommand === "undefined") return;
+  const model = DominionOneCommand.buildOneCommand(truth, {
+    online: typeof navigator === "undefined" ? true : navigator.onLine
+  });
+  section.dataset.commandMode = model.mode;
+  section.classList.toggle("is-secured", model.secured);
+  setText("one-command-eyebrow", model.eyebrow);
+  setText("one-command-heading", model.title);
+  setText("one-command-detail", model.detail);
+  setText("one-command-state", model.stateLabel);
+  const state = document.getElementById("one-command-state");
+  if (state) state.className = `state-pill ${model.state === "CONFLICT" ? "red" : model.secured ? "green" : ["EVIDENCE_REQUIRED", "REVIEW_REQUIRED", "ADAPTATION_REQUIRED"].includes(model.state) ? "yellow" : "neutral"}`;
+  const progress = document.getElementById("one-command-progress");
+  if (progress) progress.style.width = `${model.progress.percent}%`;
+  model.stages.forEach((stage) => {
+    const item = document.querySelector(`[data-one-command-stage="${stage.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", stage.complete);
+    item.classList.toggle("current", stage.current);
+    item.classList.toggle("locked", stage.locked);
+    item.setAttribute("aria-current", stage.current ? "step" : "false");
+  });
+  const modules = document.getElementById("one-command-modules");
+  if (modules) {
+    modules.innerHTML = model.modules.length
+      ? model.modules.map((item) => `<span class="one-command-module ${item.complete ? "complete" : item.active ? "active" : ""}"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.status.replaceAll("_", " "))}</small></span>`).join("")
+      : `<span class="one-command-module quiet"><strong>No assigned training</strong><small>Protect the committed recovery space</small></span>`;
+  }
+  const primary = document.getElementById("one-command-primary");
+  if (primary) {
+    primary.textContent = model.primary.label;
+    primary.dataset.oneCommandAction = model.primary.action;
+    primary.dataset.oneCommandSection = model.primary.section;
+    primary.dataset.oneCommandModule = model.primary.module || "";
+  }
+  const secondary = document.getElementById("one-command-secondary");
+  if (secondary) secondary.textContent = model.secondary.label;
+  setText("one-command-source", model.context.source);
+  setText("one-command-evidence", model.context.evidence);
+  const conflict = document.getElementById("one-command-conflict");
+  if (conflict) conflict.hidden = !model.context.conflict;
+  setText("one-command-conflict-detail", model.context.conflict || "");
+  setText("today-sequence-shell-summary", `${model.progress.current} · ${model.context.evidence}`);
+  const ritual = document.getElementById("daily-ritual");
+  if (ritual) ritual.hidden = !["REVIEW_REQUIRED", "ADAPTATION_REQUIRED", "SECURED"].includes(model.state);
+}
+
+function relayClosedLoopAction(action) {
+  const relay = document.createElement("button");
+  relay.type = "button";
+  relay.hidden = true;
+  relay.dataset.closedLoopAction = action;
+  document.body.appendChild(relay);
+  relay.click();
+  relay.remove();
+}
+
+async function runOneCommandAction(button) {
+  const action = button?.dataset.oneCommandAction || "REFRESH";
+  const section = button?.dataset.oneCommandSection || "today";
+  const moduleId = button?.dataset.oneCommandModule || "";
+  if (action === "REFRESH") {
+    renderDailyCoachingLoop();
+    return;
+  }
+  if (action === "ROLL_CALL") {
+    openMobileCommandSheet("roll-call");
+    return;
+  }
+  if (action === "AUTHORIZE") {
+    relayClosedLoopAction("approve_decision");
+    return;
+  }
+  if (action === "REVIEW") {
+    relayClosedLoopAction("close_review");
+    return;
+  }
+  if (action === "ADAPT") {
+    relayClosedLoopAction("approve_adaptation");
+    return;
+  }
+  if (["MODULE", "VERIFY"].includes(action) && ["strength", "running", "core"].includes(moduleId)) {
+    await launchMobileModule(moduleId);
+    return;
+  }
+  if (["recovery", "record"].includes(moduleId)) {
+    const sequence = document.getElementById("today-sequence-detail");
+    if (sequence) sequence.open = true;
+    sequence?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setActiveSection(section);
+  window.history.replaceState(null, "", `#${section}`);
+  if (moduleId && section === "performance") {
+    setPerformanceActiveView(moduleId === "running" ? "running" : moduleId === "core" ? "core" : "today_training");
+  }
+}
+
 function renderDominionExperienceShell() {
   if (typeof DominionExperienceShell === "undefined") return;
   const contract = readApprovedRecruitContract();
@@ -9114,6 +9214,7 @@ function renderDominionExperienceShell() {
     if (alert) alert.hidden = !primaryConflict;
     setText("shell-truth-alert-detail", primaryConflict ? `${primaryConflict.message} ${primaryConflict.repair}` : "");
   }
+  renderOneCommand(truth);
   const section = DominionExperienceShell.sectionMeta(activeSection);
   setText("shell-section-context", `${section.mode} · ${section.label}`);
   setText("shell-rank-badge", String(rankStatus?.currentRank || "RECRUIT").replaceAll("_", " "));
@@ -10892,6 +10993,20 @@ if (typeof document !== "undefined") {
       setActiveSection("today");
       window.history.replaceState(null, "", "#today");
     }
+  });
+  document.getElementById("one-command-primary")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try { await runOneCommandAction(button); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("one-command-secondary")?.addEventListener("click", () => {
+    const context = document.getElementById("one-command-context");
+    const button = document.getElementById("one-command-secondary");
+    if (!context || !button) return;
+    context.open = !context.open;
+    button.setAttribute("aria-expanded", context.open ? "true" : "false");
+    if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
   document.getElementById("mobile-command-dock")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mobile-nav]");

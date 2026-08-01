@@ -45,6 +45,7 @@ let recruitContractSetupStep = 0;
 let weeklyOrchestrationStorageMode = "LOCAL";
 let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
+let currentOperatingTruth = null;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -6591,7 +6592,7 @@ function currentMobileNutrition(date = todayISODate()) {
 
 function buildCurrentMobileCommand() {
   if (typeof DominionMobileCommand === "undefined") return null;
-  return DominionMobileCommand.buildMobileCommand({
+  const command = DominionMobileCommand.buildMobileCommand({
     date: todayISODate(),
     dailyState,
     strengthAssignment: buildCurrentDailyAssignment(),
@@ -6604,6 +6605,39 @@ function buildCurrentMobileCommand() {
     online: typeof navigator === "undefined" ? true : navigator.onLine,
     pendingWrites: readMobilePendingWrites().length
   });
+  const truth = buildCurrentOperatingTruth();
+  if (!truth) return command;
+  const truthModules = new Map(truth.modules.map((item) => [item.id, item]));
+  command.modules = command.modules.map((item) => {
+    const canonical = truthModules.get(item.id);
+    if (!canonical) return item;
+    return {
+      ...item,
+      status: canonical.status,
+      detail: canonical.detail,
+      complete: canonical.complete,
+      active: canonical.status === "IN_PROGRESS",
+      actionLabel: canonical.status === "VERIFY" ? `Verify ${item.label.toLowerCase()}` : item.actionLabel
+    };
+  });
+  const scheduledMobileModules = truth.modules.filter((item) => ["strength", "running", "core"].includes(item.id) && item.scheduled && item.status !== "SAFETY_HOLD");
+  const fuelTruth = truth.modules.find((item) => item.id === "nutrition");
+  command.progress.total = 1 + scheduledMobileModules.length + Number(Boolean(fuelTruth?.scheduled));
+  command.progress.completed = Number(command.rollCallComplete)
+    + scheduledMobileModules.filter((item) => item.complete).length
+    + Number(Boolean(fuelTruth?.scheduled && fuelTruth.complete));
+  command.progress.percent = Math.round((command.progress.completed / Math.max(1, command.progress.total)) * 100);
+  if (truth.state !== "SECURED") {
+    command.next = {
+      action: "TRUTH",
+      module: truth.action.module || "",
+      label: truth.action.label,
+      detail: truth.detail,
+      section: truth.action.section
+    };
+  }
+  command.sync.label = `${truth.state.replaceAll("_", " ")} · ${command.sync.label}`;
+  return command;
 }
 
 function prefillMobileCommandForms(force = false) {
@@ -7098,7 +7132,7 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
     try { readinessState = evaluateOperationalReadiness(dailyState).state; }
     catch (_) {}
   }
-  const ritual = DominionDailyRitual.buildDailyRitual({
+  let ritual = DominionDailyRitual.buildDailyRitual({
     date: todayISODate(),
     queue: queue || {},
     closedLoop: closedLoop || {},
@@ -7106,6 +7140,27 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
     readinessState,
     rank: rankStatus?.currentRank || "RECRUIT"
   });
+  const truth = buildCurrentOperatingTruth();
+  if (truth && ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT", "ROLL_CALL_REQUIRED", "AUTHORIZATION_REQUIRED", "EXECUTION_REQUIRED", "EVIDENCE_REQUIRED"].includes(truth.state)) {
+    ritual = {
+      ...ritual,
+      state: truth.state,
+      tone: truth.state === "CONFLICT" ? "protect" : "active",
+      eyebrow: "OPERATING TRUTH",
+      title: truth.title,
+      detail: truth.detail,
+      action: "operating_truth",
+      actionLabel: truth.action.label,
+      sealed: false,
+      evidence: {
+        ...ritual.evidence,
+        percent: truth.evidence.total ? Math.round((truth.evidence.complete / truth.evidence.total) * 100) : 0,
+        confidence: truth.state === "EVIDENCE_REQUIRED" ? "VERIFY" : "LOCKED",
+        completed: truth.evidence.complete,
+        total: truth.evidence.total
+      }
+    };
+  }
   const priorState = section.dataset.ritualState || "";
   section.dataset.ritualState = ritual.state;
   section.dataset.ritualTone = ritual.tone;
@@ -8901,6 +8956,103 @@ async function saveMorningRollCall(event) {
   }
 }
 
+function buildCurrentOperatingTruth() {
+  if (typeof DominionOperatingTruth === "undefined") return null;
+  const date = todayISODate();
+  const contract = readApprovedRecruitContract();
+  const signed = Boolean(contract && typeof DominionContractExperience !== "undefined"
+    && DominionContractExperience.signatureStatus(contract).valid);
+  let activation = { status: contract ? "ACTION_REQUIRED" : "CONTRACT_REQUIRED", modules: [], next: {} };
+  if (contract && typeof DominionContractActivation !== "undefined") {
+    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    catch (_) {}
+  }
+  const week = readCommittedUnifiedWeek(date);
+  const draft = readUnifiedWeekDraft();
+  const day = week && typeof DominionWeeklyOrchestrator !== "undefined"
+    ? DominionWeeklyOrchestrator.dayForDate(week, date)
+    : null;
+  const scheduledModules = new Set((day?.activities || []).map((item) => String(item.module || "").toUpperCase()));
+  let loopInput = null;
+  let loop = null;
+  try {
+    loopInput = buildCurrentClosedLoopInput();
+    loop = loopInput ? DominionClosedLoop.buildLoopState(loopInput) : null;
+  } catch (_) {}
+  const actual = loopInput?.actual || {};
+  const strengthExecution = readDailyAssignmentExecution();
+  const runningExecution = readRunningExecution();
+  const coreExecution = readCurrentCoreExecution();
+  const nutritionActual = actual.fueling || {};
+  const recoveryActual = actual.recovery || {};
+  const recordActual = actual.record || {};
+  const strengthPrescription = currentStrengthPrescription();
+  const runningPrescription = currentRunningPrescription();
+  const corePrescription = currentCorePrescription();
+  const authorized = loop?.decision?.status === "APPROVED";
+  const module = (id, label, scheduled, executionState, evidence = {}, options = {}) => ({
+    id,
+    label,
+    scheduled: Boolean(scheduled),
+    executionState,
+    evidenceCount: Number(evidence.evidenceCount || 0),
+    terminal: Boolean(evidence.complete),
+    verified: Number(evidence.evidenceCount || 0) > 0,
+    protected: Boolean(options.protected),
+    detail: options.detail || ""
+  });
+  const modules = [
+    module("strength", "Strength", scheduledModules.has("STRENGTH"), strengthExecution?.state, actual.training, {
+      protected: strengthPrescription?.state === "RECOVERY ONLY",
+      detail: strengthPrescription?.sessionName || "Committed strength assignment"
+    }),
+    module("running", "Run", scheduledModules.has("RUNNING"), runningExecution?.state, actual.running, {
+      protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(runningPrescription?.status || "").toUpperCase()),
+      detail: runningPrescription?.session?.type || "Committed run assignment"
+    }),
+    module("core", "Core", scheduledModules.has("CORE"), coreExecution?.state, actual.core, {
+      protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()),
+      detail: corePrescription?.session?.title || "Committed core assignment"
+    }),
+    module("nutrition", "Fuel", Boolean(day?.nutrition), nutritionActual.complete ? "COMPLETE" : "READY", nutritionActual, {
+      detail: day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "No committed fuel target"
+    }),
+    module("recovery", "Recovery", Boolean(week), recoveryActual.complete ? "COMPLETE" : "READY", recoveryActual, {
+      detail: "Complete today’s recovery order"
+    }),
+    module("record", "Dominion Record", Boolean(week), recordActual.complete ? "COMPLETE" : "READY", recordActual, {
+      detail: "Close today’s execution record"
+    })
+  ];
+  currentOperatingTruth = DominionOperatingTruth.buildOperatingTruth({
+    date,
+    contract: {
+      approved: Boolean(contract),
+      signed,
+      revision: contract?.revision || 0
+    },
+    activation,
+    week: {
+      committed: Boolean(week),
+      draft: Boolean(draft),
+      revision: week?.revision || 0,
+      contractRevision: week?.contractRevision || 0,
+      conflicts: week?.conflicts || draft?.conflicts || []
+    },
+    today: {
+      rollCallComplete: dailyState?.date === date,
+      authorized
+    },
+    modules,
+    review: {
+      loopState: loop?.state || "",
+      closed: loop?.review?.status === "CLOSED",
+      adaptationApproved: loop?.adaptation?.status === "APPROVED"
+    }
+  });
+  return currentOperatingTruth;
+}
+
 function renderDominionExperienceShell() {
   if (typeof DominionExperienceShell === "undefined") return;
   const contract = readApprovedRecruitContract();
@@ -8916,7 +9068,7 @@ function renderDominionExperienceShell() {
     try { readinessState = evaluateOperationalReadiness(dailyState).state; }
     catch (_) {}
   }
-  const mission = DominionExperienceShell.buildMissionState({
+  const fallbackMission = DominionExperienceShell.buildMissionState({
     hasApprovedContract: Boolean(contract),
     contractSigned,
     activationStatus: activation.status,
@@ -8924,6 +9076,16 @@ function renderDominionExperienceShell() {
     hasDailyState: Boolean(dailyState?.date === todayISODate()),
     readinessState
   });
+  const truth = buildCurrentOperatingTruth();
+  const mission = truth ? {
+    phase: truth.state.replaceAll("_", " "),
+    title: truth.title,
+    detail: truth.detail,
+    actionLabel: truth.action.label,
+    actionHref: truth.action.href,
+    actionSection: truth.action.section,
+    journey: truth.stages
+  } : fallbackMission;
   setText("shell-mission-phase", mission.phase);
   setText("shell-mission-heading", mission.title);
   setText("shell-mission-detail", mission.detail);
@@ -8942,11 +9104,21 @@ function renderDominionExperienceShell() {
     item.classList.toggle("current", step.current);
     item.setAttribute("aria-current", step.current ? "step" : "false");
   });
+  if (truth) {
+    setText("shell-truth-source", truth.source);
+    setText("shell-truth-evidence", `${truth.evidence.complete}/${truth.evidence.total} assigned domains`);
+    const alert = document.getElementById("shell-truth-alert");
+    const primaryConflict = truth.contradictions.find((item) => item.severity === "BLOCKING")
+      || truth.contradictions.find((item) => item.severity === "WARNING")
+      || null;
+    if (alert) alert.hidden = !primaryConflict;
+    setText("shell-truth-alert-detail", primaryConflict ? `${primaryConflict.message} ${primaryConflict.repair}` : "");
+  }
   const section = DominionExperienceShell.sectionMeta(activeSection);
   setText("shell-section-context", `${section.mode} · ${section.label}`);
   setText("shell-rank-badge", String(rankStatus?.currentRank || "RECRUIT").replaceAll("_", " "));
   document.title = `${section.label} | Coach Dominion`;
-  document.body.dataset.dominionPhase = mission.phase.toLowerCase();
+  document.body.dataset.dominionPhase = (truth?.state || mission.phase).toLowerCase().replaceAll("_", "-");
   document.body.dataset.dominionSection = activeSection;
   document.querySelectorAll(".kicker:not([data-humanized])").forEach((element) => {
     element.textContent = DominionExperienceShell.cleanBuildKicker(element.textContent);
@@ -10707,6 +10879,15 @@ if (typeof document !== "undefined") {
     if (action === "ROLL_CALL") openMobileCommandSheet("roll-call");
     if (action === "NUTRITION") openMobileCommandSheet("nutrition");
     if (action === "MODULE") await launchMobileModule(button.dataset.mobileModule || "strength");
+    if (action === "TRUTH") {
+      const truth = buildCurrentOperatingTruth();
+      const section = truth?.action?.section || "today";
+      if (truth?.action?.module && section === "performance") {
+        setPerformanceActiveView(truth.action.module === "running" ? "running" : truth.action.module === "core" ? "core" : "today_training");
+      }
+      setActiveSection(section);
+      window.history.replaceState(null, "", `#${section}`);
+    }
     if (action === "TODAY") {
       setActiveSection("today");
       window.history.replaceState(null, "", "#today");
@@ -11741,6 +11922,16 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-closed-loop-action]");
     if (!button || typeof DominionClosedLoop === "undefined") return;
     const action = button.dataset.closedLoopAction;
+    if (action === "operating_truth") {
+      const truth = buildCurrentOperatingTruth();
+      const section = truth?.action?.section || "today";
+      if (truth?.action?.module && section === "performance") {
+        setPerformanceActiveView(truth.action.module === "running" ? "running" : truth.action.module === "core" ? "core" : "today_training");
+      }
+      setActiveSection(section);
+      window.history.replaceState(null, "", `#${section}`);
+      return;
+    }
     if (action === "refresh") {
       renderDailyCoachingLoop();
       setText("closed-loop-feedback", "Readiness, prescriptions, execution, and evidence were reconciled again.");

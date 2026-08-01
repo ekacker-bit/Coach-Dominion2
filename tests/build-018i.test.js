@@ -48,7 +48,7 @@ assert.match(styles, /Build 018I: evidence-led adaptive coaching/);
 assert.match(styles, /\.adaptive-domain-grid/);
 assert.match(styles, /\.adaptive-guardrail/);
 assert.match(styles, /min-height: 48px/);
-assert.match(worker, /coach-dominion-[0-9]{3}[a-z]-v1/);
+assert.match(worker, /coach-dominion-[0-9]{3}[a-z]-v\d+/);
 assert.match(worker, /\/assets\/js\/adaptive-coaching\.js/);
 assert.match(packageJson, /node tests\/adaptive-coaching\.test\.js/);
 assert.match(packageJson, /node tests\/build-018i\.test\.js/);

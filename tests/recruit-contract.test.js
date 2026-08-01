@@ -89,9 +89,23 @@ test("Two-a-Days is a deliberate contract capacity with a 240-minute ceiling", (
   assert.equal(contract.TWO_A_DAY_TARGET_MINUTES, 121);
   assert.equal(contract.TWO_A_DAY_MAX_MINUTES, 240);
   assert.ok(result.schedule.some((day) => day.load === "TWO_A_DAY" && day.twoADayEligible));
+  assert.ok(result.schedule.every((day) => day.activities.length <= 2));
+  assert.ok(result.schedule.filter((day) => day.twoADayEligible).every((day) => day.activities.length === 2));
   assert.ok(result.schedule.filter((day) => day.load === "TWO_A_DAY").every((day) => day.dailyMinuteCap === 240));
   assert.match(result.warnings.join(" "), /more than 120 combined minutes/i);
   assert.match(result.safeguards.join(" "), /long runs have no time ceiling/i);
+});
+
+test("Two-a-Day commitments reject more than two weekly sessions per training-day slot", () => {
+  const result = contract.buildRecruitContract(validInput({
+    trainingDaysPerWeek: 2,
+    strengthDaysPerWeek: 2,
+    runningDaysPerWeek: 2,
+    coreDaysPerWeek: 2,
+    twoADays: true
+  }), options);
+  assert.equal(result.status, "REVIEW_REQUIRED");
+  assert.match(result.errors.join(" "), /no more than two.*sessions per training day/i);
 });
 
 test("an omitted or unchecked Two-a-Days option remains off", () => {

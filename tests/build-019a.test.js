@@ -39,7 +39,7 @@ assert.match(styles, /\.contract-signing-dialog::backdrop/);
 assert.match(styles, /\.contract-momentum/);
 assert.match(styles, /prefers-reduced-motion: reduce/);
 
-assert.match(worker, /coach-dominion-019[a-z]-v1/);
+assert.match(worker, /coach-dominion-019[a-z]-v\d+/);
 assert.match(worker, /\/assets\/js\/contract-experience\.js/);
 assert.match(packageJson, /node tests\/contract-experience\.test\.js/);
 assert.match(packageJson, /node tests\/build-019a\.test\.js/);

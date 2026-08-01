@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019G.1";
+  const VERSION = "019G.2";
   const DAY_LABELS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const HARD_RUN_TYPES = Object.freeze(["INTERVAL", "TEMPO", "LONG"]);
   const TWO_A_DAY_TARGET_MINUTES = 121;
@@ -122,17 +122,21 @@
     const estimatedMinutes = sessions.reduce((total, item) => total + Math.max(0, Number(item?.estimatedMinutes || 0)), 0);
     const longRunUncapped = sessions.some((item) => item?.module === "RUNNING" && String(item?.type || "").toUpperCase() === "LONG");
     const twoADaysEnabled = contract.twoADays === true;
-    const twoADay = twoADaysEnabled && sessions.length >= 2;
-    const maximumMinutes = longRunUncapped ? null : twoADay ? TWO_A_DAY_MAX_MINUTES : Number(contract.sessionMinutes || 60);
+    const twoADayCandidate = twoADaysEnabled && sessions.length === 2;
+    const twoADay = twoADayCandidate && estimatedMinutes >= TWO_A_DAY_TARGET_MINUTES;
+    const durationTargetUnmet = twoADayCandidate && estimatedMinutes < TWO_A_DAY_TARGET_MINUTES;
+    const maximumMinutes = longRunUncapped ? null : twoADayCandidate ? TWO_A_DAY_MAX_MINUTES : Number(contract.sessionMinutes || 60);
     return {
       estimatedMinutes,
       sessionCount: sessions.length,
       twoADaysEnabled,
+      twoADayCandidate,
       twoADay,
-      targetMinutes: twoADay ? TWO_A_DAY_TARGET_MINUTES : Number(contract.sessionMinutes || 60),
+      targetMinutes: twoADayCandidate ? TWO_A_DAY_TARGET_MINUTES : Number(contract.sessionMinutes || 60),
       maximumMinutes,
       longRunUncapped,
       sessionLimitExceeded: Boolean(twoADaysEnabled && sessions.length > 2),
+      durationTargetUnmet,
       durationLimitExceeded: maximumMinutes !== null && estimatedMinutes > maximumMinutes
     };
   }
@@ -263,11 +267,12 @@
       const duration = dailyDurationPolicy(contract, day.activities);
       day.estimatedMinutes = duration.estimatedMinutes;
       day.sessionCount = duration.sessionCount;
+      day.twoADayCandidate = duration.twoADayCandidate;
       day.twoADay = duration.twoADay;
       day.durationTargetMinutes = duration.targetMinutes;
       day.durationLimitMinutes = duration.maximumMinutes;
       day.longRunUncapped = duration.longRunUncapped;
-      day.durationPolicy = duration.longRunUncapped ? "LONG_RUN_UNCAPPED" : duration.twoADay ? "TWO_A_DAY" : "STANDARD";
+      day.durationPolicy = duration.longRunUncapped ? "LONG_RUN_UNCAPPED" : duration.twoADay ? "TWO_A_DAY" : duration.twoADayCandidate ? "TWO_A_DAY_TARGET_UNMET" : "STANDARD";
       if (duration.sessionLimitExceeded) {
         day.conflicts.push(conflict("TWO_A_DAY_SESSION_LIMIT", "BLOCKING", "Two-a-Days permit no more than two scheduled sessions on one day.", day.date));
       }
@@ -280,6 +285,9 @@
             : `${day.estimatedMinutes} planned minutes exceed the ${contract.sessionMinutes}-minute commitment.`,
           day.date
         ));
+      }
+      if (duration.durationTargetUnmet) {
+        day.conflicts.push(conflict("TWO_A_DAY_TARGET_UNMET", "ADVISORY", `${day.estimatedMinutes} planned minutes remain a combined day; Two-a-Day designation begins at 121 minutes.`, day.date));
       }
       day.load = !day.activities.length ? "RECOVERY" : duration.twoADay ? "TWO_A_DAY" : modules.size > 1 ? "COMBINED" : "SINGLE";
       conflicts.push(...day.conflicts);

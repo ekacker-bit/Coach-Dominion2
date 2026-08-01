@@ -4909,7 +4909,7 @@ function renderWeeklyOrchestrator() {
     return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
       <div>${activities}</div>
-      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `~${day.estimatedMinutes} min · long-run time open` : day.twoADay ? `${day.estimatedMinutes} / 240 min · two sessions` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
+      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `~${day.estimatedMinutes} min · long-run time open` : day.twoADay ? `${day.estimatedMinutes} / 240 min · Two-a-Day` : day.twoADayCandidate ? `${day.estimatedMinutes} min · combined; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
       ${day.nutrition ? `<small class="weekly-orchestrator-fuel">Fuel · ${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein</small>` : ""}
       ${day.conflicts.map((item) => `<p class="weekly-orchestrator-conflict ${item.severity.toLowerCase()}">${escapeHtml(item.detail)}</p>`).join("")}
     </article>`;
@@ -4951,7 +4951,7 @@ function renderTodayCommittedWeek() {
   const assignments = day?.activities?.length
     ? day.activities.map((item, index) => `<article><span>${index + 1}</span><div><small>${escapeHtml(item.module)}</small><strong>${escapeHtml(item.title)}</strong><p>${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p></div></article>`).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
-  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? "LONG RUN · TIME OPEN" : day?.twoADay ? `TWO-A-DAY · ${day.estimatedMinutes}/240 MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>`;
+  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? "LONG RUN · TIME OPEN" : day?.twoADay ? `TWO-A-DAY · ${day.estimatedMinutes}/240 MIN` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>`;
 }
 
 function recruitContractGoalLabel(value = "") {

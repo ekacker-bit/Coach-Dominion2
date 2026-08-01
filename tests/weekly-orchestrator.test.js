@@ -122,6 +122,22 @@ test("the signed Two-a-Day choice governs coordinated calendar days", () => {
     assert.equal(day.durationLimitMinutes, day.longRunUncapped ? null : 240);
   });
   assert.equal(result.conflicts.some((item) => item.code === "TWO_A_DAY_SESSION_LIMIT"), false);
+  assert.ok(twoADays.every((day) => day.estimatedMinutes >= 121));
+});
+
+test("two short sessions remain a combined day until the 121-minute target is met", () => {
+  const policy = orchestrator.dailyDurationPolicy(
+    { twoADays: true, sessionMinutes: 60 },
+    [
+      { module: "STRENGTH", estimatedMinutes: 40 },
+      { module: "CORE", estimatedMinutes: 20 }
+    ]
+  );
+  assert.equal(policy.twoADayCandidate, true);
+  assert.equal(policy.twoADay, false);
+  assert.equal(policy.durationTargetUnmet, true);
+  assert.equal(policy.targetMinutes, 121);
+  assert.equal(policy.maximumMinutes, 240);
 });
 
 test("Two-a-Day capacity permits two sessions above 120 minutes through 240", () => {

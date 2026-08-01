@@ -41,7 +41,7 @@ assert.match(styles, /\.dominion-brand-mark/);
 assert.match(styles, /--dominion-gold/);
 assert.match(styles, /prefers-reduced-motion: reduce/);
 
-assert.match(worker, /coach-dominion-019[a-z]-v1/);
+assert.match(worker, /coach-dominion-019[a-z]-v\d+/);
 assert.match(worker, /\/assets\/js\/experience-shell\.js/);
 assert.match(packageJson, /node tests\/experience-shell\.test\.js/);
 assert.match(packageJson, /node tests\/build-019b\.test\.js/);

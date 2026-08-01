@@ -1,20 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
-  <title id="title">Coach Dominion</title>
-  <desc id="description">A gold-edged Dominion shield with a strong white and green letter D.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" role="img" aria-labelledby="title description">
+  <title id="title">Coach Dominion winged CD mark</title>
+  <desc id="description">A distressed victory-gold Dominion shield with an angular winged CD mark on Dominion black.</desc>
   <defs>
-    <linearGradient id="field" x1="72" y1="40" x2="424" y2="472" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#132d24"/>
-      <stop offset="1" stop-color="#050d11"/>
+    <linearGradient id="edge" x1="64" y1="40" x2="576" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5f4716"/>
+      <stop offset=".5" stop-color="#d4af37"/>
+      <stop offset="1" stop-color="#5f4716"/>
     </linearGradient>
-    <linearGradient id="edge" x1="112" y1="72" x2="400" y2="432" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffd86b"/>
-      <stop offset=".5" stop-color="#f0b429"/>
-      <stop offset="1" stop-color="#9a6510"/>
+    <linearGradient id="gold" x1="76" y1="64" x2="552" y2="444" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8c681d"/>
+      <stop offset=".28" stop-color="#d4af37"/>
+      <stop offset=".55" stop-color="#f0cd63"/>
+      <stop offset=".78" stop-color="#b58b27"/>
+      <stop offset="1" stop-color="#684a12"/>
     </linearGradient>
+    <filter id="earned" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="19" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="mono"/>
+      <feComponentTransfer in="mono" result="wear"><feFuncA type="table" tableValues="0 .08"/></feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="wear" mode="multiply"/>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="#050d11"/>
-  <path d="M256 48 420 111v121c0 108-63 191-164 232C155 423 92 340 92 232V111L256 48Z" fill="url(#field)" stroke="url(#edge)" stroke-width="22" stroke-linejoin="round"/>
-  <path d="M151 143h102c75 0 121 44 121 113s-46 113-121 113H151V143Zm98 166c39 0 61-19 61-53s-22-53-61-53h-30v106h30Z" fill="#f4f7f6"/>
-  <path d="M151 143h68v226h-68V143Z" fill="#38d48d"/>
-  <path d="M151 143h68v18h-68V143Z" fill="#ffd86b"/>
+  <rect x="8" y="8" width="624" height="496" rx="72" fill="#0a0a0a" stroke="url(#edge)" stroke-width="10"/>
+  <g fill="url(#gold)" filter="url(#earned)">
+    <path d="M72 142 238 190v40L100 202l-28-60Zm28 82 138 28v38l-104-11-34-55Zm40 78 98 10v36l-66 4-32-70Z"/>
+    <path d="m568 142-166 48v40l138-28 28-60Zm-28 82-138 28v38l104-11 34-55Zm-40 78-98 10v36l66 4 32-70Z"/>
+    <path d="M252 126 320 94l68 32v225c0 37-24 65-68 91-44-26-68-54-68-91V126Z"/>
+  </g>
+  <path d="M310 169h-20c-24 0-36 16-36 43v111c0 28 13 43 37 43h19v-47h-8c-8 0-12-5-12-15v-74c0-10 4-15 12-15h8v-46Z" fill="#0a0a0a"/>
+  <path d="M330 169h19c39 0 61 25 61 70v57c0 46-22 70-61 70h-19V169Zm36 48v101c9-2 12-10 12-25v-51c0-15-3-23-12-25Z" fill="#0a0a0a"/>
+  <path d="M320 94v348" stroke="#0a0a0a" stroke-width="12" opacity=".72"/>
+  <path d="M294 391 320 406l26-15" fill="none" stroke="#d4af37" stroke-width="7"/>
+  <path d="M286 462h68v7h-68Z" fill="#2e4b34"/>
 </svg>

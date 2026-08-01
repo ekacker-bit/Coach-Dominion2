@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "020B.1";
+  const VERSION = "020B.2";
   const MINIMUM_SEPARATION_MINUTES = 240;
   const MINIMUM_SECOND_SESSION_ENERGY = 5;
   const TERMINAL_STATES = Object.freeze(["COMPLETE", "PARTIAL"]);
@@ -91,7 +91,7 @@
         required: true,
         status: first.held ? "HELD" : "AWAITING_SESSION_1",
         allowed: false,
-        blockers: [first.held ? "Session 1 ended on a safety hold." : "Complete Session 1 before beginning the recovery window."],
+        blockers: [first.held ? "The AM session ended on a safety hold." : "Complete the AM session before beginning the recovery window."],
         checkpoint,
         first,
         second
@@ -103,7 +103,7 @@
         required: true,
         status: "COMPLETION_TIME_REQUIRED",
         allowed: false,
-        blockers: ["Session 1 needs a completion timestamp before Session 2 can unlock."],
+        blockers: ["The AM session needs a completion timestamp before the PM session can unlock."],
         checkpoint,
         first,
         second
@@ -116,7 +116,7 @@
     const blockers = [];
     if (readinessState === "RED" || morningPain) blockers.push("Morning readiness or pain evidence keeps the second session on hold.");
     if (checkpoint?.newPain === true) blockers.push("New pain was reported at the between-session checkpoint.");
-    if (checkpoint && Number(checkpoint.energy) < MINIMUM_SECOND_SESSION_ENERGY) blockers.push(`Energy must be at least ${MINIMUM_SECOND_SESSION_ENERGY}/10 for Session 2.`);
+    if (checkpoint && Number(checkpoint.energy) < MINIMUM_SECOND_SESSION_ENERGY) blockers.push(`Energy must be at least ${MINIMUM_SECOND_SESSION_ENERGY}/10 for the PM session.`);
     if (blockers.length) {
       return {
         required: true,
@@ -133,11 +133,11 @@
     }
 
     const checkpointGaps = [];
-    if (morningReadinessMissing) checkpointGaps.push("Complete today's Morning Roll Call before Session 2.");
+    if (morningReadinessMissing) checkpointGaps.push("Complete today's Morning Roll Call before the PM session.");
     if (!checkpoint) checkpointGaps.push("Complete the between-session readiness checkpoint.");
     else {
-      if (!checkpoint.refueled) checkpointGaps.push("Confirm refueling after Session 1.");
-      if (!checkpoint.hydrated) checkpointGaps.push("Confirm hydration before Session 2.");
+      if (!checkpoint.refueled) checkpointGaps.push("Confirm refueling after the AM session.");
+      if (!checkpoint.hydrated) checkpointGaps.push("Confirm hydration before the PM session.");
       if (!Number.isFinite(Number(checkpoint.energy))) checkpointGaps.push("Record current energy.");
     }
     if (!separationComplete) {

@@ -135,6 +135,7 @@ test("two short sessions remain a combined day until the 121-minute target is me
   );
   assert.equal(policy.twoADayCandidate, true);
   assert.equal(policy.twoADay, false);
+  assert.equal(policy.twoADayAuthorizationRequired, false);
   assert.equal(policy.durationTargetUnmet, true);
   assert.equal(policy.targetMinutes, 121);
   assert.equal(policy.maximumMinutes, 240);
@@ -199,11 +200,21 @@ test("Two-a-Day sessions receive a deterministic execution order and recovery br
     ]
   );
   assert.deepEqual(sessions.map((item) => item.id), ["lift", "easy-run"]);
-  assert.deepEqual(sessions.map((item) => item.sessionLabel), ["SESSION 1", "SESSION 2"]);
+  assert.deepEqual(sessions.map((item) => item.sessionWindow), ["AM", "PM"]);
+  assert.deepEqual(sessions.map((item) => item.sessionLabel), ["AM SESSION", "PM SESSION"]);
   assert.equal(sessions[0].separationBeforeMinutes, 0);
   assert.equal(sessions[1].separationBeforeMinutes, 240);
   assert.equal(sessions[1].fuelingCheckpoint, true);
   assert.equal(sessions[1].command, "EXECUTE AFTER REFUEL");
+});
+
+test("an unsigned split-day capacity is surfaced as a Contract authorization requirement", () => {
+  const result = draft(modules(approvedContract({ twoADays: false, sessionMinutes: 90 })));
+  const unauthorized = result.days.filter((day) => day.twoADayAuthorizationRequired);
+  assert.ok(unauthorized.length > 0);
+  assert.ok(unauthorized.every((day) => day.twoADay === false && day.estimatedMinutes >= 121));
+  assert.ok(result.conflicts.some((item) => item.code === "TWO_A_DAY_AUTHORIZATION_REQUIRED"));
+  assert.equal(result.conflicts.some((item) => item.code === "TIME_COMMITMENT_EXCEEDED" && unauthorized.some((day) => day.date === item.date)), false);
 });
 
 test("a long run remains first and time-open inside a split-day command", () => {

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 019D Operating Truth
+
+- Added a deterministic truth hierarchy from Recruit Contract through plans, committed week, Today, evidence, and review.
+- Replaced optimistic completion labels with canonical `PLANNED`, `READY`, `IN PROGRESS`, `VERIFY`, `COMPLETE`, and `RECORDED` states.
+- Prevented work outside the committed week from counting as planned completion.
+- Added explicit repair guidance for Contract revision mismatch, missing plan links, uncommitted weeks, and time-commitment conflicts.
+- Wired the global mission rail, mobile command, and Daily Seal to the same truth engine.
+- Expanded the operating journey to include Evidence and Review, with responsive conflict and source summaries.
+
 ## Unreleased — Build 019C Daily Seal
 
 - Turned end-of-day reconciliation into a deliberate Daily Seal ritual rather than an administrative close button.

@@ -50,6 +50,7 @@
     "test:019d": "node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/daily-ritual.test.js && node tests/mobile-command.test.js && node tests/contract-activation.test.js && node tests/weekly-orchestrator.test.js && node tests/build-019c.test.js",
     "test:019e": "node tests/one-command.test.js && node tests/build-019e.test.js && node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/daily-ritual.test.js && node tests/mobile-command.test.js",
     "test:019f": "node tests/activation-repair.test.js && node tests/build-019f.test.js && node tests/one-command.test.js && node tests/operating-truth.test.js && node tests/contract-activation.test.js && node tests/weekly-orchestrator.test.js",
-    "pretest": "node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/one-command.test.js && node tests/build-019e.test.js && node tests/activation-repair.test.js && node tests/build-019f.test.js"
+    "test:019g": "node tests/recruit-contract.test.js && node tests/contract-experience.test.js && node tests/weekly-orchestrator.test.js && node tests/running-block.test.js && node tests/build-019g.test.js",
+    "pretest": "node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/one-command.test.js && node tests/build-019e.test.js && node tests/activation-repair.test.js && node tests/build-019f.test.js && node tests/recruit-contract.test.js && node tests/contract-experience.test.js && node tests/weekly-orchestrator.test.js && node tests/running-block.test.js && node tests/build-019g.test.js"
   }
 }

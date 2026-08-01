@@ -505,6 +505,29 @@
             <button id="one-command-primary" type="button" data-one-command-action="REFRESH">Refresh</button>
             <button id="one-command-secondary" type="button" class="ghost" aria-controls="one-command-context" aria-expanded="false">Why this action?</button>
           </div>
+          <section id="activation-repair" class="activation-repair" aria-labelledby="activation-repair-heading" hidden>
+            <header class="activation-repair-header">
+              <div>
+                <span class="kicker">BUILD 019F // ACTIVATION REPAIR</span>
+                <h3 id="activation-repair-heading">Resolve the operating chain</h3>
+                <p id="activation-repair-detail">Coach Dominion will identify the exact setup step blocking Today.</p>
+              </div>
+              <span id="activation-repair-state" class="state-pill yellow">ACTION REQUIRED</span>
+            </header>
+            <ol id="activation-repair-stages" class="activation-repair-stages" aria-label="Activation repair path">
+              <li data-activation-repair-stage="contract"><span>1</span><strong>Contract</strong></li>
+              <li data-activation-repair-stage="plans"><span>2</span><strong>Plans</strong></li>
+              <li data-activation-repair-stage="week"><span>3</span><strong>Week</strong></li>
+              <li data-activation-repair-stage="today"><span>4</span><strong>Today</strong></li>
+            </ol>
+            <div class="activation-repair-progress" aria-hidden="true"><span id="activation-repair-progress"></span></div>
+            <div id="activation-repair-modules" class="activation-repair-modules" aria-label="Contract plan connections"></div>
+            <div class="activation-repair-actions">
+              <button id="activation-repair-primary" type="button" data-activation-repair-action="RETRY">Reconcile again</button>
+              <button id="activation-repair-contract" type="button" class="ghost" data-activation-repair-action="OPEN_CONTRACT">Review Contract</button>
+            </div>
+            <p id="activation-repair-feedback" class="activation-repair-feedback" role="status" aria-live="polite"></p>
+          </section>
           <details id="one-command-context" class="one-command-context">
             <summary>Decision context</summary>
             <div>
@@ -1414,7 +1437,19 @@
           </div>
           <p id="today-nutrition-feedback" class="muted" aria-live="polite"></p>
         </article>
-        <article class="card module-placeholder"><div class="kicker">RECOVERY</div><h2>Recovery module</h2><p class="muted">Placeholder for recovery actions.</p></article>
+        <article id="today-recovery-card" class="card today-recovery-card" aria-labelledby="today-recovery-heading">
+          <div class="section-heading compact">
+            <div>
+              <div class="kicker">DOMINION // RECOVERY</div>
+              <h2 id="today-recovery-heading">Recovery order</h2>
+            </div>
+            <span id="today-recovery-status" class="state-pill neutral" aria-live="polite">LOADING</span>
+          </div>
+          <div id="today-recovery-output">
+            <div class="performance-empty">Atlas is checking readiness, training load, and fueling evidence.</div>
+          </div>
+          <p id="today-recovery-feedback" class="muted" aria-live="polite"></p>
+        </article>
       </section>
       </section>
 
@@ -1460,6 +1495,7 @@
 <script src="/assets/js/experience-shell.js"></script>
 <script src="/assets/js/daily-ritual.js"></script>
 <script src="/assets/js/operating-truth.js"></script>
+<script src="/assets/js/activation-repair.js"></script>
 <script src="/assets/js/one-command.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>

@@ -48,7 +48,7 @@ assert.match(styles, /\.today-context-stack/);
 assert.match(styles, /data-dominion-section="today"/);
 assert.match(styles, /#mobile-command > \.mobile-command-next/);
 
-assert.match(worker, /coach-dominion-019e-v1/);
+assert.match(worker, /coach-dominion-019[a-z]-v1/);
 assert.match(worker, /\/assets\/js\/one-command\.js/);
 assert.match(packageJson, /node tests\/one-command\.test\.js/);
 assert.match(packageJson, /node tests\/build-019e\.test\.js/);

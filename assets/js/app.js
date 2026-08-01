@@ -46,6 +46,7 @@ let weeklyOrchestrationStorageMode = "LOCAL";
 let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
+let operatingTruthReconcileTimer = null;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -7197,6 +7198,7 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
 
 function renderDailyCoachingLoop() {
   renderCoreToday();
+  renderTodayRecoveryExecution();
   const panel = document.getElementById("daily-orders-panel");
   const phases = document.getElementById("daily-loop-phases");
   if (!panel || !phases) return;
@@ -7791,6 +7793,80 @@ function renderRecoveryReview() {
     </article>
     <div class="performance-actions"><button type="button" data-recovery-action="approve">Approve recovery plan</button><button type="button" class="ghost" data-recovery-action="refresh">Refresh evidence</button></div>
     ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter today’s mission.</p></article>` : ""}`;
+}
+
+function buildTodayRecoveryOrder() {
+  const date = todayISODate();
+  const readinessComplete = dailyState?.date === date;
+  const queueState = readDailyExecutionQueueState();
+  const completed = Boolean(queueState.recoveryComplete);
+  const recommendation = buildCurrentRecoveryRecommendation();
+  if (!readinessComplete) {
+    return {
+      state: "ROLL CALL REQUIRED",
+      tone: "neutral",
+      title: "Establish today's recovery order",
+      detail: "Complete Morning Roll Call so recovery is based on today's energy, soreness, and pain status.",
+      actions: ["Report today's readiness before confirming a recovery action."],
+      priority: "PENDING",
+      confidence: "NO DAILY STATE",
+      progression: "UNSET",
+      completed: false,
+      primaryAction: "roll-call",
+      primaryLabel: "Complete Roll Call"
+    };
+  }
+  if (!recommendation) return null;
+  const completedAt = queueState.recoveryCompletedAt || "";
+  return {
+    state: completed ? "COMPLETE" : recommendation.status,
+    tone: completed ? "green" : recommendation.priority === "CRITICAL" ? "red" : recommendation.holdProgression ? "yellow" : "neutral",
+    title: completed ? "Recovery action secured" : recommendation.status,
+    detail: completed
+      ? `Recorded for ${date}${completedAt ? ` at ${new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`
+      : recommendation.actions[0] || "Maintain the approved recovery and fueling plan.",
+    actions: recommendation.actions?.length ? recommendation.actions : ["Maintain the approved recovery and fueling plan."],
+    priority: recommendation.priority,
+    confidence: recommendation.confidence,
+    progression: recommendation.holdProgression ? "HOLD" : "PERMITTED",
+    completed,
+    primaryAction: completed ? "undo" : "complete",
+    primaryLabel: completed ? "Undo completion" : "Mark recovery complete"
+  };
+}
+
+function renderTodayRecoveryExecution() {
+  const card = document.getElementById("today-recovery-card");
+  const output = document.getElementById("today-recovery-output");
+  const status = document.getElementById("today-recovery-status");
+  if (!card || !output || !status) return;
+  const order = buildTodayRecoveryOrder();
+  if (!order) {
+    status.textContent = "UNAVAILABLE";
+    status.className = "state-pill neutral";
+    output.innerHTML = `<div class="performance-empty">Recovery evidence is temporarily unavailable. Refresh Today or open the full recovery review.</div>
+      <div class="today-recovery-controls"><button type="button" class="ghost" data-today-recovery-action="review">Open recovery review</button></div>`;
+    return;
+  }
+  card.classList.toggle("is-complete", order.completed);
+  status.textContent = order.state;
+  status.className = `state-pill ${order.tone}`;
+  output.innerHTML = `<section class="today-recovery-order">
+      <span class="kicker">TODAY'S PRESCRIPTION</span>
+      <h3>${escapeHtml(order.title)}</h3>
+      <p>${escapeHtml(order.detail)}</p>
+    </section>
+    <div class="today-recovery-meta">
+      <div><span>Priority</span><strong>${escapeHtml(order.priority)}</strong></div>
+      <div><span>Confidence</span><strong>${escapeHtml(order.confidence)}</strong></div>
+      <div><span>Progression</span><strong>${escapeHtml(order.progression)}</strong></div>
+    </div>
+    <ul class="today-recovery-checklist">${order.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+    <div class="today-recovery-controls">
+      <button type="button" data-today-recovery-action="${escapeHtml(order.primaryAction)}">${escapeHtml(order.primaryLabel)}</button>
+      <button type="button" class="ghost" data-today-recovery-action="review">Review evidence</button>
+    </div>
+    <p class="today-recovery-safeguard">Completing this order records the action only. It never clears a pain safeguard or changes an approved training plan.</p>`;
 }
 
 function runningProfileStorageKey() {
@@ -9053,12 +9129,130 @@ function buildCurrentOperatingTruth() {
   return currentOperatingTruth;
 }
 
+function fallbackOneCommandModel(truth = {}) {
+  const state = truth.state || "RETRY_REQUIRED";
+  const stages = Array.isArray(truth.stages) ? truth.stages : [];
+  const modules = (truth.modules || []).filter((item) => item.scheduled || item.observed).map((item) => ({
+    id: item.id,
+    label: item.label,
+    status: item.status || "NOT_SCHEDULED",
+    detail: item.detail || "",
+    complete: Boolean(item.complete),
+    active: ["READY", "IN_PROGRESS", "VERIFY"].includes(item.status)
+  }));
+  const completed = stages.filter((item) => item.complete).length;
+  return {
+    state,
+    stateLabel: state.replaceAll("_", " "),
+    mode: ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT"].includes(state) ? "SETUP" : "EXECUTE",
+    eyebrow: "OPERATING TRUTH // SINGLE ORDER",
+    title: truth.title || "Reconcile the operating chain",
+    detail: truth.detail || "Coach Dominion could not finish the first reconciliation. Your saved work is protected.",
+    primary: {
+      action: truth.action?.action || "REFRESH",
+      label: truth.action?.label || "Reconcile again",
+      section: truth.action?.section || "today",
+      module: truth.action?.module || null
+    },
+    secondary: { label: "View source chain" },
+    progress: {
+      complete: completed,
+      total: stages.length || 6,
+      percent: Math.round((completed / Math.max(1, stages.length || 6)) * 100),
+      current: stages.find((item) => item.current)?.label || "Repair"
+    },
+    stages,
+    modules,
+    context: {
+      source: truth.source || "Contract, plans, and week require reconciliation.",
+      evidence: `${Number(truth.evidence?.complete || 0)}/${Number(truth.evidence?.total || 0)} assigned domains verified`,
+      conflict: truth.contradictions?.[0] ? `${truth.contradictions[0].message} ${truth.contradictions[0].repair}` : null
+    },
+    secured: state === "SECURED"
+  };
+}
+
+function buildCurrentActivationRepair(truth = buildCurrentOperatingTruth(), options = {}) {
+  if (typeof DominionActivationRepair === "undefined") return null;
+  let activation = { status: "ACTION_REQUIRED", modules: [], next: {} };
+  if (typeof DominionContractActivation !== "undefined") {
+    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    catch (_) {}
+  }
+  return DominionActivationRepair.buildRepairFlow(truth || {}, activation, options);
+}
+
+function renderActivationRepair(truth = buildCurrentOperatingTruth(), options = {}) {
+  const section = document.getElementById("activation-repair");
+  if (!section) return;
+  const model = buildCurrentActivationRepair(truth, options);
+  if (!model) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = !model.visible;
+  if (!model.visible) return;
+  section.dataset.repairState = model.state;
+  setText("activation-repair-heading", model.headline);
+  setText("activation-repair-detail", model.detail);
+  setText("activation-repair-state", model.timedOut ? "RETRY REQUIRED" : model.state.replaceAll("_", " "));
+  const state = document.getElementById("activation-repair-state");
+  if (state) state.className = `state-pill ${model.timedOut || model.state === "CONFLICT" ? "red" : "yellow"}`;
+  const progress = document.getElementById("activation-repair-progress");
+  if (progress) progress.style.width = `${model.progress.percent}%`;
+  model.stages.forEach((stage) => {
+    const item = document.querySelector(`[data-activation-repair-stage="${stage.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", stage.complete);
+    item.classList.toggle("current", stage.current);
+    item.setAttribute("aria-current", stage.current ? "step" : "false");
+  });
+  const modules = document.getElementById("activation-repair-modules");
+  if (modules) {
+    modules.innerHTML = model.modules.length
+      ? model.modules.map((item) => `<article class="activation-repair-module ${item.complete ? "complete" : "pending"}">
+          <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.status.replaceAll("_", " "))}</strong></div>
+          <p>${escapeHtml(item.detail)}</p>
+          ${item.action ? `<button type="button" class="ghost" data-activation-repair-action="${escapeHtml(item.action.action)}" data-activation-repair-module="${escapeHtml(item.action.module || "")}">${escapeHtml(item.action.label)}</button>` : `<small>Connected to the current Contract</small>`}
+        </article>`).join("")
+      : `<div class="activation-repair-empty"><strong>No plan links to inspect yet.</strong><p>Complete and sign the Recruit Contract first.</p></div>`;
+  }
+  const primary = document.getElementById("activation-repair-primary");
+  if (primary) {
+    primary.textContent = model.primary.label;
+    primary.dataset.activationRepairAction = model.primary.action;
+    primary.dataset.activationRepairModule = model.primary.module || "";
+  }
+}
+
+function scheduleOperatingTruthReconciliation(timeoutMs = 1200) {
+  if (operatingTruthReconcileTimer) window.clearTimeout(operatingTruthReconcileTimer);
+  const truth = buildCurrentOperatingTruth();
+  if (truth) renderOneCommand(truth);
+  operatingTruthReconcileTimer = window.setTimeout(() => {
+    const heading = document.getElementById("one-command-heading");
+    const state = document.getElementById("one-command-state");
+    const unresolved = heading?.textContent === "Assembling the next action" || state?.textContent === "ASSEMBLING";
+    const current = buildCurrentOperatingTruth();
+    if (current) renderOneCommand(current);
+    else if (unresolved) renderActivationRepair(null, { timedOut: true });
+  }, timeoutMs);
+}
+
 function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   const section = document.getElementById("one-command");
-  if (!section || !truth || typeof DominionOneCommand === "undefined") return;
-  const model = DominionOneCommand.buildOneCommand(truth, {
-    online: typeof navigator === "undefined" ? true : navigator.onLine
-  });
+  if (!section || !truth) {
+    renderActivationRepair(null, { timedOut: true });
+    return;
+  }
+  let model;
+  try {
+    model = typeof DominionOneCommand !== "undefined"
+      ? DominionOneCommand.buildOneCommand(truth, { online: typeof navigator === "undefined" ? true : navigator.onLine })
+      : fallbackOneCommandModel(truth);
+  } catch (_) {
+    model = fallbackOneCommandModel(truth);
+  }
   section.dataset.commandMode = model.mode;
   section.classList.toggle("is-secured", model.secured);
   setText("one-command-eyebrow", model.eyebrow);
@@ -9100,6 +9294,8 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   setText("today-sequence-shell-summary", `${model.progress.current} · ${model.context.evidence}`);
   const ritual = document.getElementById("daily-ritual");
   if (ritual) ritual.hidden = !["REVIEW_REQUIRED", "ADAPTATION_REQUIRED", "SECURED"].includes(model.state);
+  section.dataset.reconciledAt = new Date().toISOString();
+  renderActivationRepair(truth);
 }
 
 function relayClosedLoopAction(action) {
@@ -9112,12 +9308,80 @@ function relayClosedLoopAction(action) {
   relay.remove();
 }
 
+async function runActivationRepairAction(action = "RETRY", moduleId = "") {
+  setText("activation-repair-feedback", "");
+  if (action === "RETRY") {
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation(800);
+    setText("activation-repair-feedback", "Contract, plans, and week reconciled again. No saved work was changed.");
+    return;
+  }
+  if (["OPEN_CONTRACT", "EDIT_CONTRACT", "SIGN_CONTRACT", "OPEN_WEEK"].includes(action)) {
+    setActiveSection("contract");
+    window.history.replaceState(null, "", "#contract");
+    if (action === "EDIT_CONTRACT") {
+      const editor = document.getElementById("recruit-contract-editor");
+      if (editor) editor.open = true;
+      document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (action === "SIGN_CONTRACT") {
+      document.querySelector(".contract-signature-ceremony")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (action === "OPEN_WEEK") {
+      document.querySelector("#contract > .weekly-orchestrator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setText("contract-activation-feedback", "Resolve the named conflict, rebuild the draft, and recommit the week.");
+    } else {
+      document.getElementById("contract")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
+  if (action === "OPEN_MODULE") {
+    openContractActivationModule(moduleId);
+    return;
+  }
+  if (action === "STAGE_DRAFTS") {
+    await stageRecruitContractPlans();
+    renderContractActivation();
+    setText("activation-repair-feedback", "Plan updates prepared. Review and approve the named module next.");
+  }
+  if (action === "BUILD_WEEK") {
+    const active = readCommittedUnifiedWeek(todayISODate());
+    const weekStart = active
+      ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+      : unifiedWeekTargetStart();
+    const draft = await saveUnifiedWeekDraftForActivation(weekStart);
+    setText("activation-repair-feedback", draft?.approvalBlocked
+      ? "The week was rebuilt. Resolve the remaining named conflict before commitment."
+      : "The coordinated week is ready. Review it, then commit deliberately.");
+  }
+  if (action === "COMMIT_WEEK") {
+    try {
+      await commitUnifiedWeekDraft();
+      setText("activation-repair-feedback", "Your week is operational. Today is rebuilding from the committed plan.");
+    } catch (error) {
+      setText("activation-repair-feedback", error?.message || "The week could not be committed.");
+      return;
+    }
+  }
+  if (action === "OPEN_TODAY") {
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+  }
+  renderDominionExperienceShell();
+  scheduleOperatingTruthReconciliation(800);
+}
+
 async function runOneCommandAction(button) {
   const action = button?.dataset.oneCommandAction || "REFRESH";
   const section = button?.dataset.oneCommandSection || "today";
   const moduleId = button?.dataset.oneCommandModule || "";
   if (action === "REFRESH") {
     renderDailyCoachingLoop();
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation(800);
+    return;
+  }
+  if (["CONTRACT", "PLAN", "BUILD_WEEK", "COMMIT_WEEK", "REPAIR_WEEK"].includes(action)) {
+    const repair = buildCurrentActivationRepair();
+    await runActivationRepairAction(repair?.primary?.action || "OPEN_CONTRACT", repair?.primary?.module || moduleId);
     return;
   }
   if (action === "ROLL_CALL") {
@@ -10874,6 +11138,8 @@ async function init() {
     setStatus(error.message);
   } finally {
     setLoading(false);
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation();
   }
 }
 
@@ -11007,6 +11273,21 @@ if (typeof document !== "undefined") {
     context.open = !context.open;
     button.setAttribute("aria-expanded", context.open ? "true" : "false");
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  document.getElementById("activation-repair")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-activation-repair-action]");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      await runActivationRepairAction(
+        button.dataset.activationRepairAction || "RETRY",
+        button.dataset.activationRepairModule || ""
+      );
+    } catch (error) {
+      setText("activation-repair-feedback", error?.message || "That repair step could not be completed.");
+    } finally {
+      button.disabled = false;
+    }
   });
   document.getElementById("mobile-command-dock")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mobile-nav]");
@@ -11351,6 +11632,34 @@ if (typeof document !== "undefined") {
     }
     setNutritionActiveView("today");
     document.querySelector('[data-nutrition-view-panel="today"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  document.getElementById("today-recovery-card")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-today-recovery-action]");
+    if (!button) return;
+    const action = button.dataset.todayRecoveryAction;
+    if (action === "complete") {
+      saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
+      renderDailyCoachingLoop();
+      setText("today-recovery-feedback", "Recovery action recorded. Today's evidence and Daily Seal are updated.");
+      return;
+    }
+    if (action === "undo") {
+      saveDailyExecutionQueueState({ recoveryComplete: false, recoveryCompletedAt: null });
+      renderDailyCoachingLoop();
+      setText("today-recovery-feedback", "Recovery completion reopened for today.");
+      return;
+    }
+    if (action === "roll-call") {
+      document.getElementById("roll-call-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelector('#roll-call-form [name="energy"]')?.focus({ preventScroll: true });
+      return;
+    }
+    if (action === "review") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("recovery");
+      renderRecoveryReview();
+    }
   });
   restoreNutritionActiveView();
   document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);

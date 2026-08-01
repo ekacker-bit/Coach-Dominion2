@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — Build 019F Activation Repair Loop
+
+- Added a guided Contract → Plans → Week → Today repair path directly inside One Command.
+- Exposed the exact Strength, Running, Core, or Nutrition plan link blocking activation.
+- Reused deliberate plan staging, module approval, coordinated-week build, and week commitment controls without silently changing active plans.
+- Added deterministic deep links to the broken module, Contract signature, or weekly calendar.
+- Added a timed reconciliation fallback so Today cannot remain indefinitely in `ASSEMBLING`.
+- Confirmed an operational week immediately after successful commitment and returned the recruit to Today.
+- Upgraded the mobile brand mark to a clearer gold-edged Dominion shield with a high-contrast monogram.
+- Replaced the empty Recovery placeholder with an executable readiness-driven order, visible evidence posture, deliberate completion, undo, and full-review handoff.
+- Wired Recovery completion into the existing daily execution queue, closed-loop evidence, and Daily Seal without clearing safety holds or changing an approved plan.
+
 ## Unreleased — Build 019E One Command UX
 
 - Rebuilt Today around one dominant command sourced from the 019D operating truth layer.

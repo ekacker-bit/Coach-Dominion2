@@ -1,6 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
   <title id="title">Coach Dominion</title>
-  <rect width="512" height="512" rx="112" fill="#07100d"/>
-  <path fill="#38d48d" d="M128 112h118c91 0 150 54 150 144s-59 144-150 144H128V112Zm112 224c52 0 82-29 82-80s-30-80-82-80h-38v160h38Z"/>
-  <path fill="#f0b429" d="M128 112h74v288h-74z" opacity=".96"/>
+  <desc id="description">A gold-edged Dominion shield with a strong white and green letter D.</desc>
+  <defs>
+    <linearGradient id="field" x1="72" y1="40" x2="424" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#132d24"/>
+      <stop offset="1" stop-color="#050d11"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="112" y1="72" x2="400" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd86b"/>
+      <stop offset=".5" stop-color="#f0b429"/>
+      <stop offset="1" stop-color="#9a6510"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#050d11"/>
+  <path d="M256 48 420 111v121c0 108-63 191-164 232C155 423 92 340 92 232V111L256 48Z" fill="url(#field)" stroke="url(#edge)" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M151 143h102c75 0 121 44 121 113s-46 113-121 113H151V143Zm98 166c39 0 61-19 61-53s-22-53-61-53h-30v106h30Z" fill="#f4f7f6"/>
+  <path d="M151 143h68v226h-68V143Z" fill="#38d48d"/>
+  <path d="M151 143h68v18h-68V143Z" fill="#ffd86b"/>
 </svg>

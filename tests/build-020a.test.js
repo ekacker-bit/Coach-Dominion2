@@ -37,4 +37,3 @@ assert.match(worker, /coach-dominion-020[a-z]-v\d+/i);
 assert.match(packageJson, /node tests\/build-020a\.test\.js/);
 
 console.log("Build 020A split-day command integration passed.");
-

@@ -9,7 +9,7 @@ let passed = 0;
 function test(name, fn) {
   fn();
   passed += 1;
-  console.log(`âœ“ ${passed} ${name}`);
+  console.log(`✓ ${passed} ${name}`);
 }
 
 function approvedContract(overrides = {}) {
@@ -308,4 +308,3 @@ test("recovery protection blocks a plan that consumes all seven days", () => {
 });
 
 console.log(`Weekly orchestrator: ${passed} tests passed.`);
-

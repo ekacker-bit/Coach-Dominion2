@@ -47,7 +47,7 @@ assert.match(styles, /\.daily-ritual\.is-sealed/);
 assert.match(styles, /@keyframes daily-seal-in/);
 assert.match(styles, /prefers-reduced-motion: reduce/);
 
-assert.match(worker, /coach-dominion-019c-v1/);
+assert.match(worker, /coach-dominion-019[a-z]-v1/);
 assert.match(worker, /\/assets\/js\/daily-ritual\.js/);
 assert.match(packageJson, /node tests\/daily-ritual\.test\.js/);
 assert.match(packageJson, /node tests\/build-019c\.test\.js/);

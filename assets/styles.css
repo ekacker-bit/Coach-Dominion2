@@ -367,12 +367,93 @@ body {
 .shell-journey {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0;
   margin: 2px 0 0;
   padding: 14px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   list-style: none;
+}
+
+/* Build 019D: one canonical Contract -> evidence -> review truth layer. */
+.shell-truth-summary {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, auto);
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.shell-truth-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.shell-truth-summary > div:last-child {
+  text-align: right;
+}
+
+.shell-truth-summary span,
+.shell-truth-alert > strong {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.shell-truth-summary strong {
+  overflow-wrap: anywhere;
+  color: #dce7ef;
+  font-size: 11px;
+}
+
+.shell-truth-alert {
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 99, 109, 0.45);
+  border-radius: 10px;
+  color: #ffd8dc;
+  background: rgba(118, 24, 33, 0.22);
+  font-size: 12px;
+}
+
+.shell-truth-alert:not([hidden]) {
+  display: flex;
+}
+
+.shell-truth-alert > strong {
+  flex: 0 0 auto;
+  color: #ff9ca4;
+}
+
+body[data-dominion-phase="conflict"] .dominion-mission-rail,
+body[data-dominion-phase="evidence-required"] .dominion-mission-rail {
+  border-color: rgba(183, 51, 61, 0.55);
+}
+
+body[data-dominion-phase="secured"] .dominion-mission-rail {
+  border-color: rgba(42, 207, 139, 0.5);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3), inset 0 0 34px rgba(42, 207, 139, 0.035);
+}
+
+.war-room-shell[data-product-shell="019B"] *,
+.war-room-shell[data-product-shell="019B"] *::before,
+.war-room-shell[data-product-shell="019B"] *::after {
+  min-width: 0;
+}
+
+.war-room-shell[data-product-shell="019B"] h1,
+.war-room-shell[data-product-shell="019B"] h2,
+.war-room-shell[data-product-shell="019B"] h3,
+.war-room-shell[data-product-shell="019B"] p,
+.war-room-shell[data-product-shell="019B"] strong,
+.war-room-shell[data-product-shell="019B"] small {
+  overflow-wrap: anywhere;
 }
 
 .shell-journey li {
@@ -580,6 +661,20 @@ body[data-dominion-phase="protect"] .shell-mission-phase strong {
   .shell-journey {
     grid-template-columns: 1fr 1fr;
     row-gap: 12px;
+  }
+
+  .shell-truth-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .shell-truth-summary > div:last-child {
+    text-align: left;
+  }
+
+  .shell-truth-alert:not([hidden]) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
   }
 
   .shell-journey li::after {

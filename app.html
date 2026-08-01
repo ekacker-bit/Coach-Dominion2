@@ -52,10 +52,10 @@
       </div>
     </header>
 
-    <section id="dominion-mission-rail" class="dominion-mission-rail" aria-labelledby="shell-mission-heading">
+    <section id="dominion-mission-rail" class="dominion-mission-rail" data-truth-layer="019D" aria-labelledby="shell-mission-heading">
       <div class="shell-mission-phase"><span>Operating phase</span><strong id="shell-mission-phase">ASSEMBLING</strong></div>
       <div class="shell-mission-copy">
-        <div class="kicker">BUILD 019B // CURRENT ORDER</div>
+        <div class="kicker">BUILD 019D // OPERATING TRUTH</div>
         <h2 id="shell-mission-heading">Assembling your next action</h2>
         <p id="shell-mission-detail">Connecting the Contract, plans, week, and today.</p>
       </div>
@@ -65,7 +65,16 @@
         <li data-shell-step="plans"><span>2</span><strong>Plans</strong></li>
         <li data-shell-step="week"><span>3</span><strong>Week</strong></li>
         <li data-shell-step="today"><span>4</span><strong>Today</strong></li>
+        <li data-shell-step="evidence"><span>5</span><strong>Evidence</strong></li>
+        <li data-shell-step="review"><span>6</span><strong>Review</strong></li>
       </ol>
+      <div id="shell-truth-summary" class="shell-truth-summary" aria-live="polite">
+        <div><span>Canonical source</span><strong id="shell-truth-source">Checking Contract and plan revisions</strong></div>
+        <div><span>Verified today</span><strong id="shell-truth-evidence">0/0 assigned domains</strong></div>
+      </div>
+      <aside id="shell-truth-alert" class="shell-truth-alert" hidden>
+        <strong>Truth conflict</strong><span id="shell-truth-alert-detail"></span>
+      </aside>
     </section>
 
     <section class="status-bar" aria-label="Current status bar">
@@ -1409,6 +1418,7 @@
 <script src="/assets/js/mobile-command.js"></script>
 <script src="/assets/js/experience-shell.js"></script>
 <script src="/assets/js/daily-ritual.js"></script>
+<script src="/assets/js/operating-truth.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

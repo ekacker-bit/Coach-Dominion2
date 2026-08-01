@@ -21,7 +21,7 @@ for (const id of [
 ]) assert.match(html, new RegExp(`id="${id}"`), `missing 019B shell surface: ${id}`);
 
 assert.match(html, /data-product-shell="019B"/);
-assert.match(html, /BUILD 019B \/\/ CURRENT ORDER/);
+assert.match(html, /BUILD 019[BD] \/\//);
 assert.match(html, /Coach Dominion home/);
 assert.doesNotMatch(html, />War Room<\/h1>/);
 assert.doesNotMatch(html, /<h2>Training assignment<\/h2>/);

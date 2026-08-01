@@ -1,4 +1,4 @@
-const CACHE_NAME = "coach-dominion-019c-v1";
+const CACHE_NAME = "coach-dominion-019d-v1";
 const APP_SHELL = [
   "/",
   "/app",
@@ -37,6 +37,7 @@ const APP_SHELL = [
   "/assets/js/mobile-command.js",
   "/assets/js/experience-shell.js",
   "/assets/js/daily-ritual.js",
+  "/assets/js/operating-truth.js",
   "/assets/js/app.js"
 ];
 

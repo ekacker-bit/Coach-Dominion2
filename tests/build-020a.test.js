@@ -33,7 +33,7 @@ assert.match(app, /Finish the AM session first/);
 assert.match(app, /function todaySessionExecution/);
 assert.match(styles, /\.two-a-day-bridge/);
 assert.match(styles, /\.today-session-card\.two-a-day-session/);
-assert.match(worker, /coach-dominion-020[a-z]-v\d+/i);
+assert.match(worker, /coach-dominion-\d{3}[a-z]-v\d+/i);
 assert.match(packageJson, /node tests\/build-020a\.test\.js/);
 
 console.log("Build 020A split-day command integration passed.");

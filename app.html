@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0b1713">
+  <meta name="theme-color" content="#0a0a0a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,10 +11,13 @@
   <title>Coach Dominion &mdash; Command Center</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/assets/icons/dominion-mark.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body data-brand-system="021A">
   <a class="skip-link" href="#app-content">Skip to main workspace</a>
   <main class="war-room-shell" data-product-shell="019B">
     <header class="command-header">
@@ -22,9 +25,9 @@
         <a class="dominion-brand" href="#today" data-section="today" aria-label="Coach Dominion home">
           <span class="dominion-brand-mark" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></span>
           <span class="dominion-brand-copy">
-            <span class="kicker">DOMINION // CLOSED ALPHA</span>
+            <span class="kicker">THE STANDARD IS EARNED</span>
             <strong>Coach Dominion</strong>
-            <small id="shell-section-context">Execute &middot; Today</small>
+            <small id="shell-section-context">Discipline &middot; Evidence &middot; Ascension</small>
           </span>
         </a>
         <h1 class="visually-hidden">Coach Dominion Command Center</h1>
@@ -1459,6 +1462,11 @@
       </section>
 
     </div>
+    <footer class="dominion-footer" aria-label="Coach Dominion brand statement">
+      <img src="/assets/icons/dominion-mark.svg" alt="" aria-hidden="true">
+      <div><strong>The standard is earned.</strong><span>Discipline. Accountability. Dominion. Ascension. Precision.</span></div>
+      <small>COACH DOMINION // OPERATING SYSTEM FOR SELF-MASTERY</small>
+    </footer>
   </main>
   <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
     <a data-mobile-nav="today" href="#today">Today</a>

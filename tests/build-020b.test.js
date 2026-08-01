@@ -26,7 +26,7 @@ assert.match(styles, /\.split-day-checkpoint-form/);
 assert.match(styles, /\.split-day-blockers/);
 assert.match(migration, /create table if not exists public\.split_day_checkpoint_state/);
 assert.match(migration, /enable row level security/);
-assert.match(worker, /coach-dominion-020b-v2/);
+assert.match(worker, /coach-dominion-\d{3}[a-z]-v\d+/i);
 assert.match(worker, /assets\/js\/split-day-command\.js/);
 assert.match(packageJson, /node tests\/build-020b\.test\.js/);
 

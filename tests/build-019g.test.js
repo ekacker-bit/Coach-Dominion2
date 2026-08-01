@@ -25,13 +25,14 @@ assert.match(contract, /TWO_A_DAY_MAX_MINUTES = 240/);
 assert.match(contract, /twoADays: booleanValue/);
 assert.match(experience, /two sessions and up to 240 combined minutes/i);
 assert.match(orchestrator, /function dailyDurationPolicy/);
+assert.match(orchestrator, /TWO_A_DAY_TARGET_UNMET/);
 assert.match(orchestrator, /TWO_A_DAY_CAP_EXCEEDED/);
 assert.match(orchestrator, /LONG_RUN_UNCAPPED/);
 assert.match(running, /durationCapMinutes: run\.type === "LONG" \? null/);
 assert.match(running, /longRunDurationPolicy: "UNCAPPED_BY_TIME"/);
 assert.match(styles, /\.recruit-contract-two-a-days/);
 assert.match(styles, /\.weekly-orchestrator-day\.two_a_day/);
-assert.match(worker, /coach-dominion-019g-v1/);
+assert.match(worker, /coach-dominion-019g-v2/);
 assert.match(packageJson, /node tests\/build-019g\.test\.js/);
 
 console.log("Build 019G Two-a-Day capacity integration passed.");

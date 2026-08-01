@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019G.1";
+  const VERSION = "019G.2";
   const TWO_A_DAY_TARGET_MINUTES = 121;
   const TWO_A_DAY_MAX_MINUTES = 240;
   const PRIMARY_GOALS = Object.freeze([
@@ -166,6 +166,10 @@
     }
     if (contract.twoADays) {
       warnings.push("Two-a-Days permits two scheduled sessions and more than 120 combined minutes on a training day, up to 240 minutes. Long-run duration remains uncapped by time.");
+      const committedSessions = contract.strengthDaysPerWeek + contract.runningDaysPerWeek + contract.coreDaysPerWeek;
+      if (committedSessions > contract.trainingDaysPerWeek * 2) {
+        errors.push("Two-a-Days can schedule no more than two Strength, Running, or Core sessions per training day. Reduce weekly sessions or add training days.");
+      }
     }
 
     return {
@@ -190,23 +194,47 @@
     const strengthIndexes = spreadActivities(trainingIndexes, contract.strengthDaysPerWeek, [0, 2, 4, 5, 1, 3]);
     const runningIndexes = spreadActivities(trainingIndexes, contract.runningDaysPerWeek, [1, 3, 5, 0, 4, 2]);
     const coreIndexes = spreadActivities(trainingIndexes, contract.coreDaysPerWeek, [0, 2, 5, 3, 1, 4]);
+    const activitiesByDay = new Map(trainingIndexes.map((index) => [index, []]));
+    strengthIndexes.forEach((index) => activitiesByDay.get(index)?.push("STRENGTH"));
+    runningIndexes.forEach((index) => activitiesByDay.get(index)?.push("RUNNING"));
+    coreIndexes.forEach((index) => activitiesByDay.get(index)?.push("CORE"));
+
+    if (contract.twoADays) {
+      trainingIndexes.forEach((sourceIndex) => {
+        const source = activitiesByDay.get(sourceIndex) || [];
+        while (source.length > 2) {
+          const activity = source.pop();
+          const targetIndex = trainingIndexes
+            .filter((index) => index !== sourceIndex)
+            .filter((index) => (activitiesByDay.get(index) || []).length < 2)
+            .filter((index) => !(activitiesByDay.get(index) || []).includes(activity))
+            .sort((left, right) => {
+              const loadDifference = (activitiesByDay.get(left) || []).length - (activitiesByDay.get(right) || []).length;
+              return loadDifference || Math.abs(left - sourceIndex) - Math.abs(right - sourceIndex) || left - right;
+            })[0];
+          if (targetIndex === undefined) {
+            source.push(activity);
+            break;
+          }
+          activitiesByDay.get(targetIndex).push(activity);
+        }
+      });
+    }
 
     return WEEKDAYS.map((weekday, index) => {
-      const activities = [];
-      if (strengthIndexes.includes(index)) activities.push("STRENGTH");
-      if (runningIndexes.includes(index)) activities.push("RUNNING");
-      if (coreIndexes.includes(index)) activities.push("CORE");
+      const activities = [...(activitiesByDay.get(index) || [])];
       const isTrainingDay = trainingIndexes.includes(index);
+      const twoADayEligible = Boolean(contract.twoADays && activities.length === 2);
       return {
         weekday,
         date: addDays(weekStart, index),
         isTrainingDay,
         isRecoveryDay: !isTrainingDay,
         activities,
-        twoADayEligible: Boolean(contract.twoADays && activities.length > 1),
-        dailyMinuteTarget: contract.twoADays && activities.length > 1 ? TWO_A_DAY_TARGET_MINUTES : contract.sessionMinutes,
-        dailyMinuteCap: contract.twoADays && activities.length > 1 ? TWO_A_DAY_MAX_MINUTES : contract.sessionMinutes,
-        load: !isTrainingDay ? "RECOVERY" : contract.twoADays && activities.length > 1 ? "TWO_A_DAY" : activities.length > 1 ? "STACKED" : "SINGLE"
+        twoADayEligible,
+        dailyMinuteTarget: twoADayEligible ? TWO_A_DAY_TARGET_MINUTES : contract.sessionMinutes,
+        dailyMinuteCap: twoADayEligible ? TWO_A_DAY_MAX_MINUTES : contract.sessionMinutes,
+        load: !isTrainingDay ? "RECOVERY" : twoADayEligible ? "TWO_A_DAY" : activities.length > 2 ? "OVER_CAPACITY" : activities.length > 1 ? "STACKED" : "SINGLE"
       };
     });
   }

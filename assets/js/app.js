@@ -49,6 +49,9 @@ let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let operatingTruthReconcileTimer = null;
+let continuitySyncTimer = null;
+let continuityState = { mode: "CHECKING", initialized: false, accountRevision: 0, manifest: null, accountManifest: null, manifestConflicts: [] };
+const continuityRecordConflicts = new Map();
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -272,6 +275,307 @@ const SECTION_LABELS = {
   performance: "Performance",
   connected: "Connected"
 };
+
+function continuityDeviceId() {
+  const key = "coach-dominion:continuity:device-id";
+  try {
+    let value = window.localStorage.getItem(key);
+    if (!value) {
+      value = typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      window.localStorage.setItem(key, value);
+    }
+    return value;
+  } catch (_) {
+    return "device-local";
+  }
+}
+
+function continuityManifestStorageKey() {
+  return `coach-dominion:continuity:${session?.user?.id || "local"}:manifest`;
+}
+
+function continuityMetaStorageKey(domain, stateType, stateKey) {
+  return `coach-dominion:continuity:${session?.user?.id || "local"}:record:${domain}:${String(stateType).toLowerCase()}:${stateKey}`;
+}
+
+function readContinuityRecordMeta(domain, stateType, stateKey) {
+  try {
+    return JSON.parse(window.localStorage.getItem(continuityMetaStorageKey(domain, stateType, stateKey)) || "null");
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeContinuityRecordMeta(domain, stateType, stateKey, payload, options = {}) {
+  if (!payload || typeof DominionContinuity === "undefined") return null;
+  const previous = readContinuityRecordMeta(domain, stateType, stateKey) || {};
+  const value = {
+    domain,
+    stateType,
+    stateKey,
+    fingerprint: DominionContinuity.fingerprint(payload),
+    updatedAt: options.updatedAt || previous.updatedAt || new Date().toISOString(),
+    syncedAt: options.syncedAt || previous.syncedAt || null,
+    source: options.source || previous.source || "DEVICE"
+  };
+  window.localStorage.setItem(continuityMetaStorageKey(domain, stateType, stateKey), JSON.stringify(value));
+  return value;
+}
+
+function recordContinuityWrite(domain, stateType, stateKey, payload) {
+  const value = writeContinuityRecordMeta(domain, stateType, stateKey, payload, { updatedAt: new Date().toISOString(), source: "DEVICE" });
+  if (continuityState.initialized) scheduleContinuitySync();
+  return value;
+}
+
+function markContinuityRecordSynced(domain, stateType, stateKey, payload, updatedAt = null) {
+  return writeContinuityRecordMeta(domain, stateType, stateKey, payload, {
+    updatedAt: updatedAt || new Date().toISOString(),
+    syncedAt: new Date().toISOString(),
+    source: "ACCOUNT"
+  });
+}
+
+function continuityRecordIsImmutable(domain, stateType, stateKey = "current") {
+  return (domain === "contract" && stateType === "APPROVED")
+    || (domain === "strength" && stateType === "PLAN" && stateKey === "current")
+    || (domain === "running" && stateType === "PLAN" && stateKey === "active")
+    || (domain === "core" && stateType === "PLAN" && stateKey === "current");
+}
+
+function continuityConflictKey(domain, stateType, stateKey) {
+  return `${domain}:${stateType}:${stateKey}`;
+}
+
+function resolveContinuityPayload(domain, stateType, stateKey, localPayload, remoteRow = null, options = {}) {
+  if (typeof DominionContinuity === "undefined") {
+    return { payload: remoteRow?.payload || localPayload, source: remoteRow?.payload ? "ACCOUNT" : localPayload ? "DEVICE" : "EMPTY" };
+  }
+  const key = continuityConflictKey(domain, stateType, stateKey);
+  const immutable = options.immutable ?? continuityRecordIsImmutable(domain, stateType, stateKey);
+  const meta = readContinuityRecordMeta(domain, stateType, stateKey);
+  const device = localPayload ? DominionContinuity.recordDescriptor(domain, localPayload, {
+    stateType,
+    stateKey,
+    updatedAt: meta?.updatedAt || null,
+    immutable,
+    source: "DEVICE"
+  }) : null;
+  const account = remoteRow?.payload ? DominionContinuity.recordDescriptor(domain, remoteRow.payload, {
+    stateType,
+    stateKey,
+    updatedAt: remoteRow.updated_at || null,
+    immutable,
+    source: "ACCOUNT"
+  }) : null;
+  const comparison = DominionContinuity.compareRecords(device, account, { immutable });
+  if (comparison.state === "CONFLICT") {
+    continuityRecordConflicts.set(key, {
+      key,
+      domain,
+      stateType,
+      stateKey,
+      device: localPayload,
+      account: remoteRow.payload,
+      accountUpdatedAt: remoteRow.updated_at || null,
+      reason: comparison.reason
+    });
+    return { payload: localPayload, source: "CONFLICT", comparison };
+  }
+  continuityRecordConflicts.delete(key);
+  if (comparison.winner === "ACCOUNT") {
+    markContinuityRecordSynced(domain, stateType, stateKey, remoteRow.payload, remoteRow.updated_at);
+    return { payload: remoteRow.payload, source: "ACCOUNT", comparison };
+  }
+  if (comparison.winner === "MATCHED") {
+    markContinuityRecordSynced(domain, stateType, stateKey, localPayload, remoteRow?.updated_at || meta?.updatedAt);
+    return { payload: localPayload, source: "MATCHED", comparison };
+  }
+  return { payload: localPayload, source: localPayload ? "DEVICE" : "EMPTY", comparison };
+}
+
+function latestCommittedContinuityWeek() {
+  const current = readCommittedUnifiedWeek(todayISODate());
+  if (current) return current;
+  return [...readUnifiedWeekHistory()].sort((left, right) => String(right.weekStart || "").localeCompare(String(left.weekStart || "")))[0] || null;
+}
+
+function buildCurrentContinuityManifest() {
+  if (typeof DominionContinuity === "undefined") return null;
+  const date = todayISODate();
+  return DominionContinuity.buildManifest({
+    contract: { payload: readApprovedRecruitContract(), options: { stateType: "APPROVED", immutable: true } },
+    strength: { payload: readApprovedStrengthPlan(), options: { stateType: "PLAN", immutable: true } },
+    running: { payload: readApprovedRunningBlock(), options: { stateType: "PLAN", stateKey: "active", immutable: true } },
+    core: { payload: readApprovedCorePlan(), options: { stateType: "PLAN", immutable: true } },
+    nutrition: { payload: activeNutritionBaseline(date), options: { stateType: "BASELINE", immutable: true } },
+    calendar: { payload: latestCommittedContinuityWeek(), options: { stateType: "WEEK", immutable: true } },
+    executions: [
+      { domain: "strength", payload: readStrengthExecution(), options: { stateType: "EXECUTION", stateKey: date } },
+      { domain: "running", payload: readRunningExecution(), options: { stateType: "EXECUTION", stateKey: date } },
+      { domain: "core", payload: readCoreExecution(), options: { stateType: "EXECUTION", stateKey: date } }
+    ],
+    checkpoints: [
+      { domain: "calendar", payload: readSplitDayCheckpoint(date), options: { stateType: "CHECKPOINT", stateKey: date } }
+    ]
+  }, { userId: session?.user?.id || null, deviceId: continuityDeviceId(), savedAt: new Date().toISOString() });
+}
+
+function saveContinuityManifestLocal(manifest) {
+  if (manifest) window.localStorage.setItem(continuityManifestStorageKey(), JSON.stringify(manifest));
+  continuityState.manifest = manifest;
+  return manifest;
+}
+
+function continuityDomainLabel(domain) {
+  return ({ contract: "Contract", strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition", calendar: "Calendar" })[domain] || domain;
+}
+
+function renderDominionContinuity() {
+  if (typeof DominionContinuity === "undefined") return;
+  const presentation = DominionContinuity.syncPresentation(continuityState.mode, {
+    conflictCount: continuityRecordConflicts.size + (continuityState.manifestConflicts?.length || 0)
+  });
+  const button = document.getElementById("continuity-status");
+  if (button) button.className = `continuity-status ${presentation.tone}`;
+  setText("continuity-status-label", presentation.label);
+  setText("continuity-status-detail", presentation.detail);
+  setText("continuity-repair-summary", presentation.detail);
+  const manifest = continuityState.manifest || buildCurrentContinuityManifest();
+  const grid = document.getElementById("continuity-canonical-grid");
+  if (grid && manifest) {
+    grid.innerHTML = DominionContinuity.CANONICAL_DOMAINS.map((domain) => {
+      const item = manifest.modules?.[domain];
+      const value = item ? `${item.status}${item.revision ? ` · R${item.revision}` : ""}` : "NOT ACTIVE";
+      return `<article class="continuity-domain ${item ? "active" : "missing"}"><span>${escapeHtml(continuityDomainLabel(domain))}</span><strong>${escapeHtml(value)}</strong><small>${item?.id ? escapeHtml(item.id) : "No canonical revision"}</small></article>`;
+    }).join("");
+  }
+  const conflictCount = continuityRecordConflicts.size + (continuityState.manifestConflicts?.length || 0);
+  const panel = document.getElementById("continuity-conflict-panel");
+  if (panel) panel.hidden = conflictCount === 0;
+  setText("continuity-conflict-detail", conflictCount
+    ? `${conflictCount} difference${conflictCount === 1 ? "" : "s"} found. Nothing will be replaced until you choose this device or the account copy.`
+    : "No saved-state conflicts detected.");
+  setText("continuity-device-label", `Device ${continuityDeviceId().slice(0, 8)} · Ledger revision ${continuityState.accountRevision || "local"}`);
+}
+
+function setContinuityMode(mode, options = {}) {
+  continuityState = { ...continuityState, ...options, mode };
+  renderDominionContinuity();
+}
+
+function scheduleContinuitySync(delay = 500) {
+  window.clearTimeout(continuitySyncTimer);
+  setContinuityMode(navigator.onLine === false ? "OFFLINE" : "SYNCING");
+  continuitySyncTimer = window.setTimeout(() => syncDominionContinuity(), delay);
+}
+
+async function saveContinuityLedger(manifest, expectedRevision) {
+  const supabase = await getClient();
+  const { data, error } = await supabase.rpc("sync_dominion_continuity_state", {
+    expected_revision: Number(expectedRevision || 0),
+    next_schema_version: DominionContinuity.SCHEMA_VERSION,
+    next_device_id: continuityDeviceId(),
+    next_manifest: manifest,
+    next_client_updated_at: new Date().toISOString()
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function syncDominionContinuity(options = {}) {
+  if (!session?.user?.id || typeof DominionContinuity === "undefined") return false;
+  const current = buildCurrentContinuityManifest();
+  saveContinuityManifestLocal(current);
+  if (navigator.onLine === false) {
+    setContinuityMode("OFFLINE", { initialized: true });
+    return false;
+  }
+  setContinuityMode("SYNCING");
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("dominion_continuity_state")
+      .select("revision,schema_version,device_id,manifest,client_updated_at,updated_at")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (error) throw error;
+    const accountRevision = Number(data?.revision || 0);
+    const accountManifest = data?.manifest || null;
+    let reconciliation = accountManifest ? DominionContinuity.reconcileManifests(current, accountManifest) : null;
+    if (!options.prefer && (continuityRecordConflicts.size || reconciliation?.state === "CONFLICT")) {
+      setContinuityMode("CONFLICT", {
+        initialized: true,
+        accountRevision,
+        accountManifest,
+        manifestConflicts: reconciliation?.conflicts || []
+      });
+      return false;
+    }
+    if (options.prefer === "ACCOUNT" && accountManifest) {
+      saveContinuityManifestLocal(accountManifest);
+      setContinuityMode("SYNCED", { initialized: true, accountRevision, accountManifest, manifestConflicts: [] });
+      return true;
+    }
+    if (!accountManifest || options.prefer === "DEVICE" || ["DEVICE_NEWER", "MERGED"].includes(reconciliation?.state)) {
+      const saved = await saveContinuityLedger(current, accountRevision);
+      saveContinuityManifestLocal(saved?.manifest || current);
+      setContinuityMode("SYNCED", {
+        initialized: true,
+        accountRevision: Number(saved?.revision || accountRevision + 1),
+        accountManifest: saved?.manifest || current,
+        manifestConflicts: []
+      });
+      return true;
+    }
+    saveContinuityManifestLocal(accountManifest);
+    setContinuityMode("SYNCED", { initialized: true, accountRevision, accountManifest, manifestConflicts: [] });
+    return true;
+  } catch (error) {
+    const missingStorage = ["42P01", "42883", "PGRST202", "PGRST205"].includes(error?.code)
+      || /dominion_continuity_state|sync_dominion_continuity_state/i.test(error?.message || "");
+    setContinuityMode(missingStorage ? "LOCAL_ONLY" : "OFFLINE", { initialized: true, lastError: error?.message || "Continuity sync unavailable" });
+    return false;
+  }
+}
+
+async function persistContinuityConflictRecord(conflict) {
+  if (conflict.domain === "contract") return persistRecruitContractState(conflict.stateType, conflict.device);
+  if (conflict.domain === "strength") return persistStrengthTrainingState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "running") return persistRunningState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "core") return persistCoreProgramState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "nutrition") return persistNutritionState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "calendar") return persistWeeklyOrchestrationState(conflict.stateType, conflict.stateKey, conflict.device);
+  return false;
+}
+
+function applyContinuityAccountRecord(conflict) {
+  if (conflict.domain === "contract") saveRecruitContractLocal(conflict.stateType, conflict.account);
+  if (conflict.domain === "strength") saveStrengthStateLocal(conflict.stateType, conflict.stateKey, conflict.account);
+  if (conflict.domain === "running") {
+    if (conflict.stateType === "PROFILE") saveRunningProfile(conflict.account);
+    if (conflict.stateType === "PLAN" && ["active", "draft"].includes(conflict.stateKey)) saveRunningBlockLocal(conflict.stateKey, conflict.account);
+    if (conflict.stateType === "EXECUTION") window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(conflict.account));
+  }
+  if (conflict.domain === "core") saveCoreProgramLocal(conflict.stateType, conflict.stateKey, conflict.account);
+  if (conflict.domain === "nutrition") applyNutritionStateRow({ state_type: conflict.stateType, state_key: conflict.stateKey, payload: conflict.account });
+  if (conflict.domain === "calendar") saveWeeklyOrchestrationLocal(conflict.stateType, conflict.stateKey, conflict.account);
+  markContinuityRecordSynced(conflict.domain, conflict.stateType, conflict.stateKey, conflict.account, conflict.accountUpdatedAt);
+}
+
+async function repairDominionContinuity(preference) {
+  const conflicts = [...continuityRecordConflicts.values()];
+  if (preference === "ACCOUNT") conflicts.forEach(applyContinuityAccountRecord);
+  if (preference === "DEVICE") {
+    for (const conflict of conflicts) await persistContinuityConflictRecord(conflict);
+  }
+  continuityRecordConflicts.clear();
+  continuityState.manifestConflicts = [];
+  const synced = await syncDominionContinuity({ prefer: preference });
+  if (synced) window.location.reload();
+  return synced;
+}
 
 function normalizeSectionKey(section = "today") {
   if (typeof section !== "string") return "today";
@@ -4565,6 +4869,7 @@ function readRecruitContractHistory() {
 }
 
 async function persistRecruitContractState(stateType, payload) {
+  recordContinuityWrite("contract", stateType, "current", payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -4576,6 +4881,7 @@ async function persistRecruitContractState(stateType, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    markContinuityRecordSynced("contract", stateType, "current", payload);
     recruitContractStorageMode = "REMOTE";
     return true;
   } catch (_) {
@@ -4613,10 +4919,13 @@ async function loadRecruitContractState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    stateTypes.forEach((stateType) => {
+    for (const stateType of stateTypes) {
       const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
-      if (row) saveRecruitContractLocal(stateType, row.payload);
-    });
+      const local = readRecruitContractState(stateType, stateType === "HISTORY" ? [] : null);
+      const selected = resolveContinuityPayload("contract", stateType, "current", local, row || null, { immutable: stateType === "APPROVED" });
+      if (selected.payload && (stateType !== "HISTORY" || selected.payload.length)) saveRecruitContractLocal(stateType, selected.payload);
+      if (selected.source === "DEVICE" && selected.payload) await persistRecruitContractState(stateType, selected.payload);
+    }
     recruitContractStorageMode = "REMOTE";
     for (const stateType of stateTypes) {
       const local = readRecruitContractState(stateType, stateType === "HISTORY" ? [] : null);
@@ -4688,6 +4997,7 @@ function saveSplitDayCheckpointLocal(payload) {
 }
 
 async function persistSplitDayCheckpoint(payload) {
+  recordContinuityWrite("calendar", "CHECKPOINT", payload?.date || todayISODate(), payload);
   if (!session?.user?.id || !payload?.date) return false;
   try {
     const supabase = await getClient();
@@ -4699,6 +5009,7 @@ async function persistSplitDayCheckpoint(payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,checkpoint_date" });
     if (error) throw error;
+    markContinuityRecordSynced("calendar", "CHECKPOINT", payload.date, payload);
     splitDayStorageMode = "REMOTE";
     return true;
   } catch (_) {
@@ -4734,6 +5045,7 @@ async function loadSplitDayCheckpointState(value = todayISODate()) {
 }
 
 async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
+  recordContinuityWrite("calendar", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -4745,6 +5057,7 @@ async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    markContinuityRecordSynced("calendar", stateType, stateKey, payload);
     weeklyOrchestrationStorageMode = "REMOTE";
     return true;
   } catch (_) {
@@ -4783,8 +5096,12 @@ async function loadWeeklyOrchestrationState() {
     const rows = data || [];
     const draft = rows.find((item) => item.state_type === "DRAFT" && item.state_key === "current");
     const history = rows.find((item) => item.state_type === "HISTORY" && item.state_key === "current");
-    if (draft) saveWeeklyOrchestrationLocal("DRAFT", "current", draft.payload);
-    if (history) saveWeeklyOrchestrationLocal("HISTORY", "current", history.payload);
+    const selectedDraft = resolveContinuityPayload("calendar", "DRAFT", "current", readUnifiedWeekDraft(), draft || null);
+    const selectedHistory = resolveContinuityPayload("calendar", "HISTORY", "current", readUnifiedWeekHistory(), history || null);
+    if (selectedDraft.payload) saveWeeklyOrchestrationLocal("DRAFT", "current", selectedDraft.payload);
+    if (selectedHistory.payload?.length) saveWeeklyOrchestrationLocal("HISTORY", "current", selectedHistory.payload);
+    if (selectedDraft.source === "DEVICE" && selectedDraft.payload) await persistWeeklyOrchestrationState("DRAFT", "current", selectedDraft.payload);
+    if (selectedHistory.source === "DEVICE" && selectedHistory.payload?.length) await persistWeeklyOrchestrationState("HISTORY", "current", selectedHistory.payload);
     weeklyOrchestrationStorageMode = "REMOTE";
     const localDraft = readUnifiedWeekDraft();
     const localHistory = readUnifiedWeekHistory();
@@ -5703,6 +6020,7 @@ function strengthRemoteStateCoordinates(stateType, stateKey = "current") {
 }
 
 async function persistStrengthTrainingState(stateType, stateKey, payload) {
+  recordContinuityWrite("strength", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -5715,6 +6033,7 @@ async function persistStrengthTrainingState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    markContinuityRecordSynced("strength", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("STRENGTH_EXECUTION", stateKey);
     return true;
   } catch (_) {
@@ -5754,31 +6073,6 @@ async function loadStrengthTrainingState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    ["PROFILE", "DRAFT", "PLAN", "HISTORY", "ADJUSTMENT", "SCHEDULE", "WEEK_REVIEW"].forEach((stateType) => {
-      const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
-      if (row) saveStrengthStateLocal(stateType, "current", row.payload);
-    });
-    const scheduleDraft = rows.find((item) => item.state_type === "SCHEDULE" && item.state_key === "draft");
-    if (scheduleDraft) saveStrengthStateLocal("SCHEDULE", "draft", scheduleDraft.payload);
-    const reviewHistory = rows.find((item) => item.state_type === "WEEK_REVIEW" && item.state_key === "history");
-    if (reviewHistory) saveStrengthStateLocal("WEEK_REVIEW", "history", reviewHistory.payload);
-    const blockCurrent = rows.find((item) =>
-      (item.state_type === "BLOCK" && item.state_key === "current")
-      || (item.state_type === "SCHEDULE" && item.state_key === "block-current")
-    );
-    if (blockCurrent) saveStrengthStateLocal("BLOCK", "current", blockCurrent.payload);
-    const blockDraft = rows.find((item) =>
-      (item.state_type === "BLOCK" && item.state_key === "draft")
-      || (item.state_type === "SCHEDULE" && item.state_key === "block-draft")
-    );
-    if (blockDraft) saveStrengthStateLocal("BLOCK", "draft", blockDraft.payload);
-    const blockHistory = rows.find((item) =>
-      (item.state_type === "BLOCK" && item.state_key === "history")
-      || (item.state_type === "SCHEDULE" && item.state_key === "block-history")
-    );
-    if (blockHistory) saveStrengthStateLocal("BLOCK", "history", blockHistory.payload);
-    const execution = rows.find((item) => item.state_type === "EXECUTION" && item.state_key === todayISODate());
-    if (execution) saveStrengthStateLocal("EXECUTION", todayISODate(), execution.payload);
     const localStates = [
       ["PROFILE", "current", readStrengthState("PROFILE", "current", null)],
       ["DRAFT", "current", readStrengthDraft()],
@@ -5796,9 +6090,13 @@ async function loadStrengthTrainingState() {
     ];
     for (const [stateType, stateKey, payload] of localStates) {
       const remote = strengthRemoteStateCoordinates(stateType, stateKey);
-      const exists = rows.some((item) => item.state_type === remote.stateType && item.state_key === remote.stateKey);
-      if (!exists && payload && (stateType !== "HISTORY" || payload.length)) {
-        await persistStrengthTrainingState(stateType, stateKey, payload);
+      const row = rows.find((item) => item.state_type === remote.stateType && item.state_key === remote.stateKey) || null;
+      const selected = resolveContinuityPayload("strength", stateType, stateKey, payload, row, {
+        immutable: stateType === "PLAN" && stateKey === "current"
+      });
+      if (selected.payload && (!["HISTORY"].includes(stateType) || selected.payload.length)) saveStrengthStateLocal(stateType, stateKey, selected.payload);
+      if (selected.source === "DEVICE" && selected.payload && (stateType !== "HISTORY" || selected.payload.length)) {
+        await persistStrengthTrainingState(stateType, stateKey, selected.payload);
       }
     }
   } catch (_) {
@@ -8193,6 +8491,7 @@ function readRunningExecution() {
 }
 
 async function persistRunningState(stateType, stateKey, payload) {
+  recordContinuityWrite("running", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -8201,6 +8500,7 @@ async function persistRunningState(stateType, stateKey, payload) {
       payload, updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    markContinuityRecordSynced("running", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("RUNNING_EXECUTION", stateKey);
     return true;
   } catch (_) {
@@ -8240,24 +8540,22 @@ async function loadRunningState() {
     const activeBlock = rows.find((row) => row.state_type === "PLAN" && row.state_key === "active");
     const reconciliation = rows.find((row) => row.state_type === "RECONCILIATION" && row.state_key === week);
     const execution = rows.find((row) => row.state_type === "EXECUTION" && row.state_key === todayISODate());
-    if (profile) window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(profile.payload));
-    if (plan) window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(plan.payload));
-    if (blockDraft) saveRunningBlockLocal("draft", blockDraft.payload);
-    if (activeBlock) saveRunningBlockLocal("active", activeBlock.payload);
-    if (reconciliation) window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(reconciliation.payload));
-    if (execution) window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution.payload));
-    const localProfile = readRunningProfile();
-    const localPlan = readLegacyApprovedRunningPlan();
-    const localBlockDraft = readRunningBlockDraft();
-    const localActiveBlock = readApprovedRunningBlock();
-    const localReconciliation = readApprovedRunningReconciliation();
-    const localExecution = readRunningExecution();
-    if (!profile && localProfile.approvedAt) await persistRunningState("PROFILE", "current", localProfile);
-    if (!plan && localPlan?.weekStart === week) await persistRunningState("PLAN", week, localPlan);
-    if (!blockDraft && localBlockDraft) await persistRunningState("PLAN", "draft", localBlockDraft);
-    if (!activeBlock && localActiveBlock) await persistRunningState("PLAN", "active", localActiveBlock);
-    if (!reconciliation && localReconciliation?.weekStart === week) await persistRunningState("RECONCILIATION", week, localReconciliation);
-    if (!execution && localExecution) await persistRunningState("EXECUTION", todayISODate(), localExecution);
+    const states = [
+      ["PROFILE", "current", readRunningProfile(), profile, (payload) => saveRunningProfile(payload)],
+      ["PLAN", week, readLegacyApprovedRunningPlan(), plan, (payload) => window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(payload))],
+      ["PLAN", "draft", readRunningBlockDraft(), blockDraft, (payload) => saveRunningBlockLocal("draft", payload)],
+      ["PLAN", "active", readApprovedRunningBlock(), activeBlock, (payload) => saveRunningBlockLocal("active", payload)],
+      ["RECONCILIATION", week, readApprovedRunningReconciliation(), reconciliation, (payload) => window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(payload))],
+      ["EXECUTION", todayISODate(), readRunningExecution(), execution, (payload) => window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(payload))]
+    ];
+    for (const [stateType, stateKey, localPayload, row, saveLocal] of states) {
+      const meaningfulLocal = stateType !== "PROFILE" || localPayload?.approvedAt || localPayload?.updatedAt;
+      const selected = resolveContinuityPayload("running", stateType, stateKey, meaningfulLocal ? localPayload : null, row || null, {
+        immutable: stateType === "PLAN" && stateKey === "active"
+      });
+      if (selected.payload) saveLocal(selected.payload);
+      if (selected.source === "DEVICE" && selected.payload) await persistRunningState(stateType, stateKey, selected.payload);
+    }
   } catch (_) {
     // Existing local state remains the explicit offline fallback.
   }
@@ -8398,6 +8696,7 @@ async function reconcileCoreProgramWithContract() {
 }
 
 async function persistCoreProgramState(stateType, stateKey, payload) {
+  recordContinuityWrite("core", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -8409,6 +8708,7 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    markContinuityRecordSynced("core", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
     return true;
   } catch (_) {
@@ -8439,7 +8739,9 @@ async function loadCoreProgramState() {
     ];
     for (const [stateType, stateKey, localPayload] of localStates) {
       const row = rows.find((item) => item.state_type === stateType && item.state_key === stateKey) || null;
-      const selected = selectCoreProgramState(localPayload, row);
+      const selected = resolveContinuityPayload("core", stateType, stateKey, localPayload, row, {
+        immutable: stateType === "PLAN" && stateKey === "current"
+      });
       if (selected.payload && (stateType !== "HISTORY" || selected.payload.length)) {
         saveCoreProgramLocal(stateType, stateKey, selected.payload);
       }
@@ -10397,6 +10699,7 @@ function readMealTrainingWindow() {
 }
 
 async function persistNutritionState(stateType, stateKey, payload) {
+  recordContinuityWrite("nutrition", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -10408,6 +10711,7 @@ async function persistNutritionState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    markContinuityRecordSynced("nutrition", stateType, stateKey, payload);
     if (stateType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
     return true;
   } catch (_) {
@@ -10453,6 +10757,19 @@ function applyNutritionStateRow(row) {
   }
 }
 
+function readNutritionStatePayload(stateType, stateKey = "current") {
+  if (stateType === "BASELINE_HISTORY") return { items: readNutritionBaselineHistory() };
+  if (stateType === "ADAPTIVE_GOAL") return { goal: readAdaptiveFuelingGoal() };
+  if (stateType === "ADAPTIVE_APPROVAL") return readApprovedAdaptiveFueling(stateKey);
+  if (stateType === "MEAL_WINDOW") return { window: readMealTrainingWindow() };
+  if (stateType === "REVIEW_HISTORY") return { items: readNutritionReviewHistory() };
+  if (stateType === "MANUAL_DAY") {
+    try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(stateKey)) || "null"); }
+    catch (_) { return null; }
+  }
+  return null;
+}
+
 async function loadNutritionState() {
   if (!session?.user?.id) return;
   try {
@@ -10463,7 +10780,12 @@ async function loadNutritionState() {
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
-    rows.forEach(applyNutritionStateRow);
+    for (const row of rows) {
+      const localPayload = readNutritionStatePayload(row.state_type, row.state_key);
+      const selected = resolveContinuityPayload("nutrition", row.state_type, row.state_key, localPayload, row);
+      if (selected.payload) applyNutritionStateRow({ ...row, payload: selected.payload });
+      if (selected.source === "DEVICE" && selected.payload) await persistNutritionState(row.state_type, row.state_key, selected.payload);
+    }
     const hasState = (type, key = null) => rows.some((row) => row.state_type === type && (key === null || row.state_key === key));
     const localBaselines = readNutritionBaselineHistory();
     const localReviews = readNutritionReviewHistory();
@@ -11441,6 +11763,7 @@ async function init() {
     await loadWeeklyOrchestrationState();
     await loadSplitDayCheckpointState();
     await loadConnectedDominion();
+    await syncDominionContinuity();
     renderRecruitContract();
     renderWeeklyOrchestrator();
     renderTodayCommittedWeek();
@@ -11473,13 +11796,29 @@ if (typeof document !== "undefined") {
     setText("mobile-command-feedback", "Dominion is installed and ready from your Home Screen.");
     renderMobileInstallExperience();
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-continuity-action]");
+    if (!button) return;
+    const action = button.dataset.continuityAction;
+    const dialog = document.getElementById("continuity-repair-dialog");
+    if (action === "open") {
+      renderDominionContinuity();
+      if (dialog?.showModal && !dialog.open) dialog.showModal();
+      return;
+    }
+    if (action === "sync") await syncDominionContinuity();
+    if (action === "keep-device") await repairDominionContinuity("DEVICE");
+    if (action === "keep-account") await repairDominionContinuity("ACCOUNT");
+  });
   window.addEventListener("online", async () => {
     renderMobileCommand();
     const synced = await flushMobilePendingWrites();
+    await syncDominionContinuity();
     setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
   });
   window.addEventListener("offline", () => {
     renderMobileCommand();
+    setContinuityMode("OFFLINE", { initialized: true });
     setText("mobile-command-feedback", "You’re offline. Today’s changes will stay on this device and sync automatically.");
   });
   document.getElementById("mobile-roll-call-form")?.addEventListener("input", (event) => {

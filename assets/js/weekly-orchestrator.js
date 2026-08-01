@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "020A.1";
+  const VERSION = "020B.2";
   const DAY_LABELS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const HARD_RUN_TYPES = Object.freeze(["INTERVAL", "TEMPO", "LONG"]);
   const TWO_A_DAY_TARGET_MINUTES = 121;
@@ -125,6 +125,7 @@
     const twoADaysEnabled = contract.twoADays === true;
     const twoADayCandidate = twoADaysEnabled && sessions.length === 2;
     const twoADay = twoADayCandidate && estimatedMinutes >= TWO_A_DAY_TARGET_MINUTES;
+    const twoADayAuthorizationRequired = !twoADaysEnabled && sessions.length === 2 && estimatedMinutes >= TWO_A_DAY_TARGET_MINUTES;
     const durationTargetUnmet = twoADayCandidate && estimatedMinutes < TWO_A_DAY_TARGET_MINUTES;
     const maximumMinutes = longRunUncapped ? null : twoADayCandidate ? TWO_A_DAY_MAX_MINUTES : Number(contract.sessionMinutes || 60);
     return {
@@ -133,6 +134,7 @@
       twoADaysEnabled,
       twoADayCandidate,
       twoADay,
+      twoADayAuthorizationRequired,
       targetMinutes: twoADayCandidate ? TWO_A_DAY_TARGET_MINUTES : Number(contract.sessionMinutes || 60),
       maximumMinutes,
       longRunUncapped,
@@ -162,7 +164,8 @@
     return ordered.map(({ item }, index) => ({
       ...item,
       sessionOrder: index + 1,
-      sessionLabel: duration.twoADay ? `SESSION ${index + 1}` : sessions.length > 1 ? `BLOCK ${index + 1}` : "SESSION",
+      sessionWindow: duration.twoADay ? (index === 0 ? "AM" : "PM") : null,
+      sessionLabel: duration.twoADay ? `${index === 0 ? "AM" : "PM"} SESSION` : sessions.length > 1 ? `BLOCK ${index + 1}` : "SESSION",
       separationBeforeMinutes: duration.twoADay && index > 0 ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0,
       fuelingCheckpoint: Boolean(duration.twoADay && index > 0),
       command: duration.twoADay
@@ -303,6 +306,7 @@
         type: item.type,
         estimatedMinutes: item.estimatedMinutes,
         sessionOrder: item.sessionOrder,
+        sessionWindow: item.sessionWindow,
         sessionLabel: item.sessionLabel,
         separationBeforeMinutes: item.separationBeforeMinutes,
         fuelingCheckpoint: item.fuelingCheckpoint,
@@ -312,6 +316,7 @@
       day.sessionCount = duration.sessionCount;
       day.twoADayCandidate = duration.twoADayCandidate;
       day.twoADay = duration.twoADay;
+      day.twoADayAuthorizationRequired = duration.twoADayAuthorizationRequired;
       day.durationTargetMinutes = duration.targetMinutes;
       day.durationLimitMinutes = duration.maximumMinutes;
       day.longRunUncapped = duration.longRunUncapped;
@@ -321,7 +326,14 @@
       if (duration.sessionLimitExceeded) {
         day.conflicts.push(conflict("TWO_A_DAY_SESSION_LIMIT", "BLOCKING", "Two-a-Days permit no more than two scheduled sessions on one day.", day.date));
       }
-      if (duration.durationLimitExceeded) {
+      if (duration.twoADayAuthorizationRequired) {
+        day.conflicts.push(conflict(
+          "TWO_A_DAY_AUTHORIZATION_REQUIRED",
+          "ADVISORY",
+          `${day.estimatedMinutes} planned minutes form an AM/PM split, but Two-a-Days are OFF in the signed Contract. Amend the Contract to authorize up to 240 combined minutes.`,
+          day.date
+        ));
+      } else if (duration.durationLimitExceeded) {
         day.conflicts.push(conflict(
           duration.twoADay ? "TWO_A_DAY_CAP_EXCEEDED" : "TIME_COMMITMENT_EXCEEDED",
           duration.twoADay ? "BLOCKING" : "ADVISORY",
@@ -498,3 +510,4 @@
     strengthScheduleFromWeek
   });
 });
+

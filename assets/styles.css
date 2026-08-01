@@ -3276,3 +3276,266 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
     animation: none;
   }
 }
+
+/* Build 019E: One Command UX and progressive disclosure. */
+body[data-dominion-section="today"] #dominion-mission-rail {
+  display: none;
+}
+
+#today > .today-command-header { order: 0; }
+#today > .one-command { order: 1; }
+#today > #mobile-command { order: 2; }
+#today > .today-context-detail { order: 3; }
+#today > .today-sequence-shell { order: 4; }
+#today > .daily-ritual { order: 5; }
+#today > .today-workout-detail { order: 6; }
+#today > .today-core-detail { order: 7; }
+
+.one-command {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  overflow: hidden;
+  border-color: rgba(240, 180, 41, 0.38) !important;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(240, 180, 41, 0.12), transparent 28%),
+    linear-gradient(145deg, rgba(10, 31, 25, 0.98), rgba(7, 15, 22, 0.99)) !important;
+}
+
+.one-command::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, var(--dominion-gold), var(--green), transparent 82%);
+}
+
+.one-command.is-secured {
+  border-color: rgba(42, 207, 139, 0.56) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28), inset 0 0 44px rgba(42, 207, 139, 0.05) !important;
+}
+
+.one-command-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+}
+
+.one-command-header h2 {
+  max-width: 880px;
+  margin: 7px 0 5px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.one-command-header p {
+  max-width: 720px;
+  margin: 0;
+  color: #c2ccd4;
+  font-size: 15px;
+}
+
+.one-command-progress {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.one-command-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--dominion-gold), var(--green));
+  transition: width 180ms ease;
+}
+
+.one-command-stages {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.one-command-stages li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--dim);
+}
+
+.one-command-stages li > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 23px;
+  height: 23px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 950;
+}
+
+.one-command-stages li > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.one-command-stages li.complete > span {
+  border-color: var(--green);
+  color: #03110b;
+  background: var(--green);
+}
+
+.one-command-stages li.complete > strong { color: #d9f8e9; }
+.one-command-stages li.current > span {
+  border-color: var(--dominion-gold);
+  color: var(--dominion-gold);
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.08);
+}
+.one-command-stages li.current > strong { color: #fff4d3; }
+
+.one-command-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.one-command-module {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.17);
+}
+
+.one-command-module strong { color: var(--text); font-size: 11px; }
+.one-command-module small { color: inherit; font-size: 8px; font-weight: 950; letter-spacing: 0.08em; }
+.one-command-module.active { border-color: rgba(240, 180, 41, 0.46); color: #f5cf73; }
+.one-command-module.complete { border-color: rgba(42, 207, 139, 0.42); color: var(--green); }
+
+.one-command-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.one-command-actions button {
+  min-height: 50px;
+  padding-inline: 22px;
+}
+
+.one-command-actions #one-command-primary {
+  min-width: min(280px, 100%);
+  font-size: 14px;
+}
+
+.one-command-context {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 12px;
+}
+
+.one-command-context > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.one-command-context > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.one-command-context p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.one-command-context p > span {
+  color: var(--dim);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.one-command-context p > strong { color: #dbe5ed; font-size: 11px; }
+.one-command-context .one-command-conflict {
+  grid-column: 1 / -1;
+  border-color: rgba(239, 99, 109, 0.45);
+  color: #ffd8dc;
+  background: rgba(118, 24, 33, 0.2);
+}
+
+.today-context-stack {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.today-context-stack > .card,
+.today-context-stack > details,
+.today-sequence-shell > .card {
+  margin: 0 !important;
+  border-color: var(--line) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.today-sequence-shell > .daily-execution-queue {
+  background: rgba(7, 14, 20, 0.86) !important;
+}
+
+@media (max-width: 760px) {
+  .one-command-header { grid-template-columns: 1fr; }
+  .one-command-header h2 { font-size: 38px; }
+  .one-command-header > .state-pill { justify-self: start; }
+  .one-command-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 11px; }
+  .one-command-actions { align-items: stretch; flex-direction: column; }
+  .one-command-actions button { width: 100%; }
+  .one-command-context > div { grid-template-columns: 1fr; }
+  .one-command-context .one-command-conflict { grid-column: auto; }
+
+  #mobile-command {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #mobile-command > .mobile-command-heading,
+  #mobile-command > .mobile-command-progress,
+  #mobile-command > .mobile-command-next,
+  #mobile-command > .mobile-command-modules,
+  #mobile-command > .mobile-install-card {
+    display: none !important;
+  }
+
+  #mobile-command > .mobile-command-sheet {
+    margin-top: 8px;
+    background: rgba(7, 14, 20, 0.88);
+  }
+}

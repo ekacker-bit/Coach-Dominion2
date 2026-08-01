@@ -482,6 +482,39 @@
            <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
          </header>
 
+        <section id="one-command" class="card one-command" aria-labelledby="one-command-heading" data-command-mode="EXECUTE">
+          <header class="one-command-header">
+            <div>
+              <div id="one-command-eyebrow" class="kicker">BUILD 019E // SINGLE ORDER</div>
+              <h2 id="one-command-heading">Assembling the next action</h2>
+              <p id="one-command-detail">Coach Dominion is reconciling the operating chain.</p>
+            </div>
+            <span id="one-command-state" class="state-pill neutral">ASSEMBLING</span>
+          </header>
+          <div class="one-command-progress" aria-hidden="true"><span id="one-command-progress"></span></div>
+          <ol id="one-command-stages" class="one-command-stages" aria-label="Current operating chain">
+            <li data-one-command-stage="contract"><span>1</span><strong>Contract</strong></li>
+            <li data-one-command-stage="plans"><span>2</span><strong>Plans</strong></li>
+            <li data-one-command-stage="week"><span>3</span><strong>Week</strong></li>
+            <li data-one-command-stage="today"><span>4</span><strong>Today</strong></li>
+            <li data-one-command-stage="evidence"><span>5</span><strong>Evidence</strong></li>
+            <li data-one-command-stage="review"><span>6</span><strong>Review</strong></li>
+          </ol>
+          <div id="one-command-modules" class="one-command-modules" aria-label="Assigned domains"></div>
+          <div class="one-command-actions">
+            <button id="one-command-primary" type="button" data-one-command-action="REFRESH">Refresh</button>
+            <button id="one-command-secondary" type="button" class="ghost" aria-controls="one-command-context" aria-expanded="false">Why this action?</button>
+          </div>
+          <details id="one-command-context" class="one-command-context">
+            <summary>Decision context</summary>
+            <div>
+              <p><span>Canonical source</span><strong id="one-command-source">Checking Contract and plan revisions</strong></p>
+              <p><span>Evidence</span><strong id="one-command-evidence">0/0 assigned domains verified</strong></p>
+              <p id="one-command-conflict" class="one-command-conflict" hidden><span>Repair</span><strong id="one-command-conflict-detail"></strong></p>
+            </div>
+          </details>
+        </section>
+
         <section id="mobile-command" class="card mobile-command" aria-labelledby="mobile-command-heading">
           <header class="mobile-command-heading">
             <div>
@@ -546,6 +579,9 @@
           <p id="mobile-command-feedback" class="muted" aria-live="polite"></p>
         </section>
 
+        <details id="today-context-detail" class="today-supporting-detail today-context-detail">
+          <summary><span>Plan &amp; coaching context</span><small>Committed work, evidence sources, and coaching logic</small></summary>
+          <div class="today-context-stack">
         <section id="today-committed-week" class="card today-committed-week" aria-labelledby="today-committed-week-heading" hidden>
           <div class="section-heading compact">
             <div><div class="kicker">APPROVED WEEK</div><h2 id="today-committed-week-heading">Today&apos;s committed plan</h2></div>
@@ -606,6 +642,8 @@
           <div id="activation-guide-progress" class="activation-guide-progress" aria-hidden="true"><span></span></div>
           <div id="activation-guide-list" class="activation-guide-list" aria-live="polite"></div>
         </section>
+          </div>
+        </details>
 
         <details class="today-supporting-detail today-brief-detail">
           <summary><span>Morning brief</span><small>The full Atlas command narrative</small></summary>
@@ -621,6 +659,8 @@
       </article>
         </details>
 
+      <details id="today-sequence-detail" class="today-supporting-detail today-sequence-shell">
+        <summary><span>Full day sequence</span><small id="today-sequence-shell-summary">Orders, progress, and safeguards</small></summary>
       <section class="card daily-coaching-loop daily-execution-queue" aria-labelledby="daily-orders-heading">
         <div class="section-heading compact">
           <div>
@@ -640,6 +680,7 @@
         </details>
         <p id="daily-orders-feedback" class="muted"></p>
       </section>
+      </details>
 
       <section id="daily-ritual" class="card daily-ritual" aria-labelledby="daily-ritual-heading" data-ritual-state="LOCKED">
         <header class="daily-ritual-header">
@@ -1419,6 +1460,7 @@
 <script src="/assets/js/experience-shell.js"></script>
 <script src="/assets/js/daily-ritual.js"></script>
 <script src="/assets/js/operating-truth.js"></script>
+<script src="/assets/js/one-command.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

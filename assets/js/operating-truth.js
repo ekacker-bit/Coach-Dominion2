@@ -245,7 +245,12 @@
         phase = "today";
         title = current ? `Execute ${current.label}` : "Execute today’s orders";
         detail = current?.detail || "Finish every assigned domain before closing the day.";
-        next = action("MODULE", current ? `Open ${current.label}` : "Open Today", current?.id === "nutrition" ? "nutrition" : current ? "performance" : "today", detail, current?.id || null);
+        const section = current?.id === "nutrition"
+          ? "nutrition"
+          : ["strength", "running", "core"].includes(current?.id)
+            ? "performance"
+            : "today";
+        next = action("MODULE", current ? `Open ${current.label}` : "Open Today", section, detail, current?.id || null);
         completedStages = ["contract", "plans", "week"];
       }
     } else if (!reviewClosed) {

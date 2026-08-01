@@ -22,9 +22,23 @@ function approvedContract(overrides = {}) {
 }
 
 {
-  assert.equal(experience.VERSION, "021C.1");
+  assert.equal(experience.VERSION, "021E.1");
   assert.equal(experience.SETUP_STEPS.length, 5);
   assert.deepEqual(experience.SETUP_STEPS.map((step) => step.id), ["profile", "outcome", "capacity", "standards", "review"]);
+}
+
+{
+  const ready = experience.amendmentReviewRoute({ status: "READY_FOR_APPROVAL", errors: [] });
+  assert.deepEqual(ready, { ready: true, step: 4, focusName: "contract-signer-name", errors: [] });
+  const profileBlocked = experience.amendmentReviewRoute({ status: "REVIEW_REQUIRED", errors: ["Enter a height between 120 and 230 cm (47 to 91 in)."] });
+  assert.equal(profileBlocked.ready, false);
+  assert.equal(profileBlocked.step, 0);
+  assert.equal(profileBlocked.focusName, "heightValue");
+  const dateBlocked = experience.amendmentReviewRoute({ status: "REVIEW_REQUIRED", errors: ["Target date cannot be in the past."] });
+  assert.equal(dateBlocked.step, 1);
+  assert.equal(dateBlocked.focusName, "targetDate");
+  const capacityBlocked = experience.amendmentReviewRoute({ status: "REVIEW_REQUIRED", errors: ["Two-a-Days can schedule no more than two sessions per training day."] });
+  assert.equal(capacityBlocked.step, 2);
 }
 
 {

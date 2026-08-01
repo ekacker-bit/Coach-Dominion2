@@ -48,7 +48,6 @@
             </div>
           </details>
         </nav>
-        <button id="help-onboarding" class="ghost" type="button">Help</button>
         <button id="logout" class="ghost">Sign out</button>
       </div>
     </header>
@@ -288,7 +287,6 @@
           <span id="connected-storage" class="state-pill neutral">LOADING</span>
         </div>
         <div class="connected-mobile-account-actions" aria-label="Account actions">
-          <button id="mobile-help-onboarding" class="ghost" type="button">Help</button>
           <button id="mobile-logout" class="ghost" type="button">Sign out</button>
         </div>
         <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
@@ -632,6 +630,35 @@
           <div id="daily-loop-phases" class="daily-execution-list" aria-label="Today’s ordered execution steps"></div>
         </details>
         <p id="daily-orders-feedback" class="muted"></p>
+      </section>
+
+      <section id="daily-ritual" class="card daily-ritual" aria-labelledby="daily-ritual-heading" data-ritual-state="LOCKED">
+        <header class="daily-ritual-header">
+          <div class="daily-ritual-seal" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
+          <div>
+            <div id="daily-ritual-eyebrow" class="kicker">BUILD 019C // THE DAILY SEAL</div>
+            <h2 id="daily-ritual-heading">Earn today&rsquo;s seal</h2>
+            <p id="daily-ritual-detail">Execute the orders and preserve the evidence before closing the day.</p>
+          </div>
+          <span id="daily-ritual-state" class="state-pill neutral">LOCKED</span>
+        </header>
+        <ol id="daily-ritual-milestones" class="daily-ritual-milestones" aria-label="Daily close progression">
+          <li data-daily-ritual-step="execute"><span>1</span><strong>Execute</strong></li>
+          <li data-daily-ritual-step="record"><span>2</span><strong>Record</strong></li>
+          <li data-daily-ritual-step="verify"><span>3</span><strong>Verify</strong></li>
+          <li data-daily-ritual-step="adapt"><span>4</span><strong>Adapt</strong></li>
+        </ol>
+        <div class="daily-ritual-body">
+          <div class="daily-ritual-metrics" aria-label="Daily seal evidence">
+            <div><span>Evidence</span><strong id="daily-ritual-evidence">0%</strong></div>
+            <div><span>Confidence</span><strong id="daily-ritual-confidence">OPEN</strong></div>
+            <div><span>Secured days</span><strong id="daily-ritual-total">0</strong></div>
+            <div><span>Current chain</span><strong id="daily-ritual-streak">0</strong></div>
+            <div><span>Rank</span><strong id="daily-ritual-rank">RECRUIT</strong></div>
+          </div>
+          <button id="daily-ritual-action" type="button" data-closed-loop-action="continue_execution">Continue Today</button>
+        </div>
+        <p id="daily-ritual-feedback" class="daily-ritual-feedback" aria-live="polite"></p>
       </section>
 
       <details class="today-supporting-detail today-workout-detail">
@@ -1341,23 +1368,6 @@
       </section>
       </section>
 
-      <section id="onboarding" class="card onboarding-card" aria-labelledby="onboarding-heading" hidden>
-        <div class="section-heading compact">
-          <div>
-            <div class="kicker">ORIENTATION</div>
-            <h2 id="onboarding-heading">How to use the command center</h2>
-          </div>
-          <button id="dismiss-onboarding" class="ghost" type="button">Dismiss</button>
-        </div>
-        <ol class="onboarding-steps">
-          <li>ROLL CALL — capture today's readiness.</li>
-          <li>MISSION — review the generated mission.</li>
-          <li>RECORD — save the Dominion Record.</li>
-          <li>INSPECTION — review and finalize the weekly inspection.</li>
-          <li>TRENDS — review trajectory and consistency.</li>
-          <li>STANDARDS — review standards candidates and audit the outcome.</li>
-        </ol>
-      </section>
     </div>
   </main>
   <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
@@ -1398,6 +1408,7 @@
 <script src="/assets/js/contract-activation.js"></script>
 <script src="/assets/js/mobile-command.js"></script>
 <script src="/assets/js/experience-shell.js"></script>
+<script src="/assets/js/daily-ritual.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

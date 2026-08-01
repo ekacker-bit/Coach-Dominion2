@@ -9,7 +9,6 @@ let inspectionHistory = [];
 let activeSection = "today";
 let complianceDirtyState = false;
 let compliancePreviousState = null;
-let onboardingDismissed = false;
 let lastSavedComplianceState = null;
 let currentSaveState = "empty";
 let standardsReviewState = [];
@@ -304,13 +303,6 @@ function deriveFinalizeConfirmationState(isFinalized = false, evidenceCoverage =
 
 function isFinalizedReadOnlyInspection(inspection = {}) {
   return Boolean(inspection?.finalizedAt || inspection?.inspectionStatus === "INSPECTION COMPLETE");
-}
-
-function deriveOnboardingVisibility(hasViewed = false) {
-  return {
-    visible: Boolean(hasViewed),
-    dismissLabel: "Dismiss onboarding"
-  };
 }
 
 function getStatusMessage(state = "empty") {
@@ -7095,6 +7087,59 @@ function buildCurrentDailyExecutionQueue() {
   });
 }
 
+function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
+  const section = document.getElementById("daily-ritual");
+  if (!section || typeof DominionDailyRitual === "undefined") return;
+  let closedLoop = null;
+  try { closedLoop = buildCurrentClosedLoopState(); }
+  catch (_) {}
+  let readinessState = "";
+  if (dailyState?.date === todayISODate()) {
+    try { readinessState = evaluateOperationalReadiness(dailyState).state; }
+    catch (_) {}
+  }
+  const ritual = DominionDailyRitual.buildDailyRitual({
+    date: todayISODate(),
+    queue: queue || {},
+    closedLoop: closedLoop || {},
+    history: readClosedLoopHistory(),
+    readinessState,
+    rank: rankStatus?.currentRank || "RECRUIT"
+  });
+  const priorState = section.dataset.ritualState || "";
+  section.dataset.ritualState = ritual.state;
+  section.dataset.ritualTone = ritual.tone;
+  section.classList.toggle("is-sealed", ritual.sealed);
+  setText("daily-ritual-eyebrow", ritual.eyebrow);
+  setText("daily-ritual-heading", ritual.title);
+  setText("daily-ritual-detail", ritual.detail);
+  setText("daily-ritual-state", ritual.state.replaceAll("_", " "));
+  setText("daily-ritual-evidence", `${ritual.evidence.percent}%`);
+  setText("daily-ritual-confidence", ritual.evidence.confidence);
+  setText("daily-ritual-total", ritual.stats.total);
+  setText("daily-ritual-streak", ritual.stats.streak);
+  setText("daily-ritual-rank", ritual.rank);
+  const badge = document.getElementById("daily-ritual-state");
+  if (badge) badge.className = `state-pill ${ritual.tone === "protect" ? "red" : ritual.sealed ? "green" : ["READY_TO_SEAL", "LESSON_READY"].includes(ritual.state) ? "yellow" : "neutral"}`;
+  const action = document.getElementById("daily-ritual-action");
+  if (action) {
+    action.textContent = ritual.actionLabel;
+    action.dataset.closedLoopAction = ritual.action;
+  }
+  ritual.milestones.forEach((step) => {
+    const item = document.querySelector(`[data-daily-ritual-step="${step.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", step.complete);
+    item.classList.toggle("current", step.current);
+    item.setAttribute("aria-current", step.current ? "step" : "false");
+  });
+  if (priorState && priorState !== ritual.state) {
+    setText("daily-ritual-feedback", ritual.sealed
+      ? `Day secured. ${ritual.stats.streak} day chain active.`
+      : `${ritual.state.replaceAll("_", " ")}: ${ritual.title}`);
+  }
+}
+
 function renderDailyCoachingLoop() {
   renderCoreToday();
   const panel = document.getElementById("daily-orders-panel");
@@ -7104,6 +7149,7 @@ function renderDailyCoachingLoop() {
   const queue = buildCurrentDailyExecutionQueue();
   if (!loop || !queue) {
     panel.innerHTML = `<div class="performance-empty">Daily coaching engine unavailable.</div>`;
+    renderDailyRitual(queue);
     renderMobileCommand();
     return;
   }
@@ -7135,6 +7181,7 @@ function renderDailyCoachingLoop() {
     <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
   </article>`).join("");
   renderClosedLoopCoaching();
+  renderDailyRitual(queue);
   renderAdaptiveCoaching();
   renderMobileCommand();
   applyProductPolish();
@@ -8939,12 +8986,11 @@ function setActiveSection(section = "today") {
 
 function organizeWorkspaceSections() {
   const app = document.getElementById("app-content");
-  const onboarding = document.getElementById("onboarding");
   const today = document.getElementById("today");
   if (!app || !today) return;
   ["record", "inspection", "trends", "standards", "rank", "performance"].forEach((id) => {
     const section = document.getElementById(id);
-    if (section && section.parentElement !== app) app.insertBefore(section, onboarding || null);
+    if (section && section.parentElement !== app) app.appendChild(section);
   });
   document.body.dataset.workspaceArchitecture = "009C";
 }
@@ -8952,25 +8998,6 @@ function organizeWorkspaceSections() {
 function restoreSectionFromHash() {
   const hash = window.location.hash ? window.location.hash.replace("#", "") : "";
   setActiveSection(hash || "today");
-}
-
-function persistOnboardingState() {
-  window.localStorage.setItem("coach-dominion:onboarding-dismissed", onboardingDismissed ? "true" : "false");
-}
-
-function renderOnboarding() {
-  const panel = document.getElementById("onboarding");
-  if (!panel) return;
-  panel.hidden = onboardingDismissed;
-  panel.setAttribute("aria-hidden", onboardingDismissed ? "true" : "false");
-}
-
-function openOnboarding() {
-  onboardingDismissed = false;
-  persistOnboardingState();
-  renderOnboarding();
-  setActiveSection("today");
-  window.history.replaceState(null, "", "#today");
 }
 
 async function signOutUser() {
@@ -10540,11 +10567,9 @@ async function init() {
     session = data.session;
     setText("identity", "Signed in as " + session.user.email);
     await flushMobilePendingWrites();
-    onboardingDismissed = window.localStorage.getItem("coach-dominion:onboarding-dismissed") === "true";
     loadStandardsReviewState();
     loadRankStatus();
     loadPromotionHistory();
-    renderOnboarding();
     organizeWorkspaceSections();
     restoreSectionFromHash();
     await loadDailyState();
@@ -12211,8 +12236,6 @@ if (typeof document !== "undefined") {
     const more = document.querySelector(".nav-more[open]");
     if (more && !more.contains(event.target)) more.removeAttribute("open");
   });
-  document.getElementById("help-onboarding").addEventListener("click", openOnboarding);
-  document.getElementById("mobile-help-onboarding")?.addEventListener("click", openOnboarding);
   document.getElementById("edit-roll-call")?.addEventListener("click", () => {
     prefillMorningRollCallForm(dailyState);
     document.getElementById("roll-call-card").hidden = false;
@@ -12325,11 +12348,6 @@ if (typeof document !== "undefined") {
     }
     renderStandardsSection();
   });
-  document.getElementById("dismiss-onboarding").addEventListener("click", () => {
-    onboardingDismissed = true;
-    persistOnboardingState();
-    renderOnboarding();
-  });
   window.addEventListener("hashchange", restoreSectionFromHash);
   document.getElementById("logout").addEventListener("click", signOutUser);
   document.getElementById("mobile-logout")?.addEventListener("click", signOutUser);
@@ -12407,7 +12425,6 @@ if (typeof module !== "undefined") {
     deriveDirtyState,
     deriveFinalizeConfirmationState,
     isFinalizedReadOnlyInspection,
-    deriveOnboardingVisibility,
     getStatusMessage,
     deriveSaveState,
     deriveInputImmutabilityState,

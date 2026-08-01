@@ -136,7 +136,7 @@ const FITNESS_TEST_EVENT_METRIC_TYPES = new Set(["repetitions", "duration", "dis
 const PERSONAL_RECORD_CATEGORY_OPTIONS = ["LOAD_PR", "REP_PR", "VOLUME_PR", "ESTIMATED_1RM_PR", "VERIFIED_1RM_PR", "TIME_PR", "DISTANCE_PR", "DURATION_PR", "TEST_EVENT_PR", "TEST_SCORE_PR", "CONDITIONING_PR"];
 const MILESTONE_CATALOG = [
   { code: "FIRST_STRENGTH_BENCHMARK", title: "First strength benchmark logged", description: "A first strength benchmark is now recorded.", domain: "strength", evaluationType: "entry", targetValue: 1, targetUnit: "entry", direction: "higher", requiredActivity: null, evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Strength baseline established." },
-  { code: "BENCH_PRESS_BODYWEIGHT_1_0", title: "Bench press 1.0Ã— bodyweight", description: "Bench press weight meets at least 1.0Ã— bodyweight.", domain: "strength", evaluationType: "ratio", targetValue: 1, targetUnit: "bodyweight", direction: "higher", requiredActivity: "bench_press", evidenceRequirement: "VERIFIED", repeatable: false, active: true, commandNote: "Strong foundation benchmark reached." },
+  { code: "BENCH_PRESS_BODYWEIGHT_1_0", title: "Bench press 1.0× bodyweight", description: "Bench press weight meets at least 1.0× bodyweight.", domain: "strength", evaluationType: "ratio", targetValue: 1, targetUnit: "bodyweight", direction: "higher", requiredActivity: "bench_press", evidenceRequirement: "VERIFIED", repeatable: false, active: true, commandNote: "Strong foundation benchmark reached." },
   { code: "PULL_UPS_20", title: "20 strict pull-ups", description: "A strength benchmark of 20 strict pull-ups was achieved.", domain: "strength", evaluationType: "repetitions", targetValue: 20, targetUnit: "repetitions", direction: "higher", requiredActivity: "pull_up", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "A meaningful pull-up milestone was achieved." },
   { code: "PLANK_2MIN", title: "2-minute plank", description: "A 2-minute plank hold was achieved.", domain: "core", evaluationType: "duration", targetValue: 120, targetUnit: "seconds", direction: "higher", requiredActivity: "plank", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core endurance milestone reached." },
   { code: "PLANK_3MIN", title: "3-minute plank", description: "A 3-minute plank hold was achieved.", domain: "core", evaluationType: "duration", targetValue: 180, targetUnit: "seconds", direction: "higher", requiredActivity: "plank", evidenceRequirement: "SELF REPORTED", repeatable: false, active: true, commandNote: "Core endurance milestone reached." },
@@ -311,8 +311,8 @@ function isFinalizedReadOnlyInspection(inspection = {}) {
 
 function getStatusMessage(state = "empty") {
   const messages = {
-    loading: "Loadingâ€¦",
-    saving: "Savingâ€¦",
+    loading: "Loading…",
+    saving: "Saving…",
     saved: "Saved",
     "locally saved": "Locally saved",
     failed: "Failed",
@@ -601,7 +601,7 @@ function deriveRankStatusFromRecord(record = {}) {
 
 function formatPromotionMetric(value = 0, displayType = "score") {
   const numeric = Number(value || 0);
-  if (!Number.isFinite(numeric)) return "â€”";
+  if (!Number.isFinite(numeric)) return "—";
   if (displayType === "score") {
     const rounded = Math.round((numeric + Number.EPSILON) * 100) / 100;
     return rounded.toFixed(2);
@@ -1044,7 +1044,7 @@ function parseOptionalMetric(value, config) {
 }
 
 function formatObjectiveMetric(value, unit) {
-  return isAvailable(value) ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${unit}` : "â€”";
+  return isAvailable(value) ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${unit}` : "—";
 }
 
 function objectiveSourceLabel(source) {
@@ -1209,7 +1209,7 @@ function evaluateOperationalReadiness(state) {
 }
 
 function baselineValue(value, unit) {
-  if (value === null || value === undefined) return "â€”";
+  if (value === null || value === undefined) return "—";
   const rounded = Number.isInteger(value) ? value : Number(value).toFixed(1);
   return `${rounded}${unit ? ` ${unit}` : ""}`;
 }
@@ -1241,7 +1241,7 @@ function renderBaselineIntelligence() {
   const decision = !dailyState
     ? "Complete Morning Roll Call to compare today with your personal norms."
     : result?.baselineAdjustment === "GREEN_TO_YELLOW"
-      ? "Personal baseline reduced todayâ€™s readiness from GREEN to YELLOW."
+      ? "Personal baseline reduced today’s readiness from GREEN to YELLOW."
       : profile.state === "LEARNING"
         ? "No readiness adjustment. Atlas needs 10 prior observations for sleep, resting heart rate, or HRV."
         : "Personal baseline reviewed. No additional restriction was required.";
@@ -1392,9 +1392,9 @@ function buildComplianceExplanation(calculation) {
     .map((item) => `${item.label}: ${item.status} (${item.score})`);
   const excluded = calculation.evidence
     .filter((item) => !item.included)
-    .map((item) => `${item.label}: ${item.status || "not assessed"} â€” ${item.reason}`);
+    .map((item) => `${item.label}: ${item.status || "not assessed"} — ${item.reason}`);
   const formula = included.length
-    ? `Applicable weighted average (current weights are 1): (${calculation.evidence.filter((item) => item.included).map((item) => `${item.score} Ã— ${item.weight}`).join(" + ")}) / ${calculation.totalWeight} = ${calculation.score}`
+    ? `Applicable weighted average (current weights are 1): (${calculation.evidence.filter((item) => item.included).map((item) => `${item.score} × ${item.weight}`).join(" + ")}) / ${calculation.totalWeight} = ${calculation.score}`
     : "No applicable assessed domains; no Discipline Score calculated.";
   return { formula, included, excluded };
 }
@@ -1905,7 +1905,7 @@ function clearElement(element) {
 }
 
 function valueOrDash(value, suffix = "") {
-  if (value === null || value === undefined || value === "") return "â€”";
+  if (value === null || value === undefined || value === "") return "—";
   return `${value}${suffix}`;
 }
 
@@ -2464,9 +2464,9 @@ function renderFitnessTestWorkspace(attempt = null) {
     return `<label class="performance-entry-card"><strong>${event.eventName || event.eventCode}</strong><input type="number" step="0.01" value="${value}" data-event-code="${event.eventCode}" data-field="eventValue" /><small>${event.unit || "value"}</small></label>`;
   }).join("");
   const historyCards = (fitnessTestAttempts || []).map((attempt) => {
-    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${attempt.protocolName || attempt.protocolCode}</strong><p>${attempt.testDate} â€¢ ${attempt.status}</p></div><span class="state-pill neutral">${attempt.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${attempt.notes || "No notes recorded."}</span><span>${attempt.eventResults.length} event${attempt.eventResults.length === 1 ? "" : "s"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="fitness-test-resume" data-id="${attempt.id || ""}">Resume</button><button type="button" data-action="fitness-test-delete" data-id="${attempt.id || ""}">Delete</button></div></article>`;
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${attempt.protocolName || attempt.protocolCode}</strong><p>${attempt.testDate} • ${attempt.status}</p></div><span class="state-pill neutral">${attempt.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${attempt.notes || "No notes recorded."}</span><span>${attempt.eventResults.length} event${attempt.eventResults.length === 1 ? "" : "s"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="fitness-test-resume" data-id="${attempt.id || ""}">Resume</button><button type="button" data-action="fitness-test-delete" data-id="${attempt.id || ""}">Delete</button></div></article>`;
   }).join("");
-  workspace.innerHTML = `<article class="performance-entry-card" data-fitness-workspace="true"><div class="performance-entry-header"><div><strong>${activeAttempt.protocolName || activeAttempt.protocolCode}</strong><p>${activeAttempt.testDate} â€¢ ${activeAttempt.status}</p></div><span class="state-pill neutral">ACTIVE TEST</span></div><div class="performance-entry-meta"><span>${activeAttempt.notes || "Capture the working test details below."}</span><span>${(activeAttempt.eventResults || []).length} event${(activeAttempt.eventResults || []).length === 1 ? "" : "s"}</span></div><div class="performance-metric-grid">${eventRows}</div><label>Overall score<input type="number" step="0.01" value="${activeAttempt.overallScore ?? ""}" data-field="overallScore"></label><label>Notes<textarea rows="3" data-field="notes">${activeAttempt.notes || ""}</textarea></label><div class="performance-entry-actions"><button type="button" data-action="fitness-test-save">Save draft</button><button type="button" class="ghost" data-action="fitness-test-complete">Complete</button><button type="button" class="ghost" data-action="fitness-test-cancel">Cancel</button></div></article>${historyCards.length ? historyCards : '<div class="performance-empty">No saved test attempts yet.</div>'}`;
+  workspace.innerHTML = `<article class="performance-entry-card" data-fitness-workspace="true"><div class="performance-entry-header"><div><strong>${activeAttempt.protocolName || activeAttempt.protocolCode}</strong><p>${activeAttempt.testDate} • ${activeAttempt.status}</p></div><span class="state-pill neutral">ACTIVE TEST</span></div><div class="performance-entry-meta"><span>${activeAttempt.notes || "Capture the working test details below."}</span><span>${(activeAttempt.eventResults || []).length} event${(activeAttempt.eventResults || []).length === 1 ? "" : "s"}</span></div><div class="performance-metric-grid">${eventRows}</div><label>Overall score<input type="number" step="0.01" value="${activeAttempt.overallScore ?? ""}" data-field="overallScore"></label><label>Notes<textarea rows="3" data-field="notes">${activeAttempt.notes || ""}</textarea></label><div class="performance-entry-actions"><button type="button" data-action="fitness-test-save">Save draft</button><button type="button" class="ghost" data-action="fitness-test-complete">Complete</button><button type="button" class="ghost" data-action="fitness-test-cancel">Cancel</button></div></article>${historyCards.length ? historyCards : '<div class="performance-empty">No saved test attempts yet.</div>'}`;
 }
 
 function validateFitnessTestAttempt(input = {}) {
@@ -2933,13 +2933,13 @@ function buildAtlasPerformanceReview(records = [], milestones = [], context = {}
   const estimatedRecords = (records || []).filter((record) => record?.recordStatus === "ESTIMATED");
   const limitedEvidence = Boolean(context.incompleteEvidence || context.entry?.evidenceStatus === "INCOMPLETE" || context.testAttempt?.evidenceStatus === "INCOMPLETE");
   const strongestResult = confirmedRecords[0] || estimatedRecords[0] || null;
-  const improvement = strongestResult?.improvementAbsolute ? `${strongestResult.improvementAbsolute.toFixed(1)}` : "â€”";
+  const improvement = strongestResult?.improvementAbsolute ? `${strongestResult.improvementAbsolute.toFixed(1)}` : "—";
   return {
     id: `atlas-${stableSerializePerformanceValue({ records: records.length, milestones: milestones.length, context: context.entry?.id || context.testAttempt?.id || "none" })}`,
     status: confirmedRecords.length ? "TEST COMPLETED" : "NO NEW RECORDS",
     newRecords: confirmedRecords.length ? confirmedRecords.map((record) => record.recordCategory).join(", ") : "None",
     milestones: milestones.length ? milestones.map((milestone) => milestone.title).join(" / ") : "None",
-    strongestResult: strongestResult ? `${strongestResult.activityName || strongestResult.recordCategory} â€¢ ${strongestResult.normalizedValue}` : "No comparable result",
+    strongestResult: strongestResult ? `${strongestResult.activityName || strongestResult.recordCategory} • ${strongestResult.normalizedValue}` : "No comparable result",
     improvement,
     limitedEvidence,
     nextBenchmark: confirmedRecords.length ? "Maintain evidentiary quality and repeat the benchmark." : "Complete a verified test or entry to generate a benchmark.",
@@ -4374,7 +4374,7 @@ function renderCoreWorkspace(entries = performanceEntries) {
   const nextMilestone = document.getElementById("core-next-milestone");
   if (nextMilestone) {
     nextMilestone.innerHTML = model.nextMilestone
-      ? `<strong>${escapeHtml(model.nextMilestone.title)}</strong><p>${escapeHtml(model.nextMilestone.description)}</p><div class="core-progress-track" role="progressbar" aria-label="${escapeHtml(model.nextMilestone.title)} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.nextMilestone.progressPercent}"><span style="width:${model.nextMilestone.progressPercent}%"></span></div><small>${model.nextMilestone.currentValue} / ${model.nextMilestone.targetValue} ${escapeHtml(model.nextMilestone.targetUnit)} Â· ${model.nextMilestone.progressPercent}%</small>`
+      ? `<strong>${escapeHtml(model.nextMilestone.title)}</strong><p>${escapeHtml(model.nextMilestone.description)}</p><div class="core-progress-track" role="progressbar" aria-label="${escapeHtml(model.nextMilestone.title)} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.nextMilestone.progressPercent}"><span style="width:${model.nextMilestone.progressPercent}%"></span></div><small>${model.nextMilestone.currentValue} / ${model.nextMilestone.targetValue} ${escapeHtml(model.nextMilestone.targetUnit)} · ${model.nextMilestone.progressPercent}%</small>`
       : `<strong>Core milestone set complete</strong><p>Every current abs/core objective has qualifying evidence. Keep building durable capacity.</p><small>${model.completedMilestones} of ${model.totalMilestones} complete</small>`;
   }
   const recentList = document.getElementById("core-recent-list");
@@ -4384,7 +4384,7 @@ function renderCoreWorkspace(entries = performanceEntries) {
         const details = [];
         if (Number(entry.metrics?.repetitions) > 0) details.push(`${Number(entry.metrics.repetitions)} reps`);
         if (Number(entry.metrics?.duration_seconds) > 0) details.push(formatCoreWorkspaceDuration(entry.metrics.duration_seconds));
-        return `<div class="core-recent-entry"><div><strong>${escapeHtml(entry.activityName || "Core work")}</strong><span>${escapeHtml(entry.performanceDate)}</span></div><small>${escapeHtml(details.join(" Â· ") || entry.entryType.replaceAll("_", " "))}</small></div>`;
+        return `<div class="core-recent-entry"><div><strong>${escapeHtml(entry.activityName || "Core work")}</strong><span>${escapeHtml(entry.performanceDate)}</span></div><small>${escapeHtml(details.join(" · ") || entry.entryType.replaceAll("_", " "))}</small></div>`;
       }).join("")
       : `<div class="performance-empty">No abs/core evidence yet. Start with a training entry or a benchmark.</div>`;
   }
@@ -4427,7 +4427,7 @@ function renderPerformanceIntelligenceSection(entries = performanceEntries) {
   }).join("");
 
   const prRows = overview.prCandidates.slice(0, 6).map((candidate) => {
-    return `<article class="intelligence-row"><div><strong>${escapeHtml(candidate.status)}</strong><p>${escapeHtml(candidate.series?.activityName || "Metric")} â€¢ ${escapeHtml(candidate.series?.metricCategory || "unknown")}</p></div><div><span>${escapeHtml(candidate.reason || "No rationale")}</span><small>${Number.isFinite(candidate.gapPct) ? `${candidate.gapPct.toFixed(2)}% gap` : "Gap unavailable"}</small></div></article>`;
+    return `<article class="intelligence-row"><div><strong>${escapeHtml(candidate.status)}</strong><p>${escapeHtml(candidate.series?.activityName || "Metric")} • ${escapeHtml(candidate.series?.metricCategory || "unknown")}</p></div><div><span>${escapeHtml(candidate.reason || "No rationale")}</span><small>${Number.isFinite(candidate.gapPct) ? `${candidate.gapPct.toFixed(2)}% gap` : "Gap unavailable"}</small></div></article>`;
   }).join("");
 
   const metricCards = filteredMetrics.slice(0, 12).map((item) => {
@@ -4464,7 +4464,7 @@ function renderPerformanceIntelligenceSection(entries = performanceEntries) {
     <section class="intelligence-panel"><h3>Plateau and Regression Watchlist</h3>${watchlistRows ? `<table class="intelligence-watchlist"><thead><tr><th>Metric</th><th>Plateau</th><th>Regression</th><th>Confidence</th></tr></thead><tbody>${watchlistRows}</tbody></table>` : '<div class="intelligence-empty">No plateau or regression alerts detected.</div>'}</section>
     <section class="intelligence-panel"><h3>Next Benchmark</h3>${benchmarkPanel}</section>
     <section class="intelligence-panel"><h3>PR Readiness</h3>${prRows || '<div class="intelligence-empty">No PR readiness candidates available.</div>'}<p class="muted">PR readiness is evidence-based and not a guarantee. Do not test through pain, fatigue, or injury.</p></section>
-    <section class="intelligence-panel"><h3>Fitness-Test Event Intelligence</h3>${fitnessRows || '<div class="intelligence-empty">No completed compatible test attempts available.</div>'}<p class="muted">Improved: ${overview.fitnessTestIntelligence.improvedEventCount} â€¢ Unchanged: ${overview.fitnessTestIntelligence.unchangedEventCount} â€¢ Declined: ${overview.fitnessTestIntelligence.declinedEventCount} â€¢ Missing required: ${overview.fitnessTestIntelligence.missingEventCount}</p></section>
+    <section class="intelligence-panel"><h3>Fitness-Test Event Intelligence</h3>${fitnessRows || '<div class="intelligence-empty">No completed compatible test attempts available.</div>'}<p class="muted">Improved: ${overview.fitnessTestIntelligence.improvedEventCount} • Unchanged: ${overview.fitnessTestIntelligence.unchangedEventCount} • Declined: ${overview.fitnessTestIntelligence.declinedEventCount} • Missing required: ${overview.fitnessTestIntelligence.missingEventCount}</p></section>
     <section class="intelligence-panel"><h3>Atlas Performance Intelligence</h3><pre class="atlas-brief-output" aria-live="polite">${escapeHtml(overview.atlas.text)}</pre></section>
     <section class="intelligence-panel"><h3>Evidence Limitations</h3>${overview.evidenceLimitations.length ? `<ul>${overview.evidenceLimitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : '<div class="intelligence-empty">No material evidence limitations detected.</div>'}</section>
   `;
@@ -4512,7 +4512,7 @@ function renderPersonalRecordsSection() {
   const container = document.getElementById("performance-pr-list");
   if (!container) return;
   ensurePerformanceAnalyticStateLoaded();
-  container.innerHTML = personalRecords.length ? personalRecords.map((record) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${record.recordCategory}</strong><p>${record.activityName || record.domain}</p></div><span class="state-pill neutral">${record.recordStatus}</span></div><div class="performance-entry-meta"><span>${record.normalizedValue} ${record.unit || ""}</span><span>Prev: ${record.previousRecordValue ?? "â€”"}</span></div></article>`).join("") : `<div class="performance-empty">No personal records yet.</div>`;
+  container.innerHTML = personalRecords.length ? personalRecords.map((record) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${record.recordCategory}</strong><p>${record.activityName || record.domain}</p></div><span class="state-pill neutral">${record.recordStatus}</span></div><div class="performance-entry-meta"><span>${record.normalizedValue} ${record.unit || ""}</span><span>Prev: ${record.previousRecordValue ?? "—"}</span></div></article>`).join("") : `<div class="performance-empty">No personal records yet.</div>`;
 }
 
 function renderMilestonesSection() {
@@ -4975,8 +4975,8 @@ function renderWeeklyOrchestrator() {
     return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
       <div>${activities}</div>
-      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `${day.twoADay ? "AM/PM Â· " : ""}long-run time uncapped${day.twoADay ? " Â· companion session inside 240-minute split-day capacity" : ""}` : day.twoADay ? `${day.estimatedMinutes} / 240 min Â· AM/PM Two-a-Day` : day.twoADayAuthorizationRequired ? `${day.estimatedMinutes} min Â· Two-a-Days OFF` : day.twoADayCandidate ? `${day.estimatedMinutes} min Â· combined; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
-      ${day.nutrition ? `<small class="weekly-orchestrator-fuel">Fuel Â· ${day.nutrition.calories || "â€”"} kcal Â· ${day.nutrition.protein || "â€”"}g protein</small>` : ""}
+      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `${day.twoADay ? "AM/PM · " : ""}long-run time uncapped${day.twoADay ? " · companion session inside 240-minute split-day capacity" : ""}` : day.twoADay ? `${day.estimatedMinutes} / 240 min · AM/PM Two-a-Day` : day.twoADayAuthorizationRequired ? `${day.estimatedMinutes} min · Two-a-Days OFF` : day.twoADayCandidate ? `${day.estimatedMinutes} min · combined; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
+      ${day.nutrition ? `<small class="weekly-orchestrator-fuel">Fuel · ${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein</small>` : ""}
       ${day.conflicts.map((item) => `<p class="weekly-orchestrator-conflict ${item.severity.toLowerCase()}">${escapeHtml(item.detail)}</p>`).join("")}
     </article>`;
   }).join("");
@@ -5064,13 +5064,13 @@ function splitDayCheckpointForm(gate = {}, day = {}, week = {}) {
     <div class="split-day-checkpoint-heading"><div><span>MIDDAY RECHECK</span><strong>Clear the PM session deliberately</strong></div><mark class="${splitDayGateTone(gate)}">${escapeHtml(splitDayGateLabel(gate))}</mark></div>
     ${blockers}
     <div class="split-day-checkpoint-fields">
-      <label>Energy now<select name="energy" required><option value="">Select 1â€“10</option>${energyOptions}</select></label>
+      <label>Energy now<select name="energy" required><option value="">Select 1–10</option>${energyOptions}</select></label>
       <label>New pain?<select name="newPain" required><option value="">Select</option><option value="NO" ${checkpoint.newPain === false ? "selected" : ""}>No</option><option value="YES" ${checkpoint.newPain === true ? "selected" : ""}>Yes</option></select></label>
       <label class="split-day-check"><input type="checkbox" name="refueled" ${checkpoint.refueled ? "checked" : ""}> Refueled</label>
       <label class="split-day-check"><input type="checkbox" name="hydrated" ${checkpoint.hydrated ? "checked" : ""}> Hydrated</label>
       <label class="split-day-notes">Notes<input name="notes" maxlength="280" value="${escapeHtml(checkpoint.notes || "")}" placeholder="Optional context"></label>
     </div>
-    <div class="split-day-checkpoint-actions"><button type="submit">Save checkpoint</button><small>${splitDayStorageMode === "REMOTE" ? "Account synced" : "Saved on this device"}${gate.unlockAt ? ` Â· Earliest PM session ${new Date(gate.unlockAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}</small></div>
+    <div class="split-day-checkpoint-actions"><button type="submit">Save checkpoint</button><small>${splitDayStorageMode === "REMOTE" ? "Account synced" : "Saved on this device"}${gate.unlockAt ? ` · Earliest PM session ${new Date(gate.unlockAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}</small></div>
     <input type="hidden" name="weekId" value="${escapeHtml(week.id || "")}">
     <input type="hidden" name="dayDate" value="${escapeHtml(day.date || todayISODate())}">
   </form>`;
@@ -5115,13 +5115,13 @@ function renderTodayCommittedWeek() {
       const stateTone = locked && index > 0 ? splitDayGateTone(splitDayGate) : execution.tone;
       return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked ? "locked" : ""}">
         <span>${item.sessionOrder || index + 1}</span>
-        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} Â· ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session Â· checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
+        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
       </article>`;
     }).join("")
-    : `<article class="recovery"><span>âœ“</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
+    : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
-  const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM Â· ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active Â· ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Todayâ€™s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
-  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM Â· " : ""}LONG RUN Â· TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY Â· AM/PM Â· ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED Â· TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED Â· ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "â€”"} kcal Â· ${day.nutrition.protein || "â€”"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+  const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
+  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
 }
 
 function todaySessionExecution(item = {}) {
@@ -5286,7 +5286,7 @@ function renderContractActivation() {
   }
   const modules = state.modules.map((item) => {
     const changes = item.changes?.length
-      ? `<details class="contract-activation-changes"><summary>${item.changes.length} Contract change${item.changes.length === 1 ? "" : "s"}</summary><ul>${item.changes.map((change) => `<li><span>${escapeHtml(change.label)}</span><strong>${escapeHtml(change.from)} â†’ ${escapeHtml(change.to)}</strong></li>`).join("")}</ul></details>`
+      ? `<details class="contract-activation-changes"><summary>${item.changes.length} Contract change${item.changes.length === 1 ? "" : "s"}</summary><ul>${item.changes.map((change) => `<li><span>${escapeHtml(change.label)}</span><strong>${escapeHtml(change.from)} → ${escapeHtml(change.to)}</strong></li>`).join("")}</ul></details>`
       : "";
     return `<article class="contract-activation-module ${item.complete ? "complete" : "pending"}">
       <div class="contract-activation-module-head"><span>${escapeHtml(item.label)}</span><strong class="state-pill ${contractActivationTone(item.status)}">${escapeHtml(item.status.replaceAll("_", " "))}</strong></div>
@@ -5351,7 +5351,7 @@ function renderRecruitContract() {
   if (weeklySurface) weeklySurface.hidden = Boolean(approved && !signed);
   if (editorSummary) {
     editorSummary.textContent = current
-      ? `${recruitContractGoalLabel(current.primaryGoal)} Â· ${current.trainingDaysPerWeek} days Â· ${current.twoADays ? "Two-a-Days" : `${current.sessionMinutes} min`}`
+      ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.twoADays ? "Two-a-Days" : `${current.sessionMinutes} min`}`
       : "Set goal, capacity, and constraints";
   }
   if (editor && !editor.dataset.focusInitialized) {
@@ -5388,17 +5388,17 @@ function renderRecruitContract() {
     <header><strong>${escapeHtml(day.weekday)}</strong><span>${escapeHtml(day.date.slice(5))}</span></header>
     <strong>${day.isRecoveryDay ? "Recovery" : day.load === "TWO_A_DAY" ? "Two-a-Day" : day.load === "STACKED" ? "Combined day" : "Training"}</strong>
     <div class="recruit-contract-day-tags">${day.activities.length ? day.activities.map((item) => `<span>${escapeHtml(item)}</span>`).join("") : "<span>OFF</span>"}</div>
-    <small>${day.isRecoveryDay ? "No assigned training." : day.load === "TWO_A_DAY" ? "Two-session capacity Â· target 121â€“240 min." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
+    <small>${day.isRecoveryDay ? "No assigned training." : day.load === "TWO_A_DAY" ? "Two-session capacity · target 121–240 min." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
   </article>`).join("");
   const nutritionConnection = recruitContractNutritionConnection(current);
   const modules = Object.entries(current.moduleReadiness || {}).map(([key, originalItem]) => {
     const item = key === "nutrition" && nutritionConnection ? nutritionConnection : originalItem;
     const labels = { strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition" };
     const inputs = current.planningInputs?.[key];
-    const detail = key === "strength" && inputs ? `${inputs.daysPerWeek} days Â· ${inputs.sessionMinutes} min` :
-      key === "running" && inputs ? `${inputs.runningDaysPerWeek} days Â· ${inputs.declaredWeeklyDistance || "â€”"} ${inputs.preferredUnit}` :
-      key === "core" && inputs ? `${inputs.sessionsPerWeek} days Â· ${inputs.sessionMinutes} min` :
-      key === "nutrition" && inputs ? `${recruitContractNutritionLabel(inputs.commitment)}${nutritionConnection?.targetSummary ? ` Â· ${nutritionConnection.targetSummary}` : ""}` : "Not included";
+    const detail = key === "strength" && inputs ? `${inputs.daysPerWeek} days · ${inputs.sessionMinutes} min` :
+      key === "running" && inputs ? `${inputs.runningDaysPerWeek} days · ${inputs.declaredWeeklyDistance || "—"} ${inputs.preferredUnit}` :
+      key === "core" && inputs ? `${inputs.sessionsPerWeek} days · ${inputs.sessionMinutes} min` :
+      key === "nutrition" && inputs ? `${recruitContractNutritionLabel(inputs.commitment)}${nutritionConnection?.targetSummary ? ` · ${nutritionConnection.targetSummary}` : ""}` : "Not included";
     const planAction = key === "nutrition"
       ? `<button type="button" class="ghost recruit-contract-module-action" data-recruit-contract-action="nutrition-plan">${nutritionConnection?.baseline ? "Open nutrition plan" : "Set nutrition targets"}</button>`
       : "";
@@ -5410,7 +5410,7 @@ function renderRecruitContract() {
   const operatingTerms = `
     <article class="recruit-contract-brief">
       <div><span class="kicker">${current.status === "APPROVED" ? `CONTRACT ${current.revision}` : "CONTRACT PREVIEW"}</span><h3>${escapeHtml(current.target)}</h3><p>${escapeHtml(recruitContractGoalLabel(current.primaryGoal))}${escapeHtml(targetDate)}. ${current.trainingDaysPerWeek} training days and ${7 - current.trainingDaysPerWeek} recovery day${7 - current.trainingDaysPerWeek === 1 ? "" : "s"}.</p></div>
-      <div class="recruit-contract-brief-meta"><div><span>Strength</span><strong>${current.strengthDaysPerWeek}/wk</strong></div><div><span>Running</span><strong>${current.runningDaysPerWeek}/wk</strong></div><div><span>Core</span><strong>${current.coreDaysPerWeek}/wk</strong></div><div><span>Standard session</span><strong>${current.sessionMinutes} min</strong></div><div><span>Two-a-Days</span><strong>${current.twoADays ? "ENABLED Â· 240 MIN" : "OFF"}</strong></div></div>
+      <div class="recruit-contract-brief-meta"><div><span>Strength</span><strong>${current.strengthDaysPerWeek}/wk</strong></div><div><span>Running</span><strong>${current.runningDaysPerWeek}/wk</strong></div><div><span>Core</span><strong>${current.coreDaysPerWeek}/wk</strong></div><div><span>Standard session</span><strong>${current.sessionMinutes} min</strong></div><div><span>Two-a-Days</span><strong>${current.twoADays ? "ENABLED · 240 MIN" : "OFF"}</strong></div></div>
     </article>
     ${alerts}
     <div class="recruit-contract-week" aria-label="Coordinated weekly commitment">${schedule}</div>
@@ -5441,16 +5441,16 @@ function renderRecruitContract() {
       : { status: "ACTION_REQUIRED", next: {} };
     const journey = DominionContractExperience.progression(approved, activationState.status);
     const next = DominionContractExperience.nextAction(approved, activationState);
-    const journeyMarkup = journey.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "âœ“" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
+    const journeyMarkup = journey.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
     const nextButton = `<button type="button" data-contract-activation-action="${escapeHtml(next.action)}" data-contract-activation-module="${escapeHtml(next.module || "")}">${escapeHtml(next.label)}</button>`;
     output.innerHTML = `
       <article class="dominion-contract-artifact">
         <header>
           <div class="dominion-contract-artifact-seal"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
-          <div><span class="kicker">CONTRACT ACTIVE Â· REVISION ${approved.revision}</span><h3>The Dominion Contract</h3><p>${escapeHtml(artifact.preamble)}</p></div>
+          <div><span class="kicker">CONTRACT ACTIVE · REVISION ${approved.revision}</span><h3>The Dominion Contract</h3><p>${escapeHtml(artifact.preamble)}</p></div>
           <span class="contract-signed-badge">SIGNED</span>
         </header>
-        <div class="dominion-contract-declaration"><span>DECLARATION OF INTENT</span><strong>${escapeHtml(approved.target)}</strong><p>${escapeHtml(recruitContractGoalLabel(approved.primaryGoal))}${escapeHtml(targetDate)} Â· Effective ${escapeHtml(approved.effectiveDate)}</p></div>
+        <div class="dominion-contract-declaration"><span>DECLARATION OF INTENT</span><strong>${escapeHtml(approved.target)}</strong><p>${escapeHtml(recruitContractGoalLabel(approved.primaryGoal))}${escapeHtml(targetDate)} · Effective ${escapeHtml(approved.effectiveDate)}</p></div>
         <div class="dominion-contract-columns">
           <section><h4>The oath</h4><ul class="dominion-contract-oath">${oath}</ul></section>
           <section><h4>My commitments</h4><ul class="dominion-contract-commitments">${commitments}</ul></section>
@@ -5920,7 +5920,7 @@ function strengthProfileFromForm() {
 function renderStrengthSession(sessionItem = {}) {
   const exercises = (sessionItem.exercises || []).map((item) => `<li>
     <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)}</span></div>
-    <div><strong>${item.recommendedSets} Ã— ${item.targetReps}</strong><span>${item.recommendedLoad > 0 ? `${item.recommendedLoad} ${escapeHtml(item.unit)}` : "Technique load"}</span></div>
+    <div><strong>${item.recommendedSets} × ${item.targetReps}</strong><span>${item.recommendedLoad > 0 ? `${item.recommendedLoad} ${escapeHtml(item.unit)}` : "Technique load"}</span></div>
   </li>`).join("");
   return `<details class="strength-program-session">
     <summary><span>${escapeHtml(sessionItem.name)}</span><strong>${(sessionItem.exercises || []).length} exercises</strong></summary>
@@ -5943,12 +5943,12 @@ function renderStrengthAdjustment(adjustment, activePlan) {
     const tone = item.action === "PROGRESS_LOAD" ? "green" : ["REDUCE_LOAD", "SAFETY_HOLD"].includes(item.action) ? "red" : "yellow";
     return `<article class="strength-adaptation-decision">
       <div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.reason)}</p></div>
-      <div><span class="state-pill ${tone}">${escapeHtml(item.label)}</span><strong>${escapeHtml(loadText.trim())}</strong><small>${item.completedSets}/${item.plannedSets} sets${item.averageRpe === null ? " Â· RPE missing" : ` Â· RPE ${item.averageRpe}`}</small></div>
+      <div><span class="state-pill ${tone}">${escapeHtml(item.label)}</span><strong>${escapeHtml(loadText.trim())}</strong><small>${item.completedSets}/${item.plannedSets} sets${item.averageRpe === null ? " · RPE missing" : ` · RPE ${item.averageRpe}`}</small></div>
     </article>`;
   }).join("");
   const statusTone = adjustment.status === "APPROVED" ? "green" : adjustment.status === "HELD" || adjustment.safetyHold ? "red" : "yellow";
   return `<section class="strength-adaptation-panel">
-    <header><div><span class="kicker">BUILD 017B // POST-SESSION REVIEW</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Plan revision ${adjustment.planRevision || 1} Â· ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
+    <header><div><span class="kicker">BUILD 017B // POST-SESSION REVIEW</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Plan revision ${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
     <div class="connected-summary-grid">
       <div><span>Load progressions</span><strong>${adjustment.summary?.progressedCount || 0}</strong></div>
       <div><span>Load reductions</span><strong>${adjustment.summary?.reducedCount || 0}</strong></div>
@@ -6057,7 +6057,7 @@ function renderStrengthBlock(activePlan) {
 function renderStrengthSchedule(activePlan) {
   if (typeof DominionStrengthSchedule === "undefined") return "";
   if (!activePlan) {
-    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate 2â€“6 strength sessions with running, core, recovery, and Today.</p></div></section>`;
+    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate 2–6 strength sessions with running, core, recovery, and Today.</p></div></section>`;
   }
   const context = strengthScheduleContext();
   const storedSchedule = readApprovedStrengthSchedule();
@@ -6086,11 +6086,11 @@ function renderStrengthSchedule(activePlan) {
       <header><div><span>${escapeHtml(day.dayLabel)}</span><strong>${escapeHtml(day.date)}</strong></div>${assignment ? `<span class="state-pill ${tone}">${escapeHtml(assignment.state)}</span>` : `<span class="state-pill neutral">RECOVERY</span>`}</header>
       ${assignment ? `<div class="strength-week-session"><span class="kicker">STRENGTH ${assignment.sequence}${assignment.blockLabel ? ` // ${escapeHtml(assignment.blockLabel)}` : ""}</span><h5>${escapeHtml(assignment.sessionName)}</h5><p>${escapeHtml(assignment.placementReason)}</p></div>` : `<p class="muted">No loaded strength session.</p>`}
       <div class="strength-week-overlap">
-        <span>${day.run && day.run.type !== "REST" ? `RUN Â· ${escapeHtml(day.run.type)}` : day.runCoverage === "REST" ? "RUN Â· REST" : day.runCoverage === "OUT_OF_RANGE" ? "RUN Â· NEXT-WEEK PLAN REQUIRED" : "RUN Â· PLAN REQUIRED"}</span>
-        <span>${day.core ? `CORE Â· ${escapeHtml(day.core.title || "SCHEDULED")}` : day.coreCoverage === "REST" ? "CORE Â· REST" : day.coreCoverage === "OUT_OF_RANGE" ? "CORE Â· NEXT-CYCLE PLAN REQUIRED" : "CORE Â· PLAN REQUIRED"}</span>
+        <span>${day.run && day.run.type !== "REST" ? `RUN · ${escapeHtml(day.run.type)}` : day.runCoverage === "REST" ? "RUN · REST" : day.runCoverage === "OUT_OF_RANGE" ? "RUN · NEXT-WEEK PLAN REQUIRED" : "RUN · PLAN REQUIRED"}</span>
+        <span>${day.core ? `CORE · ${escapeHtml(day.core.title || "SCHEDULED")}` : day.coreCoverage === "REST" ? "CORE · REST" : day.coreCoverage === "OUT_OF_RANGE" ? "CORE · NEXT-CYCLE PLAN REQUIRED" : "CORE · PLAN REQUIRED"}</span>
       </div>
       ${conflicts.map((item) => `<p class="strength-schedule-conflict ${item.severity === "BLOCKING" ? "blocking" : ""}">${escapeHtml(item.detail)}</p>`).join("")}
-      ${assignment && moveDates.length && !["COMPLETE"].includes(assignment.state) ? `<div class="strength-reschedule-control"><select data-strength-move-target="${escapeHtml(assignment.id)}"><option value="">Move to...</option>${moveDates.map((date) => `<option value="${date}">${escapeHtml(date)} Â· ${escapeHtml(DominionStrengthSchedule.DAY_LABELS[DominionStrengthSchedule.weekStartIso(date) === displayed.weekStart ? Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${displayed.weekStart}T00:00:00Z`)) / 86400000) : 0] || date)}</option>`).join("")}</select><button type="button" class="ghost" data-strength-schedule-action="move" data-assignment-id="${escapeHtml(assignment.id)}">Move</button></div>` : ""}
+      ${assignment && moveDates.length && !["COMPLETE"].includes(assignment.state) ? `<div class="strength-reschedule-control"><select data-strength-move-target="${escapeHtml(assignment.id)}"><option value="">Move to...</option>${moveDates.map((date) => `<option value="${date}">${escapeHtml(date)} · ${escapeHtml(DominionStrengthSchedule.DAY_LABELS[DominionStrengthSchedule.weekStartIso(date) === displayed.weekStart ? Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${displayed.weekStart}T00:00:00Z`)) / 86400000) : 0] || date)}</option>`).join("")}</select><button type="button" class="ghost" data-strength-schedule-action="move" data-assignment-id="${escapeHtml(assignment.id)}">Move</button></div>` : ""}
     </article>`;
   }).join("");
   const statusTone = displayed.status === "APPROVED" ? "green" : displayed.approvalBlocked ? "red" : "yellow";
@@ -6105,7 +6105,7 @@ function renderStrengthSchedule(activePlan) {
       <div><span>Upcoming</span><strong>${summary.upcoming}</strong></div>
     </div>
     <div class="strength-day-selector"><span>Preferred training days</span><div>${daySelectors}</div></div>
-    ${runningCoverage !== "COORDINATED" || coreCoverage !== "COORDINATED" ? `<div class="connected-notice warning"><strong>Coordination coverage is incomplete.</strong> Running: ${escapeHtml(runningCoverage)} Â· Core: ${escapeHtml(coreCoverage)}. Strength remains usable, but these gaps are not counted as recovery assignments.</div>` : ""}
+    ${runningCoverage !== "COORDINATED" || coreCoverage !== "COORDINATED" ? `<div class="connected-notice warning"><strong>Coordination coverage is incomplete.</strong> Running: ${escapeHtml(runningCoverage)} · Core: ${escapeHtml(coreCoverage)}. Strength remains usable, but these gaps are not counted as recovery assignments.</div>` : ""}
     ${staleRevision ? `<div class="connected-notice warning"><strong>Plan revision changed.</strong> The schedule still points to the same sessions, but rebuilding will refresh its plan-revision audit stamp.</div>` : ""}
     <div class="strength-week-grid">${dayCards}</div>
     <div class="performance-actions">
@@ -6152,11 +6152,11 @@ function renderStrengthWeekReview(activePlan) {
     const evidence = item.primaryEvidence;
     const imported = item.importedEvidence;
     const sourceText = evidence
-      ? `${evidence.sourceLabel} Â· ${evidence.completedSets || 0}/${item.prescribedSets || evidence.prescribedSets || 0} sets`
+      ? `${evidence.sourceLabel} · ${evidence.completedSets || 0}/${item.prescribedSets || evidence.prescribedSets || 0} sets`
       : item.evidenceStatus === "AMBIGUOUS_IMPORT"
-        ? "Multiple equally strong Fitbod matches Â· no credit awarded"
+        ? "Multiple equally strong Fitbod matches · no credit awarded"
         : item.evidenceStatus === "UNMATCHED_IMPORT"
-          ? "Unmatched Fitbod evidence retained Â· no credit awarded"
+          ? "Unmatched Fitbod evidence retained · no credit awarded"
           : "No terminal workout evidence";
     const provenance = evidence?.sourceIds?.length
       ? `${evidence.sourceIds.length} source record${evidence.sourceIds.length === 1 ? "" : "s"}`
@@ -6164,7 +6164,7 @@ function renderStrengthWeekReview(activePlan) {
         ? `${imported.sourceIds.length} imported source record${imported.sourceIds.length === 1 ? "" : "s"} retained`
         : "No source record";
     const corroborated = item.evidenceStatus === "NATIVE_WITH_IMPORT_CORROBORATION"
-      ? `<span class="strength-evidence-tag">FITBOD CORROBORATED Â· NOT DOUBLE COUNTED</span>`
+      ? `<span class="strength-evidence-tag">FITBOD CORROBORATED · NOT DOUBLE COUNTED</span>`
       : "";
     return `<article class="strength-review-assignment">
       <div class="strength-review-assignment-main"><span>${escapeHtml(item.date)}</span><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><p>${escapeHtml(sourceText)}</p></div>
@@ -6182,9 +6182,9 @@ function renderStrengthWeekReview(activePlan) {
   return `<section class="strength-week-review">
     <header><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>${escapeHtml(review.weekStart)} to ${escapeHtml(review.weekEnd)}</h4><p>One auditable closeout across Coach Dominion workout logs and exact-date Fitbod evidence.</p></div><span class="state-pill ${statusTone}">${escapeHtml(review.status.replaceAll("_", " "))}</span></header>
     <div class="strength-review-scorecard">
-      <div><span>Session adherence</span><strong>${summary.adherencePercent || 0}%</strong><small>${summary.completed || 0} complete Â· ${summary.partial || 0} partial</small></div>
+      <div><span>Session adherence</span><strong>${summary.adherencePercent || 0}%</strong><small>${summary.completed || 0} complete · ${summary.partial || 0} partial</small></div>
       <div><span>Set completion</span><strong>${summary.setCompletionPercent || 0}%</strong><small>${summary.setsCompleted || 0}/${summary.setsPrescribed || 0} credited sets</small></div>
-      <div><span>Average RPE</span><strong>${summary.averageRpe === null || summary.averageRpe === undefined ? "â€”" : summary.averageRpe}</strong><small>${summary.rpeSampleCount || 0} native samples</small></div>
+      <div><span>Average RPE</span><strong>${summary.averageRpe === null || summary.averageRpe === undefined ? "—" : summary.averageRpe}</strong><small>${summary.rpeSampleCount || 0} native samples</small></div>
       <div><span>Exceptions</span><strong>${Number(summary.missed || 0) + Number(summary.stopped || 0)}</strong><small>${summary.unmatchedImportCount || 0} unmatched imports</small></div>
     </div>
     <article class="strength-review-recommendation ${escapeHtml(recommendation.tone || "neutral")}">
@@ -6205,7 +6205,7 @@ function renderStrengthWeekReview(activePlan) {
 
 function strengthRecordText(record = {}) {
   if (!record) return "No verified best";
-  if (record.type === "LOAD") return `${record.value} ${escapeHtml(record.unit || "lb")} Ã— ${record.reps}`;
+  if (record.type === "LOAD") return `${record.value} ${escapeHtml(record.unit || "lb")} × ${record.reps}`;
   return `${record.value} ${escapeHtml(record.unit || "reps")}`;
 }
 
@@ -6261,9 +6261,9 @@ function renderStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
       ? "Mixed units"
       : item.volume === null
         ? "No external load"
-        : `${item.volume.toLocaleString()} ${escapeHtml(item.unit || "load")}Â·reps`;
+        : `${item.volume.toLocaleString()} ${escapeHtml(item.unit || "load")}·reps`;
     return `<article class="strength-workload-week">
-      <div><strong>${escapeHtml(item.weekStart)}</strong><span>${item.sessions} session${item.sessions === 1 ? "" : "s"} Â· ${item.workSets} sets${item.averageRpe === null ? "" : ` Â· RPE ${item.averageRpe}`}</span></div>
+      <div><strong>${escapeHtml(item.weekStart)}</strong><span>${item.sessions} session${item.sessions === 1 ? "" : "s"} · ${item.workSets} sets${item.averageRpe === null ? "" : ` · RPE ${item.averageRpe}`}</span></div>
       <div class="strength-workload-track" aria-label="${escapeHtml(volumeLabel)} of recorded set volume"><span style="width:${Math.max(3, Math.round(Number(item.volume || 0) / maxVolume * 100))}%"></span></div>
       <strong>${volumeLabel}</strong>
     </article>`;
@@ -6278,10 +6278,10 @@ function renderStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
     const latestText = !latest
       ? "Awaiting first recorded work set"
       : latest.topLoad > 0
-        ? `${latest.topLoad} ${escapeHtml(latest.unit)} Ã— ${latest.topLoadReps} Â· ${latest.sets} set${latest.sets === 1 ? "" : "s"}`
-        : `${latest.repBest} ${escapeHtml(item.record?.unit || "reps")} Â· ${latest.sets} set${latest.sets === 1 ? "" : "s"}`;
+        ? `${latest.topLoad} ${escapeHtml(latest.unit)} × ${latest.topLoadReps} · ${latest.sets} set${latest.sets === 1 ? "" : "s"}`
+        : `${latest.repBest} ${escapeHtml(item.record?.unit || "reps")} · ${latest.sets} set${latest.sets === 1 ? "" : "s"}`;
     return `<article class="strength-trajectory-row">
-      <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)} Â· ${item.exposureCount} exposure${item.exposureCount === 1 ? "" : "s"}</span></div>
+      <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)} · ${item.exposureCount} exposure${item.exposureCount === 1 ? "" : "s"}</span></div>
       <div><strong>${latestText}</strong><span>${latest?.averageRpe === null || latest?.averageRpe === undefined ? "RPE not available" : `Average RPE ${latest.averageRpe}`}</span></div>
       <div><span class="state-pill ${escapeHtml(item.status?.tone || "neutral")}">${escapeHtml(item.status?.label || "Baseline needed")}</span><small>${escapeHtml(item.status?.detail || "")}</small></div>
     </article>`;
@@ -6306,7 +6306,7 @@ function renderStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
       <span class="state-pill ${escapeHtml(postureTone)}">${escapeHtml((posture.code || "BASELINE_REQUIRED").replaceAll("_", " "))}</span>
     </article>
     <div class="strength-intelligence-grid">
-      <section><header><div><span class="kicker">VERIFIED SET RECORDS</span><h4>Best recorded work</h4></div><small>Load and reps only Â· no max estimate</small></header>${records || `<div class="performance-empty">Complete recorded work sets to establish verified bests.</div>`}</section>
+      <section><header><div><span class="kicker">VERIFIED SET RECORDS</span><h4>Best recorded work</h4></div><small>Load and reps only · no max estimate</small></header>${records || `<div class="performance-empty">Complete recorded work sets to establish verified bests.</div>`}</section>
       <section><header><div><span class="kicker">WEEKLY WORKLOAD</span><h4>Recorded training load</h4></div><small>Retries count once as sessions; every work set remains visible</small></header>${workload || `<div class="performance-empty">No weekly strength workload is recorded yet.</div>`}</section>
     </div>
     <details class="strength-intelligence-detail" open>
@@ -6374,9 +6374,9 @@ function renderProgrammingReview() {
       </select></label>
     </form>
     <div class="connected-summary-grid">
-      <div><span>Program status</span><strong>${savedDraft ? "DRAFT REVISION" : activePlan ? `APPROVED Â· R${activePlan.revision || 1}` : "DRAFT"}</strong></div>
+      <div><span>Program status</span><strong>${savedDraft ? "DRAFT REVISION" : activePlan ? `APPROVED · R${activePlan.revision || 1}` : "DRAFT"}</strong></div>
       <div><span>Weekly sessions</span><strong>${displayedPlan.sessions.length}</strong></div>
-      <div><span>Exercises/session</span><strong>5â€“7</strong></div>
+      <div><span>Exercises/session</span><strong>5–7</strong></div>
       <div><span>Evidence anchored</span><strong>${anchored}/${total}</strong></div>
     </div>
     <article class="connected-notice"><strong>Coverage is program-driven.</strong> Existing evidence personalizes known loads, but missing evidence never deletes squat, hinge, push, pull, unilateral, carry, or core work.</article>
@@ -6393,7 +6393,7 @@ function renderProgrammingReview() {
     ${renderStrengthSchedule(activePlan)}
     ${renderStrengthWeekReview(activePlan)}
     ${renderStrengthAdjustment(adjustment, activePlan)}
-    ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets Â· ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
+    ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
   </div>`;
   renderStrengthIntelligence(activePlan);
 }
@@ -6627,7 +6627,7 @@ function buildDataTruthModel({ date, dailyState: state, fitbodSessions = [], nut
     sources,
     counts,
     state: requiredMissing.length ? "ACTION NEEDED" : counts.HISTORICAL || counts.MISSING ? "MIXED DATES" : "CURRENT",
-    summary: `${counts.CURRENT || 0} current Â· ${counts.HISTORICAL || 0} historical Â· ${counts.MISSING || 0} missing`,
+    summary: `${counts.CURRENT || 0} current · ${counts.HISTORICAL || 0} historical · ${counts.MISSING || 0} missing`,
     requiredMissing: requiredMissing.map((item) => item.label)
   };
 }
@@ -6646,7 +6646,7 @@ function renderDataTruth() {
     compliance: dailyCompliance,
     storageMode: connectedStorageMode
   });
-  setText("data-truth-summary", `${model.date} Â· ${model.summary}`);
+  setText("data-truth-summary", `${model.date} · ${model.summary}`);
   setText("status-data", model.state);
   state.textContent = model.state;
   state.className = `state-pill ${model.state === "CURRENT" ? "green" : model.state === "ACTION NEEDED" ? "yellow" : "neutral"}`;
@@ -6662,11 +6662,11 @@ function buildActivationGuide({ date, dailyState: state, hasRecruitContract = nu
   const hasUserImport = importedRecords.some((record) => !record.isDemo && !["REJECTED", "DUPLICATE"].includes(record.importStatus));
   const hasFinalizedInspection = Boolean(currentInspection?.finalizedAt) || inspections.some((inspection) => inspection?.finalizedAt);
   const steps = [
-    { id: "roll-call", label: "Complete todayâ€™s Roll Call", detail: "Establish current readiness and safety constraints.", section: "today", action: "Complete Roll Call", complete: state?.date === targetDate },
+    { id: "roll-call", label: "Complete today’s Roll Call", detail: "Establish current readiness and safety constraints.", section: "today", action: "Complete Roll Call", complete: state?.date === targetDate },
     ...(typeof hasRecruitContract === "boolean" ? [{ id: "contract", label: "Approve your Recruit Contract", detail: "Define the goal and weekly capacity that coordinate every plan.", section: "contract", action: "Set commitment", complete: hasRecruitContract }] : []),
     { id: "fueling", label: "Approve a fueling baseline", detail: "Unlock daily calorie, protein, and meal guidance.", section: "nutrition", action: "Set fueling targets", complete: hasFuelingBaseline },
     { id: "connections", label: "Import your first real data source", detail: "Add a Fitbod, MyFitnessPal, or Apple Health file.", section: "connected", action: "Import evidence", complete: hasUserImport },
-    { id: "record", label: "Save todayâ€™s Dominion Record", detail: "Create the execution evidence used by weekly review.", section: "record", action: "Open Dominion Record", complete: compliance?.compliance_date === targetDate },
+    { id: "record", label: "Save today’s Dominion Record", detail: "Create the execution evidence used by weekly review.", section: "record", action: "Open Dominion Record", complete: compliance?.compliance_date === targetDate },
     { id: "inspection", label: "Finalize your first Weekly Review", detail: "Close the loop from daily evidence to the next operating plan.", section: "inspection", action: "Open Weekly Review", complete: hasFinalizedInspection }
   ];
   const completed = steps.filter((step) => step.complete).length;
@@ -6780,7 +6780,7 @@ function buildCurrentDailyAssignment() {
     sessionId: prescription?.sessionId || null,
     sessionName: prescription?.sessionName || null,
     block: prescription?.block || null,
-    title: prescription?.sessionName ? `Todayâ€™s ${prescription.sessionName}` : assignment.title
+    title: prescription?.sessionName ? `Today’s ${prescription.sessionName}` : assignment.title
   };
   return typeof DominionAdaptiveCoaching === "undefined"
     ? adaptiveAssignment
@@ -6839,7 +6839,7 @@ function buildCurrentMobileCommand() {
       section: truth.action.section
     };
   }
-  command.sync.label = `${truth.state.replaceAll("_", " ")} Â· ${command.sync.label}`;
+  command.sync.label = `${truth.state.replaceAll("_", " ")} · ${command.sync.label}`;
   return command;
 }
 
@@ -6881,14 +6881,14 @@ function renderMobileCommand() {
   sync.textContent = command.sync.label.toUpperCase();
   sync.className = `state-pill ${!command.sync.online || command.sync.pending ? "yellow" : "green"}`;
   if (progress) progress.style.width = `${command.progress.percent}%`;
-  nextPanel.innerHTML = `<div><span>Next action Â· ${command.progress.completed}/${command.progress.total}</span><strong>${escapeHtml(command.next.label)}</strong><p>${escapeHtml(command.next.detail)}</p></div>
+  nextPanel.innerHTML = `<div><span>Next action · ${command.progress.completed}/${command.progress.total}</span><strong>${escapeHtml(command.next.label)}</strong><p>${escapeHtml(command.next.detail)}</p></div>
     <button type="button" data-mobile-action="${escapeHtml(command.next.action)}" data-mobile-module="${escapeHtml(command.next.module || "")}">${escapeHtml(command.next.label)}</button>`;
   modulePanel.innerHTML = command.modules.map((item) => `<article class="mobile-command-module ${item.active ? "active" : ""} ${item.complete ? "complete" : ""}">
-    <span>${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail || "Todayâ€™s assignment")}</small>
+    <span>${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail || "Today’s assignment")}</small>
     <button type="button" class="ghost" data-mobile-action="MODULE" data-mobile-module="${escapeHtml(item.id)}">${escapeHtml(item.actionLabel)}</button>
   </article>`).join("");
   setText("mobile-roll-call-summary", command.rollCallComplete ? "Saved today" : "About 20 seconds");
-  setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Todayâ€™s totals");
+  setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Today’s totals");
   prefillMobileCommandForms();
   renderMobileInstallExperience();
   document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
@@ -6943,7 +6943,7 @@ async function launchMobileModule(module = "strength") {
     const assignment = buildCurrentDailyAssignment();
     let execution = readDailyAssignmentExecution();
     if (assignment?.state === "RECOVERY ONLY") {
-      setText("mobile-command-feedback", "Strength remains on safety hold. Review todayâ€™s readiness before training.");
+      setText("mobile-command-feedback", "Strength remains on safety hold. Review today’s readiness before training.");
     } else if (assignment?.exercises?.length && execution.state === "READY") {
       execution = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
@@ -7081,7 +7081,7 @@ function renderTodayStandardsDuty() {
   const setupItems = [];
   const nutritionBaseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
   const assignment = buildCurrentDailyAssignment();
-  if (!dailyState) setupItems.push({ title: "Complete Morning Roll Call", detail: "Readiness and todayâ€™s coaching decision need current energy, soreness, and pain evidence.", section: "today", action: "Complete roll call" });
+  if (!dailyState) setupItems.push({ title: "Complete Morning Roll Call", detail: "Readiness and today’s coaching decision need current energy, soreness, and pain evidence.", section: "today", action: "Complete roll call" });
   if (!readApprovedRecruitContract()) setupItems.push({ title: "Approve your Recruit Contract", detail: "Set one goal and a sustainable weekly commitment before coordinating module plans.", section: "contract", action: "Set commitment" });
   if (!nutritionBaseline) setupItems.push({ title: "Approve your fueling baseline", detail: "Daily calorie, protein, and meal guidance remains unavailable until targets are approved.", section: "nutrition", action: "Set nutrition targets" });
   if (assignment?.fitbod?.state === "AWAITING EVIDENCE") setupItems.push({ title: "Training evidence is not current", detail: "No Fitbod evidence is available for today. You can still execute the prescribed workout or refresh the import.", section: "connected", action: "Review imports" });
@@ -7117,15 +7117,15 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const completionState = completeCount === 4 ? "DAY COMPLETE" : ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state) ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
   state.textContent = completionState;
   state.className = `state-pill ${completeCount === 4 ? "green" : completeCount ? "yellow" : "neutral"}`;
-  setText("today-sequence-training", workoutComplete ? `Workout ${String(execution.state || "complete").toLowerCase()}` : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN_PROGRESS" ? "Workout in progress" : "Start todayâ€™s workout");
-  const blockLabel = assignment.block?.status === "ACTIVE" ? ` Â· ${assignment.block.label}` : "";
-  setText("today-sequence-training-detail", `${assignment.exercises.length} exercises Â· ~${assignment.estimatedMinutes} minutes Â· ${assignment.confidence.toLowerCase()} confidence${blockLabel}.`);
+  setText("today-sequence-training", workoutComplete ? `Workout ${String(execution.state || "complete").toLowerCase()}` : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN_PROGRESS" ? "Workout in progress" : "Start today’s workout");
+  const blockLabel = assignment.block?.status === "ACTIVE" ? ` · ${assignment.block.label}` : "";
+  setText("today-sequence-training-detail", `${assignment.exercises.length} exercises · ~${assignment.estimatedMinutes} minutes · ${assignment.confidence.toLowerCase()} confidence${blockLabel}.`);
   setText("today-sequence-fueling", nutritionReady ? "Fueling targets active" : "Approve fueling baseline");
   setText("today-sequence-fueling-detail", nutritionReady ? "Training-day targets and meal timing are available." : "A baseline is required before Atlas can calculate remaining intake.");
   setText("today-sequence-recovery", recovery.status || "Review recovery");
   setText("today-sequence-recovery-detail", recovery.actions?.[0] || assignment.recoveryActions[0] || "Preserve the recovery window.");
   setText("today-sequence-evidence", recordComplete ? "Dominion Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
-  setText("today-sequence-evidence-detail", recordComplete ? "Todayâ€™s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
+  setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
   renderTodayStandardsDuty();
   renderDataTruth();
   renderActivationGuide();
@@ -7163,7 +7163,7 @@ function renderDailyAssignment() {
   const fitbodComplete = assignment.fitbod.state === "COMPLETE";
   const terminal = typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state);
   const liveState = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
-  const state = fitbodComplete && execution.state === "READY" ? "COMPLETE Â· FITBOD" : terminal || liveState ? execution.state : assignment.state;
+  const state = fitbodComplete && execution.state === "READY" ? "COMPLETE · FITBOD" : terminal || liveState ? execution.state : assignment.state;
   setText("daily-assignment-state", state);
   const badge = document.getElementById("daily-assignment-state");
   badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" || state === "STOPPED" ? "red" : ["PARTIAL", "IN_PROGRESS", "PAUSED", "REVIEW"].includes(state) ? "yellow" : "neutral"}`;
@@ -7183,8 +7183,8 @@ function renderDailyAssignment() {
     <div class="strength-player-metrics">
       <div><span>Work sets</span><strong>${completedSets}/${plannedSets}</strong></div>
       <div><span>Active time</span><strong>${activeMinutes ?? 0} min</strong></div>
-      <div><span>Rest timer</span><strong ${restActive ? `data-strength-rest-until="${escapeHtml(execution.restUntil)}"` : ""}>${restActive ? "â€”" : "READY"}</strong></div>
-      <div><span>Last exposure</span><strong>${priorExposure ? `${priorExposure.completedSets} sets Â· ${priorExposure.workingLoad || "technique"} ${escapeHtml(priorExercise.unit || "")}` : "No prior log"}</strong></div>
+      <div><span>Rest timer</span><strong ${restActive ? `data-strength-rest-until="${escapeHtml(execution.restUntil)}"` : ""}>${restActive ? "—" : "READY"}</strong></div>
+      <div><span>Last exposure</span><strong>${priorExposure ? `${priorExposure.completedSets} sets · ${priorExposure.workingLoad || "technique"} ${escapeHtml(priorExercise.unit || "")}` : "No prior log"}</strong></div>
     </div>
     ${execution.pauseReason ? `<p class="strength-player-notice">${escapeHtml(execution.pauseReason)}. Resume when you are ready; inactive time is excluded.</p>` : ""}
     ${activeExercise ? `<button type="button" class="ghost" data-assignment-action="jump-active" data-exercise-id="${escapeHtml(activeExercise.id)}">Jump to active exercise</button>` : ""}
@@ -7207,13 +7207,13 @@ function renderDailyAssignment() {
     </li>`).join("");
     return `<article id="strength-exercise-${escapeHtml(item.id)}" class="daily-exercise-card ${activeExercise?.id === item.id ? "active-exercise" : ""}">
       <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(substitution || item.name)}</h3>${substitution ? `<p class="muted">Substituted for ${escapeHtml(item.name)}</p>` : ""}</div><span class="state-pill ${completed === item.sets ? "green" : skipped ? "yellow" : "neutral"}">${skipped ? "SKIPPED" : `${completed}/${item.sets} SETS`}</span></header>
-      <div class="daily-prescription-grid"><div><span>Sets Ã— reps</span><strong>${item.sets} Ã— ${item.reps}</strong></div><div><span>Starting load</span><strong>${item.load > 0 ? `${item.load} ${escapeHtml(item.unit)}` : "Technique first"}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
+      <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Starting load</span><strong>${item.load > 0 ? `${item.load} ${escapeHtml(item.unit)}` : "Technique first"}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
       <p>${escapeHtml(item.rationale)}</p>
       ${logRows ? `<ol class="strength-set-log">${logRows}</ol>` : ""}
       <div class="strength-set-entry">
         <label><span>Reps</span><input type="number" data-set-field="reps" min="0" max="1000" value="${item.reps}" ${controlsDisabled ? "disabled" : ""}></label>
         <label><span>Load (${escapeHtml(item.unit)})</span><input type="number" data-set-field="load" min="0" step="0.5" value="${lastWorkSet?.load ?? item.load ?? 0}" ${controlsDisabled ? "disabled" : ""}></label>
-        <label><span>RPE</span><input type="number" data-set-field="rpe" min="1" max="10" step="0.5" placeholder="1â€“10" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>RPE</span><input type="number" data-set-field="rpe" min="1" max="10" step="0.5" placeholder="1–10" ${controlsDisabled ? "disabled" : ""}></label>
         <label class="strength-warmup-choice"><input type="checkbox" data-set-field="warmup" ${execution.state !== "IN_PROGRESS" || skipped ? "disabled" : ""}><span>Warm-up set</span></label>
       </div>
       <div class="strength-exercise-decisions">
@@ -7237,7 +7237,7 @@ function renderDailyAssignment() {
   const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id;
   const durationText = summary?.durationMinutes === null || summary?.durationMinutes === undefined ? "Unavailable" : `${summary.durationMinutes} min`;
   const resultMarkup = summary ? `<article class="strength-workout-result">
-    <div><span class="kicker">SESSION PRESERVED Â· ATTEMPT ${execution.attempt || 1}</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
+    <div><span class="kicker">SESSION PRESERVED · ATTEMPT ${execution.attempt || 1}</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
     <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Active duration</span><strong>${durationText}</strong></div></div>
     ${summary.durationStatus === "UNRELIABLE_LEGACY" ? `<p class="muted">This older attempt had no activity segments, so the inflated wall-clock duration was intentionally discarded.</p>` : ""}
     ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
@@ -7312,10 +7312,10 @@ function dailyActionLabel(action) {
     roll_call: "Complete Morning Roll Call",
     review_recovery: "Review Recovery & Fueling",
     review_programming: "Review Programming",
-    approve_orders: "Approve Todayâ€™s Orders",
+    approve_orders: "Approve Today’s Orders",
     review_record: "Open Dominion Record",
-    refresh: "Refresh Todayâ€™s Evidence"
-  }[action] || "Refresh Todayâ€™s Evidence";
+    refresh: "Refresh Today’s Evidence"
+  }[action] || "Refresh Today’s Evidence";
 }
 
 function buildCurrentDailyExecutionQueue() {
@@ -7451,9 +7451,9 @@ function renderDailyCoachingLoop() {
   const current = queue.current;
   setText("daily-sequence-summary", queue.complete
     ? "All steps complete"
-    : `${queue.completed}/${queue.total} complete Â· Next: ${current?.label || "Review today"}`);
+    : `${queue.completed}/${queue.total} complete · Next: ${current?.label || "Review today"}`);
   panel.innerHTML = queue.complete
-    ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Todayâ€™s execution is complete</h3><p>Readiness, plan, training, fueling, recovery, and the Dominion Record are all current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
+    ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Today’s execution is complete</h3><p>Readiness, plan, training, fueling, recovery, and the Dominion Record are all current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
     : `<div class="kicker">CURRENT ACTION</div>
       <h3>${escapeHtml(current?.label || loop.headline)}</h3>
       <p>${escapeHtml(current?.detail || loop.directive)}</p>
@@ -7464,7 +7464,7 @@ function renderDailyCoachingLoop() {
       </div>
       <p class="daily-orders-safeguard">Safety lock: pain overrides progression. No training, recovery, or programming change is applied without deliberate approval.</p>`;
   phases.innerHTML = queue.steps.map((item, index) => `<article class="daily-execution-step ${escapeHtml(item.status.toLowerCase())}" aria-current="${item.status === "CURRENT" ? "step" : "false"}">
-    <span class="daily-execution-number">${item.complete ? "âœ“" : index + 1}</span>
+    <span class="daily-execution-number">${item.complete ? "✓" : index + 1}</span>
     <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
   </article>`).join("");
   renderClosedLoopCoaching();
@@ -7738,14 +7738,14 @@ function renderAdaptiveCoaching() {
       <div class="adaptive-confidence"><strong>${escapeHtml(proposal.confidence)}</strong><span>signal confidence</span></div>
     </article>
     <div class="adaptive-signal-strip">
-      <div><span>Readiness</span><strong>${readiness.days} days</strong><small>${readiness.greenDays} green Â· ${readiness.redDays} red</small></div>
-      <div><span>Recovery</span><strong>${readiness.painDays ? `${readiness.painDays} pain flag${readiness.painDays === 1 ? "" : "s"}` : readiness.strainFlag ? "Strain flag" : "No red flag"}</strong><small>Energy ${readiness.averageEnergy ?? "â€”"} Â· Soreness ${readiness.averageSoreness ?? "â€”"}</small></div>
-      <div><span>Execution</span><strong>${evidence.adherencePercent === null ? "â€”" : `${evidence.adherencePercent}%`}</strong><small>${evidence.completed}/${evidence.planned} committed exposures</small></div>
-      <div><span>Plans linked</span><strong>${proposal.planCoverage}/4</strong><small>Contract revision ${proposal.contractRevision || "â€”"}</small></div>
+      <div><span>Readiness</span><strong>${readiness.days} days</strong><small>${readiness.greenDays} green · ${readiness.redDays} red</small></div>
+      <div><span>Recovery</span><strong>${readiness.painDays ? `${readiness.painDays} pain flag${readiness.painDays === 1 ? "" : "s"}` : readiness.strainFlag ? "Strain flag" : "No red flag"}</strong><small>Energy ${readiness.averageEnergy ?? "—"} · Soreness ${readiness.averageSoreness ?? "—"}</small></div>
+      <div><span>Execution</span><strong>${evidence.adherencePercent === null ? "—" : `${evidence.adherencePercent}%`}</strong><small>${evidence.completed}/${evidence.planned} committed exposures</small></div>
+      <div><span>Plans linked</span><strong>${proposal.planCoverage}/4</strong><small>Contract revision ${proposal.contractRevision || "—"}</small></div>
     </div>
     ${changeMarkup ? `<div class="adaptive-domain-grid">${changeMarkup}</div>` : ""}
     <aside class="adaptive-guardrail"><strong>No silent plan changes.</strong><span>Protection and deload reductions require this directive. Progressions still return to each module's plan approval workflow.</span></aside>
-    <div class="adaptive-actions">${actions}<small>Effective ${escapeHtml(proposal.effectiveDate)} Â· Review ${escapeHtml(proposal.reviewDate)} Â· ${readAdaptiveCoachingHistory().length} prior decision${readAdaptiveCoachingHistory().length === 1 ? "" : "s"}</small></div>
+    <div class="adaptive-actions">${actions}<small>Effective ${escapeHtml(proposal.effectiveDate)} · Review ${escapeHtml(proposal.reviewDate)} · ${readAdaptiveCoachingHistory().length} prior decision${readAdaptiveCoachingHistory().length === 1 ? "" : "s"}</small></div>
   </div>`;
 }
 
@@ -7831,7 +7831,7 @@ function buildCurrentClosedLoopInput() {
         training: {
           planned: trainingPlanned,
           title: "Strength training",
-          target: trainingPlanned ? `${assignment.exercises.length} prescribed movements Â· ~${assignment.estimatedMinutes} min` : "",
+          target: trainingPlanned ? `${assignment.exercises.length} prescribed movements · ~${assignment.estimatedMinutes} min` : "",
           sourceId: assignment?.id || null
         },
         running: {
@@ -7843,7 +7843,7 @@ function buildCurrentClosedLoopInput() {
         core: {
           planned: corePlanned,
           title: "Abs / core",
-          target: corePlanned ? `${corePrescription.exercises.length} movements Â· ${corePrescription.session.estimatedMinutes} min` : "",
+          target: corePlanned ? `${corePrescription.exercises.length} movements · ${corePrescription.session.estimatedMinutes} min` : "",
           sourceId: corePrescription?.session?.id || null
         },
         fueling: {
@@ -7952,13 +7952,13 @@ function renderClosedLoopMarkup(state, options = {}) {
     </article>`).join("") || "";
   return `<div class="closed-loop-shell ${compact ? "compact" : ""}">
     <div class="closed-loop-phase-rail" aria-label="Closed-loop coaching phases">
-      ${state.phases.map((phase) => `<div class="${escapeHtml(phase.status.toLowerCase())}" aria-current="${phase.status === "CURRENT" ? "step" : "false"}"><span>${phase.status === "COMPLETE" ? "âœ“" : phase.index}</span><strong>${escapeHtml(phase.label)}</strong><small>${escapeHtml(phase.status)}</small></div>`).join("")}
+      ${state.phases.map((phase) => `<div class="${escapeHtml(phase.status.toLowerCase())}" aria-current="${phase.status === "CURRENT" ? "step" : "false"}"><span>${phase.status === "COMPLETE" ? "✓" : phase.index}</span><strong>${escapeHtml(phase.label)}</strong><small>${escapeHtml(phase.status)}</small></div>`).join("")}
     </div>
     <div class="closed-loop-decision">
       <div>
-        <span class="kicker">${escapeHtml(state.current.label)} Â· ${escapeHtml(state.state)}</span>
+        <span class="kicker">${escapeHtml(state.current.label)} · ${escapeHtml(state.state)}</span>
         <h3>${escapeHtml(decision?.valid ? decision.mission : state.draft?.message || "Complete current observation")}</h3>
-        <p>${decision?.valid ? `${escapeHtml(decision.posture)} Â· Decision ${escapeHtml(decision.fingerprint)}` : "Current Energy, Soreness, and Pain are required before a coaching decision is issued."}</p>
+        <p>${decision?.valid ? `${escapeHtml(decision.posture)} · Decision ${escapeHtml(decision.fingerprint)}` : "Current Energy, Soreness, and Pain are required before a coaching decision is issued."}</p>
       </div>
       ${reconciliation ? `<div class="closed-loop-score"><strong>${reconciliation.summary.completionPercent}%</strong><span>${escapeHtml(reconciliation.summary.confidence)} confidence</span></div>` : ""}
     </div>
@@ -7978,7 +7978,7 @@ function renderClosedLoopCoaching() {
   const state = buildCurrentClosedLoopState();
   const panel = document.getElementById("closed-loop-panel");
   const trainingPanel = document.getElementById("training-closed-loop-panel");
-  setText("closed-loop-summary", state ? `${state.state} Â· ${state.current?.label || "Current decision"}` : "Readiness, evidence, and safeguards");
+  setText("closed-loop-summary", state ? `${state.state} · ${state.current?.label || "Current decision"}` : "Readiness, evidence, and safeguards");
   if (panel) panel.innerHTML = renderClosedLoopMarkup(state);
   if (trainingPanel) trainingPanel.innerHTML = renderClosedLoopMarkup(state, { compact: true });
   const status = document.getElementById("closed-loop-status");
@@ -8014,15 +8014,15 @@ function renderRecoveryReview() {
       <div><span>Progression</span><strong>${review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
       <div><span>Calorie coverage</span><strong>${coverage(review.calorieCoverage)}</strong></div>
       <div><span>Protein coverage</span><strong>${coverage(review.proteinCoverage)}</strong></div>
-      <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume Â· ${review.trainingSets} sets</strong></div>
+      <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume · ${review.trainingSets} sets</strong></div>
       <div><span>Weight trend</span><strong>${escapeHtml(review.weightTrend.state)}${review.weightTrend.change === null ? "" : ` ${review.weightTrend.change > 0 ? "+" : ""}${review.weightTrend.change}`}</strong></div>
     </div>
     <article class="connected-detail-card"><header><div><span class="kicker">ATLAS ORDERS</span><h3>${escapeHtml(review.status)}</h3></div>${connectedStatusPill(review.priority)}</header>
       <ul>${review.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
-      <p class="muted">Readiness: ${escapeHtml(review.readiness.state)} Â· Energy ${review.readiness.energy ?? "â€”"}/10 Â· Soreness ${review.readiness.soreness ?? "â€”"}/10 Â· Pain ${review.readiness.pain ? "YES" : "NO"}</p>
+      <p class="muted">Readiness: ${escapeHtml(review.readiness.state)} · Energy ${review.readiness.energy ?? "—"}/10 · Soreness ${review.readiness.soreness ?? "—"}/10 · Pain ${review.readiness.pain ? "YES" : "NO"}</p>
     </article>
     <div class="performance-actions"><button type="button" data-recovery-action="approve">Approve recovery plan</button><button type="button" class="ghost" data-recovery-action="refresh">Refresh evidence</button></div>
-    ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter todayâ€™s mission.</p></article>` : ""}`;
+    ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter today’s mission.</p></article>` : ""}`;
 }
 
 function buildTodayRecoveryOrder() {
@@ -8508,10 +8508,10 @@ function renderCoreSession(prescription, execution, options = {}) {
   const exercises = prescription.exercises.map((exercise, index) => {
     const done = Boolean(execution?.completedExercises?.[exercise.id]);
     return `<article class="core-exercise-card ${done ? "complete" : ""}">
-      <div class="core-exercise-order">${done ? "âœ“" : index + 1}</div>
+      <div class="core-exercise-order">${done ? "✓" : index + 1}</div>
       <div class="core-exercise-body">
-        <header><div><span>${escapeHtml(exercise.categoryLabel)}</span><strong>${escapeHtml(exercise.name)}</strong></div><em>${exercise.sets} Ã— ${exercise.target} ${exercise.metric === "SECONDS" ? "sec" : "reps"}</em></header>
-        ${compact ? "" : `<p>${escapeHtml(exercise.cue)}</p><small>Rest ${exercise.restSeconds}s Â· Substitute: ${escapeHtml(exercise.substitution)}</small>`}
+        <header><div><span>${escapeHtml(exercise.categoryLabel)}</span><strong>${escapeHtml(exercise.name)}</strong></div><em>${exercise.sets} × ${exercise.target} ${exercise.metric === "SECONDS" ? "sec" : "reps"}</em></header>
+        ${compact ? "" : `<p>${escapeHtml(exercise.cue)}</p><small>Rest ${exercise.restSeconds}s · Substitute: ${escapeHtml(exercise.substitution)}</small>`}
       </div>
       ${inProgress && !complete ? `<button type="button" class="${done ? "ghost" : ""}" data-core-program-action="complete-exercise" data-exercise-id="${escapeHtml(exercise.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Complete"}</button>` : ""}
     </article>`;
@@ -8519,15 +8519,15 @@ function renderCoreSession(prescription, execution, options = {}) {
   const allExercisesComplete = prescription.exercises.length > 0 && prescription.exercises.every((exercise) => execution?.completedExercises?.[exercise.id]);
   return `<section class="core-prescription ${compact ? "compact" : ""}">
     <header class="core-prescription-header">
-      <div><span class="kicker">${escapeHtml(prescription.session.phase)} Â· ${escapeHtml(prescription.date)}</span><h3>${escapeHtml(prescription.session.title)}</h3><p>${escapeHtml(prescription.message)}</p></div>
+      <div><span class="kicker">${escapeHtml(prescription.session.phase)} · ${escapeHtml(prescription.date)}</span><h3>${escapeHtml(prescription.session.title)}</h3><p>${escapeHtml(prescription.message)}</p></div>
       <div class="core-session-meta"><strong>${prescription.session.estimatedMinutes} min</strong><span>${escapeHtml(execution?.state?.replaceAll("_", " ") || prescription.status.replaceAll("_", " "))}</span></div>
     </header>
     ${prescription.adjustment?.code === "VOLUME_REDUCED" ? `<div class="core-readiness-adjustment"><strong>READINESS ADJUSTMENT</strong><p>One set removed from every movement. Exercise selection and approved plan remain unchanged.</p></div>` : ""}
     <div class="core-exercise-list">${exercises}</div>
     <div class="core-execution-controls">
       ${!execution && prescription.status === "READY" ? `<button type="button" data-core-program-action="start-session">Start core session</button>` : ""}
-      ${inProgress ? `<label>Session quality<select id="${compact ? "core-today-quality" : "core-session-quality"}"><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label><label>Effort (1â€“10)<input id="${compact ? "core-today-effort" : "core-session-effort"}" type="number" min="1" max="10" value="7"></label><button type="button" data-core-program-action="complete-session" ${allExercisesComplete ? "" : "disabled"}>Complete session</button>` : ""}
-      ${complete ? `<div class="core-complete-evidence"><strong>SESSION COMPLETE</strong><span>${escapeHtml(execution.quality || "CONTROLLED")} Â· effort ${execution.effort || "â€”"}/10</span></div>` : ""}
+      ${inProgress ? `<label>Session quality<select id="${compact ? "core-today-quality" : "core-session-quality"}"><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label><label>Effort (1–10)<input id="${compact ? "core-today-effort" : "core-session-effort"}" type="number" min="1" max="10" value="7"></label><button type="button" data-core-program-action="complete-session" ${allExercisesComplete ? "" : "disabled"}>Complete session</button>` : ""}
+      ${complete ? `<div class="core-complete-evidence"><strong>SESSION COMPLETE</strong><span>${escapeHtml(execution.quality || "CONTROLLED")} · effort ${execution.effort || "—"}/10</span></div>` : ""}
       ${!complete ? `<button type="button" class="ghost danger" data-core-program-action="report-pain">Report pain</button>` : ""}
     </div>
   </section>`;
@@ -8570,7 +8570,7 @@ function renderCoreProgramming() {
   const planForPreview = plan || draft;
   panel.innerHTML = `
     <details class="core-profile-panel" ${!planForPreview ? "open" : ""}>
-      <summary><span>Core profile</span><small>${escapeHtml(coreGoalLabel(profile.goal))} Â· ${profile.sessionsPerWeek} days Â· ${profile.sessionMinutes} min</small></summary>
+      <summary><span>Core profile</span><small>${escapeHtml(coreGoalLabel(profile.goal))} · ${profile.sessionsPerWeek} days · ${profile.sessionMinutes} min</small></summary>
       <form id="core-profile-form" class="core-profile-form">
         <label>Primary goal<select id="core-goal">${goalOptions}</select></label>
         <label>Sessions per week<select id="core-days">${[2, 3, 4].map((value) => `<option value="${value}" ${profile.sessionsPerWeek === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
@@ -8581,12 +8581,12 @@ function renderCoreProgramming() {
       </form>
       <p class="muted">Generating a draft never changes an approved plan. You decide when a new cycle becomes active.</p>
     </details>
-    ${draft && (!plan || draft.id !== plan.id) ? `<article class="core-approval-card"><div><span class="kicker">DRAFT READY</span><h3>Four-week ${escapeHtml(coreGoalLabel(draft.profile.goal))} cycle</h3><p>${DominionCoreProgramming.planSessions(draft).length} sessions Â· ${draft.profile.sessionMinutes} minutes Â· ${draft.startDate} to ${draft.endDate}</p></div><button type="button" data-core-program-action="approve-plan">Approve four-week plan</button></article>` : ""}
+    ${draft && (!plan || draft.id !== plan.id) ? `<article class="core-approval-card"><div><span class="kicker">DRAFT READY</span><h3>Four-week ${escapeHtml(coreGoalLabel(draft.profile.goal))} cycle</h3><p>${DominionCoreProgramming.planSessions(draft).length} sessions · ${draft.profile.sessionMinutes} minutes · ${draft.startDate} to ${draft.endDate}</p></div><button type="button" data-core-program-action="approve-plan">Approve four-week plan</button></article>` : ""}
     ${plan ? `<section class="core-plan-dashboard">
-      <div class="core-plan-heading"><div><span class="kicker">APPROVED CYCLE</span><h3>${escapeHtml(coreGoalLabel(plan.profile.goal))}</h3><p>${plan.startDate} to ${plan.endDate} Â· Approved ${escapeHtml(String(plan.approvedAt || "").slice(0, 10))}</p></div><div class="core-plan-compliance"><strong>${review.compliancePercent}%</strong><span>${review.completedSessions}/${review.prescribedSessions} sessions</span></div></div>
+      <div class="core-plan-heading"><div><span class="kicker">APPROVED CYCLE</span><h3>${escapeHtml(coreGoalLabel(plan.profile.goal))}</h3><p>${plan.startDate} to ${plan.endDate} · Approved ${escapeHtml(String(plan.approvedAt || "").slice(0, 10))}</p></div><div class="core-plan-compliance"><strong>${review.compliancePercent}%</strong><span>${review.completedSessions}/${review.prescribedSessions} sessions</span></div></div>
       <div class="core-coverage-grid">${coverage.map((item) => `<article><span>${escapeHtml(item.label)}</span><strong>${item.exposures}</strong><small>planned exposures</small></article>`).join("")}</div>
       <details class="core-cycle-details"><summary>View all four weeks</summary><div class="core-week-grid">${plan.weeks.map((week) => `<article><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phase)}</strong></header>${week.sessions.map((item) => `<div><time>${escapeHtml(item.date.slice(5))}</time><span>${escapeHtml(item.title)}</span><small>${item.exercises.length} movements</small></div>`).join("")}</article>`).join("")}</div></details>
-      <article class="core-progression-card"><span class="kicker">NEXT-CYCLE DECISION</span><h3>${escapeHtml(review.recommendation.label)}</h3><p>${escapeHtml(review.recommendation.reason)}</p><small>${review.controlledSessions} controlled sessions Â· ${review.painFlags} pain flags</small></article>
+      <article class="core-progression-card"><span class="kicker">NEXT-CYCLE DECISION</span><h3>${escapeHtml(review.recommendation.label)}</h3><p>${escapeHtml(review.recommendation.reason)}</p><small>${review.controlledSessions} controlled sessions · ${review.painFlags} pain flags</small></article>
     </section>` : ""}
     <div class="core-today-command">${renderCoreSession(prescription, execution)}</div>
     <div class="core-command-actions"><button type="button" class="ghost" data-core-action="log">Log extra core work</button><button type="button" class="ghost" data-core-action="benchmark">Log core benchmark</button></div>`;
@@ -8655,7 +8655,7 @@ function renderRunningCommand(entries = performanceEntries) {
   panel.innerHTML = `
     <div class="running-command-grid">
       <article class="running-contract-bridge ${contractState === "CONTRACT_UPDATE_AVAILABLE" ? "update" : ""}">
-        <div><span class="kicker">BUILD 018C // CONTRACT TO PLAN</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} Â· ${contract.declaredWeeklyDistance || "â€”"} ${escapeHtml(contract.preferredUnit)} baseline Â· contract revision ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
+        <div><span class="kicker">BUILD 018C // CONTRACT TO PLAN</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} · ${contract.declaredWeeklyDistance || "—"} ${escapeHtml(contract.preferredUnit)} baseline · contract revision ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
         <div class="running-contract-bridge-actions"><span class="state-pill ${contractState === "ALIGNED" ? "green" : contractState === "CONTRACT_UPDATE_AVAILABLE" ? "yellow" : "neutral"}">${escapeHtml(contractState.replaceAll("_", " "))}</span><button type="button" class="ghost" data-running-action="open-contract">${contract ? "Review contract" : "Create contract"}</button></div>
       </article>
       <form id="running-profile-form" class="running-profile-card">
@@ -8714,8 +8714,8 @@ function renderRunningCommand(entries = performanceEntries) {
           <div><span>Baseline</span><strong>${previewBlock.baselineDistance} ${previewBlock.profile.preferredUnit}</strong></div>
           <div><span>Guidance</span><strong>${escapeHtml(previewBlock.prescriptionMode)}</strong></div>
         </div>
-        <div class="running-block-phases">${previewBlock.weeks.map((week) => `<article class="running-block-week ${currentBlockWeek?.weekStart === week.weekStart ? "current" : ""}"><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phaseLabel)}</strong></header><p>${week.weeklyDistance} ${week.unit} Â· ${week.sessions.filter((session) => session.type !== "REST").length} runs</p><small>${week.progressionFromBaselinePercent > 0 ? "+" : ""}${week.progressionFromBaselinePercent}% from baseline</small></article>`).join("")}</div>
-        ${currentBlockWeek ? `<details class="running-current-week" open><summary>Current week Â· ${escapeHtml(currentBlockWeek.weekStart)} to ${escapeHtml(currentBlockWeek.weekEnd)}</summary><div class="running-week-grid">${currentBlockWeek.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} Â· ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : session.type !== "REST" ? `<small>RPE ${escapeHtml(session.effortRpe || "3-5")} Â· ${escapeHtml(session.effortCue || "Controlled effort")}</small>` : ""}</article>`).join("")}</div></details>` : ""}
+        <div class="running-block-phases">${previewBlock.weeks.map((week) => `<article class="running-block-week ${currentBlockWeek?.weekStart === week.weekStart ? "current" : ""}"><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phaseLabel)}</strong></header><p>${week.weeklyDistance} ${week.unit} · ${week.sessions.filter((session) => session.type !== "REST").length} runs</p><small>${week.progressionFromBaselinePercent > 0 ? "+" : ""}${week.progressionFromBaselinePercent}% from baseline</small></article>`).join("")}</div>
+        ${currentBlockWeek ? `<details class="running-current-week" open><summary>Current week · ${escapeHtml(currentBlockWeek.weekStart)} to ${escapeHtml(currentBlockWeek.weekEnd)}</summary><div class="running-week-grid">${currentBlockWeek.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} · ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : session.type !== "REST" ? `<small>RPE ${escapeHtml(session.effortRpe || "3-5")} · ${escapeHtml(session.effortCue || "Controlled effort")}</small>` : ""}</article>`).join("")}</div></details>` : ""}
         ${draftBlock ? `<div class="running-block-approval"><div><strong>Approval activates all four weeks.</strong><p>${activeBlock ? "Your current block remains active until you approve this replacement." : "The draft is saved, but it will not appear in Today until approved."}</p></div><button type="button" data-running-action="approve-block">Approve 4-week plan</button></div>` : `<div class="running-evidence"><strong>BLOCK ${previewBlock.revision} ACTIVE</strong><p>Approved ${escapeHtml(previewBlock.approvedAt || "")}. Contract changes create a separate draft and never replace this block silently.</p></div>`}
       ` : `<div class="performance-empty">${escapeHtml(blockCandidate.message || "Save the setup to build a plan.")}</div>`}
       <div class="running-block-actions"><label>Block starts<input id="running-block-start" type="date" value="${escapeHtml(draftBlock?.startDate || DominionRunning.weekStartIso(todayISODate()))}"></label><button type="button" class="${draftBlock ? "ghost" : ""}" data-running-action="generate-block">${draftBlock ? "Rebuild draft" : "Build 4-week draft"}</button>${activeBlock ? `<button type="button" class="ghost" data-running-action="review-log">Review run evidence</button>` : ""}</div>
@@ -8748,13 +8748,13 @@ function renderRunningCommand(entries = performanceEntries) {
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
   const summary = summarizeRecentPerformance(entries);
   setText("performance-week-count", summary.entriesThisWeek);
-  setText("performance-strength-last", summary.mostRecentStrengthEntry ? `${summary.mostRecentStrengthEntry.performanceDate} â€” ${summary.mostRecentStrengthEntry.activityName}` : "â€”");
-  setText("performance-run-last", summary.mostRecentRun ? `${summary.mostRecentRun.performanceDate} â€” ${summary.mostRecentRun.activityName}` : "â€”");
-  setText("performance-test-last", summary.mostRecentBenchmarkOrFormalTest ? `${summary.mostRecentBenchmarkOrFormalTest.performanceDate} â€” ${summary.mostRecentBenchmarkOrFormalTest.activityName}` : "â€”");
+  setText("performance-strength-last", summary.mostRecentStrengthEntry ? `${summary.mostRecentStrengthEntry.performanceDate} — ${summary.mostRecentStrengthEntry.activityName}` : "—");
+  setText("performance-run-last", summary.mostRecentRun ? `${summary.mostRecentRun.performanceDate} — ${summary.mostRecentRun.activityName}` : "—");
+  setText("performance-test-last", summary.mostRecentBenchmarkOrFormalTest ? `${summary.mostRecentBenchmarkOrFormalTest.performanceDate} — ${summary.mostRecentBenchmarkOrFormalTest.activityName}` : "—");
   setText("performance-domains-week", summary.domainsRepresentedThisWeek.length ? summary.domainsRepresentedThisWeek.map((key) => PERFORMANCE_DOMAIN_LABELS[key] || key).join(" / ") : "None yet");
   const storageLabel = storageMode === "SUPABASE" ? "REMOTE ACTIVE" : storageMode === "LOCAL" ? "LOCAL FALLBACK" : "LOADING";
   setText("performance-storage", storageLabel);
-  const storageStateText = saveState === "saved" ? "Saved to remote store." : saveState === "locally saved" ? "Saved locally while remote sync is unavailable." : saveState === "failed" ? "Save failed." : saveState === "loading" ? "Loading entriesâ€¦" : "No save yet.";
+  const storageStateText = saveState === "saved" ? "Saved to remote store." : saveState === "locally saved" ? "Saved locally while remote sync is unavailable." : saveState === "failed" ? "Save failed." : saveState === "loading" ? "Loading entries…" : "No save yet.";
   setText("performance-save-state", saveState === "saving" ? "SAVING" : saveState === "saved" ? "SAVED" : saveState === "locally saved" ? "LOCAL" : saveState === "failed" ? "FAILED" : "READY");
   setText("performance-save-hint", storageStateText);
   renderFitnessTestsSection();
@@ -8794,7 +8794,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
       metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
     }
     const sourceLabel = entry.provenance?.sourceIsDemo ? `DEMO ${entry.provenance.sourceProvider || "PROVIDER"} IMPORT` : entry.provenance?.sourceProvider ? `${entry.provenance.sourceProvider} IMPORT` : (entry.source || "MANUAL");
-    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} â€¢ ${entry.entryType.replaceAll("_", " ")} â€¢ ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p><span class="demo-badge">${escapeHtml(sourceLabel)}</span></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" â€¢ ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p><span class="demo-badge">${escapeHtml(sourceLabel)}</span></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
   }).join("");
 }
 
@@ -8942,7 +8942,7 @@ async function deletePerformanceEntry(entryId) {
 
 function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspectionAggregate = {}, trajectoryState = "INSUFFICIENT HISTORY") {
   const overview = deriveCommandCenterOverview(readinessResultOrState, weeklyInspectionAggregate, trajectoryState);
-  setText("overview-readiness", overview.readinessLabel || "â€”");
+  setText("overview-readiness", overview.readinessLabel || "—");
   setText("overview-weekly", overview.weeklyLabel || "NOT READY");
   setText("overview-trend", overview.trendLabel || "INSUFFICIENT HISTORY");
   setText("overview-focus", overview.focus);
@@ -8970,7 +8970,7 @@ function setRollCallMetric(name, value, source = "") {
   input.dataset.initialValue = normalized;
   input.dataset.metricSource = source || "";
   const hint = document.querySelector(`[data-metric-source="${name}"]`);
-  if (hint) hint.textContent = source ? `${objectiveSourceLabel(source)} Â· ${todayISODate()}` : "Manual or Apple Health";
+  if (hint) hint.textContent = source ? `${objectiveSourceLabel(source)} · ${todayISODate()}` : "Manual or Apple Health";
 }
 
 function prefillMorningRollCallForm(state = dailyState) {
@@ -9015,16 +9015,16 @@ function summarizeObjectiveMetricSources(state) {
   const recorded = Object.entries(OBJECTIVE_METRIC_CONFIG)
     .filter(([key]) => isAvailable(state?.[key]))
     .map(([key, config]) => `${config.label}: ${objectiveSourceLabel(sources[key]) || "Saved"}`);
-  return recorded.length ? `${recorded.join(" Â· ")}${state?.objective_metrics_updated_at ? ` Â· Updated ${String(state.objective_metrics_updated_at).slice(0, 10)}` : ""}` : "No optional biometrics recorded.";
+  return recorded.length ? `${recorded.join(" · ")}${state?.objective_metrics_updated_at ? ` · Updated ${String(state.objective_metrics_updated_at).slice(0, 10)}` : ""}` : "No optional biometrics recorded.";
 }
 
 function renderStatusBar(state) {
-  setText("status-sleep", state ? valueOrDash(state.sleep, "h") : "â€”");
-  setText("status-weight", state ? valueOrDash(state.weight) : "â€”");
-  setText("status-steps", state ? valueOrDash(state.steps) : "â€”");
-  setText("status-rhr", state ? valueOrDash(state.resting_heart_rate, " bpm") : "â€”");
-  setText("status-hrv", state ? valueOrDash(state.heart_rate_variability, " ms") : "â€”");
-  setText("status-confidence", state ? confidencePercent(state.confidence) : "â€”");
+  setText("status-sleep", state ? valueOrDash(state.sleep, "h") : "—");
+  setText("status-weight", state ? valueOrDash(state.weight) : "—");
+  setText("status-steps", state ? valueOrDash(state.steps) : "—");
+  setText("status-rhr", state ? valueOrDash(state.resting_heart_rate, " bpm") : "—");
+  setText("status-hrv", state ? valueOrDash(state.heart_rate_variability, " ms") : "—");
+  setText("status-confidence", state ? confidencePercent(state.confidence) : "—");
 }
 
 function renderCommandFeed(events) {
@@ -9034,7 +9034,7 @@ function renderCommandFeed(events) {
   if (!events.length) {
     const item = document.createElement("li");
     item.className = "feed-empty";
-    item.textContent = "No command events yet. Submit Morning Roll Call to initialize todayâ€™s feed.";
+    item.textContent = "No command events yet. Submit Morning Roll Call to initialize today’s feed.";
     feed.appendChild(item);
     return;
   }
@@ -9087,7 +9087,7 @@ function renderWarRoom(state) {
     required.hidden = false;
     summary.hidden = true;
     formCard.hidden = false;
-    readiness.textContent = "â€”";
+    readiness.textContent = "—";
     readiness.className = "metric";
     setText("readiness-detail", "Submit Energy, Soreness, and Pain to calculate readiness.");
     setText("confidence", "0%");
@@ -9095,15 +9095,15 @@ function renderWarRoom(state) {
     setText("mission", "Morning Roll Call Required.");
     setText("mission-detail", "No mission will be generated until today's state is saved.");
     setText("mission-restrictions", "Restrictions: Awaiting roll call.");
-    setText("summary-comments", "â€”");
+    setText("summary-comments", "—");
     setText("mission-status", "PENDING");
     document.getElementById("mission-status").className = "state-pill neutral";
     setText("mission-source", "No Daily State evidence.");
-    setText("mission-confidence", "â€”");
+    setText("mission-confidence", "—");
     setText("mission-context", "Generated/current-state context unavailable.");
-    setText("readiness-energy", "â€”");
-    setText("readiness-soreness", "â€”");
-    setText("readiness-pain", "â€”");
+    setText("readiness-energy", "—");
+    setText("readiness-soreness", "—");
+    setText("readiness-pain", "—");
     renderStatusBar(null);
     prefillMorningRollCallForm(null);
     const readinessResult = evaluateReadiness(null);
@@ -9183,7 +9183,7 @@ function renderWarRoom(state) {
   renderDailyCoachingLoop();
   renderBaselineIntelligence();
   renderNutritionCommand();
-  setText("summary-comments", state.comments || "â€”");
+  setText("summary-comments", state.comments || "—");
   renderDominionExperienceShell();
 }
 
@@ -9253,7 +9253,7 @@ function buildCommandEvents(newState, previousState) {
       event_type: "READINESS_UPDATED",
       severity: readinessSeverity[newReadiness],
       message: previousReadiness
-        ? `Readiness changed: ${previousReadiness} â†’ ${newReadiness}.`
+        ? `Readiness changed: ${previousReadiness} → ${newReadiness}.`
         : `Readiness initialized: ${newReadiness}.`,
       metadata
     });
@@ -9265,7 +9265,7 @@ function buildCommandEvents(newState, previousState) {
       event_type: "MISSION_GENERATED",
       severity: "INFO",
       message: previousMission
-        ? `Mission changed: ${previousMission.title} â†’ ${newMission.title}.`
+        ? `Mission changed: ${previousMission.title} → ${newMission.title}.`
         : `Mission initialized: ${newMission.title}.`,
       metadata: { ...metadata, restrictions: newMission.restrictions }
     });
@@ -9292,7 +9292,7 @@ async function saveMorningRollCallPayload(payload = {}, options = {}) {
   dailyState = normalized;
   readinessHistory = [...readinessHistory.filter((item) => item.date !== normalized.date), normalized];
   renderWarRoom(dailyState);
-  setStatus("Roll Call saved on this device. Syncingâ€¦");
+  setStatus("Roll Call saved on this device. Syncing…");
 
   try {
     const supabase = await getClient();
@@ -9324,7 +9324,7 @@ async function saveMorningRollCall(event) {
   event.preventDefault();
   const button = document.getElementById("save-roll-call");
   button.disabled = true;
-  button.textContent = "Savingâ€¦";
+  button.textContent = "Saving…";
   setStatus("");
 
   try {
@@ -9407,13 +9407,13 @@ function buildCurrentOperatingTruth() {
       detail: corePrescription?.session?.title || "Committed core assignment"
     }),
     module("nutrition", "Fuel", Boolean(day?.nutrition), nutritionActual.complete ? "COMPLETE" : "READY", nutritionActual, {
-      detail: day?.nutrition ? `${day.nutrition.calories || "â€”"} kcal Â· ${day.nutrition.protein || "â€”"}g protein` : "No committed fuel target"
+      detail: day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "No committed fuel target"
     }),
     module("recovery", "Recovery", Boolean(week), recoveryActual.complete ? "COMPLETE" : "READY", recoveryActual, {
-      detail: "Complete todayâ€™s recovery order"
+      detail: "Complete today’s recovery order"
     }),
     module("record", "Dominion Record", Boolean(week), recordActual.complete ? "COMPLETE" : "READY", recordActual, {
-      detail: "Close todayâ€™s execution record"
+      detail: "Close today’s execution record"
     })
   ];
   currentOperatingTruth = DominionOperatingTruth.buildOperatingTruth({
@@ -9607,7 +9607,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   const conflict = document.getElementById("one-command-conflict");
   if (conflict) conflict.hidden = !model.context.conflict;
   setText("one-command-conflict-detail", model.context.conflict || "");
-  setText("today-sequence-shell-summary", `${model.progress.current} Â· ${model.context.evidence}`);
+  setText("today-sequence-shell-summary", `${model.progress.current} · ${model.context.evidence}`);
   const ritual = document.getElementById("daily-ritual");
   if (ritual) ritual.hidden = !["REVIEW_REQUIRED", "ADAPTATION_REQUIRED", "SECURED"].includes(model.state);
   section.dataset.reconciledAt = new Date().toISOString();
@@ -9796,7 +9796,7 @@ function renderDominionExperienceShell() {
   }
   renderOneCommand(truth);
   const section = DominionExperienceShell.sectionMeta(activeSection);
-  setText("shell-section-context", `${section.mode} Â· ${section.label}`);
+  setText("shell-section-context", `${section.mode} · ${section.label}`);
   setText("shell-rank-badge", String(rankStatus?.currentRank || "RECRUIT").replaceAll("_", " "));
   document.title = `${section.label} | Coach Dominion`;
   document.body.dataset.dominionPhase = (truth?.state || mission.phase).toLowerCase().replaceAll("_", "-");
@@ -10148,7 +10148,7 @@ function renderNutritionBaseline() {
     output.innerHTML = `<strong>Review required</strong><ul>${current.errors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   } else {
     output.className = "";
-    output.innerHTML = `<p><strong>${escapeHtml(current.goal.replace("_", " "))}</strong> Â· effective ${escapeHtml(current.effectiveDate)}</p>
+    output.innerHTML = `<p><strong>${escapeHtml(current.goal.replace("_", " "))}</strong> · effective ${escapeHtml(current.effectiveDate)}</p>
       <p>${escapeHtml(current.rationale)}</p>
       <div class="nutrition-baseline-variants">
         <article class="nutrition-baseline-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
@@ -10158,7 +10158,7 @@ function renderNutritionBaseline() {
       ${current.status === "READY FOR APPROVAL" ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-baseline-action="approve">Approve &amp; Activate Baseline</button><button type="button" class="ghost" data-nutrition-baseline-action="cancel">Cancel Draft</button></div>' : ""}`;
   }
   const historyRows = [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.approvedAt.localeCompare(a.approvedAt))
-    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} Â· approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal Â· ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
+    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} · approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal · ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
   historyOutput.innerHTML = history.length ? `<details class="nutrition-baseline-history"><summary>Baseline history (${history.length})</summary><div class="nutrition-baseline-history-list">${historyRows}</div></details>` : "";
 }
 
@@ -10249,17 +10249,17 @@ function renderAdaptiveFueling() {
       <article class="adaptive-target-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
       <article class="adaptive-target-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
     </div>
-    <p class="muted">${current.evidenceDays} complete nutrition day(s) Â· calorie adherence ${Math.round(current.adherence.calories * 100)}% Â· protein adherence ${Math.round(current.adherence.protein * 100)}%</p>
+    <p class="muted">${current.evidenceDays} complete nutrition day(s) · calorie adherence ${Math.round(current.adherence.calories * 100)}% · protein adherence ${Math.round(current.adherence.protein * 100)}%</p>
     <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
     <div class="weekly-plan-actions"><button type="button" data-adaptive-fueling-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Fueling Variant Approved" : "Approve Fueling Variant"}</button></div>`;
 }
 
 function nutritionIntelligencePercent(value) {
-  return value === null || value === undefined ? "â€”" : `${Math.round(value * 100)}%`;
+  return value === null || value === undefined ? "—" : `${Math.round(value * 100)}%`;
 }
 
 function nutritionIntelligenceAverage(value, unit) {
-  return value === null || value === undefined ? "â€”" : `${Math.round(value)}${unit || ""}`;
+  return value === null || value === undefined ? "—" : `${Math.round(value)}${unit || ""}`;
 }
 
 function nutritionEvidenceHistory(windowEnd) {
@@ -10301,17 +10301,17 @@ function renderNutritionIntelligence() {
   const recent = result.sevenDay;
   const total = result.fourteenDay;
   const trendText = result.trend.status === "AVAILABLE"
-    ? `Calories ${result.trend.calories.direction.toLowerCase()} ${Math.abs(result.trend.calories.delta)} Â· protein ${result.trend.protein.direction.toLowerCase()} ${Math.abs(result.trend.protein.delta)}g`
+    ? `Calories ${result.trend.calories.direction.toLowerCase()} ${Math.abs(result.trend.calories.delta)} · protein ${result.trend.protein.direction.toLowerCase()} ${Math.abs(result.trend.protein.delta)}g`
     : "Needs 3 complete days in each 7-day window";
   const contextCard = (label, summary) => `<article class="nutrition-context-card">
     <span>${label}</span>
     <strong>${summary.evidenceDays} evidence day${summary.evidenceDays === 1 ? "" : "s"}</strong>
-    <small>${nutritionIntelligenceAverage(summary.averageCalories, "")} kcal average Â· ${nutritionIntelligenceAverage(summary.averageProtein, "g")} protein</small>
-    <small>Calories ${nutritionIntelligencePercent(summary.calorieAdherence)} Â· protein ${nutritionIntelligencePercent(summary.proteinAdherence)}</small>
+    <small>${nutritionIntelligenceAverage(summary.averageCalories, "")} kcal average · ${nutritionIntelligenceAverage(summary.averageProtein, "g")} protein</small>
+    <small>Calories ${nutritionIntelligencePercent(summary.calorieAdherence)} · protein ${nutritionIntelligencePercent(summary.proteinAdherence)}</small>
   </article>`;
   output.className = "";
   output.innerHTML = `<div class="nutrition-intelligence-summary">
-      <div><span>14-day evidence</span><strong>${result.evidenceDays} / 14 days</strong><small>${result.evidenceCoverage}% coverage Â· ${result.missingDays} evidence gaps</small></div>
+      <div><span>14-day evidence</span><strong>${result.evidenceDays} / 14 days</strong><small>${result.evidenceCoverage}% coverage · ${result.missingDays} evidence gaps</small></div>
       <div><span>Recent 7 days</span><strong>${nutritionIntelligenceAverage(recent.averageCalories, "")} kcal</strong><small>${nutritionIntelligenceAverage(recent.averageProtein, "g")} average protein</small></div>
       <div><span>14-day adherence</span><strong>${nutritionIntelligencePercent(total.calorieAdherence)}</strong><small>Protein ${nutritionIntelligencePercent(total.proteinAdherence)}</small></div>
       <div><span>Trend direction</span><strong>${escapeHtml(result.trend.status)}</strong><small>${escapeHtml(trendText)}</small></div>
@@ -10366,7 +10366,7 @@ function renderNutritionReview() {
     ${["PROVISIONAL REVIEW", "READY FOR REVIEW"].includes(review.status) ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-review-action="approve">Approve Next-Week Plan</button></div>' : ""}`;
   const history = readNutritionReviewHistory();
   historyOutput.innerHTML = history.length ? `<details class="nutrition-review-history"><summary>Approved reviews (${history.length})</summary>${[...history].reverse().map((item) =>
-    `<div class="nutrition-review-history-item"><strong>Week ending ${escapeHtml(item.reviewEnd || item.approvedAt.slice(0, 10))}</strong><small>${item.evidenceDays} evidence days Â· ${item.actions.map((action) => escapeHtml(action.code)).join(" Â· ")}</small></div>`).join("")}</details>` : "";
+    `<div class="nutrition-review-history-item"><strong>Week ending ${escapeHtml(item.reviewEnd || item.approvedAt.slice(0, 10))}</strong><small>${item.evidenceDays} evidence days · ${item.actions.map((action) => escapeHtml(action.code)).join(" · ")}</small></div>`).join("")}</details>` : "";
 }
 
 async function approveCurrentNutritionReview() {
@@ -10560,9 +10560,9 @@ function renderMealCoaching() {
       <div><dt>Fat</dt><dd>${Math.round(slot.fat)}g</dd></div>
     </dl><p>${escapeHtml(slot.note)}</p>
   </article>`).join("");
-  const meals = plan.meals.length ? `<div class="meal-evidence-list">${plan.meals.map((meal) => `<article class="meal-evidence"><strong>${escapeHtml(meal.name)}</strong><small>${Math.round(meal.calories)} kcal Â· ${Math.round(meal.protein)}g protein Â· ${Math.round(meal.carbs)}g carbs Â· ${Math.round(meal.fat)}g fat</small></article>`).join("")}</div>` : "";
+  const meals = plan.meals.length ? `<div class="meal-evidence-list">${plan.meals.map((meal) => `<article class="meal-evidence"><strong>${escapeHtml(meal.name)}</strong><small>${Math.round(meal.calories)} kcal · ${Math.round(meal.protein)}g protein · ${Math.round(meal.carbs)}g carbs · ${Math.round(meal.fat)}g fat</small></article>`).join("")}</div>` : "";
   output.className = "";
-  output.innerHTML = `<p><strong>${trainingDay ? "TRAINING DAY" : "RECOVERY / UNCLASSIFIED DAY"}</strong> Â· ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing Â· ${escapeHtml(date)}</p>
+  output.innerHTML = `<p><strong>${trainingDay ? "TRAINING DAY" : "RECOVERY / UNCLASSIFIED DAY"}</strong> · ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing · ${escapeHtml(date)}</p>
     <div class="meal-slot-grid">${slots}</div>
     <div class="nutrition-review-card"><h4>Imported meal evidence</h4><p>${escapeHtml(plan.evidenceMessage)}</p>${meals}</div>
     <ul class="baseline-safeguards">${plan.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
@@ -10609,7 +10609,7 @@ function renderTodayNutritionExecution() {
   if (!execution) {
     status.textContent = "UNAVAILABLE";
     status.className = "state-pill neutral";
-    output.innerHTML = '<div class="performance-empty">Todayâ€™s nutrition evidence is not available yet.</div>';
+    output.innerHTML = '<div class="performance-empty">Today’s nutrition evidence is not available yet.</div>';
     return;
   }
   status.textContent = execution.status;
@@ -10617,7 +10617,7 @@ function renderTodayNutritionExecution() {
   const labels = { calories: ["Calories", "kcal"], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
   const metrics = Object.values(execution.metrics).map((metric) => {
     const [label, unit] = labels[metric.key];
-    const actual = metric.actual === null ? "â€”" : `${Math.round(metric.actual)} ${unit}`;
+    const actual = metric.actual === null ? "—" : `${Math.round(metric.actual)} ${unit}`;
     const target = metric.target === null ? "No approved target" : `${Math.round(metric.target)} ${unit} target`;
     const remaining = metric.target === null
       ? metric.status
@@ -10665,7 +10665,7 @@ function renderNutritionCommand() {
   const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
   const trainingDay = trainingSessions.some((session) => session.date === date);
   const latestTrainingDate = latestDatedItem(trainingSessions)?.date || null;
-  const trainingContext = trainingDay ? "TRAINING DAY" : latestTrainingDate ? `NO TRAINING TODAY Â· LAST ${latestTrainingDate}` : "NO TRAINING EVIDENCE";
+  const trainingContext = trainingDay ? "TRAINING DAY" : latestTrainingDate ? `NO TRAINING TODAY · LAST ${latestTrainingDate}` : "NO TRAINING EVIDENCE";
   const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
   const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
@@ -10676,14 +10676,14 @@ function renderNutritionCommand() {
   const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
   const metrics = Object.values(command.metrics).map((metric) => {
     const [label, unit] = labels[metric.key];
-    const actualText = metric.actual === null ? "â€”" : `${Math.round(metric.actual)}${unit}`;
+    const actualText = metric.actual === null ? "—" : `${Math.round(metric.actual)}${unit}`;
     const targetTextValue = metric.target ? `${Math.round(metric.target)}${unit}` : "No target";
-    return `<article class="nutrition-metric"><span>${label}</span><strong>${actualText}</strong><small>Target: ${targetTextValue}</small><small>${metric.percent === null ? metric.status : `${metric.percent}% Â· ${metric.status}`}</small></article>`;
+    return `<article class="nutrition-metric"><span>${label}</span><strong>${actualText}</strong><small>Target: ${targetTextValue}</small><small>${metric.percent === null ? metric.status : `${metric.percent}% · ${metric.status}`}</small></article>`;
   }).join("");
   output.innerHTML = `<div class="nutrition-command-context">
       <div><span>Date</span><strong>${escapeHtml(date)}</strong></div>
       <div><span>Intake source</span><strong>${escapeHtml(command.source)}</strong></div>
-      <div><span>Context</span><strong>${escapeHtml(trainingContext)} Â· ${escapeHtml(readiness)} READINESS</strong></div>
+      <div><span>Context</span><strong>${escapeHtml(trainingContext)} · ${escapeHtml(readiness)} READINESS</strong></div>
     </div>
     <div class="nutrition-command-grid">${metrics}</div>
     <div class="nutrition-guidance"><strong>Atlas guidance</strong><ul>${command.guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
@@ -10736,7 +10736,7 @@ function renderNutritionNextAction({ imported = null, manual = null } = {}) {
   const baseline = activeNutritionBaseline(nutritionCommandDate());
   let action = {
     status: "TODAY",
-    title: "Follow todayâ€™s fueling map",
+    title: "Follow today’s fueling map",
     copy: "Use the daily targets and meal anchors below as flexible guidance.",
     view: "today",
     label: "View Today"
@@ -10752,13 +10752,13 @@ function renderNutritionNextAction({ imported = null, manual = null } = {}) {
   } else if (!imported && !manual) {
     action = {
       status: "IMPORT",
-      title: "Add todayâ€™s intake",
+      title: "Add today’s intake",
       copy: "Import MyFitnessPal data or enter daily totals so Atlas can compare intake with your plan.",
       view: "details",
       label: "Add Intake"
     };
   }
-  output.innerHTML = `<div><div class="kicker">ATLAS // NEXT BEST ACTION Â· ${escapeHtml(action.status)}</div><h3>${escapeHtml(action.title)}</h3><p>${escapeHtml(action.copy)}</p></div>
+  output.innerHTML = `<div><div class="kicker">ATLAS // NEXT BEST ACTION · ${escapeHtml(action.status)}</div><h3>${escapeHtml(action.title)}</h3><p>${escapeHtml(action.copy)}</p></div>
     <button type="button" data-nutrition-next-action="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`;
 }
 
@@ -10928,8 +10928,8 @@ function setConnectedActiveView(view = "overview") {
 function renderImportJobSummary(job = {}) {
   const summary = job.summary || {};
   const readable = summary.idempotencyKey
-    ? `${summary.new || 0} new Â· ${summary.updated || 0} updated Â· ${job.duplicateCount || 0} duplicate Â· ${job.rejectedCount || 0} rejected`
-    : `${job.importedCount || 0} imported Â· ${job.duplicateCount || 0} duplicate Â· ${job.rejectedCount || 0} rejected Â· ${job.unmappedCount || 0} unmapped`;
+    ? `${summary.new || 0} new · ${summary.updated || 0} updated · ${job.duplicateCount || 0} duplicate · ${job.rejectedCount || 0} rejected`
+    : `${job.importedCount || 0} imported · ${job.duplicateCount || 0} duplicate · ${job.rejectedCount || 0} rejected · ${job.unmappedCount || 0} unmapped`;
   const details = summary.idempotencyKey ? `<details><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify({ fileChecksum: summary.fileChecksum, idempotencyKey: summary.idempotencyKey, repeatedBatch: summary.repeatedBatch, priorJobId: summary.priorJobId, parseErrors: summary.parseErrors }, null, 2))}</pre></details>` : "";
   const rollback = !job.isDemo && summary.idempotencyKey && !summary.rolledBackAt ? `<button type="button" class="ghost" data-connected-action="rollback-import" data-job-id="${escapeHtml(job.id)}">Rollback batch</button>` : "";
   return `<strong>${readable}</strong>${summary.repeatedBatch ? `<p class="muted">Exact file previously imported${summary.priorJobId ? ` in batch ${escapeHtml(summary.priorJobId)}` : ""}.</p>` : ""}${job.errorMessage ? `<p>${escapeHtml(job.errorMessage)}</p>` : ""}${details}${rollback}`;
@@ -10951,14 +10951,14 @@ function renderMfpNutritionFeedCard() {
     ? JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2)
     : "";
   const secretPanel = mfpNutritionFeedSecret ? `<div class="nutrition-feed-secret">
-    <div><span>Private feed key Â· shown once</span><code>${escapeHtml(mfpNutritionFeedSecret)}</code></div>
+    <div><span>Private feed key · shown once</span><code>${escapeHtml(mfpNutritionFeedSecret)}</code></div>
     <button type="button" data-connected-action="mfp-feed-copy-key">Copy key</button>
   </div>` : active ? `<div class="connected-notice"><strong>Feed key ending ${escapeHtml(active.token_hint)}</strong><p>The full key is hidden. Rotate it only if you need to configure the Shortcut again.</p></div>` : "";
   const eventText = latestEvent
-    ? `${escapeHtml(latestEvent.nutrition_date)} Â· ${escapeHtml(latestEvent.outcome)} Â· ${latestEvent.sample_count} Health sample(s)`
+    ? `${escapeHtml(latestEvent.nutrition_date)} · ${escapeHtml(latestEvent.outcome)} · ${latestEvent.sample_count} Health sample(s)`
     : "No nutrition delivery received yet.";
   return `<article class="connected-detail-card nutrition-feed-card">
-    <header><div><span class="kicker">BUILD 015A // AUTOMATED NUTRITION FEED</span><h3>MyFitnessPal â†’ Apple Health â†’ Coach Dominion</h3><p>Daily calorie and macro totals without storing your MyFitnessPal password or raw food diary.</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
+    <header><div><span class="kicker">BUILD 015A // AUTOMATED NUTRITION FEED</span><h3>MyFitnessPal → Apple Health → Coach Dominion</h3><p>Daily calorie and macro totals without storing your MyFitnessPal password or raw food diary.</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
     <div class="nutrition-feed-summary">
       <div><span>Endpoint</span><strong>${escapeHtml(endpoint)}</strong></div>
       <div><span>Last delivery</span><strong>${active?.last_used_at ? escapeHtml(new Date(active.last_used_at).toLocaleString()) : "Never"}</strong></div>
@@ -10973,12 +10973,12 @@ function renderMfpNutritionFeedCard() {
     </div>
     ${mfpNutritionFeedState.migrationRequired ? '<div class="connected-notice"><strong>Setup dependency</strong><p>Apply Supabase migration 014 to enable revocable keys and automated ingestion. Manual CSV import remains available.</p></div>' : ""}
     <details class="nutrition-feed-setup" ${mfpNutritionFeedSecret ? "open" : ""}>
-      <summary>One-time iPhone Shortcut setup <span>Four Health totals Â· one secure POST</span></summary>
+      <summary>One-time iPhone Shortcut setup <span>Four Health totals · one secure POST</span></summary>
       <ol>
         <li>In MyFitnessPal, enable HealthKit Sharing for Food so meal calories and supported nutrients are written to Apple Health.</li>
-        <li>In Shortcuts, sum todayâ€™s MyFitnessPal samples for Dietary Energy, Protein, Carbohydrates, and Total Fat.</li>
+        <li>In Shortcuts, sum today’s MyFitnessPal samples for Dietary Energy, Protein, Carbohydrates, and Total Fat.</li>
         <li>Send those four totals to the endpoint above with an <code>Authorization: Bearer YOUR_FEED_KEY</code> header.</li>
-        <li>Create a daily Personal Automation after your final meal. Disable â€œAsk Before Runningâ€ if your iOS version permits it.</li>
+        <li>Create a daily Personal Automation after your final meal. Disable “Ask Before Running” if your iOS version permits it.</li>
       </ol>
       <p class="muted">MyFitnessPal does not send meal timestamps to Apple Health, so Coach Dominion intentionally treats this as one daily-total record.</p>
       ${mfpNutritionFeedSecret ? `<pre>${escapeHtml(template)}</pre>` : ""}
@@ -10993,11 +10993,11 @@ function renderConnectedDominion() {
   setText("connected-storage", connectedStorageMode);
   setText("diagnostic-storage", connectedStorageMode);
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
-  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion stateâ€¦" : "Fitbod and Apple Health file imports are active. MyFitnessPal can also deliver daily nutrition totals automatically through Apple Health and a private iPhone Shortcut.");
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "Fitbod and Apple Health file imports are active. MyFitnessPal can also deliver daily nutrition totals automatically through Apple Health and a private iPhone Shortcut.");
   const overviewPanel = document.getElementById("connected-view-overview");
-  const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "â€”";
-  const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "â€”";
-  const latestHealthDate = latestDatedItem(api.summarizeAppleHealthByDate(connectedImportedRecords))?.date || "â€”";
+  const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
+  const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
+  const latestHealthDate = latestDatedItem(api.summarizeAppleHealthByDate(connectedImportedRecords))?.date || "—";
   if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
     <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
     <div><span>Recent sync</span><strong>${escapeHtml(overview.mostRecentSyncStatus)}</strong></div><div><span>Imported records</span><strong>${overview.importedRecordCount}</strong></div>
@@ -11027,21 +11027,21 @@ function renderConnectedDominion() {
     const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
     const counts = api.summarizeSyncJob(records);
     const connectionMode = account.metadata?.connection_mode || account.metadata?.connectionMode || "";
-    const accountKind = account.isSimulated ? "SIMULATED Â· ARCHITECTURE PREVIEW" : connectionMode === "APPLE_HEALTH_SHORTCUT" ? "AUTOMATED Â· APPLE HEALTH SHORTCUT" : "USER FILE IMPORT";
+    const accountKind = account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : connectionMode === "APPLE_HEALTH_SHORTCUT" ? "AUTOMATED · APPLE HEALTH SHORTCUT" : "USER FILE IMPORT";
     const accountActions = account.isSimulated && account.connectionStatus === "CONNECTED"
       ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>`
       : connectionMode === "APPLE_HEALTH_SHORTCUT" ? `<button type="button" data-connected-action="mfp-feed-open">Review automatic feed</button>` : "";
     return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${accountKind}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
-      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total Â· ${counts.duplicate} duplicate Â· ${counts.rejected} rejected Â· ${counts.unmapped} unmapped</dd></div></dl>
+      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
       <div class="connected-actions">${accountActions}</div>
     </article>`;
   }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
 
   const historyPanel = document.getElementById("connected-view-sync_history");
-  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Import integrity</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}${job.summary?.rolledBackAt ? `<br>${connectedStatusPill("ROLLED BACK")}` : ""}</td><td>${escapeHtml(job.requestedAt || "â€”")}</td><td>${renderImportJobSummary(job)}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
+  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Import integrity</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}${job.summary?.rolledBackAt ? `<br>${connectedStatusPill("ROLLED BACK")}` : ""}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${renderImportJobSummary(job)}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
 
   const recordsPanel = document.getElementById("connected-view-imported_records");
-  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} Â· ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} Â· ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${record.importClassification ? connectedStatusPill(record.importClassification) : ""}${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${escapeHtml(record.rejectionReason || (record.mappedPerformanceEntryId ? `Mapped to Performance entry ${record.mappedPerformanceEntryId}.` : "Retained for audit; no mapped destination."))}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
+  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${record.importClassification ? connectedStatusPill(record.importClassification) : ""}${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${escapeHtml(record.rejectionReason || (record.mappedPerformanceEntryId ? `Mapped to Performance entry ${record.mappedPerformanceEntryId}.` : "Retained for audit; no mapped destination."))}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
 
   const reconciliationPanel = document.getElementById("connected-view-reconciliation");
   if (reconciliationPanel) {
@@ -11055,7 +11055,7 @@ function renderConnectedDominion() {
         <header><div><span class="kicker">FITBOD WORKOUT REVIEW</span><h3>${escapeHtml(session.workoutName)}</h3><p>${escapeHtml(session.date)}</p></div>${connectedStatusPill(review.recommendation)}</header>
         <div class="connected-summary-grid"><div><span>Exercise match</span><strong>${escapeHtml(matchText)}</strong></div><div><span>Set completion</span><strong>${escapeHtml(setsText)}</strong></div><div><span>Exercises logged</span><strong>${review.completedExerciseCount}</strong></div><div><span>Training volume</span><strong>${Math.round(session.volume).toLocaleString()}</strong></div></div>
         <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}.</p>
-        <ul>${session.exercises.map((exercise) => `<li>${escapeHtml(exercise.name)} â€” ${exercise.sets} set(s), ${exercise.reps} total reps</li>`).join("")}</ul>
+        <ul>${session.exercises.map((exercise) => `<li>${escapeHtml(exercise.name)} — ${exercise.sets} set(s), ${exercise.reps} total reps</li>`).join("")}</ul>
         ${review.substitutions.length && review.prescribedExerciseCount ? `<p class="muted">Unmatched or substituted: ${escapeHtml(review.substitutions.map((item) => item.name).join(", "))}</p>` : ""}
         <div class="connected-actions"><button type="button" data-connected-action="apply-reconciliation" data-session-id="${escapeHtml(session.id)}" ${["UNMATCHED", "REVIEW_REQUIRED"].includes(review.recommendation) ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-strength-target">Review Strength target</button></div>
       </article>`;
@@ -11085,8 +11085,8 @@ function renderConnectedDominion() {
       <p class="muted">Supported: daily steps, resting heart rate, HRV, body weight, and sleep analysis. Other health categories are ignored.</p>
     </article>
     ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODate() ? connectedStatusPill("TODAY") : ""}</header>
-      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "â€”"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "â€”" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "â€”" : `${day.restingHeartRate} bpm`}</strong></div><div><span>HRV</span><strong>${day.heartRateVariability === null ? "â€”" : `${day.heartRateVariability} ms`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "â€”" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
-      ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to todayâ€™s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
+      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>HRV</span><strong>${day.heartRateVariability === null ? "—" : `${day.heartRateVariability} ms`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
+      ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
     </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
   }
   renderDailyCoachingLoop();
@@ -11204,7 +11204,7 @@ async function runConnectedDemoSync(accountId, syncType = "MANUAL", retryOf = nu
 async function importFitbodWorkoutFile(file) {
   const api = connectedApi();
   if (!api || !file) return;
-  setText("connected-feedback", "Reading Fitbod workout fileâ€¦");
+  setText("connected-feedback", "Reading Fitbod workout file…");
   const requestedAt = new Date().toISOString();
   const fileText = await file.text();
   const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "FITBOD", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
@@ -11276,7 +11276,7 @@ async function importFitbodWorkoutFile(file) {
 async function importMyFitnessPalNutritionFile(file) {
   const api = connectedApi();
   if (!api || !file) return;
-  setText("connected-feedback", "Reading MyFitnessPal nutrition fileâ€¦");
+  setText("connected-feedback", "Reading MyFitnessPal nutrition file…");
   const requestedAt = new Date().toISOString();
   const fileText = await file.text();
   const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "MYFITNESSPAL", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
@@ -11327,7 +11327,7 @@ async function importAppleHealthFile(file) {
     setText("connected-feedback", "Apple Health export.xml exceeds the 100 MB browser-import limit.");
     return;
   }
-  setText("connected-feedback", "Reading supported Apple Health evidenceâ€¦");
+  setText("connected-feedback", "Reading supported Apple Health evidence…");
   const requestedAt = new Date().toISOString();
   const fileText = await file.text();
   const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "APPLE_HEALTH", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
@@ -11403,7 +11403,7 @@ async function applyAppleHealthReadiness() {
   readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
   renderWarRoom(dailyState);
   renderConnectedDominion();
-  setText("connected-feedback", "Apple Health evidence applied to todayâ€™s readiness. Subjective Roll Call answers were preserved.");
+  setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
 }
 
 async function init() {
@@ -11480,7 +11480,7 @@ if (typeof document !== "undefined") {
   });
   window.addEventListener("offline", () => {
     renderMobileCommand();
-    setText("mobile-command-feedback", "Youâ€™re offline. Todayâ€™s changes will stay on this device and sync automatically.");
+    setText("mobile-command-feedback", "You’re offline. Today’s changes will stay on this device and sync automatically.");
   });
   document.getElementById("mobile-roll-call-form")?.addEventListener("input", (event) => {
     event.currentTarget.dataset.dirty = "true";
@@ -11496,7 +11496,7 @@ if (typeof document !== "undefined") {
     const button = form.querySelector('button[type="submit"]');
     if (button) {
       button.disabled = true;
-      button.textContent = "Savingâ€¦";
+      button.textContent = "Saving…";
     }
     try {
       const values = Object.fromEntries(new FormData(form));
@@ -11509,7 +11509,7 @@ if (typeof document !== "undefined") {
       form.dataset.dirty = "false";
       document.getElementById("mobile-roll-call-sheet").open = false;
       setText("mobile-command-feedback", result.synced
-        ? "Roll Call saved. Todayâ€™s training guardrails are updated."
+        ? "Roll Call saved. Today’s training guardrails are updated."
         : "Roll Call saved offline. It will sync automatically.");
       prefillMobileCommandForms(true);
     } catch (error) {
@@ -11528,7 +11528,7 @@ if (typeof document !== "undefined") {
     const button = form.querySelector('button[type="submit"]');
     if (button) {
       button.disabled = true;
-      button.textContent = "Savingâ€¦";
+      button.textContent = "Saving…";
     }
     try {
       const record = DominionMobileCommand.normalizeNutrition(Object.fromEntries(new FormData(form)), {
@@ -11783,7 +11783,7 @@ if (typeof document !== "undefined") {
         renderRecruitContract();
         document.querySelector('#recruit-contract-form [name="twoADays"]')?.focus({ preventScroll: true });
         document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        setText("recruit-contract-feedback", "Two-a-Days are currently OFF. Enable them deliberately, review the 121â€“240 minute AM/PM capacity, and sign the replacement Contract.");
+        setText("recruit-contract-feedback", "Two-a-Days are currently OFF. Enable them deliberately, review the 121–240 minute AM/PM capacity, and sign the replacement Contract.");
         return;
       }
       if (["build", "rebuild"].includes(action)) {
@@ -12737,7 +12737,7 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(recoveryStorageKey(), JSON.stringify(plan));
       renderRecoveryReview();
       renderDailyCoachingLoop();
-      setText("recovery-feedback", "Recovery plan approved locally. TodayÃ¢â‚¬â„¢s mission was not changed.");
+      setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
     }
   });
   document.addEventListener("click", async (event) => {
@@ -12838,7 +12838,7 @@ if (typeof document !== "undefined") {
       const history = readClosedLoopHistory();
       const last = history[history.length - 1];
       setText("closed-loop-feedback", last
-        ? `${history.length} closed loop${history.length === 1 ? "" : "s"}. Latest: ${last.date} Â· ${last.adaptation?.label || "No adjustment"}.`
+        ? `${history.length} closed loop${history.length === 1 ? "" : "s"}. Latest: ${last.date} · ${last.adaptation?.label || "No adjustment"}.`
         : "No prior closed loops yet.");
     }
   });
@@ -12888,7 +12888,7 @@ if (typeof document !== "undefined") {
     const action = button.dataset.dailyAction;
     if (action === "refresh") {
       renderDailyCoachingLoop();
-      setText("daily-orders-feedback", "Todayâ€™s readiness, connected evidence, and approved plans were refreshed.");
+      setText("daily-orders-feedback", "Today’s readiness, connected evidence, and approved plans were refreshed.");
     }
     if (action === "approve_orders") {
       const loop = buildCurrentDailyCoachingLoop();
@@ -12903,7 +12903,7 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify(approval));
       await approveCurrentClosedLoopDecision();
       renderDailyCoachingLoop();
-      setText("daily-orders-feedback", "Todayâ€™s orders approved locally. The mission and Dominion Record were not changed.");
+      setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
     }
     if (action === "review_recovery") {
       setActiveSection("performance");
@@ -13796,7 +13796,7 @@ function renderRankSection() {
     commandNote: nextRank ? `${nextRank.promotionCommandNote}` : "No additional rank remains."
   });
   setText("rank-current", currentRank);
-  setText("rank-next", nextRank?.displayName || "â€”");
+  setText("rank-next", nextRank?.displayName || "—");
   setText("rank-status", eligibility.status);
   setText("rank-qualifying-weeks", String(eligibility.consecutiveQualifyingWeeksRequired || 0));
   const rankStateBadge = document.getElementById("rank-state");
@@ -13806,7 +13806,7 @@ function renderRankSection() {
   }
   const requirements = document.getElementById("rank-requirements");
   if (requirements) {
-    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} â€” target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
+    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
   }
   const blockers = document.getElementById("rank-blockers");
   if (blockers) {
@@ -13816,7 +13816,7 @@ function renderRankSection() {
   if (reviewOutput) reviewOutput.textContent = review.text;
   const history = document.getElementById("rank-history");
   if (history) {
-    const items = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${item.priorRank || "RECRUIT"} â†’ ${item.currentRank || "CADET"}</strong><span>${item.promotionState || "PROMOTED"}</span></div><p>${item.effectiveDate || ""}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
+    const items = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${item.priorRank || "RECRUIT"} → ${item.currentRank || "CADET"}</strong><span>${item.promotionState || "PROMOTED"}</span></div><p>${item.effectiveDate || ""}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
     history.innerHTML = items;
   }
   const ladder = document.getElementById("rank-ladder");
@@ -13858,7 +13858,7 @@ function renderStandardsSection() {
   if (patternPanel) {
     patternPanel.innerHTML = patterns.length ? patterns.map((pattern) => `<article class="standards-pattern ${pattern.sufficient ? "established" : "insufficient"}">
       <div class="standards-item-header"><div><span class="kicker">${escapeHtml(pattern.standardCode)}</span><strong>${escapeHtml(pattern.domain)} pattern review</strong></div><span class="state-pill ${pattern.sufficient ? "yellow" : "neutral"}">${pattern.confidence}</span></div>
-      <div class="standards-case-meta"><span>${pattern.caseCount} REVIEWED CASES</span><span>${pattern.distinctDateCount} DISTINCT DATES</span><span>${pattern.firstDate || "â€”"} â†’ ${pattern.lastDate || "â€”"}</span></div>
+      <div class="standards-case-meta"><span>${pattern.caseCount} REVIEWED CASES</span><span>${pattern.distinctDateCount} DISTINCT DATES</span><span>${pattern.firstDate || "—"} → ${pattern.lastDate || "—"}</span></div>
       <p>${escapeHtml(pattern.recommendation)}</p>
       <small>Current severity remains ${escapeHtml(pattern.currentLevel)} until a human confirms any change.</small>
     </article>`).join("") : '<div class="standards-empty">No repeated reviewed standards cases are available for pattern analysis.</div>';
@@ -13900,7 +13900,7 @@ function renderStandardsSection() {
   if (auditTrail) {
     const events = loadStandardsAuditEvents().slice().sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || ""));
     auditTrail.innerHTML = events.length
-      ? events.map((event) => `<li class="feed-event info"><div class="feed-meta"><strong>${event.violationId || "Review"}</strong><span>${event.priorStatus} â†’ ${event.newStatus}</span></div><p>${event.note || "Reviewed"}</p><time>${event.createdAt ? new Date(event.createdAt).toLocaleString() : "Pending"}</time></li>`).join("")
+      ? events.map((event) => `<li class="feed-event info"><div class="feed-meta"><strong>${event.violationId || "Review"}</strong><span>${event.priorStatus} → ${event.newStatus}</span></div><p>${event.note || "Reviewed"}</p><time>${event.createdAt ? new Date(event.createdAt).toLocaleString() : "Pending"}</time></li>`).join("")
       : '<li class="feed-empty">Standards reviews are logged locally until a Supabase-backed audit table is applied.</li>';
   }
   renderTodayStandardsDuty();
@@ -14025,7 +14025,7 @@ function updateComplianceStatusMessage() {
     : currentSaveState === "locally saved"
       ? "Saved locally while remote sync is unavailable."
       : currentSaveState === "saving"
-        ? "Saving recordâ€¦"
+        ? "Saving record…"
         : currentSaveState === "saved"
           ? "Saved successfully."
           : "Not saved yet";
@@ -14144,7 +14144,7 @@ async function saveDailyCompliance(event) {
   event.preventDefault();
   const button = document.getElementById("save-compliance");
   button.disabled = true;
-  button.textContent = "Savingâ€¦";
+  button.textContent = "Saving…";
   currentSaveState = "saving";
   updateComplianceStatusMessage();
   const payload = compliancePayload(readComplianceForm());
@@ -14170,7 +14170,7 @@ async function saveDailyCompliance(event) {
     const saved = saveLocalCompliance(localRecord);
     currentSaveState = saved ? "locally saved" : "failed";
     renderComplianceRecord(localRecord, "LOCAL");
-    if (!saved) setText("compliance-storage", "UNSAVED â€” local storage unavailable");
+    if (!saved) setText("compliance-storage", "UNSAVED — local storage unavailable");
   } finally {
     button.disabled = false;
     button.textContent = "Save Dominion Record";
@@ -14230,9 +14230,9 @@ function renderWeeklyPlan(inspection = weeklyInspection) {
     return;
   }
   output.className = "";
-  const days = current.days.map((day) => `<article class="weekly-plan-day"><span>${escapeHtml(day.day)} Â· ${escapeHtml(day.date)}</span><strong>${escapeHtml(day.focus)}</strong><p>${escapeHtml(day.instruction)}</p></article>`).join("");
+  const days = current.days.map((day) => `<article class="weekly-plan-day"><span>${escapeHtml(day.day)} · ${escapeHtml(day.date)}</span><strong>${escapeHtml(day.focus)}</strong><p>${escapeHtml(day.instruction)}</p></article>`).join("");
   output.innerHTML = `<div class="weekly-plan-header">
-      <div><span>Next week</span><strong>${escapeHtml(current.nextWeekStart)} â€” ${escapeHtml(current.nextWeekEnd)}</strong></div>
+      <div><span>Next week</span><strong>${escapeHtml(current.nextWeekStart)} — ${escapeHtml(current.nextWeekEnd)}</strong></div>
       <div><span>Priority</span><strong>${escapeHtml(current.focus)}</strong></div>
       <div><span>Source discipline</span><strong>${formatDisciplineScore(current.disciplineScore)}</strong></div>
       <div><span>Source evidence</span><strong>${Math.round(current.evidenceCoverage)}%</strong></div>
@@ -14240,7 +14240,7 @@ function renderWeeklyPlan(inspection = weeklyInspection) {
     <p><strong>Atlas priority:</strong> ${escapeHtml(current.priority.text)}</p>
     <div class="weekly-plan-days">${days}</div>
     <ul class="baseline-safeguards">${current.guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-    <div class="weekly-plan-actions"><button type="button" data-weekly-plan-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Plan Approved" : "Approve Next Weekâ€™s Plan"}</button></div>`;
+    <div class="weekly-plan-actions"><button type="button" data-weekly-plan-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Plan Approved" : "Approve Next Week’s Plan"}</button></div>`;
 }
 
 function approveCurrentWeeklyPlan() {
@@ -14332,8 +14332,8 @@ function renderWeeklyInspection(aggregate, storageMode) {
   const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
   setText("weekly-status", aggregate.inspectionStatus);
   document.getElementById("weekly-status").className = `state-pill ${aggregate.inspectionStatus === "INSPECTION COMPLETE" ? "green" : aggregate.inspectionStatus === "READY FOR INSPECTION" ? "yellow" : "neutral"}`;
-  setText("weekly-range", `${aggregate.weekStartDate} â€” ${aggregate.weekEndDate}`);
-  setText("weekly-score", `${formatDisciplineScore(aggregate.score)}${aggregate.score !== null && aggregate.scoreIsProvisional ? " Â· PROVISIONAL" : ""}`);
+  setText("weekly-range", `${aggregate.weekStartDate} — ${aggregate.weekEndDate}`);
+  setText("weekly-score", `${formatDisciplineScore(aggregate.score)}${aggregate.score !== null && aggregate.scoreIsProvisional ? " · PROVISIONAL" : ""}`);
   setText("weekly-coverage", `${Math.round(aggregate.evidenceCoverage)}%`);
   setText("weekly-storage", storageMode === "SUPABASE" ? "SUPABASE" : "LOCAL FALLBACK");
   setText("weekly-assessed-days", `${aggregate.counts.assessedDays} / ${aggregate.counts.fullyAssessedDays}`);
@@ -14343,13 +14343,13 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-modification-count", aggregate.counts.approvedModifications);
   setText("weekly-evidence-through", aggregate.evidenceThroughDate || "Week not started");
   setText("weekly-projected-coverage", `${Math.round(aggregate.projectedFullWeekCoverage || 0)}%`);
-  setText("weekly-calculation-meta", `${aggregate.calculationVersion || INSPECTION_CALCULATION_VERSION} Â· ${aggregate.elapsedDayCount || 0}/7 days elapsed`);
+  setText("weekly-calculation-meta", `${aggregate.calculationVersion || INSPECTION_CALCULATION_VERSION} · ${aggregate.elapsedDayCount || 0}/7 days elapsed`);
   setText("weekly-strongest", aggregate.strongestDomains.length ? aggregate.strongestDomains.map(label).join(" / ") : "UNSCORED");
-  setText("weekly-weakest", aggregate.domainRankingTie ? "NO DISTINCT WEAKEST â€” TIED" : aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
+  setText("weekly-weakest", aggregate.domainRankingTie ? "NO DISTINCT WEAKEST — TIED" : aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
   setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
   setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
-  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE Â· NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
+  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE · NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
   const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
   const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
@@ -14383,7 +14383,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
 async function loadWeeklyInspectionLegacy() {
   const selectedDate = document.getElementById("weekly-date").value || todayISODate();
   const range = getInspectionWeekRange(selectedDate);
-  setText("weekly-warning", "Calculating weekly evidenceâ€¦");
+  setText("weekly-warning", "Calculating weekly evidence…");
   try {
     const supabase = await getClient();
     const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
@@ -14423,7 +14423,7 @@ async function loadWeeklyInspectionLegacy() {
 async function loadWeeklyInspection() {
   const selectedDate = document.getElementById("weekly-date").value || todayISODate();
   const range = getInspectionWeekRange(selectedDate);
-  setText("weekly-warning", "Calculating weekly evidenceâ€¦");
+  setText("weekly-warning", "Calculating weekly evidence…");
   const supabase = await getClient();
   const inspectionResult = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
   if (inspectionResult.data?.finalized_at && !inspectionResult.error) {
@@ -14506,7 +14506,7 @@ function loadLocalAnalyticsHistory() {
 }
 
 function signedDisplay(value, suffix = "%") {
-  if (!Number.isFinite(Number(value))) return "â€”";
+  if (!Number.isFinite(Number(value))) return "—";
   const rounded = Math.round(Number(value));
   return `${rounded > 0 ? "+" : ""}${rounded}${suffix}`;
 }
@@ -14554,23 +14554,23 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
   const report = generateAtlasTrendReport({ trajectory, domainTrends, streaks, summary, chartSeries });
   setText("trajectory-status", trajectory.state);
   document.getElementById("trajectory-status").className = `state-pill ${trajectory.state === "IMPROVING" ? "green" : trajectory.state === "DECLINING" ? "red" : trajectory.state === "LIMITED EVIDENCE" ? "yellow" : "neutral"}`;
-  setText("analytics-storage", `${storageMode} ANALYTICS â€” derived, not stored`);
+  setText("analytics-storage", `${storageMode} ANALYTICS — derived, not stored`);
   setText("trend-summary-trajectory", trajectory.state || "INSUFFICIENT HISTORY");
   setText("trend-summary-score-change", signedDisplay(summary.scoreChange));
-  setText("trend-summary-evidence", trajectory.averageEvidence === null ? "â€”" : `${Math.round(trajectory.averageEvidence)}%`);
-  const domainAtRisk = report.domainAtRisk === "No declining domain established." ? "â€”" : report.domainAtRisk;
+  setText("trend-summary-evidence", trajectory.averageEvidence === null ? "—" : `${Math.round(trajectory.averageEvidence)}%`);
+  const domainAtRisk = report.domainAtRisk === "No declining domain established." ? "—" : report.domainAtRisk;
   setText("trend-summary-domain", domainAtRisk);
-  setText("trend-summary-consistency", report.consistency || "â€”");
+  setText("trend-summary-consistency", report.consistency || "—");
   const windowDates = trajectory.window.map((item) => item.weekStartDate);
   setText("trend-window", windowDates.length ? `Finalized trend window: ${windowDates[0]} through ${windowDates.at(-1)} (${windowDates.length} scored weeks).` : "No finalized scored trend window available.");
   setText("trend-latest-score", summary.mostRecentFinalized ? formatDisciplineScore(summary.mostRecentFinalized.score) : "UNSCORED");
   setText("trend-average-score", formatDisciplineScore(summary.recentAverageScore));
   setText("trend-score-change", signedDisplay(summary.scoreChange));
   setText("trend-evidence-change", signedDisplay(summary.evidenceChange));
-  setText("trend-best-week", summary.bestWeek ? `${summary.bestWeek.weekStartDate} // ${formatDisciplineScore(summary.bestWeek.score)}` : "â€”");
-  setText("trend-lowest-week", summary.lowestWeek ? `${summary.lowestWeek.weekStartDate} // ${formatDisciplineScore(summary.lowestWeek.score)}` : "â€”");
+  setText("trend-best-week", summary.bestWeek ? `${summary.bestWeek.weekStartDate} // ${formatDisciplineScore(summary.bestWeek.score)}` : "—");
+  setText("trend-lowest-week", summary.lowestWeek ? `${summary.lowestWeek.weekStartDate} // ${formatDisciplineScore(summary.lowestWeek.score)}` : "—");
   setText("trend-finalized-count", summary.finalizedCount);
-  setText("trend-completion-rate", Number.isFinite(summary.recentInspectionCompletionRate) ? `${Math.round(summary.recentInspectionCompletionRate)}%` : "â€”");
+  setText("trend-completion-rate", Number.isFinite(summary.recentInspectionCompletionRate) ? `${Math.round(summary.recentInspectionCompletionRate)}%` : "—");
   setText("current-assessed-streak", `${streaks.currentAssessedDayStreak} days`);
   setText("current-full-streak", `${streaks.currentFullyAssessedDayStreak} days`);
   setText("longest-assessed-streak", `${streaks.longestAssessedDayStreak} days`);

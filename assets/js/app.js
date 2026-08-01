@@ -5640,6 +5640,26 @@ function renderRecruitContractSetupStep() {
   if (summary && stepMeta) summary.textContent = stepMeta.prompt;
 }
 
+function routeRecruitContractReview(draft, { readyMessage = "Replacement Contract is ready. Read the change, enter your signature, and sign it into force." } = {}) {
+  if (!draft || typeof DominionContractExperience === "undefined") return false;
+  const route = DominionContractExperience.amendmentReviewRoute(draft);
+  recruitContractSetupStep = route.step;
+  renderRecruitContract();
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) editor.open = true;
+  if (route.ready) {
+    setText("recruit-contract-feedback", readyMessage);
+    document.getElementById("contract-signature-heading")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("contract-signer-name")?.focus({ preventScroll: true });
+    return true;
+  }
+  setText("recruit-contract-feedback", `Fix before signing: ${route.errors.join(" ")}`);
+  const field = document.querySelector(`#recruit-contract-form [name="${route.focusName}"]`);
+  field?.scrollIntoView({ behavior: "smooth", block: "center" });
+  field?.focus({ preventScroll: true });
+  return false;
+}
+
 function recruitContractNutritionConnection(contract = {}, weekStart = unifiedWeekTargetStart()) {
   if (typeof DominionRecruitContract === "undefined") return null;
   const planningDate = typeof DominionWeeklyOrchestrator !== "undefined"
@@ -6041,7 +6061,7 @@ function renderRecruitContract() {
 }
 
 async function signRecruitContractFromCeremony() {
-  if (typeof DominionRecruitContract === "undefined" || typeof DominionContractExperience === "undefined") return;
+  if (typeof DominionRecruitContract === "undefined" || typeof DominionContractExperience === "undefined") return false;
   const signerName = document.getElementById("contract-signer-name")?.value || "";
   const accepted = document.getElementById("contract-signature-accepted")?.checked === true;
   const validation = DominionContractExperience.validateSignature({ signerName, accepted });
@@ -6049,12 +6069,15 @@ async function signRecruitContractFromCeremony() {
     setText("recruit-contract-feedback", validation.errors[0]);
     if (signerName.trim().length < 2) document.getElementById("contract-signer-name")?.focus();
     else document.getElementById("contract-signature-accepted")?.focus();
-    return;
+    return false;
   }
+  let signed;
+  let previous;
+  let previousOrientation;
   try {
     const draft = readRecruitContractDraft();
-    const previous = readRecruitContractState("APPROVED", null);
-    const previousOrientation = readRecruitOnboardingState();
+    previous = readRecruitContractState("APPROVED", null);
+    previousOrientation = readRecruitOnboardingState();
     const approved = draft
       ? DominionRecruitContract.approveRecruitContract(draft, previous, {
           today: todayISODate(),
@@ -6062,16 +6085,25 @@ async function signRecruitContractFromCeremony() {
         })
       : previous;
     if (!approved) throw new Error("Review the Contract before signing.");
-    const signed = DominionContractExperience.signApprovedContract(approved, {
+    signed = DominionContractExperience.signApprovedContract(approved, {
       signerName: validation.signerName,
       accepted: true
     }, { signedAt: new Date().toISOString() });
     const history = [signed, ...readRecruitContractHistory().filter((item) => item.id !== signed.id)].slice(0, 24);
     saveRecruitContractLocal("APPROVED", signed);
     saveRecruitContractLocal("HISTORY", history);
-    const synced = await persistRecruitContractState("APPROVED", signed);
-    await persistRecruitContractState("HISTORY", history);
-    await clearRecruitContractState("DRAFT");
+    window.localStorage.removeItem(recruitContractStorageKey("DRAFT"));
+  } catch (error) {
+    setText("recruit-contract-feedback", error?.message || "The Dominion Contract could not be signed.");
+    return false;
+  }
+
+  const followupWarnings = [];
+  const history = readRecruitContractHistory();
+  const synced = await persistRecruitContractState("APPROVED", signed);
+  await persistRecruitContractState("HISTORY", history);
+  await clearRecruitContractState("DRAFT");
+  try {
     if (typeof DominionFirstWeekOrientation !== "undefined") {
       const orientation = previous?.status === "APPROVED"
         ? DominionFirstWeekOrientation.rebaseOrientation(previousOrientation, previous, signed, { today: todayISODate() })
@@ -6079,17 +6111,28 @@ async function signRecruitContractFromCeremony() {
       saveRecruitOnboardingLocal(orientation);
       await persistRecruitOnboardingState(orientation);
     }
-    const calendarRefreshed = await refreshUnifiedWeekDraftForPlans({ force: true });
-    recruitContractSetupStep = 0;
-    const editor = document.getElementById("recruit-contract-editor");
-    if (editor) editor.open = false;
+  } catch (_) {
+    followupWarnings.push("Week One Orientation will retry on refresh");
+  }
+  let calendarRefreshed = false;
+  try {
+    calendarRefreshed = await refreshUnifiedWeekDraftForPlans({ force: true });
+  } catch (_) {
+    followupWarnings.push("calendar regeneration needs a retry");
+  }
+  recruitContractSetupStep = 0;
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) editor.open = false;
+  try {
     renderRecruitContract();
     renderActivationGuide();
     renderTodayStandardsDuty();
-    setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}.${calendarRefreshed ? ` The calendar draft now uses ${signed.twoADays ? "AM/PM Two-a-Day capacity" : `${signed.sessionMinutes}-minute standard capacity`}.` : ""} First Week Orientation is ready below.`);
-  } catch (error) {
-    setText("recruit-contract-feedback", error?.message || "The Dominion Contract could not be signed.");
+  } catch (_) {
+    followupWarnings.push("the Contract view needs a refresh");
   }
+  const warning = followupWarnings.length ? ` Follow-up: ${followupWarnings.join("; ")}. Your signed Contract is already in force.` : "";
+  setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}.${calendarRefreshed ? ` The calendar draft now uses ${signed.twoADays ? "AM/PM Two-a-Day capacity" : `${signed.sessionMinutes}-minute standard capacity`}.` : ""} First Week Orientation is ready below.${warning}`);
+  return true;
 }
 
 async function stageRecruitContractPlans() {
@@ -12301,11 +12344,7 @@ if (typeof document !== "undefined") {
     await recruitContractAutosavePromise;
     const draft = await saveRecruitContractDraftFromForm({ announce: false });
     if (!draft) return;
-    recruitContractSetupStep = 4;
-    renderRecruitContract();
-    setText("recruit-contract-feedback", draft.status === "READY_FOR_APPROVAL"
-      ? "Replacement Contract is ready. Read the change, enter your signature, and sign it into force."
-      : "Review the flagged commitment before approval.");
+    routeRecruitContractReview(draft);
   });
   document.getElementById("recruit-contract-form")?.addEventListener("input", queueRecruitContractAutosave);
   document.querySelector('#recruit-contract-form [name="runningDaysPerWeek"]')?.addEventListener("change", (event) => {
@@ -12359,7 +12398,7 @@ if (typeof document !== "undefined") {
         window.clearTimeout(recruitContractAutosaveTimer);
         recruitContractAutosaveRevision += 1;
         await recruitContractAutosavePromise;
-        await saveRecruitContractDraftFromForm({ announce: false });
+        const draft = await saveRecruitContractDraftFromForm({ announce: false });
         if (recruitContractSetupStep < 3) {
           recruitContractSetupStep += 1;
           renderRecruitContractSetupStep();
@@ -12370,8 +12409,7 @@ if (typeof document !== "undefined") {
           document.getElementById("recruit-contract-form")?.requestSubmit();
           return;
         }
-        document.getElementById("contract-signature-heading")?.scrollIntoView({ behavior: "smooth", block: "center" });
-        document.getElementById("contract-signer-name")?.focus({ preventScroll: true });
+        routeRecruitContractReview(draft);
         return;
       }
       if (action === "review-amendment") {
@@ -12379,19 +12417,9 @@ if (typeof document !== "undefined") {
         recruitContractAutosaveRevision += 1;
         await recruitContractAutosavePromise;
         const draft = await saveRecruitContractDraftFromForm({ announce: false });
-        if (!draft || draft.status !== "READY_FOR_APPROVAL") {
-          setText("recruit-contract-feedback", draft?.errors?.[0] || "Complete the amendment before signing it.");
-          const editor = document.getElementById("recruit-contract-editor");
-          if (editor) editor.open = true;
-          return;
-        }
-        recruitContractSetupStep = 4;
-        renderRecruitContract();
-        const editor = document.getElementById("recruit-contract-editor");
-        if (editor) editor.open = true;
-        document.getElementById("contract-signature-heading")?.scrollIntoView({ behavior: "smooth", block: "center" });
-        document.getElementById("contract-signer-name")?.focus({ preventScroll: true });
-        setText("recruit-contract-feedback", `Contract ${readApprovedRecruitContract()?.revision || "current"} is still active. Sign the replacement below to update the calendar.`);
+        routeRecruitContractReview(draft, {
+          readyMessage: `Contract ${readApprovedRecruitContract()?.revision || "current"} is still active. Sign the replacement below to update the calendar.`
+        });
         return;
       }
       if (action === "sign-request") {
@@ -12411,7 +12439,14 @@ if (typeof document !== "undefined") {
         return;
       }
       if (action === "sign-confirm") {
-        await signRecruitContractFromCeremony();
+        event.preventDefault();
+        experienceButton.disabled = true;
+        const previousLabel = experienceButton.textContent;
+        experienceButton.textContent = "Signing Contract…";
+        const completed = await signRecruitContractFromCeremony();
+        experienceButton.disabled = false;
+        experienceButton.textContent = previousLabel;
+        if (completed) document.getElementById("contract-signing-dialog")?.close("confirm");
         return;
       }
       if (action === "amend") {

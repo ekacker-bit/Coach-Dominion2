@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021C.1";
+  const VERSION = "021E.1";
   const OATH_VERSION = "DOMINION_OATH_019A";
   const OATH_LINES = Object.freeze([
     "I commit to discipline.",
@@ -91,6 +91,27 @@
     return { valid: errors.length === 0, signerName, errors };
   }
 
+  function amendmentReviewRoute(contract = {}) {
+    const errors = Array.isArray(contract.errors) ? contract.errors.filter(Boolean) : [];
+    if (contract.status === "READY_FOR_APPROVAL" && errors.length === 0) {
+      return { ready: true, step: 4, focusName: "contract-signer-name", errors: [] };
+    }
+    const first = String(errors[0] || "Complete the Contract before signing it.");
+    const rules = [
+      { pattern: /\bage\b/i, step: 0, focusName: "age" },
+      { pattern: /\bheight\b/i, step: 0, focusName: "heightValue" },
+      { pattern: /structured training/i, step: 0, focusName: "trainingYears" },
+      { pattern: /outcome/i, step: 1, focusName: "target" },
+      { pattern: /target date/i, step: 1, focusName: "targetDate" },
+      { pattern: /strength day/i, step: 2, focusName: "strengthDaysPerWeek" },
+      { pattern: /running day/i, step: 2, focusName: "runningDaysPerWeek" },
+      { pattern: /core (?:day|planning)/i, step: 2, focusName: "coreDaysPerWeek" },
+      { pattern: /two-a-days|sessions per training day|training days/i, step: 2, focusName: "trainingDaysPerWeek" }
+    ];
+    const match = rules.find((rule) => rule.pattern.test(first)) || { step: 3, focusName: "equipment" };
+    return { ready: false, step: match.step, focusName: match.focusName, errors: errors.length ? errors : [first] };
+  }
+
   function signApprovedContract(contract = {}, input = {}, options = {}) {
     if (contract.status !== "APPROVED" || !contract.id || !contract.revision) {
       throw new Error("Approve the Contract before applying a signature.");
@@ -160,6 +181,7 @@
     commitmentLines,
     signatureStatus,
     validateSignature,
+    amendmentReviewRoute,
     signApprovedContract,
     artifact,
     progression,

@@ -21,6 +21,7 @@ function approvedContract(overrides = {}) {
     runningDaysPerWeek: 3,
     coreDaysPerWeek: 3,
     sessionMinutes: 60,
+    twoADays: false,
     equipment: "FULL_GYM",
     experience: "INTERMEDIATE",
     runningGoal: "10K",
@@ -107,6 +108,70 @@ test("loaded Strength is moved away from hard running", () => {
     const hardRun = day.activities.find((item) => item.module === "RUNNING" && orchestrator.HARD_RUN_TYPES.includes(item.type));
     assert.equal(Boolean(hardRun && modulesOnDay.includes("STRENGTH")), false, `${day.date} contains a hard collision`);
   });
+});
+
+test("the signed Two-a-Day choice governs coordinated calendar days", () => {
+  const result = draft(modules(approvedContract({ twoADays: true })));
+  const twoADays = result.days.filter((day) => day.twoADay);
+  assert.equal(result.twoADaysEnabled, true);
+  assert.equal(result.twoADayCount, twoADays.length);
+  assert.ok(twoADays.length > 0);
+  twoADays.forEach((day) => {
+    assert.equal(day.sessionCount, 2);
+    assert.equal(day.durationTargetMinutes, 121);
+    assert.equal(day.durationLimitMinutes, day.longRunUncapped ? null : 240);
+  });
+  assert.equal(result.conflicts.some((item) => item.code === "TWO_A_DAY_SESSION_LIMIT"), false);
+});
+
+test("Two-a-Day capacity permits two sessions above 120 minutes through 240", () => {
+  const policy = orchestrator.dailyDurationPolicy(
+    { twoADays: true, sessionMinutes: 75 },
+    [
+      { module: "STRENGTH", type: "STRENGTH", estimatedMinutes: 100 },
+      { module: "RUNNING", type: "EASY", estimatedMinutes: 130 }
+    ]
+  );
+  assert.equal(policy.twoADay, true);
+  assert.equal(policy.targetMinutes, 121);
+  assert.equal(policy.maximumMinutes, 240);
+  assert.equal(policy.estimatedMinutes, 230);
+  assert.equal(policy.durationLimitExceeded, false);
+  assert.equal(policy.sessionLimitExceeded, false);
+});
+
+test("Two-a-Day capacity blocks a third session or more than 240 minutes", () => {
+  const overTime = orchestrator.dailyDurationPolicy(
+    { twoADays: true, sessionMinutes: 90 },
+    [
+      { module: "STRENGTH", estimatedMinutes: 120 },
+      { module: "RUNNING", type: "EASY", estimatedMinutes: 121 }
+    ]
+  );
+  const overSessions = orchestrator.dailyDurationPolicy(
+    { twoADays: true, sessionMinutes: 90 },
+    [
+      { module: "STRENGTH", estimatedMinutes: 75 },
+      { module: "RUNNING", type: "EASY", estimatedMinutes: 75 },
+      { module: "CORE", estimatedMinutes: 20 }
+    ]
+  );
+  assert.equal(overTime.durationLimitExceeded, true);
+  assert.equal(overSessions.sessionLimitExceeded, true);
+});
+
+test("long-run duration is never capped by standard or Two-a-Day time limits", () => {
+  const policy = orchestrator.dailyDurationPolicy(
+    { twoADays: true, sessionMinutes: 90 },
+    [
+      { module: "RUNNING", type: "LONG", estimatedMinutes: 360 },
+      { module: "CORE", estimatedMinutes: 20 }
+    ]
+  );
+  assert.equal(policy.longRunUncapped, true);
+  assert.equal(policy.maximumMinutes, null);
+  assert.equal(policy.durationLimitExceeded, false);
+  assert.equal(policy.estimatedMinutes, 380);
 });
 
 test("missing module approvals are explicit blockers", () => {

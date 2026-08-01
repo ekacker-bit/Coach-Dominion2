@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Dominion">
-  <title>Coach Dominion — War Room</title>
+  <title>Coach Dominion &mdash; Command Center</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/assets/icons/dominion-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/styles.css">
@@ -16,12 +16,19 @@
 </head>
 <body>
   <a class="skip-link" href="#app-content">Skip to main workspace</a>
-  <main class="war-room-shell">
+  <main class="war-room-shell" data-product-shell="019B">
     <header class="command-header">
-      <div>
-        <div class="kicker">DOMINION // CLOSED ALPHA</div>
-        <h1>War Room</h1>
-        <p class="muted" id="identity">Verifying session…</p>
+      <div class="command-brand-block">
+        <a class="dominion-brand" href="#today" data-section="today" aria-label="Coach Dominion home">
+          <span class="dominion-brand-mark" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></span>
+          <span class="dominion-brand-copy">
+            <span class="kicker">DOMINION // CLOSED ALPHA</span>
+            <strong>Coach Dominion</strong>
+            <small id="shell-section-context">Execute &middot; Today</small>
+          </span>
+        </a>
+        <h1 class="visually-hidden">Coach Dominion Command Center</h1>
+        <div class="shell-account"><span id="shell-rank-badge">RECRUIT</span><p class="muted" id="identity">Verifying session…</p></div>
       </div>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
@@ -45,6 +52,22 @@
         <button id="logout" class="ghost">Sign out</button>
       </div>
     </header>
+
+    <section id="dominion-mission-rail" class="dominion-mission-rail" aria-labelledby="shell-mission-heading">
+      <div class="shell-mission-phase"><span>Operating phase</span><strong id="shell-mission-phase">ASSEMBLING</strong></div>
+      <div class="shell-mission-copy">
+        <div class="kicker">BUILD 019B // CURRENT ORDER</div>
+        <h2 id="shell-mission-heading">Assembling your next action</h2>
+        <p id="shell-mission-detail">Connecting the Contract, plans, week, and today.</p>
+      </div>
+      <a id="shell-mission-action" class="btn shell-mission-action" href="#today" data-section="today">Open Today</a>
+      <ol id="shell-journey" class="shell-journey" aria-label="Dominion operating journey">
+        <li data-shell-step="contract"><span>1</span><strong>Contract</strong></li>
+        <li data-shell-step="plans"><span>2</span><strong>Plans</strong></li>
+        <li data-shell-step="week"><span>3</span><strong>Week</strong></li>
+        <li data-shell-step="today"><span>4</span><strong>Today</strong></li>
+      </ol>
+    </section>
 
     <section class="status-bar" aria-label="Current status bar">
       <div><span>Sleep</span><strong id="status-sleep">—</strong></div>
@@ -260,7 +283,7 @@
           <div>
             <div class="kicker">DATA CONNECTIONS</div>
             <h2 id="connected-heading">Connections &amp; Data</h2>
-            <p class="muted">Import Fitbod and Apple Health files, or automatically deliver daily MyFitnessPal totals through Apple Health and a private iPhone Shortcut.</p>
+            <p class="muted">Bring training and nutrition evidence into one trusted record.</p>
           </div>
           <span id="connected-storage" class="state-pill neutral">LOADING</span>
         </div>
@@ -319,8 +342,8 @@
         <div class="section-heading">
           <div>
             <div class="kicker">BUILD 008A // NUTRITION COMMAND</div>
-            <h2 id="nutrition-command-heading">Nutrition Command Center</h2>
-            <p class="muted">Daily targets, MyFitnessPal or manual intake, training context, and readiness in one conservative coaching decision.</p>
+            <h2 id="nutrition-command-heading">Fuel</h2>
+            <p class="muted">Today&rsquo;s targets, intake, and one clear adjustment.</p>
           </div>
           <span id="nutrition-command-status" class="state-pill neutral">LOADING</span>
         </div>
@@ -783,7 +806,7 @@
           <div>
             <div class="kicker">LONGITUDINAL EXECUTION RECORD</div>
             <h2 id="dominion-record-heading">Dominion Record</h2>
-            <p class="muted">Record what was assigned, completed, modified, excused, or missed. Restrictions are evidence, not misconduct.</p>
+            <p class="muted">Record the truth of the day&mdash;completed, modified, excused, or missed.</p>
           </div>
           <div class="compliance-scoreboard">
             <span id="compliance-date">—</span>
@@ -819,7 +842,7 @@
             <div>
               <div class="kicker">BUILD 012E // UNIFIED WEEKLY REVIEW</div>
               <h2 id="review-hub-heading">Weekly Review</h2>
-              <p class="muted">Inspect the evidence, resolve exceptions, understand the trajectory, and confirm advancement.</p>
+              <p class="muted">Inspect the week. Resolve exceptions. Decide what changes next.</p>
             </div>
             <span id="review-hub-state" class="state-pill neutral">ASSEMBLING</span>
           </div>
@@ -933,7 +956,7 @@
           <div>
             <div class="kicker">BUILD 011B // CORRECTIVE ACTION PLANS</div>
             <h2 id="standards-heading">Standards Operations</h2>
-            <p class="muted">Review evidence, make a deliberate decision, and track confirmed actions through resolution. Coach Dominion never confirms a violation automatically.</p>
+            <p class="muted">Review the evidence. Decide deliberately. Close the loop.</p>
           </div>
           <span id="standards-state" class="state-pill neutral">CLEAR</span>
         </div>
@@ -978,7 +1001,7 @@
           <div>
             <div class="kicker">BUILD 004F // RANK &amp; PROMOTION</div>
             <h2 id="rank-heading">Rank &amp; Promotion</h2>
-            <p class="muted">Promotion is earned through finalized inspection history, evidence quality, standards discipline, and deliberate confirmation.</p>
+            <p class="muted">Promotion is earned through consistent execution and trusted evidence.</p>
           </div>
           <span id="rank-state" class="state-pill neutral">NOT ELIGIBLE</span>
         </div>
@@ -1009,7 +1032,7 @@
           <div>
             <div class="kicker">BUILD 013B // SIMPLIFIED TRAINING WORKSPACE</div>
             <h2 id="performance-heading">Training</h2>
-            <p class="muted">Move from today’s prescription to execution, running, abs/core, and long-term progress without losing the evidence behind the plan.</p>
+            <p class="muted">Today&rsquo;s work, the plan behind it, and evidence that moves it forward.</p>
           </div>
           <span id="performance-storage" class="state-pill neutral">LOADING</span>
         </div>
@@ -1301,7 +1324,6 @@
           <button id="edit-roll-call" class="ghost" type="button">Update morning roll call</button>
         </section>
 
-        <article class="card module-placeholder"><div class="kicker">WORKOUT</div><h2>Training assignment</h2><p class="muted">Today’s executable prescription is shown above with evidence and completion controls.</p></article>
         <article id="today-nutrition-card" class="card today-nutrition-card" aria-labelledby="today-nutrition-heading">
           <div class="section-heading compact">
             <div>
@@ -1375,6 +1397,7 @@
 <script src="/assets/js/weekly-orchestrator.js"></script>
 <script src="/assets/js/contract-activation.js"></script>
 <script src="/assets/js/mobile-command.js"></script>
+<script src="/assets/js/experience-shell.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

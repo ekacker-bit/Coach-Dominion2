@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Build 019B Dominion Experience Shell
+
+- Replaced the generic War Room masthead with a persistent Coach Dominion identity, current section context, and visible rank.
+- Added one deterministic current-order rail that connects Contract, plans, coordinated week, and Today into a single operating journey.
+- Added contextual next actions for unsigned contracts, incomplete plan links, week building, week commitment, Morning Roll Call, protected RED-readiness states, and daily execution.
+- Reduced dashboard language across primary modules and removed internal build labels from the rendered experience while retaining source-level release markers.
+- Removed the redundant Today training-assignment placeholder now that the live prescription and completion controls are authoritative.
+- Established a navy, forest, and gold visual system, reserved crimson for danger, increased hierarchy and whitespace, and strengthened responsive and reduced-motion behavior.
+- Reused existing Contract, plan, week, readiness, rank, and account state without introducing a second source of truth or new persistence.
+
 ## Unreleased — Build 019A Dominion Contract Experience
 
 - Reframed Recruit Contract setup as a four-stage commitment flow: Outcome, Capacity, Standards, and Review.

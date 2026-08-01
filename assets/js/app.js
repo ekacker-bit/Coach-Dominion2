@@ -4904,7 +4904,7 @@ function renderWeeklyOrchestrator() {
   </article>`).join("");
   const days = (preview.days || []).map((day) => {
     const activities = day.activities.length
-      ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()}"><span>${escapeHtml(item.module)}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small></div>`).join("")
+      ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()}">${day.twoADay ? `<em>${escapeHtml(item.sessionLabel)}</em>` : ""}<span>${escapeHtml(item.module)}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small></div>`).join("")
       : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
     return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
@@ -4948,10 +4948,57 @@ function renderTodayCommittedWeek() {
   const state = DominionWeeklyOrchestrator.weekState(week, todayISODate());
   status.textContent = state;
   status.className = `state-pill ${weeklyOrchestrationTone(state)}`;
-  const assignments = day?.activities?.length
-    ? day.activities.map((item, index) => `<article><span>${index + 1}</span><div><small>${escapeHtml(item.module)}</small><strong>${escapeHtml(item.title)}</strong><p>${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p></div></article>`).join("")
+  const sequence = day?.sessionSequence?.length ? day.sessionSequence : day?.activities || [];
+  const sessionModels = sequence.map((item) => ({ item, execution: todaySessionExecution(item) }));
+  const firstSessionComplete = sessionModels[0]?.execution.complete === true;
+  const assignments = sessionModels.length
+    ? sessionModels.map(({ item, execution }, index) => {
+      const locked = Boolean(day?.twoADay && index > 0 && !firstSessionComplete);
+      const disabled = locked || execution.complete || execution.held;
+      const actionLabel = execution.complete
+        ? "Session complete"
+        : execution.held
+          ? "Safety hold"
+          : locked
+            ? "Finish Session 1 first"
+            : `Open ${day?.twoADay ? item.sessionLabel.toLowerCase() : "training"}`;
+      return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked ? "locked" : ""}">
+        <span>${item.sessionOrder || index + 1}</span>
+        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${execution.tone}">${escapeHtml(execution.label)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after Session 1 · refuel first</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
+      </article>`;
+    }).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
-  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? "LONG RUN · TIME OPEN" : day?.twoADay ? `TWO-A-DAY · ${day.estimatedMinutes}/240 MIN` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>`;
+  const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
+  const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${firstSessionComplete ? "active" : "pending"}"><div><span>BETWEEN SESSIONS</span><strong>${firstSessionComplete ? "Refuel, rehydrate, and protect four hours" : "Complete Session 1 before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged." : "Update today’s fuel after Session 1; Session 2 remains a separate exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log refuel"}</button></aside>` : "";
+  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? "LONG RUN · TIME OPEN" : day?.twoADay ? `TWO-A-DAY · ${day.estimatedMinutes}/240 MIN` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+}
+
+function todaySessionExecution(item = {}) {
+  const module = String(item.module || "").toUpperCase();
+  let state = "READY";
+  let held = false;
+  if (module === "STRENGTH") {
+    const assignment = buildCurrentDailyAssignment();
+    state = String(readDailyAssignmentExecution()?.state || "READY").toUpperCase();
+    held = assignment?.state === "RECOVERY ONLY" || state === "STOPPED";
+  } else if (module === "RUNNING") {
+    const prescription = currentRunningPrescription();
+    state = String(readRunningExecution()?.state || "READY").toUpperCase();
+    held = ["PAIN_HOLD", "REST_DAY"].includes(String(prescription?.status || "").toUpperCase());
+  } else if (module === "CORE") {
+    const prescription = currentCorePrescription();
+    state = String(readCurrentCoreExecution()?.state || "READY").toUpperCase();
+    held = ["PAIN_HOLD", "RECOVERY_ONLY", "REMOVED"].includes(String(prescription?.status || "").toUpperCase());
+  }
+  const complete = ["COMPLETE", "PARTIAL"].includes(state);
+  const active = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(state);
+  return {
+    state,
+    complete,
+    held,
+    label: held ? "PROTECTED" : complete ? "COMPLETE" : active ? "IN PROGRESS" : "READY",
+    tone: held ? "red" : complete ? "green" : active ? "yellow" : "neutral"
+  };
 }
 
 function recruitContractGoalLabel(value = "") {
@@ -11292,6 +11339,21 @@ if (typeof document !== "undefined") {
       setText("activation-repair-feedback", error?.message || "That repair step could not be completed.");
     } finally {
       button.disabled = false;
+    }
+  });
+  document.getElementById("today-committed-week-panel")?.addEventListener("click", async (event) => {
+    const fuelButton = event.target.closest("button[data-two-a-day-action='fuel']");
+    if (fuelButton) {
+      openMobileCommandSheet("nutrition");
+      return;
+    }
+    const sessionButton = event.target.closest("button[data-today-session-module]");
+    if (!sessionButton || sessionButton.disabled) return;
+    sessionButton.disabled = true;
+    try {
+      await launchMobileModule(sessionButton.dataset.todaySessionModule || "strength");
+    } finally {
+      renderTodayCommittedWeek();
     }
   });
   document.getElementById("mobile-command-dock")?.addEventListener("click", (event) => {

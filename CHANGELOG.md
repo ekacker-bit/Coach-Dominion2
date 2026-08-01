@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 019E One Command UX
+
+- Rebuilt Today around one dominant command sourced from the 019D operating truth layer.
+- Added a compact six-stage progress rail, assigned-domain status chips, and one contextual secondary action.
+- Consolidated the committed plan, adaptive coaching, evidence status, coaching logic, and setup guidance into one collapsed context drawer.
+- Moved the full execution sequence behind progressive disclosure and shows the Daily Seal only when review, adaptation, or secured-day action is relevant.
+- Removed the duplicate mobile command card while preserving thumb-friendly Roll Call and fuel capture sheets.
+- Hid the global mission rail on Today so the user sees one authoritative next action rather than two competing commands.
+
 ## Unreleased — Build 019D Operating Truth
 
 - Added a deterministic truth hierarchy from Recruit Contract through plans, committed week, Today, evidence, and review.

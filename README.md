@@ -55,6 +55,10 @@ The global shell carries section identity, rank, primary navigation, and a four-
 
 The Daily Seal gives Today a meaningful ending. It reads the canonical execution queue and closed-loop coaching record, then guides the recruit through Execute, Record, Verify, and Adapt. When the evidence is ready, the close action preserves the review; when Atlas proposes a bounded next move, the recruit must still approve it deliberately. A sealed day displays evidence confidence, secured-day history, the current consecutive chain, and rank without introducing another source of truth.
 
+## Build 019D Operating Truth
+
+Build 019D makes every major surface answer from one state hierarchy: Contract → Plans → Week → Today → Evidence → Review. A module can only show `COMPLETE` when a committed assignment, terminal execution, and preserved evidence agree. Unsigned contracts, stale plan links, uncommitted weeks, missing evidence, and review work now produce one named blocker and one repair action across the mission rail, mobile command, and Daily Seal.
+
 ## Build 004B weekly inspection
 
 The Weekly Inspection reviews a normalized Monday-through-Sunday period and can move backward across prior weeks. It aggregates the underlying included domain observations: completed = 100, partial = 50, and missed = 0. Excused and intentionally not-applicable observations are excluded from the score denominator. Missing or invalid observations receive no credit and remain unassessed. Scores retain full precision internally and round only in the interface.

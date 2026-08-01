@@ -48,6 +48,7 @@
     "test:019b": "node tests/experience-shell.test.js && node tests/build-019b.test.js && node tests/contract-experience.test.js && node tests/contract-activation.test.js && node tests/mobile-command.test.js",
     "test:019c": "node tests/daily-ritual.test.js && node tests/build-019c.test.js && node tests/closed-loop-coaching.test.js && node tests/daily-coaching-loop.test.js && node tests/build-019b.test.js",
     "test:019d": "node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/daily-ritual.test.js && node tests/mobile-command.test.js && node tests/contract-activation.test.js && node tests/weekly-orchestrator.test.js && node tests/build-019c.test.js",
-    "pretest": "node tests/operating-truth.test.js && node tests/build-019d.test.js"
+    "test:019e": "node tests/one-command.test.js && node tests/build-019e.test.js && node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/daily-ritual.test.js && node tests/mobile-command.test.js",
+    "pretest": "node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/one-command.test.js && node tests/build-019e.test.js"
   }
 }

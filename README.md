@@ -70,6 +70,12 @@ One Command now turns setup blockers into a guided recovery path. It names the e
 
 The same release sharpens the Coach Dominion shield for small mobile surfaces and makes Recovery operational on Today. The card reads current readiness, training load, and fueling evidence; gives a clear recovery prescription; records deliberate completion in the canonical daily queue; and updates closed-loop evidence and the Daily Seal. Completion never removes a pain safeguard or silently changes an approved training plan.
 
+## Build 019G Two-a-Day Capacity
+
+The Recruit Contract can now authorize designated Two-a-Days. When enabled, the coordinated calendar may place two sessions on one day, targets at least 121 combined minutes, and enforces a 240-minute daily ceiling. Calendar and Today surfaces show that capacity explicitly, and changing the choice requires the same deliberate Contract revision and signature flow as every other commitment.
+
+Long runs are exempt from time clipping: their duration remains open even when estimated above the standard or Two-a-Day ceiling. The exemption does not remove recovery-day protection, readiness and pain restrictions, the hard-run plus loaded-strength block, or the requirement to separate and refuel between compatible sessions.
+
 ## Build 004B weekly inspection
 
 The Weekly Inspection reviews a normalized Monday-through-Sunday period and can move backward across prior weeks. It aggregates the underlying included domain observations: completed = 100, partial = 50, and missed = 0. Excused and intentionally not-applicable observations are excluded from the score denominator. Missing or invalid observations receive no credit and remain unassessed. Scores retain full precision internally and round only in the interface.

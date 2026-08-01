@@ -1100,6 +1100,652 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
   border-radius: 10px;
 }
 
+/* Build 019A: Dominion Contract ceremony and signed operating artifact. */
+.recruit-contract-experience {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(18px, 3vw, 30px);
+  border-color: rgba(240, 180, 41, 0.2);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(240, 180, 41, 0.08), transparent 30%),
+    linear-gradient(155deg, rgba(7, 16, 13, 0.98), rgba(7, 12, 18, 0.98));
+}
+
+.dominion-contract-hero {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(240, 180, 41, 0.2);
+}
+
+.dominion-contract-seal,
+.dominion-contract-artifact-seal,
+.contract-dialog-seal {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(240, 180, 41, 0.55);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 180, 41, 0.14), rgba(5, 13, 11, 0.96) 66%);
+  box-shadow: 0 0 0 6px rgba(240, 180, 41, 0.035), inset 0 0 24px rgba(240, 180, 41, 0.08);
+}
+
+.dominion-contract-seal {
+  width: 72px;
+  height: 72px;
+}
+
+.dominion-contract-seal img,
+.dominion-contract-artifact-seal img,
+.contract-dialog-seal img {
+  width: 64%;
+  height: 64%;
+  border-radius: 14px;
+}
+
+.dominion-contract-intro h2 {
+  margin: 6px 0 5px;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+
+.dominion-contract-intro p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(13px, 1.6vw, 16px);
+  line-height: 1.55;
+}
+
+.contract-setup-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contract-setup-progress li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--dim);
+}
+
+.contract-setup-progress li:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: 0;
+  left: 39px;
+  height: 1px;
+  content: "";
+  background: var(--line);
+}
+
+.contract-setup-progress span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #07100d;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.contract-setup-progress strong {
+  position: relative;
+  z-index: 1;
+  padding-right: 10px;
+  background: #08100f;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.contract-setup-progress li.complete,
+.contract-setup-progress li.current {
+  color: var(--text);
+}
+
+.contract-setup-progress li.complete span {
+  border-color: var(--green);
+  color: #04110c;
+  background: var(--green);
+}
+
+.contract-setup-progress li.current span {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.08);
+}
+
+.recruit-contract-experience .recruit-contract-form {
+  grid-template-columns: 1fr;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.recruit-contract-experience .recruit-contract-form fieldset,
+.recruit-contract-experience .recruit-contract-outcome,
+.contract-review-step {
+  grid-column: 1 / -1;
+}
+
+.contract-review-step {
+  padding: 24px;
+  border: 1px solid rgba(240, 180, 41, 0.34);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(240, 180, 41, 0.07), rgba(6, 12, 16, 0.88));
+}
+
+.contract-review-step h3 {
+  margin: 6px 0;
+  font-size: 26px;
+}
+
+.contract-review-step p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.contract-signature-ceremony {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  gap: clamp(22px, 4vw, 52px);
+  padding: clamp(22px, 4vw, 44px);
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  border-radius: 16px;
+  background:
+    linear-gradient(100deg, rgba(5, 17, 13, 0.96), rgba(17, 17, 16, 0.94)),
+    #07100d;
+  box-shadow: inset 0 0 60px rgba(240, 180, 41, 0.035);
+}
+
+.contract-ceremony-oath h3 {
+  margin: 8px 0 18px;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.contract-ceremony-oath ul,
+.dominion-contract-oath,
+.dominion-contract-commitments {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contract-ceremony-oath li {
+  color: var(--text);
+  font-size: clamp(15px, 2vw, 19px);
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.contract-signature-block {
+  display: grid;
+  align-content: center;
+  gap: 13px;
+  padding: 18px;
+  border-left: 1px solid rgba(240, 180, 41, 0.24);
+}
+
+.contract-signature-block > label:first-child {
+  display: grid;
+  gap: 7px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contract-signature-block input[type="text"],
+.contract-signature-block input:not([type]) {
+  min-height: 50px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-style: italic;
+}
+
+.contract-signature-affirmation {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.contract-signature-affirmation input {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+.contract-signature-block small {
+  color: var(--dim);
+  line-height: 1.45;
+}
+
+.contract-signing-dialog {
+  width: min(92vw, 560px);
+  padding: 0;
+  border: 1px solid rgba(240, 180, 41, 0.52);
+  border-radius: 18px;
+  color: var(--text);
+  background: linear-gradient(160deg, #0b1713, #080d13);
+  box-shadow: 0 28px 100px rgba(0, 0, 0, 0.7);
+}
+
+.contract-signing-dialog::backdrop {
+  background: rgba(1, 5, 7, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.contract-signing-dialog form {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: clamp(24px, 5vw, 42px);
+  text-align: center;
+}
+
+.contract-dialog-seal {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 6px;
+}
+
+.contract-signing-dialog h3 {
+  max-width: 420px;
+  margin: 0;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.04;
+}
+
+.contract-signing-dialog p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.contract-signing-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.dominion-contract-artifact {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(22px, 4vw, 46px);
+  border: 1px solid rgba(240, 180, 41, 0.52);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(240, 180, 41, 0.11), transparent 25%),
+    linear-gradient(145deg, rgba(8, 22, 17, 0.98), rgba(7, 11, 17, 0.98));
+  box-shadow: inset 0 0 80px rgba(240, 180, 41, 0.025), 0 18px 60px rgba(0, 0, 0, 0.2);
+}
+
+.dominion-contract-artifact::after {
+  position: absolute;
+  right: -80px;
+  bottom: -100px;
+  width: 280px;
+  height: 280px;
+  border: 1px solid rgba(240, 180, 41, 0.08);
+  border-radius: 50%;
+  content: "";
+  box-shadow: 0 0 0 30px rgba(240, 180, 41, 0.02), 0 0 0 60px rgba(240, 180, 41, 0.015);
+}
+
+.dominion-contract-artifact > header {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(240, 180, 41, 0.25);
+}
+
+.dominion-contract-artifact-seal {
+  width: 62px;
+  height: 62px;
+}
+
+.dominion-contract-artifact h3 {
+  margin: 5px 0;
+  font-size: clamp(30px, 5vw, 48px);
+  line-height: 0.95;
+}
+
+.dominion-contract-artifact header p,
+.dominion-contract-declaration p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.contract-signed-badge {
+  padding: 9px 13px;
+  border: 1px solid rgba(56, 212, 141, 0.55);
+  border-radius: 999px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+}
+
+.dominion-contract-declaration {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 7px;
+  margin: 28px 0;
+  padding: 18px 20px;
+  border-left: 3px solid var(--accent);
+  background: rgba(240, 180, 41, 0.045);
+}
+
+.dominion-contract-declaration > span,
+.dominion-contract-signature span {
+  color: var(--dim);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dominion-contract-declaration > strong {
+  font-size: clamp(20px, 3vw, 30px);
+  line-height: 1.2;
+}
+
+.dominion-contract-columns {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: clamp(22px, 4vw, 50px);
+}
+
+.dominion-contract-columns h4 {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.dominion-contract-oath li {
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.dominion-contract-commitments li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.dominion-contract-commitments li::before {
+  position: absolute;
+  top: 0.55em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  content: "";
+  background: var(--green);
+}
+
+.dominion-contract-signature {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(240, 180, 41, 0.25);
+}
+
+.dominion-contract-signature > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.dominion-contract-signature strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.contract-momentum {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(56, 212, 141, 0.3);
+  border-radius: 14px;
+  background: rgba(56, 212, 141, 0.035);
+}
+
+.contract-momentum h3 {
+  margin: 4px 0 0;
+  font-size: 24px;
+}
+
+.contract-momentum ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contract-momentum li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--dim);
+  background: rgba(5, 10, 14, 0.55);
+}
+
+.contract-momentum li span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.contract-momentum li strong {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.contract-momentum li.complete {
+  border-color: rgba(56, 212, 141, 0.28);
+  color: var(--green);
+}
+
+.contract-momentum li.current {
+  border-color: rgba(240, 180, 41, 0.45);
+  color: var(--accent);
+}
+
+.contract-momentum-action {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.contract-operating-terms {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 10, 14, 0.5);
+  overflow: hidden;
+}
+
+.contract-operating-terms > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.contract-operating-terms > summary small {
+  color: var(--muted);
+}
+
+.contract-operating-terms > div {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 780px) {
+  .dominion-contract-hero {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .dominion-contract-seal {
+    width: 54px;
+    height: 54px;
+  }
+
+  .recruit-contract-status-stack {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+
+  .contract-setup-progress strong {
+    display: none;
+  }
+
+  .contract-setup-progress li:not(:last-child)::after {
+    right: 7px;
+    left: 31px;
+  }
+
+  .contract-signature-ceremony,
+  .dominion-contract-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-signature-block {
+    padding: 18px 0 0;
+    border-top: 1px solid rgba(240, 180, 41, 0.24);
+    border-left: 0;
+  }
+
+  .dominion-contract-artifact > header {
+    grid-template-columns: 54px minmax(0, 1fr);
+  }
+
+  .dominion-contract-artifact-seal {
+    width: 50px;
+    height: 50px;
+  }
+
+  .contract-signed-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .dominion-contract-signature {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dominion-contract-signature > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .contract-momentum ol {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .recruit-contract-experience {
+    padding: 15px;
+  }
+
+  .dominion-contract-intro h2 {
+    font-size: 34px;
+  }
+
+  .contract-signature-ceremony,
+  .dominion-contract-artifact {
+    padding: 20px 16px;
+  }
+
+  .contract-signing-dialog-actions,
+  .contract-momentum ol,
+  .dominion-contract-signature {
+    grid-template-columns: 1fr;
+  }
+
+  .dominion-contract-signature > div:last-child {
+    grid-column: auto;
+  }
+
+  .contract-momentum-action {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .contract-momentum-action button {
+    width: 100%;
+  }
+
+  .contract-operating-terms > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contract-activation-progress > span {
+    transition: none;
+  }
+}
+
 @media (max-width: 920px) {
   .contract-activation-modules {
     grid-template-columns: 1fr 1fr;

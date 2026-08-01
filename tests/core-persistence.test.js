@@ -36,4 +36,3 @@ assert.equal(appModule.corePlanMatchesContract(
 ), true);
 
 console.log("Core persistence: restore and contract reconciliation assertions passed.");
-

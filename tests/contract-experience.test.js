@@ -15,6 +15,7 @@ function approvedContract(overrides = {}) {
     strengthDaysPerWeek: 3,
     runningDaysPerWeek: 4,
     coreDaysPerWeek: 3,
+    twoADays: true,
     nutritionCommitment: "TRACK_5_DAYS",
     ...overrides
   };
@@ -33,6 +34,8 @@ function approvedContract(overrides = {}) {
   assert.ok(lines.some((line) => /4 running sessions/i.test(line)));
   assert.ok(lines.some((line) => /five days each week/i.test(line)));
   assert.ok(lines.some((line) => /1 recovery day/i.test(line)));
+  assert.ok(lines.some((line) => /two sessions and up to 240 combined minutes/i.test(line)));
+  assert.ok(lines.some((line) => /long runs remain uncapped by time/i.test(line)));
 }
 
 {
@@ -88,4 +91,3 @@ function approvedContract(overrides = {}) {
 }
 
 console.log("Build 019A Dominion Contract experience tests passed.");
-

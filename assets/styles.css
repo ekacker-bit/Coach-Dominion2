@@ -1275,6 +1275,9 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .recruit-contract-target{min-width:0}
 .recruit-contract-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 .recruit-contract-recovery-note{margin:0;padding:9px 11px;border-left:3px solid var(--green);border-radius:7px;background:rgba(56,212,141,.055);color:var(--muted);font-size:11px}
+.recruit-contract-two-a-days{grid-column:1/-1;display:grid!important;grid-template-columns:auto 1fr;align-items:start;gap:3px 10px!important;padding:13px 14px;border:1px solid rgba(240,180,41,.34);border-radius:10px;background:linear-gradient(135deg,rgba(240,180,41,.07),rgba(8,15,18,.72));color:var(--text)!important}
+.recruit-contract-two-a-days input{grid-row:1/3;width:18px!important;height:18px;margin:1px 0 0;accent-color:var(--dominion-gold)}
+.recruit-contract-two-a-days span{font-size:12px;letter-spacing:.04em}.recruit-contract-two-a-days small{color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0;line-height:1.45;text-transform:none}
 .recruit-contract-actions{display:flex;align-items:center;gap:9px;grid-column:1/-1}
 .recruit-contract-actions button{min-width:160px}
 .recruit-contract-output{display:grid;gap:13px}
@@ -1290,6 +1293,7 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .recruit-contract-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
 .recruit-contract-day{display:grid;align-content:start;gap:8px;min-height:118px;padding:11px;border:1px solid var(--line);border-radius:10px;background:rgba(5,9,13,.56)}
 .recruit-contract-day.recovery{border-color:rgba(56,212,141,.25);background:rgba(56,212,141,.035)}
+.recruit-contract-day.two-a-day{border-color:rgba(240,180,41,.46);background:linear-gradient(155deg,rgba(240,180,41,.075),rgba(5,9,13,.62));box-shadow:inset 0 2px rgba(240,180,41,.2)}
 .recruit-contract-day header{display:flex;align-items:flex-start;justify-content:space-between;gap:5px}
 .recruit-contract-day header strong{font-size:11px}.recruit-contract-day header span{color:var(--dim);font-size:8px}
 .recruit-contract-day>strong{font-size:12px}.recruit-contract-day>small{color:var(--muted);font-size:9px;line-height:1.4}
@@ -1364,7 +1368,7 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .weekly-orchestrator-module-grid article{display:grid;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel3)}
 .weekly-orchestrator-module-grid span{color:var(--dim);font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
 .weekly-orchestrator-module-grid strong{font-size:12px}.weekly-orchestrator-module-grid small{color:var(--muted);font-size:9px}
-.weekly-orchestrator-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.weekly-orchestrator-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px}
 .weekly-orchestrator-summary>div{display:grid;gap:4px;padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.018)}
 .weekly-orchestrator-summary span{color:var(--dim);font-size:8px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}.weekly-orchestrator-summary strong{font-size:18px}
 .weekly-orchestrator-alert{padding:12px 14px;border:1px solid rgba(240,180,41,.35);border-radius:10px;background:rgba(240,180,41,.045)}
@@ -1374,6 +1378,7 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .weekly-orchestrator-day{display:grid;align-content:start;gap:8px;min-height:188px;padding:10px;border:1px solid var(--line);border-radius:10px;background:rgba(5,9,13,.62)}
 .weekly-orchestrator-day.recovery{border-color:rgba(56,212,141,.26);background:rgba(56,212,141,.035)}
 .weekly-orchestrator-day.combined{border-color:rgba(240,180,41,.28)}
+.weekly-orchestrator-day.two_a_day{border-color:rgba(240,180,41,.5);background:linear-gradient(165deg,rgba(240,180,41,.08),rgba(5,9,13,.68));box-shadow:inset 0 2px rgba(240,180,41,.24)}
 .weekly-orchestrator-day>header{display:flex;align-items:flex-start;justify-content:space-between;gap:7px;padding-bottom:7px;border-bottom:1px solid var(--line)}
 .weekly-orchestrator-day>header div{display:grid;gap:2px}.weekly-orchestrator-day>header span{color:var(--dim);font-size:8px;font-weight:900;letter-spacing:.06em}.weekly-orchestrator-day>header>span{font-size:7px}
 .weekly-orchestrator-day>div{display:grid;gap:6px}
@@ -1381,12 +1386,13 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .weekly-orchestrator-activity.strength{border-left-color:var(--green)}.weekly-orchestrator-activity.running{border-left-color:var(--yellow)}.weekly-orchestrator-activity.core{border-left-color:#7da4ff}
 .weekly-orchestrator-activity span{color:var(--dim);font-size:7px;font-weight:900;letter-spacing:.08em}.weekly-orchestrator-activity strong,.weekly-orchestrator-recovery strong{font-size:10px;line-height:1.3}.weekly-orchestrator-activity small,.weekly-orchestrator-recovery small{color:var(--muted);font-size:8px}
 .weekly-orchestrator-fuel{display:block;color:var(--muted);font-size:8px;line-height:1.4}
+.weekly-orchestrator-capacity{display:block;padding:6px 7px;border:1px solid rgba(240,180,41,.22);border-radius:6px;color:#e8cc82;font-size:8px;font-weight:850;letter-spacing:.04em;line-height:1.35;text-transform:uppercase}
 .weekly-orchestrator-conflict{margin:0;padding:6px;border-radius:6px;color:var(--muted);font-size:8px;line-height:1.35;background:rgba(240,180,41,.06)}
 .weekly-orchestrator-conflict.blocking{color:#ffd3d3;background:rgba(255,88,88,.09)}
 .weekly-orchestrator-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.018)}
 .weekly-orchestrator-actions p{margin:0;color:var(--muted);font-size:11px}.weekly-orchestrator-actions>div{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .today-committed-week{border-color:rgba(56,212,141,.28);background:linear-gradient(145deg,rgba(10,25,23,.62),rgba(7,12,17,.96))}
-.today-committed-week-meta{display:grid;grid-template-columns:1.3fr .55fr 1fr;gap:8px;margin-bottom:10px}
+.today-committed-week-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px}
 .today-committed-week-meta>div{display:grid;gap:4px;padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(4,8,12,.5)}
 .today-committed-week-meta span{color:var(--dim);font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.today-committed-week-meta strong{font-size:11px}
 .today-committed-assignments{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}

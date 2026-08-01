@@ -4909,6 +4909,7 @@ function renderWeeklyOrchestrator() {
     return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
       <div>${activities}</div>
+      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `~${day.estimatedMinutes} min · long-run time open` : day.twoADay ? `${day.estimatedMinutes} / 240 min · two sessions` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
       ${day.nutrition ? `<small class="weekly-orchestrator-fuel">Fuel · ${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein</small>` : ""}
       ${day.conflicts.map((item) => `<p class="weekly-orchestrator-conflict ${item.severity.toLowerCase()}">${escapeHtml(item.detail)}</p>`).join("")}
     </article>`;
@@ -4923,7 +4924,7 @@ function renderWeeklyOrchestrator() {
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
-    <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Blocking</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
+    <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div>${preview.twoADaysEnabled ? `<div><span>Two-a-Days</span><strong>${preview.twoADayCount || 0}</strong></div>` : ""}<div><span>Blocking</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
     ${blocking.length ? `<div class="weekly-orchestrator-alert blocking"><strong>Resolve before commitment</strong><ul>${blocking.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></div>` : ""}
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
@@ -4950,7 +4951,7 @@ function renderTodayCommittedWeek() {
   const assignments = day?.activities?.length
     ? day.activities.map((item, index) => `<article><span>${index + 1}</span><div><small>${escapeHtml(item.module)}</small><strong>${escapeHtml(item.title)}</strong><p>${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p></div></article>`).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
-  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>`;
+  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? "LONG RUN · TIME OPEN" : day?.twoADay ? `TWO-A-DAY · ${day.estimatedMinutes}/240 MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>`;
 }
 
 function recruitContractGoalLabel(value = "") {
@@ -4979,6 +4980,10 @@ function hydrateRecruitContractForm(value = {}) {
   Object.entries(contract).forEach(([name, fieldValue]) => {
     const field = form.elements.namedItem(name);
     if (!field) return;
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      field.checked = fieldValue === true;
+      return;
+    }
     field.value = fieldValue ?? "";
   });
   const runningFields = form.querySelector("[data-recruit-running-fields]");
@@ -5149,7 +5154,7 @@ function renderRecruitContract() {
   if (weeklySurface) weeklySurface.hidden = Boolean(approved && !signed);
   if (editorSummary) {
     editorSummary.textContent = current
-      ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.sessionMinutes} min`
+      ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.twoADays ? "Two-a-Days" : `${current.sessionMinutes} min`}`
       : "Set goal, capacity, and constraints";
   }
   if (editor && !editor.dataset.focusInitialized) {
@@ -5182,11 +5187,11 @@ function renderRecruitContract() {
     : current.warnings?.length
       ? `<ul class="recruit-contract-alerts">${current.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
       : "";
-  const schedule = (current.schedule || []).map((day) => `<article class="recruit-contract-day ${day.isRecoveryDay ? "recovery" : ""}">
+  const schedule = (current.schedule || []).map((day) => `<article class="recruit-contract-day ${day.isRecoveryDay ? "recovery" : day.load === "TWO_A_DAY" ? "two-a-day" : ""}">
     <header><strong>${escapeHtml(day.weekday)}</strong><span>${escapeHtml(day.date.slice(5))}</span></header>
-    <strong>${day.isRecoveryDay ? "Recovery" : day.load === "STACKED" ? "Combined day" : "Training"}</strong>
+    <strong>${day.isRecoveryDay ? "Recovery" : day.load === "TWO_A_DAY" ? "Two-a-Day" : day.load === "STACKED" ? "Combined day" : "Training"}</strong>
     <div class="recruit-contract-day-tags">${day.activities.length ? day.activities.map((item) => `<span>${escapeHtml(item)}</span>`).join("") : "<span>OFF</span>"}</div>
-    <small>${day.isRecoveryDay ? "No assigned training." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
+    <small>${day.isRecoveryDay ? "No assigned training." : day.load === "TWO_A_DAY" ? "Two-session capacity · target 121–240 min." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
   </article>`).join("");
   const nutritionConnection = recruitContractNutritionConnection(current);
   const modules = Object.entries(current.moduleReadiness || {}).map(([key, originalItem]) => {
@@ -5208,7 +5213,7 @@ function renderRecruitContract() {
   const operatingTerms = `
     <article class="recruit-contract-brief">
       <div><span class="kicker">${current.status === "APPROVED" ? `CONTRACT ${current.revision}` : "CONTRACT PREVIEW"}</span><h3>${escapeHtml(current.target)}</h3><p>${escapeHtml(recruitContractGoalLabel(current.primaryGoal))}${escapeHtml(targetDate)}. ${current.trainingDaysPerWeek} training days and ${7 - current.trainingDaysPerWeek} recovery day${7 - current.trainingDaysPerWeek === 1 ? "" : "s"}.</p></div>
-      <div class="recruit-contract-brief-meta"><div><span>Strength</span><strong>${current.strengthDaysPerWeek}/wk</strong></div><div><span>Running</span><strong>${current.runningDaysPerWeek}/wk</strong></div><div><span>Core</span><strong>${current.coreDaysPerWeek}/wk</strong></div><div><span>Session</span><strong>${current.sessionMinutes} min</strong></div></div>
+      <div class="recruit-contract-brief-meta"><div><span>Strength</span><strong>${current.strengthDaysPerWeek}/wk</strong></div><div><span>Running</span><strong>${current.runningDaysPerWeek}/wk</strong></div><div><span>Core</span><strong>${current.coreDaysPerWeek}/wk</strong></div><div><span>Standard session</span><strong>${current.sessionMinutes} min</strong></div><div><span>Two-a-Days</span><strong>${current.twoADays ? "ENABLED · 240 MIN" : "OFF"}</strong></div></div>
     </article>
     ${alerts}
     <div class="recruit-contract-week" aria-label="Coordinated weekly commitment">${schedule}</div>

@@ -56,6 +56,9 @@
     if (Number(contract.coreDaysPerWeek || 0) > 0) {
       lines.push(`I will complete ${Number(contract.coreDaysPerWeek)} core session${Number(contract.coreDaysPerWeek) === 1 ? "" : "s"} each week.`);
     }
+    if (contract.twoADays === true) {
+      lines.push("I authorize designated Two-a-Days with two sessions and up to 240 combined minutes. Long runs remain uncapped by time.");
+    }
     lines.push(`I will ${nutritionCommitment(contract.nutritionCommitment)}.`);
     lines.push(`I will protect ${recoveryDays} recovery day${recoveryDays === 1 ? "" : "s"} each week.`);
     return lines;

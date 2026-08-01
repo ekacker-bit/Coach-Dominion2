@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Build 019G Two-a-Day Capacity
+
+- Added an explicit Two-a-Days commitment to the Recruit Contract and bound it to the signed Contract revision.
+- Defined a Two-a-Day as two scheduled sessions targeting more than 120 combined minutes, with a 240-minute daily ceiling.
+- Carried the commitment into coordinated-week generation, calendar capacity labels, Today context, and activation checks.
+- Left long runs uncapped by time, including when they share a day with another assignment.
+- Preserved the full recovery day, hard-run plus loaded-strength block, readiness, pain, and fueling safeguards.
+
 ## Unreleased — Build 019F Activation Repair Loop
 
 - Added a guided Contract → Plans → Week → Today repair path directly inside One Command.

@@ -57,6 +57,16 @@ test("effort-only sessions carry usable RPE guidance", () => {
   assert.ok(sessions.every((session) => session.paceFast === null));
 });
 
+test("long-run prescriptions retain their full estimated duration without a time cap", () => {
+  const block = running.buildRunningBlock(profile({ declaredWeeklyDistance: 100 }), [], { today: "2026-07-31" });
+  const longRuns = block.weeks.flatMap((week) => week.sessions).filter((session) => session.type === "LONG");
+  assert.ok(longRuns.some((session) => session.estimatedMinutes > 120));
+  assert.ok(longRuns.every((session) => session.durationCapMinutes === null));
+  assert.ok(longRuns.every((session) => session.durationPolicy === "UNCAPPED_BY_TIME"));
+  assert.equal(block.weeks[0].safeguards.longRunDurationCapMinutes, null);
+  assert.equal(block.weeks[0].safeguards.longRunDurationPolicy, "UNCAPPED_BY_TIME");
+});
+
 test("valid benchmark switches the block to pace mode", () => {
   const block = running.buildRunningBlock(profile({ benchmarkDistance: "5K", benchmarkSeconds: 1500 }), [], { today: "2026-07-31" });
   assert.equal(block.prescriptionMode, "PACE");

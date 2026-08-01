@@ -5,9 +5,11 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "018D.1";
+  const VERSION = "019G.1";
   const DAY_LABELS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const HARD_RUN_TYPES = Object.freeze(["INTERVAL", "TEMPO", "LONG"]);
+  const TWO_A_DAY_TARGET_MINUTES = 121;
+  const TWO_A_DAY_MAX_MINUTES = 240;
 
   function dateIso(value) {
     const text = String(value || "").slice(0, 10);
@@ -112,6 +114,26 @@
       planRevision: Number(source.planRevision || defaults.planRevision || 1),
       sourceId: source.sessionId || source.id || defaults.sourceId || null,
       sourceDate: dateIso(source.date || source.scheduledDate || source.scheduled_date) || defaults.date || null
+    };
+  }
+
+  function dailyDurationPolicy(contract = {}, activities = []) {
+    const sessions = Array.isArray(activities) ? activities : [];
+    const estimatedMinutes = sessions.reduce((total, item) => total + Math.max(0, Number(item?.estimatedMinutes || 0)), 0);
+    const longRunUncapped = sessions.some((item) => item?.module === "RUNNING" && String(item?.type || "").toUpperCase() === "LONG");
+    const twoADaysEnabled = contract.twoADays === true;
+    const twoADay = twoADaysEnabled && sessions.length >= 2;
+    const maximumMinutes = longRunUncapped ? null : twoADay ? TWO_A_DAY_MAX_MINUTES : Number(contract.sessionMinutes || 60);
+    return {
+      estimatedMinutes,
+      sessionCount: sessions.length,
+      twoADaysEnabled,
+      twoADay,
+      targetMinutes: twoADay ? TWO_A_DAY_TARGET_MINUTES : Number(contract.sessionMinutes || 60),
+      maximumMinutes,
+      longRunUncapped,
+      sessionLimitExceeded: Boolean(twoADaysEnabled && sessions.length > 2),
+      durationLimitExceeded: maximumMinutes !== null && estimatedMinutes > maximumMinutes
     };
   }
 
@@ -233,14 +255,33 @@
         day.conflicts.push(conflict("STRENGTH_CORE_STACK", "ADVISORY", "Complete Strength first and keep Core controlled.", day.date));
       }
       if (modules.has("STRENGTH") && modules.has("RUNNING") && !hardRun) {
-        day.conflicts.push(conflict("EASY_RUN_STRENGTH_STACK", "ADVISORY", "Separate the easy run and Strength session when practical.", day.date));
+        day.conflicts.push(contract.twoADays === true
+          ? conflict("TWO_A_DAY_SEPARATION", "ADVISORY", "Two-a-Day authorized: separate Strength and the easy run by several hours and refuel between sessions.", day.date)
+          : conflict("EASY_RUN_STRENGTH_STACK", "ADVISORY", "Separate the easy run and Strength session when practical.", day.date));
       }
       if (modules.size >= 3) day.conflicts.push(conflict("TRIPLE_SESSION_DAY", "ADVISORY", "Three training modules share this day; use readiness to reduce, never add, work.", day.date));
-      day.estimatedMinutes = day.activities.reduce((total, item) => total + Number(item.estimatedMinutes || 0), 0);
-      if (day.estimatedMinutes > Number(contract.sessionMinutes || 60)) {
-        day.conflicts.push(conflict("TIME_COMMITMENT_EXCEEDED", "ADVISORY", `${day.estimatedMinutes} planned minutes exceed the ${contract.sessionMinutes}-minute commitment.`, day.date));
+      const duration = dailyDurationPolicy(contract, day.activities);
+      day.estimatedMinutes = duration.estimatedMinutes;
+      day.sessionCount = duration.sessionCount;
+      day.twoADay = duration.twoADay;
+      day.durationTargetMinutes = duration.targetMinutes;
+      day.durationLimitMinutes = duration.maximumMinutes;
+      day.longRunUncapped = duration.longRunUncapped;
+      day.durationPolicy = duration.longRunUncapped ? "LONG_RUN_UNCAPPED" : duration.twoADay ? "TWO_A_DAY" : "STANDARD";
+      if (duration.sessionLimitExceeded) {
+        day.conflicts.push(conflict("TWO_A_DAY_SESSION_LIMIT", "BLOCKING", "Two-a-Days permit no more than two scheduled sessions on one day.", day.date));
       }
-      day.load = !day.activities.length ? "RECOVERY" : modules.size > 1 ? "COMBINED" : "SINGLE";
+      if (duration.durationLimitExceeded) {
+        day.conflicts.push(conflict(
+          duration.twoADay ? "TWO_A_DAY_CAP_EXCEEDED" : "TIME_COMMITMENT_EXCEEDED",
+          duration.twoADay ? "BLOCKING" : "ADVISORY",
+          duration.twoADay
+            ? `${day.estimatedMinutes} planned minutes exceed the 240-minute Two-a-Day ceiling.`
+            : `${day.estimatedMinutes} planned minutes exceed the ${contract.sessionMinutes}-minute commitment.`,
+          day.date
+        ));
+      }
+      day.load = !day.activities.length ? "RECOVERY" : duration.twoADay ? "TWO_A_DAY" : modules.size > 1 ? "COMBINED" : "SINGLE";
       conflicts.push(...day.conflicts);
     });
 
@@ -269,6 +310,8 @@
       advisoryCount,
       trainingDays,
       recoveryDays,
+      twoADaysEnabled: contract.twoADays === true,
+      twoADayCount: days.filter((day) => day.twoADay).length,
       expected,
       actual,
       moduleStatus: {
@@ -291,6 +334,9 @@
         "Pain and RED readiness may remove work but never add compensatory volume.",
         "Hard running and loaded Strength cannot share a committed day.",
         "At least one full recovery day remains protected.",
+        contract.twoADays === true
+          ? "Two-a-Days permit two sessions and up to 240 combined minutes; long-run time remains uncapped."
+          : "Standard daily session limits remain active.",
         "Completion credit still requires execution evidence."
       ],
       message: blockingConflictCount
@@ -382,9 +428,12 @@
     VERSION,
     DAY_LABELS,
     HARD_RUN_TYPES,
+    TWO_A_DAY_TARGET_MINUTES,
+    TWO_A_DAY_MAX_MINUTES,
     addDays,
     weekStartIso,
     planningDateForWeek,
+    dailyDurationPolicy,
     buildUnifiedWeek,
     approveWeek,
     weekState,

@@ -254,7 +254,9 @@
         distance, unit: profile.preferredUnit, zone: zone?.code || null,
         paceFast: zone?.fastSecondsPerUnit || null, paceSlow: zone?.slowSecondsPerUnit || null,
         effortRpe: effort.rpe, effortCue: effort.cue,
-        estimatedMinutes: Math.round(distance * averagePace / 60)
+        estimatedMinutes: Math.round(distance * averagePace / 60),
+        durationCapMinutes: run.type === "LONG" ? null : undefined,
+        durationPolicy: run.type === "LONG" ? "UNCAPPED_BY_TIME" : "ESTIMATED_FROM_DISTANCE"
       };
     });
     return {
@@ -264,6 +266,8 @@
       safeguards: {
         progressionPercent: 0,
         longRunSharePercent: Math.round((sessions.find((item) => item.type === "LONG")?.distance || 0) / weeklyDistance * 100),
+        longRunDurationCapMinutes: null,
+        longRunDurationPolicy: "UNCAPPED_BY_TIME",
         qualitySessions: sessions.filter((item) => ["TEMPO", "INTERVAL"].includes(item.type)).length,
         approvalRequired: true
       },

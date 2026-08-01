@@ -33,6 +33,10 @@
         <h1 class="visually-hidden">Coach Dominion Command Center</h1>
         <div class="shell-account"><span id="shell-rank-badge">RECRUIT</span><p class="muted" id="identity">Verifying session…</p></div>
       </div>
+        <button id="continuity-status" class="continuity-status neutral" type="button" data-continuity-action="open" aria-haspopup="dialog">
+          <span class="continuity-status-dot" aria-hidden="true"></span>
+          <span><strong id="continuity-status-label">VERIFYING</strong><small id="continuity-status-detail">Checking saved program revisions</small></span>
+        </button>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
           <a class="nav-link active" href="#today" data-section="today">TODAY</a>
@@ -92,6 +96,25 @@
 
     <p class="status" id="status"></p>
     <p class="muted loading" id="loading">Loading today's Daily State…</p>
+
+    <dialog id="continuity-repair-dialog" class="continuity-repair-dialog" aria-labelledby="continuity-repair-heading">
+      <form method="dialog" class="continuity-repair-shell">
+        <header>
+          <div><div class="kicker">BUILD 021B // DOMINION CONTINUITY</div><h2 id="continuity-repair-heading">Your program, one source of truth</h2></div>
+          <button type="submit" class="ghost continuity-dialog-close" aria-label="Close continuity details">Close</button>
+        </header>
+        <p id="continuity-repair-summary">Checking the Contract, active plans, calendar, and today's sessions.</p>
+        <div id="continuity-canonical-grid" class="continuity-canonical-grid" aria-live="polite"></div>
+        <aside id="continuity-conflict-panel" class="continuity-conflict-panel" hidden>
+          <div><strong>A saved-state decision is required</strong><p id="continuity-conflict-detail">Nothing will be overwritten until you choose which copy to keep.</p></div>
+          <div class="continuity-conflict-actions">
+            <button type="button" data-continuity-action="keep-device">Keep this device</button>
+            <button type="button" class="ghost" data-continuity-action="keep-account">Use account copy</button>
+          </div>
+        </aside>
+        <footer><span id="continuity-device-label">Device identity pending</span><button type="button" class="ghost" data-continuity-action="sync">Check sync now</button></footer>
+      </form>
+    </dialog>
 
     <div id="app-content" tabindex="-1" hidden>
       <section id="roll-call-required" class="card alert" hidden>
@@ -1511,6 +1534,7 @@
 <script src="/assets/js/operating-truth.js"></script>
 <script src="/assets/js/activation-repair.js"></script>
 <script src="/assets/js/one-command.js"></script>
+<script src="/assets/js/dominion-continuity.js"></script>
  <script src="/assets/js/app.js"></script>
 </body>
 </html>

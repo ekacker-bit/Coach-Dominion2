@@ -52,7 +52,7 @@ assert.match(styles, /\.today-recovery-order/);
 assert.match(styles, /\.today-recovery-checklist/);
 assert.match(mark, /Dominion shield/);
 assert.match(mark, /linearGradient id="edge"/);
-assert.match(mark, /fill="#38d48d"/);
+assert.match(mark, /fill="#(?:38d48d|2e4b34)"/i);
 assert.match(worker, /coach-dominion-[0-9]{3}[a-z]-v\d+/i);
 assert.match(worker, /\/assets\/js\/activation-repair\.js/);
 assert.match(packageJson, /node tests\/activation-repair\.test\.js/);

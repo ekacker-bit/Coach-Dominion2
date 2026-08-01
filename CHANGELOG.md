@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 020B Between-Session Gate
+
+- Replaced the informational Two-a-Day recovery note with a persisted, account-scoped checkpoint.
+- Anchored Session 2 eligibility to the actual Session 1 completion time and a four-hour countdown.
+- Required a midday energy and pain recheck plus explicit refueling and hydration confirmation.
+- Kept Session 2 locked when the checkpoint is missing, the recovery interval is active, or safety evidence is adverse.
+- Enforced the same gate through direct module launches so alternate Today controls cannot bypass it.
+- Preserved local-first operation when the account migration is not yet available and reconciled saved checkpoints after sign-in.
+
 ## Unreleased — Build 020A Split-Day Command
 
 - Turned a committed Two-a-Day into an ordered Session 1 and Session 2 execution sequence.

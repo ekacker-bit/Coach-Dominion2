@@ -43,6 +43,8 @@ let nutritionActiveView = "today";
 let recruitContractStorageMode = "LOCAL";
 let recruitContractSetupStep = 0;
 let weeklyOrchestrationStorageMode = "LOCAL";
+let splitDayStorageMode = "LOCAL";
+let splitDayRefreshTimer = null;
 let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
@@ -4667,6 +4669,70 @@ function readCommittedUnifiedDay(value = todayISODate()) {
   return week ? DominionWeeklyOrchestrator.dayForDate(week, value) : null;
 }
 
+function splitDayCheckpointStorageKey(value = todayISODate()) {
+  return `coach-dominion:split-day:${session?.user?.id || "local"}:${String(value).slice(0, 10)}`;
+}
+
+function readSplitDayCheckpoint(value = todayISODate()) {
+  try {
+    return JSON.parse(window.localStorage.getItem(splitDayCheckpointStorageKey(value)) || "null");
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveSplitDayCheckpointLocal(payload) {
+  if (!payload?.date) return null;
+  window.localStorage.setItem(splitDayCheckpointStorageKey(payload.date), JSON.stringify(payload));
+  return payload;
+}
+
+async function persistSplitDayCheckpoint(payload) {
+  if (!session?.user?.id || !payload?.date) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("split_day_checkpoint_state").upsert({
+      user_id: session.user.id,
+      checkpoint_date: payload.date,
+      week_id: payload.weekId || null,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,checkpoint_date" });
+    if (error) throw error;
+    splitDayStorageMode = "REMOTE";
+    return true;
+  } catch (_) {
+    splitDayStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function loadSplitDayCheckpointState(value = todayISODate()) {
+  if (!session?.user?.id || typeof DominionSplitDayCommand === "undefined") return;
+  const local = readSplitDayCheckpoint(value);
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("split_day_checkpoint_state")
+      .select("checkpoint_date,week_id,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .eq("checkpoint_date", value)
+      .maybeSingle();
+    if (error) throw error;
+    if (data?.payload) {
+      const localUpdated = Date.parse(local?.updatedAt || local?.recordedAt || "") || 0;
+      const remoteUpdated = Date.parse(data.updated_at || data.payload.updatedAt || "") || 0;
+      if (local && localUpdated > remoteUpdated) await persistSplitDayCheckpoint(local);
+      else saveSplitDayCheckpointLocal(data.payload);
+    } else if (local) {
+      await persistSplitDayCheckpoint(local);
+    }
+    splitDayStorageMode = "REMOTE";
+  } catch (_) {
+    splitDayStorageMode = "LOCAL";
+  }
+  renderTodayCommittedWeek();
+}
+
 async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
   if (!session?.user?.id) return false;
   try {
@@ -4931,6 +4997,84 @@ function renderWeeklyOrchestrator() {
     <div class="weekly-orchestrator-actions"><p>${escapeHtml(preview.message || "Review the complete week before commitment.")}${existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
 }
 
+function todaySessionExecutionRecord(item = {}) {
+  const module = String(item.module || "").toUpperCase();
+  if (module === "STRENGTH") return readDailyAssignmentExecution();
+  if (module === "RUNNING") return readRunningExecution() || { state: "READY" };
+  if (module === "CORE") return readCurrentCoreExecution() || { state: "READY" };
+  return { state: "READY" };
+}
+
+function currentSplitDayCommand(day = readCommittedUnifiedDay(), week = readCommittedUnifiedWeek(), now = new Date().toISOString()) {
+  if (!day?.twoADay || typeof DominionSplitDayCommand === "undefined") {
+    return { required: false, status: "NOT_REQUIRED", allowed: true, blockers: [] };
+  }
+  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
+  const readiness = dailyState?.date === todayISODate()
+    ? evaluateOperationalReadiness(dailyState)
+    : { state: "UNKNOWN" };
+  return DominionSplitDayCommand.evaluate({
+    day: { ...day, sessionSequence: sequence },
+    weekId: week?.id || null,
+    sessionOne: todaySessionExecutionRecord(sequence[0]),
+    sessionTwo: todaySessionExecutionRecord(sequence[1]),
+    checkpoint: readSplitDayCheckpoint(day.date || todayISODate()),
+    morningReadiness: { state: readiness.state, pain: Boolean(dailyState?.pain) },
+    now
+  });
+}
+
+function splitDayGateLabel(gate = {}) {
+  return {
+    AWAITING_SESSION_1: "SESSION 1 FIRST",
+    COMPLETION_TIME_REQUIRED: "TIME REQUIRED",
+    RECOVERING: "RECOVERY WINDOW",
+    CHECKPOINT_REQUIRED: "CHECKPOINT DUE",
+    CLEARED: "CLEARED",
+    HELD: "SAFETY HOLD",
+    COMPLETE: "COMPLETE"
+  }[gate.status] || "CHECKPOINT";
+}
+
+function splitDayGateTone(gate = {}) {
+  if (gate.status === "CLEARED" || gate.status === "COMPLETE") return "green";
+  if (gate.status === "HELD") return "red";
+  if (["RECOVERING", "CHECKPOINT_REQUIRED", "COMPLETION_TIME_REQUIRED"].includes(gate.status)) return "yellow";
+  return "neutral";
+}
+
+function splitDayActionLabel(gate = {}) {
+  if (gate.status === "HELD") return "Session 2 held";
+  if (gate.status === "RECOVERING") return `${gate.minutesRemaining || 1} min remaining`;
+  if (gate.status === "CHECKPOINT_REQUIRED") return "Complete checkpoint";
+  if (gate.status === "COMPLETION_TIME_REQUIRED") return "Completion time required";
+  return "Finish Session 1 first";
+}
+
+function splitDayCheckpointForm(gate = {}, day = {}, week = {}) {
+  if (!gate.first?.terminal || gate.second?.terminal) return "";
+  const checkpoint = gate.checkpoint || {};
+  const energyOptions = Array.from({ length: 10 }, (_, index) => index + 1)
+    .map((value) => `<option value="${value}" ${Number(checkpoint.energy) === value ? "selected" : ""}>${value}</option>`).join("");
+  const blockers = gate.blockers?.length
+    ? `<ul class="split-day-blockers">${gate.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : `<p class="split-day-clearance">Recovery interval and checkpoint requirements are satisfied.</p>`;
+  return `<form class="split-day-checkpoint-form" data-split-day-checkpoint>
+    <div class="split-day-checkpoint-heading"><div><span>MIDDAY RECHECK</span><strong>Clear Session 2 deliberately</strong></div><mark class="${splitDayGateTone(gate)}">${escapeHtml(splitDayGateLabel(gate))}</mark></div>
+    ${blockers}
+    <div class="split-day-checkpoint-fields">
+      <label>Energy now<select name="energy" required><option value="">Select 1–10</option>${energyOptions}</select></label>
+      <label>New pain?<select name="newPain" required><option value="">Select</option><option value="NO" ${checkpoint.newPain === false ? "selected" : ""}>No</option><option value="YES" ${checkpoint.newPain === true ? "selected" : ""}>Yes</option></select></label>
+      <label class="split-day-check"><input type="checkbox" name="refueled" ${checkpoint.refueled ? "checked" : ""}> Refueled</label>
+      <label class="split-day-check"><input type="checkbox" name="hydrated" ${checkpoint.hydrated ? "checked" : ""}> Hydrated</label>
+      <label class="split-day-notes">Notes<input name="notes" maxlength="280" value="${escapeHtml(checkpoint.notes || "")}" placeholder="Optional context"></label>
+    </div>
+    <div class="split-day-checkpoint-actions"><button type="submit">Save checkpoint</button><small>${splitDayStorageMode === "REMOTE" ? "Account synced" : "Saved on this device"}${gate.unlockAt ? ` · Earliest Session 2 ${new Date(gate.unlockAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}</small></div>
+    <input type="hidden" name="weekId" value="${escapeHtml(week.id || "")}">
+    <input type="hidden" name="dayDate" value="${escapeHtml(day.date || todayISODate())}">
+  </form>`;
+}
+
 function renderTodayCommittedWeek() {
   const section = document.getElementById("today-committed-week");
   const panel = document.getElementById("today-committed-week-panel");
@@ -4950,44 +5094,48 @@ function renderTodayCommittedWeek() {
   status.className = `state-pill ${weeklyOrchestrationTone(state)}`;
   const sequence = day?.sessionSequence?.length ? day.sessionSequence : day?.activities || [];
   const sessionModels = sequence.map((item) => ({ item, execution: todaySessionExecution(item) }));
-  const firstSessionComplete = sessionModels[0]?.execution.complete === true;
+  const splitDayGate = currentSplitDayCommand(day, week);
+  if (splitDayRefreshTimer) window.clearTimeout(splitDayRefreshTimer);
+  if (splitDayGate.status === "RECOVERING") {
+    splitDayRefreshTimer = window.setTimeout(renderTodayCommittedWeek, 60000);
+  }
   const assignments = sessionModels.length
     ? sessionModels.map(({ item, execution }, index) => {
-      const locked = Boolean(day?.twoADay && index > 0 && !firstSessionComplete);
+      const locked = Boolean(day?.twoADay && index > 0 && !splitDayGate.allowed && !execution.complete);
       const disabled = locked || execution.complete || execution.held;
       const actionLabel = execution.complete
         ? "Session complete"
         : execution.held
           ? "Safety hold"
           : locked
-            ? "Finish Session 1 first"
+            ? splitDayActionLabel(splitDayGate)
             : `Open ${day?.twoADay ? item.sessionLabel.toLowerCase() : "training"}`;
+      const stateLabel = locked && index > 0 ? splitDayGateLabel(splitDayGate) : execution.label;
+      const stateTone = locked && index > 0 ? splitDayGateTone(splitDayGate) : execution.tone;
       return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked ? "locked" : ""}">
         <span>${item.sessionOrder || index + 1}</span>
-        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${execution.tone}">${escapeHtml(execution.label)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after Session 1 · refuel first</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
+        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after Session 1 · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
       </article>`;
     }).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
-  const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${firstSessionComplete ? "active" : "pending"}"><div><span>BETWEEN SESSIONS</span><strong>${firstSessionComplete ? "Refuel, rehydrate, and protect four hours" : "Complete Session 1 before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged." : "Update today’s fuel after Session 1; Session 2 remains a separate exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log refuel"}</button></aside>` : "";
+  const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN SESSIONS · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "Session 2 is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the second session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete Session 1 before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the second exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? "LONG RUN · TIME OPEN" : day?.twoADay ? `TWO-A-DAY · ${day.estimatedMinutes}/240 MIN` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
 }
 
 function todaySessionExecution(item = {}) {
   const module = String(item.module || "").toUpperCase();
-  let state = "READY";
+  const record = todaySessionExecutionRecord(item);
+  let state = String(record?.state || "READY").toUpperCase();
   let held = false;
   if (module === "STRENGTH") {
     const assignment = buildCurrentDailyAssignment();
-    state = String(readDailyAssignmentExecution()?.state || "READY").toUpperCase();
-    held = assignment?.state === "RECOVERY ONLY" || state === "STOPPED";
+    held = assignment?.state === "RECOVERY ONLY" || state === "STOPPED" || record?.painReported === true;
   } else if (module === "RUNNING") {
     const prescription = currentRunningPrescription();
-    state = String(readRunningExecution()?.state || "READY").toUpperCase();
     held = ["PAIN_HOLD", "REST_DAY"].includes(String(prescription?.status || "").toUpperCase());
   } else if (module === "CORE") {
     const prescription = currentCorePrescription();
-    state = String(readCurrentCoreExecution()?.state || "READY").toUpperCase();
     held = ["PAIN_HOLD", "RECOVERY_ONLY", "REMOVED"].includes(String(prescription?.status || "").toUpperCase());
   }
   const complete = ["COMPLETE", "PARTIAL"].includes(state);
@@ -4996,6 +5144,7 @@ function todaySessionExecution(item = {}) {
     state,
     complete,
     held,
+    completedAt: record?.completedAt || null,
     label: held ? "PROTECTED" : complete ? "COMPLETE" : active ? "IN PROGRESS" : "READY",
     tone: held ? "red" : complete ? "green" : active ? "yellow" : "neutral"
   };
@@ -6761,7 +6910,34 @@ function openMobileCommandSheet(kind = "roll-call") {
   }
 }
 
+function splitDayModuleAuthorization(module = "strength") {
+  const day = readCommittedUnifiedDay();
+  if (!day?.twoADay) return { allowed: true, message: "" };
+  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
+  const second = sequence[1];
+  if (!second || String(second.module || "").toLowerCase() !== String(module || "").toLowerCase()) {
+    return { allowed: true, message: "" };
+  }
+  const secondExecution = todaySessionExecution(second);
+  if (secondExecution.complete || ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(secondExecution.state)) {
+    return { allowed: true, message: "" };
+  }
+  const gate = currentSplitDayCommand(day);
+  return {
+    allowed: gate.allowed === true,
+    gate,
+    message: gate.blockers?.[0] || "Session 2 remains locked until the between-session checkpoint is cleared."
+  };
+}
+
 async function launchMobileModule(module = "strength") {
+  const splitAuthorization = splitDayModuleAuthorization(module);
+  if (!splitAuthorization.allowed) {
+    setText("mobile-command-feedback", splitAuthorization.message);
+    renderTodayCommittedWeek();
+    document.querySelector("[data-split-day-checkpoint]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  }
   if (module === "strength") {
     const assignment = buildCurrentDailyAssignment();
     let execution = readDailyAssignmentExecution();
@@ -6828,6 +7004,7 @@ async function launchMobileModule(module = "strength") {
     detail?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   renderMobileCommand();
+  return true;
 }
 
 function mobileStandaloneMode() {
@@ -11175,6 +11352,7 @@ async function init() {
     await loadPerformanceEntries();
     await loadStrengthTrainingState();
     await loadWeeklyOrchestrationState();
+    await loadSplitDayCheckpointState();
     await loadConnectedDominion();
     renderRecruitContract();
     renderWeeklyOrchestrator();
@@ -11349,11 +11527,52 @@ if (typeof document !== "undefined") {
     }
     const sessionButton = event.target.closest("button[data-today-session-module]");
     if (!sessionButton || sessionButton.disabled) return;
+    if (Number(sessionButton.dataset.todaySessionOrder || 1) > 1) {
+      const gate = currentSplitDayCommand();
+      if (!gate.allowed) {
+        setText("mobile-command-feedback", gate.blockers?.[0] || "Complete the between-session checkpoint before Session 2.");
+        document.querySelector("[data-split-day-checkpoint]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
     sessionButton.disabled = true;
     try {
       await launchMobileModule(sessionButton.dataset.todaySessionModule || "strength");
     } finally {
       renderTodayCommittedWeek();
+    }
+  });
+  document.getElementById("today-committed-week-panel")?.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form[data-split-day-checkpoint]");
+    if (!form || typeof DominionSplitDayCommand === "undefined") return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const week = readCommittedUnifiedWeek();
+      const day = week ? DominionWeeklyOrchestrator.dayForDate(week, todayISODate()) : null;
+      const sequence = day?.sessionSequence?.length ? day.sessionSequence : day?.activities || [];
+      const firstExecution = todaySessionExecutionRecord(sequence[0]);
+      const payload = DominionSplitDayCommand.createCheckpoint(Object.fromEntries(new FormData(form).entries()), {
+        date: day?.date || todayISODate(),
+        weekId: week?.id || null,
+        weekRevision: week?.revision || 0,
+        sessionOneActivityId: sequence[0]?.activityId || sequence[0]?.id || null,
+        sessionOneCompletedAt: firstExecution?.completedAt || null,
+        recordedAt: new Date().toISOString()
+      });
+      saveSplitDayCheckpointLocal(payload);
+      const synced = await persistSplitDayCheckpoint(payload);
+      splitDayStorageMode = synced ? "REMOTE" : "LOCAL";
+      renderTodayCommittedWeek();
+      const gate = currentSplitDayCommand();
+      setText("mobile-command-feedback", gate.allowed
+        ? "Midday checkpoint saved. Session 2 is cleared."
+        : `${gate.blockers?.[0] || "Checkpoint saved."}${synced ? " Account synced." : " Saved on this device."}`);
+    } catch (error) {
+      setText("mobile-command-feedback", error?.message || "The between-session checkpoint could not be saved.");
+    } finally {
+      if (button) button.disabled = false;
     }
   });
   document.getElementById("mobile-command-dock")?.addEventListener("click", (event) => {
@@ -11954,6 +12173,7 @@ if (typeof document !== "undefined") {
       await persistCoreProgramState("HISTORY", "current", history);
       await saveCorePerformanceEvidence(prescription, result.execution);
       renderPerformanceSection();
+      renderTodayCommittedWeek();
       setText("core-programming-feedback", `${result.message} Performance evidence was added automatically.`);
       setText("core-today-feedback", `${result.message} Performance evidence was added automatically.`);
     }
@@ -12088,6 +12308,7 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
       await persistRunningState("EXECUTION", todayISODate(), state);
       renderRunningCommand();
+      renderTodayCommittedWeek();
       setText("running-command-feedback", "Run marked complete. Imported or manual evidence will reconcile separately.");
     }
     if (button.dataset.runningAction === "modify-run") setText("running-command-feedback", "Use the readiness-adjusted easy alternative. The approved weekly plan remains unchanged.");
@@ -12767,6 +12988,7 @@ if (typeof document !== "undefined") {
     renderDailyAssignment();
     renderDailyCoachingLoop();
     renderProgrammingReview();
+    renderTodayCommittedWeek();
   });
   document.getElementById("connected")?.addEventListener("click", async (event) => {
     const viewButton = event.target.closest("button[data-connected-view]");

@@ -13,6 +13,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `assets/js/app.js` contains Supabase client operations, the Daily State/readiness engine, mission generation, Atlas brief generation, and UI rendering.
 - `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
 - `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
+- `assets/js/contract-experience.js` contains the revision-bound Dominion oath, signature validation, signed artifact, and post-sign progression model.
 - `assets/js/nutrition-feed.js` validates the privacy-limited daily nutrition payload and generates the iPhone Shortcut request contract.
 - `assets/styles.css` contains the application styles.
 - `api/health.js`, `api/config.js`, and `api/nutrition-feed.js` are Vercel Node.js serverless functions.
@@ -37,6 +38,10 @@ Build 015A adds a credential-free automated nutrition path: MyFitnessPal writes 
 The Connections & Data → Nutrition view creates a private feed key, shows it once, generates the Shortcut request contract, verifies authorization, records deliveries, and supports rotation or immediate revocation. One canonical MyFitnessPal nutrition record exists per user and date, so repeated deliveries are classified as duplicates or updates rather than creating double-counted nutrition. Manual MyFitnessPal CSV import remains available.
 
 Persistence uses [supabase/migrations/014_myfitnesspal_health_bridge.sql](supabase/migrations/014_myfitnesspal_health_bridge.sql). The migration adds user-scoped feed-key metadata, delivery events, the secured ingestion function, and the permitted live Connected-account state. The raw key is never stored; only its SHA-256 digest and a short display hint are retained.
+
+## Build 019A Dominion Contract experience
+
+The Recruit Contract is now a guided commitment and signed operating artifact rather than a permanent setup form. A recruit defines the outcome, sustainable capacity, and operating standards, reviews the exact weekly commitments, types a signature, affirms the Dominion oath, and confirms the effective date in a deliberate signing dialog. The signature is bound to the Contract ID and revision; amendments create a draft while the signed revision and active module plans remain protected. After signing, one progression rail guides the recruit through plan linking, week commitment, and Day One.
 
 ## Build 004B weekly inspection
 

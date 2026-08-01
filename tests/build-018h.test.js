@@ -45,7 +45,7 @@ assert.match(styles, /env\(safe-area-inset-bottom\)/);
 assert.equal(manifest.start_url, "/app#today");
 assert.equal(manifest.display, "standalone");
 assert.ok(manifest.icons.some((icon) => icon.purpose.includes("maskable")));
-assert.match(worker, /coach-dominion-018[a-z]-v1/i);
+assert.match(worker, /coach-dominion-[0-9]{3}[a-z]-v1/i);
 assert.match(worker, /caches\.open\(CACHE_NAME\)/);
 assert.match(worker, /request\.mode === "navigate"/);
 assert.match(packageJson, /node tests\/mobile-command\.test\.js/);

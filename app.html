@@ -66,22 +66,29 @@
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
       </section>
 
-      <section id="contract" class="card recruit-contract scroll-anchor" aria-labelledby="recruit-contract-heading" data-section="contract">
-        <div class="section-heading">
-          <div>
-            <div class="kicker">BUILD 018F // FOCUSED OPERATING EXPERIENCE</div>
-            <h2 id="recruit-contract-heading">Set the plan</h2>
-            <p class="muted">One goal. Real weekly capacity. One coordinated plan.</p>
+      <section id="contract" class="card recruit-contract recruit-contract-experience scroll-anchor" aria-labelledby="recruit-contract-heading" data-section="contract">
+        <div class="dominion-contract-hero">
+          <div class="dominion-contract-seal" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
+          <div class="dominion-contract-intro">
+            <div class="kicker">BUILD 019A // THE DOMINION CONTRACT</div>
+            <h2 id="recruit-contract-heading">The Dominion Contract</h2>
+            <p>This is your commitment to disciplined action, honest evidence, responsible recovery, and weekly inspection.</p>
           </div>
           <div class="recruit-contract-status-stack">
             <span id="recruit-contract-status" class="state-pill neutral">NOT SET</span>
             <small id="recruit-contract-storage">LOCAL READY</small>
           </div>
         </div>
+        <ol id="contract-setup-progress" class="contract-setup-progress" aria-label="Contract setup progress">
+          <li class="current" data-contract-progress-step="0"><span>1</span><strong>Outcome</strong></li>
+          <li data-contract-progress-step="1"><span>2</span><strong>Capacity</strong></li>
+          <li data-contract-progress-step="2"><span>3</span><strong>Standards</strong></li>
+          <li data-contract-progress-step="3"><span>4</span><strong>Review</strong></li>
+        </ol>
         <details id="recruit-contract-editor" class="recruit-contract-editor" open>
-          <summary><span>Contract inputs</span><small id="recruit-contract-editor-summary">Set goal, capacity, and constraints</small></summary>
+          <summary><span>Build your commitment</span><small id="recruit-contract-editor-summary">Name the outcome</small></summary>
         <form id="recruit-contract-form" class="recruit-contract-form">
-          <fieldset class="recruit-contract-outcome">
+          <fieldset class="recruit-contract-outcome" data-contract-form-step="0">
             <legend>Outcome</legend>
             <label>Primary goal
               <select name="primaryGoal">
@@ -99,7 +106,7 @@
               <input name="targetDate" type="date">
             </label>
           </fieldset>
-          <fieldset>
+          <fieldset data-contract-form-step="1" hidden>
             <legend>Weekly capacity</legend>
             <div class="recruit-contract-grid">
               <label>Training days
@@ -138,7 +145,7 @@
             </div>
             <p class="recruit-contract-recovery-note"><strong>Recovery protected:</strong> training is capped at six days per week.</p>
           </fieldset>
-          <fieldset>
+          <fieldset data-contract-form-step="2" hidden>
             <legend>Operating constraints</legend>
             <div class="recruit-contract-grid">
               <label>Equipment
@@ -168,7 +175,7 @@
               </label>
             </div>
           </fieldset>
-          <fieldset data-recruit-running-fields>
+          <fieldset data-recruit-running-fields data-contract-form-step="2" hidden>
             <legend>Running commitment</legend>
             <div class="recruit-contract-grid">
               <label>Running target
@@ -188,8 +195,15 @@
               </label>
             </div>
           </fieldset>
+          <div class="contract-review-step" data-contract-form-step="3" hidden>
+            <span class="kicker">FINAL REVIEW</span>
+            <h3>Read the commitment below.</h3>
+            <p>Your signature will approve this revision. Current plans remain protected until you activate their replacements.</p>
+          </div>
+          <button id="recruit-contract-review-submit" type="submit" hidden>Review contract</button>
           <div class="recruit-contract-actions">
-            <button type="submit">Review contract</button>
+            <button type="button" class="ghost" data-contract-experience-action="setup-back">Back</button>
+            <button type="button" data-contract-experience-action="setup-next">Continue</button>
             <button type="button" class="ghost" data-recruit-contract-action="restore">Restore approved</button>
           </div>
         </form>
@@ -198,6 +212,18 @@
          <div id="recruit-contract-output" class="recruit-contract-output">
            <div class="performance-empty">Complete the contract to preview the coordinated week and module handoffs.</div>
          </div>
+        <dialog id="contract-signing-dialog" class="contract-signing-dialog" aria-labelledby="contract-signing-dialog-title">
+          <form method="dialog">
+            <div class="contract-dialog-seal" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
+            <span class="kicker">FINAL CONFIRMATION</span>
+            <h3 id="contract-signing-dialog-title">Do you swear to uphold this Contract?</h3>
+            <p id="contract-signing-dialog-summary">Your signature will bind this commitment to the Dominion standard.</p>
+            <div class="contract-signing-dialog-actions">
+              <button value="cancel" class="ghost">Review again</button>
+              <button value="confirm" data-contract-experience-action="sign-confirm">Sign the Contract</button>
+            </div>
+          </form>
+        </dialog>
         <section id="contract-activation" class="contract-activation" aria-labelledby="contract-activation-heading">
           <div class="section-heading compact">
             <div>
@@ -1345,6 +1371,7 @@
 <script src="/assets/js/closed-loop.js"></script>
 <script src="/assets/js/adaptive-coaching.js"></script>
  <script src="/assets/js/recruit-contract.js"></script>
+<script src="/assets/js/contract-experience.js"></script>
 <script src="/assets/js/weekly-orchestrator.js"></script>
 <script src="/assets/js/contract-activation.js"></script>
 <script src="/assets/js/mobile-command.js"></script>

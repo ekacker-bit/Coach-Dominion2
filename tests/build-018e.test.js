@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(root, "app.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "assets", "js", "app.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "assets", "styles.css"), "utf8");
 
-assert.match(html, /BUILD 018F \/\/ FOCUSED OPERATING EXPERIENCE/);
+assert.match(html, /BUILD 019A \/\/ THE DOMINION CONTRACT/);
 assert.match(app, /function recruitContractNutritionConnection/);
 assert.match(app, /DominionRecruitContract\.resolveNutritionPlanReadiness/);
 assert.match(app, /data-recruit-contract-action="nutrition-plan"/);

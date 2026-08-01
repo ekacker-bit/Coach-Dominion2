@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Build 019A Dominion Contract Experience
+
+- Reframed Recruit Contract setup as a four-stage commitment flow: Outcome, Capacity, Standards, and Review.
+- Added a Dominion seal, oath, typed signature, effective-date confirmation, and deliberate signing dialog.
+- Made signatures revision-bound so an amended Contract must be reviewed and signed again; prior signed revisions remain immutable in account history.
+- Replaced the approved-form default with a signed Contract artifact containing the declaration of intent, exact commitments, signature metadata, and Contract identity.
+- Added a post-sign progression rail from Contract Signed through Plans Linked, Week Committed, and Day One Ready with a single contextual next action.
+- Preserved active module plans during approval and amendment, reused existing account-scoped persistence, and added deterministic engine and integration coverage.
+
 ## Unreleased — Build 015A Automated Nutrition Feed
 
 - Added a supported MyFitnessPal-to-Coach-Dominion path through Apple Health and a user-owned iPhone Shortcut.

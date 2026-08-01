@@ -43,6 +43,7 @@
     "test:018f": "node tests/build-018f.test.js && node tests/unified-command-ux.test.js && node tests/recruit-contract.test.js && node tests/today-command-surface.test.js",
     "test:018g": "node tests/contract-activation.test.js && node tests/build-018g.test.js && node tests/recruit-contract.test.js && node tests/weekly-orchestrator.test.js",
     "test:018h": "node tests/mobile-command.test.js && node tests/build-018h.test.js && node tests/strength-training.test.js && node tests/running-persistence.test.js && node tests/core-persistence.test.js && node tests/nutrition-persistence.test.js",
-    "test:018i": "node tests/adaptive-coaching.test.js && node tests/build-018i.test.js && node tests/closed-loop-coaching.test.js && node tests/daily-assignment.test.js && node tests/running-persistence.test.js && node tests/core-persistence.test.js"
+    "test:018i": "node tests/adaptive-coaching.test.js && node tests/build-018i.test.js && node tests/closed-loop-coaching.test.js && node tests/daily-assignment.test.js && node tests/running-persistence.test.js && node tests/core-persistence.test.js",
+    "test:019a": "node tests/contract-experience.test.js && node tests/build-019a.test.js && node tests/recruit-contract.test.js && node tests/contract-activation.test.js && node tests/weekly-orchestrator.test.js"
   }
 }

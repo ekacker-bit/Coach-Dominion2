@@ -18,6 +18,7 @@ function validInput(overrides = {}) {
     runningDaysPerWeek: 3,
     coreDaysPerWeek: 3,
     sessionMinutes: 60,
+    twoADays: false,
     equipment: "FULL_GYM",
     experience: "INTERMEDIATE",
     runningGoal: "10K",
@@ -80,6 +81,23 @@ test("the seven-day commitment map coordinates stacked modalities", () => {
   assert.equal(result.schedule.filter((day) => day.activities.includes("CORE")).length, 3);
   assert.ok(result.schedule.some((day) => day.load === "STACKED"));
   assert.equal(new Set(result.schedule.map((day) => day.date)).size, 7);
+});
+
+test("Two-a-Days is a deliberate contract capacity with a 240-minute ceiling", () => {
+  const result = contract.buildRecruitContract(validInput({ twoADays: true }), options);
+  assert.equal(result.twoADays, true);
+  assert.equal(contract.TWO_A_DAY_TARGET_MINUTES, 121);
+  assert.equal(contract.TWO_A_DAY_MAX_MINUTES, 240);
+  assert.ok(result.schedule.some((day) => day.load === "TWO_A_DAY" && day.twoADayEligible));
+  assert.ok(result.schedule.filter((day) => day.load === "TWO_A_DAY").every((day) => day.dailyMinuteCap === 240));
+  assert.match(result.warnings.join(" "), /more than 120 combined minutes/i);
+  assert.match(result.safeguards.join(" "), /long runs have no time ceiling/i);
+});
+
+test("an omitted or unchecked Two-a-Days option remains off", () => {
+  assert.equal(contract.normalizeContractDraft(validInput({ twoADays: undefined }), options).twoADays, false);
+  assert.equal(contract.normalizeContractDraft(validInput({ twoADays: "true" }), options).twoADays, true);
+  assert.equal(contract.normalizeContractDraft(validInput({ twoADays: "false" }), options).twoADays, false);
 });
 
 test("contract inputs map cleanly into every planning module", () => {

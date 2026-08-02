@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.1 seconds
-Output:
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -40,4 +37,3 @@ assert.match(worker, /coach-dominion-\d{3}[a-z]-v\d+/i);
 assert.match(packageJson, /node tests\/build-020a\.test\.js/);
 
 console.log("Build 020A split-day command integration passed.");
-

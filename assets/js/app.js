@@ -8174,6 +8174,7 @@ function renderTodayStandardsDuty() {
 function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const state = document.getElementById("today-completion-state");
   renderTodayCommittedWeek();
+  renderTodayBodyCheckpoint();
   if (!state || !assignment) return;
   const execution = readDailyAssignmentExecution();
   const recovery = buildCurrentRecoveryRecommendation() || {};
@@ -8618,7 +8619,9 @@ async function loadClosedLoopState() {
       ["ADAPTATION", "current"],
       ["HISTORY", "current"],
       ["ADAPTATION", "adaptive-current"],
-      ["HISTORY", "adaptive"]
+      ["HISTORY", "adaptive"],
+      ["ADAPTATION", "body-outcome-current"],
+      ["HISTORY", "body-outcome"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -8655,6 +8658,25 @@ function readAdaptiveCoachingState() {
 function readAdaptiveCoachingHistory() {
   const history = readClosedLoopState("HISTORY", "adaptive", []);
   return Array.isArray(history) ? history : [];
+}
+
+function readBodyOutcomeReview() {
+  return readClosedLoopState("ADAPTATION", "body-outcome-current", null);
+}
+
+function readBodyOutcomeReviewHistory() {
+  const history = readClosedLoopState("HISTORY", "body-outcome", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function saveBodyOutcomeReview(record) {
+  if (!record?.id) return false;
+  const history = [record, ...readBodyOutcomeReviewHistory().filter((item) => item.id !== record.id)].slice(0, 24);
+  saveClosedLoopLocal("ADAPTATION", "body-outcome-current", record);
+  saveClosedLoopLocal("HISTORY", "body-outcome", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "body-outcome-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "body-outcome", history);
+  return currentSaved && historySaved;
 }
 
 function adaptiveEvidenceDate(item = {}) {
@@ -12710,7 +12732,8 @@ if (typeof document !== "undefined") {
       window.history.replaceState(null, "", "#today");
     }
   });
-  document.getElementById("trends")?.addEventListener("click", (event) => {
+  document.getElementById("trends")?.addEventListener("click", async (event) => {
+    if (await handleBodyOutcomeAction(event)) return;
     const rangeButton = event.target.closest("button[data-trend-range]");
     if (rangeButton && typeof DominionTrends !== "undefined") {
       trendRangeDays = DominionTrends.normalizeRangeDays(rangeButton.dataset.trendRange);
@@ -12748,6 +12771,11 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("body-checkin-form")?.addEventListener("submit", saveBodyCheckIn);
+  document.getElementById("today-body-checkin-form")?.addEventListener("submit", saveTodayBodyCheckIn);
+  document.getElementById("today-body-checkpoint")?.addEventListener("click", handleBodyOutcomeAction);
+  document.getElementById("today-body-capture")?.addEventListener("toggle", (event) => {
+    if (event.isTrusted) event.currentTarget.dataset.userToggled = "true";
+  });
   document.getElementById("one-command-primary")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     button.disabled = true;
@@ -16029,7 +16057,8 @@ function buildCurrentBodyOutcomeModel(programModel = trendDashboardModel) {
       discipline: programModel?.discipline?.value,
       nutrition: programModel?.nutrition?.value,
       strengthSessions: programModel?.training?.strengthSessions || 0
-    }
+    },
+    priorReview: readBodyOutcomeReview()
   });
 }
 
@@ -16057,6 +16086,58 @@ function renderBodyCheckInHistory(outcome) {
   }).join("") : '<div class="trend-chart-empty"><strong>No checkpoints yet</strong><span>Record one comparable weekly measurement set.</span></div>';
 }
 
+function bodyOutcomeReviewMarkup(review = {}, compact = false) {
+  const tone = review.status === "AUTHORIZED" || review.status === "CURRENT"
+    ? "positive"
+    : review.status === "PROPOSED" ? "warning" : "neutral";
+  let actions = "";
+  if (review.status === "PROPOSED") {
+    actions = `<div class="body-review-actions"><button type="button" data-body-review-action="AUTHORIZE_REVIEW">Authorize review</button><button type="button" class="ghost" data-body-review-action="KEEP_CURRENT">Keep current plan</button></div>`;
+  } else if (review.status === "AUTHORIZED") {
+    const label = review.nextSection === "nutrition" ? "Open Fuel review" : "Open Training review";
+    actions = `<div class="body-review-actions"><button type="button" data-body-review-route="${escapeHtml(review.nextSection || "trends")}">${label}</button></div>`;
+  }
+  const progress = review.status === "BUILDING"
+    ? `<div class="body-review-progress" aria-label="${Number(review.checkpoints || 0)} of 4 checkpoints"><span style="--body-review-progress:${Math.min(100, Number(review.checkpoints || 0) / 4 * 100)}%"></span></div>`
+    : "";
+  return `<article class="body-review-card ${tone} ${compact ? "compact" : ""}">
+    <header><div><span>FOUR-WEEK REVIEW</span><h3>${escapeHtml(review.headline || "Building the outcome signal")}</h3></div><strong>${escapeHtml(review.label || "BUILDING")}</strong></header>
+    <p>${escapeHtml(review.detail || "Four comparable weekly checkpoints unlock the first review.")}</p>
+    ${progress}
+    <footer><small>${Number(review.checkpoints || 0)} checkpoint${Number(review.checkpoints || 0) === 1 ? "" : "s"} · ${Number(review.elapsedDays || 0)} days</small><small>No silent plan changes</small></footer>
+    ${actions}
+  </article>`;
+}
+
+function renderBodyOutcomeReview(outcome, targetId, compact = false) {
+  const target = document.getElementById(targetId);
+  if (!target || !outcome?.review) return;
+  target.innerHTML = bodyOutcomeReviewMarkup(outcome.review, compact);
+}
+
+function renderTodayBodyCheckpoint(outcome = buildCurrentBodyOutcomeModel()) {
+  const card = document.getElementById("today-body-checkpoint");
+  if (!card || !outcome) return;
+  const cadence = outcome.cadence || {};
+  card.dataset.checkpointState = cadence.status || "UPCOMING";
+  setText("today-body-checkpoint-state", cadence.label || "CHECKING");
+  const state = document.getElementById("today-body-checkpoint-state");
+  if (state) state.className = `state-pill ${cadence.status === "CAPTURED" ? "green" : cadence.status === "DUE" ? "yellow" : "neutral"}`;
+  setText("today-body-checkpoint-detail", cadence.status === "CAPTURED"
+    ? "Checkpoint secured. Atlas is updating the outcome signal."
+    : cadence.status === "DUE"
+      ? "Capture one comparable measurement set. Missing it never counts as noncompliance."
+      : `Your next checkpoint is ${cadence.nextDate}.`);
+  setText("today-body-checkpoint-last", cadence.latestDate || "No baseline");
+  setText("today-body-checkpoint-next", cadence.status === "DUE" ? "Today" : cadence.nextDate || "Today");
+  setText("today-body-capture-label", cadence.status === "CAPTURED" ? "Checkpoint captured" : cadence.status === "DUE" ? "Log weekly measurements" : "Log early if needed");
+  const capture = document.getElementById("today-body-capture");
+  if (capture && !capture.dataset.userToggled) capture.open = cadence.status === "DUE";
+  const date = document.getElementById("today-body-checkin-date");
+  if (date) date.value = todayISODate();
+  renderBodyOutcomeReview(outcome, "today-body-review", true);
+}
+
 function renderBodyOutcome(outcome) {
   if (!outcome) return;
   setText("body-outcome-decision", outcome.decision.label);
@@ -16082,6 +16163,7 @@ function renderBodyOutcome(outcome) {
   }).join("");
   renderBodyMeasurementChart(outcome);
   renderBodyCheckInHistory(outcome);
+  renderBodyOutcomeReview(outcome, "body-four-week-review");
   const dateInput = document.getElementById("body-checkin-date");
   if (dateInput && !dateInput.value) {
     dateInput.value = todayISODate();
@@ -16111,8 +16193,8 @@ function renderWeeklyBodyOutcome(aggregate) {
   if (state) state.className = summary.state === "CAPTURED" ? "positive" : "neutral";
 }
 
-function bodyCheckInInput() {
-  const form = document.getElementById("body-checkin-form");
+function bodyCheckInInput(formId = "body-checkin-form") {
+  const form = typeof formId === "string" ? document.getElementById(formId) : formId;
   if (!form) return {};
   return Object.fromEntries(new FormData(form).entries());
 }
@@ -16121,10 +16203,9 @@ function bodyCheckInUuid() {
   return globalThis.crypto?.randomUUID?.() || null;
 }
 
-async function saveBodyCheckIn(event) {
-  event?.preventDefault();
+async function persistBodyCheckIn(form, feedbackId = "body-checkin-feedback") {
   if (typeof DominionBodyComposition === "undefined") return;
-  const input = bodyCheckInInput();
+  const input = bodyCheckInInput(form);
   const existing = performanceEntries.find((entry) => entry.domain === "body_metrics" && entry.activityCode === "body_composition_checkin" && entry.performanceDate === input.date);
   const result = DominionBodyComposition.buildCheckInEntry(input, {
     today: todayISODate(),
@@ -16134,15 +16215,15 @@ async function saveBodyCheckIn(event) {
     createdAt: existing?.createdAt || null
   });
   if (!result.valid) {
-    setText("body-checkin-feedback", result.errors[0]);
-    return;
+    setText(feedbackId, result.errors[0]);
+    return false;
   }
   const validation = validatePerformanceEntry(result.entry);
   if (!validation.valid) {
-    setText("body-checkin-feedback", validation.errors[0]?.message || "That checkpoint could not be validated.");
-    return;
+    setText(feedbackId, validation.errors[0]?.message || "That checkpoint could not be validated.");
+    return false;
   }
-  setText("body-checkin-feedback", "Saving checkpoint…");
+  setText(feedbackId, "Saving checkpoint…");
   const payload = buildPerformancePersistencePayload(validation.entry, session?.user?.id || null);
   let saved = hydratePerformanceEntry(payload);
   let storage = "LOCAL";
@@ -16160,12 +16241,31 @@ async function saveBodyCheckIn(event) {
   renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
   if (weeklyInspection) renderWeeklyBodyOutcome(weeklyInspection);
-  const form = document.getElementById("body-checkin-form");
   const unit = input.unit || "in";
   form?.reset();
-  if (document.getElementById("body-checkin-date")) document.getElementById("body-checkin-date").value = todayISODate();
-  if (document.getElementById("body-checkin-unit")) document.getElementById("body-checkin-unit").value = unit;
-  setText("body-checkin-feedback", storage === "SUPABASE" ? "Checkpoint saved to your account." : "Checkpoint saved on this device; account sync will retry.");
+  const dateInput = form?.querySelector('[name="date"]');
+  const unitInput = form?.querySelector('[name="unit"]');
+  if (dateInput) dateInput.value = todayISODate();
+  if (unitInput) unitInput.value = unit;
+  const outcome = buildCurrentBodyOutcomeModel();
+  renderTodayBodyCheckpoint(outcome);
+  if (outcome) renderBodyOutcome(outcome);
+  setText(feedbackId, storage === "SUPABASE" ? "Checkpoint saved to your account. Atlas updated the outcome signal." : "Checkpoint saved on this device; account sync will retry.");
+  return true;
+}
+
+async function saveBodyCheckIn(event) {
+  event?.preventDefault();
+  return persistBodyCheckIn(event?.currentTarget || document.getElementById("body-checkin-form"), "body-checkin-feedback");
+}
+
+async function saveTodayBodyCheckIn(event) {
+  event?.preventDefault();
+  const saved = await persistBodyCheckIn(event?.currentTarget || document.getElementById("today-body-checkin-form"), "today-body-checkin-feedback");
+  if (saved) {
+    const capture = document.getElementById("today-body-capture");
+    if (capture) capture.open = false;
+  }
 }
 
 function editBodyCheckIn(entryId) {
@@ -16196,7 +16296,51 @@ async function deleteBodyCheckIn(entryId) {
   renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
   if (weeklyInspection) renderWeeklyBodyOutcome(weeklyInspection);
+  renderTodayBodyCheckpoint();
   setText("body-checkin-feedback", "Checkpoint deleted.");
+}
+
+async function resolveBodyOutcomeReview(action) {
+  if (typeof DominionBodyComposition === "undefined") return false;
+  const outcome = buildCurrentBodyOutcomeModel();
+  try {
+    const record = DominionBodyComposition.resolveOutcomeReview(outcome?.review, action, {
+      resolvedAt: new Date().toISOString(),
+      userId: session?.user?.id || null
+    });
+    const synced = await saveBodyOutcomeReview(record);
+    const next = buildCurrentBodyOutcomeModel();
+    renderTodayBodyCheckpoint(next);
+    renderBodyOutcome(next);
+    const message = record.status === "AUTHORIZED"
+      ? `Outcome review authorized${synced ? " and saved to your account" : " on this device"}. No plan or target changed.`
+      : `Current plan held${synced ? " and saved to your account" : " on this device"}. Atlas will keep monitoring.`;
+    setText("today-body-checkin-feedback", message);
+    setText("body-checkin-feedback", message);
+    return true;
+  } catch (error) {
+    setText("today-body-checkin-feedback", error?.message || "That outcome decision could not be saved.");
+    setText("body-checkin-feedback", error?.message || "That outcome decision could not be saved.");
+    return false;
+  }
+}
+
+async function handleBodyOutcomeAction(event) {
+  const action = event.target.closest("button[data-body-review-action]");
+  if (action) {
+    action.disabled = true;
+    try { await resolveBodyOutcomeReview(action.dataset.bodyReviewAction); }
+    finally { action.disabled = false; }
+    return true;
+  }
+  const route = event.target.closest("button[data-body-review-route]");
+  if (route) {
+    const section = route.dataset.bodyReviewRoute || "trends";
+    setActiveSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+    return true;
+  }
+  return false;
 }
 
 function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
@@ -16286,7 +16430,8 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
       discipline: baseModel.discipline.value,
       nutrition: baseModel.nutrition.value,
       strengthSessions: baseModel.training.strengthSessions
-    }
+    },
+    priorReview: readBodyOutcomeReview()
   });
   const model = DominionTrends.buildProgramTrendModel({ ...trendInputs, bodyComposition });
   renderProgramTrends(model, domainTrends, trajectory, storageMode);

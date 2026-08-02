@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=021m">
+  <link rel="stylesheet" href="/assets/styles.css?v=021n">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -564,36 +564,66 @@
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
          <header class="today-command-header">
           <div>
-            <div class="kicker">BUILD 018F // FOCUS MODE</div>
+            <div class="kicker">TODAY // 21N</div>
             <h2 id="today-heading">Today</h2>
-            <p>Do the next action. Open details only when you need them.</p>
+            <p>One mission. One proof. Then close the day.</p>
           </div>
            <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
          </header>
 
-        <section id="one-command" class="card one-command" aria-labelledby="one-command-heading" data-command-mode="EXECUTE">
-          <header class="one-command-header">
+        <section id="one-command" class="card one-command today-mission" aria-labelledby="one-command-heading" data-command-mode="EXECUTE">
+          <header class="one-command-header today-mission-header">
             <div>
-              <div id="one-command-eyebrow" class="kicker">BUILD 019E // SINGLE ORDER</div>
+              <div id="one-command-eyebrow" class="kicker">TODAY // MISSION</div>
               <h2 id="one-command-heading">Assembling the next action</h2>
               <p id="one-command-detail">Coach Dominion is reconciling the operating chain.</p>
             </div>
             <span id="one-command-state" class="state-pill neutral">ASSEMBLING</span>
           </header>
-          <div class="one-command-progress" aria-hidden="true"><span id="one-command-progress"></span></div>
-          <ol id="one-command-stages" class="one-command-stages" aria-label="Current operating chain">
-            <li data-one-command-stage="contract"><span>1</span><strong>Contract</strong></li>
-            <li data-one-command-stage="plans"><span>2</span><strong>Plans</strong></li>
-            <li data-one-command-stage="week"><span>3</span><strong>Week</strong></li>
-            <li data-one-command-stage="today"><span>4</span><strong>Today</strong></li>
-            <li data-one-command-stage="evidence"><span>5</span><strong>Evidence</strong></li>
-            <li data-one-command-stage="review"><span>6</span><strong>Review</strong></li>
-          </ol>
-          <div id="one-command-modules" class="one-command-modules" aria-label="Assigned domains"></div>
-          <div class="one-command-actions">
-            <button id="one-command-primary" type="button" data-one-command-action="REFRESH">Refresh</button>
-            <button id="one-command-secondary" type="button" class="ghost" aria-controls="one-command-context" aria-expanded="false">Why this action?</button>
+
+          <p id="today-mission-reason" class="today-mission-reason"><span>WHY</span><strong>Atlas is checking readiness, the committed calendar, and current evidence.</strong></p>
+
+          <div class="today-mission-facts" aria-label="Mission facts">
+            <div><span>Readiness</span><strong id="today-mission-readiness">ROLL CALL NEEDED</strong></div>
+            <div><span>Schedule</span><strong id="today-mission-schedule">CHECKING</strong></div>
+            <div><span>Proof</span><strong id="today-mission-evidence">CHECKING</strong></div>
           </div>
+
+          <div class="today-mission-progress-row">
+            <span>Day progress</span>
+            <strong id="today-mission-progress-label">Checking</strong>
+          </div>
+          <div class="one-command-progress" aria-hidden="true"><span id="one-command-progress"></span></div>
+
+          <div class="one-command-actions today-mission-actions">
+            <button id="one-command-primary" type="button" data-one-command-action="REFRESH">Refresh</button>
+            <p id="today-mission-after"><span>THEN</span><strong>Atlas will reveal the next required action.</strong></p>
+          </div>
+
+          <details id="one-command-context" class="one-command-context today-mission-why">
+            <summary><span>Why this action?</span><small>Decision, evidence, and any blocker</small></summary>
+            <div>
+              <p><span>Decision</span><strong id="today-mission-decision">The next unfinished requirement comes first.</strong></p>
+              <p><span>Canonical source</span><strong id="one-command-source">Checking Contract and plan revisions</strong></p>
+              <p><span>Evidence</span><strong id="one-command-evidence">0/0 assigned domains verified</strong></p>
+              <p id="one-command-conflict" class="one-command-conflict" hidden><span>Blocker</span><strong id="one-command-conflict-detail"></strong></p>
+            </div>
+          </details>
+
+          <details id="today-mission-details" class="today-mission-details">
+            <summary><span>Details</span><small>Plan chain and assigned domains</small></summary>
+            <ol id="one-command-stages" class="one-command-stages" aria-label="Current operating chain">
+              <li data-one-command-stage="contract"><span>1</span><strong>Contract</strong></li>
+              <li data-one-command-stage="plans"><span>2</span><strong>Plans</strong></li>
+              <li data-one-command-stage="week"><span>3</span><strong>Week</strong></li>
+              <li data-one-command-stage="today"><span>4</span><strong>Today</strong></li>
+              <li data-one-command-stage="evidence"><span>5</span><strong>Evidence</strong></li>
+              <li data-one-command-stage="review"><span>6</span><strong>Review</strong></li>
+            </ol>
+            <div id="one-command-modules" class="one-command-modules" aria-label="Assigned domains"></div>
+            <button id="one-command-secondary" type="button" class="ghost" aria-controls="one-command-context" aria-expanded="false">Open decision context</button>
+          </details>
+
           <section id="activation-repair" class="activation-repair" aria-labelledby="activation-repair-heading" hidden>
             <header class="activation-repair-header">
               <div>
@@ -617,14 +647,35 @@
             </div>
             <p id="activation-repair-feedback" class="activation-repair-feedback" role="status" aria-live="polite"></p>
           </section>
-          <details id="one-command-context" class="one-command-context">
-            <summary>Decision context</summary>
-            <div>
-              <p><span>Canonical source</span><strong id="one-command-source">Checking Contract and plan revisions</strong></p>
-              <p><span>Evidence</span><strong id="one-command-evidence">0/0 assigned domains verified</strong></p>
-              <p id="one-command-conflict" class="one-command-conflict" hidden><span>Repair</span><strong id="one-command-conflict-detail"></strong></p>
+
+          <section id="daily-ritual" class="daily-ritual today-mission-closeout" aria-labelledby="daily-ritual-heading" data-ritual-state="LOCKED">
+            <header class="daily-ritual-header">
+              <div class="daily-ritual-seal" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
+              <div>
+                <div id="daily-ritual-eyebrow" class="kicker">CLOSE THE DAY</div>
+                <h2 id="daily-ritual-heading">Earn today&rsquo;s seal</h2>
+                <p id="daily-ritual-detail">Execute the mission and preserve the proof before closing the day.</p>
+              </div>
+              <span id="daily-ritual-state" class="state-pill neutral">LOCKED</span>
+            </header>
+            <ol id="daily-ritual-milestones" class="daily-ritual-milestones" aria-label="Daily close progression">
+              <li data-daily-ritual-step="execute"><span>1</span><strong>Execute</strong></li>
+              <li data-daily-ritual-step="record"><span>2</span><strong>Record</strong></li>
+              <li data-daily-ritual-step="verify"><span>3</span><strong>Verify</strong></li>
+              <li data-daily-ritual-step="adapt"><span>4</span><strong>Close</strong></li>
+            </ol>
+            <div class="daily-ritual-body">
+              <div class="daily-ritual-metrics" aria-label="Daily seal evidence">
+                <div><span>Evidence</span><strong id="daily-ritual-evidence">0%</strong></div>
+                <div><span>Confidence</span><strong id="daily-ritual-confidence">OPEN</strong></div>
+                <div><span>Secured days</span><strong id="daily-ritual-total">0</strong></div>
+                <div><span>Current chain</span><strong id="daily-ritual-streak">0</strong></div>
+                <div><span>Rank</span><strong id="daily-ritual-rank">RECRUIT</strong></div>
+              </div>
+              <button id="daily-ritual-action" type="button" data-closed-loop-action="continue_execution">Continue Today</button>
             </div>
-          </details>
+            <p id="daily-ritual-feedback" class="daily-ritual-feedback" aria-live="polite"></p>
+          </section>
         </section>
 
         <section id="today-body-checkpoint" class="card today-body-checkpoint" aria-labelledby="today-body-checkpoint-heading" data-checkpoint-state="LOADING">
@@ -833,35 +884,6 @@
         <p id="daily-orders-feedback" class="muted"></p>
       </section>
       </details>
-
-      <section id="daily-ritual" class="card daily-ritual" aria-labelledby="daily-ritual-heading" data-ritual-state="LOCKED">
-        <header class="daily-ritual-header">
-          <div class="daily-ritual-seal" aria-hidden="true"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
-          <div>
-            <div id="daily-ritual-eyebrow" class="kicker">BUILD 019C // THE DAILY SEAL</div>
-            <h2 id="daily-ritual-heading">Earn today&rsquo;s seal</h2>
-            <p id="daily-ritual-detail">Execute the orders and preserve the evidence before closing the day.</p>
-          </div>
-          <span id="daily-ritual-state" class="state-pill neutral">LOCKED</span>
-        </header>
-        <ol id="daily-ritual-milestones" class="daily-ritual-milestones" aria-label="Daily close progression">
-          <li data-daily-ritual-step="execute"><span>1</span><strong>Execute</strong></li>
-          <li data-daily-ritual-step="record"><span>2</span><strong>Record</strong></li>
-          <li data-daily-ritual-step="verify"><span>3</span><strong>Verify</strong></li>
-          <li data-daily-ritual-step="adapt"><span>4</span><strong>Adapt</strong></li>
-        </ol>
-        <div class="daily-ritual-body">
-          <div class="daily-ritual-metrics" aria-label="Daily seal evidence">
-            <div><span>Evidence</span><strong id="daily-ritual-evidence">0%</strong></div>
-            <div><span>Confidence</span><strong id="daily-ritual-confidence">OPEN</strong></div>
-            <div><span>Secured days</span><strong id="daily-ritual-total">0</strong></div>
-            <div><span>Current chain</span><strong id="daily-ritual-streak">0</strong></div>
-            <div><span>Rank</span><strong id="daily-ritual-rank">RECRUIT</strong></div>
-          </div>
-          <button id="daily-ritual-action" type="button" data-closed-loop-action="continue_execution">Continue Today</button>
-        </div>
-        <p id="daily-ritual-feedback" class="daily-ritual-feedback" aria-live="polite"></p>
-      </section>
 
       <details class="today-supporting-detail today-workout-detail">
         <summary><span>Workout details</span><small>Prescription, substitutions, execution, and safety controls</small></summary>
@@ -1744,12 +1766,12 @@
 <script src="/assets/js/contract-autosave.js?v=021h"></script>
 <script src="/assets/js/mobile-command.js"></script>
 <script src="/assets/js/experience-shell.js"></script>
-<script src="/assets/js/daily-ritual.js"></script>
+<script src="/assets/js/daily-ritual.js?v=021n"></script>
 <script src="/assets/js/operating-truth.js"></script>
 <script src="/assets/js/activation-repair.js"></script>
-<script src="/assets/js/one-command.js"></script>
+<script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=021m"></script>
+ <script src="/assets/js/app.js?v=021n"></script>
 </body>
 </html>

@@ -24,6 +24,5 @@ assert.match(app, /from\("recruit_onboarding_state"\)[\s\S]+\.maybeSingle\(\)/);
 assert.match(app, /withTimeout\(accountRead, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS\)/);
 assert.match(html, /contract-autosave\.js\?v=021h/);
 assert.match(html, /first-week-orientation\.js\?v=021h/);
-assert.match(html, /app\.js\?v=021n/);
+assert.match(html, /app\.js\?v=021o/);
 console.log("Build 021H orientation persistence recovery integration passed.");
-

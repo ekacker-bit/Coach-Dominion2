@@ -1,10 +1,10 @@
-const CACHE_NAME = "coach-dominion-021n-v1";
+const CACHE_NAME = "coach-dominion-021n-v2";
 const APP_SHELL = [
   "/",
   "/app",
   "/app.html",
   "/manifest.webmanifest",
-  "/assets/styles.css",
+  "/assets/styles.css?v=021n-css2",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",

@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 1.1 seconds
+Output:
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -10,7 +13,7 @@ const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
 const worker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 
-assert.equal(orchestrator.VERSION, "020B.2");
+assert.equal(orchestrator.VERSION, "021I.1");
 assert.equal(orchestrator.TWO_A_DAY_MINIMUM_SEPARATION_MINUTES, 240);
 assert.equal(typeof orchestrator.buildSessionSequence, "function");
 
@@ -37,3 +40,4 @@ assert.match(worker, /coach-dominion-\d{3}[a-z]-v\d+/i);
 assert.match(packageJson, /node tests\/build-020a\.test\.js/);
 
 console.log("Build 020A split-day command integration passed.");
+

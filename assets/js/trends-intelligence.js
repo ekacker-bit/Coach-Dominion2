@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021L.1";
+  const VERSION = "021M.1";
   const VALID_RANGES = Object.freeze([28, 56, 84]);
   const DAY_MS = 86400000;
 

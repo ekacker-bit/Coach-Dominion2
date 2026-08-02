@@ -8621,7 +8621,9 @@ async function loadClosedLoopState() {
       ["ADAPTATION", "adaptive-current"],
       ["HISTORY", "adaptive"],
       ["ADAPTATION", "body-outcome-current"],
-      ["HISTORY", "body-outcome"]
+      ["HISTORY", "body-outcome"],
+      ["ADAPTATION", "outcome-plan-current"],
+      ["HISTORY", "outcome-plan"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -8676,6 +8678,25 @@ async function saveBodyOutcomeReview(record) {
   saveClosedLoopLocal("HISTORY", "body-outcome", history);
   const currentSaved = await persistClosedLoopState("ADAPTATION", "body-outcome-current", record);
   const historySaved = await persistClosedLoopState("HISTORY", "body-outcome", history);
+  return currentSaved && historySaved;
+}
+
+function readOutcomePlanRevision() {
+  return readClosedLoopState("ADAPTATION", "outcome-plan-current", null);
+}
+
+function readOutcomePlanRevisionHistory() {
+  const history = readClosedLoopState("HISTORY", "outcome-plan", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function saveOutcomePlanRevision(record) {
+  if (!record?.id) return false;
+  const history = [record, ...readOutcomePlanRevisionHistory().filter((item) => item.id !== record.id)].slice(0, 24);
+  saveClosedLoopLocal("ADAPTATION", "outcome-plan-current", record);
+  saveClosedLoopLocal("HISTORY", "outcome-plan", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "outcome-plan-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "outcome-plan", history);
   return currentSaved && historySaved;
 }
 
@@ -12733,6 +12754,7 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("trends")?.addEventListener("click", async (event) => {
+    if (await handleOutcomePlanAction(event)) return;
     if (await handleBodyOutcomeAction(event)) return;
     const rangeButton = event.target.closest("button[data-trend-range]");
     if (rangeButton && typeof DominionTrends !== "undefined") {
@@ -16094,7 +16116,7 @@ function bodyOutcomeReviewMarkup(review = {}, compact = false) {
   if (review.status === "PROPOSED") {
     actions = `<div class="body-review-actions"><button type="button" data-body-review-action="AUTHORIZE_REVIEW">Authorize review</button><button type="button" class="ghost" data-body-review-action="KEEP_CURRENT">Keep current plan</button></div>`;
   } else if (review.status === "AUTHORIZED") {
-    const label = review.nextSection === "nutrition" ? "Open Fuel review" : "Open Training review";
+    const label = review.nextSection === "trends" ? "Open plan review" : review.nextSection === "nutrition" ? "Open Fuel review" : "Open Training review";
     actions = `<div class="body-review-actions"><button type="button" data-body-review-route="${escapeHtml(review.nextSection || "trends")}">${label}</button></div>`;
   }
   const progress = review.status === "BUILDING"
@@ -16113,6 +16135,175 @@ function renderBodyOutcomeReview(outcome, targetId, compact = false) {
   const target = document.getElementById(targetId);
   if (!target || !outcome?.review) return;
   target.innerHTML = bodyOutcomeReviewMarkup(outcome.review, compact);
+}
+
+function outcomePlanReadiness() {
+  const cutoff = addClosedLoopDays(todayISODate(), -6);
+  const rows = mergeReadinessHistory().filter((item) => item.date >= cutoff && item.date <= todayISODate());
+  const energy = rows.map((item) => Number(item.energy)).filter(Number.isFinite);
+  return {
+    value: trendDashboardModel?.readiness?.value ?? (energy.length ? energy.reduce((sum, value) => sum + value, 0) / energy.length : null),
+    pain: rows.some((item) => Boolean(item.pain))
+  };
+}
+
+function buildCurrentOutcomePlanRevision(outcome = buildCurrentBodyOutcomeModel()) {
+  if (!outcome || typeof DominionOutcomePlanRevision === "undefined") return null;
+  return DominionOutcomePlanRevision.buildProposal({
+    today: todayISODate(),
+    outcome,
+    outcomeReview: outcome.review,
+    contract: readApprovedRecruitContract() || {},
+    nutritionBaseline: activeNutritionBaseline(todayISODate()),
+    readiness: outcomePlanReadiness(),
+    priorRevision: readOutcomePlanRevision(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function outcomePlanTargetCards(plan = {}) {
+  const recovery = plan.recoveryTargets || {};
+  const training = plan.trainingTargets || {};
+  return `<div class="outcome-plan-targets">
+    <div><span>Recovery</span><strong>${Math.round(Number(recovery.calories || 0))} kcal</strong><small>${Math.round(Number(recovery.protein || 0))}g protein</small></div>
+    <div><span>Training</span><strong>${Math.round(Number(training.calories || 0))} kcal</strong><small>${Math.round(Number(training.protein || 0))}g protein</small></div>
+  </div>`;
+}
+
+function renderOutcomePlanRevision(outcome = buildCurrentBodyOutcomeModel()) {
+  const output = document.getElementById("outcome-plan-revision-output");
+  const state = document.getElementById("outcome-plan-revision-state");
+  if (!output || !state || typeof DominionOutcomePlanRevision === "undefined") return;
+  const revision = buildCurrentOutcomePlanRevision(outcome);
+  if (!revision) return;
+  state.textContent = revision.status.replaceAll("_", " ");
+  state.className = ["SCHEDULED", "OBSERVING", "RETAINED"].includes(revision.status) ? "positive" : ["DRAFT", "REVIEW_DUE"].includes(revision.status) ? "warning" : "neutral";
+  const checks = (revision.investigation?.checks || []).map((item) => `<li class="${item.pass ? "pass" : "hold"}"><span>${item.pass ? "✓" : "—"}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
+  const investigation = checks ? `<details class="outcome-plan-investigation" ${revision.status === "HOLD" ? "open" : ""}><summary>Investigation gate</summary><ul>${checks}</ul></details>` : "";
+  let body = `<div class="outcome-plan-message"><span>${escapeHtml(revision.label || revision.status)}</span><h4>${escapeHtml(revision.headline || "Outcome review")}</h4><p>${escapeHtml(revision.detail || "Atlas is reconciling the outcome signal.")}</p></div>`;
+  let actions = "";
+  if (revision.status === "DRAFT") {
+    body += `<div class="outcome-plan-compare">
+      <article><header><span>CURRENT</span><strong>Approved Nutrition</strong></header>${outcomePlanTargetCards(revision.currentPlan)}</article>
+      <i aria-hidden="true">→</i>
+      <article class="proposed"><header><span>PROPOSED</span><strong>One lever · ${revision.proposedPlan.change.caloriePercent}% energy</strong></header>${outcomePlanTargetCards(revision.proposedPlan)}<small>Protein unchanged · Training unchanged</small></article>
+    </div>
+    <ul class="outcome-plan-rationale">${(revision.rationale || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="outcome-plan-window"><div><span>Effective</span><strong>${escapeHtml(revision.effectiveDate)}</strong></div><div><span>Observe through</span><strong>${escapeHtml(revision.observationEnd)}</strong></div></div>`;
+    actions = `<div class="outcome-plan-actions"><button type="button" data-outcome-plan-action="APPROVE">Approve for next week</button><button type="button" class="ghost" data-outcome-plan-action="KEEP_CURRENT">Keep current plan</button><button type="button" class="ghost" data-outcome-plan-action="REASSESS_LATER">Reassess in 7 days</button></div>`;
+  } else if (revision.status === "SCHEDULED") {
+    body += `<div class="outcome-plan-window"><div><span>Activates</span><strong>${escapeHtml(revision.effectiveDate)}</strong></div><div><span>Observation ends</span><strong>${escapeHtml(revision.observationEnd)}</strong></div></div><p class="outcome-plan-guardrail">The current baseline remains active until the effective date.</p>`;
+    actions = '<div class="outcome-plan-actions"><button type="button" class="ghost danger" data-outcome-plan-action="ROLLBACK">Cancel scheduled revision</button></div>';
+  } else if (revision.status === "OBSERVING") {
+    const total = Math.max(1, Math.round((new Date(`${revision.observationEnd}T12:00:00Z`) - new Date(`${revision.effectiveDate}T12:00:00Z`)) / 86400000) + 1);
+    const elapsed = Math.max(1, Math.min(total, Math.round((new Date(`${todayISODate()}T12:00:00Z`) - new Date(`${revision.effectiveDate}T12:00:00Z`)) / 86400000) + 1));
+    body += `<div class="outcome-plan-observation"><div><span>OBSERVATION</span><strong>Day ${elapsed} of ${total}</strong></div><div class="outcome-plan-progress"><span style="--outcome-progress:${elapsed / total * 100}%"></span></div><small>Hold every other plan lever steady through ${escapeHtml(revision.observationEnd)}.</small></div>`;
+    actions = '<div class="outcome-plan-actions"><button type="button" class="ghost danger" data-outcome-plan-action="ROLLBACK">Roll back now</button></div>';
+  } else if (revision.status === "REVIEW_DUE") {
+    body += `<p class="outcome-plan-guardrail">The 14-day observation window is complete. Retain the revision only if the outcome and recovery record support it.</p>`;
+    actions = '<div class="outcome-plan-actions"><button type="button" data-outcome-plan-action="RETAIN">Retain revision</button><button type="button" class="ghost danger" data-outcome-plan-action="ROLLBACK">Roll back</button></div>';
+  } else if (revision.status === "DEFERRED") {
+    body += `<p class="outcome-plan-guardrail">Atlas will reopen this review on ${escapeHtml(revision.reassessDate || "the next checkpoint")}.</p>`;
+  } else if (revision.status === "HELD") {
+    body += '<p class="outcome-plan-guardrail">The current Nutrition and training plans remain authoritative.</p>';
+  } else if (revision.status === "RETAINED") {
+    body += '<p class="outcome-plan-guardrail">The observed revision remains the approved Nutrition baseline. The decision is preserved in history.</p>';
+  } else if (revision.status === "REVERTED") {
+    body += '<p class="outcome-plan-guardrail">The prior baseline was restored and the revision remains in the audit history.</p>';
+  }
+  output.innerHTML = `${body}${investigation}${actions}<footer>${readOutcomePlanRevisionHistory().length} prior decision${readOutcomePlanRevisionHistory().length === 1 ? "" : "s"} · One lever at a time</footer>`;
+}
+
+function outcomeNutritionBaselineInput(plan = {}, effectiveDate) {
+  const recovery = plan.recoveryTargets || {};
+  const adjustments = plan.trainingAdjustments || {};
+  return {
+    goal: plan.goal || "FAT_LOSS",
+    effectiveDate,
+    calories: recovery.calories,
+    protein: recovery.protein,
+    carbs: recovery.carbs,
+    fat: recovery.fat,
+    trainingCalories: Number(adjustments.calories || 0),
+    trainingCarbs: Number(adjustments.carbs || 0)
+  };
+}
+
+async function persistOutcomeNutritionHistory(history) {
+  window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(history));
+  const synced = await persistNutritionState("BASELINE_HISTORY", "current", { items: history });
+  ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => window.localStorage.removeItem(adaptiveFuelingStorageKey(goalName)));
+  await clearNutritionStateType("ADAPTIVE_APPROVAL");
+  await refreshUnifiedWeekDraftForNutrition();
+  renderNutritionCommand();
+  renderRecruitContract();
+  renderWeeklyOrchestrator();
+  return synced;
+}
+
+function approveOutcomeNutritionBaseline(revision) {
+  if (typeof DominionNutritionBaseline === "undefined") throw new Error("Nutrition baseline controls are unavailable.");
+  const proposal = DominionNutritionBaseline.buildNutritionBaselineProposal(outcomeNutritionBaselineInput(revision.proposedPlan, revision.effectiveDate));
+  if (proposal.status !== "READY FOR APPROVAL") throw new Error(proposal.errors?.[0] || "The proposed baseline did not pass Nutrition safeguards.");
+  return DominionNutritionBaseline.approveNutritionBaseline(proposal, new Date().toISOString(), `outcome-${revision.id}`);
+}
+
+async function rollbackOutcomePlanRevision(revision) {
+  if (typeof DominionNutritionBaseline === "undefined") throw new Error("Nutrition baseline controls are unavailable.");
+  const history = readNutritionBaselineHistory();
+  let rollbackBaselineId = null;
+  if (todayISODate() < revision.effectiveDate) {
+    const scheduled = history.find((item) => item.id === revision.appliedBaselineId);
+    if (scheduled) scheduled.status = "REVERTED";
+  } else {
+    const proposal = DominionNutritionBaseline.buildNutritionBaselineProposal(outcomeNutritionBaselineInput(revision.currentPlan, todayISODate()));
+    if (proposal.status !== "READY FOR APPROVAL") throw new Error(proposal.errors?.[0] || "The prior baseline could not be restored.");
+    const rollback = DominionNutritionBaseline.approveNutritionBaseline(proposal, new Date().toISOString(), `rollback-${revision.id}-${todayISODate()}`);
+    rollbackBaselineId = rollback.id;
+    history.push(rollback);
+  }
+  await persistOutcomeNutritionHistory(history);
+  return DominionOutcomePlanRevision.completeObservation(revision, "ROLLBACK", { closedAt: new Date().toISOString(), rollbackBaselineId });
+}
+
+async function handleOutcomePlanAction(event) {
+  const button = event.target.closest("button[data-outcome-plan-action]");
+  if (!button || typeof DominionOutcomePlanRevision === "undefined") return false;
+  button.disabled = true;
+  try {
+    const action = button.dataset.outcomePlanAction;
+    const outcome = buildCurrentBodyOutcomeModel();
+    let revision = buildCurrentOutcomePlanRevision(outcome);
+    let synced = false;
+    if (["APPROVE", "KEEP_CURRENT", "REASSESS_LATER"].includes(action)) {
+      revision = DominionOutcomePlanRevision.resolveProposal(revision, action, { resolvedAt: new Date().toISOString(), userId: session?.user?.id || null });
+      if (action === "APPROVE") {
+        const baseline = approveOutcomeNutritionBaseline(revision);
+        const history = readNutritionBaselineHistory();
+        if (!history.some((item) => item.id === baseline.id)) history.push(baseline);
+        synced = await persistOutcomeNutritionHistory(history);
+        revision = { ...revision, appliedBaselineId: baseline.id };
+      }
+    } else if (action === "RETAIN") {
+      revision = DominionOutcomePlanRevision.completeObservation(revision, "RETAIN", { closedAt: new Date().toISOString() });
+    } else if (action === "ROLLBACK") {
+      revision = await rollbackOutcomePlanRevision(revision);
+    }
+    synced = (await saveOutcomePlanRevision(revision)) || synced;
+    renderOutcomePlanRevision(outcome);
+    setText("outcome-plan-revision-feedback", revision.status === "SCHEDULED"
+      ? `Revision approved for ${revision.effectiveDate}${synced ? " and saved to your account" : " on this device"}. The current plan remains active until then.`
+      : revision.status === "REVERTED"
+        ? "Prior Nutrition baseline restored. Training was not changed."
+        : revision.status === "RETAINED"
+          ? "Revision retained after the observation window."
+          : "Decision saved. No unapproved plan change was made.");
+  } catch (error) {
+    setText("outcome-plan-revision-feedback", error?.message || "That plan decision could not be completed.");
+  } finally {
+    button.disabled = false;
+  }
+  return true;
 }
 
 function renderTodayBodyCheckpoint(outcome = buildCurrentBodyOutcomeModel()) {
@@ -16164,6 +16355,7 @@ function renderBodyOutcome(outcome) {
   renderBodyMeasurementChart(outcome);
   renderBodyCheckInHistory(outcome);
   renderBodyOutcomeReview(outcome, "body-four-week-review");
+  renderOutcomePlanRevision(outcome);
   const dateInput = document.getElementById("body-checkin-date");
   if (dateInput && !dateInput.value) {
     dateInput.value = todayISODate();
@@ -16336,6 +16528,7 @@ async function handleBodyOutcomeAction(event) {
   const route = event.target.closest("button[data-body-review-route]");
   if (route) {
     const section = route.dataset.bodyReviewRoute || "trends";
+    if (section === "trends") setTrendView("body");
     setActiveSection(section);
     window.history.replaceState(null, "", `#${section}`);
     return true;

@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.1 seconds
-Output:
 const assert = require("node:assert/strict");
 const shell = require("../assets/js/experience-shell.js");
 
@@ -41,4 +38,3 @@ assert.equal(mission.phase, "EXECUTE");
 assert.equal(mission.journey.every((item) => item.complete), true);
 
 console.log("Build 019B Dominion experience shell tests passed.");
-

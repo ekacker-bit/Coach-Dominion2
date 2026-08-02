@@ -11,7 +11,7 @@ const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 assert.match(html, /BUILD (?:019A \/\/ THE DOMINION CONTRACT|021C \/\/ RECRUIT ENTRY)/);
 assert.match(html, /id="recruit-contract-editor"/);
 assert.match(html, /id="recruit-contract-editor-summary"/);
-assert.match(html, /BUILD 018F \/\/ FOCUS MODE/);
+assert.match(html, /TODAY \/\/ 21N/);
 assert.match(html, /BUILD 018F \/\/ NEXT ACTION/);
 assert.match(html, /id="closed-loop-summary"/);
 assert.match(html, /id="daily-sequence-summary"/);

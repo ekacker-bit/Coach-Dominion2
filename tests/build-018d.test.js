@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 1.1 seconds
+Output:
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -21,8 +24,8 @@ for (const id of [
   assert.match(html, new RegExp(`id="${id}"`), `missing Build 018D surface: ${id}`);
 }
 
-assert.match(html, /BUILD 018D \/\/ UNIFIED PLAN ORCHESTRATOR/);
-assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js"/);
+assert.match(html, /BUILD 021I \/\/ CALENDAR COMMAND/);
+assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js\?v=021i"/);
 assert.ok(html.indexOf("weekly-orchestrator.js") < html.indexOf("app.js"), "orchestrator must load before app integration");
 
 assert.match(app, /async function loadWeeklyOrchestrationState\(\)/);
@@ -52,3 +55,4 @@ assert.match(pkg, /build-018d\.test\.js/);
 assert.match(pkg, /"test:018d"/);
 
 console.log("Build 018D integration tests passed.");
+

@@ -5,12 +5,13 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "020B.2";
+  const VERSION = "021I.1";
   const DAY_LABELS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const HARD_RUN_TYPES = Object.freeze(["INTERVAL", "TEMPO", "LONG"]);
   const TWO_A_DAY_TARGET_MINUTES = 121;
   const TWO_A_DAY_MAX_MINUTES = 240;
   const TWO_A_DAY_MINIMUM_SEPARATION_MINUTES = 240;
+  const SINGLE_WINDOW_MAX_MINUTES = 120;
 
   function dateIso(value) {
     const text = String(value || "").slice(0, 10);
@@ -118,19 +119,80 @@
     };
   }
 
+  function buildTrainingWindows(contract = {}, activities = []) {
+    const sessions = Array.isArray(activities) ? activities : [];
+    const primary = sessions
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .filter(({ item }) => String(item?.module || "").toUpperCase() !== "CORE")
+      .sort((left, right) => sessionPriority(contract, left.item, left.originalIndex) - sessionPriority(contract, right.item, right.originalIndex));
+    const core = sessions
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .filter(({ item }) => String(item?.module || "").toUpperCase() === "CORE");
+    const windows = primary.map(({ item, originalIndex }) => ({
+      activities: [{ item, originalIndex, tertiary: false }],
+      estimatedMinutes: Math.max(0, Number(item?.estimatedMinutes || 0)),
+      longRunUncapped: item?.module === "RUNNING" && String(item?.type || "").toUpperCase() === "LONG"
+    }));
+
+    core.forEach(({ item, originalIndex }) => {
+      const minutes = Math.max(0, Number(item?.estimatedMinutes || 0));
+      const candidates = windows
+        .map((window, index) => ({ window, index }))
+        .filter(({ window }) => window.activities.some((entry) => ["STRENGTH", "RUNNING"].includes(String(entry.item?.module || "").toUpperCase()))
+          && window.estimatedMinutes + minutes <= SINGLE_WINDOW_MAX_MINUTES)
+        .sort((left, right) => {
+          const leftModule = String(left.window.activities[0]?.item?.module || "").toUpperCase();
+          const rightModule = String(right.window.activities[0]?.item?.module || "").toUpperCase();
+          return left.window.estimatedMinutes - right.window.estimatedMinutes
+            || Number(rightModule === "STRENGTH") - Number(leftModule === "STRENGTH")
+            || left.index - right.index;
+        });
+      if (candidates.length) {
+        candidates[0].window.activities.push({ item, originalIndex, tertiary: true });
+        candidates[0].window.estimatedMinutes += minutes;
+      } else {
+        windows.push({
+          activities: [{ item, originalIndex, tertiary: false }],
+          estimatedMinutes: minutes,
+          longRunUncapped: false
+        });
+      }
+    });
+
+    return windows.map((window, index) => ({
+      ...window,
+      id: `window-${index + 1}`,
+      order: index + 1,
+      corePaired: window.activities.some((entry) => entry.tertiary),
+      activityIds: window.activities.map((entry) => String(entry.item?.id || ""))
+    }));
+  }
+
   function dailyDurationPolicy(contract = {}, activities = []) {
     const sessions = Array.isArray(activities) ? activities : [];
+    const trainingWindows = buildTrainingWindows(contract, sessions);
     const estimatedMinutes = sessions.reduce((total, item) => total + Math.max(0, Number(item?.estimatedMinutes || 0)), 0);
-    const longRunUncapped = sessions.some((item) => item?.module === "RUNNING" && String(item?.type || "").toUpperCase() === "LONG");
+    const longRunUncapped = trainingWindows.some((window) => window.longRunUncapped);
     const twoADaysEnabled = contract.twoADays === true;
-    const twoADayCandidate = twoADaysEnabled && sessions.length === 2;
+    const twoADayCandidate = twoADaysEnabled && trainingWindows.length === 2;
     const twoADay = twoADayCandidate && estimatedMinutes >= TWO_A_DAY_TARGET_MINUTES;
-    const twoADayAuthorizationRequired = !twoADaysEnabled && sessions.length === 2 && estimatedMinutes >= TWO_A_DAY_TARGET_MINUTES;
+    const twoADayAuthorizationRequired = !twoADaysEnabled && trainingWindows.length === 2 && estimatedMinutes >= TWO_A_DAY_TARGET_MINUTES;
     const durationTargetUnmet = twoADayCandidate && estimatedMinutes < TWO_A_DAY_TARGET_MINUTES;
-    const maximumMinutes = longRunUncapped ? null : twoADayCandidate ? TWO_A_DAY_MAX_MINUTES : Number(contract.sessionMinutes || 60);
+    const pairedCoreWindow = trainingWindows.length === 1 && trainingWindows[0]?.corePaired;
+    const maximumMinutes = longRunUncapped
+      ? null
+      : twoADayCandidate
+        ? TWO_A_DAY_MAX_MINUTES
+        : pairedCoreWindow
+          ? SINGLE_WINDOW_MAX_MINUTES
+          : Number(contract.sessionMinutes || 60);
     return {
       estimatedMinutes,
-      sessionCount: sessions.length,
+      activityCount: sessions.length,
+      sessionCount: trainingWindows.length,
+      trainingWindows,
+      corePaired: trainingWindows.some((window) => window.corePaired),
+      tertiaryActivityCount: trainingWindows.reduce((count, window) => count + window.activities.filter((entry) => entry.tertiary).length, 0),
       twoADaysEnabled,
       twoADayCandidate,
       twoADay,
@@ -138,7 +200,7 @@
       targetMinutes: twoADayCandidate ? TWO_A_DAY_TARGET_MINUTES : Number(contract.sessionMinutes || 60),
       maximumMinutes,
       longRunUncapped,
-      sessionLimitExceeded: Boolean(twoADaysEnabled && sessions.length > 2),
+      sessionLimitExceeded: trainingWindows.length > 2,
       durationTargetUnmet,
       durationLimitExceeded: maximumMinutes !== null && estimatedMinutes > maximumMinutes
     };
@@ -157,21 +219,31 @@
   function buildSessionSequence(contract = {}, activities = [], durationPolicy = null) {
     const sessions = Array.isArray(activities) ? activities : [];
     const duration = durationPolicy || dailyDurationPolicy(contract, sessions);
-    const ordered = sessions.map((item, originalIndex) => ({ item, originalIndex }));
-    if (duration.twoADay) {
-      ordered.sort((left, right) => sessionPriority(contract, left.item, left.originalIndex) - sessionPriority(contract, right.item, right.originalIndex));
-    }
-    return ordered.map(({ item }, index) => ({
-      ...item,
-      sessionOrder: index + 1,
-      sessionWindow: duration.twoADay ? (index === 0 ? "AM" : "PM") : null,
-      sessionLabel: duration.twoADay ? `${index === 0 ? "AM" : "PM"} SESSION` : sessions.length > 1 ? `BLOCK ${index + 1}` : "SESSION",
-      separationBeforeMinutes: duration.twoADay && index > 0 ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0,
-      fuelingCheckpoint: Boolean(duration.twoADay && index > 0),
-      command: duration.twoADay
-        ? index === 0 ? "EXECUTE FIRST" : "EXECUTE AFTER REFUEL"
-        : "EXECUTE"
-    }));
+    return duration.trainingWindows.flatMap((window, windowIndex) => {
+      const windowName = duration.twoADay ? (windowIndex === 0 ? "AM" : "PM") : null;
+      return window.activities.map(({ item, tertiary }, activityIndex) => ({
+        ...item,
+        sessionOrder: windowIndex + 1,
+        activityOrder: activityIndex + 1,
+        sessionWindow: windowName,
+        trainingWindowId: window.id,
+        tertiary,
+        sessionLabel: tertiary
+          ? `${windowName ? `${windowName} ` : ""}CORE FINISHER`
+          : duration.twoADay
+            ? `${windowName} SESSION`
+            : duration.sessionCount > 1
+              ? `BLOCK ${windowIndex + 1}`
+              : "SESSION",
+        separationBeforeMinutes: duration.twoADay && windowIndex > 0 && activityIndex === 0 ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0,
+        fuelingCheckpoint: Boolean(duration.twoADay && windowIndex > 0 && activityIndex === 0),
+        command: tertiary
+          ? "FINISH THE WINDOW"
+          : duration.twoADay
+            ? windowIndex === 0 ? "EXECUTE FIRST" : "EXECUTE AFTER REFUEL"
+            : "EXECUTE"
+      }));
+    });
   }
 
   function strengthPlacementScore(index, preferred, placed, runningByDay, coreByDay) {
@@ -213,6 +285,82 @@
       sequence: index + 1,
       requestedDayIndex: preferred[index] ?? dayIndex
     }));
+  }
+
+  function coordinateDay(contract = {}, sourceDay = {}) {
+    const day = { ...sourceDay, activities: Array.isArray(sourceDay.activities) ? sourceDay.activities : [], conflicts: [] };
+    const modules = new Set(day.activities.map((item) => item.module));
+    const hardRun = day.activities.find((item) => item.module === "RUNNING" && HARD_RUN_TYPES.includes(item.type));
+    const duration = dailyDurationPolicy(contract, day.activities);
+    day.activities = buildSessionSequence(contract, day.activities, duration);
+    day.sessionSequence = day.activities.map((item) => ({
+      activityId: item.id,
+      module: item.module,
+      title: item.title,
+      type: item.type,
+      estimatedMinutes: item.estimatedMinutes,
+      sessionOrder: item.sessionOrder,
+      activityOrder: item.activityOrder,
+      sessionWindow: item.sessionWindow,
+      trainingWindowId: item.trainingWindowId,
+      tertiary: item.tertiary,
+      sessionLabel: item.sessionLabel,
+      separationBeforeMinutes: item.separationBeforeMinutes,
+      fuelingCheckpoint: item.fuelingCheckpoint,
+      command: item.command
+    }));
+    day.trainingWindows = duration.trainingWindows.map((window) => ({
+      id: window.id,
+      order: window.order,
+      estimatedMinutes: window.estimatedMinutes,
+      longRunUncapped: window.longRunUncapped,
+      corePaired: window.corePaired,
+      activityIds: window.activityIds
+    }));
+    Object.assign(day, {
+      activityCount: duration.activityCount,
+      estimatedMinutes: duration.estimatedMinutes,
+      sessionCount: duration.sessionCount,
+      twoADayCandidate: duration.twoADayCandidate,
+      twoADay: duration.twoADay,
+      twoADayAuthorizationRequired: duration.twoADayAuthorizationRequired,
+      durationTargetMinutes: duration.targetMinutes,
+      durationLimitMinutes: duration.maximumMinutes,
+      longRunUncapped: duration.longRunUncapped,
+      corePaired: duration.corePaired,
+      tertiaryActivityCount: duration.tertiaryActivityCount,
+      minimumSeparationMinutes: duration.twoADay ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0,
+      betweenSessionFuelingRequired: duration.twoADay
+    });
+    day.durationPolicy = duration.longRunUncapped ? "LONG_RUN_UNCAPPED" : duration.twoADay ? "TWO_A_DAY" : duration.twoADayCandidate ? "TWO_A_DAY_TARGET_UNMET" : duration.corePaired ? "CORE_TERTIARY_WINDOW" : "STANDARD";
+
+    if (day.isRecoveryDay && day.activities.length) day.conflicts.push(conflict("RECOVERY_DAY_COLLISION", "BLOCKING", "Training landed on the Recruit Contract recovery day. Move the work or change the Contract before commitment.", day.date));
+    if (hardRun && modules.has("STRENGTH")) day.conflicts.push(conflict("HARD_RUN_STRENGTH_COLLISION", "BLOCKING", `${hardRun.type} running and loaded Strength cannot share this day. Move one activity.`, day.date));
+    if (duration.corePaired) {
+      const pairedWindow = duration.trainingWindows.find((window) => window.corePaired);
+      const primary = pairedWindow?.activities.find((entry) => !entry.tertiary)?.item?.module || "primary training";
+      day.conflicts.push(conflict("CORE_TERTIARY_PAIRING", "ADVISORY", `Core is attached after ${primary} inside one ${pairedWindow?.estimatedMinutes || 0}-minute training window; it does not consume another session.`, day.date, "CORE"));
+    }
+    if (modules.has("STRENGTH") && modules.has("RUNNING") && !hardRun) {
+      day.conflicts.push(contract.twoADays === true && duration.twoADay
+        ? conflict("TWO_A_DAY_SEPARATION", "ADVISORY", "Two-a-Day authorized: separate Strength and the easy run by at least four hours and refuel between windows.", day.date)
+        : conflict("EASY_RUN_STRENGTH_STACK", "ADVISORY", "Strength and the easy run occupy separate training windows. Separate them when practical.", day.date));
+    }
+    if (modules.size >= 3 && duration.sessionCount > 2) day.conflicts.push(conflict("TRIPLE_TRAINING_WINDOW", "ADVISORY", "Three separate training windows remain on this day. Move one activity before commitment.", day.date));
+    if (duration.sessionLimitExceeded) day.conflicts.push(conflict("TWO_A_DAY_SESSION_LIMIT", "BLOCKING", "This day contains more than two training windows. Core only stays tertiary when it fits with Run or Strength inside 120 minutes.", day.date));
+    if (duration.twoADayAuthorizationRequired) {
+      day.conflicts.push(conflict("TWO_A_DAY_AUTHORIZATION_REQUIRED", "ADVISORY", `${day.estimatedMinutes} planned minutes form an AM/PM split, but Two-a-Days are OFF in the signed Contract. Amend the Contract to authorize up to 240 combined minutes.`, day.date));
+    } else if (duration.durationLimitExceeded) {
+      day.conflicts.push(conflict(
+        duration.twoADay ? "TWO_A_DAY_CAP_EXCEEDED" : "TIME_COMMITMENT_EXCEEDED",
+        duration.twoADay ? "BLOCKING" : "ADVISORY",
+        duration.twoADay ? `${day.estimatedMinutes} planned minutes exceed the 240-minute Two-a-Day ceiling.` : `${day.estimatedMinutes} planned minutes exceed the ${duration.maximumMinutes}-minute training-window commitment.`,
+        day.date
+      ));
+    }
+    if (duration.durationTargetUnmet) day.conflicts.push(conflict("TWO_A_DAY_TARGET_UNMET", "ADVISORY", `${day.estimatedMinutes} planned minutes use two windows but remain below the 121-minute Two-a-Day threshold.`, day.date));
+    day.load = !day.activities.length ? "RECOVERY" : duration.twoADay ? "TWO_A_DAY" : duration.sessionCount > 1 ? "COMBINED" : "SINGLE";
+    return day;
   }
 
   function buildUnifiedWeek(input = {}, options = {}) {
@@ -280,73 +428,7 @@
           sourceId: input.nutritionBaseline.id || input.nutritionBaseline.approvedAt || null
         };
       }
-      const modules = new Set(day.activities.map((item) => item.module));
-      const hardRun = day.activities.find((item) => item.module === "RUNNING" && HARD_RUN_TYPES.includes(item.type));
-      if (day.isRecoveryDay && day.activities.length) {
-        day.conflicts.push(conflict("RECOVERY_DAY_COLLISION", "BLOCKING", "Training landed on the Recruit Contract recovery day.", day.date));
-      }
-      if (hardRun && modules.has("STRENGTH")) {
-        day.conflicts.push(conflict("HARD_RUN_STRENGTH_COLLISION", "BLOCKING", `${hardRun.type} running and loaded Strength cannot share this day.`, day.date));
-      }
-      if (modules.has("STRENGTH") && modules.has("CORE")) {
-        day.conflicts.push(conflict("STRENGTH_CORE_STACK", "ADVISORY", "Complete Strength first and keep Core controlled.", day.date));
-      }
-      if (modules.has("STRENGTH") && modules.has("RUNNING") && !hardRun) {
-        day.conflicts.push(contract.twoADays === true
-          ? conflict("TWO_A_DAY_SEPARATION", "ADVISORY", "Two-a-Day authorized: separate Strength and the easy run by several hours and refuel between sessions.", day.date)
-          : conflict("EASY_RUN_STRENGTH_STACK", "ADVISORY", "Separate the easy run and Strength session when practical.", day.date));
-      }
-      if (modules.size >= 3) day.conflicts.push(conflict("TRIPLE_SESSION_DAY", "ADVISORY", "Three training modules share this day; use readiness to reduce, never add, work.", day.date));
-      const duration = dailyDurationPolicy(contract, day.activities);
-      day.activities = buildSessionSequence(contract, day.activities, duration);
-      day.sessionSequence = day.activities.map((item) => ({
-        activityId: item.id,
-        module: item.module,
-        title: item.title,
-        type: item.type,
-        estimatedMinutes: item.estimatedMinutes,
-        sessionOrder: item.sessionOrder,
-        sessionWindow: item.sessionWindow,
-        sessionLabel: item.sessionLabel,
-        separationBeforeMinutes: item.separationBeforeMinutes,
-        fuelingCheckpoint: item.fuelingCheckpoint,
-        command: item.command
-      }));
-      day.estimatedMinutes = duration.estimatedMinutes;
-      day.sessionCount = duration.sessionCount;
-      day.twoADayCandidate = duration.twoADayCandidate;
-      day.twoADay = duration.twoADay;
-      day.twoADayAuthorizationRequired = duration.twoADayAuthorizationRequired;
-      day.durationTargetMinutes = duration.targetMinutes;
-      day.durationLimitMinutes = duration.maximumMinutes;
-      day.longRunUncapped = duration.longRunUncapped;
-      day.minimumSeparationMinutes = duration.twoADay ? TWO_A_DAY_MINIMUM_SEPARATION_MINUTES : 0;
-      day.betweenSessionFuelingRequired = duration.twoADay;
-      day.durationPolicy = duration.longRunUncapped ? "LONG_RUN_UNCAPPED" : duration.twoADay ? "TWO_A_DAY" : duration.twoADayCandidate ? "TWO_A_DAY_TARGET_UNMET" : "STANDARD";
-      if (duration.sessionLimitExceeded) {
-        day.conflicts.push(conflict("TWO_A_DAY_SESSION_LIMIT", "BLOCKING", "Two-a-Days permit no more than two scheduled sessions on one day.", day.date));
-      }
-      if (duration.twoADayAuthorizationRequired) {
-        day.conflicts.push(conflict(
-          "TWO_A_DAY_AUTHORIZATION_REQUIRED",
-          "ADVISORY",
-          `${day.estimatedMinutes} planned minutes form an AM/PM split, but Two-a-Days are OFF in the signed Contract. Amend the Contract to authorize up to 240 combined minutes.`,
-          day.date
-        ));
-      } else if (duration.durationLimitExceeded) {
-        day.conflicts.push(conflict(
-          duration.twoADay ? "TWO_A_DAY_CAP_EXCEEDED" : "TIME_COMMITMENT_EXCEEDED",
-          duration.twoADay ? "BLOCKING" : "ADVISORY",
-          duration.twoADay
-            ? `${day.estimatedMinutes} planned minutes exceed the 240-minute Two-a-Day ceiling.`
-            : `${day.estimatedMinutes} planned minutes exceed the ${contract.sessionMinutes}-minute commitment.`,
-          day.date
-        ));
-      }
-      if (duration.durationTargetUnmet) {
-        day.conflicts.push(conflict("TWO_A_DAY_TARGET_UNMET", "ADVISORY", `${day.estimatedMinutes} planned minutes remain a combined day; Two-a-Day designation begins at 121 minutes.`, day.date));
-      }
-      day.load = !day.activities.length ? "RECOVERY" : duration.twoADay ? "TWO_A_DAY" : modules.size > 1 ? "COMBINED" : "SINGLE";
+      Object.assign(day, coordinateDay(contract, day));
       conflicts.push(...day.conflicts);
     });
 
@@ -367,6 +449,11 @@
       weekEnd,
       contractId: contract.id || null,
       contractRevision: Number(contract.revision || 0),
+      calendarPolicy: {
+        twoADays: contract.twoADays === true,
+        sessionMinutes: Number(contract.sessionMinutes || 60),
+        primaryGoal: contract.primaryGoal || null
+      },
       createdAt: generatedAt,
       days,
       conflicts,
@@ -400,8 +487,9 @@
         "Hard running and loaded Strength cannot share a committed day.",
         "At least one full recovery day remains protected.",
         contract.twoADays === true
-          ? "Two-a-Days permit two sequenced sessions and up to 240 combined minutes, with at least four hours and refueling between them; long-run time remains uncapped."
+          ? "Two-a-Days permit two training windows and up to 240 combined minutes, with at least four hours and refueling between them; long-run time remains uncapped."
           : "Standard daily session limits remain active.",
+        "Core may finish a Run or Strength window without becoming another session when the combined window is 120 minutes or less.",
         "Completion credit still requires execution evidence."
       ],
       message: blockingConflictCount
@@ -410,6 +498,65 @@
           ? `Ready to commit with ${advisoryCount} visible coaching note${advisoryCount === 1 ? "" : "s"}.`
           : "The complete week is coordinated and ready to commit."
     };
+  }
+
+  function recalculateDraftWeek(draft = {}) {
+    if (draft.status !== "DRAFT" || !Array.isArray(draft.days) || draft.days.length !== 7) throw new Error("A complete weekly draft is required.");
+    const contract = {
+      twoADays: draft.calendarPolicy?.twoADays === true || draft.twoADaysEnabled === true,
+      sessionMinutes: Number(draft.calendarPolicy?.sessionMinutes || 60),
+      primaryGoal: draft.calendarPolicy?.primaryGoal || null
+    };
+    const days = draft.days.map((day) => coordinateDay(contract, { ...day, conflicts: [] }));
+    const retained = (draft.conflicts || []).filter((item) => !item.date && item.code !== "RECOVERY_MINIMUM_VIOLATED");
+    const conflicts = [...retained, ...days.flatMap((day) => day.conflicts || [])];
+    const trainingDays = days.filter((day) => day.activities.length).length;
+    const recoveryDays = 7 - trainingDays;
+    if (trainingDays > 6 || recoveryDays < 1) conflicts.push(conflict("RECOVERY_MINIMUM_VIOLATED", "BLOCKING", "At least one full recovery day must remain protected."));
+    const blockingConflictCount = conflicts.filter((item) => item.severity === "BLOCKING").length;
+    const advisoryCount = conflicts.filter((item) => item.severity === "ADVISORY").length;
+    const editedAt = new Date().toISOString();
+    return {
+      ...draft,
+      id: `${fingerprint({ originalId: draft.id, days, editedAt })}:${draft.weekStart}`,
+      days,
+      conflicts,
+      approvalBlocked: blockingConflictCount > 0,
+      blockingConflictCount,
+      advisoryCount,
+      trainingDays,
+      recoveryDays,
+      twoADayCount: days.filter((day) => day.twoADay).length,
+      editedAt,
+      message: blockingConflictCount
+        ? `${blockingConflictCount} blocking item${blockingConflictCount === 1 ? "" : "s"} must be resolved before commitment.`
+        : advisoryCount
+          ? `Edited calendar is ready to commit with ${advisoryCount} visible coaching note${advisoryCount === 1 ? "" : "s"}.`
+          : "The edited calendar is coordinated and ready to commit."
+    };
+  }
+
+  function moveDraftActivity(draft = {}, activityId = "", targetDate = "") {
+    if (draft.status !== "DRAFT") throw new Error("Only a draft calendar can be edited.");
+    const next = JSON.parse(JSON.stringify(draft));
+    const target = next.days.find((day) => day.date === dateIso(targetDate));
+    if (!target) throw new Error("Choose a day inside this operating week.");
+    let moved = null;
+    let originalDate = null;
+    next.days.forEach((day) => {
+      const index = day.activities.findIndex((item) => String(item.id) === String(activityId));
+      if (index < 0) return;
+      originalDate = day.date;
+      [moved] = day.activities.splice(index, 1);
+    });
+    if (!moved) throw new Error("That calendar activity could not be found.");
+    if (originalDate === target.date) return recalculateDraftWeek(next);
+    target.activities.push({
+      ...moved,
+      originalCalendarDate: moved.originalCalendarDate || originalDate,
+      calendarEdited: true
+    });
+    return recalculateDraftWeek(next);
   }
 
   function approveWeek(draft = {}, previous = null, options = {}) {
@@ -496,12 +643,16 @@
     TWO_A_DAY_TARGET_MINUTES,
     TWO_A_DAY_MAX_MINUTES,
     TWO_A_DAY_MINIMUM_SEPARATION_MINUTES,
+    SINGLE_WINDOW_MAX_MINUTES,
     addDays,
     weekStartIso,
     planningDateForWeek,
+    buildTrainingWindows,
     dailyDurationPolicy,
     buildSessionSequence,
     buildUnifiedWeek,
+    recalculateDraftWeek,
+    moveDraftActivity,
     approveWeek,
     weekState,
     mergeCommittedWeek,

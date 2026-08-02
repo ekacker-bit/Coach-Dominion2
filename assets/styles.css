@@ -189,6 +189,148 @@
   --font-body: "Raleway", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Build 021I: dedicated calendar command and editable training windows. */
+.calendar-command.weekly-orchestrator {
+  margin-top: 0;
+  padding-top: clamp(20px, 3vw, 34px);
+  border-top: 1px solid rgba(212, 175, 55, 0.35);
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.045), transparent 34%),
+    var(--panel);
+}
+
+.calendar-window-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  background: #0b0c0d;
+}
+
+.calendar-window-legend span {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--victory-gold);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.calendar-window-legend strong {
+  color: var(--stone);
+  font-family: var(--font-command);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.calendar-window-count {
+  display: flex !important;
+  align-items: baseline;
+  gap: 4px !important;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.calendar-window-count strong {
+  color: var(--victory-gold);
+  font-size: 14px;
+}
+
+.weekly-orchestrator-activity.tertiary {
+  margin-left: 7px;
+  border-left-style: dashed;
+  background: rgba(125, 164, 255, 0.055);
+}
+
+.calendar-move-control {
+  display: grid;
+  gap: 3px;
+  margin-top: 5px;
+  color: var(--dim);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.calendar-move-control select {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 23px 5px 7px;
+  border-color: #46484b;
+  border-radius: 4px;
+  background-color: #171819;
+  color: var(--stone);
+  font-size: 9px;
+}
+
+.weekly-orchestrator-summary > .has-blockers {
+  border-color: rgba(185, 68, 68, 0.7);
+  background: rgba(185, 68, 68, 0.09);
+}
+
+.weekly-orchestrator-summary > .has-blockers strong { color: #f08a8a; }
+
+.calendar-blockers {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(185, 68, 68, 0.72);
+  background: rgba(95, 22, 26, 0.14);
+}
+
+.calendar-blockers > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  border-bottom: 1px solid rgba(185, 68, 68, 0.45);
+}
+
+.calendar-blockers > header div { display: grid; gap: 3px; }
+.calendar-blockers > header strong { font-size: 16px; }
+.calendar-blockers > header > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #b94444;
+  color: #f08a8a;
+  font-weight: 900;
+}
+
+.calendar-blockers > div { display: grid; }
+.calendar-blockers article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 15px;
+  border-bottom: 1px solid rgba(185, 68, 68, 0.24);
+}
+
+.calendar-blockers article:last-child { border-bottom: 0; }
+.calendar-blockers article div { display: grid; gap: 3px; }
+.calendar-blockers article span { color: #f08a8a; font-size: 9px; font-weight: 900; letter-spacing: 0.07em; text-transform: uppercase; }
+.calendar-blockers article p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.calendar-blockers article a { padding: 7px 9px; border: 1px solid var(--line-strong); color: var(--stone); font-size: 9px; font-weight: 900; text-transform: uppercase; }
+
+@media (max-width: 760px) {
+  .calendar-window-legend { grid-template-columns: 1fr; }
+  .calendar-window-legend span { grid-template-columns: 92px minmax(0, 1fr); align-items: baseline; }
+  .calendar-command .weekly-orchestrator-day { flex-basis: 220px; }
+  .calendar-blockers article { grid-template-columns: 1fr; }
+  .calendar-blockers article a { text-align: center; }
+}
+
 /* Build 021B: visible continuity truth and deliberate conflict repair. */
 .continuity-status {
   display: inline-flex;

@@ -130,7 +130,7 @@ test("the signed Two-a-Day choice governs coordinated calendar days", () => {
   assert.ok(twoADays.every((day) => day.estimatedMinutes >= 121));
 });
 
-test("two short sessions remain a combined day until the 121-minute target is met", () => {
+test("Core joins Run or Strength as tertiary work inside one 120-minute window", () => {
   const policy = orchestrator.dailyDurationPolicy(
     { twoADays: true, sessionMinutes: 60 },
     [
@@ -138,12 +138,15 @@ test("two short sessions remain a combined day until the 121-minute target is me
       { module: "CORE", estimatedMinutes: 20 }
     ]
   );
-  assert.equal(policy.twoADayCandidate, true);
+  assert.equal(policy.activityCount, 2);
+  assert.equal(policy.sessionCount, 1);
+  assert.equal(policy.corePaired, true);
+  assert.equal(policy.tertiaryActivityCount, 1);
+  assert.equal(policy.twoADayCandidate, false);
   assert.equal(policy.twoADay, false);
   assert.equal(policy.twoADayAuthorizationRequired, false);
-  assert.equal(policy.durationTargetUnmet, true);
-  assert.equal(policy.targetMinutes, 121);
-  assert.equal(policy.maximumMinutes, 240);
+  assert.equal(policy.durationTargetUnmet, false);
+  assert.equal(policy.maximumMinutes, 120);
 });
 
 test("Two-a-Day capacity permits two sessions above 120 minutes through 240", () => {
@@ -162,7 +165,7 @@ test("Two-a-Day capacity permits two sessions above 120 minutes through 240", ()
   assert.equal(policy.sessionLimitExceeded, false);
 });
 
-test("Two-a-Day capacity blocks a third session or more than 240 minutes", () => {
+test("Two-a-Day capacity pairs Core before deciding whether a third window exists", () => {
   const overTime = orchestrator.dailyDurationPolicy(
     { twoADays: true, sessionMinutes: 90 },
     [
@@ -178,8 +181,21 @@ test("Two-a-Day capacity blocks a third session or more than 240 minutes", () =>
       { module: "CORE", estimatedMinutes: 20 }
     ]
   );
+  const trueThirdWindow = orchestrator.dailyDurationPolicy(
+    { twoADays: true, sessionMinutes: 90 },
+    [
+      { module: "STRENGTH", estimatedMinutes: 110 },
+      { module: "RUNNING", type: "EASY", estimatedMinutes: 110 },
+      { module: "CORE", estimatedMinutes: 20 }
+    ]
+  );
   assert.equal(overTime.durationLimitExceeded, true);
-  assert.equal(overSessions.sessionLimitExceeded, true);
+  assert.equal(overSessions.activityCount, 3);
+  assert.equal(overSessions.sessionCount, 2);
+  assert.equal(overSessions.corePaired, true);
+  assert.equal(overSessions.sessionLimitExceeded, false);
+  assert.equal(trueThirdWindow.sessionCount, 3);
+  assert.equal(trueThirdWindow.sessionLimitExceeded, true);
 });
 
 test("long-run duration is never capped by standard or Two-a-Day time limits", () => {
@@ -211,6 +227,26 @@ test("Two-a-Day sessions receive a deterministic execution order and recovery br
   assert.equal(sessions[1].separationBeforeMinutes, 240);
   assert.equal(sessions[1].fuelingCheckpoint, true);
   assert.equal(sessions[1].command, "EXECUTE AFTER REFUEL");
+});
+
+test("paired Core stays after its primary activity without adding another AM or PM window", () => {
+  const sessions = orchestrator.buildSessionSequence(
+    { twoADays: true, primaryGoal: "BUILD_STRENGTH", sessionMinutes: 75 },
+    [
+      { id: "lift", module: "STRENGTH", type: "STRENGTH", estimatedMinutes: 75 },
+      { id: "easy-run", module: "RUNNING", type: "EASY", estimatedMinutes: 70 },
+      { id: "core", module: "CORE", type: "CORE", estimatedMinutes: 20 }
+    ]
+  );
+  assert.equal(sessions.length, 3);
+  assert.deepEqual([...new Set(sessions.map((item) => item.sessionOrder))], [1, 2]);
+  const coreSession = sessions.find((item) => item.id === "core");
+  const pairedPrimary = sessions.find((item) => item.trainingWindowId === coreSession.trainingWindowId && item.id !== "core");
+  assert.ok(pairedPrimary);
+  assert.equal(coreSession.tertiary, true);
+  assert.equal(coreSession.sessionWindow, pairedPrimary.sessionWindow);
+  assert.equal(coreSession.separationBeforeMinutes, 0);
+  assert.match(coreSession.sessionLabel, /CORE FINISHER/);
 });
 
 test("an unsigned split-day capacity is surfaced as a Contract authorization requirement", () => {
@@ -281,6 +317,22 @@ test("Today can resolve the exact committed assignment", () => {
   assert.equal(day.date, "2026-08-03");
   assert.ok(day.nutrition);
   assert.ok(day.activities.length > 0);
+});
+
+test("draft calendar edits move one activity and recalculate blockers", () => {
+  const original = draft(modules(approvedContract({ twoADays: true })));
+  const source = original.days.find((day) => day.activities.length)?.activities[0];
+  const sourceDate = original.days.find((day) => day.activities.some((item) => item.id === source.id)).date;
+  const destination = original.days.find((day) => day.date !== sourceDate).date;
+  const edited = orchestrator.moveDraftActivity(original, source.id, destination);
+  assert.equal(edited.status, "DRAFT");
+  assert.equal(edited.days.find((day) => day.date === sourceDate).activities.some((item) => item.id === source.id), false);
+  const moved = edited.days.find((day) => day.date === destination).activities.find((item) => item.id === source.id);
+  assert.ok(moved);
+  assert.equal(moved.calendarEdited, true);
+  assert.equal(moved.originalCalendarDate, sourceDate);
+  assert.ok(edited.editedAt);
+  assert.equal(edited.blockingConflictCount, edited.conflicts.filter((item) => item.severity === "BLOCKING").length);
 });
 
 test("the committed week produces the exact Strength schedule consumed by Today", () => {

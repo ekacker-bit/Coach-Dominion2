@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const shell = require("../assets/js/experience-shell.js");
 
-assert.equal(shell.VERSION, "019B.1");
+assert.equal(shell.VERSION, "021I.1");
 assert.equal(shell.sectionMeta("nutrition").mode, "FUEL");
 assert.equal(shell.sectionMeta("unknown").label, "Today");
 assert.equal(shell.cleanBuildKicker("BUILD 018F // FOCUS MODE"), "DOMINION // FOCUS MODE");

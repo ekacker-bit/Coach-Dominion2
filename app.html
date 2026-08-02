@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/styles.css?v=021i">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -41,6 +41,7 @@
         <nav class="top-nav" aria-label="Primary">
           <a class="nav-link active" href="#today" data-section="today">TODAY</a>
           <a class="nav-link" href="#performance" data-section="performance">TRAIN</a>
+          <a class="nav-link" href="#calendar" data-section="calendar">CALENDAR</a>
           <a class="nav-link" href="#nutrition" data-section="nutrition">FUEL</a>
           <a class="nav-link" href="#contract" data-section="contract">CONTRACT</a>
           <a class="nav-link" href="#inspection" data-section="inspection">REVIEW</a>
@@ -352,21 +353,27 @@
           </div>
           <p id="contract-activation-feedback" class="muted" aria-live="polite"></p>
         </section>
-        <section class="weekly-orchestrator" aria-labelledby="weekly-orchestrator-heading">
-          <div class="section-heading compact">
-            <div>
-              <div class="kicker">BUILD 018D // UNIFIED PLAN ORCHESTRATOR</div>
-              <h3 id="weekly-orchestrator-heading">Commit the complete week</h3>
-              <p class="muted">Review Strength, Running, Core, Nutrition, workload conflicts, and recovery before one deliberate approval.</p>
-            </div>
-            <span id="weekly-orchestrator-status" class="state-pill neutral">CONTRACT REQUIRED</span>
-          </div>
-          <div id="weekly-orchestrator-panel" aria-live="polite">
-            <div class="performance-empty">Approve the Recruit Contract to coordinate the operating week.</div>
-          </div>
-          <p id="weekly-orchestrator-feedback" class="muted" aria-live="polite"></p>
-        </section>
        </section>
+
+      <section id="calendar" class="card calendar-command weekly-orchestrator scroll-anchor" aria-labelledby="weekly-orchestrator-heading" data-section="calendar">
+        <div class="section-heading">
+          <div>
+            <div class="kicker">BUILD 021I // CALENDAR COMMAND</div>
+            <h2 id="weekly-orchestrator-heading">Calendar</h2>
+            <p class="muted">Coordinate the week, move draft assignments, and clear visible blockers before commitment.</p>
+          </div>
+          <span id="weekly-orchestrator-status" class="state-pill neutral">CONTRACT REQUIRED</span>
+        </div>
+        <div class="calendar-window-legend" aria-label="Calendar rules">
+          <span><strong>1 window</strong> Run or Lift + Core up to 120 min</span>
+          <span><strong>2 windows</strong> AM / PM with 4+ hours between</span>
+          <span><strong>Long run</strong> Time remains uncapped</span>
+        </div>
+        <div id="weekly-orchestrator-panel" aria-live="polite">
+          <div class="performance-empty">Approve the Recruit Contract to coordinate the operating week.</div>
+        </div>
+        <p id="weekly-orchestrator-feedback" class="muted" aria-live="polite"></p>
+      </section>
 
       <section id="connected" class="card connected-section scroll-anchor" aria-labelledby="connected-heading" data-section="connected">
         <div class="section-heading">
@@ -1544,8 +1551,8 @@
   </main>
   <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
     <a data-mobile-nav="today" href="#today">Today</a>
-    <a data-mobile-nav="roll-call" href="#today">Roll Call</a>
     <a data-mobile-nav="train" href="#today">Train</a>
+    <a data-mobile-nav="calendar" href="#calendar" data-section="calendar">Calendar</a>
     <a data-mobile-nav="fuel" href="#nutrition">Fuel</a>
     <a data-mobile-nav="contract" href="#contract" data-section="contract">Contract</a>
   </nav>
@@ -1576,7 +1583,7 @@
 <script src="/assets/js/adaptive-coaching.js"></script>
  <script src="/assets/js/recruit-contract.js"></script>
 <script src="/assets/js/contract-experience.js"></script>
-<script src="/assets/js/weekly-orchestrator.js"></script>
+<script src="/assets/js/weekly-orchestrator.js?v=021i"></script>
 <script src="/assets/js/split-day-command.js"></script>
 <script src="/assets/js/contract-activation.js"></script>
 <script src="/assets/js/contract-integrity.js"></script>
@@ -1589,6 +1596,6 @@
 <script src="/assets/js/one-command.js"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=021h"></script>
+ <script src="/assets/js/app.js?v=021i"></script>
 </body>
 </html>

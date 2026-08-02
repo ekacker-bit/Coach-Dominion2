@@ -267,10 +267,11 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "contract", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
+const SECTION_ORDER = ["today", "contract", "calendar", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
 const SECTION_LABELS = {
   today: "Today",
   contract: "Contract",
+  calendar: "Calendar",
   nutrition: "Nutrition",
   record: "Record",
   inspection: "Inspection",
@@ -594,6 +595,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
   if (normalized === "performance" || normalized === "performance-log" || normalized === "train") return "performance";
   if (normalized === "contract" || normalized === "recruit-contract" || normalized === "commitment") return "contract";
+  if (normalized === "calendar" || normalized === "plan-week" || normalized === "schedule") return "calendar";
   if (normalized === "nutrition" || normalized === "fuel") return "nutrition";
   if (normalized === "connected" || normalized === "integrations" || normalized === "more" || normalized === "settings") return "connected";
   if (normalized === "review") return "inspection";
@@ -5016,7 +5018,7 @@ async function loadRecruitContractState() {
 }
 
 function recruitOnboardingStorageKey() {
-  return "coach-dominion:recruit-onboarding:" + (session?.user?.id || "local") + ":current";
+  return `coach-dominion:recruit-onboarding:${session?.user?.id || "local"}:current`;
 }
 
 function readRecruitOnboardingState(fallback = null) {
@@ -5478,6 +5480,24 @@ function weeklyOrchestrationModuleLabel(code = "") {
   return { strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition" }[code] || code;
 }
 
+function weeklyOrchestrationBlockerMeta(item = {}) {
+  const code = String(item.code || "");
+  const module = String(item.module || "").toLowerCase();
+  if (code === "CONTRACT_REQUIRED") return { label: "Contract missing", action: "Open Contract", section: "contract" };
+  if (code.includes("NUTRITION")) return { label: "Fuel plan missing", action: "Open Fuel", section: "nutrition" };
+  if (code.includes("PLAN_REQUIRED") || code.includes("COVERAGE") || code.includes("CONTRACT_LINK_REQUIRED")) {
+    return module === "nutrition"
+      ? { label: "Fuel plan incomplete", action: "Open Fuel", section: "nutrition" }
+      : { label: `${weeklyOrchestrationModuleLabel(module)} plan incomplete`, action: "Open Train", section: "performance" };
+  }
+  if (code === "RECOVERY_MINIMUM_VIOLATED") return { label: "Recovery day missing", action: "Edit calendar", section: "calendar" };
+  if (code === "RECOVERY_DAY_COLLISION") return { label: "Recovery-day collision", action: "Move assignment", section: "calendar" };
+  if (code === "HARD_RUN_STRENGTH_COLLISION") return { label: "Hard-run collision", action: "Move assignment", section: "calendar" };
+  if (code === "TWO_A_DAY_SESSION_LIMIT") return { label: "Too many training windows", action: "Move assignment", section: "calendar" };
+  if (code.includes("CAP_EXCEEDED")) return { label: "Time capacity exceeded", action: "Edit calendar", section: "calendar" };
+  return { label: "Calendar blocker", action: "Review", section: "calendar" };
+}
+
 function renderWeeklyOrchestrator() {
   const panel = document.getElementById("weekly-orchestrator-panel");
   const status = document.getElementById("weekly-orchestrator-status");
@@ -5493,7 +5513,23 @@ function renderWeeklyOrchestrator() {
   const active = readCommittedUnifiedWeek(todayISODate());
   const history = readUnifiedWeekHistory();
   const future = history.filter((item) => item.status !== "REPLACED" && item.weekStart > todayISODate()).sort((left, right) => left.weekStart.localeCompare(right.weekStart))[0] || null;
-  const savedDraft = readUnifiedWeekDraft();
+  let savedDraft = readUnifiedWeekDraft();
+  if (savedDraft?.status === "DRAFT" && savedDraft.version !== DominionWeeklyOrchestrator.VERSION) {
+    try {
+      savedDraft = DominionWeeklyOrchestrator.recalculateDraftWeek({
+        ...savedDraft,
+        calendarPolicy: {
+          twoADays: contract.twoADays === true,
+          sessionMinutes: Number(contract.sessionMinutes || 60),
+          primaryGoal: contract.primaryGoal || null
+        }
+      });
+      saveWeeklyOrchestrationLocal("DRAFT", "current", savedDraft);
+      persistWeeklyOrchestrationState("DRAFT", "current", savedDraft).catch(() => {});
+    } catch (_) {
+      savedDraft = null;
+    }
+  }
   const preview = savedDraft || future || buildUnifiedWeekDraft(targetWeekStart);
   if (!preview) return;
   const displayState = preview.status === "DRAFT"
@@ -5506,14 +5542,21 @@ function renderWeeklyOrchestrator() {
     <strong>${escapeHtml(moduleState.replaceAll("_", " "))}</strong>
     <small>${key === "nutrition" ? "Daily targets" : `${preview.actual?.[key] || 0}/${preview.expected?.[key] || 0} sessions`}</small>
   </article>`).join("");
+  const canEditCalendar = preview.status === "DRAFT" && Boolean(savedDraft);
+  const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
   const days = (preview.days || []).map((day) => {
     const activities = day.activities.length
-      ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()}">${day.twoADay ? `<em>${escapeHtml(item.sessionWindow || item.sessionLabel)}</em>` : ""}<span>${escapeHtml(item.module)}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small></div>`).join("")
+      ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()} ${item.tertiary ? "tertiary" : ""}">
+        ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
+        <span>${escapeHtml(item.module)}${item.calendarEdited ? " · MOVED" : ""}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small>
+        ${canEditCalendar ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
+      </div>`).join("")
       : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
     return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
+      ${day.activities.length ? `<div class="calendar-window-count"><strong>${day.sessionCount || day.activities.length}</strong> training window${(day.sessionCount || day.activities.length) === 1 ? "" : "s"}${day.corePaired ? " · Core paired" : ""}</div>` : ""}
       <div>${activities}</div>
-      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `${day.twoADay ? "AM/PM · " : ""}long-run time uncapped${day.twoADay ? " · companion session inside 240-minute split-day capacity" : ""}` : day.twoADay ? `${day.estimatedMinutes} / 240 min · AM/PM Two-a-Day` : day.twoADayAuthorizationRequired ? `${day.estimatedMinutes} min · Two-a-Days OFF` : day.twoADayCandidate ? `${day.estimatedMinutes} min · combined; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
+      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `${day.twoADay ? "AM/PM · " : ""}long-run time uncapped${day.twoADay ? " · companion window protected" : ""}` : day.twoADay ? `${day.estimatedMinutes} / 240 min · AM/PM Two-a-Day` : day.corePaired ? `${day.estimatedMinutes} / 120 min · one primary + Core window` : day.twoADayAuthorizationRequired ? `${day.estimatedMinutes} min · Two-a-Days OFF` : day.twoADayCandidate ? `${day.estimatedMinutes} min · two windows; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
       ${day.nutrition ? `<small class="weekly-orchestrator-fuel">Fuel · ${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein</small>` : ""}
       ${day.conflicts.map((item) => `<p class="weekly-orchestrator-conflict ${item.severity.toLowerCase()}">${escapeHtml(item.detail)}</p>`).join("")}
     </article>`;
@@ -5522,15 +5565,15 @@ function renderWeeklyOrchestrator() {
   const advisories = preview.conflicts?.filter((item) => item.severity === "ADVISORY") || [];
   const existingSameWeek = history.find((item) => item.status !== "REPLACED" && item.weekStart === preview.weekStart);
   const controls = preview.status === "DRAFT" && savedDraft
-    ? `<button type="button" data-weekly-orchestrator-action="commit" ${preview.approvalBlocked ? "disabled" : ""}>Commit complete week</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
+    ? `<button type="button" data-weekly-orchestrator-action="commit" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>Commit complete week</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">Build ${active ? "next" : "this"} week</button>`;
   panel.innerHTML = `
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
-    <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div><span>Blocking</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
+    <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
     ${!preview.twoADaysEnabled && preview.days?.some((day) => day.twoADayAuthorizationRequired) ? `<div class="weekly-orchestrator-alert"><strong>Two-a-Days are off in the signed Contract.</strong><p>These stacked days exceed 120 minutes, but they cannot become AM/PM Two-a-Days until you deliberately amend and re-sign the Contract.</p><button type="button" class="ghost" data-weekly-orchestrator-action="amend-two-a-days">Review Two-a-Days</button></div>` : ""}
-    ${blocking.length ? `<div class="weekly-orchestrator-alert blocking"><strong>Resolve before commitment</strong><ul>${blocking.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></div>` : ""}
+    ${blocking.length ? `<section id="calendar-blockers" class="calendar-blockers" aria-labelledby="calendar-blockers-heading"><header><div><span class="kicker">COMMITMENT BLOCKED</span><strong id="calendar-blockers-heading">Clear ${blocking.length} blocker${blocking.length === 1 ? "" : "s"}</strong></div><span>${blocking.length}</span></header><div>${blocking.map((item) => { const meta = weeklyOrchestrationBlockerMeta(item); return `<article><div><span>${escapeHtml(meta.label)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span><p>${escapeHtml(item.detail)}</p></div><a href="#${escapeHtml(meta.section)}" data-section="${escapeHtml(meta.section)}">${escapeHtml(meta.action)}</a></article>`; }).join("")}</div></section>` : ""}
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
     <div class="weekly-orchestrator-actions"><p>${escapeHtml(preview.message || "Review the complete week before commitment.")}${existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
@@ -5544,19 +5587,45 @@ function todaySessionExecutionRecord(item = {}) {
   return { state: "READY" };
 }
 
+function splitDayTrainingWindows(day = {}) {
+  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
+  const groups = new Map();
+  sequence.forEach((item, index) => {
+    const key = item.trainingWindowId || `window-${item.sessionOrder || index + 1}`;
+    if (!groups.has(key)) groups.set(key, { id: key, order: item.sessionOrder || groups.size + 1, items: [] });
+    groups.get(key).items.push(item);
+  });
+  return [...groups.values()].sort((left, right) => Number(left.order) - Number(right.order));
+}
+
+function todayTrainingWindowExecution(window = {}) {
+  const records = (window.items || []).map((item) => todaySessionExecutionRecord(item));
+  if (!records.length) return { state: "READY" };
+  const held = records.find((record) => ["STOPPED", "PAIN_HOLD", "RECOVERY_ONLY"].includes(String(record?.state || "").toUpperCase()) || record?.painReported === true);
+  if (held) return held;
+  const terminal = records.every((record) => ["COMPLETE", "COMPLETED", "PARTIAL"].includes(String(record?.state || "").toUpperCase()));
+  if (terminal) {
+    const completedAt = records.map((record) => record.completedAt || record.endedAt).filter(Boolean).sort().at(-1) || null;
+    return { state: records.some((record) => String(record?.state || "").toUpperCase() === "PARTIAL") ? "PARTIAL" : "COMPLETE", completedAt };
+  }
+  const active = records.find((record) => ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(record?.state || "").toUpperCase()));
+  return active || { state: "READY" };
+}
+
 function currentSplitDayCommand(day = readCommittedUnifiedDay(), week = readCommittedUnifiedWeek(), now = new Date().toISOString()) {
   if (!day?.twoADay || typeof DominionSplitDayCommand === "undefined") {
     return { required: false, status: "NOT_REQUIRED", allowed: true, blockers: [] };
   }
-  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
+  const windows = splitDayTrainingWindows(day);
+  const sequence = windows.map((window) => window.items.find((item) => !item.tertiary) || window.items[0]).filter(Boolean);
   const readiness = dailyState?.date === todayISODate()
     ? evaluateOperationalReadiness(dailyState)
     : { state: "UNKNOWN" };
   return DominionSplitDayCommand.evaluate({
     day: { ...day, sessionSequence: sequence },
     weekId: week?.id || null,
-    sessionOne: todaySessionExecutionRecord(sequence[0]),
-    sessionTwo: todaySessionExecutionRecord(sequence[1]),
+    sessionOne: todayTrainingWindowExecution(windows[0]),
+    sessionTwo: todayTrainingWindowExecution(windows[1]),
     checkpoint: readSplitDayCheckpoint(day.date || todayISODate()),
     morningReadiness: { state: readiness.state, pain: Boolean(dailyState?.pain) },
     now
@@ -5624,7 +5693,7 @@ function renderTodayCommittedWeek() {
   if (!week) {
     status.textContent = "NOT COMMITTED";
     status.className = "state-pill yellow";
-    panel.innerHTML = `<div class="today-committed-week-empty"><div><strong>No complete week is committed.</strong><p>Review the unified calendar before Today begins assigning cross-module work.</p></div><a href="#contract" data-section="contract">Commit week</a></div>`;
+    panel.innerHTML = `<div class="today-committed-week-empty"><div><strong>No complete week is committed.</strong><p>Review the unified calendar before Today begins assigning cross-module work.</p></div><a href="#calendar" data-section="calendar">Open Calendar</a></div>`;
     return;
   }
   const day = DominionWeeklyOrchestrator.dayForDate(week, todayISODate());
@@ -5640,7 +5709,8 @@ function renderTodayCommittedWeek() {
   }
   const assignments = sessionModels.length
     ? sessionModels.map(({ item, execution }, index) => {
-      const locked = Boolean(day?.twoADay && index > 0 && !splitDayGate.allowed && !execution.complete);
+      const pmWindow = Boolean(day?.twoADay && Number(item.sessionOrder || index + 1) > 1);
+      const locked = Boolean(pmWindow && !splitDayGate.allowed && !execution.complete);
       const disabled = locked || execution.complete || execution.held;
       const actionLabel = execution.complete
         ? "Session complete"
@@ -5649,8 +5719,8 @@ function renderTodayCommittedWeek() {
           : locked
             ? splitDayActionLabel(splitDayGate)
             : `Open ${day?.twoADay ? item.sessionLabel.toLowerCase() : "training"}`;
-      const stateLabel = locked && index > 0 ? splitDayGateLabel(splitDayGate) : execution.label;
-      const stateTone = locked && index > 0 ? splitDayGateTone(splitDayGate) : execution.tone;
+      const stateLabel = locked ? splitDayGateLabel(splitDayGate) : execution.label;
+      const stateTone = locked ? splitDayGateTone(splitDayGate) : execution.tone;
       return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked ? "locked" : ""}">
         <span>${item.sessionOrder || index + 1}</span>
         <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
@@ -7899,13 +7969,14 @@ function openMobileCommandSheet(kind = "roll-call") {
 function splitDayModuleAuthorization(module = "strength") {
   const day = readCommittedUnifiedDay();
   if (!day?.twoADay) return { allowed: true, message: "" };
-  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
-  const second = sequence[1];
-  if (!second || String(second.module || "").toLowerCase() !== String(module || "").toLowerCase()) {
+  const windows = splitDayTrainingWindows(day);
+  const secondWindow = windows[1];
+  const second = secondWindow?.items.find((item) => String(item.module || "").toLowerCase() === String(module || "").toLowerCase());
+  if (!second) {
     return { allowed: true, message: "" };
   }
-  const secondExecution = todaySessionExecution(second);
-  if (secondExecution.complete || ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(secondExecution.state)) {
+  const secondExecution = todayTrainingWindowExecution(secondWindow);
+  if (["COMPLETE", "COMPLETED", "PARTIAL", "IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(secondExecution.state || "").toUpperCase())) {
     return { allowed: true, message: "" };
   }
   const gate = currentSplitDayCommand(day);
@@ -10832,7 +10903,7 @@ function setActiveSection(section = "today") {
     element.hidden = !isMatch;
     element.setAttribute("aria-hidden", isMatch ? "false" : "true");
   });
-  const mobileSectionMap = { today: "today", performance: "train", nutrition: "fuel", contract: "contract" };
+  const mobileSectionMap = { today: "today", performance: "train", calendar: "calendar", nutrition: "fuel", contract: "contract" };
   document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
     button.classList.toggle("active", button.dataset.mobileNav === mobileSectionMap[normalized]);
   });
@@ -12682,8 +12753,9 @@ if (typeof document !== "undefined") {
     try {
       const week = readCommittedUnifiedWeek();
       const day = week ? DominionWeeklyOrchestrator.dayForDate(week, todayISODate()) : null;
-      const sequence = day?.sessionSequence?.length ? day.sessionSequence : day?.activities || [];
-      const firstExecution = todaySessionExecutionRecord(sequence[0]);
+      const windows = splitDayTrainingWindows(day || {});
+      const sequence = windows.map((window) => window.items.find((item) => !item.tertiary) || window.items[0]).filter(Boolean);
+      const firstExecution = todayTrainingWindowExecution(windows[0]);
       const payload = DominionSplitDayCommand.createCheckpoint(Object.fromEntries(new FormData(form).entries()), {
         date: day?.date || todayISODate(),
         weekId: week?.id || null,
@@ -12719,7 +12791,7 @@ if (typeof document !== "undefined") {
       document.getElementById("mobile-command-modules")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    const section = action === "contract" ? "contract" : "today";
+    const section = action === "contract" ? "contract" : action === "calendar" ? "calendar" : "today";
     setActiveSection(section);
     window.history.replaceState(null, "", `#${section}`);
   });
@@ -12769,7 +12841,25 @@ if (typeof document !== "undefined") {
       setText("first-week-orientation-feedback", error?.message || "The recruit profile could not be saved.");
     }
   });
-  document.getElementById("contract")?.addEventListener("click", async (event) => {
+  document.getElementById("calendar")?.addEventListener("change", async (event) => {
+    const control = event.target.closest("select[data-calendar-move-activity]");
+    if (!control || typeof DominionWeeklyOrchestrator === "undefined") return;
+    control.disabled = true;
+    try {
+      const draft = readUnifiedWeekDraft();
+      if (!draft) throw new Error("Build a draft week before moving assignments.");
+      const edited = DominionWeeklyOrchestrator.moveDraftActivity(draft, control.dataset.calendarMoveActivity, control.value);
+      saveWeeklyOrchestrationLocal("DRAFT", "current", edited);
+      const synced = await persistWeeklyOrchestrationState("DRAFT", "current", edited);
+      renderWeeklyOrchestrator();
+      renderContractActivation();
+      setText("weekly-orchestrator-feedback", `Assignment moved. Calendar logic recalculated${synced ? " and synced to your account" : " on this device"}.`);
+    } catch (error) {
+      renderWeeklyOrchestrator();
+      setText("weekly-orchestrator-feedback", error?.message || "That calendar edit could not be saved.");
+    }
+  });
+  document.getElementById("app-content")?.addEventListener("click", async (event) => {
     const experienceButton = event.target.closest("button[data-contract-experience-action]");
     if (experienceButton && typeof DominionContractExperience !== "undefined") {
       const action = experienceButton.dataset.contractExperienceAction;

@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.1 seconds
-Output:
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -55,4 +52,3 @@ assert.match(pkg, /build-018d\.test\.js/);
 assert.match(pkg, /"test:018d"/);
 
 console.log("Build 018D integration tests passed.");
-

@@ -8441,24 +8441,17 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
     rank: rankStatus?.currentRank || "RECRUIT"
   });
   const truth = buildCurrentOperatingTruth();
-  if (truth && ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT", "ROLL_CALL_REQUIRED", "AUTHORIZATION_REQUIRED", "EXECUTION_REQUIRED", "EVIDENCE_REQUIRED"].includes(truth.state)) {
+  if (truth && ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT", "ROLL_CALL_REQUIRED", "AUTHORIZATION_REQUIRED"].includes(truth.state)) {
     ritual = {
       ...ritual,
-      state: truth.state,
+      state: "LOCKED",
       tone: truth.state === "CONFLICT" ? "protect" : "active",
-      eyebrow: "OPERATING TRUTH",
-      title: truth.title,
-      detail: truth.detail,
-      action: "operating_truth",
-      actionLabel: truth.action.label,
-      sealed: false,
-      evidence: {
-        ...ritual.evidence,
-        percent: truth.evidence.total ? Math.round((truth.evidence.complete / truth.evidence.total) * 100) : 0,
-        confidence: truth.state === "EVIDENCE_REQUIRED" ? "VERIFY" : "LOCKED",
-        completed: truth.evidence.complete,
-        total: truth.evidence.total
-      }
+      eyebrow: "CLOSE THE DAY",
+      title: "Closeout is locked",
+      detail: "Complete the mission above. The seal unlocks only after execution and proof agree.",
+      action: "continue_execution",
+      actionLabel: "Continue Today",
+      sealed: false
     };
   }
   const priorState = section.dataset.ritualState || "";
@@ -10625,6 +10618,38 @@ function fallbackOneCommandModel(truth = {}) {
   };
 }
 
+function todayMissionReadinessLabel() {
+  if (dailyState?.date !== todayISODate()) return "ROLL CALL NEEDED";
+  try {
+    const readiness = evaluateOperationalReadiness(dailyState);
+    const state = String(readiness?.state || "RECORDED").replaceAll("_", " ");
+    return readiness?.pain ? `${state} · PAIN FLAG` : state;
+  } catch (_) {
+    return "ROLL CALL RECORDED";
+  }
+}
+
+function todayMissionScheduleLabel() {
+  const day = readCommittedUnifiedDay();
+  if (!day) return "WEEK NOT COMMITTED";
+  const activities = Array.isArray(day.activities) ? day.activities : [];
+  if (!activities.length) return "RECOVERY DAY";
+  if (day.longRunUncapped) return day.twoADay ? "AM + PM · LONG RUN UNCAPPED" : "LONG RUN · UNCAPPED";
+  if (day.twoADay) {
+    const gate = currentSplitDayCommand(day);
+    return `AM + PM · ${splitDayGateLabel(gate)}`;
+  }
+  const minutes = Number(day.estimatedMinutes || activities.reduce((sum, item) => sum + Number(item.estimatedMinutes || 0), 0));
+  return `${activities.length} ASSIGNMENT${activities.length === 1 ? "" : "S"}${minutes ? ` · ${minutes} MIN` : ""}`;
+}
+
+function todayMissionEvidenceLabel(model = {}) {
+  const total = Number(buildCurrentDailyExecutionQueue()?.total || 0);
+  const complete = Number(buildCurrentDailyExecutionQueue()?.completed || 0);
+  if (total) return `${complete}/${total} ACTIONS PROVED`;
+  return String(model.context?.evidence || "CHECKING").replace(" assigned domains verified", " VERIFIED").toUpperCase();
+}
+
 function buildCurrentActivationRepair(truth = buildCurrentOperatingTruth(), options = {}) {
   if (typeof DominionActivationRepair === "undefined") return null;
   let activation = { status: "ACTION_REQUIRED", modules: [], next: {} };
@@ -10700,9 +10725,25 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   }
   let model;
   try {
+    const options = {
+      online: typeof navigator === "undefined" ? true : navigator.onLine,
+      readiness: todayMissionReadinessLabel(),
+      schedule: todayMissionScheduleLabel()
+    };
     model = typeof DominionOneCommand !== "undefined"
-      ? DominionOneCommand.buildOneCommand(truth, { online: typeof navigator === "undefined" ? true : navigator.onLine })
+      ? DominionOneCommand.buildTodayMission(truth, options)
       : fallbackOneCommandModel(truth);
+    if (model && !model.facts) {
+      model = {
+        ...model,
+        reason: model.detail,
+        decision: "The next unfinished requirement comes first.",
+        facts: { readiness: options.readiness, schedule: options.schedule, evidence: model.context.evidence },
+        after: "Atlas will reveal the next required action.",
+        progressLabel: `${model.progress.complete} of ${model.progress.total} · ${model.progress.current}`,
+        closeoutReady: model.secured
+      };
+    }
   } catch (_) {
     model = fallbackOneCommandModel(truth);
   }
@@ -10711,6 +10752,15 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   setText("one-command-eyebrow", model.eyebrow);
   setText("one-command-heading", model.title);
   setText("one-command-detail", model.detail);
+  const reason = document.getElementById("today-mission-reason");
+  if (reason) reason.querySelector("strong").textContent = model.reason || model.detail;
+  setText("today-mission-readiness", model.facts?.readiness || todayMissionReadinessLabel());
+  setText("today-mission-schedule", model.facts?.schedule || todayMissionScheduleLabel());
+  setText("today-mission-evidence", todayMissionEvidenceLabel(model));
+  setText("today-mission-progress-label", model.progressLabel || `${model.progress.complete} of ${model.progress.total}`);
+  setText("today-mission-decision", model.decision || "The next unfinished requirement comes first.");
+  const after = document.getElementById("today-mission-after");
+  if (after) after.querySelector("strong").textContent = model.after || "Atlas will reveal the next required action.";
   setText("one-command-state", model.stateLabel);
   const state = document.getElementById("one-command-state");
   if (state) state.className = `state-pill ${model.state === "CONFLICT" ? "red" : model.secured ? "green" : ["EVIDENCE_REQUIRED", "REVIEW_REQUIRED", "ADAPTATION_REQUIRED"].includes(model.state) ? "yellow" : "neutral"}`;
@@ -10738,7 +10788,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     primary.dataset.oneCommandModule = model.primary.module || "";
   }
   const secondary = document.getElementById("one-command-secondary");
-  if (secondary) secondary.textContent = model.secondary.label;
+  if (secondary) secondary.textContent = "Open decision context";
   setText("one-command-source", model.context.source);
   setText("one-command-evidence", model.context.evidence);
   const conflict = document.getElementById("one-command-conflict");
@@ -10746,7 +10796,12 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   setText("one-command-conflict-detail", model.context.conflict || "");
   setText("today-sequence-shell-summary", `${model.progress.current} · ${model.context.evidence}`);
   const ritual = document.getElementById("daily-ritual");
-  if (ritual) ritual.hidden = !["REVIEW_REQUIRED", "ADAPTATION_REQUIRED", "SECURED"].includes(model.state);
+  if (ritual) {
+    ritual.hidden = false;
+    ritual.classList.toggle("is-close-ready", Boolean(model.closeoutReady));
+    const ritualAction = document.getElementById("daily-ritual-action");
+    if (ritualAction) ritualAction.hidden = !model.closeoutReady;
+  }
   section.dataset.reconciledAt = new Date().toISOString();
   renderActivationRepair(truth);
 }
@@ -14168,6 +14223,8 @@ if (typeof document !== "undefined") {
     if (action === "continue_execution") {
       setActiveSection("today");
       window.history.replaceState(null, "", "#today");
+      const sequence = document.getElementById("today-sequence-detail");
+      if (sequence) sequence.open = true;
       document.getElementById("daily-orders-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }

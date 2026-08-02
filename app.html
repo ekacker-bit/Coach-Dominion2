@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=021k">
+  <link rel="stylesheet" href="/assets/styles.css?v=021l">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -627,6 +627,46 @@
           </details>
         </section>
 
+        <section id="today-body-checkpoint" class="card today-body-checkpoint" aria-labelledby="today-body-checkpoint-heading" data-checkpoint-state="LOADING">
+          <header class="today-body-checkpoint-header">
+            <div>
+              <div class="kicker">WEEKLY OUTCOME</div>
+              <h2 id="today-body-checkpoint-heading">Body checkpoint</h2>
+              <p id="today-body-checkpoint-detail">Atlas is checking the weekly measurement cadence.</p>
+            </div>
+            <span id="today-body-checkpoint-state" class="state-pill neutral">CHECKING</span>
+          </header>
+          <div class="today-body-checkpoint-meta">
+            <div><span>Last</span><strong id="today-body-checkpoint-last">—</strong></div>
+            <div><span>Next</span><strong id="today-body-checkpoint-next">Today</strong></div>
+            <div><span>Protocol</span><strong>Same conditions</strong></div>
+          </div>
+          <details id="today-body-capture" class="today-body-capture">
+            <summary><span id="today-body-capture-label">Log weekly measurements</span><small>About 30 seconds</small></summary>
+            <form id="today-body-checkin-form">
+              <input id="today-body-checkin-date" name="date" type="hidden">
+              <div class="today-body-primary-fields">
+                <label>Unit<select id="today-body-checkin-unit" name="unit"><option value="in">in</option><option value="cm">cm</option></select></label>
+                <label>Waist<input name="waist" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></label>
+                <label>Body fat %<input name="body_fat" type="number" min="0" max="75" step="0.1" inputmode="decimal" placeholder="Optional"></label>
+              </div>
+              <details class="today-body-more">
+                <summary>Add the full measurement set</summary>
+                <div>
+                  <label>Chest<input name="chest" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                  <label>Hips<input name="hips" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                  <label>Arm<input name="arm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                  <label>Thigh<input name="thigh" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                </div>
+              </details>
+              <label>Note <span>(optional)</span><input name="notes" maxlength="500" placeholder="Same time, same conditions"></label>
+              <div class="today-body-actions"><button type="submit">Save checkpoint</button><a href="#trends" data-section="trends" data-body-open-trends>Open Body trends</a></div>
+              <p id="today-body-checkin-feedback" aria-live="polite">Enter at least one measurement. Weight remains part of Roll Call.</p>
+            </form>
+          </details>
+          <section id="today-body-review" class="body-review-decision" aria-live="polite"></section>
+        </section>
+
         <section id="mobile-command" class="card mobile-command" aria-labelledby="mobile-command-heading">
           <header class="mobile-command-heading">
             <div>
@@ -1184,6 +1224,8 @@
             <div class="body-outcome-confidence"><strong id="body-outcome-confidence">0%</strong><span id="body-outcome-confidence-label">BASELINE NEEDED</span></div>
           </section>
 
+          <section id="body-four-week-review" class="body-review-decision" aria-live="polite"></section>
+
           <section class="trend-body-focus">
             <div><span>WEIGHT</span><strong id="trend-body-weight">—</strong><small id="trend-body-change">Needs a baseline and current week</small><em id="trend-body-average">7-day average —</em></div>
             <div id="trend-body-chart" class="trend-bar-chart"></div>
@@ -1236,7 +1278,7 @@
           <summary>Evidence &amp; methods</summary>
           <p id="trend-window">No finalized scored trend window available.</p>
           <div id="trend-domain-grid" class="trend-domain-grid"></div>
-          <div class="trend-method-meta"><span id="analytics-storage">ANALYTICS NOT LOADED</span><span id="trend-method-version">021K.1</span></div>
+          <div class="trend-method-meta"><span id="analytics-storage">ANALYTICS NOT LOADED</span><span id="trend-method-version">021L.1</span></div>
         </details>
       </section>
 
@@ -1673,8 +1715,8 @@
 <script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/adaptive-fueling.js"></script>
 <script src="/assets/js/nutrition-intelligence.js"></script>
-<script src="/assets/js/body-composition.js?v=021k"></script>
-<script src="/assets/js/trends-intelligence.js?v=021k"></script>
+<script src="/assets/js/body-composition.js?v=021l"></script>
+<script src="/assets/js/trends-intelligence.js?v=021l"></script>
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
@@ -1698,6 +1740,6 @@
 <script src="/assets/js/one-command.js"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=021k"></script>
+ <script src="/assets/js/app.js?v=021l"></script>
 </body>
 </html>

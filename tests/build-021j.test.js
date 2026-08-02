@@ -34,3 +34,4 @@ assert.match(moduleSource, /const VERSION = "021M\.1"/);
 assert.doesNotMatch(moduleSource, /<svg/i);
 
 console.log("Build 021J integration tests passed");
+

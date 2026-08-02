@@ -256,7 +256,15527 @@ const STANDARDS_CATALOG = [
   { code: "MISSION-EXECUTION-01", category: "Mission Execution", title: "Mission execution target", description: "A planned mission target is expected to be executed without unauthorized compensation.", evidenceRule: "A missed mission target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
   { code: "STRENGTH-01", category: "Strength Compliance", title: "Strength completion target", description: "Strength work should follow the assigned target unless a protected exception applies.", evidenceRule: "A missed strength target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
   { code: "CARDIO-01", category: "Running/Cardio Compliance", title: "Cardio completion target", description: "Assigned cardio work should be completed unless a protected exception applies.", evidenceRule: "A missed cardio target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
-  { code: "RECOVERY-01", category: "Recov…225630 tokens truncated…(error) throw error;
+  { code: "RECOVERY-01", category: "Recovery", title: "Recovery restriction", description: "Recovery restrictions must be respected and not ignored.", evidenceRule: "Ignoring a recovery restriction or training through pain may warrant review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "NUTRITION-01", category: "Nutrition", title: "Nutrition target", description: "Nutrition targets should be followed unless a protected exception applies.", evidenceRule: "A missed nutrition target without a protected exception may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "REPORTING-01", category: "Reporting and Evidence", title: "Required evidence", description: "Required evidence and note quality should be recorded.", evidenceRule: "Missing evidence or contradictory reporting may warrant review.", defaultSeverity: "LEVEL I", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "SAFETY-01", category: "Safety", title: "Safety restriction", description: "Safety restrictions must be followed.", evidenceRule: "A deliberate or repeated safety breach may be serious.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true },
+  { code: "CONDUCT-01", category: "Program Conduct", title: "Integrity and reporting", description: "Reporting must be honest and consistent.", evidenceRule: "Deliberate falsification or contradictory reporting may warrant serious review.", defaultSeverity: "LEVEL II", repeatEscalates: true, manualReviewRequired: true, active: true }
+];
+
+const RANK_CATALOG = [
+  { code: "RECRUIT", displayName: "Recruit", sequenceOrder: 1, description: "Starting rank", minimumFinalizedInspections: 0, requiredLookbackWindow: 0, minimumAverageDisciplineScore: 0, minimumAverageEvidenceCoverage: 0, minimumMissionDomainScore: 0, maximumUnresolvedConfirmedViolations: 999, maximumLevelTwoOrLevelThreeViolations: 999, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "No requirements to begin progression.", privilegesPlaceholder: "expanded historical view" },
+  { code: "CADET", displayName: "Cadet", sequenceOrder: 2, description: "Demonstrated baseline execution", minimumFinalizedInspections: 2, requiredLookbackWindow: 4, minimumAverageDisciplineScore: 70, minimumAverageEvidenceCoverage: 60, minimumMissionDomainScore: 70, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 0, correctivePeriodBlocksEligibility: false, promotionCommandNote: "Demonstrate baseline execution and evidence quality.", privilegesPlaceholder: "advanced inspection access" },
+  { code: "OPERATOR", displayName: "Operator", sequenceOrder: 3, description: "Consistent execution across a recent window", minimumFinalizedInspections: 4, requiredLookbackWindow: 6, minimumAverageDisciplineScore: 78, minimumAverageEvidenceCoverage: 70, minimumMissionDomainScore: 74, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 1, requiredConsecutiveQualifyingWeeks: 2, correctivePeriodBlocksEligibility: false, promotionCommandNote: "Maintain discipline, evidence quality, and consecutive qualifying weeks.", privilegesPlaceholder: "additional program templates" },
+  { code: "VANGUARD", displayName: "Vanguard", sequenceOrder: 4, description: "Sustained quality at the command level", minimumFinalizedInspections: 8, requiredLookbackWindow: 8, minimumAverageDisciplineScore: 84, minimumAverageEvidenceCoverage: 75, minimumMissionDomainScore: 78, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 3, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and a clean standards record.", privilegesPlaceholder: "cosmetic insignia" },
+  { code: "DOMINION", displayName: "Dominion", sequenceOrder: 5, description: "Trusted steady execution", minimumFinalizedInspections: 12, requiredLookbackWindow: 10, minimumAverageDisciplineScore: 88, minimumAverageEvidenceCoverage: 80, minimumMissionDomainScore: 80, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 4, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Maintain a clean record and strong evidence across all domains.", privilegesPlaceholder: "advanced historical view" },
+  { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
+];
+
+const SECTION_ORDER = ["today", "contract", "calendar", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
+const SECTION_LABELS = {
+  today: "Today",
+  contract: "Contract",
+  calendar: "Calendar",
+  nutrition: "Nutrition",
+  record: "Record",
+  inspection: "Inspection",
+  trends: "Trends",
+  standards: "Standards",
+  rank: "Rank",
+  performance: "Performance",
+  connected: "Connected"
+};
+
+function continuityDeviceId() {
+  const key = "coach-dominion:continuity:device-id";
+  try {
+    let value = window.localStorage.getItem(key);
+    if (!value) {
+      value = typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      window.localStorage.setItem(key, value);
+    }
+    return value;
+  } catch (_) {
+    return "device-local";
+  }
+}
+
+function continuityManifestStorageKey() {
+  return `coach-dominion:continuity:${session?.user?.id || "local"}:manifest`;
+}
+
+function continuityMetaStorageKey(domain, stateType, stateKey) {
+  return `coach-dominion:continuity:${session?.user?.id || "local"}:record:${domain}:${String(stateType).toLowerCase()}:${stateKey}`;
+}
+
+function readContinuityRecordMeta(domain, stateType, stateKey) {
+  try {
+    return JSON.parse(window.localStorage.getItem(continuityMetaStorageKey(domain, stateType, stateKey)) || "null");
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeContinuityRecordMeta(domain, stateType, stateKey, payload, options = {}) {
+  if (!payload || typeof DominionContinuity === "undefined") return null;
+  const previous = readContinuityRecordMeta(domain, stateType, stateKey) || {};
+  const value = {
+    domain,
+    stateType,
+    stateKey,
+    fingerprint: DominionContinuity.fingerprint(payload),
+    updatedAt: options.updatedAt || previous.updatedAt || new Date().toISOString(),
+    syncedAt: options.syncedAt || previous.syncedAt || null,
+    source: options.source || previous.source || "DEVICE"
+  };
+  window.localStorage.setItem(continuityMetaStorageKey(domain, stateType, stateKey), JSON.stringify(value));
+  return value;
+}
+
+function recordContinuityWrite(domain, stateType, stateKey, payload) {
+  const value = writeContinuityRecordMeta(domain, stateType, stateKey, payload, { updatedAt: new Date().toISOString(), source: "DEVICE" });
+  if (continuityState.initialized) scheduleContinuitySync();
+  return value;
+}
+
+function markContinuityRecordSynced(domain, stateType, stateKey, payload, updatedAt = null) {
+  return writeContinuityRecordMeta(domain, stateType, stateKey, payload, {
+    updatedAt: updatedAt || new Date().toISOString(),
+    syncedAt: new Date().toISOString(),
+    source: "ACCOUNT"
+  });
+}
+
+function continuityRecordIsImmutable(domain, stateType, stateKey = "current") {
+  return (domain === "contract" && stateType === "APPROVED")
+    || (domain === "strength" && stateType === "PLAN" && stateKey === "current")
+    || (domain === "running" && stateType === "PLAN" && stateKey === "active")
+    || (domain === "core" && stateType === "PLAN" && stateKey === "current");
+}
+
+function continuityConflictKey(domain, stateType, stateKey) {
+  return `${domain}:${stateType}:${stateKey}`;
+}
+
+function resolveContinuityPayload(domain, stateType, stateKey, localPayload, remoteRow = null, options = {}) {
+  if (typeof DominionContinuity === "undefined") {
+    return { payload: remoteRow?.payload || localPayload, source: remoteRow?.payload ? "ACCOUNT" : localPayload ? "DEVICE" : "EMPTY" };
+  }
+  const key = continuityConflictKey(domain, stateType, stateKey);
+  const immutable = options.immutable ?? continuityRecordIsImmutable(domain, stateType, stateKey);
+  const meta = readContinuityRecordMeta(domain, stateType, stateKey);
+  const device = localPayload ? DominionContinuity.recordDescriptor(domain, localPayload, {
+    stateType,
+    stateKey,
+    updatedAt: meta?.updatedAt || null,
+    immutable,
+    source: "DEVICE"
+  }) : null;
+  const account = remoteRow?.payload ? DominionContinuity.recordDescriptor(domain, remoteRow.payload, {
+    stateType,
+    stateKey,
+    updatedAt: remoteRow.updated_at || null,
+    immutable,
+    source: "ACCOUNT"
+  }) : null;
+  const comparison = DominionContinuity.compareRecords(device, account, { immutable });
+  if (comparison.state === "CONFLICT") {
+    continuityRecordConflicts.set(key, {
+      key,
+      domain,
+      stateType,
+      stateKey,
+      device: localPayload,
+      account: remoteRow.payload,
+      accountUpdatedAt: remoteRow.updated_at || null,
+      reason: comparison.reason
+    });
+    return { payload: localPayload, source: "CONFLICT", comparison };
+  }
+  continuityRecordConflicts.delete(key);
+  if (comparison.winner === "ACCOUNT") {
+    markContinuityRecordSynced(domain, stateType, stateKey, remoteRow.payload, remoteRow.updated_at);
+    return { payload: remoteRow.payload, source: "ACCOUNT", comparison };
+  }
+  if (comparison.winner === "MATCHED") {
+    markContinuityRecordSynced(domain, stateType, stateKey, localPayload, remoteRow?.updated_at || meta?.updatedAt);
+    return { payload: localPayload, source: "MATCHED", comparison };
+  }
+  return { payload: localPayload, source: localPayload ? "DEVICE" : "EMPTY", comparison };
+}
+
+function latestCommittedContinuityWeek() {
+  const current = readCommittedUnifiedWeek(todayISODate());
+  if (current) return current;
+  return [...readUnifiedWeekHistory()].sort((left, right) => String(right.weekStart || "").localeCompare(String(left.weekStart || "")))[0] || null;
+}
+
+function buildCurrentContinuityManifest() {
+  if (typeof DominionContinuity === "undefined") return null;
+  const date = todayISODate();
+  return DominionContinuity.buildManifest({
+    contract: { payload: readApprovedRecruitContract() || readRecruitContractTombstone(), options: { stateType: readApprovedRecruitContract() ? "APPROVED" : "TOMBSTONE", immutable: true } },
+    strength: { payload: readApprovedStrengthPlan(), options: { stateType: "PLAN", immutable: true } },
+    running: { payload: readApprovedRunningBlock(), options: { stateType: "PLAN", stateKey: "active", immutable: true } },
+    core: { payload: readApprovedCorePlan(), options: { stateType: "PLAN", immutable: true } },
+    nutrition: { payload: activeNutritionBaseline(date), options: { stateType: "BASELINE", immutable: true } },
+    calendar: { payload: latestCommittedContinuityWeek(), options: { stateType: "WEEK", immutable: true } },
+    executions: [
+      { domain: "strength", payload: readStrengthExecution(), options: { stateType: "EXECUTION", stateKey: date } },
+      { domain: "running", payload: readRunningExecution(), options: { stateType: "EXECUTION", stateKey: date } },
+      { domain: "core", payload: readCoreExecution(), options: { stateType: "EXECUTION", stateKey: date } }
+    ],
+    checkpoints: [
+      { domain: "calendar", payload: readSplitDayCheckpoint(date), options: { stateType: "CHECKPOINT", stateKey: date } }
+    ]
+  }, { userId: session?.user?.id || null, deviceId: continuityDeviceId(), savedAt: new Date().toISOString() });
+}
+
+function saveContinuityManifestLocal(manifest) {
+  if (manifest) window.localStorage.setItem(continuityManifestStorageKey(), JSON.stringify(manifest));
+  continuityState.manifest = manifest;
+  return manifest;
+}
+
+function continuityDomainLabel(domain) {
+  return ({ contract: "Contract", strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition", calendar: "Calendar" })[domain] || domain;
+}
+
+function renderDominionContinuity() {
+  if (typeof DominionContinuity === "undefined") return;
+  const presentation = DominionContinuity.syncPresentation(continuityState.mode, {
+    conflictCount: continuityRecordConflicts.size + (continuityState.manifestConflicts?.length || 0)
+  });
+  const button = document.getElementById("continuity-status");
+  if (button) button.className = `continuity-status ${presentation.tone}`;
+  setText("continuity-status-label", presentation.label);
+  setText("continuity-status-detail", presentation.detail);
+  setText("continuity-repair-summary", presentation.detail);
+  const manifest = continuityState.manifest || buildCurrentContinuityManifest();
+  const grid = document.getElementById("continuity-canonical-grid");
+  if (grid && manifest) {
+    grid.innerHTML = DominionContinuity.CANONICAL_DOMAINS.map((domain) => {
+      const item = manifest.modules?.[domain];
+      const active = Boolean(item && item.status !== "DELETED");
+      const value = active
+        ? `${item.status}${item.revision ? ` · R${item.revision}` : ""}`
+        : item?.status === "DELETED" ? "NO ACTIVE CONTRACT" : "NOT ACTIVE";
+      return `<article class="continuity-domain ${active ? "active" : "missing"}"><span>${escapeHtml(continuityDomainLabel(domain))}</span><strong>${escapeHtml(value)}</strong><small>${item?.id ? escapeHtml(item.id) : "No canonical revision"}</small></article>`;
+    }).join("");
+  }
+  const conflictCount = continuityRecordConflicts.size + (continuityState.manifestConflicts?.length || 0);
+  const panel = document.getElementById("continuity-conflict-panel");
+  if (panel) panel.hidden = conflictCount === 0;
+  setText("continuity-conflict-detail", conflictCount
+    ? `${conflictCount} difference${conflictCount === 1 ? "" : "s"} found. Nothing will be replaced until you choose this device or the account copy.`
+    : "No saved-state conflicts detected.");
+  setText("continuity-device-label", `Device ${continuityDeviceId().slice(0, 8)} · Ledger revision ${continuityState.accountRevision || "local"}`);
+}
+
+function setContinuityMode(mode, options = {}) {
+  continuityState = { ...continuityState, ...options, mode };
+  renderDominionContinuity();
+}
+
+function scheduleContinuitySync(delay = 500) {
+  window.clearTimeout(continuitySyncTimer);
+  setContinuityMode(navigator.onLine === false ? "OFFLINE" : "SYNCING");
+  continuitySyncTimer = window.setTimeout(() => syncDominionContinuity(), delay);
+}
+
+async function saveContinuityLedger(manifest, expectedRevision) {
+  const supabase = await getClient();
+  const { data, error } = await supabase.rpc("sync_dominion_continuity_state", {
+    expected_revision: Number(expectedRevision || 0),
+    next_schema_version: DominionContinuity.SCHEMA_VERSION,
+    next_device_id: continuityDeviceId(),
+    next_manifest: manifest,
+    next_client_updated_at: new Date().toISOString()
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function syncDominionContinuity(options = {}) {
+  if (!session?.user?.id || typeof DominionContinuity === "undefined") return false;
+  const current = buildCurrentContinuityManifest();
+  saveContinuityManifestLocal(current);
+  if (navigator.onLine === false) {
+    setContinuityMode("OFFLINE", { initialized: true });
+    return false;
+  }
+  setContinuityMode("SYNCING");
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("dominion_continuity_state")
+      .select("revision,schema_version,device_id,manifest,client_updated_at,updated_at")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (error) throw error;
+    const accountRevision = Number(data?.revision || 0);
+    const accountManifest = data?.manifest || null;
+    let reconciliation = accountManifest ? DominionContinuity.reconcileManifests(current, accountManifest) : null;
+    if (!options.prefer && (continuityRecordConflicts.size || reconciliation?.state === "CONFLICT")) {
+      setContinuityMode("CONFLICT", {
+        initialized: true,
+        accountRevision,
+        accountManifest,
+        manifestConflicts: reconciliation?.conflicts || []
+      });
+      return false;
+    }
+    if (options.prefer === "ACCOUNT" && accountManifest) {
+      saveContinuityManifestLocal(accountManifest);
+      setContinuityMode("SYNCED", { initialized: true, accountRevision, accountManifest, manifestConflicts: [] });
+      return true;
+    }
+    if (!accountManifest || options.prefer === "DEVICE" || ["DEVICE_NEWER", "MERGED"].includes(reconciliation?.state)) {
+      const saved = await saveContinuityLedger(current, accountRevision);
+      saveContinuityManifestLocal(saved?.manifest || current);
+      setContinuityMode("SYNCED", {
+        initialized: true,
+        accountRevision: Number(saved?.revision || accountRevision + 1),
+        accountManifest: saved?.manifest || current,
+        manifestConflicts: []
+      });
+      return true;
+    }
+    saveContinuityManifestLocal(accountManifest);
+    setContinuityMode("SYNCED", { initialized: true, accountRevision, accountManifest, manifestConflicts: [] });
+    return true;
+  } catch (error) {
+    const missingStorage = ["42P01", "42883", "PGRST202", "PGRST205"].includes(error?.code)
+      || /dominion_continuity_state|sync_dominion_continuity_state/i.test(error?.message || "");
+    setContinuityMode(missingStorage ? "LOCAL_ONLY" : "OFFLINE", { initialized: true, lastError: error?.message || "Continuity sync unavailable" });
+    return false;
+  }
+}
+
+async function persistContinuityConflictRecord(conflict) {
+  if (conflict.domain === "contract") return persistRecruitContractState(conflict.stateType, conflict.device);
+  if (conflict.domain === "strength") return persistStrengthTrainingState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "running") return persistRunningState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "core") return persistCoreProgramState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "nutrition") return persistNutritionState(conflict.stateType, conflict.stateKey, conflict.device);
+  if (conflict.domain === "calendar") return persistWeeklyOrchestrationState(conflict.stateType, conflict.stateKey, conflict.device);
+  return false;
+}
+
+function applyContinuityAccountRecord(conflict) {
+  if (conflict.domain === "contract") saveRecruitContractLocal(conflict.stateType, conflict.account);
+  if (conflict.domain === "strength") saveStrengthStateLocal(conflict.stateType, conflict.stateKey, conflict.account);
+  if (conflict.domain === "running") {
+    if (conflict.stateType === "PROFILE") saveRunningProfile(conflict.account);
+    if (conflict.stateType === "PLAN" && ["active", "draft"].includes(conflict.stateKey)) saveRunningBlockLocal(conflict.stateKey, conflict.account);
+    if (conflict.stateType === "EXECUTION") window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(conflict.account));
+  }
+  if (conflict.domain === "core") saveCoreProgramLocal(conflict.stateType, conflict.stateKey, conflict.account);
+  if (conflict.domain === "nutrition") applyNutritionStateRow({ state_type: conflict.stateType, state_key: conflict.stateKey, payload: conflict.account });
+  if (conflict.domain === "calendar") saveWeeklyOrchestrationLocal(conflict.stateType, conflict.stateKey, conflict.account);
+  markContinuityRecordSynced(conflict.domain, conflict.stateType, conflict.stateKey, conflict.account, conflict.accountUpdatedAt);
+}
+
+async function repairDominionContinuity(preference) {
+  const conflicts = [...continuityRecordConflicts.values()];
+  if (preference === "ACCOUNT") conflicts.forEach(applyContinuityAccountRecord);
+  if (preference === "DEVICE") {
+    for (const conflict of conflicts) await persistContinuityConflictRecord(conflict);
+  }
+  continuityRecordConflicts.clear();
+  continuityState.manifestConflicts = [];
+  const synced = await syncDominionContinuity({ prefer: preference });
+  if (synced) window.location.reload();
+  return synced;
+}
+
+function normalizeSectionKey(section = "today") {
+  if (typeof section !== "string") return "today";
+  const normalized = section.trim().toLowerCase();
+  if (SECTION_ORDER.includes(normalized)) return normalized;
+  if (normalized === "weekly" || normalized === "inspection" || normalized === "weekly-inspection") return "inspection";
+  if (normalized === "analytics" || normalized === "trend" || normalized === "trends") return "trends";
+  if (normalized === "dominion" || normalized === "record" || normalized === "compliance") return "record";
+  if (normalized === "performance" || normalized === "performance-log" || normalized === "train") return "performance";
+  if (normalized === "contract" || normalized === "recruit-contract" || normalized === "commitment") return "contract";
+  if (normalized === "calendar" || normalized === "plan-week" || normalized === "schedule") return "calendar";
+  if (normalized === "nutrition" || normalized === "fuel") return "nutrition";
+  if (normalized === "connected" || normalized === "integrations" || normalized === "more" || normalized === "settings") return "connected";
+  if (normalized === "review") return "inspection";
+  return "today";
+}
+
+function shouldWarnBeforeNavigation(section = "today", hasDirtyChanges = false) {
+  return Boolean(hasDirtyChanges) && normalizeSectionKey(section) !== "today";
+}
+
+function deriveDirtyState(previousState = {}, currentState = {}) {
+  return JSON.stringify(previousState) !== JSON.stringify(currentState);
+}
+
+function deriveFinalizeConfirmationState(isFinalized = false, evidenceCoverage = 0) {
+  const hasEnoughEvidence = Number(evidenceCoverage) >= WEEKLY_EVIDENCE_THRESHOLD;
+  return {
+    confirmationRequired: hasEnoughEvidence,
+    readOnlyMessage: "Finalization creates a read-only historical snapshot for the selected week.",
+    canFinalize: hasEnoughEvidence && !isFinalized
+  };
+}
+
+function isFinalizedReadOnlyInspection(inspection = {}) {
+  return Boolean(inspection?.finalizedAt || inspection?.inspectionStatus === "INSPECTION COMPLETE");
+}
+
+function getStatusMessage(state = "empty") {
+  const messages = {
+    loading: "Loading…",
+    saving: "Saving…",
+    saved: "Saved",
+    "locally saved": "Locally saved",
+    failed: "Failed",
+    empty: "No data yet",
+    "limited evidence": "Limited evidence",
+    finalized: "Finalized / read-only",
+    "authentication required": "Authentication required"
+  };
+  return messages[state] || messages.empty;
+}
+
+function deriveSaveState(state = "empty") {
+  const tone = state === "saving" ? "saving" : state === "saved" ? "saved" : state === "locally saved" ? "locally-saved" : state === "failed" ? "failed" : "empty";
+  return { label: getStatusMessage(state), tone };
+}
+
+function deriveInputImmutabilityState(isImmutable = false) {
+  return { readOnly: Boolean(isImmutable), disabled: Boolean(isImmutable) };
+}
+
+function getStandardsCatalog() {
+  return STANDARDS_CATALOG.map((standard) => ({ ...standard }));
+}
+
+function normalizeRankCode(rank = "RECRUIT") {
+  if (typeof rank !== "string") return "RECRUIT";
+  const normalized = rank.trim().toUpperCase();
+  return normalized === "ASCENDANT" ? "ASCENDANT" : normalized === "DOMINION" ? "DOMINION" : normalized === "VANGUARD" ? "VANGUARD" : normalized === "OPERATOR" ? "OPERATOR" : normalized === "CADET" ? "CADET" : "RECRUIT";
+}
+
+function getRankCatalog() {
+  return RANK_CATALOG.map((rank) => ({ ...rank }));
+}
+
+function getCurrentRankDefinition(rankCode = "RECRUIT") {
+  const normalized = normalizeRankCode(rankCode);
+  return getRankCatalog().find((rank) => rank.code === normalized) || getRankCatalog()[0];
+}
+
+function getNextRankDefinition(rankCode = "RECRUIT") {
+  const current = getCurrentRankDefinition(rankCode);
+  const catalog = getRankCatalog();
+  const currentIndex = catalog.findIndex((rank) => rank.code === current.code);
+  return catalog[currentIndex + 1] || null;
+}
+
+function validateRankTransition(fromRank = "RECRUIT", toRank = "CADET") {
+  const from = getCurrentRankDefinition(fromRank);
+  const to = getCurrentRankDefinition(toRank);
+  const fromIndex = RANK_CATALOG.findIndex((rank) => rank.code === from.code);
+  const toIndex = RANK_CATALOG.findIndex((rank) => rank.code === to.code);
+  if (fromIndex < 0 || toIndex < 0) return { valid: false, reason: "Invalid rank selection." };
+  const isSingleStep = toIndex === fromIndex + 1;
+  return { valid: isSingleStep, reason: isSingleStep ? "Single-step rank advancement." : "Rank skipping is not allowed." };
+}
+
+function calculatePromotionMetrics(input = {}, targetRank = "CADET") {
+  const catalog = getRankCatalog();
+  const target = getCurrentRankDefinition(targetRank);
+  const finalizedInspections = Number(input.finalizedInspections || input.finalized_inspections || 0);
+  const recentAverageDisciplineScore = Number(input.recentAverageDisciplineScore || input.recent_average_discipline_score || 0);
+  const recentAverageEvidenceCoverage = Number(input.recentAverageEvidenceCoverage || input.recent_average_evidence_coverage || 0);
+  const consecutiveQualifyingWeeks = Number(input.consecutiveQualifyingWeeks || input.consecutive_qualifying_weeks || 0);
+  const unresolvedConfirmedViolations = Number(input.unresolvedConfirmedViolations || input.unresolved_confirmed_violations || 0);
+  const unresolvedLevelTwoViolations = Number(input.unresolvedLevelTwoViolations || input.unresolved_level_two_violations || 0);
+  const unresolvedLevelThreeViolations = Number(input.unresolvedLevelThreeViolations || input.unresolved_level_three_violations || 0);
+  const activeCorrectivePeriod = Boolean(input.activeCorrectivePeriod || input.active_corrective_period);
+  const domainScores = input.domainScores || input.domain_scores || {};
+  const rawMissionDomainScore = domainScores.mission && typeof domainScores.mission === "object" ? domainScores.mission.score : domainScores.mission;
+  const missionDomainScore = isFiniteMetric(rawMissionDomainScore) ? Number(rawMissionDomainScore) : null;
+  const requirements = [
+    { requirement: "finalized_inspections", target: target.minimumFinalizedInspections, actual: finalizedInspections, passed: finalizedInspections >= target.minimumFinalizedInspections },
+    { requirement: "average_discipline_score", target: target.minimumAverageDisciplineScore, actual: recentAverageDisciplineScore, passed: recentAverageDisciplineScore >= target.minimumAverageDisciplineScore },
+    { requirement: "average_evidence_coverage", target: target.minimumAverageEvidenceCoverage, actual: recentAverageEvidenceCoverage, passed: recentAverageEvidenceCoverage >= target.minimumAverageEvidenceCoverage },
+    { requirement: "consecutive_qualifying_weeks", target: target.requiredConsecutiveQualifyingWeeks, actual: consecutiveQualifyingWeeks, passed: consecutiveQualifyingWeeks >= target.requiredConsecutiveQualifyingWeeks },
+    { requirement: "mission_domain_score", target: target.minimumMissionDomainScore, actual: missionDomainScore, passed: missionDomainScore !== null && missionDomainScore >= target.minimumMissionDomainScore },
+    { requirement: "unresolved_confirmed_violations", target: target.maximumUnresolvedConfirmedViolations, actual: unresolvedConfirmedViolations, passed: unresolvedConfirmedViolations <= target.maximumUnresolvedConfirmedViolations },
+    { requirement: "unresolved_level_two_or_three_violations", target: target.maximumLevelTwoOrLevelThreeViolations, actual: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations, passed: unresolvedLevelTwoViolations + unresolvedLevelThreeViolations <= target.maximumLevelTwoOrLevelThreeViolations },
+    { requirement: "corrective_period", target: target.correctivePeriodBlocksEligibility ? 0 : 1, actual: activeCorrectivePeriod ? 0 : 1, passed: !activeCorrectivePeriod || !target.correctivePeriodBlocksEligibility }
+  ];
+  const passed = requirements.every((requirement) => requirement.passed);
+  const hasCriticalStandardsBlocker = requirements.some((requirement) => (requirement.requirement === "unresolved_confirmed_violations" || requirement.requirement === "unresolved_level_two_or_three_violations") && requirement.passed === false);
+  const state = passed ? "ELIGIBLE" : hasCriticalStandardsBlocker ? "BLOCKED" : finalizedInspections >= target.minimumFinalizedInspections || recentAverageDisciplineScore >= target.minimumAverageDisciplineScore || recentAverageEvidenceCoverage >= target.minimumAverageEvidenceCoverage ? "PROGRESSING" : "NOT ELIGIBLE";
+  return {
+    currentRank: input.currentRank || "RECRUIT",
+    nextRank: target.code,
+    targetRank: target.code,
+    finalizedInspectionsRequired: target.minimumFinalizedInspections,
+    recentAverageDisciplineScoreRequired: target.minimumAverageDisciplineScore,
+    recentAverageEvidenceCoverageRequired: target.minimumAverageEvidenceCoverage,
+    consecutiveQualifyingWeeksRequired: target.requiredConsecutiveQualifyingWeeks,
+    missionDomainScoreRequired: target.minimumMissionDomainScore,
+    unresolvedConfirmedViolationsAllowed: target.maximumUnresolvedConfirmedViolations,
+    unresolvedLevelTwoOrThreeViolationsAllowed: target.maximumLevelTwoOrLevelThreeViolations,
+    requirements,
+    passed,
+    state,
+    target,
+    catalog
+  };
+}
+
+function calculateConsecutiveQualifyingWeeks(weeks = [], thresholds = {}) {
+  const rawWeeks = Array.isArray(weeks) ? weeks : [];
+  const hasProvisionalEntry = rawWeeks.some((week) => {
+    const finalized = Boolean(week.finalizedAt || week.finalized_at);
+    const kind = String(week.kind || "FINALIZED").toUpperCase();
+    return !finalized || kind === "PROVISIONAL";
+  });
+  if (hasProvisionalEntry) return 0;
+
+  const qualifying = rawWeeks.filter((week) => {
+    const finalized = Boolean(week.finalizedAt || week.finalized_at);
+    const kind = String(week.kind || "FINALIZED").toUpperCase();
+    const score = Number(week.score || week.weekly_discipline_score || 0);
+    const evidence = Number(week.evidenceCoverage || week.evidence_coverage || 0);
+    const minimumScore = Number(thresholds.minimumDisciplineScore || thresholds.minimum_average_discipline_score || 0);
+    const minimumEvidence = Number(thresholds.minimumEvidenceCoverage || thresholds.minimum_average_evidence_coverage || 0);
+    return finalized && kind !== "PROVISIONAL" && score >= minimumScore && evidence >= minimumEvidence && Number.isFinite(score) && Number.isFinite(evidence);
+  });
+  if (!qualifying.length) return 0;
+  const sorted = qualifying.slice().sort((left, right) => (left.weekStartDate || "").localeCompare(right.weekStartDate || ""));
+  let streak = 1;
+  let previous = sorted[0].weekStartDate || sorted[0].week_start_date || null;
+  for (let index = 1; index < sorted.length; index += 1) {
+    const currentStart = sorted[index].weekStartDate || sorted[index].week_start_date || null;
+    if (!currentStart) continue;
+    const previousDate = new Date(`${previous}T00:00:00`);
+    const currentDate = new Date(`${currentStart}T00:00:00`);
+    const expected = new Date(previousDate);
+    expected.setDate(expected.getDate() + 7);
+    if (currentDate.getTime() === expected.getTime()) {
+      streak += 1;
+      previous = currentStart;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function evaluatePromotionEligibility(input = {}, targetRank = "CADET") {
+  const metrics = calculatePromotionMetrics(input, targetRank);
+  const correctiveState = deriveCorrectivePeriodState(input);
+  const blockers = [];
+  if (metrics.requirements.find((item) => item.requirement === "finalized_inspections")?.passed === false) blockers.push("insufficient finalized inspections");
+  if (metrics.requirements.find((item) => item.requirement === "average_discipline_score")?.passed === false) blockers.push("weak discipline score");
+  if (metrics.requirements.find((item) => item.requirement === "average_evidence_coverage")?.passed === false) blockers.push("weak evidence");
+  if (metrics.requirements.find((item) => item.requirement === "consecutive_qualifying_weeks")?.passed === false) blockers.push("insufficient consecutive qualifying weeks");
+  if (metrics.requirements.find((item) => item.requirement === "mission_domain_score")?.passed === false) blockers.push("weak mission-domain execution");
+  if (metrics.requirements.find((item) => item.requirement === "unresolved_confirmed_violations")?.passed === false) blockers.push("unresolved confirmed standards issue");
+  if (metrics.requirements.find((item) => item.requirement === "unresolved_level_two_or_three_violations")?.passed === false) blockers.push("level II/III violation threshold exceeded");
+  if (metrics.requirements.find((item) => item.requirement === "corrective_period")?.passed === false) blockers.push("active corrective period");
+  let status = metrics.passed ? "ELIGIBLE" : metrics.state === "PROGRESSING" ? "PROGRESSING" : metrics.state === "BLOCKED" ? "BLOCKED" : "NOT ELIGIBLE";
+  if (correctiveState.active) {
+    status = "CORRECTIVE PERIOD";
+  }
+  return {
+    ...metrics,
+    status,
+    blockers,
+    remainingActions: blockers.map((blocker) => blocker),
+    promotionState: status === "ELIGIBLE" ? "PROMOTION PENDING" : status === "PROGRESSING" ? "PROGRESSING" : status === "CORRECTIVE PERIOD" ? "CORRECTIVE PERIOD" : "NOT ELIGIBLE"
+  };
+}
+
+function derivePromotionState(eligibility = {}) {
+  const state = eligibility?.status || "NOT ELIGIBLE";
+  return {
+    state,
+    label: state === "ELIGIBLE" ? "Eligible" : state === "PROGRESSING" ? "Progressing" : state === "BLOCKED" ? "Blocked" : state === "CORRECTIVE PERIOD" ? "Corrective period" : state === "PROMOTION PENDING" ? "Promotion pending" : "Not eligible"
+  };
+}
+
+function buildPromotionEvidence(input = {}) {
+  const targetRank = getCurrentRankDefinition(input.nextRank || input.targetRank || "CADET");
+  const metrics = calculatePromotionMetrics(input, targetRank.code);
+  const requirements = metrics.requirements.map((requirement) => ({
+    requirement: requirement.requirement,
+    target: requirement.target,
+    actual: requirement.actual,
+    passed: requirement.passed,
+    source: requirement.requirement === "finalized_inspections" ? "Finalized weekly inspections" : requirement.requirement === "average_discipline_score" ? "Recent Weekly Discipline Score" : requirement.requirement === "average_evidence_coverage" ? "Evidence Coverage" : requirement.requirement === "consecutive_qualifying_weeks" ? "Consecutive qualifying weeks" : requirement.requirement === "mission_domain_score" ? "Mission-domain score" : requirement.requirement === "unresolved_confirmed_violations" ? "Standards & Violations" : requirement.requirement === "unresolved_level_two_or_three_violations" ? "Standards & Violations" : "Corrective-period status",
+    blocker: requirement.passed ? null : requirement.requirement
+  }));
+  return {
+    currentRank: input.currentRank || "RECRUIT",
+    nextRank: targetRank.code,
+    requirements,
+    blockers: requirements.filter((requirement) => !requirement.passed).map((requirement) => requirement.requirement),
+    status: metrics.passed ? "ELIGIBLE" : metrics.state
+  };
+}
+
+function generateAtlasPromotionReview(input = {}) {
+  const lines = [
+    "ATLAS // PROMOTION REVIEW",
+    "",
+    `CURRENT RANK: ${input.currentRank || "RECRUIT"}`,
+    `NEXT RANK: ${input.nextRank || "CADET"}`,
+    `STATUS: ${input.status || "NOT ELIGIBLE"}`,
+    "",
+    "QUALIFYING HISTORY",
+    input.qualifyingHistory || "Insufficient finalized history to confirm promotion.",
+    "",
+    "DISCIPLINE STANDARD",
+    input.disciplineStandard || "Recent weekly discipline score must meet the target.",
+    "",
+    "EVIDENCE STANDARD",
+    input.evidenceStandard || "Evidence coverage must meet the target without relying on provisional weeks.",
+    "",
+    "STANDARDS RECORD",
+    input.standardsRecord || "Standards and violation history are reviewed before promotion.",
+    "",
+    "BLOCKERS",
+    input.blockers && input.blockers.length ? input.blockers.join("; ") : "No blocking issues detected.",
+    "",
+    "REMAINING REQUIREMENTS",
+    input.remainingActions && input.remainingActions.length ? input.remainingActions.join("; ") : "No additional requirements remain.",
+    "",
+    "PROMOTION ORDER",
+    input.promotionOrder || "One rank at a time.",
+    "",
+    "COMMAND NOTE",
+    input.commandNote || "Promotion is earned through sustained execution and a clean evidence trail."
+  ];
+  return { text: lines.join("\n"), status: input.status || "NOT ELIGIBLE" };
+}
+
+function finalizePromotionSnapshot(input = {}, promotionAuthorized = false) {
+  const nextRankCode = input.nextRank || input.targetRank || "CADET";
+  const transition = validateRankTransition(input.currentRank || "RECRUIT", nextRankCode);
+  if (!transition.valid) return { ...input, promotionState: "BLOCKED", currentRank: input.currentRank || "RECRUIT", status: "BLOCKED" };
+  if (!promotionAuthorized) return { ...input, promotionState: "ELIGIBLE", currentRank: input.currentRank || "RECRUIT", status: input.status || "ELIGIBLE" };
+  return {
+    ...input,
+    currentRank: nextRankCode,
+    priorRank: input.currentRank || "RECRUIT",
+    promotionState: "PROMOTED",
+    status: "PROMOTED",
+    effectiveDate: input.effectiveDate || new Date().toISOString().slice(0, 10),
+    finalizedAt: input.finalizedAt || new Date().toISOString(),
+    promotionAuthorized: true,
+    qualificationSnapshot: input.qualificationSnapshot || {}
+  };
+}
+
+function buildRankStatusEvent(eventType = "status_changed", priorRank = "RECRUIT", newRank = "CADET", priorState = "ELIGIBLE", newState = "PROMOTED", eventMetadata = {}) {
+  return { eventType, priorRank, newRank, priorState, newState, eventMetadata, createdAt: new Date().toISOString() };
+}
+
+function deriveCorrectivePeriodState(input = {}) {
+  const active = Boolean(input.activeCorrectivePeriod || input.active_corrective_period || input.correctivePeriodActive);
+  const reason = input.correctivePeriodReason || input.corrective_period_reason || "Corrective period active";
+  const status = input.correctivePeriodStatus || input.corrective_period_status || "ACTIVE";
+  return {
+    active,
+    reason,
+    status,
+    state: active ? "CORRECTIVE PERIOD" : "CLEAR",
+    blocksPromotion: active
+  };
+}
+
+function summarizePromotionHistory(items = []) {
+  const promotions = (items || []).filter((item) => item && item.promotionState === "PROMOTED");
+  return {
+    totalPromotions: promotions.length,
+    latestPromotion: promotions.length ? promotions[promotions.length - 1] : null
+  };
+}
+
+function deriveRankStatusFromRecord(record = {}) {
+  return {
+    currentRank: record.current_rank || record.currentRank || "RECRUIT",
+    promotionState: record.promotion_state || record.promotionState || "NOT ELIGIBLE",
+    activeCorrectivePeriod: Boolean(record.active_corrective_period || record.activeCorrectivePeriod),
+    correctivePeriodReason: record.corrective_period_reason || record.correctivePeriodReason || null,
+    correctivePeriodStatus: record.corrective_period_status || record.correctivePeriodStatus || null,
+    correctivePeriodStartedAt: record.corrective_period_started_at || record.correctivePeriodStartedAt || null,
+    correctivePeriodReviewDate: record.corrective_period_review_date || record.correctivePeriodReviewDate || null,
+    createdAt: record.created_at || record.createdAt || null,
+    updatedAt: record.updated_at || record.updatedAt || null
+  };
+}
+
+function formatPromotionMetric(value = 0, displayType = "score") {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) return "—";
+  if (displayType === "score") {
+    const rounded = Math.round((numeric + Number.EPSILON) * 100) / 100;
+    return rounded.toFixed(2);
+  }
+  return `${Math.round(numeric)}%`;
+}
+
+function detectProtectedException(entry = {}) {
+  const exception = entry?.protectedException || entry?.protected_exceptions || entry?.protected_exception || null;
+  if (!exception) return null;
+  if (typeof exception === "string") return exception;
+  if (Array.isArray(exception)) return exception[0] || null;
+  return null;
+}
+
+function dedupeViolationCandidates(entries = []) {
+  const seen = new Set();
+  return entries.reduce((results, entry) => {
+    const key = [entry.sourceType || entry.source_type || "daily_compliance", entry.standardCode || entry.standard_code || entry.domain || "reporting", entry.sourceDate || entry.source_date || todayISODate(), entry.evidence || ""].join(":");
+    if (seen.has(key)) return results;
+    seen.add(key);
+    return [...results, { ...entry }];
+  }, []);
+}
+
+function deriveViolationCandidates(entries = [], previousCandidates = []) {
+  const seen = new Set();
+  return entries.reduce((results, entry) => {
+    const protectedException = detectProtectedException(entry);
+    const normalized = {
+      id: entry.id || `${entry.sourceType || 'daily_compliance'}:${entry.domain || 'unknown'}:${entry.sourceDate || entry.source_date || todayISODate()}`,
+      standardCode: entry.standardCode || entry.standard_code || null,
+      domain: entry.domain || entry.standardCode || "reporting",
+      category: entry.category || "Reporting and Evidence",
+      title: entry.title || "Standards review candidate",
+      sourceType: entry.sourceType || entry.source_type || "daily_compliance",
+      sourceId: entry.sourceId || entry.source_id || null,
+      sourceDate: entry.sourceDate || entry.source_date || todayISODate(),
+      evidence: entry.evidence || entry.candidateReason || "",
+      protectedException,
+      status: "CANDIDATE",
+      classification: "CANDIDATE",
+      severity: { level: "LEVEL I", explanation: "Initial candidate requiring review." },
+      correctiveAction: null,
+      repeatCount: entry.repeatCount || entry.repeat_count || 0,
+      deliberate: Boolean(entry.deliberate),
+      safety: Boolean(entry.safety)
+    };
+    if (protectedException || !entry.evidence || entry.status === "excused" || entry.status === "not_applicable" || entry.status === "not_applicable" || entry.status === "approved_modification") {
+      return results;
+    }
+    if (entry.status === "missed" && entry.domain && entry.evidence) {
+      const candidateKey = `${normalized.sourceType}:${normalized.domain}:${normalized.sourceDate}:${normalized.evidence}`;
+      if (seen.has(candidateKey)) return results;
+      seen.add(candidateKey);
+      return [...results, normalized];
+    }
+    if (entry.status === "missed" && !entry.domain && entry.evidence) {
+      return [...results, normalized];
+    }
+    return results;
+  }, previousCandidates.map((candidate) => ({ ...candidate })));
+}
+
+function calculateViolationSeverity(input = {}) {
+  const repeatCount = Number(input.repeatCount || input.repeat_count || 0);
+  const deliberate = Boolean(input.deliberate);
+  const safety = Boolean(input.safety);
+  const currentSeverity = input.currentSeverity || input.current_severity || "LEVEL I";
+  if (deliberate && safety) return { level: "LEVEL III", explanation: "Deliberate safety breach." };
+  if (deliberate) return { level: "LEVEL III", explanation: "Deliberate falsification or serious misconduct." };
+  if (repeatCount >= 2 && currentSeverity === "LEVEL I") return { level: "LEVEL II", explanation: "Repeated behavior escalated to material severity." };
+  if (safety) return { level: "LEVEL II", explanation: "Safety concern requires material review." };
+  return { level: currentSeverity || "LEVEL I", explanation: currentSeverity === "LEVEL II" ? "Material severity applied." : "Initial severity applied." };
+}
+
+function classifyViolationCandidate(candidate = {}) {
+  const protectedException = detectProtectedException(candidate);
+  const severity = calculateViolationSeverity({
+    currentSeverity: candidate.currentSeverity || candidate.current_severity || "LEVEL I",
+    repeatCount: candidate.repeatCount || candidate.repeat_count || 0,
+    deliberate: candidate.deliberate,
+    safety: candidate.safety
+  });
+  return {
+    ...candidate,
+    classification: protectedException ? "EXCUSED" : candidate.status === "UNDER REVIEW" ? "UNDER REVIEW" : "CANDIDATE",
+    severity,
+    protectedException,
+    correctiveAction: candidate.correctiveAction || selectCorrectiveAction({ classification: protectedException ? "EXCUSED" : "CANDIDATE", severity: severity.level, domain: candidate.domain })
+  };
+}
+
+function validateViolationTransition(fromStatus = "CANDIDATE", toStatus = "CONFIRMED") {
+  const allowed = {
+    CANDIDATE: ["UNDER REVIEW", "DISMISSED", "EXCUSED"],
+    "UNDER REVIEW": ["CONFIRMED", "DISMISSED", "EXCUSED", "CANDIDATE"],
+    CONFIRMED: ["CORRECTED", "RESOLVED", "DISMISSED"],
+    CORRECTED: ["RESOLVED", "DISMISSED"],
+    RESOLVED: [],
+    DISMISSED: ["UNDER REVIEW"],
+    EXCUSED: []
+  };
+  if (fromStatus === "CANDIDATE" && toStatus === "CONFIRMED") {
+    return { valid: true, fromStatus, toStatus };
+  }
+  const valid = allowed[fromStatus]?.includes(toStatus) || false;
+  return { valid, fromStatus, toStatus };
+}
+
+function selectCorrectiveAction(input = {}) {
+  const domain = input.domain || "reporting";
+  const severity = input.severity || "LEVEL I";
+  if (input.classification === "EXCUSED") return { type: "review_the_standard", description: "Protected exception preserved; no violation action required.", dueDate: null, completionNote: "Protected exception documented.", correctedAt: null, resolvedAt: null };
+  if (severity === "LEVEL III") return { type: "review_the_standard", description: "Complete a written after-action note and review the applicable safety standard before resuming work.", dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
+  if (severity === "LEVEL II") return { type: "review_the_standard", description: `Review the applicable ${domain} standard and submit any missing evidence or clarification.`, dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
+  return { type: "submit_missing_evidence", description: "Submit the missing evidence and acknowledge the review requirement.", dueDate: null, completionNote: "", correctedAt: null, resolvedAt: null };
+}
+
+function buildCorrectiveActionPlan(input = {}, today = todayISODate()) {
+  const severity = typeof input.severity === "object" ? input.severity?.level || "LEVEL I" : input.severity || "LEVEL I";
+  const domain = input.domain || "reporting";
+  const base = selectCorrectiveAction({ classification: "CONFIRMED", severity, domain });
+  const dueDays = severity === "LEVEL III" ? 1 : severity === "LEVEL II" ? 3 : 7;
+  const due = new Date(`${today}T12:00:00Z`);
+  due.setUTCDate(due.getUTCDate() + dueDays);
+  const criteria = severity === "LEVEL III"
+    ? "Written after-action review submitted and the applicable safety standard acknowledged."
+    : severity === "LEVEL II"
+      ? `Missing ${domain} context or evidence submitted and the applicable standard reviewed.`
+      : "Missing evidence or clarification submitted and acknowledged.";
+  return {
+    ...base,
+    dueDate: due.toISOString().slice(0, 10),
+    successCriteria: criteria,
+    completionEvidence: "",
+    completionSubmittedAt: null,
+    planStatus: "ACTIVE"
+  };
+}
+
+function deriveCorrectiveActionStatus(action = {}, today = todayISODate()) {
+  if (action.resolvedAt) return "RESOLVED";
+  if (action.completionSubmittedAt || action.correctedAt) return "AWAITING REVIEW";
+  if (action.dueDate && action.dueDate < today) return "OVERDUE";
+  if (action.dueDate === today) return "DUE TODAY";
+  return "ACTIVE";
+}
+
+function generateAtlasStandardsReview(item = {}) {
+  const risk = item.status === "CONFIRMED" ? "Execution failure" : item.status === "EXCUSED" ? "Approved exception" : item.status === "DISMISSED" ? "No violation established" : "Review required";
+  const text = [
+    "ATLAS // STANDARDS REVIEW",
+    "",
+    "STATUS",
+    item.status || "CANDIDATE",
+    "",
+    "STANDARD",
+    item.standardCode || "UNKNOWN",
+    "",
+    "EVIDENCE",
+    item.evidence || "No evidence recorded.",
+    "",
+    "PROTECTED EXCEPTIONS",
+    item.protectedException || "None",
+    "",
+    "CLASSIFICATION",
+    item.classification || "CANDIDATE",
+    "",
+    "SEVERITY",
+    item.severity?.level || "LEVEL I",
+    "",
+    "CORRECTIVE ACTION",
+    item.correctiveAction?.description || "Review required.",
+    "",
+    "DUE STATUS",
+    item.correctiveAction?.dueDate ? "Pending" : "No due date",
+    "",
+    "COMMAND NOTE",
+    `${risk}; safety and evidence are reviewed before any correction is applied.`
+  ].join("\n");
+  return { text, status: item.status || "CANDIDATE", classification: item.classification || "CANDIDATE", severity: item.severity || { level: "LEVEL I", explanation: "Initial severity" } };
+}
+
+function buildViolationAuditEvent(violationId = "", priorStatus = "CANDIDATE", newStatus = "CONFIRMED", note = "") {
+  return { violationId, priorStatus, newStatus, note, createdAt: new Date().toISOString(), eventType: "status_changed" };
+}
+
+function summarizeWeeklyViolationHistory(items = []) {
+  const confirmedCount = items.filter((item) => item.status === "CONFIRMED").length;
+  const resolvedCount = items.filter((item) => item.status === "RESOLVED").length;
+  const dismissedCount = items.filter((item) => item.status === "DISMISSED").length;
+  const excusedCount = items.filter((item) => item.status === "EXCUSED").length;
+  return { confirmedCount, resolvedCount, dismissedCount, excusedCount };
+}
+
+function deriveStandardsOperations(items = [], today = todayISODate()) {
+  const ordered = sanitizeStandardsReviewState(items).slice().sort((left, right) =>
+    String(right.updatedAt || right.updated_at || right.sourceDate || "").localeCompare(String(left.updatedAt || left.updated_at || left.sourceDate || ""))
+  );
+  const decorate = (item) => {
+    const sourceDate = item.sourceDate || item.source_date || today;
+    const ageDays = Math.max(0, Math.floor((new Date(`${today}T12:00:00Z`) - new Date(`${sourceDate}T12:00:00Z`)) / 86400000));
+    const evidenceConfidence = item.evidence && (item.sourceType || item.source_type) ? "HIGH" : item.evidence ? "MODERATE" : "LOW";
+    return { ...item, ageDays, evidenceConfidence };
+  };
+  return {
+    needsReview: ordered.filter((item) => ["CANDIDATE", "UNDER REVIEW"].includes(item.status)).map(decorate),
+    activeActions: ordered.filter((item) => ["CONFIRMED", "CORRECTED"].includes(item.status)).map(decorate),
+    resolved: ordered.filter((item) => ["RESOLVED", "DISMISSED", "EXCUSED"].includes(item.status)).map(decorate)
+  };
+}
+
+function buildTodayStandardsDuty(items = [], today = todayISODate()) {
+  const operations = deriveStandardsOperations(items, today);
+  return operations.activeActions
+    .map((item) => ({ ...item, actionStatus: deriveCorrectiveActionStatus(item.correctiveAction || {}, today) }))
+    .sort((left, right) => {
+      const priority = { OVERDUE: 0, "DUE TODAY": 1, ACTIVE: 2, "AWAITING REVIEW": 3, RESOLVED: 4 };
+      return (priority[left.actionStatus] ?? 9) - (priority[right.actionStatus] ?? 9)
+        || String(left.correctiveAction?.dueDate || "").localeCompare(String(right.correctiveAction?.dueDate || ""));
+    });
+}
+
+function detectStandardsPatterns(items = [], options = {}) {
+  const minimumCases = Math.max(2, Number(options.minimumCases || 2));
+  const reviewedStatuses = new Set(["CONFIRMED", "CORRECTED", "RESOLVED"]);
+  const reviewed = sanitizeStandardsReviewState(items).filter((item) => reviewedStatuses.has(item.status) && item.evidence);
+  const groups = new Map();
+  reviewed.forEach((item) => {
+    const key = `${item.standardCode || item.standard_code || standardsDomainCode(item.domain)}:${item.domain || "reporting"}`;
+    const group = groups.get(key) || [];
+    group.push(item);
+    groups.set(key, group);
+  });
+  return [...groups.entries()].map(([key, cases]) => {
+    const dates = [...new Set(cases.map((item) => item.sourceDate || item.source_date).filter(Boolean))].sort();
+    const evidenceCount = cases.filter((item) => String(item.evidence || "").trim()).length;
+    const sufficient = cases.length >= minimumCases && dates.length >= minimumCases && evidenceCount >= minimumCases;
+    const confidence = sufficient && cases.length >= 3 && dates.length >= 3 ? "HIGH" : sufficient ? "MODERATE" : "INSUFFICIENT";
+    const currentLevel = cases.reduce((level, item) => {
+      const candidate = item.severity?.level || item.severity || "LEVEL I";
+      return ["LEVEL I", "LEVEL II", "LEVEL III"].indexOf(candidate) > ["LEVEL I", "LEVEL II", "LEVEL III"].indexOf(level) ? candidate : level;
+    }, "LEVEL I");
+    const recommendedLevel = sufficient && currentLevel === "LEVEL I" ? "LEVEL II" : currentLevel;
+    return {
+      key,
+      standardCode: cases[0].standardCode || cases[0].standard_code || standardsDomainCode(cases[0].domain),
+      domain: cases[0].domain || "reporting",
+      caseCount: cases.length,
+      distinctDateCount: dates.length,
+      firstDate: dates[0] || null,
+      lastDate: dates.at(-1) || null,
+      confidence,
+      sufficient,
+      currentLevel,
+      recommendedLevel,
+      recommendation: sufficient && recommendedLevel !== currentLevel
+        ? `Review escalation from ${currentLevel} to ${recommendedLevel}; no automatic change has been made.`
+        : sufficient ? `Pattern established at ${currentLevel}; continue deliberate review.` : `At least ${minimumCases} reviewed cases on distinct dates are required.`
+    };
+  }).sort((left, right) => Number(right.sufficient) - Number(left.sufficient) || right.caseCount - left.caseCount);
+}
+
+function deriveStandardsState(item = {}, storageMode = "SUPABASE") {
+  const stateLabel = item.status === "CONFIRMED" ? "Confirmed" : item.status === "RESOLVED" ? "Resolved" : item.status === "DISMISSED" ? "Dismissed" : item.status === "EXCUSED" ? "Excused" : item.status === "CORRECTED" ? "Corrected" : "Candidate";
+  const normalizedStorageMode = String(storageMode || "SUPABASE").toUpperCase();
+  return { stateLabel, storageLabel: normalizedStorageMode === "LOCAL" || normalizedStorageMode === "LOCAL FALLBACK" ? "LOCAL FALLBACK" : "SUPABASE" };
+}
+
+function buildStandardsReviewState(source = {}, sourceDate = todayISODate()) {
+  const protectedException = detectProtectedException(source);
+  const evidence = source.evidence || source.candidateReason || "";
+  return [{
+    id: source.id || `${source.sourceType || "daily_compliance"}:${source.domain || "reporting"}:${sourceDate}`,
+    standardCode: source.standardCode || source.standard_code || null,
+    domain: source.domain || source.standardCode || "reporting",
+    category: source.category || "Reporting and Evidence",
+    title: source.title || "Standards review candidate",
+    sourceType: source.sourceType || source.source_type || "daily_compliance",
+    sourceId: source.sourceId || source.source_id || null,
+    sourceDate: source.sourceDate || source.source_date || sourceDate,
+    evidence,
+    protectedException,
+    candidateReason: source.candidateReason || source.candidate_reason || null,
+    classification: protectedException ? "EXCUSED" : "CANDIDATE",
+    severity: { level: source.severity?.level || source.severity || "LEVEL I", explanation: source.severity?.explanation || "Initial severity applied." },
+    status: source.status || "CANDIDATE",
+    correctiveAction: source.correctiveAction || null,
+    repeatCount: source.repeatCount || source.repeat_count || 0,
+    deliberate: Boolean(source.deliberate),
+    safety: Boolean(source.safety)
+  }];
+}
+
+function deriveStandardsReviewStateFromRecord(record = {}, domain = "mission") {
+  if (!record) return [];
+  const status = normalizeComplianceStatus(record[`${domain}_status`]);
+  const evidence = [record[`${domain}_actual`] || "", record[`${domain}_note`] || "", record[`${domain}_restriction`] || ""].filter(Boolean).join(" | ");
+  if (!evidence || status !== "missed") return [];
+  return buildStandardsReviewState({
+    id: `${record.compliance_date || todayISODate()}:${domain}`,
+    domain,
+    category: COMPLIANCE_DOMAIN_LABELS[domain],
+    title: `${COMPLIANCE_DOMAIN_LABELS[domain]} review`,
+    sourceType: "daily_compliance",
+    sourceDate: record.compliance_date || todayISODate(),
+    evidence,
+    status: "CANDIDATE",
+    protectedException: record[`${domain}_approved_modification`] ? "approved_modification" : null,
+    repeatCount: 1,
+    deliberate: false,
+    safety: false
+  }, record.compliance_date || todayISODate());
+}
+
+function sanitizeStandardsReviewState(items = []) {
+  return (items || []).map((item) => ({
+    ...item,
+    id: item.id || `${item.sourceType || "daily_compliance"}:${item.domain || "reporting"}:${item.sourceDate || todayISODate()}`,
+    status: item.status || "CANDIDATE",
+    classification: item.classification || "CANDIDATE",
+    severity: item.severity && typeof item.severity === "object" ? item.severity : { level: item.severity || "LEVEL I", explanation: "Initial severity applied." },
+    correctiveAction: item.correctiveAction || null,
+    protectedException: item.protectedException || null,
+    sourceDate: item.sourceDate || todayISODate()
+  }));
+}
+
+function normalizeRemoteStandardsItem(item = {}) {
+  const sourceType = item.source_type || item.sourceType || "daily_compliance";
+  const sourceDate = item.source_date || item.sourceDate || todayISODate();
+  const domain = item.domain || "reporting";
+  return sanitizeStandardsReviewState([{
+    ...item,
+    id: sourceType === "daily_compliance" ? `${sourceDate}:${domain}` : `${sourceType}:${domain}:${sourceDate}`,
+    databaseId: item.id || item.databaseId || null,
+    standardCode: item.standard_code || item.standardCode || standardsDomainCode(domain),
+    sourceType,
+    sourceId: item.source_id || item.sourceId || null,
+    sourceDate,
+    protectedException: item.protected_exceptions || item.protectedException || null,
+    candidateReason: item.candidate_reason || item.candidateReason || null,
+    severity: { level: item.severity || "LEVEL I", explanation: "Loaded from Supabase." },
+    correctiveAction: item.corrective_action_type ? {
+      type: item.corrective_action_type,
+      description: item.corrective_action_description || "",
+      dueDate: item.corrective_action_due_date ? String(item.corrective_action_due_date).slice(0, 10) : null,
+      successCriteria: item.corrective_action_success_criteria || "",
+      completionEvidence: item.completion_evidence || "",
+      completionSubmittedAt: item.completion_submitted_at || null,
+      correctedAt: item.corrected_at || null,
+      resolvedAt: item.resolved_at || null
+    } : null,
+    confirmedAt: item.confirmed_at || null,
+    correctedAt: item.corrected_at || null,
+    resolvedAt: item.resolved_at || null,
+    dismissedAt: item.dismissed_at || null,
+    excusedAt: item.excused_at || null,
+    createdAt: item.created_at || null,
+    updatedAt: item.updated_at || null
+  }])[0];
+}
+
+function buildStandardsPersistencePayload(item = {}) {
+  return {
+    id: item.id || null,
+    user_id: item.userId || item.user_id || null,
+    standard_code: item.standardCode || item.standard_code || null,
+    category: item.category || "Reporting and Evidence",
+    title: item.title || "Standards review",
+    source_type: item.sourceType || item.source_type || "daily_compliance",
+    source_id: item.sourceId || item.source_id || null,
+    source_date: item.sourceDate || item.source_date || null,
+    domain: item.domain || null,
+    evidence: item.evidence || null,
+    protected_exceptions: item.protectedException || item.protected_exceptions || null,
+    candidate_reason: item.candidateReason || item.candidate_reason || null,
+    classification: item.classification || "CANDIDATE",
+    severity: item.severity?.level || item.severity || "LEVEL I",
+    status: item.status || "CANDIDATE",
+    corrective_action_type: item.correctiveAction?.type || null,
+    corrective_action_description: item.correctiveAction?.description || null,
+    corrective_action_due_date: item.correctiveAction?.dueDate || null,
+    corrective_action_success_criteria: item.correctiveAction?.successCriteria || null,
+    completion_evidence: item.correctiveAction?.completionEvidence || item.completionEvidence || null,
+    completion_submitted_at: item.correctiveAction?.completionSubmittedAt || item.completionSubmittedAt || null,
+    correction_note: item.correctionNote || item.correction_note || null,
+    confirmed_at: item.confirmedAt || item.confirmed_at || null,
+    corrected_at: item.correctedAt || item.corrected_at || null,
+    resolved_at: item.resolvedAt || item.resolved_at || null,
+    dismissed_at: item.dismissedAt || item.dismissed_at || null,
+    excused_at: item.excusedAt || item.excused_at || null,
+    created_at: item.createdAt || item.created_at || null,
+    updated_at: item.updatedAt || item.updated_at || null
+  };
+}
+
+function todayISODate() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+const READINESS_EVIDENCE_WEIGHTS = {
+  energy: 0.20,
+  soreness: 0.20,
+  pain: 0.20,
+  sleep: 0.15,
+  resting_heart_rate: 0.15,
+  weight: 0.05,
+  steps: 0.05
+};
+
+const evidenceLabels = {
+  energy: "Energy",
+  soreness: "Soreness",
+  pain: "Pain",
+  sleep: "Sleep",
+  resting_heart_rate: "Resting heart rate",
+  weight: "Weight",
+  steps: "Steps"
+};
+
+function isAvailable(value) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+const OBJECTIVE_METRIC_CONFIG = Object.freeze({
+  weight: Object.freeze({ label: "Weight", min: 50, max: 1000, unit: "lb" }),
+  resting_heart_rate: Object.freeze({ label: "Resting HR", min: 25, max: 250, unit: "bpm" }),
+  heart_rate_variability: Object.freeze({ label: "HRV", min: 1, max: 500, unit: "ms" })
+});
+
+function parseOptionalMetric(value, config) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < config.min || parsed > config.max) {
+    throw new Error(`${config.label} must be between ${config.min} and ${config.max} ${config.unit}.`);
+  }
+  return parsed;
+}
+
+function formatObjectiveMetric(value, unit) {
+  return isAvailable(value) ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${unit}` : "—";
+}
+
+function objectiveSourceLabel(source) {
+  const normalized = String(source || "").trim().toUpperCase();
+  if (normalized === "APPLE_HEALTH") return "Apple Health";
+  if (normalized === "MANUAL") return "Manual";
+  if (normalized === "SAVED") return "Saved";
+  return "";
+}
+
+function calculateConfidence(state) {
+  if (!state) return 0;
+  const total = Object.entries(READINESS_EVIDENCE_WEIGHTS).reduce((sum, [key, weight]) => {
+    if (key === "pain") return sum + (typeof state.pain === "boolean" ? weight : 0);
+    return sum + (isAvailable(state[key]) ? weight : 0);
+  }, 0);
+  return Math.max(0, Math.min(1, Number(total.toFixed(2))));
+}
+
+function evidenceValue(key, state) {
+  if (!state || (key === "pain" && typeof state.pain !== "boolean") || (key !== "pain" && !isAvailable(state[key]))) {
+    return "Not available";
+  }
+  if (key === "pain") return state.pain ? "Yes" : "No";
+  if (key === "energy" || key === "soreness") return `${state[key]}/10`;
+  if (key === "sleep") return `${state[key]}h`;
+  if (key === "resting_heart_rate") return `${state[key]} bpm`;
+  if (key === "heart_rate_variability") return `${state[key]} ms`;
+  return String(state[key]);
+}
+
+function evaluateReadiness(state) {
+  if (!state) {
+    return {
+      state: null,
+      confidence: 0,
+      headline: "Daily State not submitted.",
+      rationale: ["Submit Energy, Soreness, and Pain to calculate readiness."],
+      evidence: Object.keys(READINESS_EVIDENCE_WEIGHTS).map((key) => ({
+        key,
+        label: evidenceLabels[key],
+        status: "missing",
+        value: "Not available",
+        impact: `Confidence reduced by ${Math.round(READINESS_EVIDENCE_WEIGHTS[key] * 100)}%.`
+      })),
+      missingEvidence: Object.keys(READINESS_EVIDENCE_WEIGHTS).map((key) => evidenceLabels[key]),
+      primaryRisk: "Operating without current readiness.",
+      instruction: "Complete Morning Roll Call.",
+      restrictions: ["Awaiting roll call"]
+    };
+  }
+
+  const painAvailable = typeof state.pain === "boolean";
+  const energyAvailable = isAvailable(state.energy);
+  const sorenessAvailable = isAvailable(state.soreness);
+  const painReported = painAvailable && state.pain;
+  const energyGreen = energyAvailable && Number(state.energy) >= 7;
+  const sorenessGreen = sorenessAvailable && Number(state.soreness) <= 4;
+  let readinessState = "YELLOW";
+
+  if (painReported) readinessState = "RED";
+  else if (energyGreen && sorenessGreen && painAvailable) readinessState = "GREEN";
+
+  const copy = {
+    GREEN: {
+      headline: "Recovery capacity acceptable.",
+      primaryRisk: "Unauthorized additional volume.",
+      instruction: "Execute the prescribed mission exactly.",
+      restrictions: ["No unplanned extra volume", "Do not add intensity outside the mission"]
+    },
+    YELLOW: {
+      headline: "Readiness is reduced.",
+      primaryRisk: "Excess intensity or volume.",
+      instruction: "Complete primary work only.",
+      restrictions: ["Remove optional intensity", "No additional volume", "Stop if symptoms worsen"]
+    },
+    RED: {
+      headline: "Pain overrides performance goals.",
+      primaryRisk: "Aggravating pain or injury.",
+      instruction: "Execute recovery protocol.",
+      restrictions: ["No hard training", "No testing pain", "Seek professional assessment if pain is significant, worsening, or persistent"]
+    }
+  }[readinessState];
+
+  const rationale = [];
+  if (readinessState === "RED") {
+    rationale.push("Pain was reported.", "Hard training is not authorized.");
+  } else {
+    rationale.push("No pain reported.");
+    if (energyGreen) rationale.push("Energy is at or above the GREEN threshold.");
+    else rationale.push("Energy is below the GREEN threshold.");
+    if (sorenessGreen) rationale.push("Soreness is at or below the GREEN ceiling.");
+    else rationale.push("Soreness is above the GREEN ceiling.");
+  }
+
+  const evidence = Object.keys(READINESS_EVIDENCE_WEIGHTS).map((key) => {
+    const missing = key === "pain" ? !painAvailable : !isAvailable(state[key]);
+    if (missing) {
+      return { key, label: evidenceLabels[key], status: "missing", value: "Not available", impact: `Confidence reduced by ${Math.round(READINESS_EVIDENCE_WEIGHTS[key] * 100)}%.` };
+    }
+    if (key === "energy") return { key, label: evidenceLabels[key], status: energyGreen ? "positive" : "negative", value: evidenceValue(key, state), impact: energyGreen ? "Meets GREEN threshold." : "Below GREEN threshold." };
+    if (key === "soreness") return { key, label: evidenceLabels[key], status: sorenessGreen ? "positive" : "negative", value: evidenceValue(key, state), impact: sorenessGreen ? "Below GREEN ceiling." : "Above GREEN ceiling." };
+    if (key === "pain") return { key, label: evidenceLabels[key], status: painReported ? "negative" : "positive", value: evidenceValue(key, state), impact: painReported ? "Pain override selected RED." : "No pain override." };
+    return { key, label: evidenceLabels[key], status: "neutral", value: evidenceValue(key, state), impact: `Available; adds ${Math.round(READINESS_EVIDENCE_WEIGHTS[key] * 100)}% confidence only.` };
+  });
+
+  return {
+    state: readinessState,
+    confidence: calculateConfidence(state),
+    headline: copy.headline,
+    rationale,
+    evidence,
+    missingEvidence: evidence.filter((item) => item.status === "missing").map((item) => item.label),
+    primaryRisk: copy.primaryRisk,
+    instruction: copy.instruction,
+    restrictions: copy.restrictions
+  };
+}
+
+function calculateReadiness(state) {
+  return evaluateOperationalReadiness(state).state;
+}
+
+function mergeReadinessHistory() {
+  const byDate = new Map();
+  if (connectedApi()) {
+    connectedApi().summarizeAppleHealthByDate(connectedImportedRecords).forEach((item) => {
+      const weight = item.weight === null || item.weight === undefined
+        ? null
+        : /kg/i.test(item.weightUnit || "")
+          ? Math.round(Number(item.weight) * 2.2046226218 * 10) / 10
+          : Number(item.weight);
+      byDate.set(item.date, {
+        date: item.date,
+        sleep: item.sleep,
+        resting_heart_rate: item.restingHeartRate,
+        heart_rate_variability: item.heartRateVariability,
+        steps: item.steps,
+        weight
+      });
+    });
+  }
+  readinessHistory.forEach((item) => {
+    const existing = byDate.get(item.date) || { date: item.date };
+    byDate.set(item.date, {
+      ...existing,
+      ...Object.fromEntries(Object.entries(item).filter(([, value]) => value !== null && value !== undefined && value !== ""))
+    });
+  });
+  return Array.from(byDate.values());
+}
+
+function buildCurrentBaselineProfile(state = dailyState) {
+  if (typeof DominionReadinessBaselines === "undefined") return null;
+  const current = state || { date: todayISODate() };
+  return DominionReadinessBaselines.buildReadinessBaselineProfile(
+    mergeReadinessHistory(),
+    current,
+    { currentDate: current.date || todayISODate() }
+  );
+}
+
+function evaluateOperationalReadiness(state) {
+  const base = evaluateReadiness(state);
+  if (!state || typeof DominionReadinessBaselines === "undefined") return base;
+  return DominionReadinessBaselines.evaluatePersonalizedReadiness(base, buildCurrentBaselineProfile(state));
+}
+
+function baselineValue(value, unit) {
+  if (value === null || value === undefined) return "—";
+  const rounded = Number.isInteger(value) ? value : Number(value).toFixed(1);
+  return `${rounded}${unit ? ` ${unit}` : ""}`;
+}
+
+function renderBaselineIntelligence() {
+  const panel = document.getElementById("baseline-panel");
+  const statePill = document.getElementById("baseline-state");
+  if (!panel || !statePill) return;
+  const profile = buildCurrentBaselineProfile();
+  if (!profile) {
+    statePill.textContent = "UNAVAILABLE";
+    panel.innerHTML = `<div class="performance-empty">Personal baseline engine unavailable.</div>`;
+    return;
+  }
+  statePill.textContent = profile.state;
+  statePill.className = `state-pill ${profile.state === "ACTIVE" ? "green" : "neutral"}`;
+  const result = dailyState ? evaluateOperationalReadiness(dailyState) : null;
+  const metrics = ["sleep", "resting_heart_rate", "heart_rate_variability", "steps", "weight"].map((key) => {
+    const metric = profile.metrics[key];
+    const signal = metric.signal.status === "UNAVAILABLE" ? `${metric.baseline28.count}/${profile.minimumObservations} observations` : metric.signal.status;
+    return `<article class="baseline-metric">
+      <span>${escapeHtml(metric.label)}</span>
+      <strong>${baselineValue(metric.current, metric.unit)}</strong>
+      <small>14-day median: ${baselineValue(metric.baseline14.median, metric.unit)}</small>
+      <small>28-day median: ${baselineValue(metric.baseline28.median, metric.unit)}</small>
+      <small>${escapeHtml(signal)}</small>
+    </article>`;
+  }).join("");
+  const decision = !dailyState
+    ? "Complete Morning Roll Call to compare today with your personal norms."
+    : result?.baselineAdjustment === "GREEN_TO_YELLOW"
+      ? "Personal baseline reduced today’s readiness from GREEN to YELLOW."
+      : profile.state === "LEARNING"
+        ? "No readiness adjustment. Atlas needs 10 prior observations for sleep, resting heart rate, or HRV."
+        : "Personal baseline reviewed. No additional restriction was required.";
+  panel.innerHTML = `<div class="baseline-summary-grid">${metrics}</div>
+    <div class="baseline-decision"><strong>Decision impact</strong><p>${escapeHtml(decision)}</p></div>
+    <ul class="baseline-safeguards">${profile.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function generateMission(readinessResultOrState) {
+  const readiness = typeof readinessResultOrState === "string" ? readinessResultOrState : readinessResultOrState.state;
+  if (readiness === "RED") {
+    return {
+      title: "Recovery mission",
+      detail: "Remove hard training and protect recovery. Execute recovery protocol.",
+      restrictions: "No hard training, no testing pain",
+      generatedFromReadiness: readiness
+    };
+  }
+
+  if (readiness === "YELLOW") {
+    return {
+      title: "Reduced mission",
+      detail: "Complete primary work only and remove optional intensity.",
+      restrictions: "No extra volume",
+      generatedFromReadiness: readiness
+    };
+  }
+
+  return {
+    title: "Execute prescribed session",
+    detail: "Proceed exactly as written. Execute the prescribed mission exactly.",
+    restrictions: "No unauthorized volume",
+    generatedFromReadiness: readiness
+  };
+}
+
+function recruitProfileForAtlas() {
+  if (typeof DominionFirstWeekOrientation === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  if (!contract) return null;
+  const orientation = currentRecruitOrientation(contract);
+  const profile = orientation?.profile || contract.athleteProfile || contract;
+  const validation = DominionFirstWeekOrientation.validateProfile(profile);
+  return validation.valid ? DominionFirstWeekOrientation.atlasProfileContext(validation.profile, orientation) : null;
+}
+
+function generateMorningBrief(readinessResult) {
+  const result = readinessResult || evaluateReadiness(null);
+  const commandState = result.state === "GREEN"
+    ? "MISSION AUTHORIZED"
+    : result.state === "YELLOW"
+      ? "MISSION REDUCED"
+      : result.state === "RED"
+        ? "HARD TRAINING DENIED"
+        : "ROLL CALL REQUIRED";
+  const mission = result.state ? generateMission(result) : null;
+  const missingEvidence = Array.isArray(result.missingEvidence) ? result.missingEvidence : [];
+  const restrictions = Array.isArray(result.restrictions) ? result.restrictions : [];
+  const primaryReason = Array.isArray(result.rationale) && result.rationale.length
+    ? result.rationale[0]
+    : result.headline;
+  const authorization = result.state === "GREEN"
+    ? "AUTHORIZED"
+    : result.state === "YELLOW"
+      ? "AUTHORIZED WITH REDUCTIONS"
+      : "NOT AUTHORIZED";
+
+  const recruitContext = recruitProfileForAtlas();
+  return {
+    title: "ATLAS // MORNING BRIEF",
+    commandState,
+    authorization,
+    readiness: result.state || "NOT ESTABLISHED",
+    confidence: result.confidence || 0,
+    primaryReason,
+    risk: result.primaryRisk,
+    missingEvidence,
+    directive: result.instruction,
+    commandNote: result.headline,
+    orders: mission
+      ? [mission.title, mission.detail]
+      : ["Complete Morning Roll Call before mission generation."],
+    restrictions,
+    mission,
+    recruitContext
+  };
+}
+
+function formatAtlasBriefVoice(brief) {
+  const confidence = `${Math.round(Number(brief.confidence || 0) * 100)}%`;
+  const missing = brief.missingEvidence.length ? brief.missingEvidence.join(", ") : "None";
+  const orders = brief.orders.map((order) => `- ${order}`).join("\n");
+  const restrictions = brief.restrictions.map((restriction) => `- ${restriction}`).join("\n");
+  const recruitContext = brief.recruitContext
+    ? [
+        "",
+        "RECRUIT CONTEXT",
+        `${brief.recruitContext.athleteTypeLabel} // ${brief.recruitContext.trainingYears} training years // Age ${brief.recruitContext.age}`,
+        brief.recruitContext.guardrails?.[0] || "Progression remains evidence governed."
+      ]
+    : [];
+
+  return [
+    brief.title,
+    "",
+    "STATUS",
+    `${brief.commandState} // Mission: ${brief.authorization}`,
+    `Readiness: ${brief.readiness} // Confidence: ${confidence}`,
+    `Primary reason: ${brief.primaryReason}`,
+    "",
+    "DIRECTIVE",
+    brief.directive,
+    "",
+    "COMMAND NOTE",
+    `${brief.commandNote} Risk: ${brief.risk} Missing evidence: ${missing}.`,
+    ...recruitContext,
+    "",
+    "ORDERS",
+    orders,
+    "",
+    "RESTRICTIONS",
+    restrictions || "- None"
+  ].join("\n");
+}
+
+function normalizeComplianceStatus(status) {
+  if (typeof status !== "string") return null;
+  const normalized = status.trim().toLowerCase().replaceAll(" ", "_").replaceAll("n/a", "not_applicable");
+  return Object.hasOwn(COMPLIANCE_STATUS_SCORES, normalized) || COMPLIANCE_EXCLUDED_STATUSES.has(normalized)
+    ? normalized
+    : null;
+}
+
+function scoreComplianceDomain(domain = {}) {
+  const status = normalizeComplianceStatus(domain.status);
+  if (status && Object.hasOwn(COMPLIANCE_STATUS_SCORES, status)) {
+    return { status, included: true, score: COMPLIANCE_STATUS_SCORES[status], reason: "Included in equal-weight score." };
+  }
+  if (status === "excused") {
+    return { status, included: false, score: null, reason: domain.restriction ? `Excused: ${domain.restriction}` : "Excused; excluded from score." };
+  }
+  if (status === "not_applicable") {
+    return { status, included: false, score: null, reason: "Not applicable; excluded from score." };
+  }
+  return { status: null, included: false, score: null, reason: "Not assessed; no completion credit assigned." };
+}
+
+function calculateDisciplineScore(domains = {}) {
+  const evidence = COMPLIANCE_DOMAINS.map((key) => {
+    const domain = domains[key] || {};
+    const weight = Number.isFinite(domain.weight) && domain.weight > 0 ? domain.weight : 1;
+    return { key, label: COMPLIANCE_DOMAIN_LABELS[key], weight, ...scoreComplianceDomain(domain) };
+  });
+  const included = evidence.filter((item) => item.included);
+  const totalWeight = included.reduce((total, item) => total + item.weight, 0);
+  const score = included.length
+    ? included.reduce((total, item) => total + (item.score * item.weight), 0) / totalWeight
+    : null;
+  return { score, includedCount: included.length, excludedCount: evidence.length - included.length, totalWeight, evidence };
+}
+
+function formatDisciplineScore(score) {
+  return score === null || score === undefined ? "UNSCORED" : `${Math.round(score)}%`;
+}
+
+function buildComplianceExplanation(calculation) {
+  const included = calculation.evidence
+    .filter((item) => item.included)
+    .map((item) => `${item.label}: ${item.status} (${item.score})`);
+  const excluded = calculation.evidence
+    .filter((item) => !item.included)
+    .map((item) => `${item.label}: ${item.status || "not assessed"} — ${item.reason}`);
+  const formula = included.length
+    ? `Applicable weighted average (current weights are 1): (${calculation.evidence.filter((item) => item.included).map((item) => `${item.score} × ${item.weight}`).join(" + ")}) / ${calculation.totalWeight} = ${calculation.score}`
+    : "No applicable assessed domains; no Discipline Score calculated.";
+  return { formula, included, excluded };
+}
+
+function deriveDailyComplianceState(domains = {}) {
+  const calculation = calculateDisciplineScore(domains);
+  const complianceStatus = calculation.score === null
+    ? "UNSCORED"
+    : calculation.score === 100
+      ? "FULL COMPLIANCE"
+      : calculation.score === 0
+        ? "NO RECORDED COMPLETION"
+        : "PARTIAL COMPLIANCE";
+  return {
+    ...calculation,
+    displayScore: formatDisciplineScore(calculation.score),
+    complianceStatus,
+    explanation: buildComplianceExplanation(calculation),
+    violations: []
+  };
+}
+
+function parseISODateUTC(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
+}
+
+function normalizeComplianceDate(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return formatISODateUTC(parsed);
+  }
+  if (value instanceof Date) return formatISODateUTC(value);
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return formatISODateUTC(new Date(value));
+  }
+  return null;
+}
+
+function normalizeDailyComplianceRecord(record = {}) {
+  if (!record || typeof record !== "object") return record;
+  const normalized = { ...record };
+  const normalizedDate = normalizeComplianceDate(record.compliance_date || record.complianceDate || record.date);
+  if (normalizedDate) normalized.compliance_date = normalizedDate;
+  if (record.domains && typeof record.domains === "object") {
+    normalized.domains = Object.fromEntries(Object.entries(record.domains).map(([key, value]) => [key, value && typeof value === "object" ? { ...value } : value]));
+  }
+  return normalized;
+}
+
+function formatISODateUTC(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function addUTCDays(date, days) {
+  const result = new Date(date.getTime());
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
+function getInspectionWeekRange(value = todayISODate()) {
+  const date = parseISODateUTC(value);
+  if (!date) throw new TypeError("Inspection date must use YYYY-MM-DD.");
+  const daysSinceMonday = (date.getUTCDay() + 6) % 7;
+  const start = addUTCDays(date, -daysSinceMonday);
+  const end = addUTCDays(start, 6);
+  return { weekStartDate: formatISODateUTC(start), weekEndDate: formatISODateUTC(end) };
+}
+
+function domainsFromDailyRecord(record = {}) {
+  if (record.domains && typeof record.domains === "object") return record.domains;
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => [key, {
+    status: record[`${key}_status`],
+    target: record[`${key}_target`] || "",
+    actual: record[`${key}_actual`] || "",
+    note: record[`${key}_note`] || "",
+    restriction: record[`${key}_restriction`] || "",
+    approvedModification: Boolean(record[`${key}_approved_modification`])
+  }]));
+}
+
+function calculateWeeklyDisciplineScore(observations = []) {
+  const included = observations.filter((item) => item.included);
+  return included.length ? included.reduce((sum, item) => sum + item.score, 0) / included.length : null;
+}
+
+function calculateEvidenceCoverage(observations = []) {
+  const intentionalNA = observations.filter((item) => item.status === "not_applicable").length;
+  const expected = observations.length - intentionalNA;
+  const assessed = observations.filter((item) => item.status && item.status !== "not_applicable").length;
+  return { expectedObservations: expected, assessedObservations: assessed, intentionalNACount: intentionalNA, percentage: expected === 0 ? 100 : assessed / expected * 100 };
+}
+
+function identifyStrongestAndWeakestDomains(domainScores = {}) {
+  const scored = COMPLIANCE_DOMAINS.filter((key) => domainScores[key]?.score !== null && domainScores[key]?.score !== undefined);
+  if (!scored.length) return { strongestDomains: [], weakestDomains: [], strongestDomain: null, weakestDomain: null };
+  const maximum = Math.max(...scored.map((key) => domainScores[key].score));
+  const minimum = Math.min(...scored.map((key) => domainScores[key].score));
+  const strongestDomains = scored.filter((key) => domainScores[key].score === maximum);
+  if (maximum === minimum) return { strongestDomains, weakestDomains: [], strongestDomain: strongestDomains[0], weakestDomain: null, domainRankingTie: true };
+  const weakestDomains = scored.filter((key) => domainScores[key].score === minimum);
+  return { strongestDomains, weakestDomains, strongestDomain: strongestDomains[0], weakestDomain: weakestDomains[0], domainRankingTie: false };
+}
+
+function deriveInspectionStatus(aggregate, finalized = false, threshold = WEEKLY_EVIDENCE_THRESHOLD) {
+  if (finalized) return "INSPECTION COMPLETE";
+  if (!aggregate || aggregate.counts.assessedObservations === 0) return "NOT READY";
+  if (aggregate.evidenceCoverage < threshold) return "LIMITED EVIDENCE";
+  return aggregate.canFinalize ? "READY FOR INSPECTION" : "PROVISIONAL";
+}
+
+function inspectionAnalysisWindow(range, asOfDate = todayISODate()) {
+  const asOf = parseISODateUTC(asOfDate);
+  const start = parseISODateUTC(range.weekStartDate);
+  const end = parseISODateUTC(range.weekEndDate);
+  if (!asOf || !start || !end) throw new TypeError("Inspection dates must use YYYY-MM-DD.");
+  const evidenceThrough = asOf < start ? null : asOf > end ? end : asOf;
+  const elapsedDayCount = evidenceThrough ? Math.floor((evidenceThrough - start) / 86400000) + 1 : 0;
+  return {
+    evidenceThroughDate: evidenceThrough ? formatISODateUTC(evidenceThrough) : null,
+    elapsedDayCount,
+    projectedDayCount: 7,
+    weekComplete: asOf >= end,
+    isCurrentWeek: asOf >= start && asOf <= end
+  };
+}
+
+function selectNextWeekPriority(analysis = {}) {
+  if (analysis.recoveryRiskSignal) return { code: "RECOVERY_SAFETY", text: "Protect recovery. Follow restrictions and do not train through pain." };
+  if (analysis.missedByDomain?.mission >= 2) return { code: "MISSION_EXECUTION", text: "Execute the assigned mission consistently; do not add compensatory work." };
+  if (analysis.weakestDomain && (analysis.domainScores?.[analysis.weakestDomain]?.includedCount || 0) >= 2) {
+    return { code: "WEAKEST_DOMAIN", domain: analysis.weakestDomain, text: `Raise ${COMPLIANCE_DOMAIN_LABELS[analysis.weakestDomain]} through consistent, authorized execution.` };
+  }
+  if (analysis.evidenceLimitation) return { code: "EVIDENCE_GAP", text: "Record all five domains daily so the next inspection is fully supported." };
+  return { code: "MAINTAIN_STANDARD", text: "Maintain the current standard with complete daily evidence." };
+}
+
+function aggregateWeeklyCompliance(records = [], weekValue = todayISODate(), options = {}) {
+  const range = getInspectionWeekRange(weekValue);
+  const analysisWindow = inspectionAnalysisWindow(range, options.asOfDate || todayISODate());
+  const normalizedRecords = (records || [])
+    .map((record) => normalizeDailyComplianceRecord(record))
+    .filter((record) => record && normalizeComplianceDate(record.compliance_date) && normalizeComplianceDate(record.compliance_date) >= range.weekStartDate && normalizeComplianceDate(record.compliance_date) <= range.weekEndDate);
+  const recordByDate = new Map(normalizedRecords.map((record) => [normalizeComplianceDate(record.compliance_date), record]));
+  const counts = { assessedDays: 0, fullyAssessedDays: 0, unscoredDays: 0, completed: 0, partial: 0, missed: 0, excused: 0, notApplicable: 0, approvedModifications: 0, assessedObservations: 0 };
+  const observations = [];
+  const dailyEvidence = [];
+  const missedByDomain = Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => [key, 0]));
+
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
+    const periodState = analysisWindow.evidenceThroughDate && date <= analysisWindow.evidenceThroughDate ? "ELAPSED" : "FUTURE";
+    const record = recordByDate.get(date) || null;
+    const domains = domainsFromDailyRecord(record || {});
+    const dayObservations = COMPLIANCE_DOMAINS.map((key) => {
+      const domain = domains[key] || {};
+      const scored = scoreComplianceDomain(domain);
+      const approvedModification = Boolean(domain.approvedModification);
+      const observation = { date, domain: key, label: COMPLIANCE_DOMAIN_LABELS[key], ...scored, target: domain.target || "", actual: domain.actual || "", note: domain.note || "", restriction: domain.restriction || "", approvedModification };
+      if (periodState === "ELAPSED" && scored.status === "completed") counts.completed += 1;
+      if (periodState === "ELAPSED" && scored.status === "partial") counts.partial += 1;
+      if (periodState === "ELAPSED" && scored.status === "missed") counts.missed += 1;
+      if (periodState === "ELAPSED" && scored.status === "excused") counts.excused += 1;
+      if (periodState === "ELAPSED" && scored.status === "not_applicable") counts.notApplicable += 1;
+      if (periodState === "ELAPSED" && approvedModification) counts.approvedModifications += 1;
+      if (periodState === "ELAPSED" && scored.status) counts.assessedObservations += 1;
+      if (periodState === "ELAPSED" && scored.status === "missed" && !approvedModification) missedByDomain[key] += 1;
+      return observation;
+    });
+    const assessedCount = dayObservations.filter((item) => item.status).length;
+    const includedCount = dayObservations.filter((item) => item.included).length;
+    if (periodState === "ELAPSED" && assessedCount > 0) counts.assessedDays += 1;
+    if (periodState === "ELAPSED" && assessedCount === COMPLIANCE_DOMAINS.length) counts.fullyAssessedDays += 1;
+    if (periodState === "ELAPSED" && includedCount === 0) counts.unscoredDays += 1;
+    dailyEvidence.push({ date, recordPresent: Boolean(record), assessedCount: periodState === "ELAPSED" ? assessedCount : 0, includedCount: periodState === "ELAPSED" ? includedCount : 0, periodState });
+    if (periodState === "ELAPSED") observations.push(...dayObservations);
+  }
+
+  const coverage = calculateEvidenceCoverage(observations);
+  const fullWeekExpected = COMPLIANCE_DOMAINS.length * 7;
+  const projectedFullWeekCoverage = fullWeekExpected ? coverage.assessedObservations / fullWeekExpected * 100 : 0;
+  const domainScores = Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => {
+    const domainObservations = observations.filter((item) => item.domain === key);
+    return [key, { score: calculateWeeklyDisciplineScore(domainObservations), includedCount: domainObservations.filter((item) => item.included).length, assessedCount: domainObservations.filter((item) => item.status).length }];
+  }));
+  const ranking = identifyStrongestAndWeakestDomains(domainScores);
+  const missedMaximum = Math.max(0, ...Object.values(missedByDomain));
+  const mostFrequentMissedDomains = missedMaximum ? COMPLIANCE_DOMAINS.filter((key) => missedByDomain[key] === missedMaximum) : [];
+  const recoveryObservations = observations.filter((item) => item.domain === "recovery");
+  const recoveryRiskSignal = missedByDomain.recovery >= 2 || recoveryObservations.some((item) => /pain|injur|medical|symptom/i.test(item.restriction) && item.status !== "excused");
+  const approvedModificationCompliance = observations.filter((item) => item.approvedModification).map((item) => ({ date: item.date, domain: item.domain, followed: item.status !== "missed", status: item.status }));
+  const missingRequiredDomains = COMPLIANCE_DOMAINS.filter((key) => domainScores[key].assessedCount < analysisWindow.elapsedDayCount);
+  const canFinalize = analysisWindow.weekComplete && coverage.percentage >= WEEKLY_EVIDENCE_THRESHOLD && missingRequiredDomains.length === 0;
+  const aggregate = {
+    ...range,
+    ...analysisWindow,
+    calculationVersion: INSPECTION_CALCULATION_VERSION,
+    calculatedAt: options.calculatedAt || new Date().toISOString(),
+    score: calculateWeeklyDisciplineScore(observations),
+    evidenceCoverage: coverage.percentage,
+    evidenceCoverageThroughToday: coverage.percentage,
+    projectedFullWeekCoverage,
+    coverage,
+    counts,
+    domainScores,
+    ...ranking,
+    missedByDomain,
+    mostFrequentMissedDomains,
+    recoveryRiskSignal,
+    consistencySignal: counts.fullyAssessedDays === 7 ? "FULLY DOCUMENTED" : counts.assessedDays >= 5 ? "MOST DAYS ASSESSED" : "INCONSISTENT EVIDENCE",
+    evidenceLimitation: coverage.percentage < WEEKLY_EVIDENCE_THRESHOLD,
+    missingRequiredDomains,
+    canFinalize,
+    scoreIsProvisional: !canFinalize,
+    approvedModificationCompliance,
+    missedRequirements: observations.filter((item) => item.status === "missed" && !item.approvedModification).map((item) => ({ date: item.date, domain: item.domain, target: item.target || "Requirement not specified" })),
+    excusedConditions: observations.filter((item) => item.status === "excused").map((item) => ({ date: item.date, domain: item.domain, restriction: item.restriction || "Excused condition recorded" })),
+    observations,
+    dailyEvidence
+  };
+  aggregate.nextWeekPriority = selectNextWeekPriority(aggregate);
+  aggregate.inspectionStatus = deriveInspectionStatus(aggregate);
+  return aggregate;
+}
+
+function generateWeeklyAfterActionReport(aggregate) {
+  const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
+  const missed = aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}: ${item.target}`).join("; ") : "None recorded.";
+  const excused = aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.";
+  const assessment = aggregate.score === null ? "No applicable execution observations were scored." : aggregate.evidenceLimitation ? "Execution score is provisional because evidence is limited." : aggregate.score >= 85 ? "Execution met a strong weekly standard." : aggregate.score >= 60 ? "Execution was mixed and requires tighter consistency." : "Execution fell below the required standard; the evidence is documented.";
+  const report = {
+    title: "ATLAS // WEEKLY INSPECTION",
+    status: aggregate.inspectionStatus,
+    weeklyDisciplineScore: formatDisciplineScore(aggregate.score),
+    evidenceCoverage: `${Math.round(aggregate.evidenceCoverage)}%`,
+    assessment,
+    strength: aggregate.strongestDomains.length ? aggregate.strongestDomains.map(label).join(" / ") : "No scored domain.",
+    deficiency: aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "Insufficient scored evidence.",
+    missedRequirements: missed,
+    excusedConditions: excused,
+    nextWeekPriority: aggregate.nextWeekPriority.text,
+    commandNote: aggregate.recoveryRiskSignal ? "Safety restrictions govern. Missed work does not authorize compensation." : aggregate.evidenceLimitation ? "Improve the record before drawing firm conclusions." : "Execute the priority and preserve complete evidence."
+  };
+  report.text = [report.title, "", "STATUS", report.status, "", "WEEKLY DISCIPLINE SCORE", report.weeklyDisciplineScore, "", "EVIDENCE COVERAGE", report.evidenceCoverage, "", "ASSESSMENT", report.assessment, "", "STRENGTH", report.strength, "", "DEFICIENCY", report.deficiency, "", "MISSED REQUIREMENTS", report.missedRequirements, "", "EXCUSED CONDITIONS", report.excusedConditions, "", "NEXT-WEEK PRIORITY", report.nextWeekPriority, "", "COMMAND NOTE", report.commandNote].join("\n");
+  return report;
+}
+
+function finalizeWeeklyInspectionSnapshot(aggregate, finalizedAt = new Date().toISOString()) {
+  if (!aggregate.weekComplete) throw new Error("Finalization is available after the inspection week ends.");
+  if (aggregate.evidenceCoverage < WEEKLY_EVIDENCE_THRESHOLD) throw new Error(`Finalization requires at least ${WEEKLY_EVIDENCE_THRESHOLD}% evidence coverage.`);
+  if (aggregate.missingRequiredDomains?.length) throw new Error(`Finalization requires assessed evidence for: ${aggregate.missingRequiredDomains.map((key) => COMPLIANCE_DOMAIN_LABELS[key]).join(", ")}.`);
+  const snapshot = structuredClone(aggregate);
+  snapshot.inspectionStatus = "INSPECTION COMPLETE";
+  snapshot.finalizedAt = finalizedAt;
+  snapshot.atlasReport = generateWeeklyAfterActionReport(snapshot);
+  snapshot.atlasReport.status = "INSPECTION COMPLETE";
+  snapshot.atlasReport.text = snapshot.atlasReport.text.replace(/STATUS\n[^\n]+/, "STATUS\nINSPECTION COMPLETE");
+  return snapshot;
+}
+
+function inspectionValue(record, camel, snake) {
+  return record?.[camel] ?? record?.[snake] ?? null;
+}
+
+function normalizeInspectionForAnalytics(record = {}) {
+  const domainScores = inspectionValue(record, "domainScores", "domain_scores") || {};
+  return {
+    weekStartDate: inspectionValue(record, "weekStartDate", "week_start_date"),
+    weekEndDate: inspectionValue(record, "weekEndDate", "week_end_date"),
+    score: inspectionValue(record, "score", "weekly_discipline_score"),
+    evidenceCoverage: inspectionValue(record, "evidenceCoverage", "evidence_coverage"),
+    domainScores,
+    finalizedAt: inspectionValue(record, "finalizedAt", "finalized_at"),
+    inspectionStatus: inspectionValue(record, "inspectionStatus", "inspection_status")
+  };
+}
+
+function sortInspectionHistory(records = []) {
+  return records.map(normalizeInspectionForAnalytics).sort((a, b) => String(a.weekStartDate).localeCompare(String(b.weekStartDate)));
+}
+
+function isFiniteMetric(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function canonicalFinalizedInspections(records = []) {
+  const byWeek = new Map();
+  sortInspectionHistory(records).forEach((item) => {
+    if (!item.weekStartDate || !item.finalizedAt) return;
+    const current = byWeek.get(item.weekStartDate);
+    if (!current || String(item.finalizedAt) > String(current.finalizedAt)) byWeek.set(item.weekStartDate, item);
+  });
+  return [...byWeek.values()].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
+}
+
+function buildInspectionIntegritySummary(records = [], recentSize = TREND_WINDOW_SIZE) {
+  const finalized = canonicalFinalizedInspections(records);
+  const scored = finalized.filter((item) => isFiniteMetric(item.score));
+  const recent = scored.slice(-recentSize);
+  const missionValues = recent.map((item) => domainScoreValue(item, "mission")).filter(isFiniteMetric).map(Number);
+  return {
+    calculationVersion: INSPECTION_CALCULATION_VERSION,
+    finalized,
+    finalizedCount: finalized.length,
+    recentAverageDisciplineScore: recent.length ? recent.reduce((sum, item) => sum + Number(item.score), 0) / recent.length : null,
+    recentAverageEvidenceCoverage: recent.length ? recent.reduce((sum, item) => sum + Number(item.evidenceCoverage || 0), 0) / recent.length : null,
+    missionDomainScore: missionValues.length ? missionValues.reduce((sum, value) => sum + value, 0) / missionValues.length : null,
+    sourceUpdatedAt: finalized.map((item) => item.finalizedAt).filter(Boolean).sort().at(-1) || null
+  };
+}
+
+function buildCanonicalPromotionInput(currentRank = "RECRUIT", targetRank = "CADET") {
+  const integrity = buildInspectionIntegritySummary(inspectionHistory);
+  const target = getCurrentRankDefinition(targetRank);
+  return {
+    currentRank,
+    finalizedInspections: integrity.finalizedCount,
+    recentAverageDisciplineScore: integrity.recentAverageDisciplineScore,
+    recentAverageEvidenceCoverage: integrity.recentAverageEvidenceCoverage,
+    consecutiveQualifyingWeeks: calculateConsecutiveQualifyingWeeks(integrity.finalized, {
+      minimumDisciplineScore: target.minimumAverageDisciplineScore,
+      minimumEvidenceCoverage: target.minimumAverageEvidenceCoverage
+    }),
+    unresolvedConfirmedViolations: 0,
+    unresolvedLevelTwoViolations: 0,
+    unresolvedLevelThreeViolations: 0,
+    activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
+    domainScores: { mission: integrity.missionDomainScore },
+    standardsHistory: standardsReviewState || [],
+    integrity
+  };
+}
+
+function selectTrendWindow(records = [], size = TREND_WINDOW_SIZE) {
+  return sortInspectionHistory(records).filter((item) => item.finalizedAt && isFiniteMetric(item.score)).slice(-size);
+}
+
+function calculateLinearTrend(points = []) {
+  const usable = points.filter((point) => isFiniteMetric(point.value) && parseISODateUTC(point.date));
+  if (usable.length < 2) return null;
+  const origin = parseISODateUTC(usable[0].date);
+  const coordinates = usable.map((point) => ({ x: (parseISODateUTC(point.date) - origin) / 604800000, y: Number(point.value) }));
+  const meanX = coordinates.reduce((sum, point) => sum + point.x, 0) / coordinates.length;
+  const meanY = coordinates.reduce((sum, point) => sum + point.y, 0) / coordinates.length;
+  const denominator = coordinates.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0);
+  return denominator === 0 ? 0 : coordinates.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0) / denominator;
+}
+
+function deriveTrajectoryState(records = [], options = {}) {
+  const window = selectTrendWindow(records, options.windowSize || TREND_WINDOW_SIZE);
+  if (window.length < 2) return { state: "INSUFFICIENT HISTORY", slope: null, averageEvidence: window.length ? Number(window[0].evidenceCoverage) : null, window };
+  const averageEvidence = window.reduce((sum, item) => sum + Number(item.evidenceCoverage || 0), 0) / window.length;
+  const slope = calculateLinearTrend(window.map((item) => ({ date: item.weekStartDate, value: item.score })));
+  if (averageEvidence < (options.evidenceThreshold || TREND_EVIDENCE_THRESHOLD)) return { state: "LIMITED EVIDENCE", slope, averageEvidence, window };
+  const threshold = options.slopeThreshold || TREND_SLOPE_THRESHOLD;
+  return { state: slope >= threshold ? "IMPROVING" : slope <= -threshold ? "DECLINING" : "STABLE", slope, averageEvidence, window };
+}
+
+function domainScoreValue(inspection, key) {
+  const entry = inspection.domainScores?.[key];
+  return entry && typeof entry === "object" ? entry.score : entry;
+}
+
+function calculateDomainTrends(records = [], options = {}) {
+  const window = selectTrendWindow(records, options.windowSize || TREND_WINDOW_SIZE);
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => {
+    const points = window.map((item) => ({ date: item.weekStartDate, value: domainScoreValue(item, key), evidence: Number(item.evidenceCoverage || 0) })).filter((item) => isFiniteMetric(item.value));
+    if (!points.length) return [key, { direction: "NO DATA", slope: null, points }];
+    const averageEvidence = points.reduce((sum, item) => sum + item.evidence, 0) / points.length;
+    if (points.length < 2 || averageEvidence < (options.evidenceThreshold || TREND_EVIDENCE_THRESHOLD)) return [key, { direction: "LIMITED EVIDENCE", slope: null, averageEvidence, points }];
+    const slope = calculateLinearTrend(points);
+    const threshold = options.slopeThreshold || TREND_SLOPE_THRESHOLD;
+    return [key, { direction: slope >= threshold ? "UP" : slope <= -threshold ? "DOWN" : "FLAT", slope, averageEvidence, points }];
+  }));
+}
+
+function validDailyAssessment(record = {}) {
+  const domains = domainsFromDailyRecord(record);
+  const statuses = COMPLIANCE_DOMAINS.map((key) => normalizeComplianceStatus(domains[key]?.status));
+  return { assessed: statuses.some(Boolean), fullyAssessed: statuses.every(Boolean) };
+}
+
+function calculateComplianceStreaks(records = [], today = todayISODate()) {
+  const todayDate = parseISODateUTC(today);
+  if (!todayDate) throw new TypeError("Streak reference date must use YYYY-MM-DD.");
+  const byDate = new Map();
+  records.forEach((record) => {
+    const date = parseISODateUTC(record?.compliance_date);
+    if (date && date <= todayDate) byDate.set(record.compliance_date, validDailyAssessment(record));
+  });
+  const assessedDates = [...byDate].filter(([, value]) => value.assessed).map(([date]) => date).sort();
+  let longestAssessedDayStreak = 0;
+  let running = 0;
+  let previous = null;
+  assessedDates.forEach((date) => {
+    const current = parseISODateUTC(date);
+    running = previous && (current - previous) === 86400000 ? running + 1 : 1;
+    longestAssessedDayStreak = Math.max(longestAssessedDayStreak, running);
+    previous = current;
+  });
+  const countBackward = (property) => {
+    let count = 0;
+    for (let date = todayDate; ; date = addUTCDays(date, -1)) {
+      const value = byDate.get(formatISODateUTC(date));
+      if (!value?.[property]) break;
+      count += 1;
+    }
+    return count;
+  };
+  return { currentAssessedDayStreak: countBackward("assessed"), currentFullyAssessedDayStreak: countBackward("fullyAssessed"), longestAssessedDayStreak };
+}
+
+function identifyBestAndLowestWeeks(records = []) {
+  const finalized = sortInspectionHistory(records).filter((item) => item.finalizedAt && isFiniteMetric(item.score));
+  if (!finalized.length) return { bestWeek: null, lowestWeek: null };
+  const byScoreThenDate = [...finalized].sort((a, b) => Number(b.score) - Number(a.score) || a.weekStartDate.localeCompare(b.weekStartDate));
+  const lowest = [...finalized].sort((a, b) => Number(a.score) - Number(b.score) || a.weekStartDate.localeCompare(b.weekStartDate))[0];
+  return { bestWeek: byScoreThenDate[0], lowestWeek: lowest };
+}
+
+function summarizeInspectionHistory(records = [], recentSize = TREND_WINDOW_SIZE) {
+  const sorted = sortInspectionHistory(records);
+  const finalized = canonicalFinalizedInspections(records);
+  const scored = finalized.filter((item) => isFiniteMetric(item.score));
+  const recent = scored.slice(-recentSize);
+  const latest = scored.at(-1) || null;
+  const prior = scored.at(-2) || null;
+  const recentInspections = sorted.slice(-recentSize);
+  return {
+    finalizedCount: finalized.length,
+    recentAverageScore: recent.length ? recent.reduce((sum, item) => sum + Number(item.score), 0) / recent.length : null,
+    mostRecentFinalized: latest,
+    scoreChange: latest && prior ? Number(latest.score) - Number(prior.score) : null,
+    evidenceChange: latest && prior ? Number(latest.evidenceCoverage) - Number(prior.evidenceCoverage) : null,
+    recentInspectionCompletionRate: recentInspections.length ? recentInspections.filter((item) => item.finalizedAt).length / recentInspections.length * 100 : null,
+    ...identifyBestAndLowestWeeks(finalized)
+  };
+}
+
+function buildChartSeries(records = [], provisional = null) {
+  const finalized = sortInspectionHistory(records).filter((item) => item.finalizedAt).map((item) => ({ ...item, kind: "FINALIZED" }));
+  const provisionalItem = provisional ? { ...normalizeInspectionForAnalytics(provisional), kind: "PROVISIONAL" } : null;
+  return [...finalized, ...(provisionalItem && provisionalItem.weekStartDate ? [provisionalItem] : [])].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
+}
+
+function generateAtlasTrendReport(analytics) {
+  const directions = analytics.domainTrends || {};
+  const ranked = COMPLIANCE_DOMAINS.filter((key) => isFiniteMetric(directions[key]?.slope)).sort((a, b) => directions[b].slope - directions[a].slope || COMPLIANCE_DOMAINS.indexOf(a) - COMPLIANCE_DOMAINS.indexOf(b));
+  const strongest = ranked[0] || null;
+  const risk = [...ranked].reverse()[0] || null;
+  const trajectory = analytics.trajectory.state;
+  const evidenceText = trajectory === "LIMITED EVIDENCE" ? "Evidence is below the trend threshold; performance conclusions are constrained." : analytics.trajectory.averageEvidence === null ? "No finalized evidence window is available." : `Average finalized evidence coverage is ${Math.round(analytics.trajectory.averageEvidence)}%.`;
+  const poorPerformance = analytics.summary.mostRecentFinalized && Number(analytics.summary.mostRecentFinalized.score) < 60;
+  const priority = trajectory === "LIMITED EVIDENCE" || trajectory === "INSUFFICIENT HISTORY" ? "Build complete daily evidence before escalating conclusions." : risk && directions[risk].direction === "DOWN" ? `Stabilize ${COMPLIANCE_DOMAIN_LABELS[risk]} with authorized, consistent execution.` : trajectory === "DECLINING" ? "Restore consistent execution without compensatory training." : "Maintain the standard and preserve complete evidence.";
+  const report = {
+    title: "ATLAS // TREND REPORT",
+    trajectory,
+    disciplineTrend: analytics.trajectory.slope === null ? "No reliable score direction established." : `${analytics.trajectory.slope.toFixed(2)} score points per week across the finalized window.`,
+    evidenceQuality: evidenceText,
+    strongestTrend: strongest ? `${COMPLIANCE_DOMAIN_LABELS[strongest]}: ${directions[strongest].direction}.` : "No reliable domain trend.",
+    domainAtRisk: risk && directions[risk].direction === "DOWN" ? `${COMPLIANCE_DOMAIN_LABELS[risk]} is trending down.` : "No declining domain established.",
+    consistency: `${analytics.streaks.currentAssessedDayStreak}-day current assessed streak; ${analytics.streaks.longestAssessedDayStreak}-day longest streak.`,
+    priority,
+    commandNote: trajectory === "LIMITED EVIDENCE" ? "Weak evidence is not proof of strong or poor execution." : poorPerformance ? "Performance is below standard, but unsafe compensation is not authorized." : "Continue disciplined execution and complete reporting."
+  };
+  report.text = [report.title, "", "TRAJECTORY", report.trajectory, "", "DISCIPLINE TREND", report.disciplineTrend, "", "EVIDENCE QUALITY", report.evidenceQuality, "", "STRONGEST TREND", report.strongestTrend, "", "DOMAIN AT RISK", report.domainAtRisk, "", "CONSISTENCY", report.consistency, "", "PRIORITY", report.priority, "", "COMMAND NOTE", report.commandNote].join("\n");
+  return report;
+}
+
+async function getClient() {
+  if (client) return client;
+  const response = await fetch("/api/config");
+  const config = await response.json();
+  if (!config.ok) throw new Error(config.error || "Configuration unavailable.");
+  client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+  return client;
+}
+
+function setStatus(message) {
+  const statusElement = document.getElementById("status");
+  statusElement.textContent = message || "";
+  statusElement.setAttribute("aria-live", "polite");
+}
+
+function setLoading(isLoading) {
+  document.getElementById("app-content").hidden = isLoading;
+  document.getElementById("loading").hidden = !isLoading;
+}
+
+function setText(id, value) {
+  document.getElementById(id).textContent = value;
+}
+
+function confidencePercent(confidence) {
+  return `${Math.round(Number(confidence || 0) * 100)}%`;
+}
+
+function clearElement(element) {
+  while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function valueOrDash(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "—";
+  return `${value}${suffix}`;
+}
+
+function setList(id, values, emptyText) {
+  const list = document.getElementById(id);
+  clearElement(list);
+  const items = values.length ? values : [emptyText];
+  items.forEach((value) => {
+    const item = document.createElement("li");
+    item.textContent = value;
+    list.appendChild(item);
+  });
+}
+
+function setEvidenceTable(id, evidence) {
+  const table = document.getElementById(id);
+  clearElement(table);
+  evidence.forEach((item) => {
+    const row = document.createElement("div");
+    const label = document.createElement("strong");
+    const value = document.createElement("span");
+    const status = document.createElement("span");
+    const impact = document.createElement("p");
+    row.className = `evidence-row ${item.status}`;
+    label.textContent = item.label;
+    value.textContent = item.value;
+    status.textContent = item.status;
+    impact.textContent = item.impact;
+    row.append(label, value, status, impact);
+    table.appendChild(row);
+  });
+}
+
+function dailyIntelligence(readinessResult) {
+  if (!readinessResult || !readinessResult.state) {
+    return ["Awaiting signal", "Daily State not submitted", "Complete Morning Roll Call", "Operating without current readiness"];
+  }
+  return [
+    `${readinessResult.state} protocol`,
+    readinessResult.headline,
+    readinessResult.instruction,
+    readinessResult.primaryRisk
+  ];
+}
+
+function deriveCommandCenterOverview(readinessResultOrState = null, weeklyInspectionAggregate = {}, trajectoryState = "INSUFFICIENT HISTORY") {
+  const readiness = readinessResultOrState && typeof readinessResultOrState === "object" && Object.hasOwn(readinessResultOrState, "state")
+    ? readinessResultOrState
+    : evaluateReadiness(readinessResultOrState);
+  const weeklyStatus = weeklyInspectionAggregate?.inspectionStatus || "NOT READY";
+  const trendStatus = trajectoryState || "INSUFFICIENT HISTORY";
+  const readinessLabel = readiness?.state || "NOT ESTABLISHED";
+
+  let focus = "Morning roll call";
+  let summary = "The command center is waiting for the first Daily State signal.";
+  let action = "Submit Morning Roll Call to initialize the operating picture.";
+
+  if (readinessLabel === "RED") {
+    focus = "Recovery protocol";
+    summary = "Pain overrides performance goals. Protect recovery and avoid any hard training.";
+    action = "Execute recovery protocol and preserve the next recovery window.";
+  } else if (readinessLabel === "YELLOW") {
+    focus = "Primary work only";
+    summary = "Readiness is reduced. Complete primary work only and remove optional intensity.";
+    action = "Reduce volume and protect the standard.";
+  } else if (readinessLabel === "GREEN") {
+    focus = "Prescribed mission";
+    summary = "Readiness is acceptable. Execute the assigned mission exactly.";
+    action = "Maintain execution quality and complete the day's evidence.";
+  }
+
+  if (weeklyStatus === "INSPECTION COMPLETE") {
+    action = `${action} The latest weekly inspection is finalized.`;
+  } else if (weeklyStatus === "READY FOR INSPECTION") {
+    action = `${action} The weekly review is ready for finalization.`;
+  } else if (weeklyStatus === "LIMITED EVIDENCE") {
+    action = `${action} Improve daily evidence coverage before drawing firm conclusions.`;
+  }
+
+  if (trendStatus === "DECLINING") {
+    action = `${action} Trend signals are declining; tighten execution and preserve evidence.`;
+  } else if (trendStatus === "IMPROVING") {
+    action = `${action} Trend signals are improving; maintain the standard.`;
+  }
+
+  return {
+    readinessLabel,
+    weeklyLabel: weeklyStatus,
+    trendLabel: trendStatus,
+    focus,
+    summary,
+    action
+  };
+}
+
+function toSnakeCase(value = "") {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .trim()
+    .toLowerCase();
+}
+
+function sanitizePerformanceText(value = "", maxLength = 80) {
+  const safeText = String(value ?? "")
+    .trim()
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>"']/g, "")
+    .replace(/\s+/g, " ");
+  return safeText.length > maxLength ? safeText.slice(0, maxLength) : safeText;
+}
+
+function sanitizeFitnessTestText(value = "", maxLength = 80) {
+  const safeText = String(value ?? "")
+    .trim()
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>"']/g, "")
+    .replace(/\s+/g, " ");
+  return safeText.length > maxLength ? safeText.slice(0, maxLength) : safeText;
+}
+
+function normalizePerformanceDomain(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "strength") return "strength";
+  if (normalized === "running") return "running";
+  if (normalized === "core") return "core";
+  if (normalized === "conditioning") return "conditioning";
+  if (normalized === "fitness" || normalized === "fitness test" || normalized === "fitness_test") return "fitness_test";
+  if (normalized === "body" || normalized === "body metrics" || normalized === "body_metrics") return "body_metrics";
+  return null;
+}
+
+function normalizePerformanceEntryType(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase().replaceAll(" ", "_");
+  const lookup = {
+    TRAINING_SET: "TRAINING_SET",
+    WORKOUT_SUMMARY: "WORKOUT_SUMMARY",
+    BENCHMARK: "BENCHMARK",
+    FORMAL_TEST: "FORMAL_TEST",
+    RACE: "RACE",
+    MEASUREMENT: "MEASUREMENT"
+  };
+  return lookup[normalized] || null;
+}
+
+function normalizePerformanceEvidenceStatus(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase().replaceAll(" ", "_");
+  const lookup = {
+    SELF_REPORTED: "SELF REPORTED",
+    VERIFIED: "VERIFIED",
+    ESTIMATED: "ESTIMATED",
+    INCOMPLETE: "INCOMPLETE"
+  };
+  return lookup[normalized] || null;
+}
+
+function normalizePerformanceUnits(input = {}) {
+  const metrics = input?.metrics && typeof input.metrics === "object" ? { ...input.metrics } : {};
+  const normalizedMetrics = { ...metrics };
+  if (normalizedMetrics.distanceUnit !== undefined && normalizedMetrics.distance_unit === undefined) normalizedMetrics.distance_unit = normalizedMetrics.distanceUnit;
+  if (normalizedMetrics.weightUnit !== undefined && normalizedMetrics.weight_unit === undefined) normalizedMetrics.weight_unit = normalizedMetrics.weightUnit;
+  if (normalizedMetrics.measurementUnit !== undefined && normalizedMetrics.measurement_unit === undefined) normalizedMetrics.measurement_unit = normalizedMetrics.measurementUnit;
+  if (normalizedMetrics.measurementValue !== undefined && normalizedMetrics.measurement_value === undefined) normalizedMetrics.measurement_value = normalizedMetrics.measurementValue;
+  if (normalizedMetrics.testProtocolName !== undefined && normalizedMetrics.test_protocol_name === undefined) normalizedMetrics.test_protocol_name = normalizedMetrics.testProtocolName;
+  if (normalizedMetrics.eventResults !== undefined && normalizedMetrics.event_results === undefined) normalizedMetrics.event_results = normalizedMetrics.eventResults;
+  if (normalizedMetrics.overallScore !== undefined && normalizedMetrics.overall_score === undefined) normalizedMetrics.overall_score = normalizedMetrics.overallScore;
+  return { ...input, metrics: normalizedMetrics };
+}
+
+function stableSerializePerformanceValue(value) {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableSerializePerformanceValue(item)).join(",")}]`;
+  if (typeof value === "object") {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableSerializePerformanceValue(value[key])}`).join(",")}}`;
+  }
+  return String(value);
+}
+
+function parsePerformanceNumber(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePerformanceMetricValue(domain, key, value) {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  const normalizedDomain = normalizePerformanceDomain(domain);
+  if (normalizedDomain === "strength") {
+    const allowedKeys = new Set(["sets", "repetitions", "weight", "weight_unit", "duration_seconds", "assistance", "bodyweight_added", "estimated_one_rep_max", "verified_one_rep_max"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "running") {
+    const allowedKeys = new Set(["distance", "distance_unit", "duration_seconds", "pace_seconds_per_unit", "elevation_gain", "route_type", "run_type", "race_name"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "core" || normalizedDomain === "conditioning") {
+    const allowedKeys = new Set(["repetitions", "duration_seconds", "distance", "calories", "rounds", "work_interval_seconds", "rest_interval_seconds"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "fitness_test") {
+    const allowedKeys = new Set(["test_protocol_name", "test_protocol_code", "event_results", "overall_score", "test_event_value"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (normalizedDomain === "body_metrics") {
+    const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location"]);
+    if (!allowedKeys.has(key)) return undefined;
+  }
+  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score") {
+    return parsePerformanceNumber(value);
+  }
+  return value;
+}
+
+function buildPerformanceSignature(source = {}) {
+  const rawMetrics = source.metrics && typeof source.metrics === "object" ? source.metrics : {};
+  const metrics = {};
+  const metricAliases = {
+    sets: ["sets"],
+    repetitions: ["repetitions", "reps"],
+    weight: ["weight"],
+    weight_unit: ["weightUnit", "weight_unit"],
+    duration_seconds: ["durationSeconds", "duration_seconds", "duration"],
+    distance: ["distance"],
+    distance_unit: ["distanceUnit", "distance_unit"],
+    pace_seconds_per_unit: ["paceSecondsPerUnit", "pace_seconds_per_unit"],
+    elevation_gain: ["elevationGain", "elevation_gain"],
+    route_type: ["routeType", "route_type"],
+    run_type: ["runType", "run_type"],
+    race_name: ["raceName", "race_name"],
+    assistance: ["assistance"],
+    bodyweight_added: ["bodyweightAdded", "bodyweight_added"],
+    perceived_effort: ["perceivedEffort", "perceived_effort"],
+    estimated_one_rep_max: ["estimatedOneRepMax", "estimated_one_rep_max", "estimated_1rm"],
+    verified_one_rep_max: ["verifiedOneRepMax", "verified_one_rep_max", "verified_1rm"],
+    measurement_value: ["measurementValue", "measurement_value"],
+    measurement_unit: ["measurementUnit", "measurement_unit"],
+    measurement_location: ["measurementLocation", "measurement_location"],
+    test_protocol_code: ["testProtocolCode", "test_protocol_code"],
+    test_protocol_name: ["testProtocolName", "test_protocol_name"],
+    test_event_value: ["testEventValue", "test_event_value"],
+    event_results: ["eventResults", "event_results"],
+    overall_score: ["overallScore", "overall_score"],
+    calories: ["calories"],
+    rounds: ["rounds"],
+    work_interval_seconds: ["workIntervalSeconds", "work_interval_seconds"],
+    rest_interval_seconds: ["restIntervalSeconds", "rest_interval_seconds"]
+  };
+  const domain = normalizePerformanceDomain(source.domain);
+  Object.entries(metricAliases).forEach(([targetKey, aliases]) => {
+    const match = aliases.find((alias) => rawMetrics[alias] !== undefined);
+    if (match) {
+      const normalizedValue = normalizePerformanceMetricValue(domain, targetKey, rawMetrics[match]);
+      if (normalizedValue !== undefined) metrics[targetKey] = normalizedValue;
+    }
+  });
+  Object.entries(rawMetrics).forEach(([key, value]) => {
+    if (value === undefined) return;
+    const normalizedKey = toSnakeCase(key);
+    if (Object.keys(metricAliases).includes(normalizedKey)) return;
+    const normalizedValue = normalizePerformanceMetricValue(domain, normalizedKey, value);
+    if (normalizedValue !== undefined) metrics[normalizedKey] = normalizedValue;
+  });
+  const activityCode = source.activityCode || source.activity_code || null;
+  const activityName = sanitizePerformanceText(source.activityName || source.activity_name || (activityCode ? activityCode.replace(/_/g, " ") : ""), 80);
+  const entryType = normalizePerformanceEntryType(source.entryType || source.entry_type);
+  const evidenceStatus = normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status);
+  const sourceValue = typeof source.source === "string" && source.source.trim() ? source.source.trim().toUpperCase() : "MANUAL";
+  const noteText = sanitizePerformanceText(source.notes || "", 500);
+  return {
+    id: source.id || null,
+    userId: source.userId || source.user_id || null,
+    performanceDate: source.performanceDate || source.performance_date || "",
+    performanceTime: source.performanceTime || source.performance_time || null,
+    domain,
+    entryType,
+    activityCode,
+    activityName,
+    sessionName: sanitizePerformanceText(source.sessionName || source.session_name || "", 80),
+    source: sourceValue,
+    notes: noteText,
+    evidenceStatus,
+    metrics,
+    createdAt: source.createdAt || source.created_at || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString()
+  };
+}
+
+function createPerformanceStableId(source = {}) {
+  const signature = stableSerializePerformanceValue({
+    userId: source.userId || source.user_id || "",
+    performanceDate: source.performanceDate || source.performance_date || "",
+    performanceTime: source.performanceTime || source.performance_time || "",
+    domain: normalizePerformanceDomain(source.domain),
+    entryType: normalizePerformanceEntryType(source.entryType || source.entry_type),
+    activityCode: source.activityCode || source.activity_code || "",
+    activityName: sanitizePerformanceText(source.activityName || source.activity_name || "", 80),
+    sessionName: sanitizePerformanceText(source.sessionName || source.session_name || "", 80),
+    source: typeof source.source === "string" && source.source.trim() ? source.source.trim().toUpperCase() : "MANUAL",
+    notes: sanitizePerformanceText(source.notes || "", 500),
+    evidenceStatus: normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status),
+    metrics: buildPerformanceSignature(source).metrics
+  });
+  let hash = 2166136261;
+  for (let index = 0; index < signature.length; index += 1) {
+    hash ^= signature.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `perf-${(hash >>> 0).toString(16)}`;
+}
+
+function normalizePerformanceEntry(input = {}) {
+  const source = input || {};
+  const normalized = buildPerformanceSignature(source);
+  const explicitId = typeof source.id === "string" ? source.id.trim() : source.id;
+  const resolvedId = explicitId ? String(explicitId) : createPerformanceStableId(source);
+  return normalizePerformanceUnits({
+    ...normalized,
+    id: resolvedId,
+    performanceDate: normalized.performanceDate || todayISODate()
+  });
+}
+
+function validatePerformanceEntry(input = {}) {
+  const entry = normalizePerformanceEntry(input);
+  const errors = [];
+  if (!entry.performanceDate) errors.push({ field: "performance_date", message: "Performance date is required." });
+  if (!entry.domain || !PERFORMANCE_DOMAINS.includes(entry.domain)) errors.push({ field: "domain", message: "Choose a valid performance domain." });
+  if (!entry.entryType || !PERFORMANCE_ENTRY_TYPE_OPTIONS.some((item) => item.code === entry.entryType)) errors.push({ field: "entry_type", message: "Choose a valid entry type." });
+  if (!entry.activityName) errors.push({ field: "activity_name", message: "Activity name is required." });
+  if (entry.activityName && entry.activityName.length > 80) errors.push({ field: "activity_name", message: "Activity name must be 80 characters or fewer." });
+  if (!entry.evidenceStatus || !PERFORMANCE_EVIDENCE_STATUS_OPTIONS.includes(entry.evidenceStatus)) errors.push({ field: "evidence_status", message: "Choose a valid evidence status." });
+  if (entry.notes && entry.notes.length > 500) errors.push({ field: "notes", message: "Notes must be 500 characters or fewer." });
+  if (entry.metrics && typeof entry.metrics !== "object") errors.push({ field: "metrics", message: "Metrics must be provided as an object." });
+  const metrics = entry.metrics || {};
+  if (entry.domain === "strength") {
+    const sets = Number(metrics.sets);
+    const repetitions = Number(metrics.repetitions);
+    const weight = Number(metrics.weight);
+    if (!Number.isFinite(sets) || sets <= 0) errors.push({ field: "metrics.sets", message: "Sets must be a positive number." });
+    if (!Number.isFinite(repetitions) || repetitions <= 0) errors.push({ field: "metrics.repetitions", message: "Repetitions must be a positive number." });
+    if (metrics.weight !== undefined && metrics.weight !== null && (!Number.isFinite(weight) || weight < 0)) errors.push({ field: "metrics.weight", message: "Weight must be a non-negative number." });
+  }
+  if (entry.domain === "running") {
+    const distance = Number(metrics.distance);
+    const durationSeconds = Number(metrics.duration_seconds);
+    if (!Number.isFinite(distance) || distance <= 0) errors.push({ field: "metrics.distance", message: "Distance must be greater than zero." });
+    if (metrics.duration_seconds !== undefined && metrics.duration_seconds !== null && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) errors.push({ field: "metrics.duration_seconds", message: "Duration must be greater than zero." });
+  }
+  if (entry.domain === "core" || entry.domain === "conditioning") {
+    if (metrics.repetitions !== undefined && metrics.repetitions !== null && (!Number.isInteger(Number(metrics.repetitions)) || Number(metrics.repetitions) <= 0)) errors.push({ field: "metrics.repetitions", message: "Repetitions must be a positive integer." });
+    if (metrics.duration_seconds !== undefined && metrics.duration_seconds !== null && (!Number.isFinite(Number(metrics.duration_seconds)) || Number(metrics.duration_seconds) <= 0)) errors.push({ field: "metrics.duration_seconds", message: "Duration must be greater than zero." });
+  }
+  if (entry.domain === "body_metrics") {
+    const measurementValue = Number(metrics.measurement_value);
+    if (!Number.isFinite(measurementValue) || measurementValue < 0) errors.push({ field: "metrics.measurement_value", message: "Measurement value must be a non-negative number." });
+  }
+  if (entry.domain === "fitness_test") {
+    if (!entry.metrics?.test_protocol_name && !entry.activityName) errors.push({ field: "metrics.test_protocol_name", message: "Formal tests need a protocol name." });
+  }
+  return { valid: errors.length === 0, errors, entry };
+}
+
+function normalizeFitnessTestProtocolCode(value) {
+  if (typeof value !== "string") return "CUSTOM_TEST";
+  const normalized = value.trim().toUpperCase();
+  return normalized === "DOMINION_MONTHLY_FITNESS_TEST" ? "DOMINION_MONTHLY_FITNESS_TEST" : "CUSTOM_TEST";
+}
+
+function normalizeFitnessTestStatus(value) {
+  if (typeof value !== "string") return "DRAFT";
+  const normalized = value.trim().toUpperCase().replaceAll(" ", "_");
+  const lookup = {
+    DRAFT: "DRAFT",
+    IN_PROGRESS: "IN PROGRESS",
+    COMPLETE: "COMPLETE",
+    INCOMPLETE: "INCOMPLETE",
+    INVALIDATED: "INVALIDATED"
+  };
+  return lookup[normalized] || "DRAFT";
+}
+
+function normalizeFitnessTestProtocol(input = {}) {
+  const protocolCode = normalizeFitnessTestProtocolCode(input?.code || input?.protocolCode || input?.protocol_code);
+  const base = FITNESS_TEST_PROTOCOL_CATALOG.find((item) => item.code === protocolCode) || FITNESS_TEST_PROTOCOL_CATALOG[1];
+  return {
+    code: base.code,
+    displayName: sanitizePerformanceText(input?.displayName || input?.display_name || base.displayName, 160),
+    description: sanitizePerformanceText(input?.description || base.description, 260),
+    version: sanitizeFitnessTestText(input?.version || base.version, 40),
+    orderedEvents: Array.isArray(input?.orderedEvents || input?.ordered_events) ? (input?.orderedEvents || input?.ordered_events).map((event) => ({
+      code: sanitizeFitnessTestText(event.code || event.eventCode || event.event_code || "event", 80),
+      name: sanitizePerformanceText(event.name || event.eventName || event.event_name || "Event", 160),
+      metricType: event.metricType || event.metric_type || "numeric_score",
+      unit: sanitizeFitnessTestText(event.unit || "", 40),
+      direction: event.direction || "higher",
+      required: Boolean(event.required)
+    })) : base.orderedEvents.map((event) => ({ ...event })),
+    completionRules: input?.completionRules || input?.completion_rules || base.completionRules,
+    scoringPlaceholder: sanitizePerformanceText(input?.scoringPlaceholder || input?.scoring_placeholder || base.scoringPlaceholder, 260),
+    active: input?.active !== undefined ? Boolean(input.active) : base.active
+  };
+}
+
+function getFitnessTestProtocolCatalog() {
+  return FITNESS_TEST_PROTOCOL_CATALOG.map((protocol) => ({ ...protocol, orderedEvents: protocol.orderedEvents.map((event) => ({ ...event })) }));
+}
+
+function normalizeFitnessTestAttempt(input = {}) {
+  const source = input || {};
+  const protocol = normalizeFitnessTestProtocol({
+    code: source.protocolCode || source.protocol_code || "CUSTOM_TEST",
+    displayName: source.protocolName || source.protocol_name,
+    version: source.protocolVersion || source.protocol_version,
+    orderedEvents: source.orderedEvents || source.ordered_events
+  });
+  const rawEventResults = Array.isArray(source.eventResults || source.event_results) ? (source.eventResults || source.event_results) : [];
+  const eventResults = rawEventResults.map((item, index) => ({
+    eventCode: sanitizeFitnessTestText(item.eventCode || item.event_code || `event_${index + 1}`, 80),
+    eventName: sanitizePerformanceText(item.eventName || item.event_name || "Event", 160),
+    metricType: item.metricType || item.metric_type || "numeric_score",
+    rawValue: item.rawValue ?? item.raw_value ?? null,
+    unit: sanitizeFitnessTestText(item.unit || "", 40),
+    comparisonDirection: item.comparisonDirection || item.comparison_direction || "higher",
+    evidenceStatus: normalizePerformanceEvidenceStatus(item.evidenceStatus || item.evidence_status || source.evidenceStatus || source.evidence_status || "SELF REPORTED"),
+    validity: item.validity !== undefined ? Boolean(item.validity) : true,
+    notes: sanitizePerformanceText(item.notes || "", 250)
+  }));
+  return {
+    id: source.id || null,
+    userId: source.userId || source.user_id || null,
+    protocolCode: protocol.code,
+    protocolName: sanitizePerformanceText(source.protocolName || source.protocol_name || protocol.displayName, 160),
+    protocolVersion: source.protocolVersion || source.protocol_version || protocol.version,
+    testDate: source.testDate || source.test_date || todayISODate(),
+    startedAt: source.startedAt || source.started_at || null,
+    completedAt: source.completedAt || source.completed_at || null,
+    status: normalizeFitnessTestStatus(source.status || "DRAFT"),
+    evidenceStatus: normalizePerformanceEvidenceStatus(source.evidenceStatus || source.evidence_status || "SELF REPORTED"),
+    eventResults,
+    overallScore: source.overallScore ?? source.overall_score ?? null,
+    notes: sanitizePerformanceText(source.notes || "", 500),
+    createdAt: source.createdAt || source.created_at || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString()
+  };
+}
+
+function initializeFitnessTestAttemptWorkspace(input = {}) {
+  const source = input || {};
+  const protocol = normalizeFitnessTestProtocol({
+    code: source.protocolCode || source.protocol_code || "CUSTOM_TEST",
+    displayName: source.protocolName || source.protocol_name,
+    version: source.protocolVersion || source.protocol_version,
+    orderedEvents: source.orderedEvents || source.ordered_events
+  });
+  const seedEvents = Array.isArray(source.eventResults || source.event_results)
+    ? (source.eventResults || source.event_results)
+    : (protocol.orderedEvents || []).map((event) => ({
+        eventCode: event.code,
+        eventName: event.name,
+        metricType: event.metricType,
+        rawValue: null,
+        unit: event.unit,
+        comparisonDirection: event.direction || "higher",
+        evidenceStatus: "SELF REPORTED",
+        validity: true,
+        notes: ""
+      }));
+  return normalizeFitnessTestAttempt({
+    id: source.id || `draft-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    userId: source.userId || source.user_id || null,
+    protocolCode: protocol.code,
+    protocolName: source.protocolName || source.protocol_name || protocol.displayName,
+    protocolVersion: source.protocolVersion || source.protocol_version || protocol.version,
+    testDate: source.testDate || source.test_date || todayISODate(),
+    startedAt: source.startedAt || source.started_at || new Date().toISOString(),
+    completedAt: source.completedAt || source.completed_at || null,
+    status: source.status || "DRAFT",
+    evidenceStatus: source.evidenceStatus || source.evidence_status || "SELF REPORTED",
+    eventResults: seedEvents,
+    overallScore: source.overallScore ?? source.overall_score ?? null,
+    notes: source.notes || "",
+    createdAt: source.createdAt || source.created_at || new Date().toISOString(),
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString()
+  });
+}
+
+function saveFitnessTestAttemptsToStore(items = [], userId = null) {
+  saveFitnessTestAttemptsToStorage(items, userId);
+}
+
+function getFitnessTestAttemptById(attemptId = null) {
+  if (!attemptId) return null;
+  return (fitnessTestAttempts || []).find((attempt) => String(attempt.id) === String(attemptId)) || null;
+}
+
+function setActiveFitnessTestAttempt(attempt = null) {
+  activeFitnessTestAttemptId = attempt?.id || null;
+  return getFitnessTestAttemptById(activeFitnessTestAttemptId);
+}
+
+function persistFitnessTestAttempts(items = []) {
+  const nextAttempts = Array.isArray(items) ? items.map((item) => normalizeFitnessTestAttempt(item)) : [];
+  fitnessTestAttempts = nextAttempts;
+  saveFitnessTestAttemptsToStorage(nextAttempts, session?.user?.id || "local");
+  return fitnessTestAttempts;
+}
+
+function collectFitnessTestWorkspaceValues(attempt = null) {
+  const activeAttempt = attempt || getFitnessTestAttemptById(activeFitnessTestAttemptId);
+  if (!activeAttempt) return null;
+  const container = document.getElementById("fitness-test-history");
+  if (!container) return activeAttempt;
+  const workspace = container.querySelector("[data-fitness-workspace='true']");
+  if (!workspace) return activeAttempt;
+  const eventInputs = Array.from(workspace.querySelectorAll("input[data-event-code]"));
+  const eventResults = activeAttempt.eventResults.map((event) => {
+    const input = eventInputs.find((element) => element.dataset.eventCode === event.eventCode);
+    const rawValue = input && input.value !== "" ? Number(input.value) : null;
+    return { ...event, rawValue: Number.isFinite(rawValue) ? rawValue : null };
+  });
+  const overallScoreInput = workspace.querySelector("input[data-field='overallScore']");
+  const notesInput = workspace.querySelector("textarea[data-field='notes']");
+  return {
+    ...activeAttempt,
+    eventResults,
+    overallScore: overallScoreInput && overallScoreInput.value !== "" ? Number(overallScoreInput.value) : null,
+    notes: notesInput ? notesInput.value : activeAttempt.notes
+  };
+}
+
+function renderFitnessTestWorkspace(attempt = null) {
+  const workspace = document.getElementById("fitness-test-history");
+  if (!workspace) return;
+  const activeAttempt = attempt || getFitnessTestAttemptById(activeFitnessTestAttemptId);
+  if (!activeAttempt) {
+    workspace.innerHTML = '<div class="performance-empty">Choose a protocol and start a new test to open the editable workspace.</div>';
+    return;
+  }
+  const eventRows = (activeAttempt.eventResults || []).map((event) => {
+    const value = event.rawValue ?? "";
+    return `<label class="performance-entry-card"><strong>${event.eventName || event.eventCode}</strong><input type="number" step="0.01" value="${value}" data-event-code="${event.eventCode}" data-field="eventValue" /><small>${event.unit || "value"}</small></label>`;
+  }).join("");
+  const historyCards = (fitnessTestAttempts || []).map((attempt) => {
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${attempt.protocolName || attempt.protocolCode}</strong><p>${attempt.testDate} • ${attempt.status}</p></div><span class="state-pill neutral">${attempt.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${attempt.notes || "No notes recorded."}</span><span>${attempt.eventResults.length} event${attempt.eventResults.length === 1 ? "" : "s"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="fitness-test-resume" data-id="${attempt.id || ""}">Resume</button><button type="button" data-action="fitness-test-delete" data-id="${attempt.id || ""}">Delete</button></div></article>`;
+  }).join("");
+  workspace.innerHTML = `<article class="performance-entry-card" data-fitness-workspace="true"><div class="performance-entry-header"><div><strong>${activeAttempt.protocolName || activeAttempt.protocolCode}</strong><p>${activeAttempt.testDate} • ${activeAttempt.status}</p></div><span class="state-pill neutral">ACTIVE TEST</span></div><div class="performance-entry-meta"><span>${activeAttempt.notes || "Capture the working test details below."}</span><span>${(activeAttempt.eventResults || []).length} event${(activeAttempt.eventResults || []).length === 1 ? "" : "s"}</span></div><div class="performance-metric-grid">${eventRows}</div><label>Overall score<input type="number" step="0.01" value="${activeAttempt.overallScore ?? ""}" data-field="overallScore"></label><label>Notes<textarea rows="3" data-field="notes">${activeAttempt.notes || ""}</textarea></label><div class="performance-entry-actions"><button type="button" data-action="fitness-test-save">Save draft</button><button type="button" class="ghost" data-action="fitness-test-complete">Complete</button><button type="button" class="ghost" data-action="fitness-test-cancel">Cancel</button></div></article>${historyCards.length ? historyCards : '<div class="performance-empty">No saved test attempts yet.</div>'}`;
+}
+
+function validateFitnessTestAttempt(input = {}) {
+  const attempt = normalizeFitnessTestAttempt(input);
+  const errors = [];
+  if (!attempt.protocolCode) errors.push({ field: "protocol_code", message: "Protocol is required." });
+  if (!attempt.testDate) errors.push({ field: "test_date", message: "Test date is required." });
+  if (!attempt.status || !FITNESS_TEST_ATTEMPT_STATUS_OPTIONS.includes(attempt.status)) errors.push({ field: "status", message: "Choose a valid test status." });
+  if (attempt.status === "COMPLETE") {
+    const protocol = getFitnessTestProtocolCatalog().find((item) => item.code === attempt.protocolCode) || FITNESS_TEST_PROTOCOL_CATALOG[1];
+    const requiredEvents = (protocol.orderedEvents || []).filter((event) => event.required).map((event) => event.code);
+    if (!attempt.eventResults.length) {
+      errors.push({ field: "event_results", message: "A completed test needs at least one event result." });
+    }
+    requiredEvents.forEach((eventCode) => {
+      const matched = attempt.eventResults.find((item) => item.eventCode === eventCode);
+      if (!matched) {
+        errors.push({ field: "event_results", message: `Required event ${eventCode} is missing.` });
+      } else if (matched.rawValue === null || matched.rawValue === undefined || !Number.isFinite(Number(matched.rawValue))) {
+        errors.push({ field: `event_results.${eventCode}`, message: `Event ${eventCode} needs a numeric value.` });
+      }
+    });
+  }
+  if (attempt.eventResults.some((item) => item.rawValue !== null && item.rawValue !== undefined && !Number.isFinite(Number(item.rawValue)))) {
+    errors.push({ field: "event_results", message: "Event values must be numeric." });
+  }
+  if (attempt.notes && attempt.notes.length > 500) errors.push({ field: "notes", message: "Notes must be 500 characters or fewer." });
+  return { valid: errors.length === 0, errors, attempt };
+}
+
+function getComparableRecordFieldValue(record = {}, camelKey = "", snakeKey = "", fallback = null) {
+  if (!record || typeof record !== "object") return fallback;
+  if (record[camelKey] !== undefined) return record[camelKey];
+  if (record[snakeKey] !== undefined) return record[snakeKey];
+  return fallback;
+}
+
+function normalizeComparableRecord(record = {}, fallbackRecordCategory = null, fallbackComparisonKey = null) {
+  const normalizedEntry = normalizePerformanceEntry(record);
+  const recordCategory = getComparableRecordFieldValue(record, "recordCategory", "record_category", fallbackRecordCategory || determineRecordCategory(normalizedEntry));
+  const ownComparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
+  const comparisonKey = getComparableRecordFieldValue(record, "comparisonKey", "comparison_key", ownComparisonKey);
+  const normalizedValue = getComparableRecordFieldValue(record, "normalizedValue", "normalized_value", getComparableRecordFieldValue(record, "rawValue", "raw_value", determineRecordValue(normalizedEntry, recordCategory)));
+  const recordStatus = String(getComparableRecordFieldValue(record, "recordStatus", "record_status", getComparableRecordFieldValue(record, "status", "status", getComparableRecordFieldValue(record, "evidenceStatus", "evidence_status", "CONFIRMED")))).toUpperCase();
+  const evidenceStatus = String(getComparableRecordFieldValue(record, "evidenceStatus", "evidence_status", getComparableRecordFieldValue(record, "recordStatus", "record_status", "SELF REPORTED"))).toUpperCase();
+  const domain = getComparableRecordFieldValue(record, "domain", "domain", normalizedEntry?.domain || null);
+  const activityCode = getComparableRecordFieldValue(record, "activityCode", "activity_code", normalizedEntry?.activityCode || normalizedEntry?.activity_code || null);
+  const activityName = getComparableRecordFieldValue(record, "activityName", "activity_name", normalizedEntry?.activityName || null);
+  return {
+    record,
+    recordCategory,
+    comparisonKey,
+    normalizedValue: parsePerformanceNumber(normalizedValue),
+    recordStatus,
+    evidenceStatus,
+    domain,
+    activityCode,
+    activityName,
+    normalizedEntry
+  };
+}
+
+function buildPerformanceComparisonKey(entry = {}, recordCategory = "LOAD_PR") {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const domain = normalizedEntry?.domain;
+  const activityCode = sanitizeFitnessTestText(normalizedEntry?.activityCode || normalizedEntry?.activity_code || "custom", 80);
+  if (domain === "strength") {
+    const metricBasis = recordCategory === "REP_PR" ? "repetitions" : recordCategory === "VOLUME_PR" ? "volume" : recordCategory === "ESTIMATED_1RM_PR" ? "estimated_1rm" : recordCategory === "VERIFIED_1RM_PR" ? "verified_1rm" : "load";
+    const unit = normalizedEntry?.metrics?.weight_unit || normalizedEntry?.metrics?.weightUnit || "lb";
+    return `${domain}:${activityCode}:${metricBasis}:${unit}`;
+  }
+  if (domain === "running") {
+    const distanceCategory = normalizeRunningDistanceCategory(normalizedEntry?.metrics?.distance, normalizedEntry?.metrics?.distance_unit || normalizedEntry?.metrics?.distanceUnit || "mi");
+    const entryType = normalizePerformanceEntryType(normalizedEntry?.entryType) || "WORKOUT_SUMMARY";
+    if (distanceCategory.startsWith("custom:")) {
+      return `${domain}:custom:${entryType}`;
+    }
+    return `${domain}:${distanceCategory}:${entryType}`;
+  }
+  if (domain === "core" || domain === "conditioning") {
+    const metricType = recordCategory === "CONDITIONING_PR" ? "conditioning" : "repetitions";
+    return `${domain}:${activityCode}:${metricType}`;
+  }
+  if (domain === "fitness_test") {
+    return `${domain}:${activityCode}:test_event`;
+  }
+  return `${domain || "body_metrics"}:${activityCode}:default`;
+}
+
+function normalizeRunningDistanceCategory(distanceValue = null, unit = "mi") {
+  const normalizedDistance = Number(distanceValue);
+  if (!Number.isFinite(normalizedDistance) || normalizedDistance <= 0) return "custom";
+  const normalizedUnit = String(unit || "mi").trim().toLowerCase();
+  const meters = normalizedUnit === "km" ? normalizedDistance * 1000 : normalizedUnit === "m" || normalizedUnit === "meter" || normalizedUnit === "meters" ? normalizedDistance : normalizedUnit === "mi" || normalizedUnit === "mile" || normalizedUnit === "miles" ? normalizedDistance * 1609.34 : normalizedDistance;
+  const tolerance = 0.05;
+  if (Math.abs(meters - 100) <= tolerance) return "100m";
+  if (Math.abs(meters - 400) <= tolerance) return "400m";
+  if (Math.abs(meters - 1000) <= tolerance) return "1km";
+  if (Math.abs(meters - 1609.34) <= tolerance) return "1mi";
+  if (Math.abs(meters - 5000) <= tolerance) return "5k";
+  if (Math.abs(meters - 10000) <= tolerance) return "10k";
+  if (Math.abs(meters - 21097.5) <= tolerance) return "half_marathon";
+  if (Math.abs(meters - 42195) <= tolerance) return "marathon";
+  if (Math.abs(meters - 3218.69) <= tolerance) return "2mi";
+  return `custom:${Math.round(meters)}`;
+}
+
+function determineRecordCategory(entry = {}, testAttempt = null) {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const domain = normalizedEntry?.domain;
+  const metrics = normalizedEntry?.metrics || {};
+  if (domain === "strength") {
+    const hasVerifiedOneRepMax = metrics.verified_one_rep_max === true || metrics.verifiedOneRepMax === true || metrics.verified_1rm === true || entry?.verifiedOneRepMax === true || entry?.verified_1rm === true;
+    if (hasVerifiedOneRepMax) return "VERIFIED_1RM_PR";
+    const hasEstimatedOneRepMax = metrics.estimated_one_rep_max === true || metrics.estimatedOneRepMax === true || metrics.estimated_1rm === true || entry?.estimatedOneRepMax === true || entry?.estimated_1rm === true;
+    if (hasEstimatedOneRepMax || normalizedEntry?.evidenceStatus === "ESTIMATED") return "ESTIMATED_1RM_PR";
+    if (metrics.weight !== undefined && metrics.weight !== null) return "LOAD_PR";
+    if (metrics.repetitions !== undefined && metrics.repetitions !== null) return "REP_PR";
+    if (metrics.sets !== undefined && metrics.sets !== null && metrics.repetitions !== undefined && metrics.repetitions !== null) return "VOLUME_PR";
+    return null;
+  }
+  if (domain === "running") {
+    if (normalizedEntry?.entryType === "RACE" || normalizedEntry?.activityCode === "race") return "TIME_PR";
+    return "TIME_PR";
+  }
+  if (domain === "core" || domain === "conditioning") {
+    return "CONDITIONING_PR";
+  }
+  if (domain === "fitness_test") {
+    return (testAttempt || normalizedEntry?.metrics?.test_event_value !== undefined || normalizedEntry?.metrics?.test_event_value !== null || normalizedEntry?.metrics?.overall_score !== undefined) ? "TEST_EVENT_PR" : null;
+  }
+  if (testAttempt) {
+    return "TEST_EVENT_PR";
+  }
+  return null;
+}
+
+function isPerformanceComparable(candidate = {}, target = {}, recordCategory = "LOAD_PR") {
+  const candidateKey = buildPerformanceComparisonKey(candidate, recordCategory);
+  const targetKey = buildPerformanceComparisonKey(target, recordCategory);
+  if (!candidateKey || !targetKey) return false;
+  if (candidateKey === targetKey) {
+    if (recordCategory === "ESTIMATED_1RM_PR" && candidate?.evidenceStatus !== target?.evidenceStatus) return false;
+    if (recordCategory === "VERIFIED_1RM_PR" && candidate?.evidenceStatus !== target?.evidenceStatus) return false;
+    return true;
+  }
+  return false;
+}
+
+function selectComparablePerformanceEntries(entries = [], targetEntry = {}, recordCategory = "LOAD_PR") {
+  const normalizedTarget = normalizePerformanceEntry(targetEntry);
+  const targetComparisonKey = buildPerformanceComparisonKey(normalizedTarget, recordCategory);
+  return (entries || []).filter((entry) => {
+    const candidate = normalizeComparableRecord(entry, recordCategory, targetComparisonKey);
+    if (!candidate) return false;
+    if (candidate.recordCategory !== recordCategory) return false;
+    const candidateComparisonKey = candidate.comparisonKey || targetComparisonKey;
+    if (candidateComparisonKey !== targetComparisonKey) return false;
+    if (candidate.domain && normalizedTarget.domain && candidate.domain !== normalizedTarget.domain) return false;
+    if (candidate.activityCode && normalizedTarget.activityCode && candidate.activityCode !== normalizedTarget.activityCode) return false;
+    if (candidate.recordStatus === "INVALIDATED" || candidate.recordStatus === "INCOMPLETE") return false;
+    return true;
+  }).map((entry) => normalizeComparableRecord(entry, recordCategory, targetComparisonKey));
+}
+
+function findCurrentPersonalRecord(records = [], recordCategory = "LOAD_PR", comparisonKey = null, targetEntry = null) {
+  const normalizedTarget = targetEntry ? normalizePerformanceEntry(targetEntry) : null;
+  const targetComparisonKey = comparisonKey || (normalizedTarget ? buildPerformanceComparisonKey(normalizedTarget, recordCategory) : null);
+  const targetDomain = normalizedTarget?.domain || null;
+  const targetActivityCode = normalizedTarget?.activityCode || null;
+  let best = null;
+  (records || []).forEach((record) => {
+    const candidate = normalizeComparableRecord(record, recordCategory, targetComparisonKey);
+    if (!candidate) return;
+    if (candidate.recordCategory !== recordCategory) return;
+    if (targetComparisonKey && candidate.comparisonKey !== targetComparisonKey) return;
+    if (targetDomain && candidate.domain && candidate.domain !== targetDomain) return;
+    if (targetActivityCode && candidate.activityCode && candidate.activityCode !== targetActivityCode) return;
+    if (candidate.recordStatus === "INVALIDATED" || candidate.recordStatus === "INCOMPLETE") return;
+    const currentValue = Number(candidate.normalizedValue);
+    if (!Number.isFinite(currentValue)) return;
+    if (!best) {
+      best = candidate;
+      return;
+    }
+    const bestValue = Number(best.normalizedValue);
+    if (!Number.isFinite(bestValue)) {
+      best = candidate;
+      return;
+    }
+    if (recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" || recordCategory === "DISTANCE_PR") {
+      if (currentValue < bestValue) best = candidate;
+      return;
+    }
+    if (currentValue > bestValue) best = candidate;
+  });
+  return best;
+}
+
+function calculateRecordImprovement(previousValue = null, currentValue = null, direction = "higher") {
+  const previous = Number(previousValue);
+  const current = Number(currentValue);
+  if (!Number.isFinite(previous) || !Number.isFinite(current) || previous === 0) return { absolute: current - previous, percentage: null };
+  const absolute = current - previous;
+  const percentage = direction === "lower" ? ((previous - current) / previous) * 100 : ((current - previous) / previous) * 100;
+  return { absolute, percentage };
+}
+
+function buildPersonalRecordSnapshot(entry = {}, recordCategory = "LOAD_PR", previousRecord = null, existingRecords = []) {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const comparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
+  const normalizedValue = determineRecordValue(normalizedEntry, recordCategory);
+  if (!Number.isFinite(Number(normalizedValue))) return null;
+  const duplicate = (existingRecords || []).some((record) => record?.sourceEntryId === normalizedEntry.id && record?.recordCategory === recordCategory);
+  if (duplicate) return null;
+  const evidenceStatus = normalizedEntry.evidenceStatus === "INCOMPLETE"
+    ? "INCOMPLETE"
+    : normalizedEntry.evidenceStatus === "ESTIMATED"
+      ? "ESTIMATED"
+      : normalizedEntry.evidenceStatus === "VERIFIED"
+        ? "VERIFIED"
+        : "SELF REPORTED";
+  const recordStatus = evidenceStatus === "ESTIMATED"
+    ? "ESTIMATED"
+    : evidenceStatus === "INCOMPLETE"
+      ? "INVALIDATED"
+      : "CONFIRMED";
+  const improvement = calculateRecordImprovement(previousRecord?.normalizedValue || null, normalizedValue, recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" ? "lower" : "higher");
+  return {
+    id: `pr-${stableSerializePerformanceValue({ entryId: normalizedEntry.id, recordCategory, comparisonKey, value: normalizedValue })}`,
+    userId: normalizedEntry.userId || null,
+    recordCategory,
+    domain: normalizedEntry.domain,
+    activityCode: normalizedEntry.activityCode,
+    activityName: normalizedEntry.activityName,
+    comparisonKey,
+    sourceEntryId: normalizedEntry.id,
+    sourceTestAttemptId: null,
+    achievedDate: normalizedEntry.performanceDate,
+    rawValue: normalizedValue,
+    normalizedValue,
+    unit: determineRecordUnit(normalizedEntry, recordCategory),
+    previousRecordValue: previousRecord?.normalizedValue || null,
+    improvementAbsolute: improvement.absolute,
+    improvementPercentage: improvement.percentage,
+    evidenceStatus,
+    recordStatus,
+    calculationEvidence: { comparisonKey, recordCategory, direction: recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" ? "lower" : "higher" },
+    createdAt: new Date().toISOString()
+  };
+}
+
+function determineRecordValue(entry = {}, recordCategory = "LOAD_PR") {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const metrics = normalizedEntry?.metrics || {};
+  if (entry?.normalizedValue !== undefined || entry?.normalized_value !== undefined) return Number(entry?.normalizedValue ?? entry?.normalized_value);
+  if (entry?.rawValue !== undefined || entry?.raw_value !== undefined) return Number(entry?.rawValue ?? entry?.raw_value);
+  if (entry?.value !== undefined) return Number(entry.value);
+  if (recordCategory === "LOAD_PR") return Number(metrics.weight);
+  if (recordCategory === "REP_PR") return Number(metrics.repetitions);
+  if (recordCategory === "VOLUME_PR") return Number(calculateStrengthVolume(normalizedEntry)?.value);
+  if (recordCategory === "ESTIMATED_1RM_PR") return Number(estimateOneRepMax(normalizedEntry)?.value);
+  if (recordCategory === "VERIFIED_1RM_PR") return Number(metrics.verified_1rm || metrics.verifiedOneRepMax);
+  if (recordCategory === "TIME_PR") return Number(metrics.duration_seconds || metrics.duration);
+  if (recordCategory === "DISTANCE_PR") return Number(metrics.distance);
+  if (recordCategory === "DURATION_PR") return Number(metrics.duration_seconds || metrics.duration);
+  if (recordCategory === "TEST_EVENT_PR") return Number(metrics.test_event_value || metrics.overall_score);
+  if (recordCategory === "TEST_SCORE_PR") return Number(metrics.overall_score);
+  if (recordCategory === "CONDITIONING_PR") return Number(metrics.repetitions || metrics.distance || metrics.calories || metrics.rounds);
+  return null;
+}
+
+function determineRecordUnit(entry = {}, recordCategory = "LOAD_PR") {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const metrics = normalizedEntry?.metrics || {};
+  if (recordCategory === "LOAD_PR" || recordCategory === "VOLUME_PR" || recordCategory === "ESTIMATED_1RM_PR" || recordCategory === "VERIFIED_1RM_PR") return metrics.weight_unit || "lb";
+  if (recordCategory === "TIME_PR" || recordCategory === "DURATION_PR") return "seconds";
+  if (recordCategory === "DISTANCE_PR") return metrics.distance_unit || "mi";
+  if (recordCategory === "TEST_EVENT_PR" || recordCategory === "TEST_SCORE_PR") return "score";
+  return "value";
+}
+
+function explainPersonalRecordDecision(entry = {}, recordCategory = "LOAD_PR", previousRecord = null, reason = "eligible") {
+  return { eligible: Boolean(entry), recordCategory, reason, previousRecordValue: previousRecord?.normalizedValue || null };
+}
+
+function evaluatePersonalRecord(entry = {}, existingRecords = []) {
+  const normalizedEntry = normalizePerformanceEntry(entry);
+  const recordCategory = determineRecordCategory(normalizedEntry);
+  if (!recordCategory) return null;
+  if (normalizedEntry.evidenceStatus === "INCOMPLETE") return null;
+  if (normalizedEntry.domain === "body_metrics") return null;
+  const targetComparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
+  const sameDomainActivityCategoryRecords = (existingRecords || []).map((record) => normalizeComparableRecord(record, recordCategory, targetComparisonKey)).filter((candidate) => {
+    if (candidate.recordCategory !== recordCategory) return false;
+    if (candidate.domain && normalizedEntry.domain && candidate.domain !== normalizedEntry.domain) return false;
+    if (candidate.activityCode && normalizedEntry.activityCode && candidate.activityCode !== normalizedEntry.activityCode) return false;
+    return true;
+  });
+  const comparable = sameDomainActivityCategoryRecords.filter((candidate) => candidate.recordStatus !== "INVALIDATED" && candidate.recordStatus !== "INCOMPLETE" && candidate.comparisonKey === targetComparisonKey);
+  const hasSameComparisonKeyRecord = sameDomainActivityCategoryRecords.some((candidate) => candidate.comparisonKey === targetComparisonKey);
+  if (!hasSameComparisonKeyRecord && sameDomainActivityCategoryRecords.length > 0) return null;
+  const previousRecord = findCurrentPersonalRecord(comparable, recordCategory, targetComparisonKey, normalizedEntry);
+  const currentValue = determineRecordValue(normalizedEntry, recordCategory);
+  if (!Number.isFinite(Number(currentValue))) return null;
+  const direction = recordCategory === "TIME_PR" || recordCategory === "DURATION_PR" ? "lower" : "higher";
+  const isBetter = previousRecord ? (direction === "lower" ? currentValue < previousRecord.normalizedValue : currentValue > previousRecord.normalizedValue) : true;
+  if (!isBetter) return null;
+  return buildPersonalRecordSnapshot(normalizedEntry, recordCategory, previousRecord, existingRecords);
+}
+
+function syncFitnessAnalyticState(entry = null, testAttempt = null, bodyWeight = null) {
+  ensurePerformanceAnalyticStateLoaded();
+  const nextPersonalRecords = [...personalRecords];
+  const nextMilestoneAchievements = [...milestoneAchievements];
+  const nextAtlasReviews = [...atlasPerformanceReviews];
+  let changed = false;
+  if (entry) {
+    const recordSnapshot = evaluatePersonalRecord(entry, nextPersonalRecords);
+    if (recordSnapshot) {
+      const existingIndex = nextPersonalRecords.findIndex((item) => item?.sourceEntryId === recordSnapshot.sourceEntryId && item?.recordCategory === recordSnapshot.recordCategory);
+      if (existingIndex >= 0) nextPersonalRecords[existingIndex] = recordSnapshot; else nextPersonalRecords.unshift(recordSnapshot);
+      changed = true;
+    }
+    const milestoneSnapshots = evaluateMilestones({ entry, bodyWeight }, nextMilestoneAchievements);
+    if (milestoneSnapshots.length) {
+      nextMilestoneAchievements.unshift(...milestoneSnapshots);
+      changed = true;
+    }
+  }
+  if (testAttempt) {
+    const evaluation = evaluateFitnessTestAttempt(testAttempt, nextPersonalRecords);
+    if (evaluation.records.length) {
+      evaluation.records.forEach((record) => {
+        const existingIndex = nextPersonalRecords.findIndex((item) => item?.sourceEntryId === record.sourceEntryId && item?.recordCategory === record.recordCategory);
+        if (existingIndex >= 0) nextPersonalRecords[existingIndex] = record; else nextPersonalRecords.unshift(record);
+      });
+      changed = true;
+    }
+  }
+  if (changed) {
+    personalRecords = nextPersonalRecords;
+    milestoneAchievements = nextMilestoneAchievements;
+    atlasPerformanceReviews = [buildAtlasPerformanceReview(personalRecords, milestoneAchievements, { entry, testAttempt, incompleteEvidence: entry?.evidenceStatus === "INCOMPLETE" || testAttempt?.evidenceStatus === "INCOMPLETE" }), ...nextAtlasReviews].slice(0, 8);
+    savePersonalRecordsToStorage(personalRecords, session?.user?.id || "local");
+    saveMilestoneAchievementsToStorage(milestoneAchievements, session?.user?.id || "local");
+    saveAtlasReviewsToStorage(atlasPerformanceReviews, session?.user?.id || "local");
+  }
+  return { personalRecords, milestoneAchievements, atlasPerformanceReviews };
+}
+
+function evaluateFitnessTestAttempt(attempt = {}, existingRecords = []) {
+  const validation = validateFitnessTestAttempt(attempt);
+  if (!validation.valid && validation.attempt.status !== "INCOMPLETE" && validation.attempt.status !== "DRAFT") return { records: [], attempt: validation.attempt };
+  const attemptSnapshot = validation.attempt;
+  const records = [];
+  if (attemptSnapshot.status === "COMPLETE" || attemptSnapshot.status === "INCOMPLETE") {
+    attemptSnapshot.eventResults.forEach((event) => {
+      if (event.rawValue === null || event.rawValue === undefined || !Number.isFinite(Number(event.rawValue))) return;
+      const recordCategory = "TEST_EVENT_PR";
+      const candidateEntry = normalizePerformanceEntry({
+        id: attemptSnapshot.id,
+        userId: attemptSnapshot.userId,
+        performanceDate: attemptSnapshot.testDate,
+        domain: "fitness_test",
+        entryType: "FORMAL_TEST",
+        activityName: attemptSnapshot.protocolName,
+        evidenceStatus: attemptSnapshot.evidenceStatus,
+        metrics: { test_event_value: Number(event.rawValue), event_code: event.eventCode, event_name: event.eventName, unit: event.unit, direction: event.comparisonDirection }
+      });
+      const comparable = selectComparablePerformanceEntries(existingRecords, candidateEntry, recordCategory);
+      const previousRecord = findCurrentPersonalRecord(comparable, recordCategory, buildPerformanceComparisonKey(candidateEntry, recordCategory), candidateEntry);
+      const currentValue = determineRecordValue(candidateEntry, recordCategory);
+      if (!Number.isFinite(Number(currentValue))) return;
+      const isBetter = previousRecord ? currentValue > previousRecord.normalizedValue : true;
+      if (!isBetter) return;
+      const snapshot = buildPersonalRecordSnapshot(candidateEntry, recordCategory, previousRecord, existingRecords);
+      if (snapshot) records.push(snapshot);
+    });
+    if (attemptSnapshot.overallScore !== null && attemptSnapshot.overallScore !== undefined) {
+      const candidateEntry = normalizePerformanceEntry({
+        id: attemptSnapshot.id,
+        userId: attemptSnapshot.userId,
+        performanceDate: attemptSnapshot.testDate,
+        domain: "fitness_test",
+        entryType: "FORMAL_TEST",
+        activityName: attemptSnapshot.protocolName,
+        evidenceStatus: attemptSnapshot.evidenceStatus,
+        metrics: { overall_score: Number(attemptSnapshot.overallScore) }
+      });
+      const comparable = selectComparablePerformanceEntries(existingRecords, candidateEntry, "TEST_SCORE_PR");
+      const previousRecord = findCurrentPersonalRecord(comparable, "TEST_SCORE_PR", buildPerformanceComparisonKey(candidateEntry, "TEST_SCORE_PR"), candidateEntry);
+      const currentValue = determineRecordValue(candidateEntry, "TEST_SCORE_PR");
+      if (Number.isFinite(Number(currentValue))) {
+        const isBetter = previousRecord ? currentValue > previousRecord.normalizedValue : true;
+        if (isBetter) {
+          const snapshot = buildPersonalRecordSnapshot(candidateEntry, "TEST_SCORE_PR", previousRecord, existingRecords);
+          if (snapshot) records.push(snapshot);
+        }
+      }
+    }
+  }
+  return { records, attempt: attemptSnapshot };
+}
+
+function getMilestoneCatalog() {
+  return MILESTONE_CATALOG.map((milestone) => ({ ...milestone }));
+}
+
+function evaluateMilestones(context = {}, existingMilestones = []) {
+  const entry = context.entry || null;
+  const testAttempt = context.testAttempt || null;
+  const bodyWeight = context.bodyWeight || null;
+  const achievements = [];
+  const normalizedEntry = entry ? normalizePerformanceEntry(entry) : null;
+  const normalizedTestAttempt = testAttempt ? normalizeFitnessTestAttempt(testAttempt) : null;
+  const milestoneCatalog = getMilestoneCatalog();
+  const existingCodes = new Set((existingMilestones || []).map((item) => item.milestoneCode));
+  if (normalizedEntry && normalizedEntry.domain === "strength" && normalizedEntry.activityCode === "bench_press" && normalizedEntry.metrics?.weight !== undefined) {
+    const firstBenchmark = milestoneCatalog.find((item) => item.code === "FIRST_STRENGTH_BENCHMARK");
+    if (firstBenchmark && !existingCodes.has(firstBenchmark.code)) achievements.push({ id: `milestone-${firstBenchmark.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: firstBenchmark.code, title: firstBenchmark.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { weight: Number(normalizedEntry.metrics.weight) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "strength" && normalizedEntry.activityCode === "bench_press" && normalizedEntry.metrics?.weight !== undefined && bodyWeight !== null && bodyWeight !== undefined && Number(bodyWeight) > 0 && Number(normalizedEntry.metrics.weight) / Number(bodyWeight) >= 1) {
+    const milestone = milestoneCatalog.find((item) => item.code === "BENCH_PRESS_BODYWEIGHT_1_0");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { ratio: Number(normalizedEntry.metrics.weight) / Number(bodyWeight) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "strength" && normalizedEntry.activityCode === "pull_up" && Number(normalizedEntry.metrics.repetitions) >= 20) {
+    const milestone = milestoneCatalog.find((item) => item.code === "PULL_UPS_20");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { repetitions: Number(normalizedEntry.metrics.repetitions) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "core" && normalizedEntry.activityCode === "plank" && Number(normalizedEntry.metrics.duration_seconds) >= 120) {
+    const milestone = milestoneCatalog.find((item) => item.code === "PLANK_2MIN");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { durationSeconds: Number(normalizedEntry.metrics.duration_seconds) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "core" && normalizedEntry.activityCode === "hanging_leg_raise" && Number(normalizedEntry.metrics.repetitions) >= 15) {
+    const milestone = milestoneCatalog.find((item) => item.code === "HANGING_LEG_RAISES_15");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { repetitions: Number(normalizedEntry.metrics.repetitions) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "conditioning" && normalizedEntry.activityCode === "burpee" && Number(normalizedEntry.metrics.repetitions) >= 75) {
+    const milestone = milestoneCatalog.find((item) => item.code === "BURPEES_75_10M");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { repetitions: Number(normalizedEntry.metrics.repetitions) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "running" && normalizedEntry.entryType === "RACE") {
+    const milestone = milestoneCatalog.find((item) => item.code === "FIRST_RACE_LOGGED");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { entryType: normalizedEntry.entryType }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "running" && Number(normalizedEntry.metrics.distance) === 1 && (normalizedEntry.metrics.distance_unit || "mi") === "mi" && Number(normalizedEntry.metrics.duration_seconds) <= 420) {
+    const milestone = milestoneCatalog.find((item) => item.code === "SUB_7_MILE");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { durationSeconds: Number(normalizedEntry.metrics.duration_seconds) }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedEntry && normalizedEntry.domain === "body_metrics") {
+    const milestone = milestoneCatalog.find((item) => item.code === "FIRST_BODY_METRIC_BASELINE");
+    if (milestone && !existingCodes.has(milestone.code)) achievements.push({ id: `milestone-${milestone.code}-${normalizedEntry.id}`, userId: normalizedEntry.userId || null, milestoneCode: milestone.code, title: milestone.title, achievedDate: normalizedEntry.performanceDate, sourceEntryId: normalizedEntry.id, sourceTestAttemptId: null, qualificationSnapshot: { measurementValue: normalizedEntry.metrics.measurement_value }, evidenceStatus: normalizedEntry.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  if (normalizedTestAttempt && normalizedTestAttempt.status === "COMPLETE" && normalizedTestAttempt.protocolCode === "DOMINION_MONTHLY_FITNESS_TEST") {
+    const firstTestMilestone = milestoneCatalog.find((item) => item.code === "FIRST_COMPLETE_DOMINION_TEST");
+    if (firstTestMilestone && !existingCodes.has(firstTestMilestone.code)) achievements.push({ id: `milestone-${firstTestMilestone.code}-${normalizedTestAttempt.id}`, userId: normalizedTestAttempt.userId || null, milestoneCode: firstTestMilestone.code, title: firstTestMilestone.title, achievedDate: normalizedTestAttempt.testDate, sourceEntryId: null, sourceTestAttemptId: normalizedTestAttempt.id, qualificationSnapshot: { protocolCode: normalizedTestAttempt.protocolCode, status: normalizedTestAttempt.status }, evidenceStatus: normalizedTestAttempt.evidenceStatus, createdAt: new Date().toISOString() });
+  }
+  return achievements;
+}
+
+function buildAtlasPerformanceReview(records = [], milestones = [], context = {}) {
+  const confirmedRecords = (records || []).filter((record) => record?.recordStatus === "CONFIRMED");
+  const estimatedRecords = (records || []).filter((record) => record?.recordStatus === "ESTIMATED");
+  const limitedEvidence = Boolean(context.incompleteEvidence || context.entry?.evidenceStatus === "INCOMPLETE" || context.testAttempt?.evidenceStatus === "INCOMPLETE");
+  const strongestResult = confirmedRecords[0] || estimatedRecords[0] || null;
+  const improvement = strongestResult?.improvementAbsolute ? `${strongestResult.improvementAbsolute.toFixed(1)}` : "—";
+  return {
+    id: `atlas-${stableSerializePerformanceValue({ records: records.length, milestones: milestones.length, context: context.entry?.id || context.testAttempt?.id || "none" })}`,
+    status: confirmedRecords.length ? "TEST COMPLETED" : "NO NEW RECORDS",
+    newRecords: confirmedRecords.length ? confirmedRecords.map((record) => record.recordCategory).join(", ") : "None",
+    milestones: milestones.length ? milestones.map((milestone) => milestone.title).join(" / ") : "None",
+    strongestResult: strongestResult ? `${strongestResult.activityName || strongestResult.recordCategory} • ${strongestResult.normalizedValue}` : "No comparable result",
+    improvement,
+    limitedEvidence,
+    nextBenchmark: confirmedRecords.length ? "Maintain evidentiary quality and repeat the benchmark." : "Complete a verified test or entry to generate a benchmark.",
+    commandNote: confirmedRecords.length ? "Confirmed result captured for review." : (estimatedRecords.length ? "Estimated result captured for review." : "No new record was generated."),
+    createdAt: new Date().toISOString()
+  };
+}
+
+function getFitnessTestPersistenceKey(userId = null) {
+  return `coach-dominion:fitness-tests:${userId || session?.user?.id || "local"}`;
+}
+
+function getPersonalRecordPersistenceKey(userId = null) {
+  return `coach-dominion:personal-records:${userId || session?.user?.id || "local"}`;
+}
+
+function getMilestonePersistenceKey(userId = null) {
+  return `coach-dominion:milestone-achievements:${userId || session?.user?.id || "local"}`;
+}
+
+function getAtlasReviewPersistenceKey(userId = null) {
+  return `coach-dominion:atlas-reviews:${userId || session?.user?.id || "local"}`;
+}
+
+function loadFitnessTestAttemptsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getFitnessTestPersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed.map((item) => normalizeFitnessTestAttempt(item)) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveFitnessTestAttemptsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    fitnessTestAttempts = Array.isArray(items) ? items.map((item) => normalizeFitnessTestAttempt(item)) : [];
+    window.localStorage.setItem(getFitnessTestPersistenceKey(userId), JSON.stringify(fitnessTestAttempts));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function loadPersonalRecordsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getPersonalRecordPersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function savePersonalRecordsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    personalRecords = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(getPersonalRecordPersistenceKey(userId), JSON.stringify(personalRecords));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function loadMilestoneAchievementsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getMilestonePersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveMilestoneAchievementsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    milestoneAchievements = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(getMilestonePersistenceKey(userId), JSON.stringify(milestoneAchievements));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function loadAtlasReviewsFromStorage(userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(getAtlasReviewPersistenceKey(userId));
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveAtlasReviewsToStorage(items = [], userId = null) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    atlasPerformanceReviews = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(getAtlasReviewPersistenceKey(userId), JSON.stringify(atlasPerformanceReviews));
+  } catch (_) {
+    // Ignore local persistence errors.
+  }
+}
+
+function ensurePerformanceAnalyticStateLoaded() {
+  if (!fitnessTestAttempts.length) fitnessTestAttempts = loadFitnessTestAttemptsFromStorage(session?.user?.id || "local");
+  if (!personalRecords.length) personalRecords = loadPersonalRecordsFromStorage(session?.user?.id || "local");
+  if (!milestoneAchievements.length) milestoneAchievements = loadMilestoneAchievementsFromStorage(session?.user?.id || "local");
+  if (!atlasPerformanceReviews.length) atlasPerformanceReviews = loadAtlasReviewsFromStorage(session?.user?.id || "local");
+}
+
+function calculateStrengthVolume(entry = {}) {
+  const metrics = entry?.metrics || {};
+  const sets = Number(metrics.sets);
+  const repetitions = Number(metrics.repetitions);
+  const weight = Number(metrics.weight);
+  if (!Number.isFinite(sets) || !Number.isFinite(repetitions) || !Number.isFinite(weight) || sets <= 0 || repetitions <= 0 || weight < 0) return { value: null, unit: "", label: "volume" };
+  return { value: sets * repetitions * weight, unit: "volume", label: "volume" };
+}
+
+function estimateOneRepMax(entry = {}) {
+  const metrics = entry?.metrics || {};
+  if (entry?.domain !== "strength") return null;
+  const weight = Number(metrics.weight);
+  const repetitions = Number(metrics.repetitions);
+  if (!Number.isFinite(weight) || !Number.isFinite(repetitions) || repetitions <= 0 || weight < 0) return null;
+  return { value: weight * (1 + repetitions / 30), label: "estimated" };
+}
+
+function calculateRunningPace(entry = {}) {
+  const metrics = entry?.metrics || {};
+  if (entry?.domain !== "running") return null;
+  const distance = Number(metrics.distance);
+  const durationSeconds = Number(metrics.duration_seconds);
+  if (!Number.isFinite(distance) || !Number.isFinite(durationSeconds) || distance <= 0 || durationSeconds <= 0) return null;
+  return { paceSecondsPerUnit: durationSeconds / distance, durationSeconds, distance, distanceUnit: metrics.distance_unit || metrics.distanceUnit || "mi" };
+}
+
+function getPerformanceDomainCatalog() {
+  return PERFORMANCE_DOMAINS.map((code) => ({ code, label: PERFORMANCE_DOMAIN_LABELS[code] }));
+}
+
+function getPerformanceActivityCatalog(domain = "strength") {
+  const normalized = normalizePerformanceDomain(domain) || "strength";
+  return (PERFORMANCE_ACTIVITY_CATALOG[normalized] || []).map((activity) => ({ ...activity }));
+}
+
+function buildPerformancePersistencePayload(entry = {}, userId = null) {
+  const normalized = normalizePerformanceEntry(entry);
+  const resolvedUserId = userId || normalized.userId || null;
+  return {
+    id: normalized.id || null,
+    user_id: resolvedUserId,
+    performance_date: normalized.performanceDate,
+    performance_time: normalized.performanceTime,
+    domain: normalized.domain,
+    entry_type: normalized.entryType,
+    activity_code: normalized.activityCode,
+    activity_name: normalized.activityName,
+    session_name: normalized.sessionName || null,
+    source: normalized.source,
+    evidence_status: normalized.evidenceStatus,
+    metrics: normalized.provenance ? { ...(normalized.metrics || {}), source_provenance: normalized.provenance } : (normalized.metrics || {}),
+    notes: normalized.notes || null,
+    created_at: normalized.createdAt,
+    updated_at: normalized.updatedAt
+  };
+}
+
+function hydratePerformanceEntry(row = {}) {
+  const entry = normalizePerformanceEntry({
+    id: row.id,
+    userId: row.user_id || row.userId,
+    performanceDate: row.performance_date || row.performanceDate,
+    performanceTime: row.performance_time || row.performanceTime,
+    domain: row.domain,
+    entryType: row.entry_type || row.entryType,
+    activityCode: row.activity_code || row.activityCode,
+    activityName: row.activity_name || row.activityName,
+    sessionName: row.session_name || row.sessionName,
+    source: row.source,
+    notes: row.notes,
+    evidenceStatus: row.evidence_status || row.evidenceStatus,
+    metrics: row.metrics,
+    createdAt: row.created_at || row.createdAt,
+    updatedAt: row.updated_at || row.updatedAt
+  });
+  const provenance = row.provenance || row.metrics?.source_provenance;
+  if (provenance) entry.provenance = JSON.parse(JSON.stringify(provenance));
+  return entry;
+}
+
+function summarizeRecentPerformance(entries = [], options = {}) {
+  const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
+  const requestedReferenceDate = options?.referenceDate;
+  const referenceDate = parseISODateUTC(requestedReferenceDate) || parseISODateUTC(todayISODate()) || new Date();
+  const referenceDateISO = formatISODateUTC(referenceDate);
+  const weekStart = new Date(referenceDate);
+  weekStart.setUTCDate(referenceDate.getUTCDate() - ((referenceDate.getUTCDay() + 6) % 7));
+  const weekStartISO = formatISODateUTC(weekStart);
+  const currentWeek = normalizedEntries.filter((entry) => entry.performanceDate >= weekStartISO && entry.performanceDate <= referenceDateISO);
+  const strengthEntries = currentWeek.filter((entry) => entry.domain === "strength");
+  const runEntries = currentWeek.filter((entry) => entry.domain === "running");
+  const testEntries = currentWeek.filter((entry) => entry.entryType === "BENCHMARK" || entry.entryType === "FORMAL_TEST");
+  return {
+    entriesThisWeek: currentWeek.length,
+    mostRecentStrengthEntry: strengthEntries.sort((a, b) => (a.performanceDate > b.performanceDate ? -1 : 1))[0] || null,
+    mostRecentRun: runEntries.sort((a, b) => (a.performanceDate > b.performanceDate ? -1 : 1))[0] || null,
+    mostRecentBenchmarkOrFormalTest: testEntries.sort((a, b) => (a.performanceDate > b.performanceDate ? -1 : 1))[0] || null,
+    domainsRepresentedThisWeek: Array.from(new Set(currentWeek.map((entry) => entry.domain))).filter(Boolean)
+  };
+}
+
+function buildCoreWorkspaceModel(entries = [], achievements = [], options = {}) {
+  const requestedReferenceDate = options?.referenceDate;
+  const referenceDate = parseISODateUTC(requestedReferenceDate) || parseISODateUTC(todayISODate()) || new Date();
+  const referenceDateISO = formatISODateUTC(referenceDate);
+  const weekStart = new Date(referenceDate);
+  weekStart.setUTCDate(referenceDate.getUTCDate() - ((referenceDate.getUTCDay() + 6) % 7));
+  const weekStartISO = formatISODateUTC(weekStart);
+  const coreEntries = (entries || [])
+    .map((entry) => normalizePerformanceEntry(entry))
+    .filter((entry) => entry.domain === "core" && entry.performanceDate <= referenceDateISO)
+    .sort((left, right) => {
+      const dateDelta = parsePerformanceDateTimeToEpoch(right.performanceDate, right.performanceTime) - parsePerformanceDateTimeToEpoch(left.performanceDate, left.performanceTime);
+      return dateDelta || String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
+    });
+  const weeklyEntries = coreEntries.filter((entry) => entry.performanceDate >= weekStartISO);
+  const totalRepetitions = weeklyEntries.reduce((total, entry) => total + Math.max(0, Number(entry.metrics?.repetitions) || 0), 0);
+  const totalDurationSeconds = weeklyEntries.reduce((total, entry) => total + Math.max(0, Number(entry.metrics?.duration_seconds) || 0), 0);
+  const achievedCodes = new Set((achievements || []).map((achievement) => String(achievement?.milestoneCode || achievement?.milestone_code || "")).filter(Boolean));
+  const coreMilestones = MILESTONE_CATALOG.filter((milestone) => milestone.active !== false && milestone.domain === "core");
+  const milestoneProgress = coreMilestones.map((milestone) => {
+    const relevantEntries = coreEntries.filter((entry) => !milestone.requiredActivity || entry.activityCode === milestone.requiredActivity);
+    let currentValue = 0;
+    if (milestone.evaluationType === "entry") currentValue = relevantEntries.length;
+    if (milestone.evaluationType === "duration") currentValue = Math.max(0, ...relevantEntries.map((entry) => Number(entry.metrics?.duration_seconds) || 0));
+    if (milestone.evaluationType === "repetitions") currentValue = Math.max(0, ...relevantEntries.map((entry) => Number(entry.metrics?.repetitions) || 0));
+    const metByEvidence = milestone.direction === "lower"
+      ? currentValue > 0 && currentValue <= milestone.targetValue
+      : currentValue >= milestone.targetValue;
+    const achieved = achievedCodes.has(milestone.code) || metByEvidence;
+    return {
+      ...milestone,
+      achieved,
+      currentValue,
+      progressPercent: achieved ? 100 : Math.min(99, Math.max(0, Math.round((currentValue / Math.max(1, Number(milestone.targetValue))) * 100)))
+    };
+  });
+  const nextMilestone = milestoneProgress.find((milestone) => !milestone.achieved) || null;
+  return {
+    status: weeklyEntries.length ? "ACTIVE THIS WEEK" : coreEntries.length ? "HISTORY READY" : "NO CORE EVIDENCE",
+    weekStart: weekStartISO,
+    referenceDate: referenceDateISO,
+    sessionsThisWeek: weeklyEntries.length,
+    totalRepetitions,
+    totalDurationSeconds,
+    activeDays: new Set(weeklyEntries.map((entry) => entry.performanceDate)).size,
+    recentEntries: coreEntries.slice(0, 5),
+    completedMilestones: milestoneProgress.filter((milestone) => milestone.achieved).length,
+    totalMilestones: milestoneProgress.length,
+    nextMilestone
+  };
+}
+
+function filterPerformanceEntries(entries = [], filters = {}) {
+  const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
+  const normalizedFilters = {
+    date: String(filters.date || "").trim(),
+    domain: normalizePerformanceDomain(filters.domain),
+    activity: String(filters.activity || "").trim().toLowerCase(),
+    entryType: normalizePerformanceEntryType(filters.entryType)
+  };
+  return normalizedEntries.filter((entry) => {
+    if (normalizedFilters.date && entry.performanceDate !== normalizedFilters.date) return false;
+    if (normalizedFilters.domain && entry.domain !== normalizedFilters.domain) return false;
+    if (normalizedFilters.activity && !String(entry.activityName || "").toLowerCase().includes(normalizedFilters.activity)) return false;
+    if (normalizedFilters.entryType && entry.entryType !== normalizedFilters.entryType) return false;
+    return true;
+  });
+}
+
+function removePerformanceEntry(entries = [], entryId = null) {
+  if (entryId === null || entryId === undefined || entryId === "") return Array.isArray(entries) ? entries : [];
+  const normalizedId = String(entryId).trim();
+  const list = Array.isArray(entries) ? entries : [];
+  const matchedIndex = list.findIndex((entry) => String(entry?.id ?? "") === normalizedId);
+  if (matchedIndex >= 0) {
+    return list.filter((_, index) => index !== matchedIndex);
+  }
+  return list;
+}
+
+function derivePerformanceEmptyState(options = {}) {
+  return {
+    visible: true,
+    message: options.message || "No performance entries yet.",
+    storageState: options.storageState || "empty"
+  };
+}
+
+function normalizeIntelligenceEvidenceStatus(value = "") {
+  const normalized = String(value || "").trim().toUpperCase().replaceAll("_", " ");
+  if (normalized === "VERIFIED") return "VERIFIED";
+  if (normalized === "ESTIMATED") return "ESTIMATED";
+  if (normalized === "INCOMPLETE") return "INCOMPLETE";
+  if (normalized === "INVALIDATED") return "INVALIDATED";
+  return "SELF REPORTED";
+}
+
+function metricDirectionForCategory(metricCategory = "") {
+  if (metricCategory.includes("time")) return "lower";
+  return "higher";
+}
+
+function normalizePerformanceViewCode(view = "today_training") {
+  const normalized = String(view || "").trim().toLowerCase();
+  const aliased = PERFORMANCE_VIEW_ALIASES[normalized] || normalized;
+  return PERFORMANCE_VIEW_CODES.includes(aliased) ? aliased : "today_training";
+}
+
+function parsePerformanceDateTimeToEpoch(date = "", time = "") {
+  const dateText = String(date || "").trim();
+  if (!dateText) return Number.POSITIVE_INFINITY;
+  const iso = time ? `${dateText}T${time}` : `${dateText}T00:00:00`;
+  const value = Date.parse(iso);
+  if (Number.isFinite(value)) return value;
+  const fallback = Date.parse(`${dateText}T00:00:00`);
+  return Number.isFinite(fallback) ? fallback : Number.POSITIVE_INFINITY;
+}
+
+function compareSeriesPoints(a = {}, b = {}) {
+  const aEpoch = parsePerformanceDateTimeToEpoch(a.date, a.time);
+  const bEpoch = parsePerformanceDateTimeToEpoch(b.date, b.time);
+  if (aEpoch !== bEpoch) return aEpoch - bEpoch;
+  const aCreated = Date.parse(a.createdAt || "");
+  const bCreated = Date.parse(b.createdAt || "");
+  if (Number.isFinite(aCreated) && Number.isFinite(bCreated) && aCreated !== bCreated) return aCreated - bCreated;
+  return Number(a.sourceIndex || 0) - Number(b.sourceIndex || 0);
+}
+
+function toFiniteNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatComparableDecimal(value) {
+  if (!Number.isFinite(Number(value))) return "unknown";
+  return Number(value).toString();
+}
+
+function buildStrengthVariantTag(entry = {}) {
+  const metrics = entry.metrics || {};
+  const assistance = sanitizePerformanceText(metrics.assistance || "", 40).toLowerCase().replace(/\s+/g, "_");
+  const bodyweightAdded = toFiniteNumber(metrics.bodyweight_added);
+  if (assistance) return assistance;
+  if (Number.isFinite(bodyweightAdded) && bodyweightAdded !== 0) return bodyweightAdded > 0 ? `weighted_${formatComparableDecimal(bodyweightAdded)}` : `assisted_${formatComparableDecimal(Math.abs(bodyweightAdded))}`;
+  return "standard";
+}
+
+function buildCoreConditioningProtocolTag(entry = {}) {
+  const metrics = entry.metrics || {};
+  const segments = [];
+  if (Number.isFinite(toFiniteNumber(metrics.distance))) {
+    segments.push(`distance_${formatComparableDecimal(toFiniteNumber(metrics.distance))}`);
+  }
+  if (Number.isFinite(toFiniteNumber(metrics.duration_seconds))) {
+    segments.push(`cap_${formatComparableDecimal(toFiniteNumber(metrics.duration_seconds))}`);
+  }
+  if (Number.isFinite(toFiniteNumber(metrics.work_interval_seconds))) {
+    segments.push(`work_${formatComparableDecimal(toFiniteNumber(metrics.work_interval_seconds))}`);
+  }
+  if (Number.isFinite(toFiniteNumber(metrics.rest_interval_seconds))) {
+    segments.push(`rest_${formatComparableDecimal(toFiniteNumber(metrics.rest_interval_seconds))}`);
+  }
+  return segments.length ? segments.join(":") : "default";
+}
+
+function isSeriesPointValid(point = {}) {
+  if (!Number.isFinite(Number(point.normalizedValue))) return false;
+  if (point.sourceStatusIndicator === "INVALIDATED" || point.sourceStatusIndicator === "INCOMPLETE") return false;
+  return point.validity !== false;
+}
+
+function pushComparablePoint(target = [], point = {}) {
+  if (!point || !point.comparisonKey) return;
+  target.push({
+    domain: point.domain,
+    activityCode: point.activityCode,
+    activityName: point.activityName,
+    metricCategory: point.metricCategory,
+    comparisonKey: point.comparisonKey,
+    direction: point.direction,
+    normalizedUnit: point.normalizedUnit,
+    date: point.date,
+    time: point.time || null,
+    normalizedValue: Number(point.normalizedValue),
+    sourceEntryId: point.sourceEntryId || null,
+    sourceTestAttemptId: point.sourceTestAttemptId || null,
+    evidenceStatus: point.evidenceStatus,
+    recordStatus: point.recordStatus || null,
+    estimatedOnly: Boolean(point.estimatedOnly),
+    verified: Boolean(point.verified),
+    validity: point.validity !== false,
+    sourceStatusIndicator: point.sourceStatusIndicator || "VALID",
+    createdAt: point.createdAt || null,
+    sourceIndex: Number(point.sourceIndex || 0)
+  });
+}
+
+function buildComparablePointsFromPerformanceEntry(entry = {}, sourceIndex = 0) {
+  const points = [];
+  const normalized = normalizePerformanceEntry(entry);
+  const metrics = normalized.metrics || {};
+  const evidenceStatus = normalizeIntelligenceEvidenceStatus(normalized.evidenceStatus);
+  const sourceStatusIndicator = evidenceStatus === "INCOMPLETE" ? "INCOMPLETE" : "VALID";
+  const base = {
+    domain: normalized.domain,
+    activityCode: normalized.activityCode || "custom",
+    activityName: normalized.activityName || "Activity",
+    date: normalized.performanceDate,
+    time: normalized.performanceTime,
+    sourceEntryId: normalized.id,
+    sourceTestAttemptId: null,
+    evidenceStatus,
+    sourceStatusIndicator,
+    estimatedOnly: evidenceStatus === "ESTIMATED",
+    verified: evidenceStatus === "VERIFIED",
+    validity: sourceStatusIndicator === "VALID",
+    createdAt: normalized.createdAt,
+    sourceIndex
+  };
+
+  if (normalized.domain === "strength") {
+    const variantTag = buildStrengthVariantTag(normalized);
+    const unit = String(metrics.weight_unit || "lb").toLowerCase();
+    const weight = toFiniteNumber(metrics.weight);
+    const repetitions = toFiniteNumber(metrics.repetitions);
+    const sets = toFiniteNumber(metrics.sets);
+    if (Number.isFinite(weight) && weight > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_load", comparisonKey: `strength:${base.activityCode}:load:${variantTag}:${unit}`, direction: "higher", normalizedUnit: unit, normalizedValue: weight });
+    }
+    if (Number.isFinite(weight) && weight > 0 && Number.isFinite(repetitions) && repetitions > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_repetitions_at_load", comparisonKey: `strength:${base.activityCode}:repetitions_at_load:${variantTag}:${unit}:${formatComparableDecimal(weight)}`, direction: "higher", normalizedUnit: "repetitions", normalizedValue: repetitions });
+      const estimated = estimateOneRepMax(normalized);
+      if (estimated && Number.isFinite(toFiniteNumber(estimated.value))) {
+        pushComparablePoint(points, { ...base, metricCategory: "strength_estimated_1rm", comparisonKey: `strength:${base.activityCode}:estimated_1rm:${variantTag}:${unit}`, direction: "higher", normalizedUnit: unit, normalizedValue: Number(estimated.value), estimatedOnly: true, verified: false });
+      }
+    }
+    if (Number.isFinite(weight) && weight > 0 && Number.isFinite(repetitions) && repetitions > 0 && Number.isFinite(sets) && sets > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_volume", comparisonKey: `strength:${base.activityCode}:volume:${variantTag}:${unit}`, direction: "higher", normalizedUnit: `${unit}_reps`, normalizedValue: sets * repetitions * weight });
+    }
+    const verifiedOneRepMax = toFiniteNumber(metrics.verified_1rm ?? metrics.verified_one_rep_max ?? metrics.verifiedOneRepMax);
+    if (Number.isFinite(verifiedOneRepMax) && verifiedOneRepMax > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: "strength_verified_1rm", comparisonKey: `strength:${base.activityCode}:verified_1rm:${variantTag}:${unit}`, direction: "higher", normalizedUnit: unit, normalizedValue: verifiedOneRepMax, estimatedOnly: false, verified: evidenceStatus === "VERIFIED" });
+    }
+  }
+
+  if (normalized.domain === "running") {
+    const distance = toFiniteNumber(metrics.distance);
+    const durationSeconds = toFiniteNumber(metrics.duration_seconds);
+    if (Number.isFinite(distance) && distance > 0 && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      const distanceKey = normalizeRunningDistanceCategory(distance, metrics.distance_unit || "mi");
+      pushComparablePoint(points, { ...base, metricCategory: "running_time", comparisonKey: `running:${distanceKey}:time`, direction: "lower", normalizedUnit: "seconds", normalizedValue: durationSeconds });
+    }
+  }
+
+  if (normalized.domain === "core" || normalized.domain === "conditioning") {
+    const protocolTag = buildCoreConditioningProtocolTag(normalized);
+    const repetitions = toFiniteNumber(metrics.repetitions);
+    const durationSeconds = toFiniteNumber(metrics.duration_seconds);
+    const distance = toFiniteNumber(metrics.distance);
+    const calories = toFiniteNumber(metrics.calories);
+    const rounds = toFiniteNumber(metrics.rounds);
+    if (Number.isFinite(repetitions) && repetitions > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_repetitions`, comparisonKey: `${normalized.domain}:${base.activityCode}:repetitions:${protocolTag}`, direction: "higher", normalizedUnit: "repetitions", normalizedValue: repetitions });
+    }
+    if (Number.isFinite(durationSeconds) && durationSeconds > 0 && !Number.isFinite(repetitions)) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_duration`, comparisonKey: `${normalized.domain}:${base.activityCode}:duration:${protocolTag}`, direction: "higher", normalizedUnit: "seconds", normalizedValue: durationSeconds });
+    }
+    if (Number.isFinite(distance) && distance > 0 && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_time_at_distance`, comparisonKey: `${normalized.domain}:${base.activityCode}:time_at_distance:${protocolTag}`, direction: "lower", normalizedUnit: "seconds", normalizedValue: durationSeconds });
+    }
+    if (Number.isFinite(calories) && calories > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_calories`, comparisonKey: `${normalized.domain}:${base.activityCode}:calories:${protocolTag}`, direction: "higher", normalizedUnit: "calories", normalizedValue: calories });
+    }
+    if (Number.isFinite(rounds) && rounds > 0) {
+      pushComparablePoint(points, { ...base, metricCategory: `${normalized.domain}_rounds`, comparisonKey: `${normalized.domain}:${base.activityCode}:rounds:${protocolTag}`, direction: "higher", normalizedUnit: "rounds", normalizedValue: rounds });
+    }
+  }
+
+  return points;
+}
+
+function buildComparablePerformanceSeries(entries = []) {
+  const flatPoints = [];
+  (entries || []).forEach((entry, sourceIndex) => {
+    const points = buildComparablePointsFromPerformanceEntry(entry, sourceIndex);
+    points.forEach((point) => flatPoints.push(point));
+  });
+
+  const grouped = new Map();
+  flatPoints.forEach((point) => {
+    if (!grouped.has(point.comparisonKey)) grouped.set(point.comparisonKey, []);
+    grouped.get(point.comparisonKey).push(point);
+  });
+
+  const series = Array.from(grouped.values()).map((items) => {
+    const sortedItems = [...items].sort(compareSeriesPoints);
+    const validItems = sortedItems.filter((item) => isSeriesPointValid(item));
+    const first = sortedItems[0] || {};
+    return {
+      domain: first.domain || null,
+      activityCode: first.activityCode || null,
+      activityName: first.activityName || null,
+      metricCategory: first.metricCategory || null,
+      comparisonKey: first.comparisonKey || null,
+      direction: first.direction || metricDirectionForCategory(first.metricCategory || ""),
+      normalizedUnit: first.normalizedUnit || "value",
+      points: sortedItems,
+      validPoints: validItems,
+      validCount: validItems.length,
+      evidenceStatuses: Array.from(new Set(sortedItems.map((item) => item.evidenceStatus)))
+    };
+  }).sort((a, b) => String(a.comparisonKey || "").localeCompare(String(b.comparisonKey || "")));
+
+  return {
+    series,
+    seriesByKey: Object.fromEntries(series.map((item) => [item.comparisonKey, item])),
+    pointCount: flatPoints.length,
+    validPointCount: flatPoints.filter((item) => isSeriesPointValid(item)).length
+  };
+}
+
+function average(values = []) {
+  const valid = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value));
+  if (!valid.length) return null;
+  return valid.reduce((sum, value) => sum + value, 0) / valid.length;
+}
+
+function median(values = []) {
+  const valid = values.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value)).sort((a, b) => a - b);
+  if (!valid.length) return null;
+  const midpoint = Math.floor(valid.length / 2);
+  if (valid.length % 2) return valid[midpoint];
+  return (valid[midpoint - 1] + valid[midpoint]) / 2;
+}
+
+function standardDeviation(values = []) {
+  const mean = average(values);
+  if (!Number.isFinite(mean)) return null;
+  const variance = average(values.map((value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? (numeric - mean) ** 2 : null;
+  }));
+  return Number.isFinite(variance) ? Math.sqrt(variance) : null;
+}
+
+function calculateDirectionAwareChange(currentValue = null, previousValue = null, direction = "higher") {
+  const current = toFiniteNumber(currentValue);
+  const previous = toFiniteNumber(previousValue);
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+  return direction === "lower" ? previous - current : current - previous;
+}
+
+function calculateDirectionAwarePercentChange(currentValue = null, previousValue = null, direction = "higher") {
+  const current = toFiniteNumber(currentValue);
+  const previous = toFiniteNumber(previousValue);
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) return null;
+  const delta = calculateDirectionAwareChange(current, previous, direction);
+  if (!Number.isFinite(delta)) return null;
+  return (delta / Math.abs(previous)) * 100;
+}
+
+function detectPerformanceNoise(points = [], direction = "higher") {
+  const validPoints = (points || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < 4) return false;
+  const deltas = [];
+  for (let index = 1; index < validPoints.length; index += 1) {
+    const delta = calculateDirectionAwarePercentChange(validPoints[index].normalizedValue, validPoints[index - 1].normalizedValue, direction);
+    if (Number.isFinite(delta)) deltas.push(delta);
+  }
+  if (deltas.length < 3) return false;
+  const signFlips = deltas.slice(1).reduce((count, value, index) => {
+    const prior = deltas[index];
+    if (prior === 0 || value === 0) return count;
+    return Math.sign(prior) !== Math.sign(value) ? count + 1 : count;
+  }, 0);
+  const absoluteDeltas = deltas.map((value) => Math.abs(value));
+  const variability = standardDeviation(absoluteDeltas);
+  const band = Math.max(...absoluteDeltas) - Math.min(...absoluteDeltas);
+  return signFlips >= 2 && Number.isFinite(variability) && variability >= 1 && band >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.noisyBandPct;
+}
+
+function classifyPerformanceTrajectory(trend = {}) {
+  if (!trend || trend.validCount < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) return "INSUFFICIENT DATA";
+  if (trend.noisy) return "NOISY";
+  const pct = Number(trend.recentNetPercent || 0);
+  const absPct = Math.abs(pct);
+  if (absPct < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.meaningfulChangePct) return "STABLE";
+  if (pct >= 3) return "STRONGLY IMPROVING";
+  if (pct >= 1) return "IMPROVING";
+  if (pct <= -3) return "STRONGLY DECLINING";
+  return "DECLINING";
+}
+
+function calculateTrendConfidence(series = {}, trajectory = "INSUFFICIENT DATA") {
+  const points = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (points.length < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) return "INSUFFICIENT";
+  const estimatedOnly = points.every((point) => point.evidenceStatus === "ESTIMATED");
+  if (estimatedOnly) return "LOW";
+  const verifiedCount = points.filter((point) => point.evidenceStatus === "VERIFIED").length;
+  const verifiedShare = verifiedCount / points.length;
+  const latestEpoch = parsePerformanceDateTimeToEpoch(points[points.length - 1]?.date, points[points.length - 1]?.time);
+  const daysOld = Number.isFinite(latestEpoch) ? Math.floor((Date.now() - latestEpoch) / 86400000) : 365;
+  let score = 0;
+  if (points.length >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.preferredConfidenceSeries) score += 2;
+  else if (points.length >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) score += 1;
+  if (verifiedShare >= 0.6) score += 1;
+  if (daysOld <= 45) score += 1;
+  if (trajectory === "IMPROVING" || trajectory === "STRONGLY IMPROVING" || trajectory === "STABLE") score += 1;
+  if (score >= 4) return "HIGH";
+  if (score >= 3) return "MODERATE";
+  return "LOW";
+}
+
+function calculateSeriesTrend(series = {}) {
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  const direction = series.direction || "higher";
+  const validCount = validPoints.length;
+  if (validCount < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) {
+    return {
+      validCount,
+      direction,
+      recentNetChange: null,
+      recentNetPercent: null,
+      priorNetPercent: null,
+      consistency: 0,
+      noisy: false,
+      trajectory: "INSUFFICIENT DATA",
+      confidence: "INSUFFICIENT"
+    };
+  }
+  const recentWindow = validPoints.slice(-PERFORMANCE_INTELLIGENCE_WINDOW_RULES.recentWindowSize);
+  const priorWindow = validPoints.slice(-(PERFORMANCE_INTELLIGENCE_WINDOW_RULES.recentWindowSize + PERFORMANCE_INTELLIGENCE_WINDOW_RULES.priorWindowSize), -PERFORMANCE_INTELLIGENCE_WINDOW_RULES.recentWindowSize);
+  const deltas = [];
+  for (let index = 1; index < recentWindow.length; index += 1) {
+    const delta = calculateDirectionAwareChange(recentWindow[index].normalizedValue, recentWindow[index - 1].normalizedValue, direction);
+    if (Number.isFinite(delta)) deltas.push(delta);
+  }
+  const positiveMoves = deltas.filter((value) => value > 0).length;
+  const consistency = deltas.length ? positiveMoves / deltas.length : 0;
+  const recentNetChange = calculateDirectionAwareChange(recentWindow[recentWindow.length - 1].normalizedValue, recentWindow[0].normalizedValue, direction);
+  const recentNetPercent = calculateDirectionAwarePercentChange(recentWindow[recentWindow.length - 1].normalizedValue, recentWindow[0].normalizedValue, direction);
+  const priorNetPercent = priorWindow.length >= 2
+    ? calculateDirectionAwarePercentChange(priorWindow[priorWindow.length - 1].normalizedValue, priorWindow[0].normalizedValue, direction)
+    : null;
+  const noisy = detectPerformanceNoise(recentWindow, direction) || detectPerformanceNoise(validPoints, direction);
+  const trajectory = classifyPerformanceTrajectory({ validCount, noisy, recentNetPercent, consistency });
+  const confidence = calculateTrendConfidence(series, trajectory);
+  return {
+    validCount,
+    direction,
+    recentNetChange,
+    recentNetPercent,
+    priorNetPercent,
+    consistency,
+    noisy,
+    trajectory,
+    confidence
+  };
+}
+
+function detectPerformancePlateau(series = {}, trend = null) {
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < 4) return { state: "INSUFFICIENT DATA", reason: "Not enough comparable observations." };
+  const direction = series.direction || "higher";
+  const recent = validPoints.slice(-4).map((point) => Number(point.normalizedValue));
+  const recentMin = Math.min(...recent);
+  const recentMax = Math.max(...recent);
+  const mean = Math.abs(average(recent) || 0);
+  const bandPct = mean > 0 ? ((recentMax - recentMin) / mean) * 100 : 0;
+  const recentDeltaPct = calculateDirectionAwarePercentChange(recent[recent.length - 1], recent[0], direction) || 0;
+  const noMeaningfulImprovement = recentDeltaPct < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.meaningfulChangePct;
+  if (trend && trend.trajectory.includes("DECLINING")) return { state: "NO PLATEAU", reason: "Recent movement is declining rather than flat." };
+  if (bandPct >= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.noisyBandPct) return { state: "NO PLATEAU", reason: "Variability is too high for a plateau call." };
+  if (bandPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.likelyPlateauBandPct && noMeaningfulImprovement && validPoints.length >= 6) {
+    return { state: "LIKELY PLATEAU", reason: "Comparable results are clustered with no meaningful improvement." };
+  }
+  if (bandPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.possiblePlateauBandPct && noMeaningfulImprovement) {
+    return { state: "POSSIBLE PLATEAU", reason: "Recent results are tight with limited improvement." };
+  }
+  return { state: "NO PLATEAU", reason: "Recent movement is still meaningful." };
+}
+
+function detectRecentRegression(series = {}, trend = null) {
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < 3) return { state: "INSUFFICIENT DATA", reason: "Not enough recent data." };
+  const direction = series.direction || "higher";
+  const recent = validPoints.slice(-3);
+  const deltasPct = [];
+  for (let index = 1; index < recent.length; index += 1) {
+    const pct = calculateDirectionAwarePercentChange(recent[index].normalizedValue, recent[index - 1].normalizedValue, direction);
+    if (Number.isFinite(pct)) deltasPct.push(pct);
+  }
+  const negative = deltasPct.filter((value) => value < -PERFORMANCE_INTELLIGENCE_WINDOW_RULES.meaningfulChangePct).length;
+  const extremeNegative = deltasPct.some((value) => value <= -PERFORMANCE_INTELLIGENCE_WINDOW_RULES.likelyRegressionPct);
+  if (negative >= 2) return { state: "LIKELY REGRESSION", reason: "Multiple recent comparable declines are present." };
+  if (negative === 1 && (extremeNegative || trend?.trajectory === "DECLINING" || trend?.trajectory === "STRONGLY DECLINING")) return { state: "POSSIBLE REGRESSION", reason: "A recent decline needs confirmation." };
+  return { state: "NO REGRESSION", reason: "No sustained recent decline was detected." };
+}
+
+function formatIntelligenceDelta(value = null, unit = "", direction = "higher") {
+  if (!Number.isFinite(Number(value))) return "No meaningful change";
+  const numeric = Number(value);
+  const sign = numeric > 0 ? "+" : "";
+  if (direction === "lower") {
+    return `${sign}${numeric.toFixed(2)} ${unit}`.trim();
+  }
+  return `${sign}${numeric.toFixed(2)} ${unit}`.trim();
+}
+
+function resolveRunningMilestoneDistanceKey(milestone = {}) {
+  const code = String(milestone.code || "").toUpperCase();
+  if (code.includes("5K")) return "5k";
+  if (code.includes("HALF")) return "half_marathon";
+  if (code.includes("MILE")) return "1mi";
+  return null;
+}
+
+function collectRecentBodyweightEvidence(entries = []) {
+  const candidates = (entries || []).map((entry, index) => ({ entry: normalizePerformanceEntry(entry), index })).filter(({ entry }) => entry.domain === "body_metrics" && entry.activityCode === "bodyweight" && Number.isFinite(toFiniteNumber(entry.metrics?.measurement_value)) && normalizeIntelligenceEvidenceStatus(entry.evidenceStatus) !== "INCOMPLETE");
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => compareSeriesPoints({ date: a.entry.performanceDate, time: a.entry.performanceTime, sourceIndex: a.index }, { date: b.entry.performanceDate, time: b.entry.performanceTime, sourceIndex: b.index }));
+  const latest = candidates[candidates.length - 1]?.entry;
+  return latest ? { value: Number(latest.metrics.measurement_value), unit: latest.metrics.measurement_unit || "kg", date: latest.performanceDate, evidenceStatus: latest.evidenceStatus } : null;
+}
+
+function calculateBenchmarkProximity(milestone = {}, entries = []) {
+  if (!milestone || !milestone.active) return { eligible: false, reason: "inactive milestone" };
+  if (milestone.domain === "body_metrics") return { eligible: false, reason: "body metrics are not benchmark trophies" };
+  if (milestone.evaluationType === "entry" || milestone.evaluationType === "test") return { eligible: false, reason: "count-based milestones are excluded from proximity ranking" };
+  const normalizedEntries = (entries || []).map((entry) => normalizePerformanceEntry(entry));
+  const filtered = normalizedEntries.filter((entry) => entry.domain === milestone.domain && normalizeIntelligenceEvidenceStatus(entry.evidenceStatus) !== "INCOMPLETE");
+  if (!filtered.length) return { eligible: false, reason: "no comparable entries" };
+
+  if (milestone.evaluationType === "ratio") {
+    const bodyweight = collectRecentBodyweightEvidence(normalizedEntries);
+    if (!bodyweight || !Number.isFinite(bodyweight.value) || bodyweight.value <= 0) return { eligible: false, reason: "missing bodyweight evidence" };
+    const matching = filtered.filter((entry) => (!milestone.requiredActivity || entry.activityCode === milestone.requiredActivity) && Number.isFinite(toFiniteNumber(entry.metrics?.weight)));
+    if (!matching.length) return { eligible: false, reason: "missing comparable load evidence" };
+    const bestLoad = Math.max(...matching.map((entry) => Number(entry.metrics.weight)));
+    const ratio = bestLoad / bodyweight.value;
+    const target = Number(milestone.targetValue);
+    return {
+      eligible: true,
+      milestoneCode: milestone.code,
+      title: milestone.title,
+      domain: milestone.domain,
+      direction: "higher",
+      target,
+      current: ratio,
+      gapAbsolute: target - ratio,
+      progressPct: target > 0 ? Math.min((ratio / target) * 100, 100) : null,
+      comparisonNote: `${bestLoad.toFixed(2)} / ${bodyweight.value.toFixed(2)} bodyweight`
+    };
+  }
+
+  let comparable = filtered;
+  if (milestone.requiredActivity) comparable = comparable.filter((entry) => entry.activityCode === milestone.requiredActivity);
+  if (milestone.domain === "running" && milestone.evaluationType === "time") {
+    const requiredDistance = resolveRunningMilestoneDistanceKey(milestone);
+    comparable = comparable.filter((entry) => normalizeRunningDistanceCategory(entry.metrics?.distance, entry.metrics?.distance_unit || "mi") === requiredDistance);
+  }
+  if (!comparable.length) return { eligible: false, reason: "no distance or protocol-compatible evidence" };
+
+  const values = comparable.map((entry) => {
+    if (milestone.evaluationType === "time") return toFiniteNumber(entry.metrics?.duration_seconds);
+    if (milestone.evaluationType === "duration") return toFiniteNumber(entry.metrics?.duration_seconds);
+    if (milestone.evaluationType === "repetitions") return toFiniteNumber(entry.metrics?.repetitions);
+    return null;
+  }).filter((value) => Number.isFinite(value));
+  if (!values.length) return { eligible: false, reason: "no numeric comparable metric" };
+  const direction = milestone.direction === "lower" ? "lower" : "higher";
+  const current = direction === "lower" ? Math.min(...values) : Math.max(...values);
+  const target = Number(milestone.targetValue);
+  const gapAbsolute = direction === "lower" ? current - target : target - current;
+  return {
+    eligible: true,
+    milestoneCode: milestone.code,
+    title: milestone.title,
+    domain: milestone.domain,
+    direction,
+    target,
+    current,
+    gapAbsolute,
+    progressPct: direction === "higher" && target > 0 ? Math.min((current / target) * 100, 100) : null,
+    comparisonNote: milestone.commandNote
+  };
+}
+
+function rankEligibleBenchmarks(entries = []) {
+  return getMilestoneCatalog()
+    .map((milestone) => calculateBenchmarkProximity(milestone, entries))
+    .filter((item) => item.eligible)
+    .sort((a, b) => {
+      const aGap = Math.abs(Number(a.gapAbsolute));
+      const bGap = Math.abs(Number(b.gapAbsolute));
+      if (aGap !== bGap) return aGap - bGap;
+      return String(a.milestoneCode || "").localeCompare(String(b.milestoneCode || ""));
+    });
+}
+
+function buildNextBenchmarkRecommendation(entries = []) {
+  const ranked = rankEligibleBenchmarks(entries);
+  if (!ranked.length) {
+    return { status: "NO ELIGIBLE BENCHMARK", benchmark: null, rationale: "No benchmark has sufficient comparable evidence yet." };
+  }
+  return { status: "BENCHMARK AVAILABLE", benchmark: ranked[0], rationale: "Closest benchmark selected from eligible evidence." };
+}
+
+function mapMetricCategoryToRecordCategory(metricCategory = "") {
+  if (metricCategory === "strength_load") return "LOAD_PR";
+  if (metricCategory === "strength_repetitions_at_load") return "REP_PR";
+  if (metricCategory === "strength_volume") return "VOLUME_PR";
+  if (metricCategory === "strength_estimated_1rm") return "ESTIMATED_1RM_PR";
+  if (metricCategory === "strength_verified_1rm") return "VERIFIED_1RM_PR";
+  if (metricCategory === "running_time") return "TIME_PR";
+  return "CONDITIONING_PR";
+}
+
+function evaluatePrAttemptReadiness(series = {}, personalRecord = null) {
+  const trend = calculateSeriesTrend(series);
+  const regression = detectRecentRegression(series, trend);
+  const validPoints = (series.validPoints || []).filter((point) => isSeriesPointValid(point));
+  if (validPoints.length < PERFORMANCE_INTELLIGENCE_WINDOW_RULES.minimumTrendSeries) {
+    return { status: "INSUFFICIENT EVIDENCE", reason: "At least three comparable results are required.", gapPct: null, trend, regression };
+  }
+  const estimatedOnly = validPoints.every((point) => point.evidenceStatus === "ESTIMATED");
+  if (estimatedOnly || series.metricCategory === "strength_estimated_1rm") {
+    return { status: "ESTIMATED ONLY", reason: "Evidence is estimated and cannot confirm a verified PR attempt.", gapPct: null, trend, regression };
+  }
+  if (regression.state === "LIKELY REGRESSION") {
+    return { status: "RECENT REGRESSION", reason: regression.reason, gapPct: null, trend, regression };
+  }
+  const direction = series.direction || "higher";
+  const currentBest = direction === "lower"
+    ? Math.min(...validPoints.map((point) => Number(point.normalizedValue)))
+    : Math.max(...validPoints.map((point) => Number(point.normalizedValue)));
+  const referencePr = personalRecord && Number.isFinite(toFiniteNumber(personalRecord.normalizedValue))
+    ? Number(personalRecord.normalizedValue)
+    : currentBest;
+  const gapPct = referencePr !== 0
+    ? (direction === "lower" ? ((currentBest - referencePr) / Math.abs(referencePr)) * 100 : ((referencePr - currentBest) / Math.abs(referencePr)) * 100)
+    : null;
+  const trendAcceptable = trend.trajectory === "IMPROVING" || trend.trajectory === "STRONGLY IMPROVING" || trend.trajectory === "STABLE";
+  if (trendAcceptable && Number.isFinite(gapPct) && gapPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.readyPrGapPct) {
+    return { status: "READY", reason: "Recent best is close to current PR with acceptable trend evidence.", gapPct, trend, regression };
+  }
+  if (trendAcceptable && Number.isFinite(gapPct) && gapPct <= PERFORMANCE_INTELLIGENCE_WINDOW_RULES.approachingPrGapPct) {
+    return { status: "APPROACHING", reason: "Performance is close but not yet at ready threshold.", gapPct, trend, regression };
+  }
+  return { status: "NOT READY", reason: "Comparable evidence does not currently support a PR attempt.", gapPct, trend, regression };
+}
+
+function buildFitnessTestIntelligence(attempts = []) {
+  const normalizedAttempts = (attempts || []).map((attempt, sourceIndex) => ({ attempt: normalizeFitnessTestAttempt(attempt), sourceIndex }));
+  const completeAttempts = normalizedAttempts.filter(({ attempt }) => attempt.status === "COMPLETE" && normalizeIntelligenceEvidenceStatus(attempt.evidenceStatus) !== "INVALIDATED");
+  if (!completeAttempts.length) {
+    return {
+      status: "INSUFFICIENT DATA",
+      improvedEventCount: 0,
+      unchangedEventCount: 0,
+      declinedEventCount: 0,
+      missingEventCount: 0,
+      eventIntelligence: [],
+      consecutiveCompletedAttempts: 0,
+      evidenceLimitations: ["No completed compatible fitness-test attempts are available."]
+    };
+  }
+  const protocolCatalog = getFitnessTestProtocolCatalog();
+  const eventSeries = new Map();
+  completeAttempts.sort((a, b) => compareSeriesPoints({ date: a.attempt.testDate, sourceIndex: a.sourceIndex }, { date: b.attempt.testDate, sourceIndex: b.sourceIndex }));
+  completeAttempts.forEach(({ attempt, sourceIndex }) => {
+    const protocol = protocolCatalog.find((item) => item.code === attempt.protocolCode) || protocolCatalog[0];
+    const protocolKey = `${attempt.protocolCode}:${attempt.protocolVersion || protocol.version || "1.0"}`;
+    (protocol.orderedEvents || []).forEach((eventDef) => {
+      const eventResult = (attempt.eventResults || []).find((item) => item.eventCode === eventDef.code);
+      const key = `${protocolKey}:${eventDef.code}`;
+      if (!eventSeries.has(key)) {
+        eventSeries.set(key, {
+          key,
+          protocolCode: attempt.protocolCode,
+          protocolVersion: attempt.protocolVersion || protocol.version || "1.0",
+          eventCode: eventDef.code,
+          eventName: eventDef.name,
+          direction: eventDef.direction || "higher",
+          required: Boolean(eventDef.required),
+          unit: eventDef.unit || "value",
+          points: []
+        });
+      }
+      const target = eventSeries.get(key);
+      target.points.push({
+        date: attempt.testDate,
+        time: null,
+        sourceIndex,
+        normalizedValue: Number.isFinite(toFiniteNumber(eventResult?.rawValue)) ? Number(eventResult.rawValue) : null,
+        evidenceStatus: normalizeIntelligenceEvidenceStatus(eventResult?.evidenceStatus || attempt.evidenceStatus),
+        validity: Number.isFinite(toFiniteNumber(eventResult?.rawValue)),
+        sourceStatusIndicator: normalizeIntelligenceEvidenceStatus(attempt.evidenceStatus) === "INCOMPLETE" ? "INCOMPLETE" : "VALID"
+      });
+    });
+  });
+  const eventIntelligence = Array.from(eventSeries.values()).map((item) => {
+    const series = {
+      domain: "fitness_test",
+      activityCode: item.eventCode,
+      activityName: item.eventName,
+      metricCategory: "fitness_test_event",
+      comparisonKey: item.key,
+      direction: item.direction,
+      normalizedUnit: item.unit,
+      points: [...item.points].sort(compareSeriesPoints),
+      validPoints: item.points.filter((point) => point.validity && Number.isFinite(toFiniteNumber(point.normalizedValue))),
+      validCount: item.points.filter((point) => point.validity && Number.isFinite(toFiniteNumber(point.normalizedValue))).length
+    };
+    const trend = calculateSeriesTrend(series);
+    return {
+      ...item,
+      series,
+      trajectory: trend.trajectory,
+      confidence: trend.confidence,
+      supportingResultCount: series.validCount
+    };
+  });
+  const improvedEventCount = eventIntelligence.filter((event) => event.trajectory === "IMPROVING" || event.trajectory === "STRONGLY IMPROVING").length;
+  const unchangedEventCount = eventIntelligence.filter((event) => event.trajectory === "STABLE").length;
+  const declinedEventCount = eventIntelligence.filter((event) => event.trajectory === "DECLINING" || event.trajectory === "STRONGLY DECLINING").length;
+  const missingEventCount = eventIntelligence.filter((event) => event.series.validCount === 0 && event.required).length;
+  return {
+    status: completeAttempts.length >= 2 ? "READY" : "INSUFFICIENT DATA",
+    improvedEventCount,
+    unchangedEventCount,
+    declinedEventCount,
+    missingEventCount,
+    eventIntelligence,
+    consecutiveCompletedAttempts: completeAttempts.length,
+    evidenceLimitations: completeAttempts.length >= 2 ? [] : ["At least two complete attempts are needed for event progression."]
+  };
+}
+
+function trajectoryScore(state = "INSUFFICIENT DATA") {
+  if (state === "STRONGLY IMPROVING") return 3;
+  if (state === "IMPROVING") return 2;
+  if (state === "STABLE") return 1;
+  if (state === "NOISY") return 0;
+  if (state === "DECLINING") return -2;
+  if (state === "STRONGLY DECLINING") return -3;
+  return -1;
+}
+
+function buildDomainPerformanceIntelligence(domain = "strength", metricIntelligence = [], benchmarkRecommendation = null, prCandidates = []) {
+  const rows = (metricIntelligence || []).filter((item) => item.series?.domain === domain);
+  const trajectoryCounts = {
+    improving: rows.filter((row) => row.trajectory === "IMPROVING" || row.trajectory === "STRONGLY IMPROVING").length,
+    stable: rows.filter((row) => row.trajectory === "STABLE").length,
+    noisy: rows.filter((row) => row.trajectory === "NOISY").length,
+    declining: rows.filter((row) => row.trajectory === "DECLINING" || row.trajectory === "STRONGLY DECLINING").length,
+    insufficient: rows.filter((row) => row.trajectory === "INSUFFICIENT DATA").length
+  };
+  const ranked = [...rows].sort((a, b) => {
+    const scoreDiff = trajectoryScore(b.trajectory) - trajectoryScore(a.trajectory);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.series?.comparisonKey || "").localeCompare(String(b.series?.comparisonKey || ""));
+  });
+  const strongest = ranked[0] || null;
+  const weakest = ranked[ranked.length - 1] || null;
+  const plateaus = rows.filter((row) => row.plateau.state === "POSSIBLE PLATEAU" || row.plateau.state === "LIKELY PLATEAU").length;
+  const regressions = rows.filter((row) => row.regression.state === "LIKELY REGRESSION").length;
+  let trajectory = "INSUFFICIENT DATA";
+  if (rows.length) {
+    const weighted = average(rows.map((row) => trajectoryScore(row.trajectory))) || 0;
+    trajectory = weighted >= 2 ? "STRONGLY IMPROVING" : weighted >= 1 ? "IMPROVING" : weighted <= -2 ? "STRONGLY DECLINING" : weighted <= -1 ? "DECLINING" : trajectoryCounts.noisy > trajectoryCounts.stable ? "NOISY" : "STABLE";
+  }
+  let recommendedFocusCode = "ADD_COMPARABLE_EVIDENCE";
+  let recommendedFocusText = "Add comparable evidence";
+  if (!rows.length || trajectoryCounts.insufficient === rows.length) {
+    recommendedFocusCode = "ADD_COMPARABLE_EVIDENCE";
+    recommendedFocusText = "No action until more data exists";
+  } else if (regressions > 0 || trajectory.includes("DECLINING")) {
+    recommendedFocusCode = "REVIEW_RECENT_DECLINE";
+    recommendedFocusText = "Review recent decline";
+  } else if (plateaus > 0) {
+    recommendedFocusCode = "RETEST_BENCHMARK";
+    recommendedFocusText = "Retest benchmark";
+  } else if (trajectory === "IMPROVING" || trajectory === "STRONGLY IMPROVING") {
+    recommendedFocusCode = "CONTINUE_PROGRESSION";
+    recommendedFocusText = "Continue progression";
+  } else if (trajectory === "STABLE") {
+    recommendedFocusCode = "MAINTAIN_CURRENT_LEVEL";
+    recommendedFocusText = "Maintain current level";
+  } else {
+    recommendedFocusCode = "REESTABLISH_CONSISTENCY";
+    recommendedFocusText = "Re-establish consistency";
+  }
+  const confidence = rows.length ? (rows.some((row) => row.confidence === "HIGH") ? "HIGH" : rows.some((row) => row.confidence === "MODERATE") ? "MODERATE" : rows.some((row) => row.confidence === "LOW") ? "LOW" : "INSUFFICIENT") : "INSUFFICIENT";
+  return {
+    domain,
+    trajectory,
+    confidence,
+    strongestSeries: strongest,
+    weakestSeries: weakest,
+    improvingCount: trajectoryCounts.improving,
+    stableCount: trajectoryCounts.stable,
+    noisyCount: trajectoryCounts.noisy,
+    decliningCount: trajectoryCounts.declining,
+    insufficientCount: trajectoryCounts.insufficient,
+    plateauCount: plateaus,
+    likelyRegressionCount: regressions,
+    closestBenchmark: benchmarkRecommendation?.benchmark?.domain === domain ? benchmarkRecommendation.benchmark : null,
+    prReadinessCandidate: (prCandidates || []).find((item) => item.series?.domain === domain) || null,
+    evidenceLimitations: rows.filter((row) => row.trajectory === "INSUFFICIENT DATA").map((row) => `${row.series.activityName} lacks sufficient comparable evidence.`),
+    recommendedFocusCode,
+    recommendedFocusText
+  };
+}
+
+function buildAtlasPerformanceIntelligence(input = {}) {
+  const overall = input.overall || {};
+  const strongestDomain = input.strongestDomain || "None";
+  const weakestDomain = input.weakestDomain || "None";
+  const plateaus = Number(input.plateaus || 0);
+  const regressions = Number(input.regressions || 0);
+  const nextBenchmark = input.nextBenchmark?.benchmark ? input.nextBenchmark.benchmark.title : "No eligible benchmark";
+  const readiness = input.prReadiness?.length ? input.prReadiness[0].status : "INSUFFICIENT EVIDENCE";
+  const limitations = (input.evidenceLimitations || []).length ? input.evidenceLimitations.join("; ") : "None";
+  const recommendedFocus = input.recommendedFocus || "No action until more data exists";
+  const commandNote = regressions > 0
+    ? "Recent regression signals are present. Re-establish consistency before escalating targets."
+    : plateaus > 0
+      ? "Progress has narrowed into a plateau band. A formal retest is appropriate."
+      : overall.trajectory === "INSUFFICIENT DATA"
+        ? "Evidence is insufficient for a confirmed readiness call."
+        : "Performance progression is intact. Preserve current execution quality.";
+  const lines = [
+    "ATLAS // PERFORMANCE INTELLIGENCE",
+    "",
+    `STATUS: ${overall.status || "ANALYSIS READY"}`,
+    `OVERALL TRAJECTORY: ${overall.trajectory || "INSUFFICIENT DATA"}`,
+    `STRONGEST DOMAIN: ${strongestDomain}`,
+    `WEAKEST DOMAIN: ${weakestDomain}`,
+    `PLATEAUS: ${plateaus}`,
+    `REGRESSIONS: ${regressions}`,
+    `NEXT BENCHMARK: ${nextBenchmark}`,
+    `PR READINESS: ${readiness}`,
+    `EVIDENCE LIMITATIONS: ${limitations}`,
+    `RECOMMENDED FOCUS: ${recommendedFocus}`,
+    `COMMAND NOTE: ${commandNote}`
+  ];
+  return {
+    status: overall.status || "ANALYSIS READY",
+    commandNote,
+    text: lines.join("\n")
+  };
+}
+
+function derivePerformanceIntelligenceViewState(input = {}) {
+  if (input.authRequired) return { state: "authentication_required", label: "AUTHENTICATION REQUIRED", tone: "red" };
+  if (input.remoteLoadFailed && !input.hasHistory) return { state: "remote_load_failed", label: "REMOTE LOAD FAILED", tone: "red" };
+  if (input.localFallbackActive) return { state: "local_fallback_active", label: "LOCAL FALLBACK ACTIVE", tone: "yellow" };
+  if (!input.hasHistory) return { state: "no_history", label: "NO PERFORMANCE HISTORY", tone: "neutral" };
+  if (input.hasHistory && !input.hasComparableHistory) return { state: "insufficient_comparable_history", label: "INSUFFICIENT COMPARABLE HISTORY", tone: "yellow" };
+  if (input.calculationUnavailable) return { state: "calculation_unavailable", label: "CALCULATION UNAVAILABLE", tone: "red" };
+  return { state: "ready", label: "INTELLIGENCE READY", tone: "green" };
+}
+
+function buildPerformanceIntelligenceOverview(entries = [], attempts = [], records = [], milestones = [], options = {}) {
+  const comparable = buildComparablePerformanceSeries(entries);
+  const metricIntelligence = comparable.series.map((series) => {
+    const trend = calculateSeriesTrend(series);
+    const plateau = detectPerformancePlateau(series, trend);
+    const regression = detectRecentRegression(series, trend);
+    const recordCategory = mapMetricCategoryToRecordCategory(series.metricCategory);
+    const personalRecord = findCurrentPersonalRecord(records, recordCategory, series.comparisonKey, {
+      domain: series.domain,
+      activityCode: series.activityCode,
+      activityName: series.activityName,
+      metrics: {}
+    });
+    const prReadiness = evaluatePrAttemptReadiness(series, personalRecord);
+    return {
+      series,
+      trend,
+      trajectory: trend.trajectory,
+      confidence: trend.confidence,
+      plateau,
+      regression,
+      personalRecord,
+      prReadiness,
+      latestMeaningfulChange: formatIntelligenceDelta(trend.recentNetChange, series.normalizedUnit, series.direction)
+    };
+  });
+  const trajectoryCounts = {
+    improving: metricIntelligence.filter((item) => item.trajectory === "IMPROVING" || item.trajectory === "STRONGLY IMPROVING").length,
+    stable: metricIntelligence.filter((item) => item.trajectory === "STABLE").length,
+    noisy: metricIntelligence.filter((item) => item.trajectory === "NOISY").length,
+    declining: metricIntelligence.filter((item) => item.trajectory === "DECLINING" || item.trajectory === "STRONGLY DECLINING").length,
+    insufficient: metricIntelligence.filter((item) => item.trajectory === "INSUFFICIENT DATA").length
+  };
+  const totalComparableMetrics = metricIntelligence.length;
+  const overallTrajectory = totalComparableMetrics === 0
+    ? "INSUFFICIENT DATA"
+    : trajectoryCounts.declining > trajectoryCounts.improving && trajectoryCounts.declining >= 2
+      ? trajectoryCounts.declining >= trajectoryCounts.improving + 2 ? "STRONGLY DECLINING" : "DECLINING"
+      : trajectoryCounts.improving > trajectoryCounts.declining && trajectoryCounts.improving >= 2
+        ? trajectoryCounts.improving >= trajectoryCounts.declining + 2 ? "STRONGLY IMPROVING" : "IMPROVING"
+        : trajectoryCounts.noisy > trajectoryCounts.stable
+          ? "NOISY"
+          : "STABLE";
+  const nextBenchmark = buildNextBenchmarkRecommendation(entries);
+  const prCandidates = metricIntelligence.map((item) => ({ ...item.prReadiness, series: item.series, trajectory: item.trajectory, confidence: item.confidence })).sort((a, b) => {
+    const order = PERFORMANCE_PR_READINESS_STATES;
+    const scoreDiff = order.indexOf(a.status) - order.indexOf(b.status);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.series?.comparisonKey || "").localeCompare(String(b.series?.comparisonKey || ""));
+  });
+  const domains = ["strength", "running", "core", "conditioning"].map((domain) => buildDomainPerformanceIntelligence(domain, metricIntelligence, nextBenchmark, prCandidates));
+  const fitnessTestIntelligence = buildFitnessTestIntelligence(attempts);
+  const fitnessDomain = buildDomainPerformanceIntelligence("fitness_test", metricIntelligence, nextBenchmark, prCandidates);
+  fitnessDomain.trajectory = fitnessTestIntelligence.status === "READY"
+    ? (fitnessTestIntelligence.declinedEventCount > fitnessTestIntelligence.improvedEventCount ? "DECLINING" : fitnessTestIntelligence.improvedEventCount > 0 ? "IMPROVING" : "STABLE")
+    : "INSUFFICIENT DATA";
+  fitnessDomain.confidence = fitnessTestIntelligence.status === "READY" ? "MODERATE" : "INSUFFICIENT";
+  fitnessDomain.plateauCount = 0;
+  fitnessDomain.likelyRegressionCount = fitnessTestIntelligence.declinedEventCount > 0 ? 1 : 0;
+  const allDomains = [...domains, fitnessDomain];
+  const sortedDomains = [...allDomains].sort((a, b) => {
+    const scoreDiff = trajectoryScore(b.trajectory) - trajectoryScore(a.trajectory);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.domain).localeCompare(String(b.domain));
+  });
+  const strongestDomain = sortedDomains[0]?.domain || "none";
+  const weakestDomain = sortedDomains[sortedDomains.length - 1]?.domain || "none";
+  const totalPlateaus = metricIntelligence.filter((item) => item.plateau.state === "POSSIBLE PLATEAU" || item.plateau.state === "LIKELY PLATEAU").length;
+  const totalRegressions = metricIntelligence.filter((item) => item.regression.state === "LIKELY REGRESSION").length;
+  const evidenceLimitations = [];
+  if (!comparable.pointCount) evidenceLimitations.push("No performance entries are available.");
+  if (comparable.pointCount > 0 && comparable.validPointCount === 0) evidenceLimitations.push("All current evidence is invalidated or incomplete for trend analysis.");
+  if (metricIntelligence.some((item) => item.confidence === "INSUFFICIENT")) evidenceLimitations.push("Several metrics do not meet the minimum comparable window for confident trend calls.");
+  if (metricIntelligence.some((item) => item.series.evidenceStatuses.every((status) => status === "ESTIMATED"))) evidenceLimitations.push("Estimated-only evidence limits confidence for selected metrics.");
+  if (options.remoteLoadFailed) evidenceLimitations.push("Remote performance load failed; shown intelligence may reflect local-only history.");
+  const recommendedFocus = sortedDomains[0]?.recommendedFocusText || "No action until more data exists";
+  const atlas = buildAtlasPerformanceIntelligence({
+    overall: { status: "ANALYSIS READY", trajectory: overallTrajectory },
+    strongestDomain: PERFORMANCE_DOMAIN_LABELS[strongestDomain] || strongestDomain,
+    weakestDomain: PERFORMANCE_DOMAIN_LABELS[weakestDomain] || weakestDomain,
+    plateaus: totalPlateaus,
+    regressions: totalRegressions,
+    nextBenchmark,
+    prReadiness: prCandidates,
+    evidenceLimitations,
+    recommendedFocus
+  });
+  const viewState = derivePerformanceIntelligenceViewState({
+    authRequired: Boolean(options.authRequired),
+    remoteLoadFailed: Boolean(options.remoteLoadFailed),
+    localFallbackActive: Boolean(options.localFallbackActive),
+    calculationUnavailable: Boolean(options.calculationUnavailable),
+    hasHistory: (entries || []).length > 0,
+    hasComparableHistory: comparable.validPointCount > 0
+  });
+  return {
+    rules: { ...PERFORMANCE_INTELLIGENCE_WINDOW_RULES },
+    comparable,
+    metricIntelligence,
+    trajectoryCounts,
+    overallTrajectory,
+    strongestDomain,
+    weakestDomain,
+    totalPlateaus,
+    totalRegressions,
+    nextBenchmark,
+    prCandidates,
+    domainSummaries: allDomains,
+    fitnessTestIntelligence,
+    evidenceLimitations,
+    recommendedFocus,
+    atlas,
+    viewState
+  };
+}
+
+function performanceStorageKey() {
+  return `coach-dominion:performance-entries:${session?.user?.id || "local"}`;
+}
+
+function loadLocalPerformanceEntries() {
+  try {
+    const stored = window.localStorage.getItem(performanceStorageKey());
+    return stored ? JSON.parse(stored) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveLocalPerformanceEntries(entries = []) {
+  try {
+    window.localStorage.setItem(performanceStorageKey(), JSON.stringify(entries));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function resetPerformanceForm() {
+  performanceEditId = null;
+  const form = document.getElementById("performance-form");
+  if (!form) return;
+  form.reset();
+  document.getElementById("performance-date").value = todayISODate();
+  document.getElementById("performance-domain").value = "strength";
+  document.getElementById("performance-entry-type").value = "TRAINING_SET";
+  document.getElementById("performance-source").value = "MANUAL";
+  document.getElementById("performance-evidence-status").value = "SELF REPORTED";
+  document.getElementById("performance-activity-code").value = "bench_press";
+  document.getElementById("performance-activity-name").value = "Bench Press";
+  refreshPerformanceFieldVisibility();
+  setText("performance-save-state", "READY");
+  setText("performance-save-hint", "Create a fresh entry.");
+}
+
+function refreshPerformanceFieldVisibility() {
+  const form = document.getElementById("performance-form");
+  if (!form) return;
+  const domain = document.getElementById("performance-domain").value;
+  const entryType = document.getElementById("performance-entry-type").value;
+  const strengthGroup = document.getElementById("performance-strength-fields");
+  const runningGroup = document.getElementById("performance-running-fields");
+  const coreGroup = document.getElementById("performance-core-fields");
+  const fitnessGroup = document.getElementById("performance-fitness-fields");
+  const bodyMetricsGroup = document.getElementById("performance-body-metrics-fields");
+  const showStrength = domain === "strength";
+  const showRunning = domain === "running";
+  const showCore = domain === "core" || domain === "conditioning";
+  const showFitness = domain === "fitness_test" || entryType === "FORMAL_TEST";
+  const showBodyMetrics = domain === "body_metrics";
+  if (strengthGroup) strengthGroup.hidden = !showStrength;
+  if (runningGroup) runningGroup.hidden = !showRunning;
+  if (coreGroup) coreGroup.hidden = !showCore;
+  if (fitnessGroup) fitnessGroup.hidden = !showFitness;
+  if (bodyMetricsGroup) bodyMetricsGroup.hidden = !showBodyMetrics;
+}
+
+function populatePerformanceActivityOptions(domain = "strength") {
+  const activityCode = document.getElementById("performance-activity-code");
+  const activityName = document.getElementById("performance-activity-name");
+  if (!activityCode) return;
+  const activities = getPerformanceActivityCatalog(domain);
+  const currentValue = activityCode.value || activities[0]?.code || "custom";
+  activityCode.innerHTML = activities.map((activity) => `<option value="${activity.code}">${activity.label}</option>`).join("");
+  activityCode.insertAdjacentHTML("beforeend", '<option value="custom">Custom</option>');
+  activityCode.value = currentValue;
+  if (activityName && !activityName.value) activityName.value = activities.find((activity) => activity.code === currentValue)?.label || "";
+}
+
+function readPerformanceFormValues() {
+  const form = document.getElementById("performance-form");
+  if (!form) return null;
+  const formData = new FormData(form);
+  const values = Object.fromEntries(formData.entries());
+  const visibleMetricValues = {};
+  const domain = values.domain || "strength";
+  const entryType = values.entry_type || "TRAINING_SET";
+  const activeGroups = [];
+  if (domain === "strength") activeGroups.push(document.getElementById("performance-strength-fields"));
+  if (domain === "running") activeGroups.push(document.getElementById("performance-running-fields"));
+  if (domain === "core" || domain === "conditioning") activeGroups.push(document.getElementById("performance-core-fields"));
+  if (domain === "fitness_test" || entryType === "FORMAL_TEST") activeGroups.push(document.getElementById("performance-fitness-fields"));
+  if (domain === "body_metrics") activeGroups.push(document.getElementById("performance-body-metrics-fields"));
+  activeGroups.filter(Boolean).forEach((group) => {
+    group.querySelectorAll("[name]").forEach((field) => {
+      if (!field.name) return;
+      visibleMetricValues[field.name] = field.value;
+    });
+  });
+  const resolvedValues = { ...values, ...visibleMetricValues };
+  const metrics = {};
+  if (domain === "strength") {
+    metrics.sets = resolvedValues.sets ? Number(resolvedValues.sets) : null;
+    metrics.repetitions = resolvedValues.repetitions ? Number(resolvedValues.repetitions) : null;
+    metrics.weight = resolvedValues.weight ? Number(resolvedValues.weight) : null;
+    metrics.weight_unit = resolvedValues.weight_unit || "lb";
+    metrics.duration_seconds = resolvedValues.duration_seconds ? Number(resolvedValues.duration_seconds) : null;
+    metrics.assistance = resolvedValues.assistance || null;
+    metrics.bodyweight_added = resolvedValues.bodyweight_added ? Number(resolvedValues.bodyweight_added) : null;
+  }
+  if (domain === "running") {
+    metrics.distance = resolvedValues.distance ? Number(resolvedValues.distance) : null;
+    metrics.distance_unit = resolvedValues.distance_unit || "mi";
+    metrics.duration_seconds = resolvedValues.duration_seconds ? Number(resolvedValues.duration_seconds) : null;
+    metrics.pace_seconds_per_unit = resolvedValues.pace_seconds_per_unit ? Number(resolvedValues.pace_seconds_per_unit) : null;
+    metrics.elevation_gain = resolvedValues.elevation_gain ? Number(resolvedValues.elevation_gain) : null;
+    metrics.route_type = resolvedValues.route_type || null;
+    metrics.run_type = resolvedValues.run_type || null;
+    metrics.race_name = resolvedValues.race_name || null;
+  }
+  if (domain === "core" || domain === "conditioning") {
+    metrics.repetitions = resolvedValues.repetitions ? Number(resolvedValues.repetitions) : null;
+    metrics.duration_seconds = resolvedValues.duration_seconds ? Number(resolvedValues.duration_seconds) : null;
+    metrics.distance = resolvedValues.distance ? Number(resolvedValues.distance) : null;
+    metrics.calories = resolvedValues.calories ? Number(resolvedValues.calories) : null;
+    metrics.rounds = resolvedValues.rounds ? Number(resolvedValues.rounds) : null;
+    metrics.work_interval_seconds = resolvedValues.work_interval_seconds ? Number(resolvedValues.work_interval_seconds) : null;
+    metrics.rest_interval_seconds = resolvedValues.rest_interval_seconds ? Number(resolvedValues.rest_interval_seconds) : null;
+  }
+  if (domain === "fitness_test" || entryType === "FORMAL_TEST") {
+    metrics.test_protocol_name = resolvedValues.test_protocol_name || null;
+    metrics.test_protocol_code = resolvedValues.test_protocol_code || null;
+    metrics.event_results = resolvedValues.event_results ? resolvedValues.event_results.split("\n").filter(Boolean).map((line) => {
+      const [name, score] = line.split(",");
+      return { name: name?.trim() || "Event", score: score ? Number(score.trim()) : null };
+    }) : [];
+    metrics.overall_score = resolvedValues.overall_score ? Number(resolvedValues.overall_score) : null;
+  }
+  if (domain === "body_metrics") {
+    metrics.measurement_value = resolvedValues.measurement_value ? Number(resolvedValues.measurement_value) : null;
+    metrics.measurement_unit = resolvedValues.measurement_unit || "kg";
+    metrics.measurement_location = resolvedValues.measurement_location || null;
+  }
+  return {
+    id: performanceEditId,
+    userId: session?.user?.id || null,
+    performanceDate: resolvedValues.performance_date || todayISODate(),
+    performanceTime: resolvedValues.performance_time || null,
+    domain,
+    entryType,
+    activityCode: resolvedValues.activity_code || "custom",
+    activityName: resolvedValues.activity_name || resolvedValues.activity_code || "",
+    sessionName: resolvedValues.session_name || "",
+    source: resolvedValues.source || "MANUAL",
+    notes: resolvedValues.notes || "",
+    evidenceStatus: resolvedValues.evidence_status || "SELF REPORTED",
+    metrics
+  };
+}
+
+function escapeHtml(value = "") {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildSparkline(points = [], direction = "higher") {
+  const values = (points || []).filter((point) => isSeriesPointValid(point)).slice(-8).map((point) => Number(point.normalizedValue));
+  if (values.length < 2) {
+    return '<span class="intelligence-sparkline-empty">No trend line</span>';
+  }
+  const width = 140;
+  const height = 36;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const coordinates = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * width;
+    const normalized = (value - min) / range;
+    const y = height - (normalized * (height - 4)) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const arrow = direction === "lower" ? "LOWER IS BETTER" : "HIGHER IS BETTER";
+  return `<svg class="intelligence-sparkline" viewBox="0 0 ${width} ${height}" role="img" aria-label="Recent values sparkline, ${arrow}"><polyline points="${coordinates}" /></svg>`;
+}
+
+function renderPerformanceViewPanels() {
+  const active = normalizePerformanceViewCode(performanceActiveView);
+  PERFORMANCE_VIEW_CODES.forEach((code) => {
+    const panel = document.getElementById(`performance-view-${code}`);
+    if (panel) panel.hidden = code !== active;
+    const tab = document.querySelector(`[data-performance-view="${code}"]`);
+    if (tab) {
+      const selected = code === active;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+      tab.classList.toggle("active", selected);
+      tab.tabIndex = selected ? 0 : -1;
+    }
+  });
+}
+
+function setPerformanceActiveView(view = "today_training") {
+  const requestedView = String(view || "").trim().toLowerCase();
+  performanceActiveView = normalizePerformanceViewCode(requestedView);
+  renderPerformanceViewPanels();
+  const legacyDetailIds = {
+    programming: "training-programming-detail",
+    recovery: "training-recovery-detail",
+    fitness_tests: "training-fitness-tests-detail",
+    records: "training-records-detail",
+    milestones: "training-milestones-detail",
+    intelligence: "training-intelligence-detail"
+  };
+  const detail = document.getElementById(legacyDetailIds[requestedView]);
+  if (detail) detail.open = true;
+}
+
+function formatCoreWorkspaceDuration(totalSeconds = 0) {
+  const seconds = Math.max(0, Number(totalSeconds) || 0);
+  if (seconds < 60) return `${Math.round(seconds)} sec`;
+  const minutes = seconds / 60;
+  return `${minutes >= 10 ? Math.round(minutes) : minutes.toFixed(1).replace(/\.0$/, "")} min`;
+}
+
+function renderCoreWorkspace(entries = performanceEntries) {
+  const panel = document.getElementById("performance-view-core");
+  if (!panel) return;
+  const model = buildCoreWorkspaceModel(entries, milestoneAchievements);
+  setText("core-week-sessions", model.sessionsThisWeek);
+  setText("core-week-reps", model.totalRepetitions);
+  setText("core-week-time", formatCoreWorkspaceDuration(model.totalDurationSeconds));
+  setText("core-active-days", model.activeDays);
+  const status = document.getElementById("core-command-status");
+  if (status) {
+    status.textContent = model.status;
+    status.className = `state-pill ${model.sessionsThisWeek ? "green" : model.recentEntries.length ? "yellow" : "neutral"}`;
+  }
+  const nextMilestone = document.getElementById("core-next-milestone");
+  if (nextMilestone) {
+    nextMilestone.innerHTML = model.nextMilestone
+      ? `<strong>${escapeHtml(model.nextMilestone.title)}</strong><p>${escapeHtml(model.nextMilestone.description)}</p><div class="core-progress-track" role="progressbar" aria-label="${escapeHtml(model.nextMilestone.title)} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.nextMilestone.progressPercent}"><span style="width:${model.nextMilestone.progressPercent}%"></span></div><small>${model.nextMilestone.currentValue} / ${model.nextMilestone.targetValue} ${escapeHtml(model.nextMilestone.targetUnit)} · ${model.nextMilestone.progressPercent}%</small>`
+      : `<strong>Core milestone set complete</strong><p>Every current abs/core objective has qualifying evidence. Keep building durable capacity.</p><small>${model.completedMilestones} of ${model.totalMilestones} complete</small>`;
+  }
+  const recentList = document.getElementById("core-recent-list");
+  if (recentList) {
+    recentList.innerHTML = model.recentEntries.length
+      ? model.recentEntries.map((entry) => {
+        const details = [];
+        if (Number(entry.metrics?.repetitions) > 0) details.push(`${Number(entry.metrics.repetitions)} reps`);
+        if (Number(entry.metrics?.duration_seconds) > 0) details.push(formatCoreWorkspaceDuration(entry.metrics.duration_seconds));
+        return `<div class="core-recent-entry"><div><strong>${escapeHtml(entry.activityName || "Core work")}</strong><span>${escapeHtml(entry.performanceDate)}</span></div><small>${escapeHtml(details.join(" · ") || entry.entryType.replaceAll("_", " "))}</small></div>`;
+      }).join("")
+      : `<div class="performance-empty">No abs/core evidence yet. Start with a training entry or a benchmark.</div>`;
+  }
+  renderCoreProgramming();
+}
+
+function renderPerformanceIntelligenceSection(entries = performanceEntries) {
+  const container = document.getElementById("performance-intelligence-panel");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  const overview = buildPerformanceIntelligenceOverview(entries, fitnessTestAttempts, personalRecords, milestoneAchievements, {
+    remoteLoadFailed: performanceLoadState.remoteLoadFailed,
+    localFallbackActive: performanceStorageMode === "LOCAL",
+    authRequired: performanceLoadState.authRequired,
+    calculationUnavailable: performanceLoadState.calculationUnavailable
+  });
+  const statusStrip = document.getElementById("performance-intelligence-status");
+  if (statusStrip) {
+    statusStrip.textContent = overview.viewState.label;
+    statusStrip.className = `state-pill ${overview.viewState.tone || "neutral"}`;
+  }
+
+  const filters = performanceIntelligenceFilters || { domain: "all", trajectory: "all", confidence: "all", evidenceStatus: "all" };
+  const filteredMetrics = overview.metricIntelligence.filter((item) => {
+    if (filters.domain !== "all" && item.series.domain !== filters.domain) return false;
+    if (filters.trajectory !== "all" && item.trajectory !== filters.trajectory) return false;
+    if (filters.confidence !== "all" && item.confidence !== filters.confidence) return false;
+    if (filters.evidenceStatus !== "all" && !item.series.evidenceStatuses.includes(filters.evidenceStatus)) return false;
+    return true;
+  });
+
+  const domainCards = overview.domainSummaries.map((domainSummary) => {
+    const strongest = domainSummary.strongestSeries;
+    const weakest = domainSummary.weakestSeries;
+    return `<article class="intelligence-domain-card"><h4>${escapeHtml(PERFORMANCE_DOMAIN_LABELS[domainSummary.domain] || domainSummary.domain)}</h4><dl><div><dt>Trajectory</dt><dd>${escapeHtml(domainSummary.trajectory)}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(domainSummary.confidence)}</dd></div><div><dt>Strongest metric</dt><dd>${escapeHtml(strongest?.series?.activityName || strongest?.series?.metricCategory || "None")}</dd></div><div><dt>Weakest metric</dt><dd>${escapeHtml(weakest?.series?.activityName || weakest?.series?.metricCategory || "None")}</dd></div><div><dt>Plateau count</dt><dd>${domainSummary.plateauCount}</dd></div><div><dt>Latest meaningful change</dt><dd>${escapeHtml(strongest?.latestMeaningfulChange || "No meaningful change")}</dd></div><div><dt>Evidence limitations</dt><dd>${escapeHtml(domainSummary.evidenceLimitations[0] || "None")}</dd></div><div><dt>Recommended focus</dt><dd>${escapeHtml(domainSummary.recommendedFocusText)}</dd></div></dl></article>`;
+  }).join("");
+
+  const watchlistRows = overview.metricIntelligence.filter((item) => item.plateau.state !== "NO PLATEAU" || item.regression.state !== "NO REGRESSION").map((item) => {
+    return `<tr><td>${escapeHtml(item.series.activityName)} <span class="muted">${escapeHtml(item.series.metricCategory)}</span></td><td>${escapeHtml(item.plateau.state)}</td><td>${escapeHtml(item.regression.state)}</td><td>${escapeHtml(item.confidence)}</td></tr>`;
+  }).join("");
+
+  const prRows = overview.prCandidates.slice(0, 6).map((candidate) => {
+    return `<article class="intelligence-row"><div><strong>${escapeHtml(candidate.status)}</strong><p>${escapeHtml(candidate.series?.activityName || "Metric")} • ${escapeHtml(candidate.series?.metricCategory || "unknown")}</p></div><div><span>${escapeHtml(candidate.reason || "No rationale")}</span><small>${Number.isFinite(candidate.gapPct) ? `${candidate.gapPct.toFixed(2)}% gap` : "Gap unavailable"}</small></div></article>`;
+  }).join("");
+
+  const metricCards = filteredMetrics.slice(0, 12).map((item) => {
+    return `<article class="intelligence-metric-card"><header><strong>${escapeHtml(item.series.activityName)}</strong><span class="state-pill neutral">${escapeHtml(item.trajectory)}</span></header><p class="muted">${escapeHtml(item.series.metricCategory)}</p>${buildSparkline(item.series.validPoints, item.series.direction)}<dl><div><dt>Confidence</dt><dd>${escapeHtml(item.confidence)}</dd></div><div><dt>Recent direction</dt><dd>${escapeHtml(item.trend.recentNetPercent !== null ? `${item.trend.recentNetPercent.toFixed(2)}%` : "No change")}</dd></div><div><dt>Supporting results</dt><dd>${item.series.validCount}</dd></div><div><dt>Evidence status</dt><dd>${escapeHtml(item.series.evidenceStatuses.join(", "))}</dd></div><div><dt>Latest change</dt><dd>${escapeHtml(item.latestMeaningfulChange)}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(item.regression.state === "LIKELY REGRESSION" ? "Review recent decline" : item.plateau.state === "LIKELY PLATEAU" ? "Retest benchmark" : "Continue progression")}</dd></div></dl></article>`;
+  }).join("");
+
+  const benchmark = overview.nextBenchmark.benchmark;
+  const benchmarkPanel = benchmark
+    ? `<div class="intelligence-panel-body"><strong>${escapeHtml(benchmark.title)}</strong><p>${escapeHtml(benchmark.comparisonNote || "")}</p><p>Gap: ${Number(benchmark.gapAbsolute).toFixed(3)} ${escapeHtml(benchmark.direction === "lower" ? "seconds" : "target units")}</p><p>${benchmark.progressPct !== null ? `Progress: ${benchmark.progressPct.toFixed(1)}%` : "Progress percentage unavailable for this benchmark type."}</p></div>`
+    : `<div class="intelligence-empty">No eligible benchmark with sufficient comparable evidence.</div>`;
+
+  const fitnessRows = overview.fitnessTestIntelligence.eventIntelligence.slice(0, 8).map((event) => {
+    return `<article class="intelligence-row"><div><strong>${escapeHtml(event.eventName)}</strong><p>${escapeHtml(event.trajectory)}</p></div><div><span>${escapeHtml(event.confidence)}</span><small>${event.supportingResultCount} result(s)</small></div></article>`;
+  }).join("");
+
+  container.innerHTML = `
+    <section class="intelligence-status-strip" aria-live="polite">
+      <div><span>Overall trajectory</span><strong>${escapeHtml(overview.overallTrajectory)}</strong></div>
+      <div><span>Strongest domain</span><strong>${escapeHtml(PERFORMANCE_DOMAIN_LABELS[overview.strongestDomain] || overview.strongestDomain)}</strong></div>
+      <div><span>Weakest domain</span><strong>${escapeHtml(PERFORMANCE_DOMAIN_LABELS[overview.weakestDomain] || overview.weakestDomain)}</strong></div>
+      <div><span>Improving metrics</span><strong>${overview.trajectoryCounts.improving}</strong></div>
+      <div><span>Stable metrics</span><strong>${overview.trajectoryCounts.stable}</strong></div>
+      <div><span>Declining metrics</span><strong>${overview.trajectoryCounts.declining}</strong></div>
+      <div><span>Insufficient metrics</span><strong>${overview.trajectoryCounts.insufficient}</strong></div>
+    </section>
+    <section class="intelligence-filter-row" aria-label="Performance intelligence filters">
+      <label>Domain<select id="intelligence-filter-domain"><option value="all">All</option>${Object.entries(PERFORMANCE_DOMAIN_LABELS).map(([code, label]) => `<option value="${code}" ${filters.domain === code ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label>Trajectory<select id="intelligence-filter-trajectory"><option value="all">All</option>${PERFORMANCE_TRAJECTORY_STATES.map((state) => `<option value="${state}" ${filters.trajectory === state ? "selected" : ""}>${state}</option>`).join("")}</select></label>
+      <label>Confidence<select id="intelligence-filter-confidence"><option value="all">All</option>${PERFORMANCE_CONFIDENCE_STATES.map((state) => `<option value="${state}" ${filters.confidence === state ? "selected" : ""}>${state}</option>`).join("")}</select></label>
+      <label>Evidence<select id="intelligence-filter-evidence"><option value="all">All</option>${["VERIFIED", "SELF REPORTED", "ESTIMATED", "INCOMPLETE"].map((state) => `<option value="${state}" ${filters.evidenceStatus === state ? "selected" : ""}>${state}</option>`).join("")}</select></label>
+    </section>
+    <section class="intelligence-metric-grid" aria-label="Comparable metric intelligence cards">${metricCards || '<div class="intelligence-empty">No metrics match the selected filters.</div>'}</section>
+    <section class="intelligence-panel"><h3>Domain Intelligence</h3><div class="intelligence-domain-grid">${domainCards}</div></section>
+    <section class="intelligence-panel"><h3>Plateau and Regression Watchlist</h3>${watchlistRows ? `<table class="intelligence-watchlist"><thead><tr><th>Metric</th><th>Plateau</th><th>Regression</th><th>Confidence</th></tr></thead><tbody>${watchlistRows}</tbody></table>` : '<div class="intelligence-empty">No plateau or regression alerts detected.</div>'}</section>
+    <section class="intelligence-panel"><h3>Next Benchmark</h3>${benchmarkPanel}</section>
+    <section class="intelligence-panel"><h3>PR Readiness</h3>${prRows || '<div class="intelligence-empty">No PR readiness candidates available.</div>'}<p class="muted">PR readiness is evidence-based and not a guarantee. Do not test through pain, fatigue, or injury.</p></section>
+    <section class="intelligence-panel"><h3>Fitness-Test Event Intelligence</h3>${fitnessRows || '<div class="intelligence-empty">No completed compatible test attempts available.</div>'}<p class="muted">Improved: ${overview.fitnessTestIntelligence.improvedEventCount} • Unchanged: ${overview.fitnessTestIntelligence.unchangedEventCount} • Declined: ${overview.fitnessTestIntelligence.declinedEventCount} • Missing required: ${overview.fitnessTestIntelligence.missingEventCount}</p></section>
+    <section class="intelligence-panel"><h3>Atlas Performance Intelligence</h3><pre class="atlas-brief-output" aria-live="polite">${escapeHtml(overview.atlas.text)}</pre></section>
+    <section class="intelligence-panel"><h3>Evidence Limitations</h3>${overview.evidenceLimitations.length ? `<ul>${overview.evidenceLimitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : '<div class="intelligence-empty">No material evidence limitations detected.</div>'}</section>
+  `;
+
+  const filterDomain = document.getElementById("intelligence-filter-domain");
+  const filterTrajectory = document.getElementById("intelligence-filter-trajectory");
+  const filterConfidence = document.getElementById("intelligence-filter-confidence");
+  const filterEvidence = document.getElementById("intelligence-filter-evidence");
+  if (filterDomain) {
+    filterDomain.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.domain = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+  if (filterTrajectory) {
+    filterTrajectory.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.trajectory = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+  if (filterConfidence) {
+    filterConfidence.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.confidence = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+  if (filterEvidence) {
+    filterEvidence.addEventListener("change", (event) => {
+      performanceIntelligenceFilters.evidenceStatus = event.target.value || "all";
+      renderPerformanceIntelligenceSection(performanceEntries);
+    });
+  }
+}
+
+function renderFitnessTestsSection() {
+  const container = document.getElementById("fitness-test-history");
+  const summary = document.getElementById("fitness-test-summary");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  if (summary) summary.textContent = fitnessTestAttempts.length ? `${fitnessTestAttempts.length} saved attempt${fitnessTestAttempts.length === 1 ? "" : "s"}` : "No fitness tests yet";
+  renderFitnessTestWorkspace(getFitnessTestAttemptById(activeFitnessTestAttemptId));
+}
+
+function renderPersonalRecordsSection() {
+  const container = document.getElementById("performance-pr-list");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  container.innerHTML = personalRecords.length ? personalRecords.map((record) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${record.recordCategory}</strong><p>${record.activityName || record.domain}</p></div><span class="state-pill neutral">${record.recordStatus}</span></div><div class="performance-entry-meta"><span>${record.normalizedValue} ${record.unit || ""}</span><span>Prev: ${record.previousRecordValue ?? "—"}</span></div></article>`).join("") : `<div class="performance-empty">No personal records yet.</div>`;
+}
+
+function renderMilestonesSection() {
+  const container = document.getElementById("performance-milestone-history");
+  const catalog = document.getElementById("performance-milestone-catalog");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  if (catalog) catalog.innerHTML = getMilestoneCatalog().slice(0, 8).map((milestone) => `<div class="performance-entry-card"><strong>${milestone.title}</strong><p>${milestone.commandNote}</p></div>`).join("");
+  container.innerHTML = milestoneAchievements.length ? milestoneAchievements.map((item) => `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${item.title}</strong><p>${item.achievedDate}</p></div><span class="state-pill neutral">${item.evidenceStatus || "SELF REPORTED"}</span></div></article>`).join("") : `<div class="performance-empty">No milestones achieved yet.</div>`;
+}
+
+function renderAtlasPerformanceReviewSection() {
+  const container = document.getElementById("performance-atlas-review-output");
+  if (!container) return;
+  ensurePerformanceAnalyticStateLoaded();
+  const review = atlasPerformanceReviews[0] || buildAtlasPerformanceReview(personalRecords, milestoneAchievements, { incompleteEvidence: false });
+  container.innerHTML = `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>ATLAS // PERFORMANCE REVIEW</strong><p>${review.status}</p></div><span class="state-pill neutral">${review.limitedEvidence ? "LIMITED EVIDENCE" : "READY"}</span></div><div class="performance-entry-meta"><span>${review.newRecords}</span><span>${review.milestones}</span></div></article>`;
+}
+
+function recruitContractStorageKey(stateType = "APPROVED") {
+  return `coach-dominion:recruit-contract:${session?.user?.id || "local"}:${String(stateType).toLowerCase()}`;
+}
+
+function readRecruitContractState(stateType = "APPROVED", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(recruitContractStorageKey(stateType));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveRecruitContractLocal(stateType, payload) {
+  window.localStorage.setItem(recruitContractStorageKey(stateType), JSON.stringify(payload));
+  return payload;
+}
+
+function readRecruitContractDraft() {
+  const draft = readRecruitContractState("DRAFT", null);
+  return ["READY_FOR_APPROVAL", "REVIEW_REQUIRED"].includes(draft?.status) ? draft : null;
+}
+
+function readApprovedRecruitContract() {
+  const contract = readRecruitContractState("APPROVED", null);
+  return contract?.status === "APPROVED" ? contract : null;
+}
+
+function readRecruitContractHistory() {
+  const history = readRecruitContractState("HISTORY", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function persistRecruitContractState(stateType, payload) {
+  try {
+    recordContinuityWrite("contract", stateType, "current", payload);
+  } catch (error) {
+    console.warn("[contract:continuity] Contract save will continue without the continuity sidecar.", {
+      stateType,
+      code: error?.code || null,
+      message: error?.message || "Continuity metadata unavailable"
+    });
+  }
+  if (!session?.user?.id) return false;
+  try {
+    const accountWrite = (async () => {
+      const supabase = await getClient();
+      return supabase.from("recruit_contract_state").upsert({
+        user_id: session.user.id,
+        state_type: stateType,
+        state_key: "current",
+        payload,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,state_type,state_key" });
+    })();
+    const { error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountWrite, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountWrite;
+    if (error) throw error;
+    markContinuityRecordSynced("contract", stateType, "current", payload);
+    recruitContractStorageMode = "REMOTE";
+    return true;
+  } catch (error) {
+    console.error("[contract:persist] Account save failed.", {
+      stateType,
+      code: error?.code || null,
+      message: error?.message || "Unknown persistence error"
+    });
+    recruitContractStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function finalizeRecruitContractDraftState(contract) {
+  const marker = {
+    status: "FINALIZED",
+    finalizedAt: contract?.signature?.signedAt || new Date().toISOString(),
+    finalizedContractId: contract?.id || null,
+    finalizedContractRevision: Number(contract?.revision || 0)
+  };
+  saveRecruitContractLocal("DRAFT", marker);
+  const synced = await persistRecruitContractState("DRAFT", marker);
+  window.localStorage.removeItem(recruitContractStorageKey("DRAFT"));
+  return synced;
+}
+
+function recruitContractDraftWasFinalized(draft, approved) {
+  if (!draft || !approved || typeof DominionContractExperience === "undefined") return false;
+  if (!DominionContractExperience.signatureStatus(approved).valid) return false;
+  if (draft.amendsContractId && approved.supersedesId === draft.amendsContractId) return true;
+  const signedAt = Date.parse(approved.signature?.signedAt || "") || 0;
+  const draftedAt = Date.parse(draft.updatedAt || draft.createdAt || "") || 0;
+  return Boolean(signedAt && draftedAt && draftedAt <= signedAt);
+}
+
+async function clearRecruitContractState(stateType = "DRAFT") {
+  window.localStorage.removeItem(recruitContractStorageKey(stateType));
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("recruit_contract_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType)
+      .eq("state_key", "current");
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadRecruitContractState() {
+  if (!session?.user?.id || typeof DominionRecruitContract === "undefined") return;
+  const stateTypes = ["DRAFT", "APPROVED", "HISTORY"];
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("recruit_contract_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    for (const stateType of stateTypes) {
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === "current");
+      const local = readRecruitContractState(stateType, stateType === "HISTORY" ? [] : null);
+      const selected = resolveContinuityPayload("contract", stateType, "current", local, row || null, { immutable: stateType === "APPROVED" });
+      if (selected.payload && (stateType !== "HISTORY" || selected.payload.length)) saveRecruitContractLocal(stateType, selected.payload);
+      if (selected.source === "DEVICE" && selected.payload) await persistRecruitContractState(stateType, selected.payload);
+    }
+    recruitContractStorageMode = "REMOTE";
+    for (const stateType of stateTypes) {
+      const local = readRecruitContractState(stateType, stateType === "HISTORY" ? [] : null);
+      const exists = rows.some((item) => item.state_type === stateType && item.state_key === "current");
+      if (!exists && local && (stateType !== "HISTORY" || local.length)) {
+        await persistRecruitContractState(stateType, local);
+      }
+    }
+    const approved = readApprovedRecruitContract();
+    const strandedDraft = readRecruitContractDraft();
+    if (recruitContractDraftWasFinalized(strandedDraft, approved)) {
+      await finalizeRecruitContractDraftState(approved);
+    }
+  } catch (_) {
+    recruitContractStorageMode = "LOCAL";
+  }
+  renderRecruitContract();
+}
+
+function recruitOnboardingStorageKey() {
+  return `coach-dominion:recruit-onboarding:${session?.user?.id || "local"}:current`;
+}
+
+function readRecruitOnboardingState(fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(recruitOnboardingStorageKey());
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveRecruitOnboardingLocal(payload) {
+  if (!payload) return payload;
+  try {
+    window.localStorage.setItem(recruitOnboardingStorageKey(), JSON.stringify(payload));
+  } catch (error) {
+    console.warn("[orientation:local] Device save failed.", {
+      message: error?.message || "Local storage unavailable"
+    });
+  }
+  return payload;
+}
+
+function recruitOnboardingFromRow(row) {
+  if (!row) return null;
+  const orientation = row.orientation && typeof row.orientation === "object" ? row.orientation : {};
+  return {
+    ...orientation,
+    contractId: row.contract_id || orientation.contractId || null,
+    contractRevision: Number(row.contract_revision ?? orientation.contractRevision ?? 0),
+    status: row.status || orientation.status || "PROFILE_REQUIRED",
+    currentStep: Number(row.current_step ?? orientation.currentStep ?? 0),
+    profile: row.profile && typeof row.profile === "object" ? row.profile : (orientation.profile || {}),
+    updatedAt: row.updated_at || orientation.updatedAt || new Date().toISOString()
+  };
+}
+
+function selectRecruitOnboardingState(local, account) {
+  if (!local) return account;
+  if (!account) return local;
+  const localUpdatedAt = Date.parse(local.updatedAt || "") || 0;
+  const accountUpdatedAt = Date.parse(account.updatedAt || "") || 0;
+  return localUpdatedAt > accountUpdatedAt ? local : account;
+}
+
+async function persistRecruitOnboardingState(payload) {
+  if (!payload || !session?.user?.id) return false;
+  try {
+    const accountWrite = (async () => {
+      const supabase = await getClient();
+      return supabase.from("recruit_onboarding_state").upsert({
+        user_id: session.user.id,
+        contract_id: payload.contractId,
+        contract_revision: Number(payload.contractRevision || 0),
+        status: payload.status || "PROFILE_REQUIRED",
+        current_step: Number(payload.currentStep || 0),
+        profile: payload.profile || {},
+        orientation: payload,
+        updated_at: payload.updatedAt || new Date().toISOString()
+      }, { onConflict: "user_id" });
+    })();
+    const { error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountWrite, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountWrite;
+    if (error) throw error;
+    recruitOnboardingStorageMode = "REMOTE";
+    return true;
+  } catch (error) {
+    console.error("[orientation:persist] Account save failed; device state remains active.", {
+      code: error?.code || null,
+      message: error?.message || "Unknown persistence error"
+    });
+    recruitOnboardingStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function loadRecruitOnboardingState() {
+  const local = readRecruitOnboardingState();
+  if (!session?.user?.id) {
+    recruitOnboardingStorageMode = "LOCAL";
+    return local;
+  }
+  try {
+    const accountRead = (async () => {
+      const supabase = await getClient();
+      return supabase
+        .from("recruit_onboarding_state")
+        .select("contract_id,contract_revision,status,current_step,profile,orientation,updated_at")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+    })();
+    const { data, error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountRead, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountRead;
+    if (error) throw error;
+    const account = recruitOnboardingFromRow(data);
+    const selected = selectRecruitOnboardingState(local, account);
+    if (selected) saveRecruitOnboardingLocal(selected);
+    recruitOnboardingStorageMode = data ? "REMOTE" : "LOCAL";
+    if (selected === local && (!account || Date.parse(local?.updatedAt || "") > Date.parse(account?.updatedAt || ""))) {
+      await persistRecruitOnboardingState(local);
+    }
+    return selected;
+  } catch (error) {
+    console.warn("[orientation:load] Account state unavailable; continuing with device state.", {
+      code: error?.code || null,
+      message: error?.message || "Unknown load error"
+    });
+    recruitOnboardingStorageMode = "LOCAL";
+    return local;
+  }
+}
+
+async function clearRecruitOnboardingState() {
+  try {
+    window.localStorage.removeItem(recruitOnboardingStorageKey());
+  } catch (_) {}
+  recruitOnboardingStorageMode = "LOCAL";
+  if (!session?.user?.id) return false;
+  try {
+    const accountDelete = (async () => {
+      const supabase = await getClient();
+      return supabase.from("recruit_onboarding_state").delete().eq("user_id", session.user.id);
+    })();
+    const { error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountDelete, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountDelete;
+    if (error) throw error;
+    recruitOnboardingStorageMode = "REMOTE";
+    return true;
+  } catch (error) {
+    console.warn("[orientation:clear] Account state could not be cleared.", {
+      code: error?.code || null,
+      message: error?.message || "Unknown delete error"
+    });
+    return false;
+  }
+}
+
+function weeklyOrchestrationStorageKey(stateType = "HISTORY", stateKey = "current") {
+  return `coach-dominion:weekly-orchestration:${session?.user?.id || "local"}:${String(stateType).toLowerCase()}:${stateKey}`;
+}
+
+function readWeeklyOrchestrationState(stateType = "HISTORY", stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(weeklyOrchestrationStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveWeeklyOrchestrationLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(weeklyOrchestrationStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readUnifiedWeekDraft() {
+  return readWeeklyOrchestrationState("DRAFT", "current", null);
+}
+
+function readUnifiedWeekHistory() {
+  const history = readWeeklyOrchestrationState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readCommittedUnifiedWeek(value = todayISODate()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined") return null;
+  return DominionWeeklyOrchestrator.weekForDate(readUnifiedWeekHistory(), value);
+}
+
+function readCommittedUnifiedDay(value = todayISODate()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const week = readCommittedUnifiedWeek(value);
+  return week ? DominionWeeklyOrchestrator.dayForDate(week, value) : null;
+}
+
+function splitDayCheckpointStorageKey(value = todayISODate()) {
+  return `coach-dominion:split-day:${session?.user?.id || "local"}:${String(value).slice(0, 10)}`;
+}
+
+function readSplitDayCheckpoint(value = todayISODate()) {
+  try {
+    return JSON.parse(window.localStorage.getItem(splitDayCheckpointStorageKey(value)) || "null");
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveSplitDayCheckpointLocal(payload) {
+  if (!payload?.date) return null;
+  window.localStorage.setItem(splitDayCheckpointStorageKey(payload.date), JSON.stringify(payload));
+  return payload;
+}
+
+async function persistSplitDayCheckpoint(payload) {
+  recordContinuityWrite("calendar", "CHECKPOINT", payload?.date || todayISODate(), payload);
+  if (!session?.user?.id || !payload?.date) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("split_day_checkpoint_state").upsert({
+      user_id: session.user.id,
+      checkpoint_date: payload.date,
+      week_id: payload.weekId || null,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,checkpoint_date" });
+    if (error) throw error;
+    markContinuityRecordSynced("calendar", "CHECKPOINT", payload.date, payload);
+    splitDayStorageMode = "REMOTE";
+    return true;
+  } catch (_) {
+    splitDayStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function loadSplitDayCheckpointState(value = todayISODate()) {
+  if (!session?.user?.id || typeof DominionSplitDayCommand === "undefined") return;
+  const local = readSplitDayCheckpoint(value);
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("split_day_checkpoint_state")
+      .select("checkpoint_date,week_id,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .eq("checkpoint_date", value)
+      .maybeSingle();
+    if (error) throw error;
+    if (data?.payload) {
+      const localUpdated = Date.parse(local?.updatedAt || local?.recordedAt || "") || 0;
+      const remoteUpdated = Date.parse(data.updated_at || data.payload.updatedAt || "") || 0;
+      if (local && localUpdated > remoteUpdated) await persistSplitDayCheckpoint(local);
+      else saveSplitDayCheckpointLocal(data.payload);
+    } else if (local) {
+      await persistSplitDayCheckpoint(local);
+    }
+    splitDayStorageMode = "REMOTE";
+  } catch (_) {
+    splitDayStorageMode = "LOCAL";
+  }
+  renderTodayCommittedWeek();
+}
+
+async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
+  recordContinuityWrite("calendar", stateType, stateKey, payload);
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("weekly_orchestration_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    markContinuityRecordSynced("calendar", stateType, stateKey, payload);
+    weeklyOrchestrationStorageMode = "REMOTE";
+    return true;
+  } catch (_) {
+    weeklyOrchestrationStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function clearWeeklyOrchestrationDraft() {
+  window.localStorage.removeItem(weeklyOrchestrationStorageKey("DRAFT", "current"));
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("weekly_orchestration_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", "DRAFT")
+      .eq("state_key", "current");
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadWeeklyOrchestrationState() {
+  if (!session?.user?.id || typeof DominionWeeklyOrchestrator === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("weekly_orchestration_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const draft = rows.find((item) => item.state_type === "DRAFT" && item.state_key === "current");
+    const history = rows.find((item) => item.state_type === "HISTORY" && item.state_key === "current");
+    const selectedDraft = resolveContinuityPayload("calendar", "DRAFT", "current", readUnifiedWeekDraft(), draft || null);
+    const selectedHistory = resolveContinuityPayload("calendar", "HISTORY", "current", readUnifiedWeekHistory(), history || null);
+    if (selectedDraft.payload) saveWeeklyOrchestrationLocal("DRAFT", "current", selectedDraft.payload);
+    if (selectedHistory.payload?.length) saveWeeklyOrchestrationLocal("HISTORY", "current", selectedHistory.payload);
+    if (selectedDraft.source === "DEVICE" && selectedDraft.payload) await persistWeeklyOrchestrationState("DRAFT", "current", selectedDraft.payload);
+    if (selectedHistory.source === "DEVICE" && selectedHistory.payload?.length) await persistWeeklyOrchestrationState("HISTORY", "current", selectedHistory.payload);
+    weeklyOrchestrationStorageMode = "REMOTE";
+    const localDraft = readUnifiedWeekDraft();
+    const localHistory = readUnifiedWeekHistory();
+    if (!draft && localDraft) await persistWeeklyOrchestrationState("DRAFT", "current", localDraft);
+    if (!history && localHistory.length) await persistWeeklyOrchestrationState("HISTORY", "current", localHistory);
+  } catch (_) {
+    weeklyOrchestrationStorageMode = "LOCAL";
+  }
+  await refreshUnifiedWeekDraftForNutrition();
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+}
+
+function unifiedWeekTargetStart() {
+  if (typeof DominionWeeklyOrchestrator === "undefined") return todayISODate();
+  const draft = readUnifiedWeekDraft();
+  if (draft?.weekStart) return draft.weekStart;
+  const active = readCommittedUnifiedWeek(todayISODate());
+  return active
+    ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+    : DominionWeeklyOrchestrator.weekStartIso(todayISODate());
+}
+
+function nutritionBaselineForUnifiedWeek(weekStart = unifiedWeekTargetStart()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined" || typeof activeNutritionBaseline !== "function") return null;
+  const planningDate = DominionWeeklyOrchestrator.planningDateForWeek(weekStart, todayISODate());
+  return activeNutritionBaseline(planningDate);
+}
+
+function nutritionBaselineReference(baseline = null) {
+  return baseline?.id || baseline?.approvedAt || null;
+}
+
+function unifiedWeekSourceSignature(week = null) {
+  if (!week) return "";
+  return JSON.stringify({
+    contractId: week.contractId || null,
+    contractRevision: Number(week.contractRevision || 0),
+    sourceRefs: week.sourceRefs || {},
+    blocking: (week.conflicts || []).filter((item) => item.severity === "BLOCKING").map((item) => item.code).sort()
+  });
+}
+
+async function refreshUnifiedWeekDraftForPlans({ force = false, contractHandoff = false } = {}) {
+  const existing = readUnifiedWeekDraft();
+  if (typeof DominionWeeklyOrchestrator === "undefined") return false;
+  const active = contractHandoff ? readCommittedUnifiedWeek(todayISODate()) : null;
+  const targetWeekStart = active
+    ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+    : existing?.weekStart || unifiedWeekTargetStart();
+  const refreshed = buildUnifiedWeekDraft(targetWeekStart);
+  if (!refreshed) return false;
+  if (!force && existing && unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
+  saveWeeklyOrchestrationLocal("DRAFT", "current", refreshed);
+  await persistWeeklyOrchestrationState("DRAFT", "current", refreshed);
+  return true;
+}
+
+async function refreshUnifiedWeekDraftForNutrition() {
+  return refreshUnifiedWeekDraftForPlans();
+}
+
+function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const draft = DominionWeeklyOrchestrator.buildUnifiedWeek({
+    contract: readApprovedRecruitContract(),
+    strengthPlan: readApprovedStrengthPlan(),
+    runningBlock: readApprovedRunningBlock(),
+    corePlan: readApprovedCorePlan(),
+    nutritionBaseline: nutritionBaselineForUnifiedWeek(weekStart)
+  }, {
+    today: todayISODate(),
+    weekStart,
+    generatedAt: new Date().toISOString()
+  });
+  return applyContractActivationGuards(draft, weekStart);
+}
+
+function applyContractActivationGuards(draft = null, weekStart = unifiedWeekTargetStart()) {
+  if (!draft || typeof DominionContractActivation === "undefined") return draft;
+  const state = DominionContractActivation.buildActivation(contractActivationInputs(weekStart, {
+    weekDraft: null,
+    committedWeeks: [],
+    currentWeek: null
+  }));
+  const pending = (state.modules || []).filter((item) => item.included && !item.complete);
+  if (!pending.length) return draft;
+  const activationConflicts = pending.map((item) => ({
+    code: `${item.id.toUpperCase()}_CONTRACT_LINK_REQUIRED`,
+    severity: "BLOCKING",
+    module: item.id.toUpperCase(),
+    date: null,
+    detail: `${item.label} must be approved against Recruit Contract ${readApprovedRecruitContract()?.revision || "current"} before this week can be committed.`
+  }));
+  const conflicts = [...(draft.conflicts || []).filter((item) => !String(item.code || "").endsWith("_CONTRACT_LINK_REQUIRED")), ...activationConflicts];
+  return {
+    ...draft,
+    conflicts,
+    blockingConflictCount: conflicts.filter((item) => item.severity === "BLOCKING").length,
+    advisoryCount: conflicts.filter((item) => item.severity === "ADVISORY").length,
+    approvalBlocked: true,
+    message: "Link every required plan to the current Recruit Contract before committing this week."
+  };
+}
+
+async function saveUnifiedWeekDraftForActivation(weekStart = unifiedWeekTargetStart()) {
+  const draft = buildUnifiedWeekDraft(weekStart);
+  if (!draft) return null;
+  saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
+  await persistWeeklyOrchestrationState("DRAFT", "current", draft);
+  renderWeeklyOrchestrator();
+  renderContractActivation();
+  return draft;
+}
+
+async function commitUnifiedWeekDraft() {
+  const draft = readUnifiedWeekDraft();
+  if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const activation = typeof DominionContractActivation === "undefined"
+    ? null
+    : DominionContractActivation.buildActivation(contractActivationInputs(draft.weekStart));
+  if (activation && activation.next.action !== "COMMIT_WEEK") {
+    throw new Error("Finish the Contract activation steps before committing this week.");
+  }
+  const history = readUnifiedWeekHistory();
+  const previous = history.find((item) => item.status !== "REPLACED" && item.weekStart === draft.weekStart) || null;
+  const approved = DominionWeeklyOrchestrator.approveWeek(draft, previous, { approvedAt: new Date().toISOString() });
+  const nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(history, approved);
+  saveWeeklyOrchestrationLocal("HISTORY", "current", nextHistory);
+  saveWeeklyOrchestrationLocal("WEEK", approved.weekStart, approved);
+  const strengthSchedule = DominionWeeklyOrchestrator.strengthScheduleFromWeek(approved);
+  saveStrengthStateLocal("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
+  const synced = await persistWeeklyOrchestrationState("WEEK", approved.weekStart, approved);
+  await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory);
+  await persistStrengthTrainingState("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
+  await clearWeeklyOrchestrationDraft();
+  renderWeeklyOrchestrator();
+  renderContractActivation();
+  renderTodayCommittedWeek();
+  renderTodayCommandSurface();
+  renderDailyAssignment();
+  renderCoreProgramming();
+  const message = `Week ${approved.weekStart} committed as revision ${approved.revision}${synced ? " and saved to your account" : " on this device"}. Today will activate it on schedule.`;
+  setText("weekly-orchestrator-feedback", message);
+  setText("contract-activation-feedback", message);
+  return approved;
+}
+
+function weeklyOrchestrationTone(state = "") {
+  if (["ACTIVE", "COMMITTED", "READY"].includes(state)) return "green";
+  if (["DRAFT", "COMPLETED", "ACTION_REQUIRED"].includes(state)) return "yellow";
+  if (["BLOCKED", "REPLACED"].includes(state)) return "red";
+  return "neutral";
+}
+
+function weeklyOrchestrationModuleLabel(code = "") {
+  return { strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition" }[code] || code;
+}
+
+function weeklyOrchestrationBlockerMeta(item = {}) {
+  const code = String(item.code || "");
+  const module = String(item.module || "").toLowerCase();
+  if (code === "CONTRACT_REQUIRED") return { label: "Contract missing", action: "Open Contract", section: "contract" };
+  if (code.includes("NUTRITION")) return { label: "Fuel plan missing", action: "Open Fuel", section: "nutrition" };
+  if (code.includes("PLAN_REQUIRED") || code.includes("COVERAGE") || code.includes("CONTRACT_LINK_REQUIRED")) {
+    return module === "nutrition"
+      ? { label: "Fuel plan incomplete", action: "Open Fuel", section: "nutrition" }
+      : { label: `${weeklyOrchestrationModuleLabel(module)} plan incomplete`, action: "Open Train", section: "performance" };
+  }
+  if (code === "RECOVERY_MINIMUM_VIOLATED") return { label: "Recovery day missing", action: "Edit calendar", section: "calendar" };
+  if (code === "RECOVERY_DAY_COLLISION") return { label: "Recovery-day collision", action: "Move assignment", section: "calendar" };
+  if (code === "HARD_RUN_STRENGTH_COLLISION") return { label: "Hard-run collision", action: "Move assignment", section: "calendar" };
+  if (code === "TWO_A_DAY_SESSION_LIMIT") return { label: "Too many training windows", action: "Move assignment", section: "calendar" };
+  if (code.includes("CAP_EXCEEDED")) return { label: "Time capacity exceeded", action: "Edit calendar", section: "calendar" };
+  return { label: "Calendar blocker", action: "Review", section: "calendar" };
+}
+
+function renderWeeklyOrchestrator() {
+  const panel = document.getElementById("weekly-orchestrator-panel");
+  const status = document.getElementById("weekly-orchestrator-status");
+  if (!panel || !status || typeof DominionWeeklyOrchestrator === "undefined") return;
+  const contract = readApprovedRecruitContract();
+  if (!contract) {
+    status.textContent = "CONTRACT REQUIRED";
+    status.className = "state-pill neutral";
+    panel.innerHTML = `<div class="performance-empty">Approve the Recruit Contract to coordinate the operating week.</div>`;
+    return;
+  }
+  const targetWeekStart = unifiedWeekTargetStart();
+  const active = readCommittedUnifiedWeek(todayISODate());
+  const history = readUnifiedWeekHistory();
+  const future = history.filter((item) => item.status !== "REPLACED" && item.weekStart > todayISODate()).sort((left, right) => left.weekStart.localeCompare(right.weekStart))[0] || null;
+  let savedDraft = readUnifiedWeekDraft();
+  if (savedDraft?.status === "DRAFT" && savedDraft.version !== DominionWeeklyOrchestrator.VERSION) {
+    try {
+      savedDraft = DominionWeeklyOrchestrator.recalculateDraftWeek({
+        ...savedDraft,
+        calendarPolicy: {
+          twoADays: contract.twoADays === true,
+          sessionMinutes: Number(contract.sessionMinutes || 60),
+          primaryGoal: contract.primaryGoal || null
+        }
+      });
+      saveWeeklyOrchestrationLocal("DRAFT", "current", savedDraft);
+      persistWeeklyOrchestrationState("DRAFT", "current", savedDraft).catch(() => {});
+    } catch (_) {
+      savedDraft = null;
+    }
+  }
+  const preview = savedDraft || future || buildUnifiedWeekDraft(targetWeekStart);
+  if (!preview) return;
+  const displayState = preview.status === "DRAFT"
+    ? savedDraft ? preview.approvalBlocked ? "BLOCKED" : "DRAFT" : preview.approvalBlocked ? "ACTION_REQUIRED" : "READY"
+    : DominionWeeklyOrchestrator.weekState(preview, todayISODate());
+  status.textContent = displayState;
+  status.className = `state-pill ${weeklyOrchestrationTone(displayState)}`;
+  const modules = Object.entries(preview.moduleStatus || {}).map(([key, moduleState]) => `<article>
+    <span>${escapeHtml(weeklyOrchestrationModuleLabel(key))}</span>
+    <strong>${escapeHtml(moduleState.replaceAll("_", " "))}</strong>
+    <small>${key === "nutrition" ? "Daily targets" : `${preview.actual?.[key] || 0}/${preview.expected?.[key] || 0} sessions`}</small>
+  </article>`).join("");
+  const canEditCalendar = preview.status === "DRAFT" && Boolean(savedDraft);
+  const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
+  const days = (preview.days || []).map((day) => {
+    const activities = day.activities.length
+      ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()} ${item.tertiary ? "tertiary" : ""}">
+        ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
+        <span>${escapeHtml(item.module)}${item.calendarEdited ? " · MOVED" : ""}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small>
+        ${canEditCalendar ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
+      </div>`).join("")
+      : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
+    return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
+      <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
+      ${day.activities.length ? `<div class="calendar-window-count"><strong>${day.sessionCount || day.activities.length}</strong> training window${(day.sessionCount || day.activities.length) === 1 ? "" : "s"}${day.corePaired ? " · Core paired" : ""}</div>` : ""}
+      <div>${activities}</div>
+      ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `${day.twoADay ? "AM/PM · " : ""}long-run time uncapped${day.twoADay ? " · companion window protected" : ""}` : day.twoADay ? `${day.estimatedMinutes} / 240 min · AM/PM Two-a-Day` : day.corePaired ? `${day.estimatedMinutes} / 120 min · one primary + Core window` : day.twoADayAuthorizationRequired ? `${day.estimatedMinutes} min · Two-a-Days OFF` : day.twoADayCandidate ? `${day.estimatedMinutes} min · two windows; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
+      ${day.nutrition ? `<small class="weekly-orchestrator-fuel">Fuel · ${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein</small>` : ""}
+      ${day.conflicts.map((item) => `<p class="weekly-orchestrator-conflict ${item.severity.toLowerCase()}">${escapeHtml(item.detail)}</p>`).join("")}
+    </article>`;
+  }).join("");
+  const blocking = preview.conflicts?.filter((item) => item.severity === "BLOCKING") || [];
+  const advisories = preview.conflicts?.filter((item) => item.severity === "ADVISORY") || [];
+  const existingSameWeek = history.find((item) => item.status !== "REPLACED" && item.weekStart === preview.weekStart);
+  const controls = preview.status === "DRAFT" && savedDraft
+    ? `<button type="button" data-weekly-orchestrator-action="commit" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>Commit complete week</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
+    : `<button type="button" data-weekly-orchestrator-action="build">Build ${active ? "next" : "this"} week</button>`;
+  panel.innerHTML = `
+    ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
+    <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
+    <div class="weekly-orchestrator-module-grid">${modules}</div>
+    <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
+    ${!preview.twoADaysEnabled && preview.days?.some((day) => day.twoADayAuthorizationRequired) ? `<div class="weekly-orchestrator-alert"><strong>Two-a-Days are off in the signed Contract.</strong><p>These stacked days exceed 120 minutes, but they cannot become AM/PM Two-a-Days until you deliberately amend and re-sign the Contract.</p><button type="button" class="ghost" data-weekly-orchestrator-action="amend-two-a-days">Review Two-a-Days</button></div>` : ""}
+    ${blocking.length ? `<section id="calendar-blockers" class="calendar-blockers" aria-labelledby="calendar-blockers-heading"><header><div><span class="kicker">COMMITMENT BLOCKED</span><strong id="calendar-blockers-heading">Clear ${blocking.length} blocker${blocking.length === 1 ? "" : "s"}</strong></div><span>${blocking.length}</span></header><div>${blocking.map((item) => { const meta = weeklyOrchestrationBlockerMeta(item); return `<article><div><span>${escapeHtml(meta.label)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span><p>${escapeHtml(item.detail)}</p></div><a href="#${escapeHtml(meta.section)}" data-section="${escapeHtml(meta.section)}">${escapeHtml(meta.action)}</a></article>`; }).join("")}</div></section>` : ""}
+    ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
+    <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
+    <div class="weekly-orchestrator-actions"><p>${escapeHtml(preview.message || "Review the complete week before commitment.")}${existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
+}
+
+function todaySessionExecutionRecord(item = {}) {
+  const module = String(item.module || "").toUpperCase();
+  if (module === "STRENGTH") return readDailyAssignmentExecution();
+  if (module === "RUNNING") return readRunningExecution() || { state: "READY" };
+  if (module === "CORE") return readCurrentCoreExecution() || { state: "READY" };
+  return { state: "READY" };
+}
+
+function splitDayTrainingWindows(day = {}) {
+  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
+  const groups = new Map();
+  sequence.forEach((item, index) => {
+    const key = item.trainingWindowId || `window-${item.sessionOrder || index + 1}`;
+    if (!groups.has(key)) groups.set(key, { id: key, order: item.sessionOrder || groups.size + 1, items: [] });
+    groups.get(key).items.push(item);
+  });
+  return [...groups.values()].sort((left, right) => Number(left.order) - Number(right.order));
+}
+
+function todayTrainingWindowExecution(window = {}) {
+  const records = (window.items || []).map((item) => todaySessionExecutionRecord(item));
+  if (!records.length) return { state: "READY" };
+  const held = records.find((record) => ["STOPPED", "PAIN_HOLD", "RECOVERY_ONLY"].includes(String(record?.state || "").toUpperCase()) || record?.painReported === true);
+  if (held) return held;
+  const terminal = records.every((record) => ["COMPLETE", "COMPLETED", "PARTIAL"].includes(String(record?.state || "").toUpperCase()));
+  if (terminal) {
+    const completedAt = records.map((record) => record.completedAt || record.endedAt).filter(Boolean).sort().at(-1) || null;
+    return { state: records.some((record) => String(record?.state || "").toUpperCase() === "PARTIAL") ? "PARTIAL" : "COMPLETE", completedAt };
+  }
+  const active = records.find((record) => ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(record?.state || "").toUpperCase()));
+  return active || { state: "READY" };
+}
+
+function currentSplitDayCommand(day = readCommittedUnifiedDay(), week = readCommittedUnifiedWeek(), now = new Date().toISOString()) {
+  if (!day?.twoADay || typeof DominionSplitDayCommand === "undefined") {
+    return { required: false, status: "NOT_REQUIRED", allowed: true, blockers: [] };
+  }
+  const windows = splitDayTrainingWindows(day);
+  const sequence = windows.map((window) => window.items.find((item) => !item.tertiary) || window.items[0]).filter(Boolean);
+  const readiness = dailyState?.date === todayISODate()
+    ? evaluateOperationalReadiness(dailyState)
+    : { state: "UNKNOWN" };
+  return DominionSplitDayCommand.evaluate({
+    day: { ...day, sessionSequence: sequence },
+    weekId: week?.id || null,
+    sessionOne: todayTrainingWindowExecution(windows[0]),
+    sessionTwo: todayTrainingWindowExecution(windows[1]),
+    checkpoint: readSplitDayCheckpoint(day.date || todayISODate()),
+    morningReadiness: { state: readiness.state, pain: Boolean(dailyState?.pain) },
+    now
+  });
+}
+
+function splitDayGateLabel(gate = {}) {
+  return {
+    AWAITING_SESSION_1: "AM SESSION FIRST",
+    COMPLETION_TIME_REQUIRED: "TIME REQUIRED",
+    RECOVERING: "RECOVERY WINDOW",
+    CHECKPOINT_REQUIRED: "CHECKPOINT DUE",
+    CLEARED: "CLEARED",
+    HELD: "SAFETY HOLD",
+    COMPLETE: "COMPLETE"
+  }[gate.status] || "CHECKPOINT";
+}
+
+function splitDayGateTone(gate = {}) {
+  if (gate.status === "CLEARED" || gate.status === "COMPLETE") return "green";
+  if (gate.status === "HELD") return "red";
+  if (["RECOVERING", "CHECKPOINT_REQUIRED", "COMPLETION_TIME_REQUIRED"].includes(gate.status)) return "yellow";
+  return "neutral";
+}
+
+function splitDayActionLabel(gate = {}) {
+  if (gate.status === "HELD") return "PM session held";
+  if (gate.status === "RECOVERING") return `${gate.minutesRemaining || 1} min remaining`;
+  if (gate.status === "CHECKPOINT_REQUIRED") return "Complete checkpoint";
+  if (gate.status === "COMPLETION_TIME_REQUIRED") return "Completion time required";
+  return "Finish the AM session first";
+}
+
+function splitDayCheckpointForm(gate = {}, day = {}, week = {}) {
+  if (!gate.first?.terminal || gate.second?.terminal) return "";
+  const checkpoint = gate.checkpoint || {};
+  const energyOptions = Array.from({ length: 10 }, (_, index) => index + 1)
+    .map((value) => `<option value="${value}" ${Number(checkpoint.energy) === value ? "selected" : ""}>${value}</option>`).join("");
+  const blockers = gate.blockers?.length
+    ? `<ul class="split-day-blockers">${gate.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : `<p class="split-day-clearance">Recovery interval and checkpoint requirements are satisfied.</p>`;
+  return `<form class="split-day-checkpoint-form" data-split-day-checkpoint>
+    <div class="split-day-checkpoint-heading"><div><span>MIDDAY RECHECK</span><strong>Clear the PM session deliberately</strong></div><mark class="${splitDayGateTone(gate)}">${escapeHtml(splitDayGateLabel(gate))}</mark></div>
+    ${blockers}
+    <div class="split-day-checkpoint-fields">
+      <label>Energy now<select name="energy" required><option value="">Select 1–10</option>${energyOptions}</select></label>
+      <label>New pain?<select name="newPain" required><option value="">Select</option><option value="NO" ${checkpoint.newPain === false ? "selected" : ""}>No</option><option value="YES" ${checkpoint.newPain === true ? "selected" : ""}>Yes</option></select></label>
+      <label class="split-day-check"><input type="checkbox" name="refueled" ${checkpoint.refueled ? "checked" : ""}> Refueled</label>
+      <label class="split-day-check"><input type="checkbox" name="hydrated" ${checkpoint.hydrated ? "checked" : ""}> Hydrated</label>
+      <label class="split-day-notes">Notes<input name="notes" maxlength="280" value="${escapeHtml(checkpoint.notes || "")}" placeholder="Optional context"></label>
+    </div>
+    <div class="split-day-checkpoint-actions"><button type="submit">Save checkpoint</button><small>${splitDayStorageMode === "REMOTE" ? "Account synced" : "Saved on this device"}${gate.unlockAt ? ` · Earliest PM session ${new Date(gate.unlockAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}</small></div>
+    <input type="hidden" name="weekId" value="${escapeHtml(week.id || "")}">
+    <input type="hidden" name="dayDate" value="${escapeHtml(day.date || todayISODate())}">
+  </form>`;
+}
+
+function renderTodayCommittedWeek() {
+  const section = document.getElementById("today-committed-week");
+  const panel = document.getElementById("today-committed-week-panel");
+  const status = document.getElementById("today-committed-week-state");
+  if (!section || !panel || !status || typeof DominionWeeklyOrchestrator === "undefined") return;
+  const week = readCommittedUnifiedWeek(todayISODate());
+  section.hidden = !readApprovedRecruitContract();
+  if (!week) {
+    status.textContent = "NOT COMMITTED";
+    status.className = "state-pill yellow";
+    panel.innerHTML = `<div class="today-committed-week-empty"><div><strong>No complete week is committed.</strong><p>Review the unified calendar before Today begins assigning cross-module work.</p></div><a href="#calendar" data-section="calendar">Open Calendar</a></div>`;
+    return;
+  }
+  const day = DominionWeeklyOrchestrator.dayForDate(week, todayISODate());
+  const state = DominionWeeklyOrchestrator.weekState(week, todayISODate());
+  status.textContent = state;
+  status.className = `state-pill ${weeklyOrchestrationTone(state)}`;
+  const sequence = day?.sessionSequence?.length ? day.sessionSequence : day?.activities || [];
+  const sessionModels = sequence.map((item) => ({ item, execution: todaySessionExecution(item) }));
+  const splitDayGate = currentSplitDayCommand(day, week);
+  if (splitDayRefreshTimer) window.clearTimeout(splitDayRefreshTimer);
+  if (splitDayGate.status === "RECOVERING") {
+    splitDayRefreshTimer = window.setTimeout(renderTodayCommittedWeek, 60000);
+  }
+  const assignments = sessionModels.length
+    ? sessionModels.map(({ item, execution }, index) => {
+      const pmWindow = Boolean(day?.twoADay && Number(item.sessionOrder || index + 1) > 1);
+      const locked = Boolean(pmWindow && !splitDayGate.allowed && !execution.complete);
+      const disabled = locked || execution.complete || execution.held;
+      const actionLabel = execution.complete
+        ? "Session complete"
+        : execution.held
+          ? "Safety hold"
+          : locked
+            ? splitDayActionLabel(splitDayGate)
+            : `Open ${day?.twoADay ? item.sessionLabel.toLowerCase() : "training"}`;
+      const stateLabel = locked ? splitDayGateLabel(splitDayGate) : execution.label;
+      const stateTone = locked ? splitDayGateTone(splitDayGate) : execution.tone;
+      return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked ? "locked" : ""}">
+        <span>${item.sessionOrder || index + 1}</span>
+        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
+      </article>`;
+    }).join("")
+    : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
+  const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
+  const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
+  panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+}
+
+function todaySessionExecution(item = {}) {
+  const module = String(item.module || "").toUpperCase();
+  const record = todaySessionExecutionRecord(item);
+  let state = String(record?.state || "READY").toUpperCase();
+  let held = false;
+  if (module === "STRENGTH") {
+    const assignment = buildCurrentDailyAssignment();
+    held = assignment?.state === "RECOVERY ONLY" || state === "STOPPED" || record?.painReported === true;
+  } else if (module === "RUNNING") {
+    const prescription = currentRunningPrescription();
+    held = ["PAIN_HOLD", "REST_DAY"].includes(String(prescription?.status || "").toUpperCase());
+  } else if (module === "CORE") {
+    const prescription = currentCorePrescription();
+    held = ["PAIN_HOLD", "RECOVERY_ONLY", "REMOVED"].includes(String(prescription?.status || "").toUpperCase());
+  }
+  const complete = ["COMPLETE", "PARTIAL"].includes(state);
+  const active = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(state);
+  return {
+    state,
+    complete,
+    held,
+    completedAt: record?.completedAt || null,
+    label: held ? "PROTECTED" : complete ? "COMPLETE" : active ? "IN PROGRESS" : "READY",
+    tone: held ? "red" : complete ? "green" : active ? "yellow" : "neutral"
+  };
+}
+
+function recruitContractGoalLabel(value = "") {
+  return {
+    BALANCED_FITNESS: "Balanced fitness",
+    BUILD_STRENGTH: "Build strength",
+    RUN_FASTER: "Run faster",
+    BUILD_ENDURANCE: "Build endurance",
+    LOSE_FAT: "Lose fat"
+  }[value] || String(value || "").replaceAll("_", " ");
+}
+
+function recruitContractNutritionLabel(value = "") {
+  return {
+    TRACK_DAILY: "Track daily",
+    TRACK_5_DAYS: "Track 5 days/week",
+    PROTEIN_FIRST: "Protein first",
+    FOUNDATION_ONLY: "Foundation habits"
+  }[value] || String(value || "").replaceAll("_", " ");
+}
+
+function hydrateRecruitContractForm(value = {}) {
+  const form = document.getElementById("recruit-contract-form");
+  if (!form || typeof DominionRecruitContract === "undefined") return;
+  const contract = DominionRecruitContract.normalizeContractDraft(value, { today: todayISODate() });
+  Object.entries(contract).forEach(([name, fieldValue]) => {
+    const field = form.elements.namedItem(name);
+    if (!field) return;
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      field.checked = fieldValue === true;
+      return;
+    }
+    field.value = fieldValue ?? "";
+  });
+  const runningFields = form.querySelector("[data-recruit-running-fields]");
+  if (runningFields) runningFields.hidden = contract.runningDaysPerWeek === 0;
+  renderContractAthleteType(contract.trainingYears);
+  renderRecruitContractSetupStep();
+}
+
+function renderContractAthleteType(trainingYears) {
+  const output = document.getElementById("contract-athlete-type");
+  if (!output || typeof DominionRecruitContract === "undefined") return;
+  const type = DominionRecruitContract.deriveAthleteType(trainingYears);
+  const labels = {
+    FOUNDATION: "Foundation athlete · 0–1 years",
+    DEVELOPING: "Developing athlete · 2–3 years",
+    TRAINED: "Trained athlete · 4–7 years",
+    VETERAN: "Veteran athlete · 8+ years"
+  };
+  output.querySelector("strong").textContent = labels[type] || "Complete training history";
+  output.classList.toggle("complete", Boolean(type));
+}
+
+function recruitContractFromForm() {
+  const form = document.getElementById("recruit-contract-form");
+  if (!form || typeof DominionRecruitContract === "undefined") return null;
+  const existing = readRecruitContractDraft();
+  const approved = readApprovedRecruitContract();
+  const input = Object.fromEntries(new FormData(form).entries());
+  const options = {
+    today: todayISODate(),
+    createdAt: existing?.createdAt || new Date().toISOString()
+  };
+  if (approved && typeof DominionRecruitContract.buildRecruitContractAmendment === "function") {
+    return DominionRecruitContract.buildRecruitContractAmendment(
+      approved,
+      input,
+      readRecruitOnboardingState()?.profile || {},
+      options
+    );
+  }
+  return DominionRecruitContract.buildRecruitContract(input, options);
+}
+
+async function saveRecruitContractDraftFromForm({ render = false, announce = true } = {}) {
+  const draft = recruitContractFromForm();
+  if (!draft) return null;
+  saveRecruitContractLocal("DRAFT", draft);
+  if (render) renderRecruitContract();
+  const approved = readApprovedRecruitContract();
+  if (announce) {
+    setText("recruit-contract-autosave-status", approved
+      ? `Amendment saved on this device. Syncing to your account… Signed Contract ${approved.revision} remains active.`
+      : "Contract draft saved on this device. Syncing to your account…");
+  }
+  queueRecruitContractAccountSync(draft, recruitContractAutosaveRevision);
+  return draft;
+}
+
+function recruitContractAutosaveFailure(error, phase = "current") {
+  console.error("[contract:autosave] Draft save recovered without blocking the editor.", {
+    phase,
+    code: error?.code || null,
+    message: error?.message || "Unknown autosave error"
+  });
+  setText(
+    "recruit-contract-autosave-status",
+    "Draft save was interrupted. Your signed Contract is unchanged; edit a field or press Continue to retry."
+  );
+}
+
+function queueRecruitContractAccountSync(draft, revision = recruitContractAutosaveRevision) {
+  const task = () => persistRecruitContractState("DRAFT", draft);
+  recruitContractAutosavePromise = typeof DominionContractAutosave !== "undefined"
+    ? DominionContractAutosave.enqueue(recruitContractAutosavePromise, task, recruitContractAutosaveFailure)
+    : Promise.resolve(recruitContractAutosavePromise)
+      .catch((error) => {
+        recruitContractAutosaveFailure(error, "previous");
+        return null;
+      })
+      .then(task)
+      .catch((error) => {
+        recruitContractAutosaveFailure(error, "current");
+        return false;
+      });
+  recruitContractAutosavePromise.then((synced) => {
+    if (revision !== recruitContractAutosaveRevision) return;
+    const approved = readApprovedRecruitContract();
+    setText("recruit-contract-autosave-status", approved
+      ? synced
+        ? `Amendment saved to your account. Signed Contract ${approved.revision} remains active until you sign the replacement.`
+        : `Amendment saved on this device. Account sync is pending; Continue is available. Signed Contract ${approved.revision} remains active.`
+      : synced
+        ? "Contract draft saved to your account."
+        : "Contract draft saved on this device. Account sync is pending; Continue is available.");
+  });
+  return recruitContractAutosavePromise;
+}
+
+async function saveRecruitContractDraftForNavigation() {
+  window.clearTimeout(recruitContractAutosaveTimer);
+  recruitContractAutosaveRevision += 1;
+  try {
+    return await saveRecruitContractDraftFromForm({ announce: false });
+  } catch (error) {
+    recruitContractAutosaveFailure(error, "navigation");
+    return null;
+  }
+}
+
+function updateRecruitContractAmendmentPreview(draft, approved = readApprovedRecruitContract()) {
+  if (!draft || !approved) return;
+  setText("contract-amendment-heading", draft.twoADays
+    ? "Two-a-Days are ON in the draft—not yet in force."
+    : "Contract changes are saved—not yet in force.");
+  setText("contract-amendment-draft-capacity", draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF");
+  setText("contract-amendment-draft-detail", draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`);
+  const editorSummary = document.getElementById("recruit-contract-editor-summary");
+  if (editorSummary) editorSummary.textContent = `${recruitContractGoalLabel(draft.primaryGoal)} · ${draft.trainingDaysPerWeek} days · ${draft.twoADays ? "Two-a-Days" : `${draft.sessionMinutes} min`}`;
+}
+
+function queueRecruitContractAutosave() {
+  window.clearTimeout(recruitContractAutosaveTimer);
+  const revision = ++recruitContractAutosaveRevision;
+  setText("recruit-contract-autosave-status", "Saving amendment draft…");
+  recruitContractAutosaveTimer = window.setTimeout(async () => {
+    try {
+      const draft = await saveRecruitContractDraftFromForm({ announce: false });
+      if (!draft || revision !== recruitContractAutosaveRevision) return;
+      const approved = readApprovedRecruitContract();
+      updateRecruitContractAmendmentPreview(draft, approved);
+      setText("recruit-contract-autosave-status", approved
+        ? `Amendment saved on this device. Syncing to your account… Signed Contract ${approved.revision} remains active.`
+        : "Draft saved on this device. Syncing to your account…");
+      const status = document.getElementById("recruit-contract-status");
+      if (status && approved) {
+        status.textContent = "AMENDMENT UNSIGNED";
+        status.className = "state-pill yellow";
+      }
+    } catch (error) {
+      recruitContractAutosaveFailure(error, "local");
+    }
+  }, 350);
+}
+
+function recruitContractStateTone(status = "") {
+  if (["APPROVED", "READY_TO_STAGE", "PLAN_LINKED"].includes(status)) return "green";
+  if (["READY_FOR_APPROVAL", "BASELINE_REQUIRED", "TARGETS_REQUIRED", "SCHEDULED", "PLAN_REVIEW"].includes(status)) return "yellow";
+  if (status === "REVIEW_REQUIRED") return "red";
+  return "neutral";
+}
+
+function renderRecruitContractSetupStep() {
+  const form = document.getElementById("recruit-contract-form");
+  if (!form) return;
+  const step = Math.max(0, Math.min(4, Number(recruitContractSetupStep || 0)));
+  form.querySelectorAll("[data-contract-form-step]").forEach((element) => {
+    const elementStep = Number(element.dataset.contractFormStep);
+    const runningExcluded = element.hasAttribute("data-recruit-running-fields")
+      && Number(form.elements.namedItem("runningDaysPerWeek")?.value || 0) === 0;
+    element.hidden = elementStep !== step || runningExcluded;
+  });
+  document.querySelectorAll("[data-contract-progress-step]").forEach((element) => {
+    const elementStep = Number(element.dataset.contractProgressStep);
+    element.classList.toggle("complete", elementStep < step);
+    element.classList.toggle("current", elementStep === step);
+    if (elementStep === step) element.setAttribute("aria-current", "step");
+    else element.removeAttribute("aria-current");
+  });
+  const back = form.querySelector('[data-contract-experience-action="setup-back"]');
+  const next = form.querySelector('[data-contract-experience-action="setup-next"]');
+  if (back) back.hidden = step === 0;
+  if (next) next.textContent = step === 3 ? "Review the Contract" : step === 4 ? "Read and sign" : "Continue";
+  const stepMeta = typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.SETUP_STEPS[step]
+    : null;
+  const summary = document.getElementById("recruit-contract-editor-summary");
+  if (summary && stepMeta) summary.textContent = stepMeta.prompt;
+}
+
+function routeRecruitContractReview(draft, { readyMessage = "Replacement Contract is ready. Read the change, enter your signature, and sign it into force." } = {}) {
+  if (!draft || typeof DominionContractExperience === "undefined") return false;
+  const route = DominionContractExperience.amendmentReviewRoute(draft);
+  recruitContractSetupStep = route.step;
+  renderRecruitContract();
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) editor.open = true;
+  if (route.ready) {
+    setText("recruit-contract-feedback", readyMessage);
+    document.getElementById("contract-signature-heading")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("contract-signer-name")?.focus({ preventScroll: true });
+    return true;
+  }
+  setText("recruit-contract-feedback", `Fix before signing: ${route.errors.join(" ")}`);
+  const field = document.querySelector(`#recruit-contract-form [name="${route.focusName}"]`);
+  field?.scrollIntoView({ behavior: "smooth", block: "center" });
+  field?.focus({ preventScroll: true });
+  return false;
+}
+
+function contractIntegrityInputs() {
+  return {
+    weekDraft: readUnifiedWeekDraft(),
+    committedWeeks: readUnifiedWeekHistory(),
+    currentWeek: readCommittedUnifiedWeek(todayISODate())
+  };
+}
+
+function currentContractCalendarIntegrity(contract = readApprovedRecruitContract()) {
+  if (typeof DominionContractIntegrity === "undefined") return null;
+  return DominionContractIntegrity.calendarIntegrity(contract, contractIntegrityInputs());
+}
+
+function contractIntegrityTone(status = "") {
+  if (status === "ACTIVE") return "green";
+  if (status === "DRAFT_MATCHED") return "yellow";
+  if (status === "REPAIR_REQUIRED") return "red";
+  return "neutral";
+}
+
+function contractAmendmentChangesMarkup(approved = null, draft = null) {
+  if (!approved || !draft || typeof DominionContractIntegrity === "undefined") return "";
+  const changes = DominionContractIntegrity.amendmentChanges(approved, draft);
+  if (!changes.length) return `<div class="contract-amendment-diff empty"><strong>No operating changes detected.</strong><span>The replacement still requires a new signature before it can supersede Contract ${escapeHtml(String(approved.revision))}.</span></div>`;
+  return `<div class="contract-amendment-diff"><div><span class="kicker">WHAT CHANGES</span><strong>${changes.length} operating term${changes.length === 1 ? "" : "s"}</strong></div><ul>${changes.map((change) => `<li><span>${escapeHtml(change.label)}</span><small>${escapeHtml(change.from)}</small><strong>${escapeHtml(change.to)}</strong></li>`).join("")}</ul></div>`;
+}
+
+function contractIntegrityMarkup(contract = null) {
+  if (!contract || typeof DominionContractIntegrity === "undefined") return "";
+  const integrity = currentContractCalendarIntegrity(contract);
+  if (!integrity) return "";
+  const receipt = DominionContractIntegrity.receiptMatchesContract(contract.handoffReceipt, contract)
+    ? contract.handoffReceipt
+    : null;
+  const receiptChanges = receipt?.changes?.length
+    ? receipt.changes.map((change) => change.label).join(", ")
+    : "Initial Contract activation";
+  const signedAt = receipt?.signedAt
+    ? new Date(receipt.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+    : contract.signature?.signedAt
+      ? new Date(contract.signature.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+      : "Receipt pending";
+  const calendarRevision = integrity.calendarRevision
+    ? `CONTRACT R${integrity.calendarRevision}`
+    : integrity.currentWeekRevision
+      ? `CURRENT WEEK R${integrity.currentWeekRevision}`
+      : "NO REVISION STAMP";
+  const twoADayDetail = integrity.twoADaysAuthorized
+    ? integrity.twoADayCount > 0
+      ? `${integrity.twoADayCount} AM/PM day${integrity.twoADayCount === 1 ? "" : "s"} staged`
+      : "Authorized; scheduled when the plan requires it"
+    : "Not authorized by this Contract";
+  const action = integrity.repairRequired ? "repair" : "open-calendar";
+  const actionLabel = integrity.repairRequired ? "Repair calendar handoff" : integrity.status === "ACTIVE" ? "Open active calendar" : "Review staged calendar";
+  const protectedWeek = integrity.protectedCurrentWeek
+    ? `<p class="contract-integrity-protected">The current week remains protected on its original Contract revision. The replacement governs the next coordinated week.</p>`
+    : "";
+  const receiptMarkup = receipt
+    ? `<footer class="contract-handoff-receipt"><div><span>SIGNED RECEIPT</span><strong>Contract R${escapeHtml(String(receipt.contractRevision))}</strong></div><div><span>Signed</span><strong>${escapeHtml(signedAt)}</strong></div><div><span>Changes</span><strong>${escapeHtml(receiptChanges)}</strong></div></footer>`
+    : `<footer class="contract-handoff-receipt pending"><div><span>RECEIPT</span><strong>Calendar confirmation pending</strong></div></footer>`;
+  return `<section class="contract-integrity-card ${integrity.status.toLowerCase().replaceAll("_", "-")}" aria-label="Contract to calendar integrity">
+    <header><div><span class="kicker">BUILD 021F // CONTRACT TO CALENDAR</span><h3>One signed revision. One calendar truth.</h3><p>${escapeHtml(integrity.detail)}</p></div><span class="state-pill ${contractIntegrityTone(integrity.status)}">${escapeHtml(integrity.label)}</span></header>
+    <div class="contract-integrity-grid">
+      <article><span>SIGNED CONTRACT</span><strong>REVISION ${escapeHtml(String(integrity.contractRevision))}</strong><small>${contract.twoADays ? "Two-a-Days authorized" : `${contract.sessionMinutes}-minute standard`}</small></article>
+      <article><span>CALENDAR STAMP</span><strong>${escapeHtml(calendarRevision)}</strong><small>${escapeHtml(integrity.weekStart || "Calendar rebuild required")}</small></article>
+      <article><span>TWO-A-DAY COMMAND</span><strong>${contract.twoADays ? "AM / PM ENABLED" : "OFF"}</strong><small>${escapeHtml(twoADayDetail)}</small></article>
+      <article><span>LONG-RUN RULE</span><strong>${Number(contract.runningDaysPerWeek || 0) > 0 || integrity.longRunsUncapped ? "TIME UNCAPPED" : "NOT SCHEDULED"}</strong><small>Distance and readiness govern the long run.</small></article>
+    </div>
+    ${protectedWeek}
+    ${receiptMarkup}
+    <div class="contract-integrity-actions"><button type="button" data-contract-integrity-action="${action}">${actionLabel}</button><span>Contract R${escapeHtml(String(integrity.contractRevision))} remains authoritative.</span></div>
+  </section>`;
+}
+
+async function attachContractHandoffReceipt(contract, previous = null, options = {}) {
+  if (!contract || typeof DominionContractIntegrity === "undefined") return { contract, integrity: null, synced: false };
+  const integrity = currentContractCalendarIntegrity(contract);
+  const receipt = DominionContractIntegrity.createHandoffReceipt(previous, contract, integrity, {
+    recordedAt: new Date().toISOString()
+  });
+  const updated = { ...contract, handoffReceipt: receipt };
+  const history = [updated, ...readRecruitContractHistory().filter((item) => item.id !== updated.id)].slice(0, 24);
+  saveRecruitContractLocal("APPROVED", updated);
+  saveRecruitContractLocal("HISTORY", history);
+  const synced = options.persist === false ? false : await persistRecruitContractState("APPROVED", updated);
+  if (options.persist !== false) await persistRecruitContractState("HISTORY", history);
+  return { contract: updated, integrity, synced };
+}
+
+async function repairContractCalendarIntegrity() {
+  const contract = readApprovedRecruitContract();
+  if (!contract) return { contract: null, integrity: null, synced: false };
+  await refreshUnifiedWeekDraftForPlans({ force: true, contractHandoff: true });
+  const previous = readRecruitContractHistory()
+    .filter((item) => item.id !== contract.id && Number(item.revision || 0) < Number(contract.revision || 0))
+    .sort((left, right) => Number(right.revision || 0) - Number(left.revision || 0))[0] || null;
+  return attachContractHandoffReceipt(contract, previous);
+}
+
+function recruitContractNutritionConnection(contract = {}, weekStart = unifiedWeekTargetStart()) {
+  if (typeof DominionRecruitContract === "undefined") return null;
+  const planningDate = typeof DominionWeeklyOrchestrator !== "undefined"
+    ? DominionWeeklyOrchestrator.planningDateForWeek(weekStart, todayISODate())
+    : todayISODate();
+  const history = readNutritionBaselineHistory().filter((item) => item?.status === "APPROVED");
+  const active = activeNutritionBaseline(planningDate);
+  const scheduled = history.filter((item) => item.effectiveDate > planningDate)
+    .sort((left, right) => left.effectiveDate.localeCompare(right.effectiveDate))[0] || null;
+  return DominionRecruitContract.resolveNutritionPlanReadiness(contract, active || scheduled, { date: planningDate, today: todayISODate() });
+}
+
+function contractActivationInputs(weekStart = unifiedWeekTargetStart(), overrides = {}) {
+  const contract = readApprovedRecruitContract();
+  const baseline = nutritionBaselineForUnifiedWeek(weekStart);
+  const base = {
+    contract,
+    strengthPlan: readApprovedStrengthPlan(),
+    strengthDraft: readStrengthDraft(),
+    runningPlan: readApprovedRunningBlock(),
+    runningDraft: readRunningBlockDraft(),
+    corePlan: readApprovedCorePlan(),
+    coreDraft: readCoreDraftPlan(),
+    nutritionBaseline: baseline,
+    nutritionConnection: contract ? recruitContractNutritionConnection(contract, weekStart) : null,
+    weekDraft: readUnifiedWeekDraft(),
+    committedWeeks: readUnifiedWeekHistory(),
+    currentWeek: readCommittedUnifiedWeek(todayISODate())
+  };
+  return { ...base, ...overrides };
+}
+
+function contractActivationTone(status = "") {
+  if (["ACTIVE", "LINKED", "SCHEDULED", "COMPATIBLE"].includes(status)) return "green";
+  if (["READY_TO_BUILD", "WEEK_READY", "DRAFT_READY", "ACTION_REQUIRED"].includes(status)) return "yellow";
+  if (["PLAN_REQUIRED", "UPDATE_REQUIRED"].includes(status)) return "red";
+  return "neutral";
+}
+
+function renderContractActivation() {
+  const panel = document.getElementById("contract-activation-panel");
+  const status = document.getElementById("contract-activation-status");
+  const progress = document.getElementById("contract-activation-progress");
+  if (!panel || !status || typeof DominionContractActivation === "undefined") return;
+  const state = DominionContractActivation.buildActivation(contractActivationInputs());
+  status.textContent = state.status.replaceAll("_", " ");
+  status.className = `state-pill ${contractActivationTone(state.status)}`;
+  if (progress) progress.style.width = `${state.progress.percent}%`;
+  if (state.status === "CONTRACT_REQUIRED") {
+    panel.innerHTML = `<div class="contract-activation-empty"><p>${escapeHtml(state.message)}</p><button type="button" data-contract-activation-action="EDIT_CONTRACT">Set the Contract</button></div>`;
+    return;
+  }
+  const modules = state.modules.map((item) => {
+    const changes = item.changes?.length
+      ? `<details class="contract-activation-changes"><summary>${item.changes.length} Contract change${item.changes.length === 1 ? "" : "s"}</summary><ul>${item.changes.map((change) => `<li><span>${escapeHtml(change.label)}</span><strong>${escapeHtml(change.from)} → ${escapeHtml(change.to)}</strong></li>`).join("")}</ul></details>`
+      : "";
+    return `<article class="contract-activation-module ${item.complete ? "complete" : "pending"}">
+      <div class="contract-activation-module-head"><span>${escapeHtml(item.label)}</span><strong class="state-pill ${contractActivationTone(item.status)}">${escapeHtml(item.status.replaceAll("_", " "))}</strong></div>
+      <p>${escapeHtml(item.message)}</p>${changes}
+    </article>`;
+  }).join("");
+  const protectedWeek = state.protectedWeek
+    ? `<div class="contract-activation-protected"><strong>Current week protected</strong><p>${escapeHtml(state.protectedWeek.weekStart || "Current week")} continues unchanged while Contract ${readApprovedRecruitContract()?.revision || "current"} is activated for the next coordinated week.</p></div>`
+    : "";
+  panel.innerHTML = `
+    <div class="contract-activation-summary"><div><span>${state.progress.complete}/${state.progress.total} activated</span><strong>${escapeHtml(state.message)}</strong></div><button type="button" data-contract-activation-action="${escapeHtml(state.next.action)}" data-contract-activation-module="${escapeHtml(state.next.module || "")}">${escapeHtml(state.next.label)}</button></div>
+    ${protectedWeek}
+    <div class="contract-activation-modules">${modules}</div>`;
+}
+
+function openContractActivationModule(module = "") {
+  if (module === "nutrition") {
+    setNutritionActiveView("plan");
+    setActiveSection("nutrition");
+    window.history.replaceState(null, "", "#nutrition");
+    document.querySelector('[data-nutrition-view-panel="plan"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setActiveSection("performance");
+  window.history.replaceState(null, "", "#performance");
+  if (module === "running") {
+    setPerformanceActiveView("running");
+    document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (module === "core") {
+    setPerformanceActiveView("core");
+    document.getElementById("core-programming-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setPerformanceActiveView("today_training");
+  const detail = document.getElementById("training-programming-detail");
+  if (detail) {
+    detail.open = true;
+    detail.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function recruitProfileHeight(profile = {}) {
+  if (!profile.heightCm) return "Height pending";
+  if (profile.heightUnit === "cm") return `${Number(profile.heightCm).toFixed(0)} cm`;
+  const inches = Math.round(Number(profile.heightCm) / 2.54);
+  return `${Math.floor(inches / 12)}′ ${inches % 12}″`;
+}
+
+function currentRecruitOrientation(contract = readApprovedRecruitContract()) {
+  if (!contract || typeof DominionFirstWeekOrientation === "undefined") return null;
+  const normalized = DominionFirstWeekOrientation.normalizeOrientation(readRecruitOnboardingState(), contract, { today: todayISODate() });
+  saveRecruitOnboardingLocal(normalized);
+  return normalized;
+}
+
+function renderFirstWeekOrientation() {
+  const section = document.getElementById("first-week-orientation");
+  const panel = document.getElementById("first-week-orientation-panel");
+  const status = document.getElementById("first-week-orientation-status");
+  const progress = document.getElementById("first-week-orientation-progress");
+  const steps = document.getElementById("first-week-orientation-steps");
+  const contract = readApprovedRecruitContract();
+  const signed = contract && typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.signatureStatus(contract).valid
+    : false;
+  if (!section || !panel || !status || !steps || !contract || !signed || typeof DominionFirstWeekOrientation === "undefined") {
+    if (section) section.hidden = true;
+    return null;
+  }
+  section.hidden = false;
+  const orientation = currentRecruitOrientation(contract);
+  const view = DominionFirstWeekOrientation.presentation(orientation, contract);
+  status.textContent = view.status === "COMPLETE" ? "WEEK ONE READY" : view.status.replaceAll("_", " ");
+  status.className = `state-pill ${view.status === "COMPLETE" ? "green" : view.status === "PROFILE_REQUIRED" ? "red" : "yellow"}`;
+  if (progress) progress.style.width = `${view.percent}%`;
+  steps.innerHTML = view.steps.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
+  const profile = view.profile || {};
+  const athleteLabel = view.atlas.athleteTypeLabel || "Athlete type pending";
+  const atlasOrder = view.atlas.guardrails?.[0] || "Week One establishes the evidence Atlas needs before progression.";
+  if (view.status === "COMPLETE") {
+    panel.innerHTML = `<article class="orientation-stage orientation-complete">
+      <div><span class="kicker">ORIENTATION COMPLETE</span><h4>Week One is cleared to build.</h4></div>
+      <p>Atlas will treat ${escapeHtml(view.weekStart)} through ${escapeHtml(view.weekEnd)} as the baseline window. Execution quality and recovery evidence govern every adjustment.</p>
+      <div class="orientation-launch-grid">
+        <article><span>ATHLETE TYPE</span><strong>${escapeHtml(athleteLabel)}</strong><p>${escapeHtml(String(profile.trainingYears ?? "—"))} years structured training</p></article>
+        <article><span>PROFILE</span><strong>Age ${escapeHtml(String(profile.age || "—"))} · ${escapeHtml(recruitProfileHeight(profile))}</strong><p>${escapeHtml(String(profile.gender || "PREFER_NOT_TO_SAY").replaceAll("_", " "))}</p></article>
+        <article><span>BASELINE WINDOW</span><strong>${escapeHtml(view.weekStart)} → ${escapeHtml(view.weekEnd)}</strong><p>No automatic progression during calibration.</p></article>
+      </div>
+      <div class="orientation-atlas-order"><strong>ATLAS ORDER:</strong> ${escapeHtml(atlasOrder)}</div>
+    </article>`;
+    return view;
+  }
+  if (view.currentStep === 0) {
+    panel.innerHTML = `<form id="first-week-profile-form" class="orientation-stage">
+      <div><span class="kicker">STEP 1 // RECRUIT PROFILE</span><h4>Give Atlas the correct operating context.</h4></div>
+      <p>This information calibrates progression and recovery caution. It does not lower the standard or replace daily evidence.</p>
+      <div class="recruit-contract-grid">
+        <label>Age<input name="age" type="number" min="13" max="100" required value="${escapeHtml(profile.age ?? "")}"></label>
+        <label>Height<span class="recruit-height-control"><input name="heightValue" type="number" min="47" max="230" step="0.1" required value="${escapeHtml(profile.heightValue ?? "")}"><select name="heightUnit" aria-label="Height unit"><option value="in" ${profile.heightUnit !== "cm" ? "selected" : ""}>in</option><option value="cm" ${profile.heightUnit === "cm" ? "selected" : ""}>cm</option></select></span></label>
+        <label>Gender<select name="gender"><option value="PREFER_NOT_TO_SAY" ${profile.gender === "PREFER_NOT_TO_SAY" ? "selected" : ""}>Prefer not to say</option><option value="WOMAN" ${profile.gender === "WOMAN" ? "selected" : ""}>Woman</option><option value="MAN" ${profile.gender === "MAN" ? "selected" : ""}>Man</option><option value="NON_BINARY" ${profile.gender === "NON_BINARY" ? "selected" : ""}>Non-binary</option><option value="SELF_DESCRIBE" ${profile.gender === "SELF_DESCRIBE" ? "selected" : ""}>Self-describe</option></select></label>
+        <label>Years of structured training<input name="trainingYears" type="number" min="0" max="70" step="0.5" required value="${escapeHtml(profile.trainingYears ?? "")}"></label>
+      </div>
+      <div class="orientation-stage-actions"><button type="submit">Save recruit profile</button></div>
+    </form>`;
+    return view;
+  }
+  if (view.currentStep === 1) {
+    panel.innerHTML = `<article class="orientation-stage">
+      <div><span class="kicker">STEP 2 // DAILY RHYTHM</span><h4>Run the same operating loop every day.</h4></div>
+      <div class="orientation-rhythm-grid">
+        <article><span>01 // ROLL CALL</span><strong>Report before prescription.</strong><p>Energy, soreness, pain, sleep, weight, RHR, and HRV establish readiness.</p></article>
+        <article><span>02 // EXECUTE</span><strong>Follow the authorized work.</strong><p>Train, fuel, and recover inside the Contract and current readiness constraints.</p></article>
+        <article><span>03 // CLOSE</span><strong>Preserve the evidence.</strong><p>Finish the workout, confirm fueling, and close the Dominion Record.</p></article>
+      </div>
+      <div class="orientation-atlas-order"><strong>${escapeHtml(athleteLabel)}:</strong> ${escapeHtml(atlasOrder)}</div>
+      <div class="orientation-stage-actions"><button type="button" data-first-week-action="acknowledge-rhythm">I understand the daily rhythm</button></div>
+    </article>`;
+    return view;
+  }
+  if (view.currentStep === 2) {
+    panel.innerHTML = `<article class="orientation-stage">
+      <div><span class="kicker">STEP 3 // BASELINE WEEK</span><h4>Do not audition. Calibrate.</h4></div>
+      <p>The first seven days establish truthful workload, recovery, and execution baselines. Week One is not a test week.</p>
+      <div class="orientation-baseline-grid">
+        <article><span>NO EGO LOADS</span><strong>Leave clean reps available.</strong><p>Atlas needs repeatable execution before it can recommend progression.</p></article>
+        <article><span>REPORT FRICTION</span><strong>Pain and recovery override.</strong><p>Record poor sleep, elevated RHR, suppressed HRV, soreness, and pain honestly.</p></article>
+        <article><span>COMPLETE THE LOOP</span><strong>Evidence beats intensity.</strong><p>A fully recorded moderate day is more valuable than an untracked heroic day.</p></article>
+      </div>
+      <div class="orientation-stage-actions"><button type="button" data-first-week-action="acknowledge-baseline">Protect the baseline week</button></div>
+    </article>`;
+    return view;
+  }
+  panel.innerHTML = `<article class="orientation-stage">
+    <div><span class="kicker">STEP 4 // LAUNCH</span><h4>Turn the Contract into Week One.</h4></div>
+    <p>Atlas will stage the Strength, Running, Core, and Nutrition work implied by Contract ${escapeHtml(String(contract.revision))}. Nothing becomes active until each plan and the coordinated week are deliberately approved.</p>
+    <div class="orientation-launch-grid">
+      <article><span>TRAINING</span><strong>${contract.strengthDaysPerWeek} strength · ${contract.runningDaysPerWeek} running</strong><p>${contract.coreDaysPerWeek} core exposures · ${contract.twoADays ? "Two-a-Days enabled" : `${contract.sessionMinutes}-minute standard sessions`}</p></article>
+      <article><span>RECOVERY</span><strong>${7 - contract.trainingDaysPerWeek} protected day${7 - contract.trainingDaysPerWeek === 1 ? "" : "s"}</strong><p>Readiness can reduce work at any time.</p></article>
+      <article><span>ATLAS CONTEXT</span><strong>${escapeHtml(athleteLabel)}</strong><p>Age ${escapeHtml(String(profile.age))} · ${escapeHtml(recruitProfileHeight(profile))} · ${escapeHtml(String(profile.trainingYears))} training years</p></article>
+    </div>
+    <div class="orientation-stage-actions"><button type="button" data-first-week-action="launch">Build my first week</button></div>
+  </article>`;
+  return view;
+}
+
+async function retireActiveRecruitContract() {
+  const contract = readApprovedRecruitContract();
+  if (!contract || typeof DominionFirstWeekOrientation === "undefined") return false;
+  const lifecycle = DominionFirstWeekOrientation.retireContract(contract, { deletedAt: new Date().toISOString() });
+  const history = [lifecycle.retired, ...readRecruitContractHistory().filter((item) => item.id !== contract.id)].slice(0, 24);
+  saveRecruitContractLocal("HISTORY", history);
+  saveRecruitContractLocal("APPROVED", lifecycle.tombstone);
+  recordContinuityWrite("contract", "TOMBSTONE", "current", lifecycle.tombstone);
+  await persistRecruitContractState("HISTORY", history);
+  await persistRecruitContractState("APPROVED", lifecycle.tombstone);
+  await clearRecruitContractState("DRAFT");
+  await clearRecruitOnboardingState();
+  recruitContractSetupStep = 0;
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) {
+    editor.dataset.focusInitialized = "";
+    editor.open = true;
+  }
+  renderRecruitContract();
+  renderActivationGuide();
+  renderTodayStandardsDuty();
+  setText("recruit-contract-feedback", "Active Contract deleted. Historical weeks and evidence remain preserved. Complete a new recruit profile to create the replacement Contract.");
+  scheduleContinuitySync(0);
+  return true;
+}
+
+function renderRecruitContract() {
+  const output = document.getElementById("recruit-contract-output");
+  const status = document.getElementById("recruit-contract-status");
+  const storage = document.getElementById("recruit-contract-storage");
+  const editor = document.getElementById("recruit-contract-editor");
+  const editorSummary = document.getElementById("recruit-contract-editor-summary");
+  const setupProgress = document.getElementById("contract-setup-progress");
+  if (!output || !status || typeof DominionRecruitContract === "undefined") return;
+  const draft = readRecruitContractDraft();
+  const approved = readApprovedRecruitContract();
+  const current = draft || approved;
+  const signed = approved && typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.signatureStatus(approved).valid
+    : false;
+  const amendmentPending = Boolean(signed && draft);
+  const orientation = signed ? currentRecruitOrientation(approved) : null;
+  const orientationComplete = orientation?.status === "COMPLETE";
+  if (setupProgress) setupProgress.hidden = Boolean(signed && !draft);
+  const activationSurface = document.getElementById("contract-activation");
+  const weeklySurface = document.querySelector("#contract > .weekly-orchestrator");
+  if (activationSurface) activationSurface.hidden = Boolean(approved && (!signed || !orientationComplete));
+  if (weeklySurface) weeklySurface.hidden = Boolean(approved && (!signed || !orientationComplete));
+  if (editorSummary) {
+    editorSummary.textContent = current
+      ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.twoADays ? "Two-a-Days" : `${current.sessionMinutes} min`}`
+      : "Set goal, capacity, and constraints";
+  }
+  if (editor && !editor.dataset.focusInitialized) {
+    editor.open = !approved || Boolean(draft);
+    editor.dataset.focusInitialized = "true";
+  }
+  if (!current) {
+    if (editor) editor.open = true;
+    recruitContractSetupStep = 0;
+    const defaults = DominionRecruitContract.defaultContract({ today: todayISODate() });
+    hydrateRecruitContractForm(defaults);
+    status.textContent = "NOT SET";
+    status.className = "state-pill neutral";
+    if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL READY";
+    const deleted = readRecruitContractTombstone();
+    output.innerHTML = `<div class="performance-empty"><strong>${deleted ? "Previous Contract retired." : "No active Contract."}</strong><p>Complete the recruit profile and commitment to create a new coordinated program.</p><button type="button" data-contract-lifecycle-action="new-contract">Create new Contract</button></div>`;
+    renderFirstWeekOrientation();
+    renderContractActivation();
+    renderWeeklyOrchestrator();
+    renderDominionExperienceShell();
+    return;
+  }
+  hydrateRecruitContractForm(current);
+  status.textContent = amendmentPending
+    ? "AMENDMENT UNSIGNED"
+    : signed
+      ? "CONTRACT SIGNED"
+      : current.status === "APPROVED" ? "SIGNATURE REQUIRED" : current.status.replaceAll("_", " ");
+  status.className = `state-pill ${amendmentPending ? "yellow" : signed ? "green" : recruitContractStateTone(current.status)}`;
+  if (storage) storage.textContent = recruitContractStorageMode === "REMOTE" ? "ACCOUNT SYNC" : "LOCAL FALLBACK";
+  const targetDate = current.targetDate ? ` by ${current.targetDate}` : "";
+  const alerts = current.errors?.length
+    ? `<ul class="recruit-contract-alerts errors">${current.errors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : current.warnings?.length
+      ? `<ul class="recruit-contract-alerts">${current.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+      : "";
+  const schedule = (current.schedule || []).map((day) => `<article class="recruit-contract-day ${day.isRecoveryDay ? "recovery" : day.load === "TWO_A_DAY" ? "two-a-day" : ""}">
+    <header><strong>${escapeHtml(day.weekday)}</strong><span>${escapeHtml(day.date.slice(5))}</span></header>
+    <strong>${day.isRecoveryDay ? "Recovery" : day.load === "TWO_A_DAY" ? "Two-a-Day" : day.load === "STACKED" ? "Combined day" : "Training"}</strong>
+    <div class="recruit-contract-day-tags">${day.activities.length ? day.activities.map((item) => `<span>${escapeHtml(item)}</span>`).join("") : "<span>OFF</span>"}</div>
+    <small>${day.isRecoveryDay ? "No assigned training." : day.load === "TWO_A_DAY" ? "Two-session capacity · target 121–240 min." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
+  </article>`).join("");
+  const nutritionConnection = recruitContractNutritionConnection(current);
+  const modules = Object.entries(current.moduleReadiness || {}).map(([key, originalItem]) => {
+    const item = key === "nutrition" && nutritionConnection ? nutritionConnection : originalItem;
+    const labels = { strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition" };
+    const inputs = current.planningInputs?.[key];
+    const detail = key === "strength" && inputs ? `${inputs.daysPerWeek} days · ${inputs.sessionMinutes} min` :
+      key === "running" && inputs ? `${inputs.runningDaysPerWeek} days · ${inputs.declaredWeeklyDistance || "—"} ${inputs.preferredUnit}` :
+      key === "core" && inputs ? `${inputs.sessionsPerWeek} days · ${inputs.sessionMinutes} min` :
+      key === "nutrition" && inputs ? `${recruitContractNutritionLabel(inputs.commitment)}${nutritionConnection?.targetSummary ? ` · ${nutritionConnection.targetSummary}` : ""}` : "Not included";
+    const planAction = key === "nutrition"
+      ? `<button type="button" class="ghost recruit-contract-module-action" data-recruit-contract-action="nutrition-plan">${nutritionConnection?.baseline ? "Open nutrition plan" : "Set nutrition targets"}</button>`
+      : "";
+    return `<article class="recruit-contract-module">
+      <header><h4>${labels[key]}</h4><span class="state-pill ${recruitContractStateTone(item.status)}">${escapeHtml(item.status.replaceAll("_", " "))}</span></header>
+      <p>${escapeHtml(item.message)}</p><small>${escapeHtml(detail)}</small>${planAction}
+    </article>`;
+  }).join("");
+  const operatingTerms = `
+    <article class="recruit-contract-brief">
+      <div><span class="kicker">${current.status === "APPROVED" ? `CONTRACT ${current.revision}` : "CONTRACT PREVIEW"}</span><h3>${escapeHtml(current.target)}</h3><p>${escapeHtml(recruitContractGoalLabel(current.primaryGoal))}${escapeHtml(targetDate)}. ${current.trainingDaysPerWeek} training days and ${7 - current.trainingDaysPerWeek} recovery day${7 - current.trainingDaysPerWeek === 1 ? "" : "s"}.</p></div>
+      <div class="recruit-contract-brief-meta"><div><span>Strength</span><strong>${current.strengthDaysPerWeek}/wk</strong></div><div><span>Running</span><strong>${current.runningDaysPerWeek}/wk</strong></div><div><span>Core</span><strong>${current.coreDaysPerWeek}/wk</strong></div><div><span>Standard session</span><strong>${current.sessionMinutes} min</strong></div><div><span>Two-a-Days</span><strong>${current.twoADays ? "ENABLED · 240 MIN" : "OFF"}</strong></div></div>
+    </article>
+    ${alerts}
+    <div class="recruit-contract-week" aria-label="Coordinated weekly commitment">${schedule}</div>
+    <div class="recruit-contract-modules">${modules}</div>`;
+  const canSign = ["READY_FOR_APPROVAL", "APPROVED"].includes(current.status)
+    && typeof DominionContractExperience !== "undefined";
+  const signedArtifact = typeof DominionContractExperience !== "undefined" && approved
+    ? DominionContractExperience.artifact(approved)
+    : null;
+  const currentArtifact = typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.artifact(current)
+    : null;
+  const oath = signedArtifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
+  const commitments = signedArtifact?.commitments?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
+  const ceremonyOath = currentArtifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
+  const signatureCeremony = canSign && (!signed || amendmentPending)
+    ? `<section class="contract-signature-ceremony" aria-labelledby="contract-signature-heading">
+        <div class="contract-ceremony-oath"><span class="kicker">${amendmentPending ? "REPLACEMENT CONTRACT" : "THE DOMINION OATH"}</span><h3 id="contract-signature-heading">${amendmentPending ? "Sign the amended standard." : "Commit with intent."}</h3><ul>${ceremonyOath}</ul></div>
+        <div class="contract-signature-block">
+          <label>Signature
+            <input id="contract-signer-name" maxlength="80" autocomplete="name" placeholder="Type your full name">
+          </label>
+          <label class="contract-signature-affirmation"><input id="contract-signature-accepted" type="checkbox"> <span>I have read this Contract. I accept its commitments, safeguards, and weekly standard.</span></label>
+          <button type="button" data-contract-experience-action="sign-request">Enter the signing ceremony</button>
+          <small>${amendmentPending ? `Contract ${approved.revision} remains active until this replacement is signed.` : `Signing ${current.status === "APPROVED" ? `completes approved revision ${current.revision}` : "approves this new revision"}.`} Compatible active plans remain protected.</small>
+        </div>
+      </section>`
+    : "";
+  const amendmentDiff = amendmentPending ? contractAmendmentChangesMarkup(approved, draft) : "";
+  const amendmentHandoff = amendmentPending
+    ? `<section class="contract-amendment-handoff" aria-label="Unsigned Contract amendment">
+        <div><span class="kicker">UNSIGNED AMENDMENT</span><h3 id="contract-amendment-heading">${draft.twoADays ? "Two-a-Days are ON in the draft—not yet in force." : "Contract changes are saved—not yet in force."}</h3><p>Signed Contract ${approved.revision} still governs Today and the calendar until you sign the replacement.</p></div>
+        <div class="contract-amendment-comparison">
+          <article><span>SIGNED · R${approved.revision}</span><strong>${approved.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small>${approved.twoADays ? "Up to 240 min" : `${approved.sessionMinutes} min standard`}</small></article>
+          <article><span>DRAFT REPLACEMENT</span><strong id="contract-amendment-draft-capacity">${draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small id="contract-amendment-draft-detail">${draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`}</small></article>
+        </div>
+        <button type="button" data-contract-experience-action="review-amendment">Review & sign replacement</button>
+        ${amendmentDiff}
+      </section>`
+    : "";
+  if (signed && signedArtifact) {
+    const activationState = typeof DominionContractActivation !== "undefined"
+      ? DominionContractActivation.buildActivation(contractActivationInputs())
+      : { status: "ACTION_REQUIRED", next: {} };
+    const journey = DominionContractExperience.progression(approved, activationState.status);
+    const next = DominionContractExperience.nextAction(approved, activationState);
+    const journeyMarkup = journey.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
+    const nextButton = orientationComplete
+      ? `<button type="button" data-contract-activation-action="${escapeHtml(next.action)}" data-contract-activation-module="${escapeHtml(next.module || "")}">${escapeHtml(next.label)}</button>`
+      : `<button type="button" data-contract-lifecycle-action="open-orientation">Complete Week One Orientation</button>`;
+    output.innerHTML = `
+      <article class="dominion-contract-artifact">
+        <header>
+          <div class="dominion-contract-artifact-seal"><img src="/assets/icons/dominion-mark.svg" alt=""></div>
+          <div><span class="kicker">CONTRACT ACTIVE · REVISION ${approved.revision}</span><h3>The Dominion Contract</h3><p>${escapeHtml(signedArtifact.preamble)}</p></div>
+          <span class="contract-signed-badge">SIGNED</span>
+        </header>
+        <div class="dominion-contract-declaration"><span>DECLARATION OF INTENT</span><strong>${escapeHtml(approved.target)}</strong><p>${escapeHtml(recruitContractGoalLabel(approved.primaryGoal))}${escapeHtml(targetDate)} · Effective ${escapeHtml(approved.effectiveDate)}</p></div>
+        <div class="dominion-contract-columns">
+          <section><h4>The oath</h4><ul class="dominion-contract-oath">${oath}</ul></section>
+          <section><h4>My commitments</h4><ul class="dominion-contract-commitments">${commitments}</ul></section>
+        </div>
+        <footer class="dominion-contract-signature">
+          <div><span>Signed by</span><strong>${escapeHtml(signedArtifact.signature.signature.signerName)}</strong></div>
+          <div><span>Signed</span><strong>${escapeHtml(new Date(signedArtifact.signature.signature.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
+          <div><span>Contract ID</span><strong>${escapeHtml(approved.id)}</strong></div>
+        </footer>
+      </article>
+      ${contractIntegrityMarkup(approved)}
+      ${amendmentHandoff}
+      ${amendmentPending ? signatureCeremony : ""}
+      <section class="contract-momentum" aria-labelledby="contract-momentum-heading">
+        <div><span class="kicker">THE PATH FORWARD</span><h3 id="contract-momentum-heading">Turn the vow into the week.</h3></div>
+        <ol>${journeyMarkup}</ol>
+        <div class="contract-momentum-action">${nextButton}<button type="button" class="ghost" data-contract-experience-action="amend">Amend Contract</button></div>
+      </section>
+      <details class="contract-operating-terms"><summary><span>Operating terms</span><small>Schedule, module handoffs, and safeguards</small></summary><div>${operatingTerms}</div></details>
+      <div class="contract-lifecycle-actions"><span class="muted">Need a clean restart?</span><button type="button" class="ghost danger" data-contract-lifecycle-action="delete-request">Delete previous Contract</button></div>`;
+  } else {
+    output.innerHTML = `${operatingTerms}${signatureCeremony}`;
+  }
+  renderFirstWeekOrientation();
+  renderContractActivation();
+  renderWeeklyOrchestrator();
+  renderDominionExperienceShell();
+}
+
+async function signRecruitContractFromCeremony() {
+  if (typeof DominionRecruitContract === "undefined" || typeof DominionContractExperience === "undefined") return false;
+  const signerName = document.getElementById("contract-signer-name")?.value || "";
+  const accepted = document.getElementById("contract-signature-accepted")?.checked === true;
+  const validation = DominionContractExperience.validateSignature({ signerName, accepted });
+  if (!validation.valid) {
+    setText("recruit-contract-feedback", validation.errors[0]);
+    if (signerName.trim().length < 2) document.getElementById("contract-signer-name")?.focus();
+    else document.getElementById("contract-signature-accepted")?.focus();
+    return false;
+  }
+  let signed;
+  let previous;
+  let previousOrientation;
+  try {
+    const draft = readRecruitContractDraft();
+    previous = readRecruitContractState("APPROVED", null);
+    previousOrientation = readRecruitOnboardingState();
+    const approvalDraft = draft || (previous?.status === "APPROVED"
+      ? DominionRecruitContract.buildRecruitContractAmendment(previous, {}, previousOrientation?.profile || {}, {
+          today: todayISODate(),
+          createdAt: new Date().toISOString()
+        })
+      : null);
+    const approved = approvalDraft
+      ? DominionRecruitContract.approveRecruitContract(approvalDraft, previous, {
+          today: todayISODate(),
+          approvedAt: new Date().toISOString()
+        })
+      : previous;
+    if (!approved) throw new Error("Review the Contract before signing.");
+    signed = DominionContractExperience.signApprovedContract(approved, {
+      signerName: validation.signerName,
+      accepted: true
+    }, { signedAt: new Date().toISOString() });
+    const history = [signed, ...readRecruitContractHistory().filter((item) => item.id !== signed.id)].slice(0, 24);
+    saveRecruitContractLocal("APPROVED", signed);
+    saveRecruitContractLocal("HISTORY", history);
+    window.localStorage.removeItem(recruitContractStorageKey("DRAFT"));
+  } catch (error) {
+    setText("recruit-contract-feedback", error?.message || "The Dominion Contract could not be signed.");
+    return false;
+  }
+
+  const followupWarnings = [];
+  let synced = false;
+  try {
+    if (typeof DominionFirstWeekOrientation !== "undefined") {
+      const orientation = previous?.status === "APPROVED"
+        ? DominionFirstWeekOrientation.rebaseOrientation(previousOrientation, previous, signed, { today: todayISODate() })
+        : DominionFirstWeekOrientation.createOrientation(signed, { today: todayISODate() });
+      saveRecruitOnboardingLocal(orientation);
+      await persistRecruitOnboardingState(orientation);
+    }
+  } catch (_) {
+    followupWarnings.push("Week One Orientation will retry on refresh");
+  }
+  let calendarRefreshed = false;
+  let handoffIntegrity = null;
+  try {
+    calendarRefreshed = await refreshUnifiedWeekDraftForPlans({ force: true, contractHandoff: true });
+    handoffIntegrity = currentContractCalendarIntegrity(signed);
+    if (handoffIntegrity?.repairRequired) followupWarnings.push("calendar revision verification needs a retry");
+  } catch (_) {
+    followupWarnings.push("calendar regeneration needs a retry");
+  }
+  try {
+    const handoff = await attachContractHandoffReceipt(signed, previous, { persist: false });
+    signed = handoff.contract;
+    handoffIntegrity = handoff.integrity || handoffIntegrity;
+  } catch (_) {
+    followupWarnings.push("the signed amendment receipt will retry on refresh");
+  }
+  const history = [signed, ...readRecruitContractHistory().filter((item) => item.id !== signed.id)].slice(0, 24);
+  saveRecruitContractLocal("APPROVED", signed);
+  saveRecruitContractLocal("HISTORY", history);
+  synced = await persistRecruitContractState("APPROVED", signed);
+  await persistRecruitContractState("HISTORY", history);
+  const draftFinalized = await finalizeRecruitContractDraftState(signed);
+  if (session?.user?.id && !synced) followupWarnings.push("account Contract sync needs a retry");
+  if (session?.user?.id && !draftFinalized) followupWarnings.push("draft finalization sync needs a retry");
+  recruitContractSetupStep = 0;
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) editor.open = false;
+  try {
+    renderRecruitContract();
+    renderActivationGuide();
+    renderTodayStandardsDuty();
+  } catch (_) {
+    followupWarnings.push("the Contract view needs a refresh");
+  }
+  const warning = followupWarnings.length ? ` Follow-up: ${followupWarnings.join("; ")}. Your signed Contract is already in force.` : "";
+  const calendarDetail = handoffIntegrity?.status === "ACTIVE"
+    ? ` The active calendar is stamped to Contract ${signed.revision}.`
+    : handoffIntegrity?.status === "DRAFT_MATCHED"
+      ? ` The calendar draft now uses ${signed.twoADays ? "AM/PM Two-a-Day capacity" : `${signed.sessionMinutes}-minute standard capacity`} and is stamped to Contract ${signed.revision}.`
+      : calendarRefreshed
+        ? " The calendar was rebuilt; verify the revision stamp below."
+        : "";
+  setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}.${calendarDetail} First Week Orientation is ready below.${warning}`);
+  return true;
+}
+
+async function stageRecruitContractPlans() {
+  const contract = readApprovedRecruitContract();
+  if (!contract || typeof DominionRecruitContract === "undefined") return;
+  const inputs = contract.planningInputs || DominionRecruitContract.contractPlanningInputs(contract, { today: todayISODate() });
+  const staged = [];
+  const protectedPlans = [];
+  const now = new Date().toISOString();
+
+  if (inputs.strength && typeof DominionStrengthTraining !== "undefined") {
+    const profile = DominionStrengthTraining.normalizeProfile(inputs.strength);
+    const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, { startDate: todayISODate(), generatedAt: now });
+    saveStrengthStateLocal("PROFILE", "current", profile);
+    saveStrengthStateLocal("DRAFT", "current", { ...draft, recruitContractId: contract.id, recruitContractRevision: contract.revision });
+    await persistStrengthTrainingState("PROFILE", "current", profile);
+    await persistStrengthTrainingState("DRAFT", "current", readStrengthDraft());
+    staged.push("Strength");
+    if (readApprovedStrengthPlan()) protectedPlans.push("active Strength plan");
+  }
+
+  if (inputs.core && typeof DominionCoreProgramming !== "undefined") {
+    const profile = DominionCoreProgramming.normalizeProfile({ ...inputs.core, updatedAt: now });
+    const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now });
+    saveCoreProgramLocal("PROFILE", "current", profile);
+    saveCoreProgramLocal("DRAFT", "current", { ...draft, recruitContractId: contract.id, recruitContractRevision: contract.revision });
+    await persistCoreProgramState("PROFILE", "current", profile);
+    await persistCoreProgramState("DRAFT", "current", readCoreDraftPlan());
+    staged.push("Core");
+    if (readApprovedCorePlan()) protectedPlans.push("active Core plan");
+  }
+
+  if (inputs.running && typeof DominionRunning !== "undefined") {
+    const existingProfile = readRunningProfile();
+    const activeRunningBlock = readApprovedRunningBlock();
+    const profile = saveRunningProfile({
+      ...existingProfile,
+      ...inputs.running,
+      benchmarkDistance: existingProfile.benchmarkDistance,
+      benchmarkSeconds: existingProfile.benchmarkSeconds,
+      benchmarkDate: existingProfile.benchmarkDate,
+      approvedAt: now,
+      updatedAt: now,
+      recruitContractId: contract.id,
+      recruitContractRevision: contract.revision
+    });
+    const draft = DominionRunning.buildRunningBlock(profile, performanceEntries, {
+      today: todayISODate(),
+      startDate: todayISODate(),
+      generatedAt: now,
+      contractSchedule: contract.schedule,
+      recruitContractId: contract.id,
+      recruitContractRevision: contract.revision
+    });
+    await persistRunningState("PROFILE", "current", profile);
+    if (draft.status === "DRAFT") {
+      saveRunningBlockLocal("draft", draft);
+      await persistRunningState("PLAN", "draft", draft);
+      staged.push("Running block");
+    } else {
+      staged.push("Running setup");
+    }
+    if (activeRunningBlock) protectedPlans.push("active Running block");
+  }
+
+  const nutritionForm = document.getElementById("nutrition-baseline-form");
+  const linkedNutrition = nutritionBaselineForUnifiedWeek(unifiedWeekTargetStart());
+  if (linkedNutrition) {
+    staged.push("Nutrition plan linked");
+    protectedPlans.push("active Nutrition baseline");
+  } else if (nutritionForm && inputs.nutrition) {
+    nutritionForm.elements.goal.value = inputs.nutrition.goal;
+    nutritionForm.elements.effectiveDate.value = inputs.nutrition.effectiveDate;
+    staged.push("Nutrition setup");
+  }
+
+  renderProgrammingReview();
+  renderCoreProgramming();
+  renderRunningCommand();
+  renderNutritionBaseline();
+  renderContractActivation();
+  renderWeeklyOrchestrator();
+  const protectedText = protectedPlans.length ? ` Protected: ${protectedPlans.join(", ")}.` : "";
+  setText("recruit-contract-feedback", `${staged.length ? `${staged.join(", ")} staged for review.` : "No new drafts staged."}${protectedText} Nothing was activated automatically.`);
+}
+
+function strengthStateStorageKey(stateType, stateKey = "current") {
+  return `coach-dominion:strength-training:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
+}
+
+function readStrengthState(stateType, stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(strengthStateStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveStrengthStateLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(strengthStateStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readStrengthProfile() {
+  const stored = readStrengthState("PROFILE", "current", {});
+  return typeof DominionStrengthTraining === "undefined" ? stored : DominionStrengthTraining.normalizeProfile(stored);
+}
+
+function readStrengthDraft() {
+  return readStrengthState("DRAFT", "current", null);
+}
+
+function readApprovedStrengthPlan() {
+  return readStrengthState("PLAN", "current", null);
+}
+
+function readStrengthHistory() {
+  const history = readStrengthState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readStrengthExecution() {
+  return readStrengthState("EXECUTION", todayISODate(), null);
+}
+
+function readStrengthAdjustment() {
+  return readStrengthState("ADJUSTMENT", "current", null);
+}
+
+function readStrengthSchedule() {
+  return readStrengthState("SCHEDULE", "current", null);
+}
+
+function readStrengthScheduleDraft() {
+  return readStrengthState("SCHEDULE", "draft", null);
+}
+
+function readApprovedStrengthSchedule() {
+  if (typeof DominionWeeklyOrchestrator !== "undefined") {
+    const unifiedWeek = readCommittedUnifiedWeek(todayISODate());
+    if (unifiedWeek) return DominionWeeklyOrchestrator.strengthScheduleFromWeek(unifiedWeek);
+  }
+  const schedule = readStrengthSchedule();
+  return schedule?.status === "APPROVED" ? schedule : null;
+}
+
+function readStrengthWeekReview() {
+  return readStrengthState("WEEK_REVIEW", "current", null);
+}
+
+function readStrengthWeekReviewHistory() {
+  const history = readStrengthState("WEEK_REVIEW", "history", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readStrengthBlock() {
+  return readStrengthState("BLOCK", "current", null);
+}
+
+function readStrengthBlockDraft() {
+  return readStrengthState("BLOCK", "draft", null);
+}
+
+function readStrengthBlockHistory() {
+  const history = readStrengthState("BLOCK", "history", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readActiveStrengthBlock() {
+  const block = readStrengthBlock();
+  return block?.status === "ACTIVE" ? block : null;
+}
+
+function readProgrammingDraft() {
+  return readApprovedStrengthPlan();
+}
+
+function strengthRemoteStateCoordinates(stateType, stateKey = "current") {
+  if (stateType === "BLOCK") {
+    return { stateType: "SCHEDULE", stateKey: `block-${stateKey}` };
+  }
+  return { stateType, stateKey };
+}
+
+async function persistStrengthTrainingState(stateType, stateKey, payload) {
+  recordContinuityWrite("strength", stateType, stateKey, payload);
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const remote = strengthRemoteStateCoordinates(stateType, stateKey);
+    const { error } = await supabase.from("strength_training_state").upsert({
+      user_id: session.user.id,
+      state_type: remote.stateType,
+      state_key: remote.stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    markContinuityRecordSynced("strength", stateType, stateKey, payload);
+    if (stateType === "EXECUTION") acknowledgeMobileWrite("STRENGTH_EXECUTION", stateKey);
+    return true;
+  } catch (_) {
+    if (stateType === "EXECUTION") enqueueMobileWrite("STRENGTH_EXECUTION", stateKey, payload);
+    setText("programming-feedback", "Saved on this device. Account sync will resume when strength storage is available.");
+    setText("daily-assignment-feedback", "Workout saved on this device. Account sync is temporarily unavailable.");
+    return false;
+  }
+}
+
+async function clearStrengthTrainingState(stateType, stateKey = "current") {
+  window.localStorage.removeItem(strengthStateStorageKey(stateType, stateKey));
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const remote = strengthRemoteStateCoordinates(stateType, stateKey);
+    const { error } = await supabase.from("strength_training_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", remote.stateType)
+      .eq("state_key", remote.stateKey);
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadStrengthTrainingState() {
+  if (!session?.user?.id || typeof DominionStrengthTraining === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("strength_training_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const localStates = [
+      ["PROFILE", "current", readStrengthState("PROFILE", "current", null)],
+      ["DRAFT", "current", readStrengthDraft()],
+      ["PLAN", "current", readApprovedStrengthPlan()],
+      ["HISTORY", "current", readStrengthHistory()],
+      ["ADJUSTMENT", "current", readStrengthAdjustment()],
+      ["SCHEDULE", "current", readStrengthSchedule()],
+      ["SCHEDULE", "draft", readStrengthScheduleDraft()],
+      ["WEEK_REVIEW", "current", readStrengthWeekReview()],
+      ["WEEK_REVIEW", "history", readStrengthWeekReviewHistory()],
+      ["BLOCK", "current", readStrengthBlock()],
+      ["BLOCK", "draft", readStrengthBlockDraft()],
+      ["BLOCK", "history", readStrengthBlockHistory()],
+      ["EXECUTION", todayISODate(), readStrengthExecution()]
+    ];
+    for (const [stateType, stateKey, payload] of localStates) {
+      const remote = strengthRemoteStateCoordinates(stateType, stateKey);
+      const row = rows.find((item) => item.state_type === remote.stateType && item.state_key === remote.stateKey) || null;
+      const selected = resolveContinuityPayload("strength", stateType, stateKey, payload, row, {
+        immutable: stateType === "PLAN" && stateKey === "current"
+      });
+      if (selected.payload && (!["HISTORY"].includes(stateType) || selected.payload.length)) saveStrengthStateLocal(stateType, stateKey, selected.payload);
+      if (selected.source === "DEVICE" && selected.payload && (stateType !== "HISTORY" || selected.payload.length)) {
+        await persistStrengthTrainingState(stateType, stateKey, selected.payload);
+      }
+    }
+  } catch (_) {
+    // Local state remains the explicit offline fallback.
+  }
+}
+
+function applyCurrentStrengthBlock(prescription) {
+  if (typeof DominionStrengthBlock === "undefined" || !prescription) return prescription;
+  const block = readActiveStrengthBlock();
+  if (!block) return prescription;
+  const plan = readApprovedStrengthPlan();
+  if (!plan || block.planId !== plan.id || Number(block.planRevision || 1) !== Number(plan.revision || 1)) {
+    return {
+      ...prescription,
+      block: {
+        status: "STALE",
+        blockId: block.id,
+        label: "Block revision review required"
+      }
+    };
+  }
+  return DominionStrengthBlock.applyBlockToPrescription(prescription, block, prescription.date || todayISODate());
+}
+
+function currentStrengthPrescription() {
+  if (typeof DominionStrengthTraining === "undefined") return null;
+  const plan = readApprovedStrengthPlan();
+  if (!plan) return DominionStrengthTraining.buildDailyPrescription({}, [], { today: todayISODate() });
+  const existing = readStrengthExecution();
+  if (existing?.planId === plan.id && existing?.date === todayISODate() && existing.sessionSnapshot) {
+    return existing.sessionSnapshot;
+  }
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const readiness = { state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) };
+  const schedule = readApprovedStrengthSchedule();
+  if (schedule?.planId === plan.id && typeof DominionStrengthSchedule !== "undefined") {
+    if (todayISODate() < schedule.weekStart || todayISODate() > schedule.weekEnd) {
+      return applyCurrentStrengthBlock({
+        version: DominionStrengthTraining.VERSION,
+        planId: plan.id,
+        sessionId: null,
+        sessionName: "Weekly schedule required",
+        date: todayISODate(),
+        status: "WEEKLY SCHEDULE REQUIRED",
+        state: "RECOVERY ONLY",
+        exercises: [],
+        adjustment: { code: "SCHEDULED_RECOVERY", detail: "The last approved strength week has ended. Approve the next coordinated week before resuming loaded training." },
+        profile: plan.profile
+      });
+    }
+    const assignment = DominionStrengthSchedule.assignmentForDate(schedule, todayISODate());
+    if (!assignment) {
+      return applyCurrentStrengthBlock({
+        version: DominionStrengthTraining.VERSION,
+        planId: plan.id,
+        sessionId: null,
+        sessionName: "Scheduled recovery",
+        date: todayISODate(),
+        status: "SCHEDULED RECOVERY",
+        state: "RECOVERY ONLY",
+        exercises: [],
+        adjustment: { code: "SCHEDULED_RECOVERY", detail: "The approved weekly strength schedule does not assign loaded training today." },
+        profile: plan.profile
+      });
+    }
+    return applyCurrentStrengthBlock(DominionStrengthTraining.buildSessionPrescription(plan, assignment.sessionId, {
+      today: todayISODate(),
+      readiness
+    }));
+  }
+  return applyCurrentStrengthBlock(DominionStrengthTraining.buildDailyPrescription(plan, readStrengthHistory(), {
+    today: todayISODate(),
+    readiness
+  }));
+}
+
+function buildCurrentProgrammingRecommendation() {
+  if (typeof DominionStrengthTraining === "undefined") return null;
+  const plan = readApprovedStrengthPlan();
+  const prescription = currentStrengthPrescription();
+  const exercises = (prescription?.exercises || []).map((item) => ({
+    ...item,
+    currentLoad: item.recommendedLoad,
+    currentSets: item.recommendedSets
+  }));
+  return {
+    status: plan ? "APPROVED PROGRAM" : "PLAN REQUIRED",
+    scheduledRecovery: prescription?.adjustment?.code === "SCHEDULED_RECOVERY",
+    evidenceQuality: exercises.some((item) => item.evidenceCount > 0) ? "PERSONALIZED" : "TECHNIQUE FIRST",
+    policy: {
+      code: prescription?.adjustment?.code || "PLAN_REQUIRED",
+      reason: prescription?.adjustment?.detail || "Approve a balanced strength plan."
+    },
+    restrictions: plan?.safeguards || ["No workout will be generated until the program is approved."],
+    exercises,
+    requiresConfirmation: !plan,
+    block: prescription?.block || null
+  };
+}
+
+function optionMarkup(value, label, selected) {
+  return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
+}
+
+function strengthProfileFromForm() {
+  const form = document.getElementById("strength-profile-form");
+  if (!form || typeof DominionStrengthTraining === "undefined") return readStrengthProfile();
+  const data = new FormData(form);
+  return DominionStrengthTraining.normalizeProfile({
+    goal: data.get("goal"),
+    daysPerWeek: Number(data.get("daysPerWeek")),
+    equipment: data.get("equipment"),
+    sessionMinutes: Number(data.get("sessionMinutes")),
+    experience: data.get("experience")
+  });
+}
+
+function renderStrengthSession(sessionItem = {}) {
+  const exercises = (sessionItem.exercises || []).map((item) => `<li>
+    <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)}</span></div>
+    <div><strong>${item.recommendedSets} × ${item.targetReps}</strong><span>${item.recommendedLoad > 0 ? `${item.recommendedLoad} ${escapeHtml(item.unit)}` : "Technique load"}</span></div>
+  </li>`).join("");
+  return `<details class="strength-program-session">
+    <summary><span>${escapeHtml(sessionItem.name)}</span><strong>${(sessionItem.exercises || []).length} exercises</strong></summary>
+    <ol>${exercises}</ol>
+  </details>`;
+}
+
+function renderStrengthAdjustment(adjustment, activePlan) {
+  if (!activePlan) {
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 017B // ADAPTIVE STRENGTH</span><h4>Closed-loop progression</h4><p>Approve a strength program first. Every finished workout will then create a reviewable next-session recommendation.</p></div></section>`;
+  }
+  if (!adjustment) {
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 017B // ADAPTIVE STRENGTH</span><h4>Finish a workout to open the coaching loop</h4><p>Coach Dominion will compare completed sets, reps, load, RPE, substitutions, skips, and pain against the approved plan. No progression is inferred before then.</p></div><div class="strength-adaptation-guardrails"><span>2 successful exposures</span><span>Smallest load step</span><span>Approval required</span></div></section>`;
+  }
+  const pending = adjustment.status === "PENDING";
+  const decisions = (adjustment.decisions || []).map((item) => {
+    const loadText = item.currentLoad === item.proposedLoad
+      ? `${item.currentLoad || "Technique"} ${item.currentLoad ? escapeHtml(item.unit) : ""}`
+      : `${item.currentLoad || "Technique"} -> ${item.proposedLoad || "Technique"} ${escapeHtml(item.unit)}`;
+    const tone = item.action === "PROGRESS_LOAD" ? "green" : ["REDUCE_LOAD", "SAFETY_HOLD"].includes(item.action) ? "red" : "yellow";
+    return `<article class="strength-adaptation-decision">
+      <div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.reason)}</p></div>
+      <div><span class="state-pill ${tone}">${escapeHtml(item.label)}</span><strong>${escapeHtml(loadText.trim())}</strong><small>${item.completedSets}/${item.plannedSets} sets${item.averageRpe === null ? " · RPE missing" : ` · RPE ${item.averageRpe}`}</small></div>
+    </article>`;
+  }).join("");
+  const statusTone = adjustment.status === "APPROVED" ? "green" : adjustment.status === "HELD" || adjustment.safetyHold ? "red" : "yellow";
+  return `<section class="strength-adaptation-panel">
+    <header><div><span class="kicker">BUILD 017B // POST-SESSION REVIEW</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Plan revision ${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
+    <div class="connected-summary-grid">
+      <div><span>Load progressions</span><strong>${adjustment.summary?.progressedCount || 0}</strong></div>
+      <div><span>Load reductions</span><strong>${adjustment.summary?.reducedCount || 0}</strong></div>
+      <div><span>Repeats / holds</span><strong>${adjustment.summary?.repeatedCount || 0}</strong></div>
+      <div><span>Plan revision</span><strong>${activePlan.revision || 1}</strong></div>
+    </div>
+    ${adjustment.safetyHold ? `<div class="connected-notice warning"><strong>Safety hold.</strong> Pain or a stopped session prevents approval of loaded changes. Keep the current plan and review readiness first.</div>` : ""}
+    <div class="strength-adaptation-decisions">${decisions}</div>
+    ${pending ? `<div class="performance-actions">
+      <button type="button" data-programming-action="approve-adjustment" ${adjustment.safetyHold ? "disabled" : ""}>Approve for next rotation</button>
+      <button type="button" class="ghost" data-programming-action="hold-adjustment">Keep current plan</button>
+    </div>` : `<p class="muted">${adjustment.status === "APPROVED" ? `Approved ${escapeHtml(adjustment.approvedAt || "")}. The active plan was advanced to revision ${adjustment.appliedRevision || activePlan.revision || 1}.` : "The recommendation was held. The active plan remains unchanged."}</p>`}
+    <p class="muted">Coach Dominion never increases load and sets together. Two complete, pain-free exposures at RPE 8 or below are required before a load increase is proposed.</p>
+  </section>`;
+}
+
+function strengthScheduleContext() {
+  return {
+    runningPlan: readApprovedRunningPlan(),
+    corePlan: readApprovedCorePlan()
+  };
+}
+
+function strengthSchedulePreferredDaysFromForm(plan) {
+  const selected = [...document.querySelectorAll("[data-strength-schedule-day]:checked")].map((item) => Number(item.value));
+  if (typeof DominionStrengthSchedule === "undefined") return selected;
+  return DominionStrengthSchedule.normalizePreferredDays(plan?.profile?.daysPerWeek || 3, selected);
+}
+
+function strengthBlockOptionsFromPanel() {
+  const lengthWeeks = Number(document.querySelector("[data-strength-block-length]")?.value || 5);
+  const startDate = document.querySelector("[data-strength-block-start]")?.value || todayISODate();
+  return { lengthWeeks, startDate };
+}
+
+function renderStrengthBlock(activePlan) {
+  if (typeof DominionStrengthBlock === "undefined") return "";
+  if (!activePlan) {
+    return `<section class="strength-block-command"><div><span class="kicker">BUILD 017G // STRENGTH BLOCKS</span><h4>Approve the program before planning a block</h4><p>Training blocks organize an approved program across foundation, accumulation, consolidation, and deload weeks.</p></div></section>`;
+  }
+  const current = readStrengthBlock();
+  const active = current?.status === "ACTIVE" && current.planId === activePlan.id ? current : null;
+  const ended = current?.status === "ENDED" && current.planId === activePlan.id ? current : null;
+  const savedDraft = readStrengthBlockDraft();
+  const draft = savedDraft?.planId === activePlan.id ? savedDraft : null;
+  const displayed = draft || active || ended;
+  const defaultStart = DominionStrengthBlock.addDays(DominionStrengthBlock.weekStartIso(todayISODate()), 7);
+  const lengthWeeks = displayed?.lengthWeeks || 5;
+  const startDate = displayed?.startDate || defaultStart;
+  const context = active ? DominionStrengthBlock.blockWeekForDate(active, todayISODate()) : null;
+  const intelligence = currentStrengthIntelligence(activePlan);
+  const preview = displayed || DominionStrengthBlock.buildBlockDraft(activePlan, intelligence || {}, {
+    lengthWeeks,
+    startDate,
+    today: todayISODate()
+  });
+  const signal = preview.signal || {};
+  const staleRevision = Boolean(active && Number(active.planRevision || 1) !== Number(activePlan.revision || 1));
+  const status = draft ? "DRAFT REVIEW" : active ? context?.status === "COMPLETE" ? "BLOCK COMPLETE" : "ACTIVE" : ended ? "ENDED" : "NOT STARTED";
+  const statusTone = draft ? "yellow" : active && !staleRevision ? "green" : staleRevision ? "red" : "neutral";
+  const weeks = (preview.weeks || []).map((week) => {
+    const isCurrent = context?.status === "ACTIVE" && context.weekIndex === week.index;
+    const isPast = active && todayISODate() > week.weekEnd;
+    const state = isCurrent ? "CURRENT" : isPast ? "COMPLETE" : week.weekStart > todayISODate() ? "UPCOMING" : "PLANNED";
+    const tone = isCurrent ? "green" : isPast ? "neutral" : week.phase.code === "DELOAD" ? "yellow" : "neutral";
+    return `<article class="strength-block-week ${isCurrent ? "current" : ""}">
+      <header><div><span>WEEK ${week.index}</span><strong>${escapeHtml(week.phase.label)}</strong></div><span class="state-pill ${tone}">${state}</span></header>
+      <p>${escapeHtml(week.objective)}</p>
+      <div><span>${week.plannedSessions} sessions</span><span>${week.setTargetPercent}% set target</span><span>RPE ceiling ${week.effortCeiling}</span></div>
+      <small>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}. ${escapeHtml(week.loadRule)}</small>
+    </article>`;
+  }).join("");
+  const schedule = readApprovedStrengthSchedule();
+  const coordinated = active && schedule && typeof DominionStrengthSchedule !== "undefined"
+    ? DominionStrengthBlock.coordinateSchedule(schedule, active)
+    : null;
+  const coordinatedAssignments = (coordinated?.assignments || []).filter((item) => item.blockWeek).length;
+  const controls = draft
+    ? `<button type="button" class="ghost" data-strength-block-action="revise">Update draft</button><button type="button" data-strength-block-action="approve" ${draft.approvalBlocked ? "disabled" : ""}>Approve and activate block</button>`
+    : active
+      ? `<button type="button" class="ghost danger-action" data-strength-block-action="end">End active block</button>`
+      : ended
+        ? `<button type="button" data-strength-block-action="next">Draft next block</button>`
+        : `<button type="button" data-strength-block-action="generate">Build block draft</button>`;
+  return `<section class="strength-block-command">
+    <header><div><span class="kicker">BUILD 017G // STRENGTH BLOCK PLANNING</span><h4>${active && context?.label ? escapeHtml(context.label) : draft ? `${draft.lengthWeeks}-week draft` : ended ? "Block closed" : "Plan the next 4-6 weeks"}</h4><p>${escapeHtml(preview.message || "Structure the approved program without silently changing it.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
+    ${staleRevision ? `<div class="connected-notice warning"><strong>Program revision changed.</strong> This block is frozen against revision ${active.planRevision}. End it or rebuild before block adjustments can govern Today.</div>` : ""}
+    ${signal.code ? `<article class="strength-block-signal ${escapeHtml(signal.tone || "neutral")}"><div><span class="kicker">ENTRY REVIEW</span><strong>${escapeHtml(signal.label || signal.code)}</strong><p>${escapeHtml(signal.detail || "")}</p></div><span class="state-pill ${escapeHtml(signal.tone || "neutral")}">${escapeHtml(signal.code.replaceAll("_", " "))}</span></article>` : ""}
+    ${context?.status === "ACTIVE" && context.week ? `<article class="strength-block-now"><div><span class="kicker">THIS WEEK</span><strong>${escapeHtml(context.week.phase.label)}</strong><p>${escapeHtml(context.week.objective)}</p></div><div><span>${context.week.setTargetPercent}% set target</span><span>RPE ceiling ${context.week.effortCeiling}</span><span>${coordinatedAssignments} scheduled assignment${coordinatedAssignments === 1 ? "" : "s"} coordinated</span></div></article>` : ""}
+    <div class="strength-block-config">
+      <label><span>Block length</span><select data-strength-block-length ${active ? "disabled" : ""}>
+        ${optionMarkup("4", "4 weeks", String(lengthWeeks))}
+        ${optionMarkup("5", "5 weeks", String(lengthWeeks))}
+        ${optionMarkup("6", "6 weeks", String(lengthWeeks))}
+      </select></label>
+      <label><span>Starting week</span><input type="date" data-strength-block-start value="${escapeHtml(startDate)}" ${active ? "disabled" : ""}></label>
+      <div><span>Approved program</span><strong>Revision ${activePlan.revision || 1}</strong><small>${activePlan.profile?.daysPerWeek || activePlan.sessions?.length || 3} strength days per week</small></div>
+      <div><span>Block history</span><strong>${readStrengthBlockHistory().length}</strong><small>Closed blocks preserved</small></div>
+    </div>
+    <div class="strength-block-timeline">${weeks}</div>
+    <div class="performance-actions">${controls}</div>
+    <p class="muted">Block approval may reduce work sets during consolidation and deload weeks. It never adds sets, raises load, edits running or core, or approves the next block automatically.</p>
+  </section>`;
+}
+
+function renderStrengthSchedule(activePlan) {
+  if (typeof DominionStrengthSchedule === "undefined") return "";
+  if (!activePlan) {
+    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate 2–6 strength sessions with running, core, recovery, and Today.</p></div></section>`;
+  }
+  const context = strengthScheduleContext();
+  const storedSchedule = readApprovedStrengthSchedule();
+  const activeSchedule = storedSchedule?.planId === activePlan.id ? storedSchedule : null;
+  const storedDraft = readStrengthScheduleDraft();
+  const savedDraft = storedDraft?.planId === activePlan.id ? storedDraft : null;
+  const preview = DominionStrengthSchedule.buildWeeklySchedule(activePlan, readStrengthHistory(), context, { today: todayISODate() });
+  const displayed = savedDraft || activeSchedule || preview;
+  const preferredDays = displayed.preferredDays || preview.preferredDays;
+  const activeBlock = readActiveStrengthBlock();
+  const coordinatedSchedule = activeBlock && typeof DominionStrengthBlock !== "undefined"
+    ? DominionStrengthBlock.coordinateSchedule(displayed, activeBlock)
+    : displayed;
+  const days = DominionStrengthSchedule.scheduleDays(coordinatedSchedule, context, readStrengthHistory(), todayISODate());
+  const summary = DominionStrengthSchedule.scheduleSummary(displayed, readStrengthHistory(), todayISODate());
+  const staleRevision = activeSchedule && Number(activeSchedule.planRevision || 1) !== Number(activePlan.revision || 1);
+  const daySelectors = DominionStrengthSchedule.DAY_LABELS.map((label, index) => `<label class="strength-day-choice"><input type="checkbox" value="${index}" data-strength-schedule-day ${preferredDays.includes(index) ? "checked" : ""}><span>${label}</span></label>`).join("");
+  const dayCards = days.map((day) => {
+    const assignment = day.assignment;
+    const tone = !assignment ? "neutral" : assignment.state === "COMPLETE" ? "green" : ["MISSED", "STOPPED"].includes(assignment.state) ? "red" : ["TODAY", "PARTIAL"].includes(assignment.state) ? "yellow" : "neutral";
+    const conflicts = assignment?.conflicts || [];
+    const moveDates = assignment && displayed.status === "APPROVED"
+      ? DominionStrengthSchedule.availableMoveDates(displayed, assignment.id, context, todayISODate()).filter((date) => date !== assignment.date)
+      : [];
+    return `<article class="strength-week-day ${assignment ? "has-strength" : ""}">
+      <header><div><span>${escapeHtml(day.dayLabel)}</span><strong>${escapeHtml(day.date)}</strong></div>${assignment ? `<span class="state-pill ${tone}">${escapeHtml(assignment.state)}</span>` : `<span class="state-pill neutral">RECOVERY</span>`}</header>
+      ${assignment ? `<div class="strength-week-session"><span class="kicker">STRENGTH ${assignment.sequence}${assignment.blockLabel ? ` // ${escapeHtml(assignment.blockLabel)}` : ""}</span><h5>${escapeHtml(assignment.sessionName)}</h5><p>${escapeHtml(assignment.placementReason)}</p></div>` : `<p class="muted">No loaded strength session.</p>`}
+      <div class="strength-week-overlap">
+        <span>${day.run && day.run.type !== "REST" ? `RUN · ${escapeHtml(day.run.type)}` : day.runCoverage === "REST" ? "RUN · REST" : day.runCoverage === "OUT_OF_RANGE" ? "RUN · NEXT-WEEK PLAN REQUIRED" : "RUN · PLAN REQUIRED"}</span>
+        <span>${day.core ? `CORE · ${escapeHtml(day.core.title || "SCHEDULED")}` : day.coreCoverage === "REST" ? "CORE · REST" : day.coreCoverage === "OUT_OF_RANGE" ? "CORE · NEXT-CYCLE PLAN REQUIRED" : "CORE · PLAN REQUIRED"}</span>
+      </div>
+      ${conflicts.map((item) => `<p class="strength-schedule-conflict ${item.severity === "BLOCKING" ? "blocking" : ""}">${escapeHtml(item.detail)}</p>`).join("")}
+      ${assignment && moveDates.length && !["COMPLETE"].includes(assignment.state) ? `<div class="strength-reschedule-control"><select data-strength-move-target="${escapeHtml(assignment.id)}"><option value="">Move to...</option>${moveDates.map((date) => `<option value="${date}">${escapeHtml(date)} · ${escapeHtml(DominionStrengthSchedule.DAY_LABELS[DominionStrengthSchedule.weekStartIso(date) === displayed.weekStart ? Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${displayed.weekStart}T00:00:00Z`)) / 86400000) : 0] || date)}</option>`).join("")}</select><button type="button" class="ghost" data-strength-schedule-action="move" data-assignment-id="${escapeHtml(assignment.id)}">Move</button></div>` : ""}
+    </article>`;
+  }).join("");
+  const statusTone = displayed.status === "APPROVED" ? "green" : displayed.approvalBlocked ? "red" : "yellow";
+  const runningCoverage = days.some((day) => ["SCHEDULED", "REST"].includes(day.runCoverage)) ? "COORDINATED" : days.some((day) => day.runCoverage === "OUT_OF_RANGE") ? "NEXT-WEEK PLAN REQUIRED" : "PLAN REQUIRED";
+  const coreCoverage = days.some((day) => ["SCHEDULED", "REST"].includes(day.coreCoverage)) ? "COORDINATED" : days.some((day) => day.coreCoverage === "OUT_OF_RANGE") ? "NEXT-CYCLE PLAN REQUIRED" : "PLAN REQUIRED";
+  return `<section class="strength-week-command">
+    <header><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
+    <div class="strength-week-summary">
+      <div><span>Scheduled</span><strong>${summary.scheduled}</strong></div>
+      <div><span>Completed</span><strong>${summary.completed}</strong></div>
+      <div><span>Missed</span><strong>${summary.missed}</strong></div>
+      <div><span>Upcoming</span><strong>${summary.upcoming}</strong></div>
+    </div>
+    <div class="strength-day-selector"><span>Preferred training days</span><div>${daySelectors}</div></div>
+    ${runningCoverage !== "COORDINATED" || coreCoverage !== "COORDINATED" ? `<div class="connected-notice warning"><strong>Coordination coverage is incomplete.</strong> Running: ${escapeHtml(runningCoverage)} · Core: ${escapeHtml(coreCoverage)}. Strength remains usable, but these gaps are not counted as recovery assignments.</div>` : ""}
+    ${staleRevision ? `<div class="connected-notice warning"><strong>Plan revision changed.</strong> The schedule still points to the same sessions, but rebuilding will refresh its plan-revision audit stamp.</div>` : ""}
+    <div class="strength-week-grid">${dayCards}</div>
+    <div class="performance-actions">
+      <button type="button" data-strength-schedule-action="generate">${activeSchedule ? "Build revised week" : "Generate coordinated week"}</button>
+      <button type="button" data-strength-schedule-action="approve" ${savedDraft && !savedDraft.approvalBlocked ? "" : "disabled"}>Approve weekly schedule</button>
+    </div>
+    <p class="muted">Hard running and strength cannot be approved on the same day. Core and easy running are separated when the week has room; any necessary combined day is labeled explicitly. Moving a missed session never creates completion credit or compensatory volume.</p>
+  </section>`;
+}
+
+function buildCurrentStrengthWeekReview(activePlan, activeSchedule) {
+  if (typeof DominionStrengthWeekReview === "undefined" || !activePlan || !activeSchedule) return null;
+  const api = connectedApi();
+  const fitbodSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  return DominionStrengthWeekReview.buildWeekReview(
+    activeSchedule,
+    activePlan,
+    readStrengthHistory(),
+    fitbodSessions,
+    { today: todayISODate(), generatedAt: new Date().toISOString() }
+  );
+}
+
+function strengthReviewStateTone(state) {
+  if (state === "COMPLETE") return "green";
+  if (["STOPPED", "MISSED"].includes(state)) return "red";
+  if (["PARTIAL", "TODAY"].includes(state)) return "yellow";
+  return "neutral";
+}
+
+function renderStrengthWeekReview(activePlan) {
+  if (typeof DominionStrengthWeekReview === "undefined") return "";
+  const activeSchedule = readApprovedStrengthSchedule();
+  if (!activePlan || !activeSchedule || activeSchedule.planId !== activePlan.id) {
+    return `<section class="strength-week-review"><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>Close the loop after approval</h4><p>Approve a weekly strength schedule first. Coach Dominion will then reconcile each assignment without changing the program or awarding ambiguous imports.</p></div></section>`;
+  }
+  const stored = readStrengthWeekReview();
+  const finalized = stored?.scheduleId === activeSchedule.id && stored.status === "FINALIZED" ? stored : null;
+  const review = finalized || buildCurrentStrengthWeekReview(activePlan, activeSchedule);
+  if (!review) return "";
+  const summary = review.summary || {};
+  const historyCount = readStrengthWeekReviewHistory().length;
+  const assignments = (review.assignments || []).map((item) => {
+    const evidence = item.primaryEvidence;
+    const imported = item.importedEvidence;
+    const sourceText = evidence
+      ? `${evidence.sourceLabel} · ${evidence.completedSets || 0}/${item.prescribedSets || evidence.prescribedSets || 0} sets`
+      : item.evidenceStatus === "AMBIGUOUS_IMPORT"
+        ? "Multiple equally strong Fitbod matches · no credit awarded"
+        : item.evidenceStatus === "UNMATCHED_IMPORT"
+          ? "Unmatched Fitbod evidence retained · no credit awarded"
+          : "No terminal workout evidence";
+    const provenance = evidence?.sourceIds?.length
+      ? `${evidence.sourceIds.length} source record${evidence.sourceIds.length === 1 ? "" : "s"}`
+      : imported?.sourceIds?.length
+        ? `${imported.sourceIds.length} imported source record${imported.sourceIds.length === 1 ? "" : "s"} retained`
+        : "No source record";
+    const corroborated = item.evidenceStatus === "NATIVE_WITH_IMPORT_CORROBORATION"
+      ? `<span class="strength-evidence-tag">FITBOD CORROBORATED · NOT DOUBLE COUNTED</span>`
+      : "";
+    return `<article class="strength-review-assignment">
+      <div class="strength-review-assignment-main"><span>${escapeHtml(item.date)}</span><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><p>${escapeHtml(sourceText)}</p></div>
+      <div class="strength-review-assignment-state"><span class="state-pill ${strengthReviewStateTone(item.state)}">${escapeHtml(item.state)}</span><small>${escapeHtml(provenance)}</small>${corroborated}</div>
+    </article>`;
+  }).join("");
+  const recommendation = review.recommendation || {};
+  const statusTone = review.status === "FINALIZED" ? "green" : review.finalizable ? "yellow" : "neutral";
+  const draft = readStrengthScheduleDraft();
+  const expectedNextWeek = DominionStrengthSchedule.addDays(activeSchedule.weekStart, 7);
+  const rolloverReady = draft?.weekStart === expectedNextWeek && draft?.sourceWeekReviewId === review.id;
+  const protectedDraft = Boolean(draft && !rolloverReady);
+  const canFinalize = review.finalizable && review.status !== "FINALIZED";
+  const canRollover = review.status === "FINALIZED" && !rolloverReady && !protectedDraft;
+  return `<section class="strength-week-review">
+    <header><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>${escapeHtml(review.weekStart)} to ${escapeHtml(review.weekEnd)}</h4><p>One auditable closeout across Coach Dominion workout logs and exact-date Fitbod evidence.</p></div><span class="state-pill ${statusTone}">${escapeHtml(review.status.replaceAll("_", " "))}</span></header>
+    <div class="strength-review-scorecard">
+      <div><span>Session adherence</span><strong>${summary.adherencePercent || 0}%</strong><small>${summary.completed || 0} complete · ${summary.partial || 0} partial</small></div>
+      <div><span>Set completion</span><strong>${summary.setCompletionPercent || 0}%</strong><small>${summary.setsCompleted || 0}/${summary.setsPrescribed || 0} credited sets</small></div>
+      <div><span>Average RPE</span><strong>${summary.averageRpe === null || summary.averageRpe === undefined ? "—" : summary.averageRpe}</strong><small>${summary.rpeSampleCount || 0} native samples</small></div>
+      <div><span>Exceptions</span><strong>${Number(summary.missed || 0) + Number(summary.stopped || 0)}</strong><small>${summary.unmatchedImportCount || 0} unmatched imports</small></div>
+    </div>
+    <article class="strength-review-recommendation ${escapeHtml(recommendation.tone || "neutral")}">
+      <div><span class="kicker">COACHING POSTURE</span><h5>${escapeHtml(recommendation.label || "Keep recording")}</h5><p>${escapeHtml(recommendation.detail || "")}</p></div>
+      <span class="state-pill ${escapeHtml(recommendation.tone || "neutral")}">${escapeHtml((recommendation.code || "KEEP_RECORDING").replaceAll("_", " "))}</span>
+    </article>
+    <div class="strength-review-assignments">${assignments}</div>
+    ${summary.painCount ? `<div class="connected-notice warning"><strong>Safety hold active.</strong> Pain evidence blocks progression. Rollover remains a draft and still requires readiness review.</div>` : ""}
+    ${protectedDraft ? `<div class="connected-notice warning"><strong>Existing weekly draft protected.</strong> Review or approve the open schedule draft before creating a rollover.</div>` : ""}
+    <div class="performance-actions">
+      <button type="button" class="ghost" data-strength-review-action="refresh">Refresh evidence</button>
+      <button type="button" data-strength-review-action="finalize" ${canFinalize ? "" : "disabled"}>${review.status === "FINALIZED" ? "Week finalized" : "Finalize strength week"}</button>
+      <button type="button" data-strength-review-action="rollover" ${canRollover ? "" : "disabled"}>${rolloverReady ? "Next-week draft ready" : "Draft next coordinated week"}</button>
+    </div>
+    <p class="muted">${review.status === "FINALIZED" ? `Finalized ${escapeHtml(review.finalizedAt || "")}. ${historyCount} finalized review${historyCount === 1 ? "" : "s"} preserved.` : review.finalizable ? "Every assignment is resolved or the week has ended. Finalization freezes this evidence snapshot." : "This week remains open. Future and today assignments cannot be silently converted into misses."}</p>
+  </section>`;
+}
+
+function strengthRecordText(record = {}) {
+  if (!record) return "No verified best";
+  if (record.type === "LOAD") return `${record.value} ${escapeHtml(record.unit || "lb")} × ${record.reps}`;
+  return `${record.value} ${escapeHtml(record.unit || "reps")}`;
+}
+
+function currentStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
+  if (typeof DominionStrengthIntelligence === "undefined") return null;
+  return DominionStrengthIntelligence.buildStrengthIntelligence(readStrengthHistory(), activePlan || {}, {
+    today: todayISODate(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function renderStrengthIntelligenceBrief(activePlan) {
+  const intelligence = currentStrengthIntelligence(activePlan);
+  if (!intelligence) return "";
+  const tone = intelligence.posture?.tone || "neutral";
+  return `<article class="strength-intelligence-brief">
+    <div><span class="kicker">BUILD 017F // STRENGTH INTELLIGENCE</span><strong>${escapeHtml(intelligence.posture?.label || "Establish baselines")}</strong><p>${escapeHtml(intelligence.posture?.detail || "")}</p></div>
+    <div class="strength-intelligence-brief-metrics">
+      <span><b>${intelligence.summary.sessions || 0}</b> sessions</span>
+      <span><b>${intelligence.summary.workSets || 0}</b> work sets</span>
+      <span><b>${intelligence.summary.exercisesWithEvidence || 0}</b> exercise baselines</span>
+      <span class="state-pill ${escapeHtml(tone)}">${escapeHtml((intelligence.posture?.code || "BASELINE_REQUIRED").replaceAll("_", " "))}</span>
+    </div>
+    <button type="button" class="ghost" data-programming-action="view-intelligence">Open strength intelligence</button>
+  </article>`;
+}
+
+function renderStrengthIntelligence(activePlan = readApprovedStrengthPlan()) {
+  const panel = document.getElementById("strength-intelligence-panel");
+  if (!panel) return;
+  const intelligence = currentStrengthIntelligence(activePlan);
+  if (!intelligence) {
+    panel.innerHTML = `<div class="performance-empty">Strength intelligence engine unavailable.</div>`;
+    setText("strength-intelligence-status", "UNAVAILABLE");
+    return;
+  }
+  const posture = intelligence.posture || {};
+  const postureTone = posture.tone || "neutral";
+  const status = document.getElementById("strength-intelligence-status");
+  if (status) status.className = `state-pill ${postureTone}`;
+  setText("strength-intelligence-status", (posture.code || intelligence.status || "READY").replaceAll("_", " "));
+
+  const records = intelligence.verifiedRecords.slice(0, 6).map((item) => `<article class="strength-record-card">
+    <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)}</span></div>
+    <div><strong>${strengthRecordText(item.record)}</strong><span>${escapeHtml(item.record?.date || "Date unavailable")}</span></div>
+    ${item.record?.newRecord ? `<span class="state-pill green">NEW VERIFIED BEST</span>` : `<span class="state-pill neutral">VERIFIED BEST</span>`}
+  </article>`).join("");
+
+  const weeks = intelligence.weeks.slice(-6);
+  const maxVolume = Math.max(1, ...weeks.map((item) => Number(item.volume || 0)));
+  const workload = weeks.map((item) => {
+    const volumeLabel = item.mixedUnits
+      ? "Mixed units"
+      : item.volume === null
+        ? "No external load"
+        : `${item.volume.toLocaleString()} ${escapeHtml(item.unit || "load")}·reps`;
+    return `<article class="strength-workload-week">
+      <div><strong>${escapeHtml(item.weekStart)}</strong><span>${item.sessions} session${item.sessions === 1 ? "" : "s"} · ${item.workSets} sets${item.averageRpe === null ? "" : ` · RPE ${item.averageRpe}`}</span></div>
+      <div class="strength-workload-track" aria-label="${escapeHtml(volumeLabel)} of recorded set volume"><span style="width:${Math.max(3, Math.round(Number(item.volume || 0) / maxVolume * 100))}%"></span></div>
+      <strong>${volumeLabel}</strong>
+    </article>`;
+  }).join("");
+
+  const evidenceFirst = [
+    ...intelligence.trajectories.filter((item) => item.exposureCount > 0),
+    ...intelligence.trajectories.filter((item) => !item.exposureCount)
+  ].slice(0, 12);
+  const trajectories = evidenceFirst.map((item) => {
+    const latest = item.latest;
+    const latestText = !latest
+      ? "Awaiting first recorded work set"
+      : latest.topLoad > 0
+        ? `${latest.topLoad} ${escapeHtml(latest.unit)} × ${latest.topLoadReps} · ${latest.sets} set${latest.sets === 1 ? "" : "s"}`
+        : `${latest.repBest} ${escapeHtml(item.record?.unit || "reps")} · ${latest.sets} set${latest.sets === 1 ? "" : "s"}`;
+    return `<article class="strength-trajectory-row">
+      <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)} · ${item.exposureCount} exposure${item.exposureCount === 1 ? "" : "s"}</span></div>
+      <div><strong>${latestText}</strong><span>${latest?.averageRpe === null || latest?.averageRpe === undefined ? "RPE not available" : `Average RPE ${latest.averageRpe}`}</span></div>
+      <div><span class="state-pill ${escapeHtml(item.status?.tone || "neutral")}">${escapeHtml(item.status?.label || "Baseline needed")}</span><small>${escapeHtml(item.status?.detail || "")}</small></div>
+    </article>`;
+  }).join("");
+
+  const maxPatternSets = Math.max(1, ...intelligence.patterns.map((item) => Number(item.workSets || 0)));
+  const patterns = intelligence.patterns.map((item) => `<article class="strength-pattern-row">
+    <div><strong>${escapeHtml(item.label)}</strong><span>${item.exposures} exposure${item.exposures === 1 ? "" : "s"}</span></div>
+    <div class="strength-pattern-track"><span style="width:${Math.max(4, Math.round(Number(item.workSets || 0) / maxPatternSets * 100))}%"></span></div>
+    <strong>${item.workSets} sets</strong>
+  </article>`).join("");
+
+  panel.innerHTML = `<section class="strength-intelligence-command">
+    <div class="strength-intelligence-summary">
+      <div><span>Training sessions</span><strong>${intelligence.summary.sessions || 0}</strong><small>${intelligence.summary.attempts || 0} preserved attempt${intelligence.summary.attempts === 1 ? "" : "s"}</small></div>
+      <div><span>Recorded work sets</span><strong>${intelligence.summary.workSets || 0}</strong><small>Warm-ups excluded</small></div>
+      <div><span>Exercise baselines</span><strong>${intelligence.summary.exercisesWithEvidence || 0}</strong><small>Missing evidence stays neutral</small></div>
+      <div><span>New verified bests</span><strong>${intelligence.summary.newRecords || 0}</strong><small>No estimated maxes</small></div>
+    </div>
+    <article class="strength-intelligence-posture ${escapeHtml(postureTone)}">
+      <div><span class="kicker">ATLAS // STRENGTH POSTURE</span><h4>${escapeHtml(posture.label || "Establish baselines")}</h4><p>${escapeHtml(posture.detail || "")}</p></div>
+      <span class="state-pill ${escapeHtml(postureTone)}">${escapeHtml((posture.code || "BASELINE_REQUIRED").replaceAll("_", " "))}</span>
+    </article>
+    <div class="strength-intelligence-grid">
+      <section><header><div><span class="kicker">VERIFIED SET RECORDS</span><h4>Best recorded work</h4></div><small>Load and reps only · no max estimate</small></header>${records || `<div class="performance-empty">Complete recorded work sets to establish verified bests.</div>`}</section>
+      <section><header><div><span class="kicker">WEEKLY WORKLOAD</span><h4>Recorded training load</h4></div><small>Retries count once as sessions; every work set remains visible</small></header>${workload || `<div class="performance-empty">No weekly strength workload is recorded yet.</div>`}</section>
+    </div>
+    <details class="strength-intelligence-detail" open>
+      <summary>Exercise trajectories <span>${intelligence.trajectories.filter((item) => item.exposureCount > 0).length}/${intelligence.trajectories.length} exercises have evidence</span></summary>
+      <div class="strength-trajectory-list">${trajectories || `<div class="performance-empty">Approve a program to establish the exercise roster.</div>`}</div>
+    </details>
+    <details class="strength-intelligence-detail">
+      <summary>Movement-pattern balance <span>Recorded work sets from the last 28 days</span></summary>
+      <div class="strength-pattern-list">${patterns || `<div class="performance-empty">No recent movement-pattern evidence is available.</div>`}</div>
+    </details>
+    <ul class="strength-intelligence-safeguards">${intelligence.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+  </section>`;
+}
+
+function renderProgrammingReview() {
+  const panel = document.getElementById("programming-review-panel");
+  if (!panel) return;
+  if (typeof DominionStrengthTraining === "undefined") {
+    panel.innerHTML = `<div class="performance-empty">Strength programming engine unavailable.</div>`;
+    return;
+  }
+  const profile = readStrengthProfile();
+  const activePlan = readApprovedStrengthPlan();
+  const adjustment = readStrengthAdjustment();
+  const savedDraft = readStrengthDraft();
+  const preview = savedDraft || DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+    startDate: todayISODate(),
+    generatedAt: new Date().toISOString()
+  });
+  const displayedPlan = savedDraft || activePlan || preview;
+  const history = readStrengthHistory().slice(0, 3);
+  const anchored = displayedPlan.sessions.flatMap((item) => item.exercises).filter((item) => item.evidenceCount > 0).length;
+  const total = displayedPlan.sessions.reduce((sum, item) => sum + item.exercises.length, 0);
+  setText("programming-status", savedDraft ? "DRAFT REVIEW" : adjustment?.status === "PENDING" ? "REVIEW READY" : activePlan ? "ACTIVE" : "APPROVAL NEEDED");
+  const badge = document.getElementById("programming-status");
+  if (badge) badge.className = `state-pill ${savedDraft || adjustment?.status === "PENDING" ? "yellow" : activePlan ? "green" : "yellow"}`;
+  panel.innerHTML = `<div class="strength-programming-panel">
+    <form id="strength-profile-form" class="strength-profile-grid">
+      <label><span>Primary goal</span><select name="goal">
+        ${optionMarkup("GENERAL_STRENGTH", "General strength", profile.goal)}
+        ${optionMarkup("MUSCLE", "Build muscle", profile.goal)}
+        ${optionMarkup("ATHLETIC_SUPPORT", "Athletic support", profile.goal)}
+      </select></label>
+      <label><span>Days per week</span><select name="daysPerWeek">
+        ${optionMarkup("2", "2 days", String(profile.daysPerWeek))}
+        ${optionMarkup("3", "3 days", String(profile.daysPerWeek))}
+        ${optionMarkup("4", "4 days", String(profile.daysPerWeek))}
+        ${optionMarkup("5", "5 days", String(profile.daysPerWeek))}
+        ${optionMarkup("6", "6 days", String(profile.daysPerWeek))}
+      </select></label>
+      <label><span>Equipment</span><select name="equipment">
+        ${optionMarkup("FULL_GYM", "Full gym", profile.equipment)}
+        ${optionMarkup("DUMBBELLS", "Dumbbells", profile.equipment)}
+        ${optionMarkup("BODYWEIGHT_BANDS", "Bodyweight + bands", profile.equipment)}
+      </select></label>
+      <label><span>Session length</span><select name="sessionMinutes">
+        ${optionMarkup("45", "45 minutes", String(profile.sessionMinutes))}
+        ${optionMarkup("60", "60 minutes", String(profile.sessionMinutes))}
+        ${optionMarkup("75", "75 minutes", String(profile.sessionMinutes))}
+      </select></label>
+      <label><span>Training experience</span><select name="experience">
+        ${optionMarkup("FOUNDATION", "Foundation", profile.experience)}
+        ${optionMarkup("INTERMEDIATE", "Intermediate", profile.experience)}
+        ${optionMarkup("EXPERIENCED", "Experienced", profile.experience)}
+      </select></label>
+    </form>
+    <div class="connected-summary-grid">
+      <div><span>Program status</span><strong>${savedDraft ? "DRAFT REVISION" : activePlan ? `APPROVED · R${activePlan.revision || 1}` : "DRAFT"}</strong></div>
+      <div><span>Weekly sessions</span><strong>${displayedPlan.sessions.length}</strong></div>
+      <div><span>Exercises/session</span><strong>5–7</strong></div>
+      <div><span>Evidence anchored</span><strong>${anchored}/${total}</strong></div>
+    </div>
+    <article class="connected-notice"><strong>Coverage is program-driven.</strong> Existing evidence personalizes known loads, but missing evidence never deletes squat, hinge, push, pull, unilateral, carry, or core work.</article>
+    <div class="strength-program-sessions">${displayedPlan.sessions.map(renderStrengthSession).join("")}</div>
+    <div class="performance-actions">
+      <button type="button" data-programming-action="build-plan">${activePlan ? "Build revised draft" : "Generate draft"}</button>
+      <button type="button" data-programming-action="approve" ${savedDraft || !activePlan ? "" : "disabled"}>${activePlan ? "Approve revised program" : "Approve strength program"}</button>
+      <button type="button" class="ghost" data-programming-action="refresh">Refresh evidence</button>
+    </div>
+    <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
+    ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
+    ${renderStrengthIntelligenceBrief(activePlan)}
+    ${renderStrengthBlock(activePlan)}
+    ${renderStrengthSchedule(activePlan)}
+    ${renderStrengthWeekReview(activePlan)}
+    ${renderStrengthAdjustment(adjustment, activePlan)}
+    ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
+  </div>`;
+  renderStrengthIntelligence(activePlan);
+}
+
+function recoveryStorageKey() {
+  return `coach-dominion:recovery-plan:${session?.user?.id || "local"}`;
+}
+
+function buildCurrentRecoveryRecommendation() {
+  if (typeof DominionRecovery === "undefined" || !connectedApi()) return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : null;
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const nutrition = nutritionDays[0] || {};
+  const strengthSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const latestTraining = strengthSessions[0] || {};
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  return DominionRecovery.buildRecoveryRecommendation({
+    readiness: { state: readinessResult?.state, energy: dailyState?.energy, soreness: dailyState?.soreness, pain: Boolean(dailyState?.pain) },
+    nutrition,
+    targets: connectedApi().parseNutritionTarget(targetText),
+    training: { volume: latestTraining.volume || 0, sets: latestTraining.setCount || 0 },
+    weightTrend: DominionRecovery.weightTrend(performanceEntries)
+  });
+}
+
+function readRecoveryPlan() {
+  try { return JSON.parse(window.localStorage.getItem(recoveryStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function dailyOrdersStorageKey() {
+  return `coach-dominion:daily-orders:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readApprovedDailyOrders() {
+  try { return JSON.parse(window.localStorage.getItem(dailyOrdersStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function dailyAssignmentStorageKey() {
+  return `coach-dominion:daily-assignment:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function dailyExecutionQueueStorageKey() {
+  return `coach-dominion:daily-execution-queue:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function mobileDailyStateStorageKey(date = todayISODate()) {
+  return `coach-dominion:daily-state:${session?.user?.id || "local"}:${date}`;
+}
+
+function mobilePendingWritesStorageKey() {
+  return `coach-dominion:mobile-pending:${session?.user?.id || "local"}`;
+}
+
+function readMobileDailyState(date = todayISODate()) {
+  try { return JSON.parse(window.localStorage.getItem(mobileDailyStateStorageKey(date)) || "null"); }
+  catch (_) { return null; }
+}
+
+function saveMobileDailyState(payload = {}) {
+  if (!payload?.date) return null;
+  const saved = { ...payload, deviceSavedAt: new Date().toISOString() };
+  window.localStorage.setItem(mobileDailyStateStorageKey(payload.date), JSON.stringify(saved));
+  return saved;
+}
+
+function readMobilePendingWrites() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(mobilePendingWritesStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveMobilePendingWrites(writes = []) {
+  window.localStorage.setItem(mobilePendingWritesStorageKey(), JSON.stringify(writes));
+  renderMobileCommand();
+  return writes;
+}
+
+function enqueueMobileWrite(resource, key, payload) {
+  if (typeof DominionMobileCommand === "undefined") return [];
+  return saveMobilePendingWrites(DominionMobileCommand.enqueueWrite(readMobilePendingWrites(), {
+    resource,
+    key,
+    payload,
+    updatedAt: new Date().toISOString()
+  }));
+}
+
+function acknowledgeMobileWrite(resource, key) {
+  if (typeof DominionMobileCommand === "undefined") return [];
+  return saveMobilePendingWrites(DominionMobileCommand.acknowledgeWrite(readMobilePendingWrites(), `${resource}:${key}`));
+}
+
+async function syncMobileWrite(write = {}) {
+  if (!session?.user?.id) throw new Error("Sign-in is required to sync.");
+  const supabase = await getClient();
+  let result;
+  if (write.resource === "DAILY_STATE") {
+    result = await supabase.from("daily_state").upsert({ ...write.payload, user_id: session.user.id }, { onConflict: "user_id,date" });
+  } else if (write.resource === "STRENGTH_EXECUTION") {
+    result = await supabase.from("strength_training_state").upsert({
+      user_id: session.user.id,
+      state_type: "EXECUTION",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else if (write.resource === "RUNNING_EXECUTION") {
+    result = await supabase.from("running_state").upsert({
+      user_id: session.user.id,
+      state_type: "EXECUTION",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else if (write.resource === "CORE_EXECUTION") {
+    result = await supabase.from("core_program_state").upsert({
+      user_id: session.user.id,
+      state_type: "EXECUTION",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else if (write.resource === "NUTRITION_MANUAL") {
+    result = await supabase.from("nutrition_state").upsert({
+      user_id: session.user.id,
+      state_type: "MANUAL_DAY",
+      state_key: write.key,
+      payload: write.payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+  } else {
+    throw new Error("Unsupported mobile sync record.");
+  }
+  if (result?.error) throw result.error;
+  return true;
+}
+
+async function flushMobilePendingWrites() {
+  if (mobileSyncInFlight || typeof navigator === "undefined" || navigator.onLine === false) {
+    renderMobileCommand();
+    return false;
+  }
+  mobileSyncInFlight = true;
+  try {
+    for (const write of [...readMobilePendingWrites()]) {
+      try {
+        await syncMobileWrite(write);
+        acknowledgeMobileWrite(write.resource, write.key);
+      } catch (_) {
+        const pending = readMobilePendingWrites();
+        const current = pending.find((item) => item.id === write.id);
+        if (current) {
+          saveMobilePendingWrites(DominionMobileCommand.enqueueWrite(pending, {
+            ...current,
+            attempts: Number(current.attempts || 0) + 1,
+            updatedAt: new Date().toISOString()
+          }));
+        }
+        break;
+      }
+    }
+    return readMobilePendingWrites().length === 0;
+  } finally {
+    mobileSyncInFlight = false;
+    renderMobileCommand();
+  }
+}
+
+function readDailyExecutionQueueState() {
+  try { return JSON.parse(window.localStorage.getItem(dailyExecutionQueueStorageKey()) || "null") || {}; }
+  catch (_) { return {}; }
+}
+
+function saveDailyExecutionQueueState(nextState = {}) {
+  window.localStorage.setItem(dailyExecutionQueueStorageKey(), JSON.stringify({
+    ...readDailyExecutionQueueState(),
+    ...nextState,
+    updatedAt: new Date().toISOString()
+  }));
+}
+
+function readDailyAssignmentExecution() {
+  if (typeof DominionStrengthTraining === "undefined") return { state: "READY", setLogs: {} };
+  const existing = readStrengthExecution();
+  const prescription = currentStrengthPrescription();
+  if (existing?.planId === prescription?.planId && existing?.sessionId === prescription?.sessionId && existing?.date === todayISODate()) {
+    return DominionStrengthTraining.recoverInterruptedExecution(existing, new Date().toISOString());
+  }
+  return DominionStrengthTraining.executionForPrescription(prescription || { date: todayISODate(), exercises: [] });
+}
+
+function latestDatedItem(items = [], dateKey = "date") {
+  return [...items].filter((item) => item && item[dateKey]).sort((a, b) => String(b[dateKey]).localeCompare(String(a[dateKey])))[0] || null;
+}
+
+function dataTruthSource(label, date, targetDate, source, required = false) {
+  const normalizedDate = String(date || "").slice(0, 10);
+  const status = !normalizedDate ? "MISSING" : normalizedDate === targetDate ? "CURRENT" : "HISTORICAL";
+  return {
+    label,
+    date: normalizedDate || null,
+    source,
+    required,
+    status,
+    explanation: status === "CURRENT"
+      ? `${source} contains evidence dated ${targetDate}.`
+      : status === "HISTORICAL"
+        ? `Latest ${source} evidence is dated ${normalizedDate}; no record dated ${targetDate} is present.`
+        : `No ${source} evidence is available.`
+  };
+}
+
+function buildDataTruthModel({ date, dailyState: state, fitbodSessions = [], nutritionDays = [], appleHealthDays = [], compliance = null, storageMode = "LOCAL" } = {}) {
+  const targetDate = date || todayISODate();
+  const sources = [
+    dataTruthSource("Readiness", state?.date, targetDate, "Morning Roll Call", true),
+    dataTruthSource("Training", latestDatedItem(fitbodSessions)?.date, targetDate, "Fitbod"),
+    dataTruthSource("Nutrition", latestDatedItem(nutritionDays)?.date, targetDate, "MyFitnessPal"),
+    dataTruthSource("Recovery metrics", latestDatedItem(appleHealthDays)?.date, targetDate, "Apple Health"),
+    dataTruthSource("Dominion Record", compliance?.compliance_date, targetDate, storageMode === "SUPABASE" ? "Supabase" : "local record", true)
+  ];
+  const counts = sources.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});
+  const requiredMissing = sources.filter((item) => item.required && item.status !== "CURRENT");
+  return {
+    date: targetDate,
+    sources,
+    counts,
+    state: requiredMissing.length ? "ACTION NEEDED" : counts.HISTORICAL || counts.MISSING ? "MIXED DATES" : "CURRENT",
+    summary: `${counts.CURRENT || 0} current · ${counts.HISTORICAL || 0} historical · ${counts.MISSING || 0} missing`,
+    requiredMissing: requiredMissing.map((item) => item.label)
+  };
+}
+
+function renderDataTruth() {
+  const grid = document.getElementById("data-truth-grid");
+  const state = document.getElementById("data-truth-state");
+  const api = connectedApi();
+  if (!grid || !state || !api) return;
+  const model = buildDataTruthModel({
+    date: todayISODate(),
+    dailyState,
+    fitbodSessions: api.groupFitbodWorkoutSessions(connectedImportedRecords),
+    nutritionDays: api.aggregateNutritionByDate(connectedImportedRecords),
+    appleHealthDays: api.summarizeAppleHealthByDate(connectedImportedRecords),
+    compliance: dailyCompliance,
+    storageMode: connectedStorageMode
+  });
+  setText("data-truth-summary", `${model.date} · ${model.summary}`);
+  setText("status-data", model.state);
+  state.textContent = model.state;
+  state.className = `state-pill ${model.state === "CURRENT" ? "green" : model.state === "ACTION NEEDED" ? "yellow" : "neutral"}`;
+  grid.innerHTML = model.sources.map((item) => `<article class="data-truth-source ${item.status.toLowerCase()}">
+    <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.status)}</strong></div>
+    <small>${escapeHtml(item.date || "No dated evidence")}</small>
+    <p>${escapeHtml(item.explanation)}</p>
+  </article>`).join("");
+}
+
+function buildActivationGuide({ date, dailyState: state, hasRecruitContract = null, hasFuelingBaseline = false, importedRecords = [], compliance = null, inspections = [], currentInspection = null } = {}) {
+  const targetDate = date || todayISODate();
+  const hasUserImport = importedRecords.some((record) => !record.isDemo && !["REJECTED", "DUPLICATE"].includes(record.importStatus));
+  const hasFinalizedInspection = Boolean(currentInspection?.finalizedAt) || inspections.some((inspection) => inspection?.finalizedAt);
+  const steps = [
+    { id: "roll-call", label: "Complete today’s Roll Call", detail: "Establish current readiness and safety constraints.", section: "today", action: "Complete Roll Call", complete: state?.date === targetDate },
+    ...(typeof hasRecruitContract === "boolean" ? [{ id: "contract", label: "Approve your Recruit Contract", detail: "Define the goal and weekly capacity that coordinate every plan.", section: "contract", action: "Set commitment", complete: hasRecruitContract }] : []),
+    { id: "fueling", label: "Approve a fueling baseline", detail: "Unlock daily calorie, protein, and meal guidance.", section: "nutrition", action: "Set fueling targets", complete: hasFuelingBaseline },
+    { id: "connections", label: "Import your first real data source", detail: "Add a Fitbod, MyFitnessPal, or Apple Health file.", section: "connected", action: "Import evidence", complete: hasUserImport },
+    { id: "record", label: "Save today’s Dominion Record", detail: "Create the execution evidence used by weekly review.", section: "record", action: "Open Dominion Record", complete: compliance?.compliance_date === targetDate },
+    { id: "inspection", label: "Finalize your first Weekly Review", detail: "Close the loop from daily evidence to the next operating plan.", section: "inspection", action: "Open Weekly Review", complete: hasFinalizedInspection }
+  ];
+  const completed = steps.filter((step) => step.complete).length;
+  return { steps, completed, total: steps.length, percent: Math.round(completed / steps.length * 100), complete: completed === steps.length };
+}
+
+function renderActivationGuide() {
+  const panel = document.getElementById("activation-guide");
+  const list = document.getElementById("activation-guide-list");
+  const badge = document.getElementById("activation-guide-state");
+  const progress = document.querySelector("#activation-guide-progress span");
+  if (!panel || !list || !badge || !progress) return;
+  const guide = buildActivationGuide({
+    date: todayISODate(),
+    dailyState,
+    hasRecruitContract: Boolean(readApprovedRecruitContract()),
+    hasFuelingBaseline: Boolean(typeof activeNutritionBaseline === "function" && activeNutritionBaseline(todayISODate())),
+    importedRecords: connectedImportedRecords,
+    compliance: dailyCompliance,
+    inspections: inspectionHistory,
+    currentInspection: weeklyInspection
+  });
+  panel.hidden = guide.complete;
+  badge.textContent = `${guide.completed}/${guide.total} COMPLETE`;
+  badge.className = `state-pill ${guide.completed ? "yellow" : "neutral"}`;
+  progress.style.width = `${guide.percent}%`;
+  list.innerHTML = guide.steps.filter((step) => !step.complete).slice(0, 1).map((step) => `<article class="activation-step">
+    <span class="activation-step-number">${guide.completed + 1}</span>
+    <div><h3>${escapeHtml(step.label)}</h3><p>${escapeHtml(step.detail)}</p></div>
+    <a href="#${escapeHtml(step.section)}" data-section="${escapeHtml(step.section)}">${escapeHtml(step.action)}</a>
+  </article>`).join("");
+}
+
+function buildReviewJourney({ inspection = null, standardsItems = [], finalizedInspections = [] } = {}) {
+  const finalized = Boolean(inspection?.finalizedAt);
+  const candidates = standardsItems.filter((item) => !["RESOLVED", "DISMISSED", "EXCUSED"].includes(item.status || "CANDIDATE"));
+  const finalizedCount = finalizedInspections.filter((item) => item?.finalizedAt || item?.finalized_at).length;
+  const steps = [
+    {
+      id: "inspection", label: "Inspect", section: "inspection",
+      status: finalized ? "COMPLETE" : inspection?.canFinalize ? "READY" : "IN PROGRESS",
+      detail: finalized ? "The weekly evidence snapshot is finalized." : inspection?.canFinalize ? "Evidence is sufficient for deliberate finalization." : "Continue collecting required daily evidence."
+    },
+    {
+      id: "standards", label: "Resolve", section: "standards",
+      status: candidates.length ? `${candidates.length} OPEN` : "CLEAR",
+      detail: candidates.length ? "Standards cases require review or corrective follow-through." : "No unresolved standards case blocks the weekly loop."
+    },
+    {
+      id: "trends", label: "Understand", section: "trends",
+      status: finalizedCount >= 2 ? "AVAILABLE" : "LEARNING",
+      detail: finalizedCount >= 2 ? `${finalizedCount} finalized reviews support trajectory analysis.` : "Two finalized reviews are required for a meaningful trajectory."
+    },
+    {
+      id: "rank", label: "Advance", section: "rank",
+      status: finalizedCount ? "AVAILABLE" : "BUILDING EVIDENCE",
+      detail: finalizedCount ? "Promotion evidence can be reviewed without automatic advancement." : "Finalize a Weekly Review to begin rank evidence."
+    }
+  ];
+  const next = !finalized
+    ? { section: "inspection", title: inspection?.canFinalize ? "Finalize this Weekly Review" : "Complete the weekly evidence record", detail: steps[0].detail, action: "Open Inspection" }
+    : candidates.length
+      ? { section: "standards", title: "Resolve open standards work", detail: steps[1].detail, action: "Open Standards" }
+      : { section: finalizedCount >= 2 ? "trends" : "rank", title: finalizedCount >= 2 ? "Review the weekly trajectory" : "Review advancement evidence", detail: finalizedCount >= 2 ? steps[2].detail : steps[3].detail, action: finalizedCount >= 2 ? "Open Trends" : "Open Rank" };
+  return {
+    steps,
+    next,
+    state: !finalized ? inspection?.canFinalize ? "READY TO FINALIZE" : "IN PROGRESS" : candidates.length ? "ACTION NEEDED" : "REVIEW COMPLETE"
+  };
+}
+
+function ensureReviewWorkspaceNavigation() {
+  const markup = `<nav class="review-workspace-nav review-workspace-nav-secondary" aria-label="Weekly Review workspace">
+    <a href="#inspection" data-section="inspection">Inspection</a><a href="#standards" data-section="standards">Standards</a><a href="#trends" data-section="trends">Trends</a><a href="#rank" data-section="rank">Rank</a>
+  </nav>`;
+  ["standards", "trends", "rank"].forEach((id) => {
+    const section = document.getElementById(id);
+    if (section && !section.querySelector(".review-workspace-nav")) section.insertAdjacentHTML("afterbegin", markup);
+  });
+}
+
+function renderReviewHub() {
+  const journey = document.getElementById("review-journey");
+  const badge = document.getElementById("review-hub-state");
+  const nextPanel = document.getElementById("review-next-action");
+  if (!journey || !badge || !nextPanel) return;
+  const model = buildReviewJourney({ inspection: weeklyInspection, standardsItems: standardsReviewState, finalizedInspections: inspectionHistory });
+  badge.textContent = model.state;
+  badge.className = `state-pill ${model.state === "REVIEW COMPLETE" ? "green" : model.state === "ACTION NEEDED" || model.state === "READY TO FINALIZE" ? "yellow" : "neutral"}`;
+  journey.innerHTML = model.steps.map((step, index) => `<a class="review-journey-step" href="#${escapeHtml(step.section)}" data-section="${escapeHtml(step.section)}">
+    <span>${index + 1}</span><div><small>${escapeHtml(step.label)}</small><strong>${escapeHtml(step.status)}</strong><p>${escapeHtml(step.detail)}</p></div>
+  </a>`).join("");
+  nextPanel.innerHTML = `<div><span class="kicker">NEXT REVIEW ACTION</span><h3>${escapeHtml(model.next.title)}</h3><p>${escapeHtml(model.next.detail)}</p></div><a href="#${escapeHtml(model.next.section)}" data-section="${escapeHtml(model.next.section)}">${escapeHtml(model.next.action)}</a>`;
+  ensureReviewWorkspaceNavigation();
+}
+
+function buildCurrentDailyAssignment() {
+  if (typeof DominionDailyAssignment === "undefined") return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const api = connectedApi();
+  const prescription = currentStrengthPrescription();
+  const assignment = DominionDailyAssignment.buildDailyAssignment({
+    date: todayISODate(),
+    readiness: { state: readinessResult.state, pain: Boolean(dailyState?.pain) },
+    programming: buildCurrentProgrammingRecommendation() || {},
+    fitbodSessions: api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : []
+  });
+  const adaptiveAssignment = {
+    ...assignment,
+    planId: prescription?.planId || null,
+    sessionId: prescription?.sessionId || null,
+    sessionName: prescription?.sessionName || null,
+    block: prescription?.block || null,
+    title: prescription?.sessionName ? `Today’s ${prescription.sessionName}` : assignment.title
+  };
+  return typeof DominionAdaptiveCoaching === "undefined"
+    ? adaptiveAssignment
+    : DominionAdaptiveCoaching.adaptStrengthAssignment(adaptiveAssignment, readActiveAdaptiveDirective(), todayISODate());
+}
+
+function currentMobileNutrition(date = todayISODate()) {
+  const api = connectedApi();
+  const imported = api ? api.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date) : null;
+  return imported || readManualNutrition(date) || null;
+}
+
+function buildCurrentMobileCommand() {
+  if (typeof DominionMobileCommand === "undefined") return null;
+  const command = DominionMobileCommand.buildMobileCommand({
+    date: todayISODate(),
+    dailyState,
+    strengthAssignment: buildCurrentDailyAssignment(),
+    strengthExecution: readDailyAssignmentExecution(),
+    runningPrescription: currentRunningPrescription(),
+    runningExecution: readRunningExecution(),
+    corePrescription: currentCorePrescription(),
+    coreExecution: readCurrentCoreExecution(),
+    nutrition: currentMobileNutrition(),
+    online: typeof navigator === "undefined" ? true : navigator.onLine,
+    pendingWrites: readMobilePendingWrites().length
+  });
+  const truth = buildCurrentOperatingTruth();
+  if (!truth) return command;
+  const truthModules = new Map(truth.modules.map((item) => [item.id, item]));
+  command.modules = command.modules.map((item) => {
+    const canonical = truthModules.get(item.id);
+    if (!canonical) return item;
+    return {
+      ...item,
+      status: canonical.status,
+      detail: canonical.detail,
+      complete: canonical.complete,
+      active: canonical.status === "IN_PROGRESS",
+      actionLabel: canonical.status === "VERIFY" ? `Verify ${item.label.toLowerCase()}` : item.actionLabel
+    };
+  });
+  const scheduledMobileModules = truth.modules.filter((item) => ["strength", "running", "core"].includes(item.id) && item.scheduled && item.status !== "SAFETY_HOLD");
+  const fuelTruth = truth.modules.find((item) => item.id === "nutrition");
+  command.progress.total = 1 + scheduledMobileModules.length + Number(Boolean(fuelTruth?.scheduled));
+  command.progress.completed = Number(command.rollCallComplete)
+    + scheduledMobileModules.filter((item) => item.complete).length
+    + Number(Boolean(fuelTruth?.scheduled && fuelTruth.complete));
+  command.progress.percent = Math.round((command.progress.completed / Math.max(1, command.progress.total)) * 100);
+  if (truth.state !== "SECURED") {
+    command.next = {
+      action: "TRUTH",
+      module: truth.action.module || "",
+      label: truth.action.label,
+      detail: truth.detail,
+      section: truth.action.section
+    };
+  }
+  command.sync.label = `${truth.state.replaceAll("_", " ")} · ${command.sync.label}`;
+  return command;
+}
+
+function prefillMobileCommandForms(force = false) {
+  const rollCallForm = document.getElementById("mobile-roll-call-form");
+  if (rollCallForm && (force || rollCallForm.dataset.dirty !== "true")) {
+    const state = dailyState?.date === todayISODate() ? dailyState : readMobileDailyState();
+    rollCallForm.elements.energy.value = state?.energy ?? 7;
+    rollCallForm.elements.soreness.value = state?.soreness ?? 3;
+    const pain = rollCallForm.querySelector(`[name="pain"][value="${state?.pain ? "yes" : "no"}"]`);
+    if (pain) pain.checked = true;
+    rollCallForm.elements.weight.value = state?.weight ?? "";
+    rollCallForm.elements.resting_heart_rate.value = state?.resting_heart_rate ?? "";
+    rollCallForm.elements.heart_rate_variability.value = state?.heart_rate_variability ?? "";
+    rollCallForm.elements.comments.value = state?.comments || "";
+    setText("mobile-energy-value", rollCallForm.elements.energy.value);
+    setText("mobile-soreness-value", rollCallForm.elements.soreness.value);
+  }
+  const nutritionForm = document.getElementById("mobile-nutrition-form");
+  if (nutritionForm && (force || nutritionForm.dataset.dirty !== "true")) {
+    const record = readManualNutrition(todayISODate()) || {};
+    ["calories", "protein", "carbs", "fat"].forEach((key) => {
+      nutritionForm.elements[key].value = record[key] ?? "";
+    });
+  }
+}
+
+function renderMobileCommand() {
+  const panel = document.getElementById("mobile-command");
+  const nextPanel = document.getElementById("mobile-command-next");
+  const modulePanel = document.getElementById("mobile-command-modules");
+  const sync = document.getElementById("mobile-sync-state");
+  const progress = document.getElementById("mobile-command-progress");
+  if (!panel || !nextPanel || !modulePanel || !sync || typeof DominionMobileCommand === "undefined") return;
+  let command;
+  try { command = buildCurrentMobileCommand(); }
+  catch (_) { return; }
+  if (!command) return;
+  sync.textContent = command.sync.label.toUpperCase();
+  sync.className = `state-pill ${!command.sync.online || command.sync.pending ? "yellow" : "green"}`;
+  if (progress) progress.style.width = `${command.progress.percent}%`;
+  nextPanel.innerHTML = `<div><span>Next action · ${command.progress.completed}/${command.progress.total}</span><strong>${escapeHtml(command.next.label)}</strong><p>${escapeHtml(command.next.detail)}</p></div>
+    <button type="button" data-mobile-action="${escapeHtml(command.next.action)}" data-mobile-module="${escapeHtml(command.next.module || "")}">${escapeHtml(command.next.label)}</button>`;
+  modulePanel.innerHTML = command.modules.map((item) => `<article class="mobile-command-module ${item.active ? "active" : ""} ${item.complete ? "complete" : ""}">
+    <span>${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail || "Today’s assignment")}</small>
+    <button type="button" class="ghost" data-mobile-action="MODULE" data-mobile-module="${escapeHtml(item.id)}">${escapeHtml(item.actionLabel)}</button>
+  </article>`).join("");
+  setText("mobile-roll-call-summary", command.rollCallComplete ? "Saved today" : "About 20 seconds");
+  setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Today’s totals");
+  prefillMobileCommandForms();
+  renderMobileInstallExperience();
+  document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mobileNav === "today" && activeSection === "today");
+  });
+  renderDominionExperienceShell();
+}
+
+function openMobileCommandSheet(kind = "roll-call") {
+  setActiveSection("today");
+  window.history.replaceState(null, "", "#today");
+  const sheet = document.getElementById(kind === "nutrition" ? "mobile-nutrition-sheet" : "mobile-roll-call-sheet");
+  if (sheet) {
+    sheet.open = true;
+    sheet.scrollIntoView({ behavior: "smooth", block: "center" });
+    const field = kind === "nutrition"
+      ? sheet.querySelector('[name="calories"]')
+      : sheet.querySelector('[name="energy"]');
+    field?.focus({ preventScroll: true });
+  }
+}
+
+function splitDayModuleAuthorization(module = "strength") {
+  const day = readCommittedUnifiedDay();
+  if (!day?.twoADay) return { allowed: true, message: "" };
+  const windows = splitDayTrainingWindows(day);
+  const secondWindow = windows[1];
+  const second = secondWindow?.items.find((item) => String(item.module || "").toLowerCase() === String(module || "").toLowerCase());
+  if (!second) {
+    return { allowed: true, message: "" };
+  }
+  const secondExecution = todayTrainingWindowExecution(secondWindow);
+  if (["COMPLETE", "COMPLETED", "PARTIAL", "IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(secondExecution.state || "").toUpperCase())) {
+    return { allowed: true, message: "" };
+  }
+  const gate = currentSplitDayCommand(day);
+  return {
+    allowed: gate.allowed === true,
+    gate,
+    message: gate.blockers?.[0] || "The PM session remains locked until the between-session checkpoint is cleared."
+  };
+}
+
+async function launchMobileModule(module = "strength") {
+  const splitAuthorization = splitDayModuleAuthorization(module);
+  if (!splitAuthorization.allowed) {
+    setText("mobile-command-feedback", splitAuthorization.message);
+    renderTodayCommittedWeek();
+    document.querySelector("[data-split-day-checkpoint]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  }
+  if (module === "strength") {
+    const assignment = buildCurrentDailyAssignment();
+    let execution = readDailyAssignmentExecution();
+    if (assignment?.state === "RECOVERY ONLY") {
+      setText("mobile-command-feedback", "Strength remains on safety hold. Review today’s readiness before training.");
+    } else if (assignment?.exercises?.length && execution.state === "READY") {
+      execution = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+    } else if (execution.state === "PAUSED") {
+      execution = DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+    } else if (!assignment?.exercises?.length) {
+      setActiveSection("performance");
+      setPerformanceActiveView("today_training");
+      window.history.replaceState(null, "", "#performance");
+      document.getElementById("training-programming-detail")?.setAttribute("open", "");
+      return;
+    }
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    const detail = document.querySelector(".today-workout-detail");
+    if (detail) detail.open = true;
+    renderDailyAssignment();
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (module === "running") {
+    const prescription = currentRunningPrescription();
+    let execution = readRunningExecution();
+    if (prescription?.session && !["PAIN_HOLD", "REST_DAY"].includes(prescription.status) && execution?.state !== "IN_PROGRESS" && execution?.state !== "COMPLETE") {
+      const plan = readApprovedRunningPlan();
+      execution = {
+        state: "IN_PROGRESS",
+        date: todayISODate(),
+        blockId: plan?.blockId || null,
+        blockRevision: plan?.blockRevision || null,
+        weekStart: plan?.weekStart || null,
+        session: prescription.session,
+        startedAt: new Date().toISOString()
+      };
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+      const synced = await persistRunningState("EXECUTION", todayISODate(), execution);
+      if (!synced) enqueueMobileWrite("RUNNING_EXECUTION", todayISODate(), execution);
+    }
+    setActiveSection("performance");
+    setPerformanceActiveView("running");
+    window.history.replaceState(null, "", "#performance");
+    renderRunningCommand();
+    document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (module === "core") {
+    const prescription = currentCorePrescription();
+    let execution = readCurrentCoreExecution();
+    if (!execution && prescription?.session && prescription.status === "READY") {
+      execution = DominionCoreProgramming.startExecution(prescription, new Date().toISOString());
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      const synced = await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      if (!synced) enqueueMobileWrite("CORE_EXECUTION", todayISODate(), execution);
+    }
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    const detail = document.getElementById("today-core-detail");
+    if (detail) detail.open = true;
+    renderCoreToday();
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  renderMobileCommand();
+  return true;
+}
+
+function mobileStandaloneMode() {
+  return Boolean(window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true);
+}
+
+function renderMobileInstallExperience() {
+  const card = document.getElementById("mobile-install-card");
+  const button = document.getElementById("mobile-install");
+  if (!card || !button) return;
+  card.hidden = mobileStandaloneMode();
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
+  button.textContent = mobileInstallPrompt ? "Install" : isIos ? "Show steps" : "Add to Home";
+}
+
+async function requestMobileInstall() {
+  if (mobileInstallPrompt) {
+    mobileInstallPrompt.prompt();
+    const choice = await mobileInstallPrompt.userChoice;
+    mobileInstallPrompt = null;
+    setText("mobile-command-feedback", choice?.outcome === "accepted" ? "Dominion added to your Home Screen." : "Install dismissed. You can add it later.");
+    renderMobileInstallExperience();
+    return;
+  }
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
+  setText("mobile-install-copy", isIos
+    ? "Tap Share in Safari, then choose Add to Home Screen."
+    : "Open your browser menu and choose Add to Home Screen or Install app.");
+}
+
+function registerMobileServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
+async function saveDailyAssignmentExecution(execution) {
+  const payload = { ...execution, updatedAt: new Date().toISOString() };
+  saveStrengthStateLocal("EXECUTION", todayISODate(), payload);
+  const synced = await persistStrengthTrainingState("EXECUTION", todayISODate(), payload);
+  if (synced) acknowledgeMobileWrite("STRENGTH_EXECUTION", todayISODate());
+  else enqueueMobileWrite("STRENGTH_EXECUTION", todayISODate(), payload);
+  renderMobileCommand();
+  return payload;
+}
+
+async function preserveStrengthWorkout(execution) {
+  if (!execution || typeof DominionStrengthTraining === "undefined" || !DominionStrengthTraining.isTerminal(execution.state)) return;
+  const history = [execution, ...readStrengthHistory().filter((item) => item.id !== execution.id)]
+    .sort((a, b) => String(b.completedAt || b.updatedAt || "").localeCompare(String(a.completedAt || a.updatedAt || "")))
+    .slice(0, 52);
+  saveStrengthStateLocal("HISTORY", "current", history);
+  await persistStrengthTrainingState("HISTORY", "current", history);
+  const plan = readApprovedStrengthPlan();
+  const existing = readStrengthAdjustment();
+  if (plan && existing?.sourceExecutionId !== execution.id) {
+    const adjustment = DominionStrengthTraining.buildAdjustmentProposal(plan, history, { createdAt: new Date().toISOString() });
+    if (adjustment) {
+      saveStrengthStateLocal("ADJUSTMENT", "current", adjustment);
+      await persistStrengthTrainingState("ADJUSTMENT", "current", adjustment);
+    }
+  }
+}
+
+function renderTodayStandardsDuty() {
+  const panel = document.getElementById("today-standards-panel");
+  const badge = document.getElementById("today-standards-state");
+  const setupPanel = document.getElementById("today-setup-attention");
+  const section = document.querySelector(".today-attention-card");
+  if (!panel || !badge || !setupPanel || !section) return;
+  const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
+  const duty = buildTodayStandardsDuty(items, todayISODate());
+  const actionable = duty.filter((item) => ["OVERDUE", "DUE TODAY", "ACTIVE"].includes(item.actionStatus));
+  const setupItems = [];
+  const nutritionBaseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
+  const assignment = buildCurrentDailyAssignment();
+  if (!dailyState) setupItems.push({ title: "Complete Morning Roll Call", detail: "Readiness and today’s coaching decision need current energy, soreness, and pain evidence.", section: "today", action: "Complete roll call" });
+  if (!readApprovedRecruitContract()) setupItems.push({ title: "Approve your Recruit Contract", detail: "Set one goal and a sustainable weekly commitment before coordinating module plans.", section: "contract", action: "Set commitment" });
+  if (!nutritionBaseline) setupItems.push({ title: "Approve your fueling baseline", detail: "Daily calorie, protein, and meal guidance remains unavailable until targets are approved.", section: "nutrition", action: "Set nutrition targets" });
+  if (assignment?.fitbod?.state === "AWAITING EVIDENCE") setupItems.push({ title: "Training evidence is not current", detail: "No Fitbod evidence is available for today. You can still execute the prescribed workout or refresh the import.", section: "connected", action: "Review imports" });
+  const attentionCount = actionable.length + setupItems.length;
+  badge.textContent = actionable.some((item) => item.actionStatus === "OVERDUE") ? "OVERDUE" : attentionCount ? `${attentionCount} TO REVIEW` : "CLEAR";
+  badge.className = `state-pill ${actionable.some((item) => item.actionStatus === "OVERDUE") ? "red" : attentionCount ? "yellow" : "green"}`;
+  panel.innerHTML = duty.length ? duty.map((item) => `<article class="today-standard-order">
+    <div><span class="kicker">${escapeHtml(item.standardCode || standardsDomainCode(item.domain))}</span><h3>${escapeHtml(item.title || "Corrective action")}</h3></div>
+    <span class="state-pill ${item.actionStatus === "OVERDUE" ? "red" : item.actionStatus === "AWAITING REVIEW" ? "yellow" : "neutral"}">${item.actionStatus}</span>
+    <p>${escapeHtml(item.correctiveAction?.description || "Review the confirmed standards action.")}</p>
+    <div class="today-standard-meta"><span>Due ${escapeHtml(item.correctiveAction?.dueDate || "not set")}</span><span>${escapeHtml(item.correctiveAction?.successCriteria || "Success criteria pending")}</span></div>
+    <a href="#standards" data-section="standards">${item.actionStatus === "AWAITING REVIEW" ? "Review case" : "Complete standards duty"}</a>
+  </article>`).join("") : "";
+  setupPanel.innerHTML = setupItems.map((item) => `<article class="today-attention-item">
+    <div><span class="kicker">SETUP OR EVIDENCE</span><h3>${escapeHtml(item.title)}</h3></div>
+    <p>${escapeHtml(item.detail)}</p>
+    <a href="#${escapeHtml(item.section)}" data-section="${escapeHtml(item.section)}">${escapeHtml(item.action)}</a>
+  </article>`).join("");
+  section.hidden = attentionCount === 0 && duty.length === 0;
+}
+
+function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
+  const state = document.getElementById("today-completion-state");
+  renderTodayCommittedWeek();
+  if (!state || !assignment) return;
+  const execution = readDailyAssignmentExecution();
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
+  const workoutComplete = assignment.fitbod?.state === "COMPLETE" || ["COMPLETE", "PARTIAL"].includes(execution.state);
+  const recordComplete = Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate());
+  const nutritionReady = Boolean(baseline);
+  const completeCount = [workoutComplete, nutritionReady, !recovery.holdProgression, recordComplete].filter(Boolean).length;
+  const completionState = completeCount === 4 ? "DAY COMPLETE" : ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state) ? "IN PROGRESS" : completeCount ? `${completeCount}/4 READY` : "NEXT ACTION";
+  state.textContent = completionState;
+  state.className = `state-pill ${completeCount === 4 ? "green" : completeCount ? "yellow" : "neutral"}`;
+  setText("today-sequence-training", workoutComplete ? `Workout ${String(execution.state || "complete").toLowerCase()}` : assignment.state === "RECOVERY ONLY" ? "Recovery-only day" : execution.state === "IN_PROGRESS" ? "Workout in progress" : "Start today’s workout");
+  const blockLabel = assignment.block?.status === "ACTIVE" ? ` · ${assignment.block.label}` : "";
+  setText("today-sequence-training-detail", `${assignment.exercises.length} exercises · ~${assignment.estimatedMinutes} minutes · ${assignment.confidence.toLowerCase()} confidence${blockLabel}.`);
+  setText("today-sequence-fueling", nutritionReady ? "Fueling targets active" : "Approve fueling baseline");
+  setText("today-sequence-fueling-detail", nutritionReady ? "Training-day targets and meal timing are available." : "A baseline is required before Atlas can calculate remaining intake.");
+  setText("today-sequence-recovery", recovery.status || "Review recovery");
+  setText("today-sequence-recovery-detail", recovery.actions?.[0] || assignment.recoveryActions[0] || "Preserve the recovery window.");
+  setText("today-sequence-evidence", recordComplete ? "Dominion Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
+  setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
+  renderTodayStandardsDuty();
+  renderDataTruth();
+  renderActivationGuide();
+}
+
+let strengthRestTimer = null;
+
+function strengthWorkLogs(execution, exerciseId) {
+  return (execution.setLogs?.[exerciseId] || []).filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP");
+}
+
+function updateStrengthRestCountdown() {
+  document.querySelectorAll("[data-strength-rest-until]").forEach((item) => {
+    const remaining = Math.max(0, Math.ceil((Date.parse(item.dataset.strengthRestUntil || "") - Date.now()) / 1000));
+    item.textContent = remaining > 0 ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}` : "READY";
+    item.classList.toggle("ready", remaining === 0);
+  });
+}
+
+function startStrengthRestCountdown() {
+  if (strengthRestTimer) window.clearInterval(strengthRestTimer);
+  updateStrengthRestCountdown();
+  if (document.querySelector("[data-strength-rest-until]")) strengthRestTimer = window.setInterval(updateStrengthRestCountdown, 1000);
+}
+
+function renderDailyAssignment() {
+  const panel = document.getElementById("daily-assignment-panel");
+  if (!panel) return;
+  const assignment = buildCurrentDailyAssignment();
+  if (!assignment) {
+    panel.innerHTML = `<div class="performance-empty">Daily assignment engine unavailable.</div>`;
+    return;
+  }
+  const execution = readDailyAssignmentExecution();
+  const fitbodComplete = assignment.fitbod.state === "COMPLETE";
+  const terminal = typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state);
+  const liveState = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
+  const state = fitbodComplete && execution.state === "READY" ? "COMPLETE · FITBOD" : terminal || liveState ? execution.state : assignment.state;
+  setText("daily-assignment-state", state);
+  const badge = document.getElementById("daily-assignment-state");
+  badge.className = `state-pill ${state.includes("COMPLETE") || state === "READY" ? "green" : state === "RECOVERY ONLY" || state === "STOPPED" ? "red" : ["PARTIAL", "IN_PROGRESS", "PAUSED", "REVIEW"].includes(state) ? "yellow" : "neutral"}`;
+  const plannedSets = DominionStrengthTraining.plannedSetCount(execution.sessionSnapshot || {});
+  const completedSets = DominionStrengthTraining.completedSetCount(execution);
+  const progressPercent = plannedSets ? Math.min(100, Math.round(completedSets / plannedSets * 100)) : 0;
+  const activeExercise = assignment.exercises.find((item) => !execution.skipped?.[item.id] && strengthWorkLogs(execution, item.id).length < item.sets) || null;
+  const priorExecution = activeExercise ? readStrengthHistory().find((item) => strengthWorkLogs(item, activeExercise.id).length) : null;
+  const priorExercise = priorExecution?.sessionSnapshot?.exercises?.find((item) => (item.exerciseCode || item.id) === activeExercise?.id);
+  const priorExposure = priorExecution && priorExercise ? DominionStrengthTraining.exerciseExposure(priorExecution, priorExercise) : null;
+  const activeMinutes = liveState ? DominionStrengthTraining.activeDurationMinutes(execution, new Date().toISOString()) : null;
+  const restActive = execution.restUntil && Date.parse(execution.restUntil) > Date.now();
+  const blockContext = assignment.block?.status === "ACTIVE" ? assignment.block : null;
+  const playerMarkup = liveState ? `<section class="strength-live-player">
+    <header><div><span class="kicker">BUILD 017E // LIVE WORKOUT</span><h3>${escapeHtml(activeExercise?.name || "Review the session")}</h3><p>${activeExercise ? `Next work set ${strengthWorkLogs(execution, activeExercise.id).length + 1} of ${activeExercise.sets}` : "All planned work is accounted for. Review before finalizing."}</p></div><span class="state-pill yellow">${escapeHtml(execution.state)}</span></header>
+    <div class="strength-player-progress"><span style="width:${progressPercent}%"></span></div>
+    <div class="strength-player-metrics">
+      <div><span>Work sets</span><strong>${completedSets}/${plannedSets}</strong></div>
+      <div><span>Active time</span><strong>${activeMinutes ?? 0} min</strong></div>
+      <div><span>Rest timer</span><strong ${restActive ? `data-strength-rest-until="${escapeHtml(execution.restUntil)}"` : ""}>${restActive ? "—" : "READY"}</strong></div>
+      <div><span>Last exposure</span><strong>${priorExposure ? `${priorExposure.completedSets} sets · ${priorExposure.workingLoad || "technique"} ${escapeHtml(priorExercise.unit || "")}` : "No prior log"}</strong></div>
+    </div>
+    ${execution.pauseReason ? `<p class="strength-player-notice">${escapeHtml(execution.pauseReason)}. Resume when you are ready; inactive time is excluded.</p>` : ""}
+    ${activeExercise ? `<button type="button" class="ghost" data-assignment-action="jump-active" data-exercise-id="${escapeHtml(activeExercise.id)}">Jump to active exercise</button>` : ""}
+  </section>` : "";
+  const exerciseCards = assignment.exercises.map((item) => {
+    const logs = execution.setLogs?.[item.id] || [];
+    const workLogs = strengthWorkLogs(execution, item.id);
+    const completed = Math.min(item.sets, workLogs.length);
+    const skipped = execution.skipped?.[item.id];
+    const substitution = execution.substitutions?.[item.id]?.name;
+    const controlsDisabled = execution.state !== "IN_PROGRESS" || completed >= item.sets || skipped || fitbodComplete;
+    const editable = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
+    const lastWorkSet = workLogs[workLogs.length - 1] || null;
+    const logRows = logs.map((log) => `<li class="strength-set-log-row">
+      <span>${String(log.kind || "WORK").toUpperCase() === "WARMUP" ? "Warm-up" : `Set ${log.setNumber}`}</span>
+      <label><small>Reps</small><input type="number" data-log-field="reps" value="${log.reps}" min="0" max="1000" ${editable ? "" : "disabled"}></label>
+      <label><small>Load</small><input type="number" data-log-field="load" value="${log.load}" min="0" step="0.5" ${editable ? "" : "disabled"}></label>
+      <label><small>RPE</small><input type="number" data-log-field="rpe" value="${log.rpe ?? ""}" min="1" max="10" step="0.5" ${editable ? "" : "disabled"}></label>
+      <button type="button" class="ghost" data-assignment-action="edit-set" data-exercise-id="${escapeHtml(item.id)}" data-set-id="${escapeHtml(log.id || "")}" ${editable && log.id ? "" : "disabled"}>Save</button>
+    </li>`).join("");
+    return `<article id="strength-exercise-${escapeHtml(item.id)}" class="daily-exercise-card ${activeExercise?.id === item.id ? "active-exercise" : ""}">
+      <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(substitution || item.name)}</h3>${substitution ? `<p class="muted">Substituted for ${escapeHtml(item.name)}</p>` : ""}</div><span class="state-pill ${completed === item.sets ? "green" : skipped ? "yellow" : "neutral"}">${skipped ? "SKIPPED" : `${completed}/${item.sets} SETS`}</span></header>
+      <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Starting load</span><strong>${item.load > 0 ? `${item.load} ${escapeHtml(item.unit)}` : "Technique first"}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
+      <p>${escapeHtml(item.rationale)}</p>
+      ${logRows ? `<ol class="strength-set-log">${logRows}</ol>` : ""}
+      <div class="strength-set-entry">
+        <label><span>Reps</span><input type="number" data-set-field="reps" min="0" max="1000" value="${item.reps}" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>Load (${escapeHtml(item.unit)})</span><input type="number" data-set-field="load" min="0" step="0.5" value="${lastWorkSet?.load ?? item.load ?? 0}" ${controlsDisabled ? "disabled" : ""}></label>
+        <label><span>RPE</span><input type="number" data-set-field="rpe" min="1" max="10" step="0.5" placeholder="1–10" ${controlsDisabled ? "disabled" : ""}></label>
+        <label class="strength-warmup-choice"><input type="checkbox" data-set-field="warmup" ${execution.state !== "IN_PROGRESS" || skipped ? "disabled" : ""}><span>Warm-up set</span></label>
+      </div>
+      <div class="strength-exercise-decisions">
+        <label><span>Substitution</span><select data-substitution-choice ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}><option value="">Choose an option</option>${item.substitutions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}</select></label>
+        <label><span>Skip reason</span><select data-skip-reason ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}><option value="Equipment unavailable">Equipment unavailable</option><option value="Readiness adjustment">Readiness adjustment</option><option value="Time constrained">Time constrained</option><option value="Technique concern">Technique concern</option></select></label>
+      </div>
+      <details><summary>Evidence and coaching rationale</summary><p>${item.evidenceCount} supporting exposure(s). ${item.evidenceCount ? "Evidence informed load only; the approved program governs exercise selection and sets." : "Use a controlled technique load with about three reps in reserve."}</p></details>
+      <div class="daily-orders-actions strength-exercise-actions">
+        <button type="button" data-assignment-action="record-set" data-exercise-id="${escapeHtml(item.id)}" ${controlsDisabled ? "disabled" : ""}>Record set</button>
+        <button type="button" class="ghost" data-assignment-action="repeat-set" data-exercise-id="${escapeHtml(item.id)}" ${controlsDisabled || !lastWorkSet ? "disabled" : ""}>Repeat last</button>
+        <button type="button" class="ghost" data-assignment-action="undo-set" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || !logs.length ? "disabled" : ""}>Undo last</button>
+        <button type="button" class="ghost" data-assignment-action="substitute" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Apply substitution</button>
+        <button type="button" class="ghost" data-assignment-action="skip" data-exercise-id="${escapeHtml(item.id)}" ${execution.state !== "IN_PROGRESS" || terminal ? "disabled" : ""}>Skip</button>
+        <button type="button" class="ghost danger-action" data-assignment-action="pain" ${execution.state !== "IN_PROGRESS" ? "disabled" : ""}>Report pain</button>
+      </div>
+    </article>`;
+  }).join("");
+  const summary = terminal ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
+  const reviewSummary = execution.state === "REVIEW" ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
+  const adjustment = readStrengthAdjustment();
+  const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id;
+  const durationText = summary?.durationMinutes === null || summary?.durationMinutes === undefined ? "Unavailable" : `${summary.durationMinutes} min`;
+  const resultMarkup = summary ? `<article class="strength-workout-result">
+    <div><span class="kicker">SESSION PRESERVED · ATTEMPT ${execution.attempt || 1}</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
+    <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Active duration</span><strong>${durationText}</strong></div></div>
+    ${summary.durationStatus === "UNRELIABLE_LEGACY" ? `<p class="muted">This older attempt had no activity segments, so the inflated wall-clock duration was intentionally discarded.</p>` : ""}
+    ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
+    ${adjustmentReady ? `<div class="strength-next-review"><div><strong>Post-session review ready</strong><p>See what stays, what changes, and why. Nothing applies without approval.</p></div><button type="button" data-assignment-action="review-adjustment">Review next session</button></div>` : ""}
+  </article>` : "";
+  const reviewMarkup = reviewSummary ? `<section class="strength-final-review">
+    <div><span class="kicker">FINAL CHECK</span><h3>Review before preserving</h3><p>Confirm the work below. You can return to the workout or finalize this attempt.</p></div>
+    <div class="connected-summary-grid"><div><span>Sets</span><strong>${reviewSummary.setsCompleted}/${reviewSummary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${reviewSummary.exercisesCompleted}/${reviewSummary.exercisesPlanned}</strong></div><div><span>Skipped</span><strong>${reviewSummary.skippedExercises}</strong></div><div><span>Active time</span><strong>${reviewSummary.durationMinutes ?? 0} min</strong></div></div>
+    <label><span>Session notes (optional)</span><textarea data-strength-review-notes rows="3" placeholder="Technique, energy, constraints, or context">${escapeHtml(execution.reviewNotes || "")}</textarea></label>
+  </section>` : "";
+  const primaryActions = execution.state === "IN_PROGRESS"
+    ? `<button type="button" data-assignment-action="finish">Review workout</button><button type="button" class="ghost" data-assignment-action="pause">Pause</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+    : execution.state === "PAUSED"
+      ? `<button type="button" data-assignment-action="resume">Resume workout</button><button type="button" class="ghost" data-assignment-action="finish">Review workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+      : execution.state === "REVIEW"
+        ? `<button type="button" data-assignment-action="finalize">Finalize session</button><button type="button" class="ghost" data-assignment-action="resume">Back to workout</button>`
+        : terminal
+          ? `${["STOPPED", "PARTIAL"].includes(execution.state) ? `<button type="button" data-assignment-action="restart">Restart as attempt ${(execution.attempt || 1) + 1}</button>` : ""}<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
+          : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
+  panel.innerHTML = `${playerMarkup}<div class="daily-assignment-summary">
+      <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>${blockContext ? `<div><span>Training block</span><strong>${escapeHtml(blockContext.label)}</strong></div>` : ""}
+    </div>
+    ${blockContext ? `<article class="connected-notice"><strong>${escapeHtml(blockContext.phase?.label || "Block phase")}:</strong> ${escapeHtml(blockContext.phase?.detail || "")} ${escapeHtml(blockContext.loadRule || "")}</article>` : ""}
+    <article class="connected-notice"><strong>Readiness adjustment:</strong> ${escapeHtml(assignment.readinessDelta.detail)}</article>
+    <details open><summary>Warm-up guidance</summary><ol>${assignment.warmup.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol><p class="muted">Log ramp-up work inside the exercise as a warm-up set. Warm-ups never count toward prescribed work sets.</p></details>
+    <div class="daily-exercise-list">${exerciseCards || `<div class="performance-empty">${assignment.state === "RECOVERY ONLY" ? "Loaded training is removed today. Follow the recovery actions below." : `Approve a balanced strength program in Train before starting a workout.<div class="performance-actions"><button type="button" data-assignment-action="program">Build strength program</button></div>`}</div>`}</div>
+    <details open><summary>Recovery and safety</summary><ul>${assignment.recoveryActions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>
+    ${reviewMarkup}
+    ${resultMarkup}
+    <div class="daily-orders-actions strength-workout-controls">${primaryActions}<button type="button" class="ghost" data-assignment-action="refresh">Refresh Fitbod evidence</button></div>`;
+  startStrengthRestCountdown();
+  renderTodayCommandSurface(assignment);
+}
+
+function buildCurrentDailyCoachingLoop() {
+  if (typeof DominionDailyCoaching === "undefined") return null;
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const programming = buildCurrentProgrammingRecommendation() || {};
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const api = connectedApi();
+  const strengthSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const approvedOrders = readApprovedDailyOrders();
+  return DominionDailyCoaching.buildDailyCoachingLoop({
+    readiness: {
+      state: readinessResult.state,
+      energy: dailyState?.energy,
+      soreness: dailyState?.soreness,
+      pain: Boolean(dailyState?.pain),
+      instruction: readinessResult.instruction
+    },
+    mission: readinessResult.state ? generateMission(readinessResult) : {},
+    programming,
+    recovery,
+    programmingApproved: Boolean(readProgrammingDraft()),
+    recoveryApproved: Boolean(readRecoveryPlan()),
+    ordersApproved: Boolean(approvedOrders),
+    evidence: {
+      trainingRecords: connectedImportedRecords.filter((record) => record.providerCode === "FITBOD" && record.importStatus !== "DUPLICATE").length,
+      nutritionRecords: connectedImportedRecords.filter((record) => record.providerCode === "MYFITNESSPAL" && record.importStatus !== "DUPLICATE").length,
+      trainingVolume: strengthSessions[0]?.volume || 0,
+      nutritionDays: nutritionDays.length
+    },
+    compliance: {
+      saved: Boolean(dailyCompliance && dailyCompliance.compliance_date === todayISODate())
+    }
+  });
+}
+
+function dailyActionLabel(action) {
+  return {
+    roll_call: "Complete Morning Roll Call",
+    review_recovery: "Review Recovery & Fueling",
+    review_programming: "Review Programming",
+    approve_orders: "Approve Today’s Orders",
+    review_record: "Open Dominion Record",
+    refresh: "Refresh Today’s Evidence"
+  }[action] || "Refresh Today’s Evidence";
+}
+
+function buildCurrentDailyExecutionQueue() {
+  if (typeof DominionDailyCoaching === "undefined" || typeof DominionDailyCoaching.buildDailyExecutionQueue !== "function") return null;
+  const assignment = buildCurrentDailyAssignment();
+  const execution = readDailyAssignmentExecution();
+  const loop = buildCurrentDailyCoachingLoop();
+  const api = connectedApi();
+  const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null;
+  const nutritionCurrent = api
+    ? api.aggregateNutritionByDate(connectedImportedRecords).some((day) => day.date === todayISODate())
+    : false;
+  const manualNutrition = typeof readManualNutrition === "function" ? readManualNutrition(todayISODate()) : null;
+  const manualNutritionCurrent = Boolean(
+    manualNutrition?.date === todayISODate()
+    && ["calories", "protein", "carbs", "fat"].some((key) => Number.isFinite(manualNutrition[key]))
+  );
+  const recovery = buildCurrentRecoveryRecommendation() || {};
+  const queueState = readDailyExecutionQueueState();
+  return DominionDailyCoaching.buildDailyExecutionQueue({
+    date: todayISODate(),
+    readinessComplete: dailyState?.date === todayISODate(),
+    ordersApproved: Boolean(readApprovedDailyOrders()),
+    ordersAction: loop?.nextAction || "approve_orders",
+    trainingStarted: ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state),
+    trainingComplete: assignment?.fitbod?.state === "COMPLETE" || ["COMPLETE", "PARTIAL"].includes(execution.state),
+    recoveryOnly: assignment?.state === "RECOVERY ONLY",
+    fuelingBaseline: Boolean(baseline),
+    fuelingComplete: Boolean(baseline && (nutritionCurrent || manualNutritionCurrent)),
+    recoveryRequired: Boolean(recovery.holdProgression || assignment?.state === "RECOVERY ONLY"),
+    recoveryApproved: Boolean(readRecoveryPlan()),
+    recoveryComplete: Boolean(queueState.recoveryComplete),
+    recordComplete: Boolean(dailyCompliance?.compliance_date === todayISODate())
+  });
+}
+
+function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
+  const section = document.getElementById("daily-ritual");
+  if (!section || typeof DominionDailyRitual === "undefined") return;
+  let closedLoop = null;
+  try { closedLoop = buildCurrentClosedLoopState(); }
+  catch (_) {}
+  let readinessState = "";
+  if (dailyState?.date === todayISODate()) {
+    try { readinessState = evaluateOperationalReadiness(dailyState).state; }
+    catch (_) {}
+  }
+  let ritual = DominionDailyRitual.buildDailyRitual({
+    date: todayISODate(),
+    queue: queue || {},
+    closedLoop: closedLoop || {},
+    history: readClosedLoopHistory(),
+    readinessState,
+    rank: rankStatus?.currentRank || "RECRUIT"
+  });
+  const truth = buildCurrentOperatingTruth();
+  if (truth && ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT", "ROLL_CALL_REQUIRED", "AUTHORIZATION_REQUIRED", "EXECUTION_REQUIRED", "EVIDENCE_REQUIRED"].includes(truth.state)) {
+    ritual = {
+      ...ritual,
+      state: truth.state,
+      tone: truth.state === "CONFLICT" ? "protect" : "active",
+      eyebrow: "OPERATING TRUTH",
+      title: truth.title,
+      detail: truth.detail,
+      action: "operating_truth",
+      actionLabel: truth.action.label,
+      sealed: false,
+      evidence: {
+        ...ritual.evidence,
+        percent: truth.evidence.total ? Math.round((truth.evidence.complete / truth.evidence.total) * 100) : 0,
+        confidence: truth.state === "EVIDENCE_REQUIRED" ? "VERIFY" : "LOCKED",
+        completed: truth.evidence.complete,
+        total: truth.evidence.total
+      }
+    };
+  }
+  const priorState = section.dataset.ritualState || "";
+  section.dataset.ritualState = ritual.state;
+  section.dataset.ritualTone = ritual.tone;
+  section.classList.toggle("is-sealed", ritual.sealed);
+  setText("daily-ritual-eyebrow", ritual.eyebrow);
+  setText("daily-ritual-heading", ritual.title);
+  setText("daily-ritual-detail", ritual.detail);
+  setText("daily-ritual-state", ritual.state.replaceAll("_", " "));
+  setText("daily-ritual-evidence", `${ritual.evidence.percent}%`);
+  setText("daily-ritual-confidence", ritual.evidence.confidence);
+  setText("daily-ritual-total", ritual.stats.total);
+  setText("daily-ritual-streak", ritual.stats.streak);
+  setText("daily-ritual-rank", ritual.rank);
+  const badge = document.getElementById("daily-ritual-state");
+  if (badge) badge.className = `state-pill ${ritual.tone === "protect" ? "red" : ritual.sealed ? "green" : ["READY_TO_SEAL", "LESSON_READY"].includes(ritual.state) ? "yellow" : "neutral"}`;
+  const action = document.getElementById("daily-ritual-action");
+  if (action) {
+    action.textContent = ritual.actionLabel;
+    action.dataset.closedLoopAction = ritual.action;
+  }
+  ritual.milestones.forEach((step) => {
+    const item = document.querySelector(`[data-daily-ritual-step="${step.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", step.complete);
+    item.classList.toggle("current", step.current);
+    item.setAttribute("aria-current", step.current ? "step" : "false");
+  });
+  if (priorState && priorState !== ritual.state) {
+    setText("daily-ritual-feedback", ritual.sealed
+      ? `Day secured. ${ritual.stats.streak} day chain active.`
+      : `${ritual.state.replaceAll("_", " ")}: ${ritual.title}`);
+  }
+}
+
+function renderDailyCoachingLoop() {
+  renderCoreToday();
+  renderTodayRecoveryExecution();
+  const panel = document.getElementById("daily-orders-panel");
+  const phases = document.getElementById("daily-loop-phases");
+  if (!panel || !phases) return;
+  const loop = buildCurrentDailyCoachingLoop();
+  const queue = buildCurrentDailyExecutionQueue();
+  if (!loop || !queue) {
+    panel.innerHTML = `<div class="performance-empty">Daily coaching engine unavailable.</div>`;
+    renderDailyRitual(queue);
+    renderMobileCommand();
+    return;
+  }
+  setText("daily-orders-state", queue.state);
+  setText("today-command-state", loop.posture);
+  const state = document.getElementById("daily-orders-state");
+  state.className = `state-pill ${queue.complete ? "green" : loop.priority === "CRITICAL" ? "red" : queue.completed ? "yellow" : "neutral"}`;
+  const commandState = document.getElementById("today-command-state");
+  if (commandState) commandState.className = state.className;
+  const progress = document.getElementById("daily-queue-progress");
+  if (progress) progress.style.width = `${queue.percent}%`;
+  const current = queue.current;
+  setText("daily-sequence-summary", queue.complete
+    ? "All steps complete"
+    : `${queue.completed}/${queue.total} complete · Next: ${current?.label || "Review today"}`);
+  panel.innerHTML = queue.complete
+    ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Today’s execution is complete</h3><p>Readiness, plan, training, fueling, recovery, and the Dominion Record are all current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
+    : `<div class="kicker">CURRENT ACTION</div>
+      <h3>${escapeHtml(current?.label || loop.headline)}</h3>
+      <p>${escapeHtml(current?.detail || loop.directive)}</p>
+      ${current?.blockedBy ? `<p class="daily-queue-blocker"><strong>Resolve:</strong> ${escapeHtml(current.blockedBy)}</p>` : ""}
+      <div class="daily-orders-actions">
+        <button type="button" data-daily-action="${escapeHtml(current?.action || loop.nextAction)}">${escapeHtml(current?.actionLabel || dailyActionLabel(loop.nextAction))}</button>
+        <button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button>
+      </div>
+      <p class="daily-orders-safeguard">Safety lock: pain overrides progression. No training, recovery, or programming change is applied without deliberate approval.</p>`;
+  phases.innerHTML = queue.steps.map((item, index) => `<article class="daily-execution-step ${escapeHtml(item.status.toLowerCase())}" aria-current="${item.status === "CURRENT" ? "step" : "false"}">
+    <span class="daily-execution-number">${item.complete ? "✓" : index + 1}</span>
+    <div><small>${escapeHtml(item.status)}</small><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(item.detail)}</p>${item.status === "BLOCKED" && item.blockedBy ? `<em>${escapeHtml(item.blockedBy)}</em>` : ""}</div>
+  </article>`).join("");
+  renderClosedLoopCoaching();
+  renderDailyRitual(queue);
+  renderAdaptiveCoaching();
+  renderMobileCommand();
+  applyProductPolish();
+}
+
+function closedLoopStorageKey(stateType, stateKey = "current") {
+  return `coach-dominion:closed-loop:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
+}
+
+function readClosedLoopState(stateType, stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(closedLoopStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveClosedLoopLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(closedLoopStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readClosedLoopHistory() {
+  const history = readClosedLoopState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function closedLoopPayloadTimestamp(payload) {
+  if (Array.isArray(payload)) {
+    return payload.reduce((latest, item) => Math.max(latest, closedLoopPayloadTimestamp(item)), 0);
+  }
+  if (!payload || typeof payload !== "object") return 0;
+  const direct = [
+    payload.updatedAt,
+    payload.approvedAt,
+    payload.closedAt,
+    payload.generatedAt,
+    payload.adaptation?.approvedAt,
+    payload.adaptation?.generatedAt,
+    payload.reconciliation?.generatedAt
+  ].map((value) => Date.parse(value || "") || 0);
+  return Math.max(0, ...direct);
+}
+
+async function persistClosedLoopState(stateType, stateKey, payload) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    setText("closed-loop-feedback", "Saved on this device. Account sync will activate after migration 013 is applied.");
+    return false;
+  }
+}
+
+async function loadClosedLoopState() {
+  if (!session?.user?.id || typeof DominionClosedLoop === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("coaching_loop_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const keys = [
+      ["DECISION", todayISODate()],
+      ["REVIEW", todayISODate()],
+      ["ADAPTATION", "current"],
+      ["HISTORY", "current"],
+      ["ADAPTATION", "adaptive-current"],
+      ["HISTORY", "adaptive"]
+    ];
+    for (const [stateType, stateKey] of keys) {
+      const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === stateKey);
+      const hasLocal = Boolean(local) && (stateType !== "HISTORY" || local.length);
+      if (!row && hasLocal) {
+        await persistClosedLoopState(stateType, stateKey, local);
+        continue;
+      }
+      if (!row) continue;
+      const localTimestamp = closedLoopPayloadTimestamp(local);
+      const remoteTimestamp = Date.parse(row.updated_at || "") || 0;
+      if (hasLocal && localTimestamp > remoteTimestamp) {
+        await persistClosedLoopState(stateType, stateKey, local);
+      } else {
+        saveClosedLoopLocal(stateType, stateKey, row.payload);
+      }
+    }
+  } catch (_) {
+    // Device state remains the explicit fallback.
+  }
+}
+
+function addClosedLoopDays(date, days = 1) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function readAdaptiveCoachingState() {
+  return readClosedLoopState("ADAPTATION", "adaptive-current", null);
+}
+
+function readAdaptiveCoachingHistory() {
+  const history = readClosedLoopState("HISTORY", "adaptive", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function adaptiveEvidenceDate(item = {}) {
+  const value = item.date || item.performanceDate || item.performance_date || item.completedAt || item.completed_at || item.updatedAt || item.updated_at;
+  const text = String(value || "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+function adaptiveUniqueDates(items = [], cutoff = addClosedLoopDays(todayISODate(), -6)) {
+  return [...new Set((Array.isArray(items) ? items : [])
+    .map(adaptiveEvidenceDate)
+    .filter((date) => date && date >= cutoff && date <= todayISODate()))];
+}
+
+function buildAdaptiveCoachingEvidence(contract = {}) {
+  const cutoff = addClosedLoopDays(todayISODate(), -6);
+  const api = connectedApi();
+  const fitbodSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const strengthDates = adaptiveUniqueDates(fitbodSessions, cutoff);
+  const runningDates = adaptiveUniqueDates(performanceEntries.filter((entry) => entry.domain === "running"), cutoff);
+  const coreDates = adaptiveUniqueDates(readCoreHistory(), cutoff);
+  const nutritionDates = adaptiveUniqueDates(nutritionDays, cutoff);
+  const todayStrength = readDailyAssignmentExecution()?.state === "COMPLETE";
+  const todayRun = readRunningExecution()?.state === "COMPLETE";
+  const todayCore = readCurrentCoreExecution()?.state === "COMPLETE";
+  if (todayStrength && !strengthDates.includes(todayISODate())) strengthDates.push(todayISODate());
+  if (todayRun && !runningDates.includes(todayISODate())) runningDates.push(todayISODate());
+  if (todayCore && !coreDates.includes(todayISODate())) coreDates.push(todayISODate());
+  if (readManualNutrition(todayISODate()) && !nutritionDates.includes(todayISODate())) nutritionDates.push(todayISODate());
+  const nutritionCommitment = {
+    TRACK_DAILY: 7,
+    TRACK_5_DAYS: 5,
+    PROTEIN_FIRST: 5,
+    FOUNDATION_ONLY: 3
+  }[contract.nutritionCommitment] || 0;
+  return {
+    STRENGTH: {
+      planned: Number(contract.strengthDaysPerWeek || 0),
+      completed: strengthDates.length,
+      sourceCount: strengthDates.length
+    },
+    RUNNING: {
+      planned: Number(contract.runningDaysPerWeek || 0),
+      completed: runningDates.length,
+      sourceCount: runningDates.length
+    },
+    CORE: {
+      planned: Number(contract.coreDaysPerWeek || 0),
+      completed: coreDates.length,
+      sourceCount: coreDates.length
+    },
+    FUELING: {
+      planned: nutritionCommitment,
+      completed: nutritionDates.length,
+      sourceCount: nutritionDates.length
+    }
+  };
+}
+
+function adaptivePlanCoverage() {
+  return [
+    readApprovedStrengthPlan(),
+    readApprovedRunningPlan(),
+    readApprovedCorePlan(),
+    typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null
+  ].filter(Boolean).length;
+}
+
+function buildCurrentAdaptiveCoaching() {
+  if (typeof DominionAdaptiveCoaching === "undefined") return null;
+  const contract = readApprovedRecruitContract() || {};
+  const history = readinessHistory.map((item) => {
+    let state = "UNKNOWN";
+    try { state = evaluateOperationalReadiness(item).state; } catch (_) {}
+    return { ...item, state };
+  });
+  const proposal = DominionAdaptiveCoaching.buildProposal({
+    date: todayISODate(),
+    contractApproved: contract.status === "APPROVED",
+    contractId: contract.id || null,
+    contractRevision: contract.revision || null,
+    planCoverage: adaptivePlanCoverage(),
+    readinessHistory: history,
+    evidence: buildAdaptiveCoachingEvidence(contract),
+    priorProposal: readAdaptiveCoachingState(),
+    generatedAt: new Date().toISOString()
+  });
+  const recruitContext = recruitProfileForAtlas();
+  if (proposal.code === "PROGRESS" && recruitContext?.progressionPolicy === "HOLD_PROGRESSION") {
+    return {
+      ...proposal,
+      code: "MONITOR",
+      status: "MONITORING",
+      label: "Hold progression through Week One",
+      reason: recruitContext.guardrails[0],
+      changes: [],
+      recruitContext
+    };
+  }
+  return { ...proposal, recruitContext };
+}
+
+function readActiveAdaptiveDirective(date = todayISODate()) {
+  if (typeof DominionAdaptiveCoaching === "undefined") return null;
+  return DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
+}
+
+async function saveAdaptiveCoachingRecord(record) {
+  if (!record?.id) return false;
+  const history = [
+    record,
+    ...readAdaptiveCoachingHistory().filter((item) => item.id !== record.id)
+  ].slice(0, 24);
+  saveClosedLoopLocal("ADAPTATION", "adaptive-current", record);
+  saveClosedLoopLocal("HISTORY", "adaptive", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "adaptive-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "adaptive", history);
+  return currentSaved && historySaved;
+}
+
+function adaptiveCoachingTone(status = "", code = "") {
+  if (status === "APPROVED" || status === "CURRENT") return "green";
+  if (code === "PROTECT" || code === "DELOAD") return "red";
+  if (status === "PROPOSED" || status === "MONITORING") return "yellow";
+  return "neutral";
+}
+
+function renderAdaptiveCoaching() {
+  const panel = document.getElementById("adaptive-coaching-panel");
+  const status = document.getElementById("adaptive-coaching-status");
+  if (!panel || !status || typeof DominionAdaptiveCoaching === "undefined") return;
+  const proposal = buildCurrentAdaptiveCoaching();
+  if (!proposal) {
+    panel.innerHTML = '<div class="performance-empty">Adaptive coaching is unavailable.</div>';
+    return;
+  }
+  status.textContent = proposal.status;
+  status.className = `state-pill ${adaptiveCoachingTone(proposal.status, proposal.code)}`;
+  const readiness = proposal.signals.readiness;
+  const evidence = proposal.signals.evidence;
+  const recruitSignal = proposal.recruitContext
+    ? `<div><span>Recruit profile</span><strong>${escapeHtml(proposal.recruitContext.athleteTypeLabel)}</strong><small>${escapeHtml(String(proposal.recruitContext.trainingYears))} years · ${proposal.recruitContext.progressionPolicy === "HOLD_PROGRESSION" ? "Baseline hold" : "Evidence governed"}</small></div>`
+    : "";
+  const changeMarkup = (proposal.changes || []).map((change) => `
+    <article class="adaptive-domain ${escapeHtml(change.domain.toLowerCase())}">
+      <span>${escapeHtml(change.domain)}</span>
+      <strong>${escapeHtml(change.label)}</strong>
+      <p>${escapeHtml(change.detail)}</p>
+      ${change.requiresPlanApproval ? '<small>Plan approval required</small>' : '<small>Applies only after directive approval</small>'}
+    </article>`).join("");
+  let actions = '<button type="button" class="ghost" data-adaptive-action="refresh">Refresh signals</button>';
+  if (proposal.status === "PROPOSED") {
+    actions = `<button type="button" data-adaptive-action="approve">Approve for ${escapeHtml(proposal.effectiveDate)}</button>
+      <button type="button" class="ghost" data-adaptive-action="hold">Keep current plan</button>`;
+  } else if (proposal.status === "APPROVED") {
+    actions = `<button type="button" class="ghost" data-adaptive-action="hold">End directive</button>
+      <button type="button" class="ghost" data-adaptive-action="refresh">Refresh signals</button>`;
+  } else if (proposal.code === "SETUP_REQUIRED") {
+    actions = '<button type="button" data-adaptive-action="open-contract">Finish Contract setup</button>';
+  }
+  panel.innerHTML = `<div class="adaptive-coaching-shell ${escapeHtml(proposal.code.toLowerCase())}">
+    <article class="adaptive-primary">
+      <div><span class="kicker">ATLAS RECOMMENDS</span><h3>${escapeHtml(proposal.label)}</h3><p>${escapeHtml(proposal.reason)}</p></div>
+      <div class="adaptive-confidence"><strong>${escapeHtml(proposal.confidence)}</strong><span>signal confidence</span></div>
+    </article>
+    <div class="adaptive-signal-strip">
+      <div><span>Readiness</span><strong>${readiness.days} days</strong><small>${readiness.greenDays} green · ${readiness.redDays} red</small></div>
+      <div><span>Recovery</span><strong>${readiness.painDays ? `${readiness.painDays} pain flag${readiness.painDays === 1 ? "" : "s"}` : readiness.strainFlag ? "Strain flag" : "No red flag"}</strong><small>Energy ${readiness.averageEnergy ?? "—"} · Soreness ${readiness.averageSoreness ?? "—"}</small></div>
+      <div><span>Execution</span><strong>${evidence.adherencePercent === null ? "—" : `${evidence.adherencePercent}%`}</strong><small>${evidence.completed}/${evidence.planned} committed exposures</small></div>
+      <div><span>Plans linked</span><strong>${proposal.planCoverage}/4</strong><small>Contract revision ${proposal.contractRevision || "—"}</small></div>
+      ${recruitSignal}
+    </div>
+    ${changeMarkup ? `<div class="adaptive-domain-grid">${changeMarkup}</div>` : ""}
+    <aside class="adaptive-guardrail"><strong>No silent plan changes.</strong><span>Protection and deload reductions require this directive. Progressions still return to each module's plan approval workflow.</span></aside>
+    <div class="adaptive-actions">${actions}<small>Effective ${escapeHtml(proposal.effectiveDate)} · Review ${escapeHtml(proposal.reviewDate)} · ${readAdaptiveCoachingHistory().length} prior decision${readAdaptiveCoachingHistory().length === 1 ? "" : "s"}</small></div>
+  </div>`;
+}
+
+function currentRunningPrescription() {
+  if (typeof DominionRunning === "undefined") return null;
+  const plan = readApprovedRunningPlan();
+  const prescription = DominionRunning.buildDailyRunPrescription(plan || {}, {
+    today: todayISODate(),
+    readiness: dailyState || {}
+  });
+  return typeof DominionAdaptiveCoaching === "undefined"
+    ? prescription
+    : DominionAdaptiveCoaching.adaptRunningPrescription(prescription, readActiveAdaptiveDirective(), todayISODate());
+}
+
+function buildCurrentClosedLoopInput() {
+  if (typeof DominionClosedLoop === "undefined") return null;
+  const date = todayISODate();
+  const currentDailyState = dailyState?.date === date ? dailyState : null;
+  const readiness = currentDailyState ? evaluateOperationalReadiness(currentDailyState) : evaluateReadiness(null);
+  const readinessMission = readiness.state ? generateMission(readiness) : null;
+  const painOverride = Boolean(currentDailyState?.pain) || readiness.state === "RED";
+  const adaptiveDirective = readActiveAdaptiveDirective(date);
+  const adaptiveProtection = ["PROTECT", "DELOAD"].includes(adaptiveDirective?.code);
+  const decisionPosture = painOverride || adaptiveDirective?.code === "PROTECT"
+    ? "PROTECT / RECOVER"
+    : readiness.state === "YELLOW" || adaptiveProtection || adaptiveDirective?.code === "REBALANCE"
+      ? "REDUCED EXECUTION"
+      : readiness.state === "GREEN"
+        ? "EXECUTE"
+        : "UNSET";
+  const assignment = buildCurrentDailyAssignment();
+  const assignmentExecution = readDailyAssignmentExecution();
+  const runningPrescription = currentRunningPrescription();
+  const runningExecution = readRunningExecution();
+  const corePrescription = currentCorePrescription();
+  const coreExecution = readCurrentCoreExecution();
+  const queueState = readDailyExecutionQueueState();
+  const api = connectedApi();
+  const baseline = typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(date) : null;
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const nutritionDay = nutritionDays.find((item) => item.date === date) || null;
+  const manualNutrition = typeof readManualNutrition === "function" ? readManualNutrition(date) : null;
+  const performanceToday = performanceEntries.filter((entry) => entry.performanceDate === date);
+  const strengthEvidence = performanceToday.filter((entry) => entry.domain === "strength");
+  const runningEvidence = performanceToday.filter((entry) => entry.domain === "running");
+  const coreEvidence = performanceToday.filter((entry) => entry.domain === "core");
+  const recordSaved = Boolean(dailyCompliance?.compliance_date === date);
+  const recoveryRequired = true;
+  const trainingPlanned = Boolean(assignment?.exercises?.length) && assignment?.state !== "RECOVERY ONLY";
+  const runningPlanned = Boolean(runningPrescription?.session) && !["REST_DAY", "PAIN_HOLD"].includes(runningPrescription?.status);
+  const corePlanned = Boolean(corePrescription?.session) && !["SAFETY_HOLD", "RECOVERY_DAY"].includes(corePrescription?.status);
+  const fuelingPlanned = Boolean(baseline);
+  const recoveryComplete = Boolean(queueState.recoveryComplete);
+  const trainingComplete = assignment?.fitbod?.state === "COMPLETE"
+    || assignmentExecution.state === "COMPLETE"
+    || (trainingPlanned && strengthEvidence.length > 0);
+  const runningComplete = runningExecution?.state === "COMPLETE"
+    || (runningPlanned && runningEvidence.length > 0);
+  const coreComplete = coreExecution?.state === "COMPLETE"
+    || (corePlanned && coreEvidence.length > 0);
+  const fuelingComplete = Boolean(fuelingPlanned && (nutritionDay || manualNutrition?.date === date));
+  const currentAdaptation = readClosedLoopState("ADAPTATION", "current", null);
+  const priorAdaptation = adaptiveDirective || (
+    currentAdaptation?.status === "APPROVED" && currentAdaptation.date < date
+      ? currentAdaptation
+      : null
+  );
+  return {
+    date,
+    readiness: {
+      state: currentDailyState ? readiness.state : null,
+      pain: Boolean(currentDailyState?.pain),
+      energy: currentDailyState?.energy,
+      soreness: currentDailyState?.soreness
+    },
+    prescription: {
+      posture: decisionPosture,
+      mission: adaptiveDirective
+        ? `${adaptiveDirective.label}. ${adaptiveDirective.reason}`
+        : readinessMission?.detail || readiness.instruction || "Complete Roll Call to establish today's mission.",
+      domains: {
+        training: {
+          planned: trainingPlanned,
+          title: "Strength training",
+          target: trainingPlanned ? `${assignment.exercises.length} prescribed movements · ~${assignment.estimatedMinutes} min` : "",
+          sourceId: assignment?.id || null
+        },
+        running: {
+          planned: runningPlanned,
+          title: "Running",
+          target: runningPlanned ? `${runningPrescription.session.distance} ${runningPrescription.session.unit} ${runningPrescription.session.type}` : "",
+          sourceId: runningPrescription?.session?.id || null
+        },
+        core: {
+          planned: corePlanned,
+          title: "Abs / core",
+          target: corePlanned ? `${corePrescription.exercises.length} movements · ${corePrescription.session.estimatedMinutes} min` : "",
+          sourceId: corePrescription?.session?.id || null
+        },
+        fueling: {
+          planned: fuelingPlanned,
+          title: "Fueling",
+          target: fuelingPlanned ? "Approved calorie and macro baseline" : "",
+          sourceId: baseline?.id || null
+        },
+          recovery: {
+            planned: recoveryRequired,
+            title: "Recovery",
+            target: painOverride ? "Complete recovery-only order" : "Complete prescribed recovery action",
+            sourceId: readRecoveryPlan()?.approvedAt || null
+        },
+        record: {
+          planned: true,
+          title: "Dominion Record",
+          target: "Close today's execution record",
+          sourceId: date
+        }
+      }
+    },
+    actual: {
+      training: {
+        complete: trainingComplete,
+        partial: assignmentExecution.state === "IN_PROGRESS" || assignmentExecution.state === "PARTIAL",
+        evidenceCount: strengthEvidence.length,
+        sourceIds: strengthEvidence.map((entry) => entry.id),
+        quality: "UNKNOWN",
+        painReported: Boolean(dailyState?.pain)
+      },
+      running: {
+        complete: runningComplete,
+        partial: runningExecution?.state === "IN_PROGRESS",
+        evidenceCount: runningEvidence.length,
+        sourceIds: runningEvidence.map((entry) => entry.id),
+        quality: "UNKNOWN",
+        painReported: runningExecution?.state === "PAIN_HOLD"
+      },
+      core: {
+        complete: coreComplete,
+        partial: coreExecution?.state === "IN_PROGRESS",
+        evidenceCount: coreEvidence.length,
+        sourceIds: coreEvidence.map((entry) => entry.id),
+        quality: coreExecution?.quality || "UNKNOWN",
+        effort: coreExecution?.effort,
+        painReported: Boolean(coreExecution?.painReported)
+      },
+      fueling: {
+        complete: fuelingComplete,
+        evidenceCount: fuelingComplete ? 1 : 0,
+        sourceIds: nutritionDay ? [`nutrition-${date}`] : manualNutrition?.date === date ? [`manual-nutrition-${date}`] : []
+      },
+      recovery: {
+        complete: recoveryComplete,
+        evidenceCount: recoveryComplete ? 1 : 0,
+        sourceIds: recoveryComplete ? [`recovery-${date}`] : []
+      },
+      record: {
+        complete: recordSaved,
+        evidenceCount: recordSaved ? 1 : 0,
+        sourceIds: recordSaved ? [`record-${date}`] : []
+      }
+    },
+    decision: readClosedLoopState("DECISION", date, null),
+    review: readClosedLoopState("REVIEW", date, null),
+    adaptation: currentAdaptation,
+    priorAdaptation,
+    history: readClosedLoopHistory()
+  };
+}
+
+function buildCurrentClosedLoopState() {
+  const input = buildCurrentClosedLoopInput();
+  return input ? DominionClosedLoop.buildLoopState(input) : null;
+}
+
+function closedLoopTone(state = "") {
+  if (state === "LOOP CLOSED") return "green";
+  if (["OBSERVATION REQUIRED", "EXECUTION OPEN"].includes(state)) return "yellow";
+  if (state === "ADAPTATION PROPOSED") return "yellow";
+  return "neutral";
+}
+
+function closedLoopActionLabel(action = "") {
+  return {
+    complete_observation: "Complete Roll Call",
+    approve_decision: "Authorize today's decision",
+    continue_execution: "Continue execution",
+    close_review: "Close evidence review",
+    approve_adaptation: "Approve next adjustment",
+    view_history: "Loop history"
+  }[action] || "Refresh loop";
+}
+
+function renderClosedLoopMarkup(state, options = {}) {
+  if (!state) return `<div class="performance-empty">Closed-loop coaching engine unavailable.</div>`;
+  const compact = Boolean(options.compact);
+  const decision = state.decision;
+  const reconciliation = state.reconciliation;
+  const adaptation = state.adaptation;
+  const domainRows = reconciliation?.domains?.filter((item) => item.required || item.evidenceCount > 0).map((item) => `
+    <article class="closed-loop-domain ${escapeHtml(item.status.toLowerCase())}">
+      <div><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.target || "No target")}</span></div>
+      <div><b>${escapeHtml(item.status.replaceAll("_", " "))}</b><small>${item.evidenceCount} evidence</small></div>
+    </article>`).join("") || "";
+  return `<div class="closed-loop-shell ${compact ? "compact" : ""}">
+    <div class="closed-loop-phase-rail" aria-label="Closed-loop coaching phases">
+      ${state.phases.map((phase) => `<div class="${escapeHtml(phase.status.toLowerCase())}" aria-current="${phase.status === "CURRENT" ? "step" : "false"}"><span>${phase.status === "COMPLETE" ? "✓" : phase.index}</span><strong>${escapeHtml(phase.label)}</strong><small>${escapeHtml(phase.status)}</small></div>`).join("")}
+    </div>
+    <div class="closed-loop-decision">
+      <div>
+        <span class="kicker">${escapeHtml(state.current.label)} · ${escapeHtml(state.state)}</span>
+        <h3>${escapeHtml(decision?.valid ? decision.mission : state.draft?.message || "Complete current observation")}</h3>
+        <p>${decision?.valid ? `${escapeHtml(decision.posture)} · Decision ${escapeHtml(decision.fingerprint)}` : "Current Energy, Soreness, and Pain are required before a coaching decision is issued."}</p>
+      </div>
+      ${reconciliation ? `<div class="closed-loop-score"><strong>${reconciliation.summary.completionPercent}%</strong><span>${escapeHtml(reconciliation.summary.confidence)} confidence</span></div>` : ""}
+    </div>
+    ${decision?.safeguards?.painOverride ? `<div class="closed-loop-safety"><strong>PAIN OVERRIDE</strong><p>Progression is blocked. Recovery governs until new readiness evidence is available.</p></div>` : ""}
+    ${!compact && domainRows ? `<div class="closed-loop-domain-grid">${domainRows}</div>` : ""}
+    ${adaptation ? `<article class="closed-loop-adaptation ${escapeHtml(adaptation.code.toLowerCase())}"><div><span class="kicker">${adaptation.status === "APPROVED" ? "APPROVED NEXT ADJUSTMENT" : "PROPOSED NEXT ADJUSTMENT"}</span><h3>${escapeHtml(adaptation.label)}</h3><p>${escapeHtml(adaptation.reason)}</p></div><div><strong>${adaptation.bounds?.maximumLoadIncreasePercent || 0}%</strong><small>max load increase</small></div></article>` : ""}
+    <div class="closed-loop-actions">
+      <button type="button" data-closed-loop-action="${escapeHtml(state.nextAction)}">${escapeHtml(closedLoopActionLabel(state.nextAction))}</button>
+      <button type="button" class="ghost" data-closed-loop-action="refresh">Refresh evidence</button>
+    </div>
+    <p class="closed-loop-rule">Approved plans remain immutable. Evidence may propose a bounded future adjustment; it never applies one automatically.</p>
+  </div>`;
+}
+
+function renderClosedLoopCoaching() {
+  if (typeof DominionClosedLoop === "undefined") return;
+  const state = buildCurrentClosedLoopState();
+  const panel = document.getElementById("closed-loop-panel");
+  const trainingPanel = document.getElementById("training-closed-loop-panel");
+  setText("closed-loop-summary", state ? `${state.state} · ${state.current?.label || "Current decision"}` : "Readiness, evidence, and safeguards");
+  if (panel) panel.innerHTML = renderClosedLoopMarkup(state);
+  if (trainingPanel) trainingPanel.innerHTML = renderClosedLoopMarkup(state, { compact: true });
+  const status = document.getElementById("closed-loop-status");
+  if (status && state) {
+    status.textContent = state.state;
+    status.className = `state-pill ${closedLoopTone(state.state)}`;
+  }
+}
+
+async function approveCurrentClosedLoopDecision() {
+  const state = buildCurrentClosedLoopState();
+  if (!state?.draft?.valid) return null;
+  const approved = DominionClosedLoop.approveDecision(state.draft, new Date().toISOString());
+  if (!approved) return null;
+  saveClosedLoopLocal("DECISION", todayISODate(), approved);
+  await persistClosedLoopState("DECISION", todayISODate(), approved);
+  return approved;
+}
+
+function renderRecoveryReview() {
+  renderDailyAssignment();
+  const panel = document.getElementById("recovery-review-panel");
+  if (!panel) return;
+  const review = buildCurrentRecoveryRecommendation();
+  if (!review) { panel.innerHTML = `<div class="performance-empty">Recovery engine unavailable.</div>`; return; }
+  setText("recovery-status", review.status);
+  const plan = readRecoveryPlan();
+  const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
+  panel.innerHTML = `<div class="connected-summary-grid">
+      <div><span>Recovery posture</span><strong>${escapeHtml(review.status)}</strong></div>
+      <div><span>Priority</span><strong>${escapeHtml(review.priority)}</strong></div>
+      <div><span>Confidence</span><strong>${escapeHtml(review.confidence)}</strong></div>
+      <div><span>Progression</span><strong>${review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
+      <div><span>Calorie coverage</span><strong>${coverage(review.calorieCoverage)}</strong></div>
+      <div><span>Protein coverage</span><strong>${coverage(review.proteinCoverage)}</strong></div>
+      <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume · ${review.trainingSets} sets</strong></div>
+      <div><span>Weight trend</span><strong>${escapeHtml(review.weightTrend.state)}${review.weightTrend.change === null ? "" : ` ${review.weightTrend.change > 0 ? "+" : ""}${review.weightTrend.change}`}</strong></div>
+    </div>
+    <article class="connected-detail-card"><header><div><span class="kicker">ATLAS ORDERS</span><h3>${escapeHtml(review.status)}</h3></div>${connectedStatusPill(review.priority)}</header>
+      <ul>${review.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+      <p class="muted">Readiness: ${escapeHtml(review.readiness.state)} · Energy ${review.readiness.energy ?? "—"}/10 · Soreness ${review.readiness.soreness ?? "—"}/10 · Pain ${review.readiness.pain ? "YES" : "NO"}</p>
+    </article>
+    <div class="performance-actions"><button type="button" data-recovery-action="approve">Approve recovery plan</button><button type="button" class="ghost" data-recovery-action="refresh">Refresh evidence</button></div>
+    ${plan ? `<article class="connected-detail-card"><strong>APPROVED LOCAL RECOVERY PLAN</strong><p>${escapeHtml(plan.plan || "")}</p><p class="muted">Approved ${escapeHtml(plan.approvedAt || "")}. This does not silently alter today’s mission.</p></article>` : ""}`;
+}
+
+function buildTodayRecoveryOrder() {
+  const date = todayISODate();
+  const readinessComplete = dailyState?.date === date;
+  const queueState = readDailyExecutionQueueState();
+  const completed = Boolean(queueState.recoveryComplete);
+  const recommendation = buildCurrentRecoveryRecommendation();
+  if (!readinessComplete) {
+    return {
+      state: "ROLL CALL REQUIRED",
+      tone: "neutral",
+      title: "Establish today's recovery order",
+      detail: "Complete Morning Roll Call so recovery is based on today's energy, soreness, and pain status.",
+      actions: ["Report today's readiness before confirming a recovery action."],
+      priority: "PENDING",
+      confidence: "NO DAILY STATE",
+      progression: "UNSET",
+      completed: false,
+      primaryAction: "roll-call",
+      primaryLabel: "Complete Roll Call"
+    };
+  }
+  if (!recommendation) return null;
+  const completedAt = queueState.recoveryCompletedAt || "";
+  return {
+    state: completed ? "COMPLETE" : recommendation.status,
+    tone: completed ? "green" : recommendation.priority === "CRITICAL" ? "red" : recommendation.holdProgression ? "yellow" : "neutral",
+    title: completed ? "Recovery action secured" : recommendation.status,
+    detail: completed
+      ? `Recorded for ${date}${completedAt ? ` at ${new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`
+      : recommendation.actions[0] || "Maintain the approved recovery and fueling plan.",
+    actions: recommendation.actions?.length ? recommendation.actions : ["Maintain the approved recovery and fueling plan."],
+    priority: recommendation.priority,
+    confidence: recommendation.confidence,
+    progression: recommendation.holdProgression ? "HOLD" : "PERMITTED",
+    completed,
+    primaryAction: completed ? "undo" : "complete",
+    primaryLabel: completed ? "Undo completion" : "Mark recovery complete"
+  };
+}
+
+function renderTodayRecoveryExecution() {
+  const card = document.getElementById("today-recovery-card");
+  const output = document.getElementById("today-recovery-output");
+  const status = document.getElementById("today-recovery-status");
+  if (!card || !output || !status) return;
+  const order = buildTodayRecoveryOrder();
+  if (!order) {
+    status.textContent = "UNAVAILABLE";
+    status.className = "state-pill neutral";
+    output.innerHTML = `<div class="performance-empty">Recovery evidence is temporarily unavailable. Refresh Today or open the full recovery review.</div>
+      <div class="today-recovery-controls"><button type="button" class="ghost" data-today-recovery-action="review">Open recovery review</button></div>`;
+    return;
+  }
+  card.classList.toggle("is-complete", order.completed);
+  status.textContent = order.state;
+  status.className = `state-pill ${order.tone}`;
+  output.innerHTML = `<section class="today-recovery-order">
+      <span class="kicker">TODAY'S PRESCRIPTION</span>
+      <h3>${escapeHtml(order.title)}</h3>
+      <p>${escapeHtml(order.detail)}</p>
+    </section>
+    <div class="today-recovery-meta">
+      <div><span>Priority</span><strong>${escapeHtml(order.priority)}</strong></div>
+      <div><span>Confidence</span><strong>${escapeHtml(order.confidence)}</strong></div>
+      <div><span>Progression</span><strong>${escapeHtml(order.progression)}</strong></div>
+    </div>
+    <ul class="today-recovery-checklist">${order.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+    <div class="today-recovery-controls">
+      <button type="button" data-today-recovery-action="${escapeHtml(order.primaryAction)}">${escapeHtml(order.primaryLabel)}</button>
+      <button type="button" class="ghost" data-today-recovery-action="review">Review evidence</button>
+    </div>
+    <p class="today-recovery-safeguard">Completing this order records the action only. It never clears a pain safeguard or changes an approved training plan.</p>`;
+}
+
+function runningProfileStorageKey() {
+  return `coach-dominion:running-profile:${session?.user?.id || "local"}`;
+}
+
+function readRunningProfile() {
+  try {
+    const stored = window.localStorage.getItem(runningProfileStorageKey());
+    return stored ? DominionRunning.normalizeProfile(JSON.parse(stored)) : DominionRunning.normalizeProfile({});
+  } catch (_) {
+    return DominionRunning.normalizeProfile({});
+  }
+}
+
+function saveRunningProfile(profile = {}) {
+  const normalized = DominionRunning.normalizeProfile(profile);
+  window.localStorage.setItem(runningProfileStorageKey(), JSON.stringify(normalized));
+  return normalized;
+}
+
+function runningPlanStorageKey() {
+  return `coach-dominion:running-plan:${session?.user?.id || "local"}`;
+}
+
+function readLegacyApprovedRunningPlan() {
+  try {
+    const stored = window.localStorage.getItem(runningPlanStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function runningBlockStorageKey(stateKey = "active") {
+  return `coach-dominion:running-block:${session?.user?.id || "local"}:${stateKey}`;
+}
+
+function readRunningBlockDraft() {
+  try {
+    const stored = window.localStorage.getItem(runningBlockStorageKey("draft"));
+    const value = stored ? JSON.parse(stored) : null;
+    return value?.status === "DRAFT" ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function readApprovedRunningBlock() {
+  try {
+    const stored = window.localStorage.getItem(runningBlockStorageKey("active"));
+    const value = stored ? JSON.parse(stored) : null;
+    return value?.status === "APPROVED" ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveRunningBlockLocal(stateKey, payload) {
+  window.localStorage.setItem(runningBlockStorageKey(stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readApprovedRunningPlan() {
+  const block = readApprovedRunningBlock();
+  if (block && typeof DominionRunning !== "undefined") {
+    const week = DominionRunning.weeklyPlanForDate(block, todayISODate());
+    if (week) return { ...week, approvedAt: block.approvedAt, recruitContractId: block.recruitContractId, recruitContractRevision: block.recruitContractRevision };
+  }
+  const legacy = readLegacyApprovedRunningPlan();
+  const today = todayISODate();
+  return legacy?.weekStart && legacy?.weekEnd && today >= legacy.weekStart && today <= legacy.weekEnd ? legacy : null;
+}
+
+function runningReconciliationStorageKey() {
+  return `coach-dominion:running-reconciliation:${session?.user?.id || "local"}`;
+}
+
+function readApprovedRunningReconciliation() {
+  try {
+    const stored = window.localStorage.getItem(runningReconciliationStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function runningExecutionStorageKey() {
+  return `coach-dominion:running-execution:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function readRunningExecution() {
+  try { return JSON.parse(window.localStorage.getItem(runningExecutionStorageKey()) || "null"); } catch (_) { return null; }
+}
+
+async function persistRunningState(stateType, stateKey, payload) {
+  recordContinuityWrite("running", stateType, stateKey, payload);
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("running_state").upsert({
+      user_id: session.user.id, state_type: stateType, state_key: stateKey,
+      payload, updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    markContinuityRecordSynced("running", stateType, stateKey, payload);
+    if (stateType === "EXECUTION") acknowledgeMobileWrite("RUNNING_EXECUTION", stateKey);
+    return true;
+  } catch (_) {
+    if (stateType === "EXECUTION") enqueueMobileWrite("RUNNING_EXECUTION", stateKey, payload);
+    setText("running-command-feedback", "Saved locally. Remote running storage is unavailable until migration 010 is applied.");
+    return false;
+  }
+}
+
+async function deleteRunningState(stateType, stateKey) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("running_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType)
+      .eq("state_key", stateKey);
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadRunningState() {
+  if (!session?.user?.id) return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("running_state").select("state_type,state_key,payload,updated_at").eq("user_id", session.user.id).order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const profile = rows.find((row) => row.state_type === "PROFILE");
+    const week = DominionRunning.weekStartIso(todayISODate());
+    const plan = rows.find((row) => row.state_type === "PLAN" && row.state_key === week);
+    const blockDraft = rows.find((row) => row.state_type === "PLAN" && row.state_key === "draft");
+    const activeBlock = rows.find((row) => row.state_type === "PLAN" && row.state_key === "active");
+    const reconciliation = rows.find((row) => row.state_type === "RECONCILIATION" && row.state_key === week);
+    const execution = rows.find((row) => row.state_type === "EXECUTION" && row.state_key === todayISODate());
+    const states = [
+      ["PROFILE", "current", readRunningProfile(), profile, (payload) => saveRunningProfile(payload)],
+      ["PLAN", week, readLegacyApprovedRunningPlan(), plan, (payload) => window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(payload))],
+      ["PLAN", "draft", readRunningBlockDraft(), blockDraft, (payload) => saveRunningBlockLocal("draft", payload)],
+      ["PLAN", "active", readApprovedRunningBlock(), activeBlock, (payload) => saveRunningBlockLocal("active", payload)],
+      ["RECONCILIATION", week, readApprovedRunningReconciliation(), reconciliation, (payload) => window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(payload))],
+      ["EXECUTION", todayISODate(), readRunningExecution(), execution, (payload) => window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(payload))]
+    ];
+    for (const [stateType, stateKey, localPayload, row, saveLocal] of states) {
+      const meaningfulLocal = stateType !== "PROFILE" || localPayload?.approvedAt || localPayload?.updatedAt;
+      const selected = resolveContinuityPayload("running", stateType, stateKey, meaningfulLocal ? localPayload : null, row || null, {
+        immutable: stateType === "PLAN" && stateKey === "active"
+      });
+      if (selected.payload) saveLocal(selected.payload);
+      if (selected.source === "DEVICE" && selected.payload) await persistRunningState(stateType, stateKey, selected.payload);
+    }
+  } catch (_) {
+    // Existing local state remains the explicit offline fallback.
+  }
+}
+
+function coreProgramStorageKey(stateType, stateKey = "current") {
+  return `coach-dominion:core-program:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
+}
+
+function readCoreProgramState(stateType, stateKey = "current", fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(coreProgramStorageKey(stateType, stateKey));
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveCoreProgramLocal(stateType, stateKey, payload) {
+  window.localStorage.setItem(coreProgramStorageKey(stateType, stateKey), JSON.stringify(payload));
+  return payload;
+}
+
+function readCoreProfile() {
+  const stored = readCoreProgramState("PROFILE", "current", {});
+  return typeof DominionCoreProgramming === "undefined" ? stored : DominionCoreProgramming.normalizeProfile(stored);
+}
+
+function readCoreDraftPlan() {
+  return readCoreProgramState("DRAFT", "current", null);
+}
+
+function readApprovedCorePlan() {
+  return readCoreProgramState("PLAN", "current", null);
+}
+
+function readCoreExecution() {
+  return readCoreProgramState("EXECUTION", todayISODate(), null);
+}
+
+function readCurrentCoreExecution() {
+  const execution = readCoreExecution();
+  const plan = readApprovedCorePlan();
+  return execution?.planId && execution.planId === plan?.id && execution.date === todayISODate() ? execution : null;
+}
+
+function readCoreHistory() {
+  const history = readCoreProgramState("HISTORY", "current", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function coreProgramStateTimestamp(value, fallback = null) {
+  const candidates = [];
+  const collect = (item) => {
+    if (!item) return;
+    if (Array.isArray(item)) {
+      item.forEach(collect);
+      return;
+    }
+    if (typeof item !== "object") return;
+    ["updatedAt", "updated_at", "approvedAt", "approved_at", "generatedAt", "generated_at", "completedAt", "completed_at"].forEach((key) => {
+      if (item[key]) candidates.push(item[key]);
+    });
+  };
+  collect(value);
+  if (fallback) candidates.push(fallback);
+  return candidates.reduce((latest, candidate) => {
+    const timestamp = Date.parse(candidate);
+    return Number.isFinite(timestamp) ? Math.max(latest, timestamp) : latest;
+  }, 0);
+}
+
+function selectCoreProgramState(localPayload, remoteRow = null) {
+  if (!remoteRow?.payload) return { payload: localPayload, source: localPayload ? "LOCAL" : "EMPTY" };
+  if (!localPayload) return { payload: remoteRow.payload, source: "REMOTE" };
+  const localTimestamp = coreProgramStateTimestamp(localPayload);
+  const remoteTimestamp = coreProgramStateTimestamp(remoteRow.payload, remoteRow.updated_at);
+  return localTimestamp > remoteTimestamp
+    ? { payload: localPayload, source: "LOCAL" }
+    : { payload: remoteRow.payload, source: "REMOTE" };
+}
+
+function corePlanMatchesContract(plan = null, contract = null) {
+  return Boolean(
+    plan
+    && contract
+    && plan.recruitContractId === contract.id
+    && Number(plan.recruitContractRevision || 0) === Number(contract.revision || 0)
+  );
+}
+
+function coreProfileFingerprint(profile = {}) {
+  return JSON.stringify({
+    goal: profile.goal || null,
+    sessionsPerWeek: Number(profile.sessionsPerWeek || 0),
+    experience: profile.experience || null,
+    equipment: profile.equipment || null,
+    sessionMinutes: Number(profile.sessionMinutes || 0)
+  });
+}
+
+async function reconcileCoreProgramWithContract() {
+  const contract = readApprovedRecruitContract();
+  if (!contract || Number(contract.coreDaysPerWeek || 0) === 0 || typeof DominionCoreProgramming === "undefined") {
+    return { changed: false, state: "NOT_REQUIRED" };
+  }
+  const approved = readApprovedCorePlan();
+  const draft = readCoreDraftPlan();
+  const approvedMatches = corePlanMatchesContract(approved, contract);
+  const draftMatches = corePlanMatchesContract(draft, contract);
+  const matchingPlan = draftMatches ? draft : approvedMatches ? approved : null;
+
+  if (matchingPlan?.profile) {
+    const profile = DominionCoreProgramming.normalizeProfile(matchingPlan.profile);
+    if (coreProfileFingerprint(profile) !== coreProfileFingerprint(readCoreProfile())) {
+      saveCoreProgramLocal("PROFILE", "current", profile);
+      await persistCoreProgramState("PROFILE", "current", profile);
+      return { changed: true, state: draftMatches ? "DRAFT_RESTORED" : "PLAN_RESTORED", profile };
+    }
+    return { changed: false, state: draftMatches ? "DRAFT_CURRENT" : "PLAN_CURRENT", profile };
+  }
+
+  const inputs = contract.planningInputs?.core
+    || (typeof DominionRecruitContract === "undefined" ? null : DominionRecruitContract.contractPlanningInputs(contract, { today: todayISODate() }).core);
+  if (!inputs) return { changed: false, state: "INPUTS_REQUIRED" };
+  const now = new Date().toISOString();
+  const profile = DominionCoreProgramming.normalizeProfile({ ...inputs, updatedAt: now });
+  const staged = {
+    ...DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now }),
+    recruitContractId: contract.id,
+    recruitContractRevision: contract.revision
+  };
+  saveCoreProgramLocal("PROFILE", "current", profile);
+  saveCoreProgramLocal("DRAFT", "current", staged);
+  await persistCoreProgramState("PROFILE", "current", profile);
+  await persistCoreProgramState("DRAFT", "current", staged);
+  return { changed: true, state: "DRAFT_STAGED", profile, draft: staged };
+}
+
+async function persistCoreProgramState(stateType, stateKey, payload) {
+  recordContinuityWrite("core", stateType, stateKey, payload);
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("core_program_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    markContinuityRecordSynced("core", stateType, stateKey, payload);
+    if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
+    return true;
+  } catch (_) {
+    if (stateType === "EXECUTION") enqueueMobileWrite("CORE_EXECUTION", stateKey, payload);
+    setText("core-programming-feedback", "Saved locally. Account sync will activate after migration 012 is applied.");
+    setText("core-today-feedback", "Saved on this device. Account sync is temporarily unavailable.");
+    return false;
+  }
+}
+
+async function loadCoreProgramState() {
+  if (!session?.user?.id || typeof DominionCoreProgramming === "undefined") return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("core_program_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    const localStates = [
+      ["PROFILE", "current", readCoreProgramState("PROFILE", "current", null)],
+      ["DRAFT", "current", readCoreDraftPlan()],
+      ["PLAN", "current", readApprovedCorePlan()],
+      ["HISTORY", "current", readCoreHistory()],
+      ["EXECUTION", todayISODate(), readCoreExecution()]
+    ];
+    for (const [stateType, stateKey, localPayload] of localStates) {
+      const row = rows.find((item) => item.state_type === stateType && item.state_key === stateKey) || null;
+      const selected = resolveContinuityPayload("core", stateType, stateKey, localPayload, row, {
+        immutable: stateType === "PLAN" && stateKey === "current"
+      });
+      if (selected.payload && (stateType !== "HISTORY" || selected.payload.length)) {
+        saveCoreProgramLocal(stateType, stateKey, selected.payload);
+      }
+      if (selected.source === "LOCAL" && selected.payload) {
+        await persistCoreProgramState(stateType, stateKey, selected.payload);
+      }
+    }
+  } catch (_) {
+    // Local state remains the explicit offline fallback.
+  }
+  await reconcileCoreProgramWithContract();
+}
+
+function coreReadinessState() {
+  if (!dailyState) return { state: "UNKNOWN", pain: false };
+  const evaluated = evaluateReadiness(dailyState);
+  return { state: evaluated?.state || "UNKNOWN", pain: Boolean(dailyState.pain) };
+}
+
+function currentCorePrescription() {
+  if (typeof DominionCoreProgramming === "undefined") return null;
+  const unifiedWeek = readCommittedUnifiedWeek(todayISODate());
+  const unifiedDay = unifiedWeek && typeof DominionWeeklyOrchestrator !== "undefined"
+    ? DominionWeeklyOrchestrator.dayForDate(unifiedWeek, todayISODate())
+    : null;
+  if (unifiedWeek && !unifiedDay?.activities?.some((item) => item.module === "CORE")) {
+    return {
+      status: "RECOVERY_DAY",
+      date: todayISODate(),
+      session: null,
+      exercises: [],
+      message: "The committed weekly calendar does not assign Core today. Preserve recovery."
+    };
+  }
+  const prescription = DominionCoreProgramming.buildDailyPrescription(
+    readApprovedCorePlan() || {},
+    readCoreHistory(),
+    { today: todayISODate(), readiness: coreReadinessState() }
+  );
+  return typeof DominionAdaptiveCoaching === "undefined"
+    ? prescription
+    : DominionAdaptiveCoaching.adaptCorePrescription(prescription, readActiveAdaptiveDirective(), todayISODate());
+}
+
+function coreGoalLabel(goal = "") {
+  return {
+    GENERAL_STRENGTH: "General core strength",
+    RUNNING_SUPPORT: "Running support",
+    LIFTING_STABILITY: "Lifting stability",
+    CORE_ENDURANCE: "Core endurance",
+    ABDOMINAL_DEVELOPMENT: "Abdominal development"
+  }[goal] || String(goal || "").replaceAll("_", " ");
+}
+
+function renderCoreSession(prescription, execution, options = {}) {
+  const compact = Boolean(options.compact);
+  if (!prescription) return `<div class="performance-empty">Core programming engine unavailable.</div>`;
+  if (!prescription.session) {
+    return `<div class="core-prescription-empty"><strong>${escapeHtml(prescription.status.replaceAll("_", " "))}</strong><p>${escapeHtml(prescription.message)}</p>${prescription.status === "PLAN_REQUIRED" ? `<button type="button" data-core-program-action="open-core-command">Build core plan</button>` : ""}</div>`;
+  }
+  if (prescription.status === "SAFETY_HOLD") {
+    return `<article class="core-safety-hold"><span class="kicker">SAFETY HOLD</span><h3>Session removed</h3><p>${escapeHtml(prescription.message)}</p><button type="button" class="ghost" data-core-program-action="open-roll-call">Review Roll Call</button></article>`;
+  }
+  const complete = execution?.state === "COMPLETE";
+  const inProgress = execution?.state === "IN_PROGRESS";
+  const exercises = prescription.exercises.map((exercise, index) => {
+    const done = Boolean(execution?.completedExercises?.[exercise.id]);
+    return `<article class="core-exercise-card ${done ? "complete" : ""}">
+      <div class="core-exercise-order">${done ? "✓" : index + 1}</div>
+      <div class="core-exercise-body">
+        <header><div><span>${escapeHtml(exercise.categoryLabel)}</span><strong>${escapeHtml(exercise.name)}</strong></div><em>${exercise.sets} × ${exercise.target} ${exercise.metric === "SECONDS" ? "sec" : "reps"}</em></header>
+        ${compact ? "" : `<p>${escapeHtml(exercise.cue)}</p><small>Rest ${exercise.restSeconds}s · Substitute: ${escapeHtml(exercise.substitution)}</small>`}
+      </div>
+      ${inProgress && !complete ? `<button type="button" class="${done ? "ghost" : ""}" data-core-program-action="complete-exercise" data-exercise-id="${escapeHtml(exercise.id)}" ${done ? "disabled" : ""}>${done ? "Done" : "Complete"}</button>` : ""}
+    </article>`;
+  }).join("");
+  const allExercisesComplete = prescription.exercises.length > 0 && prescription.exercises.every((exercise) => execution?.completedExercises?.[exercise.id]);
+  return `<section class="core-prescription ${compact ? "compact" : ""}">
+    <header class="core-prescription-header">
+      <div><span class="kicker">${escapeHtml(prescription.session.phase)} · ${escapeHtml(prescription.date)}</span><h3>${escapeHtml(prescription.session.title)}</h3><p>${escapeHtml(prescription.message)}</p></div>
+      <div class="core-session-meta"><strong>${prescription.session.estimatedMinutes} min</strong><span>${escapeHtml(execution?.state?.replaceAll("_", " ") || prescription.status.replaceAll("_", " "))}</span></div>
+    </header>
+    ${prescription.adjustment?.code === "VOLUME_REDUCED" ? `<div class="core-readiness-adjustment"><strong>READINESS ADJUSTMENT</strong><p>One set removed from every movement. Exercise selection and approved plan remain unchanged.</p></div>` : ""}
+    <div class="core-exercise-list">${exercises}</div>
+    <div class="core-execution-controls">
+      ${!execution && prescription.status === "READY" ? `<button type="button" data-core-program-action="start-session">Start core session</button>` : ""}
+      ${inProgress ? `<label>Session quality<select id="${compact ? "core-today-quality" : "core-session-quality"}"><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label><label>Effort (1–10)<input id="${compact ? "core-today-effort" : "core-session-effort"}" type="number" min="1" max="10" value="7"></label><button type="button" data-core-program-action="complete-session" ${allExercisesComplete ? "" : "disabled"}>Complete session</button>` : ""}
+      ${complete ? `<div class="core-complete-evidence"><strong>SESSION COMPLETE</strong><span>${escapeHtml(execution.quality || "CONTROLLED")} · effort ${execution.effort || "—"}/10</span></div>` : ""}
+      ${!complete ? `<button type="button" class="ghost danger" data-core-program-action="report-pain">Report pain</button>` : ""}
+    </div>
+  </section>`;
+}
+
+function renderCoreToday() {
+  const panel = document.getElementById("core-today-panel");
+  if (!panel || typeof DominionCoreProgramming === "undefined") return;
+  const prescription = currentCorePrescription();
+  const execution = readCurrentCoreExecution();
+  panel.innerHTML = renderCoreSession(prescription, execution, { compact: true });
+  const status = document.getElementById("core-today-state");
+  if (status) {
+    const state = execution?.state || prescription?.status || "PLAN_REQUIRED";
+    status.textContent = state.replaceAll("_", " ");
+    status.className = `state-pill ${state === "COMPLETE" ? "green" : state === "SAFETY_HOLD" || state === "PAIN_HOLD" ? "red" : state === "READY" || state === "IN_PROGRESS" ? "yellow" : "neutral"}`;
+  }
+}
+
+function renderCoreProgramming() {
+  const panel = document.getElementById("core-programming-panel");
+  if (!panel || typeof DominionCoreProgramming === "undefined") return;
+  const profile = readCoreProfile();
+  const draft = readCoreDraftPlan();
+  const plan = readApprovedCorePlan();
+  const history = readCoreHistory();
+  const prescription = currentCorePrescription();
+  const execution = readCurrentCoreExecution();
+  const review = plan ? DominionCoreProgramming.buildCycleReview(plan, history) : null;
+  const coverage = plan ? review.coverage : draft ? DominionCoreProgramming.movementCoverage(draft) : [];
+  const status = document.getElementById("core-command-status");
+  const commandState = execution?.state === "COMPLETE" ? "TODAY COMPLETE" : plan ? "PLAN APPROVED" : draft ? "DRAFT READY" : "PLAN REQUIRED";
+  if (status) {
+    status.textContent = commandState;
+    status.className = `state-pill ${execution?.state === "COMPLETE" ? "green" : plan || draft ? "yellow" : "neutral"}`;
+  }
+  const goalOptions = DominionCoreProgramming.GOALS.map((goal) => `<option value="${goal}" ${profile.goal === goal ? "selected" : ""}>${escapeHtml(coreGoalLabel(goal))}</option>`).join("");
+  const levelOptions = DominionCoreProgramming.EXPERIENCE_LEVELS.map((level) => `<option value="${level}" ${profile.experience === level ? "selected" : ""}>${escapeHtml(level.charAt(0) + level.slice(1).toLowerCase())}</option>`).join("");
+  const equipmentOptions = DominionCoreProgramming.EQUIPMENT_LEVELS.map((level) => `<option value="${level}" ${profile.equipment === level ? "selected" : ""}>${escapeHtml(level.replaceAll("_", " ").toLowerCase())}</option>`).join("");
+  const planForPreview = plan || draft;
+  panel.innerHTML = `
+    <details class="core-profile-panel" ${!planForPreview ? "open" : ""}>
+      <summary><span>Core profile</span><small>${escapeHtml(coreGoalLabel(profile.goal))} · ${profile.sessionsPerWeek} days · ${profile.sessionMinutes} min</small></summary>
+      <form id="core-profile-form" class="core-profile-form">
+        <label>Primary goal<select id="core-goal">${goalOptions}</select></label>
+        <label>Sessions per week<select id="core-days">${[2, 3, 4].map((value) => `<option value="${value}" ${profile.sessionsPerWeek === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+        <label>Experience<select id="core-experience">${levelOptions}</select></label>
+        <label>Equipment<select id="core-equipment">${equipmentOptions}</select></label>
+        <label>Session length<select id="core-minutes">${[10, 15, 20].map((value) => `<option value="${value}" ${profile.sessionMinutes === value ? "selected" : ""}>${value} minutes</option>`).join("")}</select></label>
+        <button type="submit">${planForPreview ? "Generate new draft" : "Build four-week plan"}</button>
+      </form>
+      <p class="muted">Generating a draft never changes an approved plan. You decide when a new cycle becomes active.</p>
+    </details>
+    ${draft && (!plan || draft.id !== plan.id) ? `<article class="core-approval-card"><div><span class="kicker">DRAFT READY</span><h3>Four-week ${escapeHtml(coreGoalLabel(draft.profile.goal))} cycle</h3><p>${DominionCoreProgramming.planSessions(draft).length} sessions · ${draft.profile.sessionMinutes} minutes · ${draft.startDate} to ${draft.endDate}</p></div><button type="button" data-core-program-action="approve-plan">Approve four-week plan</button></article>` : ""}
+    ${plan ? `<section class="core-plan-dashboard">
+      <div class="core-plan-heading"><div><span class="kicker">APPROVED CYCLE</span><h3>${escapeHtml(coreGoalLabel(plan.profile.goal))}</h3><p>${plan.startDate} to ${plan.endDate} · Approved ${escapeHtml(String(plan.approvedAt || "").slice(0, 10))}</p></div><div class="core-plan-compliance"><strong>${review.compliancePercent}%</strong><span>${review.completedSessions}/${review.prescribedSessions} sessions</span></div></div>
+      <div class="core-coverage-grid">${coverage.map((item) => `<article><span>${escapeHtml(item.label)}</span><strong>${item.exposures}</strong><small>planned exposures</small></article>`).join("")}</div>
+      <details class="core-cycle-details"><summary>View all four weeks</summary><div class="core-week-grid">${plan.weeks.map((week) => `<article><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phase)}</strong></header>${week.sessions.map((item) => `<div><time>${escapeHtml(item.date.slice(5))}</time><span>${escapeHtml(item.title)}</span><small>${item.exercises.length} movements</small></div>`).join("")}</article>`).join("")}</div></details>
+      <article class="core-progression-card"><span class="kicker">NEXT-CYCLE DECISION</span><h3>${escapeHtml(review.recommendation.label)}</h3><p>${escapeHtml(review.recommendation.reason)}</p><small>${review.controlledSessions} controlled sessions · ${review.painFlags} pain flags</small></article>
+    </section>` : ""}
+    <div class="core-today-command">${renderCoreSession(prescription, execution)}</div>
+    <div class="core-command-actions"><button type="button" class="ghost" data-core-action="log">Log extra core work</button><button type="button" class="ghost" data-core-action="benchmark">Log core benchmark</button></div>`;
+  renderCoreToday();
+}
+
+async function saveCorePerformanceEvidence(prescription, execution) {
+  const generated = DominionCoreProgramming.performanceEntriesForSession(prescription, execution, { userId: session?.user?.id || null });
+  const validEntries = generated.map((entry) => validatePerformanceEntry(entry)).filter((result) => result.valid).map((result) => result.entry);
+  if (!validEntries.length) return;
+  validEntries.forEach((entry) => syncFitnessAnalyticState(entry, null, null));
+  const ids = new Set(validEntries.map((entry) => entry.id));
+  try {
+    const supabase = await getClient();
+    const payloads = validEntries.map((entry) => buildPerformancePersistencePayload(entry, session?.user?.id || null));
+    const { data, error } = await supabase.from("performance_entries").upsert(payloads, { onConflict: "id" }).select("*");
+    if (error) throw error;
+    performanceEntries = [...(data || []).map((row) => hydratePerformanceEntry(row)), ...performanceEntries.filter((entry) => !ids.has(entry.id))];
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+  } catch (_) {
+    performanceEntries = [...validEntries, ...performanceEntries.filter((entry) => !ids.has(entry.id))];
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+  }
+  saveLocalPerformanceEntries(performanceEntries);
+}
+
+function renderRunningCommand(entries = performanceEntries) {
+  const panel = document.getElementById("running-command-panel");
+  if (!panel || typeof DominionRunning === "undefined") return;
+  const profile = readRunningProfile();
+  const contract = readApprovedRecruitContract();
+  const command = DominionRunning.buildRunningCommand(profile, entries, { today: todayISODate() });
+  const draftBlock = readRunningBlockDraft();
+  const activeBlock = readApprovedRunningBlock();
+  const blockCandidate = DominionRunning.buildRunningBlock(profile, entries, {
+    today: todayISODate(),
+    startDate: draftBlock?.startDate || todayISODate(),
+    contractSchedule: contract?.schedule || [],
+    recruitContractId: contract?.id || profile.recruitContractId || null,
+    recruitContractRevision: contract?.revision || profile.recruitContractRevision || null
+  });
+  const activePlan = readApprovedRunningPlan();
+  const dailyRun = DominionRunning.buildDailyRunPrescription(activePlan || {}, { today: todayISODate(), readiness: dailyState || {} });
+  const execution = readRunningExecution();
+  const reconciliation = activePlan ? DominionRunning.reconcileWeeklyRunningPlan(activePlan, entries, { today: todayISODate() }) : null;
+  const approvedReconciliation = readApprovedRunningReconciliation();
+  const contractState = DominionRunning.blockContractState(activeBlock || draftBlock, contract);
+  const candidateState = blockCandidate.status === "DRAFT" ? "READY TO BUILD" : blockCandidate.status.replaceAll("_", " ");
+  const blockState = activeBlock ? "BLOCK ACTIVE" : draftBlock ? "DRAFT READY" : candidateState;
+  const status = document.getElementById("running-command-status");
+  if (status) {
+    status.textContent = blockState;
+    status.className = `state-pill ${activeBlock ? "green" : draftBlock ? "yellow" : "neutral"}`;
+  }
+  const minutes = profile.benchmarkSeconds ? Math.floor(profile.benchmarkSeconds / 60) : "";
+  const seconds = profile.benchmarkSeconds ? profile.benchmarkSeconds % 60 : "";
+  const benchmark = command.benchmark;
+  const previewBlock = draftBlock || activeBlock;
+  const currentBlockWeek = draftBlock
+    ? draftBlock.weeks?.find((week) => todayISODate() >= week.weekStart && todayISODate() <= week.weekEnd) || draftBlock.weeks?.[0] || null
+    : activePlan || activeBlock?.weeks?.[0] || null;
+  const blockStatus = activeBlock ? "APPROVED" : draftBlock ? "DRAFT" : blockCandidate.status === "DRAFT" ? "READY_TO_BUILD" : blockCandidate.status;
+  const blockMessage = draftBlock?.message || activeBlock?.message || blockCandidate.message;
+  panel.innerHTML = `
+    <div class="running-command-grid">
+      <article class="running-contract-bridge ${contractState === "CONTRACT_UPDATE_AVAILABLE" ? "update" : ""}">
+        <div><span class="kicker">BUILD 018C // CONTRACT TO PLAN</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} · ${contract.declaredWeeklyDistance || "—"} ${escapeHtml(contract.preferredUnit)} baseline · contract revision ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
+        <div class="running-contract-bridge-actions"><span class="state-pill ${contractState === "ALIGNED" ? "green" : contractState === "CONTRACT_UPDATE_AVAILABLE" ? "yellow" : "neutral"}">${escapeHtml(contractState.replaceAll("_", " "))}</span><button type="button" class="ghost" data-running-action="open-contract">${contract ? "Review contract" : "Create contract"}</button></div>
+      </article>
+      <form id="running-profile-form" class="running-profile-card">
+        <div><span class="kicker">RUNNING SETUP</span><h3>Goal &amp; baseline</h3></div>
+        <div class="running-profile-fields">
+          <label>Primary goal<select id="running-goal">
+            <option value="GENERAL_FITNESS" ${profile.goal === "GENERAL_FITNESS" ? "selected" : ""}>General fitness</option>
+            <option value="5K" ${profile.goal === "5K" ? "selected" : ""}>5K</option>
+            <option value="10K" ${profile.goal === "10K" ? "selected" : ""}>10K</option>
+            <option value="HALF_MARATHON" ${profile.goal === "HALF_MARATHON" ? "selected" : ""}>Half marathon</option>
+            <option value="MARATHON" ${profile.goal === "MARATHON" ? "selected" : ""}>Marathon</option>
+          </select></label>
+          <label>Target date<input id="running-target-date" type="date" value="${escapeHtml(profile.targetDate || "")}"></label>
+          <label>Running days/week<input id="running-days" type="number" min="1" max="7" step="1" value="${profile.runningDaysPerWeek}"></label>
+          <label>Preferred unit<select id="running-unit"><option value="mi" ${profile.preferredUnit === "mi" ? "selected" : ""}>Miles</option><option value="km" ${profile.preferredUnit === "km" ? "selected" : ""}>Kilometers</option></select></label>
+          <label>Current weekly distance<input id="running-declared-distance" type="number" min="0" step="0.1" value="${profile.declaredWeeklyDistance ?? ""}" placeholder="Used only if recent evidence is unavailable"></label>
+        </div>
+        <details class="running-benchmark-details">
+          <summary>Benchmark &amp; pace (optional)</summary>
+          <fieldset>
+            <legend>Optional benchmark</legend>
+            <p class="muted">Leave blank to use recent timed evidence. A benchmark sharpens pace targets but no longer blocks a plan.</p>
+            <div class="running-profile-fields">
+              <label>Distance<select id="running-benchmark-distance"><option value="">Use performance evidence</option>${Object.keys(DominionRunning.DISTANCE_KM).map((code) => `<option value="${code}" ${profile.benchmarkDistance === code ? "selected" : ""}>${code.replaceAll("_", " ")}</option>`).join("")}</select></label>
+              <label>Minutes<input id="running-benchmark-minutes" type="number" min="0" step="1" value="${minutes}"></label>
+              <label>Seconds<input id="running-benchmark-seconds" type="number" min="0" max="59" step="1" value="${seconds}"></label>
+              <label>Benchmark date<input id="running-benchmark-date" type="date" value="${escapeHtml(profile.benchmarkDate || "")}"></label>
+            </div>
+          </fieldset>
+        </details>
+        <div class="performance-actions"><button type="submit">Save running setup</button></div>
+        <p class="muted">${profile.approvedAt ? "Setup saved. Build a draft below; the active block will not change until approval." : "Save the setup to build a plan."}</p>
+      </form>
+      <section class="running-profile-card">
+        <div><span class="kicker">OBSERVED BASELINE</span><h3>Recent running evidence</h3></div>
+        <div class="running-baseline-grid">
+          <div><span>28-day runs</span><strong>${command.baseline.runCount}</strong></div>
+          <div><span>28-day distance</span><strong>${command.baseline.fourWeekDistance} ${command.baseline.unit}</strong></div>
+          <div><span>Weekly average</span><strong>${command.baseline.averageWeeklyDistance} ${command.baseline.unit}</strong></div>
+          <div><span>Evidence window</span><strong>${escapeHtml(command.baseline.windowStart)} to ${escapeHtml(command.baseline.windowEnd)}</strong></div>
+        </div>
+        <p>${escapeHtml(command.message)}</p>
+        ${benchmark ? `<div class="running-evidence"><strong>Selected benchmark</strong><p>${DominionRunning.formatDuration(benchmark.durationSeconds)} over ${Number(benchmark.distanceKm.toFixed(2))} km</p><p class="muted">${escapeHtml(benchmark.sourceLabel)} | ${escapeHtml(benchmark.date || "date not supplied")} | ${escapeHtml(benchmark.evidenceStatus || "SELF REPORTED")}</p></div>` : `<div class="performance-empty">No valid timed benchmark found. Pace zones remain unavailable.</div>`}
+      </section>
+    </div>
+    <section class="running-zones-panel">
+      <div class="section-heading compact"><div><span class="kicker">PLANNING ESTIMATES</span><h3>Pace zones</h3></div><span class="state-pill ${command.zones.length ? "green" : "neutral"}">${command.zones.length ? "CALCULATED" : "INSUFFICIENT EVIDENCE"}</span></div>
+      ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)} to ${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">Terrain, weather, readiness, and pain take priority over pace.</p>` : `<div class="running-effort-ready"><strong>EFFORT MODE READY</strong><p>No benchmark yet. The plan will use RPE and talk-test guidance so training can begin safely now.</p></div>`}
+    </section>
+    <section class="running-week-panel running-block-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 018C // FOUR-WEEK RUNNING PLAN</span><h3>${activeBlock ? "Active running block" : draftBlock ? "Draft ready for approval" : "Build a committable plan"}</h3><p class="muted">${escapeHtml(blockMessage || "Save the running setup to begin.")}</p></div><span class="state-pill ${activeBlock ? "green" : draftBlock ? "yellow" : "neutral"}">${escapeHtml(blockStatus.replaceAll("_", " "))}</span></div>
+      ${previewBlock ? `
+        <div class="running-plan-summary running-block-summary">
+          <div><span>Block dates</span><strong>${escapeHtml(previewBlock.startDate)} to ${escapeHtml(previewBlock.endDate)}</strong></div>
+          <div><span>Commitment</span><strong>${previewBlock.profile.runningDaysPerWeek} days/week</strong></div>
+          <div><span>Baseline</span><strong>${previewBlock.baselineDistance} ${previewBlock.profile.preferredUnit}</strong></div>
+          <div><span>Guidance</span><strong>${escapeHtml(previewBlock.prescriptionMode)}</strong></div>
+        </div>
+        <div class="running-block-phases">${previewBlock.weeks.map((week) => `<article class="running-block-week ${currentBlockWeek?.weekStart === week.weekStart ? "current" : ""}"><header><span>Week ${week.weekNumber}</span><strong>${escapeHtml(week.phaseLabel)}</strong></header><p>${week.weeklyDistance} ${week.unit} · ${week.sessions.filter((session) => session.type !== "REST").length} runs</p><small>${week.progressionFromBaselinePercent > 0 ? "+" : ""}${week.progressionFromBaselinePercent}% from baseline</small></article>`).join("")}</div>
+        ${currentBlockWeek ? `<details class="running-current-week" open><summary>Current week · ${escapeHtml(currentBlockWeek.weekStart)} to ${escapeHtml(currentBlockWeek.weekEnd)}</summary><div class="running-week-grid">${currentBlockWeek.sessions.map((session) => `<article class="running-day-card ${session.type === "REST" ? "rest" : ""}"><span>${new Date(`${session.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${escapeHtml(session.title)}</strong><p>${session.type === "REST" ? "No prescribed run" : `${session.distance} ${session.unit} · ~${session.estimatedMinutes} min`}</p>${session.paceFast ? `<small>${DominionRunning.formatPace(session.paceFast, session.unit)} to ${DominionRunning.formatPace(session.paceSlow, session.unit)}</small>` : session.type !== "REST" ? `<small>RPE ${escapeHtml(session.effortRpe || "3-5")} · ${escapeHtml(session.effortCue || "Controlled effort")}</small>` : ""}</article>`).join("")}</div></details>` : ""}
+        ${draftBlock ? `<div class="running-block-approval"><div><strong>Approval activates all four weeks.</strong><p>${activeBlock ? "Your current block remains active until you approve this replacement." : "The draft is saved, but it will not appear in Today until approved."}</p></div><button type="button" data-running-action="approve-block">Approve 4-week plan</button></div>` : `<div class="running-evidence"><strong>BLOCK ${previewBlock.revision} ACTIVE</strong><p>Approved ${escapeHtml(previewBlock.approvedAt || "")}. Contract changes create a separate draft and never replace this block silently.</p></div>`}
+      ` : `<div class="performance-empty">${escapeHtml(blockCandidate.message || "Save the setup to build a plan.")}</div>`}
+      <div class="running-block-actions"><label>Block starts<input id="running-block-start" type="date" value="${escapeHtml(draftBlock?.startDate || DominionRunning.weekStartIso(todayISODate()))}"></label><button type="button" class="${draftBlock ? "ghost" : ""}" data-running-action="generate-block">${draftBlock ? "Rebuild draft" : "Build 4-week draft"}</button>${activeBlock ? `<button type="button" class="ghost" data-running-action="review-log">Review run evidence</button>` : ""}</div>
+    </section>
+    <section class="running-execution-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 010C // DAILY RUN EXECUTION</span><h3>Today&apos;s run</h3><p class="muted">${escapeHtml(dailyRun.message)}</p></div><span class="state-pill ${dailyRun.status === "READY" ? "green" : dailyRun.status === "PAIN_HOLD" ? "red" : "yellow"}">${escapeHtml(dailyRun.status.replaceAll("_", " "))}</span></div>
+      ${dailyRun.session ? `<div class="running-plan-summary"><div><span>Session</span><strong>${escapeHtml(dailyRun.session.type)}</strong></div><div><span>Distance</span><strong>${dailyRun.session.distance} ${dailyRun.session.unit}</strong></div><div><span>Duration</span><strong>~${dailyRun.session.estimatedMinutes || Math.round(dailyRun.session.distance * ((dailyRun.session.paceFast + dailyRun.session.paceSlow) / 2) / 60)} min</strong></div><div><span>Execution</span><strong>${escapeHtml(execution?.state || "NOT STARTED")}</strong></div></div>
+      ${dailyRun.adjustment?.factor < 1 ? `<div class="running-adjustment"><strong>READINESS ADJUSTMENT</strong><p>${escapeHtml(dailyRun.adjustment.reason)} Distance delta: ${dailyRun.adjustment.distanceDelta} ${dailyRun.session.unit}.</p></div>` : ""}
+      <div class="running-execution-steps">${dailyRun.steps.map((step, index) => `<article><span>${index + 1}</span><div><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.instruction)}</p></div></article>`).join("")}</div>
+      ${dailyRun.session.paceFast ? `<p><strong>Target pace:</strong> ${DominionRunning.formatPace(dailyRun.session.paceFast, dailyRun.session.unit)} to ${DominionRunning.formatPace(dailyRun.session.paceSlow, dailyRun.session.unit)}</p>` : ""}
+      <div class="performance-actions"><button type="button" data-running-action="start-run" ${["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${execution?.state !== "IN_PROGRESS" ? "disabled" : ""}>Complete run</button><button type="button" class="ghost" data-running-action="modify-run">Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
+    </section>
+    <section class="running-reconciliation-panel">
+      <div class="section-heading compact"><div><span class="kicker">BUILD 010D // RUN IMPORT &amp; RECONCILIATION</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
+      ${reconciliation ? `
+        <div class="running-plan-summary">
+          <div><span>Prescribed runs</span><strong>${reconciliation.summary.prescribed}</strong></div>
+          <div><span>Evidence runs</span><strong>${reconciliation.summary.evidenceRunCount}</strong></div>
+          <div><span>Matched</span><strong>${reconciliation.summary.MATCHED || 0}</strong></div>
+          <div><span>Completion</span><strong>${reconciliation.summary.completionPercent}%</strong></div>
+        </div>
+        <div class="running-reconciliation-list">${reconciliation.days.map((day) => `<article class="running-reconciliation-card"><header><div><span class="kicker">${escapeHtml(day.date)} | ${escapeHtml(day.type)}</span><strong>${escapeHtml(day.title)}</strong></div>${connectedStatusPill(day.classification)}</header><div class="running-reconciliation-metrics"><span>Planned: ${day.distance} ${day.unit}</span><span>Observed: ${day.actualDistance} ${day.unit}</span><span>Sources: ${day.runs.length ? escapeHtml([...new Set(day.runs.map((run) => run.source))].join(", ")) : "None"}</span></div><p>${escapeHtml(day.reason)}</p>${day.actualPace ? `<small>Observed pace: ${DominionRunning.formatPace(day.actualPace, day.unit)}</small>` : ""}</article>`).join("")}</div>
+        <div class="performance-actions"><button type="button" data-running-action="approve-reconciliation" ${reconciliation.status !== "READY" ? "disabled" : ""}>Approve evidence review</button><button type="button" class="ghost" data-running-action="review-log">Review run log</button></div>
+        ${reconciliation.status === "REVIEW_REQUIRED" ? `<p class="muted">Resolve review-required or unplanned evidence in the run log before approval.</p>` : ""}
+        ${approvedReconciliation?.planApprovedAt === activePlan.approvedAt ? `<div class="running-evidence"><strong>EVIDENCE REVIEW APPROVED</strong><p>Approved ${escapeHtml(approvedReconciliation.approvedAt || "")}. The source entries remain unchanged and auditable.</p></div>` : ""}
+      ` : `<div class="performance-empty">No active approved plan. Weekly evidence remains in Performance and is not discarded.</div>`}
+    </section>`;
+}
+
+function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
+  const summary = summarizeRecentPerformance(entries);
+  setText("performance-week-count", summary.entriesThisWeek);
+  setText("performance-strength-last", summary.mostRecentStrengthEntry ? `${summary.mostRecentStrengthEntry.performanceDate} — ${summary.mostRecentStrengthEntry.activityName}` : "—");
+  setText("performance-run-last", summary.mostRecentRun ? `${summary.mostRecentRun.performanceDate} — ${summary.mostRecentRun.activityName}` : "—");
+  setText("performance-test-last", summary.mostRecentBenchmarkOrFormalTest ? `${summary.mostRecentBenchmarkOrFormalTest.performanceDate} — ${summary.mostRecentBenchmarkOrFormalTest.activityName}` : "—");
+  setText("performance-domains-week", summary.domainsRepresentedThisWeek.length ? summary.domainsRepresentedThisWeek.map((key) => PERFORMANCE_DOMAIN_LABELS[key] || key).join(" / ") : "None yet");
+  const storageLabel = storageMode === "SUPABASE" ? "REMOTE ACTIVE" : storageMode === "LOCAL" ? "LOCAL FALLBACK" : "LOADING";
+  setText("performance-storage", storageLabel);
+  const storageStateText = saveState === "saved" ? "Saved to remote store." : saveState === "locally saved" ? "Saved locally while remote sync is unavailable." : saveState === "failed" ? "Save failed." : saveState === "loading" ? "Loading entries…" : "No save yet.";
+  setText("performance-save-state", saveState === "saving" ? "SAVING" : saveState === "saved" ? "SAVED" : saveState === "locally saved" ? "LOCAL" : saveState === "failed" ? "FAILED" : "READY");
+  setText("performance-save-hint", storageStateText);
+  renderFitnessTestsSection();
+  renderPersonalRecordsSection();
+  renderMilestonesSection();
+  renderAtlasPerformanceReviewSection();
+  renderPerformanceIntelligenceSection(entries);
+  renderRunningCommand(entries);
+  renderCoreWorkspace(entries);
+  renderProgrammingReview();
+  renderRecoveryReview();
+  renderDailyCoachingLoop();
+  renderPerformanceViewPanels();
+  const filteredEntries = filterPerformanceEntries(entries, performanceFilters);
+  const entryList = document.getElementById("performance-entry-list");
+  if (!entryList) return;
+  if (!filteredEntries.length) {
+    entryList.innerHTML = `<div class="performance-empty">${derivePerformanceEmptyState({ storageState: storageMode === "LOCAL" ? "local fallback" : "ready" }).message}</div>`;
+    return;
+  }
+  entryList.innerHTML = filteredEntries.map((entry) => {
+    const metricsSummary = [];
+    if (entry.domain === "strength") {
+      const volume = calculateStrengthVolume(entry);
+      const oneRepMax = estimateOneRepMax(entry);
+      metricsSummary.push(volume?.value !== null ? `volume ${volume.value}` : "volume pending");
+      if (oneRepMax) metricsSummary.push(`e1rm ${oneRepMax.value.toFixed(1)}`);
+    }
+    if (entry.domain === "running") {
+      const pace = calculateRunningPace(entry);
+      metricsSummary.push(pace ? `pace ${pace.paceSecondsPerUnit.toFixed(1)} sec/unit` : "pace pending");
+    }
+    if (entry.domain === "fitness_test") {
+      metricsSummary.push(entry.metrics?.overall_score ? `score ${entry.metrics.overall_score}` : "protocol logged");
+    }
+    if (entry.domain === "body_metrics") {
+      metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
+    }
+    const sourceLabel = entry.provenance?.sourceIsDemo ? `DEMO ${entry.provenance.sourceProvider || "PROVIDER"} IMPORT` : entry.provenance?.sourceProvider ? `${entry.provenance.sourceProvider} IMPORT` : (entry.source || "MANUAL");
+    return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p><span class="demo-badge">${escapeHtml(sourceLabel)}</span></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
+  }).join("");
+}
+
+async function loadPerformanceEntries() {
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("performance_entries").select("*").eq("user_id", session.user.id).order("performance_date", { ascending: false });
+    if (error) throw error;
+    performanceEntries = (data || []).map((row) => hydratePerformanceEntry(row));
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+    performanceLoadState.remoteLoadFailed = false;
+    performanceLoadState.authRequired = false;
+    performanceLoadState.calculationUnavailable = false;
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  } catch (_) {
+    performanceEntries = loadLocalPerformanceEntries().map((entry) => hydratePerformanceEntry(entry));
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+    performanceLoadState.remoteLoadFailed = true;
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  }
+}
+
+async function savePerformanceEntry(event) {
+  if (event) event.preventDefault();
+  const validation = validatePerformanceEntry(readPerformanceFormValues());
+  if (!validation.valid) {
+    const firstError = validation.errors[0];
+    setText("performance-save-hint", firstError ? `${firstError.field}: ${firstError.message}` : "Validation failed.");
+    return;
+  }
+  const payload = buildPerformancePersistencePayload(validation.entry, session?.user?.id || null);
+  syncFitnessAnalyticState(validation.entry, null, null);
+  performanceSaveState = "saving";
+  renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("performance_entries").upsert(payload, { onConflict: "id" }).select("*").single();
+    if (error) throw error;
+    const savedEntry = hydratePerformanceEntry(data || payload);
+    if (performanceEditId) {
+      performanceEntries = removePerformanceEntry(performanceEntries, performanceEditId);
+    }
+    performanceEntries = [savedEntry, ...performanceEntries];
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+    saveLocalPerformanceEntries(performanceEntries);
+    resetPerformanceForm();
+  } catch (_) {
+    const localEntries = [...performanceEntries];
+    const localEntry = hydratePerformanceEntry(payload);
+    if (performanceEditId) {
+      const index = localEntries.findIndex((entry) => entry.id === performanceEditId);
+      if (index >= 0) localEntries[index] = localEntry; else localEntries.unshift(localEntry);
+    } else {
+      localEntries.unshift(localEntry);
+    }
+    performanceEntries = localEntries;
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+    saveLocalPerformanceEntries(performanceEntries);
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+    resetPerformanceForm();
+  }
+}
+
+function populatePerformanceForm(entry = null) {
+  const normalized = normalizePerformanceEntry(entry || {});
+  if (!normalized) return;
+  performanceEditId = normalized.id || null;
+  const form = document.getElementById("performance-form");
+  if (!form) return;
+  const domainSelect = document.getElementById("performance-domain");
+  const entryTypeSelect = document.getElementById("performance-entry-type");
+  const activityCodeSelect = document.getElementById("performance-activity-code");
+  const activityNameInput = document.getElementById("performance-activity-name");
+  const sourceSelect = document.getElementById("performance-source");
+  const evidenceStatusSelect = document.getElementById("performance-evidence-status");
+  if (domainSelect) domainSelect.value = normalized.domain || "strength";
+  if (entryTypeSelect) entryTypeSelect.value = normalized.entryType || "TRAINING_SET";
+  if (activityCodeSelect) { activityCodeSelect.value = normalized.activityCode || "custom"; }
+  if (activityNameInput) activityNameInput.value = normalized.activityName || "";
+  if (sourceSelect) sourceSelect.value = normalized.source || "MANUAL";
+  if (evidenceStatusSelect) evidenceStatusSelect.value = normalized.evidenceStatus || "SELF REPORTED";
+  document.getElementById("performance-date").value = normalized.performanceDate || todayISODate();
+  document.getElementById("performance-time").value = normalized.performanceTime || "";
+  document.getElementById("performance-session-name").value = normalized.sessionName || "";
+  document.getElementById("performance-notes").value = normalized.notes || "";
+  const metrics = normalized.metrics || {};
+  document.getElementById("performance-strength-sets").value = metrics.sets ?? "";
+  document.getElementById("performance-strength-repetitions").value = metrics.repetitions ?? "";
+  document.getElementById("performance-strength-weight").value = metrics.weight ?? "";
+  document.getElementById("performance-strength-weight-unit").value = metrics.weight_unit || "lb";
+  document.getElementById("performance-strength-duration-seconds").value = metrics.duration_seconds ?? "";
+  document.getElementById("performance-strength-assistance").value = metrics.assistance ?? "";
+  document.getElementById("performance-strength-bodyweight-added").value = metrics.bodyweight_added ?? "";
+  document.getElementById("performance-running-distance").value = metrics.distance ?? "";
+  document.getElementById("performance-running-distance-unit").value = metrics.distance_unit || "mi";
+  document.getElementById("performance-running-duration-seconds").value = metrics.duration_seconds ?? "";
+  document.getElementById("performance-running-pace-seconds").value = metrics.pace_seconds_per_unit ?? "";
+  document.getElementById("performance-running-elevation-gain").value = metrics.elevation_gain ?? "";
+  document.getElementById("performance-running-route-type").value = metrics.route_type ?? "";
+  document.getElementById("performance-running-run-type").value = metrics.run_type ?? "";
+  document.getElementById("performance-running-race-name").value = metrics.race_name ?? "";
+  document.getElementById("performance-core-repetitions").value = metrics.repetitions ?? "";
+  document.getElementById("performance-core-duration-seconds").value = metrics.duration_seconds ?? "";
+  document.getElementById("performance-core-distance").value = metrics.distance ?? "";
+  document.getElementById("performance-core-calories").value = metrics.calories ?? "";
+  document.getElementById("performance-core-rounds").value = metrics.rounds ?? "";
+  document.getElementById("performance-core-work-interval-seconds").value = metrics.work_interval_seconds ?? "";
+  document.getElementById("performance-core-rest-interval-seconds").value = metrics.rest_interval_seconds ?? "";
+  document.getElementById("performance-fitness-protocol-name").value = metrics.test_protocol_name || "";
+  document.getElementById("performance-fitness-protocol-code").value = metrics.test_protocol_code || "";
+  document.getElementById("performance-fitness-event-results").value = Array.isArray(metrics.event_results) ? metrics.event_results.map((item) => `${item.name || "Event"},${item.score ?? ""}`).join("\n") : "";
+  document.getElementById("performance-fitness-overall-score").value = metrics.overall_score ?? "";
+  document.getElementById("performance-body-measurement-value").value = metrics.measurement_value ?? "";
+  document.getElementById("performance-body-measurement-unit").value = metrics.measurement_unit || "kg";
+  document.getElementById("performance-body-measurement-location").value = metrics.measurement_location || "";
+  refreshPerformanceFieldVisibility();
+  populatePerformanceActivityOptions(normalized.domain || "strength");
+}
+
+async function deletePerformanceEntry(entryId) {
+  if (!entryId) return;
+  const confirmed = window.confirm("Delete this performance entry? This does not affect finalized inspections or promotions.");
+  if (!confirmed) return;
+  const nextEntries = removePerformanceEntry(performanceEntries, entryId);
+  performanceEntries = nextEntries;
+  saveLocalPerformanceEntries(performanceEntries);
+  performanceSaveState = "locally saved";
+  renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  try {
+    const supabase = await getClient();
+    await supabase.from("performance_entries").delete().eq("id", entryId);
+    performanceSaveState = "saved";
+    renderPerformanceSection(performanceEntries, "SUPABASE", performanceSaveState);
+  } catch (_) {
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  }
+}
+
+function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspectionAggregate = {}, trajectoryState = "INSUFFICIENT HISTORY") {
+  const overview = deriveCommandCenterOverview(readinessResultOrState, weeklyInspectionAggregate, trajectoryState);
+  setText("overview-readiness", overview.readinessLabel || "—");
+  setText("overview-weekly", overview.weeklyLabel || "NOT READY");
+  setText("overview-trend", overview.trendLabel || "INSUFFICIENT HISTORY");
+  setText("overview-focus", overview.focus);
+  setText("overview-summary", overview.summary);
+  const stateElement = document.getElementById("command-center-overview-state");
+  stateElement.textContent = overview.action;
+  stateElement.className = `state-pill ${overview.readinessLabel === "GREEN" ? "green" : overview.readinessLabel === "RED" ? "red" : overview.readinessLabel === "YELLOW" ? "yellow" : "neutral"}`;
+}
+
+function appleHealthReadinessForDate(date = todayISODate()) {
+  if (!connectedApi()) return null;
+  return connectedApi().summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === date) || null;
+}
+
+function weightInPounds(value, unit = "") {
+  if (!isAvailable(value)) return null;
+  return /kg/i.test(unit) ? Math.round(Number(value) * 2.2046226218 * 10) / 10 : Number(value);
+}
+
+function setRollCallMetric(name, value, source = "") {
+  const input = document.querySelector(`#roll-call-form [name="${name}"]`);
+  if (!input) return;
+  const normalized = isAvailable(value) ? String(value) : "";
+  input.value = normalized;
+  input.dataset.initialValue = normalized;
+  input.dataset.metricSource = source || "";
+  const hint = document.querySelector(`[data-metric-source="${name}"]`);
+  if (hint) hint.textContent = source ? `${objectiveSourceLabel(source)} · ${todayISODate()}` : "Manual or Apple Health";
+}
+
+function prefillMorningRollCallForm(state = dailyState) {
+  const form = document.getElementById("roll-call-form");
+  if (!form) return;
+  if (state) {
+    form.elements.energy.value = state.energy ?? "";
+    form.elements.soreness.value = state.soreness ?? "";
+    const pain = form.querySelector(`[name="pain"][value="${state.pain ? "yes" : "no"}"]`);
+    if (pain) pain.checked = true;
+    form.elements.comments.value = state.comments || "";
+  }
+  const health = appleHealthReadinessForDate();
+  const sources = state?.objective_metric_sources && typeof state.objective_metric_sources === "object" ? state.objective_metric_sources : {};
+  const values = {
+    weight: isAvailable(state?.weight) ? state.weight : weightInPounds(health?.weight, health?.weightUnit),
+    resting_heart_rate: isAvailable(state?.resting_heart_rate) ? state.resting_heart_rate : health?.restingHeartRate,
+    heart_rate_variability: isAvailable(state?.heart_rate_variability) ? state.heart_rate_variability : health?.heartRateVariability
+  };
+  Object.keys(OBJECTIVE_METRIC_CONFIG).forEach((key) => {
+    const source = sources[key] || (isAvailable(state?.[key]) ? "SAVED" : isAvailable(values[key]) ? "APPLE_HEALTH" : "");
+    setRollCallMetric(key, values[key], source);
+  });
+}
+
+function objectiveMetricsFromForm(formElement, formData) {
+  const values = {};
+  const sources = {};
+  Object.entries(OBJECTIVE_METRIC_CONFIG).forEach(([key, config]) => {
+    const value = parseOptionalMetric(formData.get(key), config);
+    values[key] = value;
+    if (!isAvailable(value)) return;
+    const input = formElement.elements[key];
+    const unchanged = String(value) === String(input?.dataset.initialValue || "");
+    sources[key] = unchanged && input?.dataset.metricSource ? input.dataset.metricSource : "MANUAL";
+  });
+  return { values, sources };
+}
+
+function summarizeObjectiveMetricSources(state) {
+  const sources = state?.objective_metric_sources || {};
+  const recorded = Object.entries(OBJECTIVE_METRIC_CONFIG)
+    .filter(([key]) => isAvailable(state?.[key]))
+    .map(([key, config]) => `${config.label}: ${objectiveSourceLabel(sources[key]) || "Saved"}`);
+  return recorded.length ? `${recorded.join(" · ")}${state?.objective_metrics_updated_at ? ` · Updated ${String(state.objective_metrics_updated_at).slice(0, 10)}` : ""}` : "No optional biometrics recorded.";
+}
+
+function renderStatusBar(state) {
+  setText("status-sleep", state ? valueOrDash(state.sleep, "h") : "—");
+  setText("status-weight", state ? valueOrDash(state.weight) : "—");
+  setText("status-steps", state ? valueOrDash(state.steps) : "—");
+  setText("status-rhr", state ? valueOrDash(state.resting_heart_rate, " bpm") : "—");
+  setText("status-hrv", state ? valueOrDash(state.heart_rate_variability, " ms") : "—");
+  setText("status-confidence", state ? confidencePercent(state.confidence) : "—");
+}
+
+function renderCommandFeed(events) {
+  const feed = document.getElementById("command-feed");
+  clearElement(feed);
+
+  if (!events.length) {
+    const item = document.createElement("li");
+    item.className = "feed-empty";
+    item.textContent = "No command events yet. Submit Morning Roll Call to initialize today’s feed.";
+    feed.appendChild(item);
+    return;
+  }
+
+  events.forEach((event) => {
+    const item = document.createElement("li");
+    const meta = document.createElement("div");
+    const type = document.createElement("strong");
+    const severity = document.createElement("span");
+    const message = document.createElement("p");
+    const time = document.createElement("time");
+
+    item.className = `feed-event ${String(event.severity).toLowerCase()}`;
+    meta.className = "feed-meta";
+    type.textContent = String(event.event_type || "EVENT").replaceAll("_", " ");
+    severity.textContent = event.severity || "INFO";
+    message.textContent = event.message;
+    time.dateTime = event.occurred_at;
+    time.textContent = new Date(event.occurred_at).toLocaleString();
+
+    meta.appendChild(type);
+    meta.appendChild(severity);
+    item.appendChild(meta);
+    item.appendChild(message);
+    item.appendChild(time);
+    feed.appendChild(item);
+  });
+}
+
+async function loadCommandFeed() {
+  const supabase = await getClient();
+  const { data, error } = await supabase
+    .from("command_feed")
+    .select("occurred_at,event_type,severity,message,metadata")
+    .eq("user_id", session.user.id)
+    .order("occurred_at", { ascending: false })
+    .limit(10);
+
+  if (error) throw error;
+  renderCommandFeed(data || []);
+}
+
+function renderWarRoom(state) {
+  const required = document.getElementById("roll-call-required");
+  const summary = document.getElementById("daily-state-summary");
+  const formCard = document.getElementById("roll-call-card");
+  const readiness = document.getElementById("readiness");
+
+  if (!state) {
+    required.hidden = false;
+    summary.hidden = true;
+    formCard.hidden = false;
+    readiness.textContent = "—";
+    readiness.className = "metric";
+    setText("readiness-detail", "Submit Energy, Soreness, and Pain to calculate readiness.");
+    setText("confidence", "0%");
+    setText("confidence-detail", "Confidence: Energy 20%, Soreness 20%, Pain 20%, Sleep 15%, Resting heart rate 15%, Weight 5%, Steps 5%.");
+    setText("mission", "Morning Roll Call Required.");
+    setText("mission-detail", "No mission will be generated until today's state is saved.");
+    setText("mission-restrictions", "Restrictions: Awaiting roll call.");
+    setText("summary-comments", "—");
+    setText("mission-status", "PENDING");
+    document.getElementById("mission-status").className = "state-pill neutral";
+    setText("mission-source", "No Daily State evidence.");
+    setText("mission-confidence", "—");
+    setText("mission-context", "Generated/current-state context unavailable.");
+    setText("readiness-energy", "—");
+    setText("readiness-soreness", "—");
+    setText("readiness-pain", "—");
+    renderStatusBar(null);
+    prefillMorningRollCallForm(null);
+    const readinessResult = evaluateReadiness(null);
+    const morningBrief = generateMorningBrief(readinessResult);
+    setText("atlas-brief-state", morningBrief.commandState);
+    document.getElementById("atlas-brief-state").className = "state-pill neutral";
+    setText("atlas-brief-output", formatAtlasBriefVoice(morningBrief));
+    setList("readiness-rationale", readinessResult.rationale, "Awaiting Daily State.");
+    setEvidenceTable("readiness-evidence", readinessResult.evidence);
+    setList("evidence-missing", readinessResult.missingEvidence, "None.");
+    setList("readiness-restrictions", readinessResult.restrictions, "None.");
+    setText("readiness-risk", readinessResult.primaryRisk);
+    setText("readiness-instruction", readinessResult.instruction);
+    const intel = dailyIntelligence(readinessResult);
+    setText("daily-intel-title", intel[0]);
+    setText("daily-primary", intel[1]);
+    setText("daily-instruction", intel[2]);
+    setText("daily-risk", intel[3]);
+    renderDailyCoachingLoop();
+    renderBaselineIntelligence();
+    renderNutritionCommand();
+    renderDominionExperienceShell();
+    return;
+  }
+
+  const readinessResult = evaluateOperationalReadiness(state);
+  const derivedReadiness = readinessResult.state;
+  const mission = generateMission(readinessResult);
+  const morningBrief = generateMorningBrief(readinessResult);
+
+  required.hidden = true;
+  summary.hidden = false;
+  formCard.hidden = true;
+  readiness.textContent = derivedReadiness;
+  readiness.className = `metric ${readinessClass[derivedReadiness]}`;
+  setText("readiness-detail", readinessResult.headline);
+  setText("confidence", confidencePercent(readinessResult.confidence));
+  setText("confidence-detail", "Confidence: Energy 20%, Soreness 20%, Pain 20%, Sleep 15%, Resting heart rate 15%, Weight 5%, Steps 5%.");
+  setText("mission", mission.title);
+  setText("mission-detail", mission.detail);
+  setText("mission-restrictions", mission.restrictions);
+  setText("mission-status", derivedReadiness);
+  document.getElementById("mission-status").className = `state-pill ${readinessClass[derivedReadiness]}`;
+  setText("mission-source", `Daily State: Energy ${state.energy}/10, Soreness ${state.soreness}/10, Pain ${state.pain ? "Yes" : "No"}`);
+  setText("mission-confidence", confidencePercent(readinessResult.confidence));
+  setText("mission-context", `${readinessResult.headline} ${readinessResult.instruction}`);
+  setText("atlas-brief-state", morningBrief.commandState);
+  document.getElementById("atlas-brief-state").className = `state-pill ${readinessClass[derivedReadiness]}`;
+  setText("atlas-brief-output", formatAtlasBriefVoice(morningBrief));
+  setText("readiness-energy", `${state.energy}/10`);
+  setText("readiness-soreness", `${state.soreness}/10`);
+  setText("readiness-pain", state.pain ? "Yes" : "No");
+  renderStatusBar({ ...state, confidence: readinessResult.confidence });
+  setList("readiness-rationale", readinessResult.rationale, "None.");
+  setEvidenceTable("readiness-evidence", readinessResult.evidence);
+  setList("evidence-missing", readinessResult.missingEvidence, "None.");
+  setList("readiness-restrictions", readinessResult.restrictions, "None.");
+  setText("readiness-risk", readinessResult.primaryRisk);
+  setText("readiness-instruction", readinessResult.instruction);
+  const intel = dailyIntelligence(readinessResult);
+  setText("daily-intel-title", intel[0]);
+  setText("daily-primary", intel[1]);
+  setText("daily-instruction", intel[2]);
+  setText("daily-risk", intel[3]);
+  renderCommandCenterOverview(readinessResult, weeklyInspection || {}, "INSUFFICIENT HISTORY");
+
+  setText("summary-date", state.date);
+  setText("summary-energy", `${state.energy}/10`);
+  setText("summary-soreness", `${state.soreness}/10`);
+  setText("summary-pain", state.pain ? "Yes" : "No");
+  setText("summary-weight", formatObjectiveMetric(state.weight, "lb"));
+  setText("summary-rhr", formatObjectiveMetric(state.resting_heart_rate, "bpm"));
+  setText("summary-hrv", formatObjectiveMetric(state.heart_rate_variability, "ms"));
+  setText("summary-confidence", confidencePercent(readinessResult.confidence));
+  setText("summary-objective-sources", summarizeObjectiveMetricSources(state));
+  prefillMorningRollCallForm(state);
+  renderDailyCoachingLoop();
+  renderBaselineIntelligence();
+  renderNutritionCommand();
+  setText("summary-comments", state.comments || "—");
+  renderDominionExperienceShell();
+}
+
+async function loadDailyState() {
+  const local = readMobileDailyState();
+  try {
+    const supabase = await getClient();
+    const cutoff = new Date(`${todayISODate()}T00:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - 84);
+    const { data, error } = await supabase
+      .from("daily_state")
+      .select(DAILY_STATE_COLUMNS)
+      .eq("user_id", session.user.id)
+      .gte("date", cutoff.toISOString().slice(0, 10))
+      .lte("date", todayISODate())
+      .order("date", { ascending: true });
+    if (error) throw error;
+    readinessHistory = data || [];
+    const remote = readinessHistory.find((item) => item.date === todayISODate()) || null;
+    const hasPendingLocal = readMobilePendingWrites().some((item) => item.resource === "DAILY_STATE" && item.key === todayISODate());
+    dailyState = hasPendingLocal && local ? local : remote || local;
+    if (dailyState) saveMobileDailyState(dailyState);
+  } catch (_) {
+    readinessHistory = local ? [local] : [];
+    dailyState = local;
+  }
+  renderWarRoom(dailyState);
+}
+
+function missionsMatch(previousMission, newMission) {
+  return Boolean(previousMission)
+    && previousMission.title === newMission.title
+    && previousMission.detail === newMission.detail
+    && previousMission.restrictions === newMission.restrictions
+    && previousMission.generatedFromReadiness === newMission.generatedFromReadiness;
+}
+
+function buildCommandEvents(newState, previousState) {
+  const newResult = evaluateOperationalReadiness(newState);
+  const previousResult = previousState ? evaluateOperationalReadiness(previousState) : null;
+  const newReadiness = newResult.state;
+  const previousReadiness = previousResult ? previousResult.state : null;
+  const newMission = generateMission(newResult);
+  const previousMission = previousResult ? generateMission(previousResult) : null;
+  const metadata = {
+    date: newState.date,
+    readiness: newReadiness,
+    previousReadiness,
+    missionTitle: newMission.title,
+    previousMissionTitle: previousMission ? previousMission.title : null,
+    confidence: newResult.confidence,
+    rationaleSummary: newResult.rationale.join(" ")
+  };
+  const events = [
+    {
+      user_id: session.user.id,
+      event_type: "ROLL_CALL_SUBMITTED",
+      severity: "INFO",
+      message: "Morning Roll Call submitted.",
+      metadata
+    }
+  ];
+
+  if (!previousReadiness || previousReadiness !== newReadiness) {
+    events.push({
+      user_id: session.user.id,
+      event_type: "READINESS_UPDATED",
+      severity: readinessSeverity[newReadiness],
+      message: previousReadiness
+        ? `Readiness changed: ${previousReadiness} → ${newReadiness}.`
+        : `Readiness initialized: ${newReadiness}.`,
+      metadata
+    });
+  }
+
+  if (!missionsMatch(previousMission, newMission)) {
+    events.push({
+      user_id: session.user.id,
+      event_type: "MISSION_GENERATED",
+      severity: "INFO",
+      message: previousMission
+        ? `Mission changed: ${previousMission.title} → ${newMission.title}.`
+        : `Mission initialized: ${newMission.title}.`,
+      metadata: { ...metadata, restrictions: newMission.restrictions }
+    });
+  }
+
+  return events;
+}
+
+async function writeCommandEvents(newState, previousState) {
+  const supabase = await getClient();
+  const { error } = await supabase
+    .from("command_feed")
+    .insert(buildCommandEvents(newState, previousState));
+
+  if (error) throw error;
+}
+
+async function saveMorningRollCallPayload(payload = {}, options = {}) {
+  const normalized = { ...payload, user_id: session.user.id, date: todayISODate() };
+  normalized.confidence = evaluateReadiness(normalized).confidence;
+  const previousState = dailyState;
+  saveMobileDailyState(normalized);
+  enqueueMobileWrite("DAILY_STATE", normalized.date, normalized);
+  dailyState = normalized;
+  readinessHistory = [...readinessHistory.filter((item) => item.date !== normalized.date), normalized];
+  renderWarRoom(dailyState);
+  setStatus("Roll Call saved on this device. Syncing…");
+
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("daily_state")
+      .upsert(normalized, { onConflict: "user_id,date" })
+      .select(DAILY_STATE_COLUMNS)
+      .single();
+    if (error) throw error;
+    acknowledgeMobileWrite("DAILY_STATE", normalized.date);
+    saveMobileDailyState(data);
+    dailyState = data;
+    readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+    renderWarRoom(dailyState);
+    try {
+      await writeCommandEvents(data, previousState);
+      await loadCommandFeed();
+    } catch (_) {}
+    setStatus(options.mobile ? "Roll Call saved and synced." : "Morning Roll Call saved.");
+    return { data, synced: true };
+  } catch (_) {
+    setStatus("Roll Call saved on this device. It will sync automatically when the connection returns.");
+    renderMobileCommand();
+    return { data: normalized, synced: false };
+  }
+}
+
+async function saveMorningRollCall(event) {
+  event.preventDefault();
+  const button = document.getElementById("save-roll-call");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  setStatus("");
+
+  try {
+    const form = new FormData(event.currentTarget);
+    const comments = String(form.get("comments") || "").trim();
+    const objectiveMetrics = objectiveMetricsFromForm(event.currentTarget, form);
+    await saveMorningRollCallPayload({
+      energy: Number(form.get("energy")),
+      soreness: Number(form.get("soreness")),
+      pain: form.get("pain") === "yes",
+      ...objectiveMetrics.values,
+      objective_metric_sources: objectiveMetrics.sources,
+      objective_metrics_updated_at: Object.keys(objectiveMetrics.sources).length ? new Date().toISOString() : null,
+      comments: comments || null
+    });
+  } catch (error) {
+    setStatus(error.message || "Roll Call could not be saved.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Submit Morning Roll Call";
+  }
+}
+
+function buildCurrentOperatingTruth() {
+  if (typeof DominionOperatingTruth === "undefined") return null;
+  const date = todayISODate();
+  const contract = readApprovedRecruitContract();
+  const signed = Boolean(contract && typeof DominionContractExperience !== "undefined"
+    && DominionContractExperience.signatureStatus(contract).valid);
+  let activation = { status: contract ? "ACTION_REQUIRED" : "CONTRACT_REQUIRED", modules: [], next: {} };
+  if (contract && typeof DominionContractActivation !== "undefined") {
+    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    catch (_) {}
+  }
+  const week = readCommittedUnifiedWeek(date);
+  const draft = readUnifiedWeekDraft();
+  const day = week && typeof DominionWeeklyOrchestrator !== "undefined"
+    ? DominionWeeklyOrchestrator.dayForDate(week, date)
+    : null;
+  const scheduledModules = new Set((day?.activities || []).map((item) => String(item.module || "").toUpperCase()));
+  let loopInput = null;
+  let loop = null;
+  try {
+    loopInput = buildCurrentClosedLoopInput();
+    loop = loopInput ? DominionClosedLoop.buildLoopState(loopInput) : null;
+  } catch (_) {}
+  const actual = loopInput?.actual || {};
+  const strengthExecution = readDailyAssignmentExecution();
+  const runningExecution = readRunningExecution();
+  const coreExecution = readCurrentCoreExecution();
+  const nutritionActual = actual.fueling || {};
+  const recoveryActual = actual.recovery || {};
+  const recordActual = actual.record || {};
+  const strengthPrescription = currentStrengthPrescription();
+  const runningPrescription = currentRunningPrescription();
+  const corePrescription = currentCorePrescription();
+  const authorized = loop?.decision?.status === "APPROVED";
+  const module = (id, label, scheduled, executionState, evidence = {}, options = {}) => ({
+    id,
+    label,
+    scheduled: Boolean(scheduled),
+    executionState,
+    evidenceCount: Number(evidence.evidenceCount || 0),
+    terminal: Boolean(evidence.complete),
+    verified: Number(evidence.evidenceCount || 0) > 0,
+    protected: Boolean(options.protected),
+    detail: options.detail || ""
+  });
+  const modules = [
+    module("strength", "Strength", scheduledModules.has("STRENGTH"), strengthExecution?.state, actual.training, {
+      protected: strengthPrescription?.state === "RECOVERY ONLY",
+      detail: strengthPrescription?.sessionName || "Committed strength assignment"
+    }),
+    module("running", "Run", scheduledModules.has("RUNNING"), runningExecution?.state, actual.running, {
+      protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(runningPrescription?.status || "").toUpperCase()),
+      detail: runningPrescription?.session?.type || "Committed run assignment"
+    }),
+    module("core", "Core", scheduledModules.has("CORE"), coreExecution?.state, actual.core, {
+      protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()),
+      detail: corePrescription?.session?.title || "Committed core assignment"
+    }),
+    module("nutrition", "Fuel", Boolean(day?.nutrition), nutritionActual.complete ? "COMPLETE" : "READY", nutritionActual, {
+      detail: day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "No committed fuel target"
+    }),
+    module("recovery", "Recovery", Boolean(week), recoveryActual.complete ? "COMPLETE" : "READY", recoveryActual, {
+      detail: "Complete today’s recovery order"
+    }),
+    module("record", "Dominion Record", Boolean(week), recordActual.complete ? "COMPLETE" : "READY", recordActual, {
+      detail: "Close today’s execution record"
+    })
+  ];
+  currentOperatingTruth = DominionOperatingTruth.buildOperatingTruth({
+    date,
+    contract: {
+      approved: Boolean(contract),
+      signed,
+      revision: contract?.revision || 0
+    },
+    activation,
+    week: {
+      committed: Boolean(week),
+      draft: Boolean(draft),
+      revision: week?.revision || 0,
+      contractRevision: week?.contractRevision || 0,
+      conflicts: week?.conflicts || draft?.conflicts || []
+    },
+    today: {
+      rollCallComplete: dailyState?.date === date,
+      authorized
+    },
+    modules,
+    review: {
+      loopState: loop?.state || "",
+      closed: loop?.review?.status === "CLOSED",
+      adaptationApproved: loop?.adaptation?.status === "APPROVED"
+    }
+  });
+  return currentOperatingTruth;
+}
+
+function fallbackOneCommandModel(truth = {}) {
+  const state = truth.state || "RETRY_REQUIRED";
+  const stages = Array.isArray(truth.stages) ? truth.stages : [];
+  const modules = (truth.modules || []).filter((item) => item.scheduled || item.observed).map((item) => ({
+    id: item.id,
+    label: item.label,
+    status: item.status || "NOT_SCHEDULED",
+    detail: item.detail || "",
+    complete: Boolean(item.complete),
+    active: ["READY", "IN_PROGRESS", "VERIFY"].includes(item.status)
+  }));
+  const completed = stages.filter((item) => item.complete).length;
+  return {
+    state,
+    stateLabel: state.replaceAll("_", " "),
+    mode: ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT"].includes(state) ? "SETUP" : "EXECUTE",
+    eyebrow: "OPERATING TRUTH // SINGLE ORDER",
+    title: truth.title || "Reconcile the operating chain",
+    detail: truth.detail || "Coach Dominion could not finish the first reconciliation. Your saved work is protected.",
+    primary: {
+      action: truth.action?.action || "REFRESH",
+      label: truth.action?.label || "Reconcile again",
+      section: truth.action?.section || "today",
+      module: truth.action?.module || null
+    },
+    secondary: { label: "View source chain" },
+    progress: {
+      complete: completed,
+      total: stages.length || 6,
+      percent: Math.round((completed / Math.max(1, stages.length || 6)) * 100),
+      current: stages.find((item) => item.current)?.label || "Repair"
+    },
+    stages,
+    modules,
+    context: {
+      source: truth.source || "Contract, plans, and week require reconciliation.",
+      evidence: `${Number(truth.evidence?.complete || 0)}/${Number(truth.evidence?.total || 0)} assigned domains verified`,
+      conflict: truth.contradictions?.[0] ? `${truth.contradictions[0].message} ${truth.contradictions[0].repair}` : null
+    },
+    secured: state === "SECURED"
+  };
+}
+
+function buildCurrentActivationRepair(truth = buildCurrentOperatingTruth(), options = {}) {
+  if (typeof DominionActivationRepair === "undefined") return null;
+  let activation = { status: "ACTION_REQUIRED", modules: [], next: {} };
+  if (typeof DominionContractActivation !== "undefined") {
+    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    catch (_) {}
+  }
+  return DominionActivationRepair.buildRepairFlow(truth || {}, activation, options);
+}
+
+function renderActivationRepair(truth = buildCurrentOperatingTruth(), options = {}) {
+  const section = document.getElementById("activation-repair");
+  if (!section) return;
+  const model = buildCurrentActivationRepair(truth, options);
+  if (!model) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = !model.visible;
+  if (!model.visible) return;
+  section.dataset.repairState = model.state;
+  setText("activation-repair-heading", model.headline);
+  setText("activation-repair-detail", model.detail);
+  setText("activation-repair-state", model.timedOut ? "RETRY REQUIRED" : model.state.replaceAll("_", " "));
+  const state = document.getElementById("activation-repair-state");
+  if (state) state.className = `state-pill ${model.timedOut || model.state === "CONFLICT" ? "red" : "yellow"}`;
+  const progress = document.getElementById("activation-repair-progress");
+  if (progress) progress.style.width = `${model.progress.percent}%`;
+  model.stages.forEach((stage) => {
+    const item = document.querySelector(`[data-activation-repair-stage="${stage.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", stage.complete);
+    item.classList.toggle("current", stage.current);
+    item.setAttribute("aria-current", stage.current ? "step" : "false");
+  });
+  const modules = document.getElementById("activation-repair-modules");
+  if (modules) {
+    modules.innerHTML = model.modules.length
+      ? model.modules.map((item) => `<article class="activation-repair-module ${item.complete ? "complete" : "pending"}">
+          <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.status.replaceAll("_", " "))}</strong></div>
+          <p>${escapeHtml(item.detail)}</p>
+          ${item.action ? `<button type="button" class="ghost" data-activation-repair-action="${escapeHtml(item.action.action)}" data-activation-repair-module="${escapeHtml(item.action.module || "")}">${escapeHtml(item.action.label)}</button>` : `<small>Connected to the current Contract</small>`}
+        </article>`).join("")
+      : `<div class="activation-repair-empty"><strong>No plan links to inspect yet.</strong><p>Complete and sign the Recruit Contract first.</p></div>`;
+  }
+  const primary = document.getElementById("activation-repair-primary");
+  if (primary) {
+    primary.textContent = model.primary.label;
+    primary.dataset.activationRepairAction = model.primary.action;
+    primary.dataset.activationRepairModule = model.primary.module || "";
+  }
+}
+
+function scheduleOperatingTruthReconciliation(timeoutMs = 1200) {
+  if (operatingTruthReconcileTimer) window.clearTimeout(operatingTruthReconcileTimer);
+  const truth = buildCurrentOperatingTruth();
+  if (truth) renderOneCommand(truth);
+  operatingTruthReconcileTimer = window.setTimeout(() => {
+    const heading = document.getElementById("one-command-heading");
+    const state = document.getElementById("one-command-state");
+    const unresolved = heading?.textContent === "Assembling the next action" || state?.textContent === "ASSEMBLING";
+    const current = buildCurrentOperatingTruth();
+    if (current) renderOneCommand(current);
+    else if (unresolved) renderActivationRepair(null, { timedOut: true });
+  }, timeoutMs);
+}
+
+function renderOneCommand(truth = buildCurrentOperatingTruth()) {
+  const section = document.getElementById("one-command");
+  if (!section || !truth) {
+    renderActivationRepair(null, { timedOut: true });
+    return;
+  }
+  let model;
+  try {
+    model = typeof DominionOneCommand !== "undefined"
+      ? DominionOneCommand.buildOneCommand(truth, { online: typeof navigator === "undefined" ? true : navigator.onLine })
+      : fallbackOneCommandModel(truth);
+  } catch (_) {
+    model = fallbackOneCommandModel(truth);
+  }
+  section.dataset.commandMode = model.mode;
+  section.classList.toggle("is-secured", model.secured);
+  setText("one-command-eyebrow", model.eyebrow);
+  setText("one-command-heading", model.title);
+  setText("one-command-detail", model.detail);
+  setText("one-command-state", model.stateLabel);
+  const state = document.getElementById("one-command-state");
+  if (state) state.className = `state-pill ${model.state === "CONFLICT" ? "red" : model.secured ? "green" : ["EVIDENCE_REQUIRED", "REVIEW_REQUIRED", "ADAPTATION_REQUIRED"].includes(model.state) ? "yellow" : "neutral"}`;
+  const progress = document.getElementById("one-command-progress");
+  if (progress) progress.style.width = `${model.progress.percent}%`;
+  model.stages.forEach((stage) => {
+    const item = document.querySelector(`[data-one-command-stage="${stage.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", stage.complete);
+    item.classList.toggle("current", stage.current);
+    item.classList.toggle("locked", stage.locked);
+    item.setAttribute("aria-current", stage.current ? "step" : "false");
+  });
+  const modules = document.getElementById("one-command-modules");
+  if (modules) {
+    modules.innerHTML = model.modules.length
+      ? model.modules.map((item) => `<span class="one-command-module ${item.complete ? "complete" : item.active ? "active" : ""}"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.status.replaceAll("_", " "))}</small></span>`).join("")
+      : `<span class="one-command-module quiet"><strong>No assigned training</strong><small>Protect the committed recovery space</small></span>`;
+  }
+  const primary = document.getElementById("one-command-primary");
+  if (primary) {
+    primary.textContent = model.primary.label;
+    primary.dataset.oneCommandAction = model.primary.action;
+    primary.dataset.oneCommandSection = model.primary.section;
+    primary.dataset.oneCommandModule = model.primary.module || "";
+  }
+  const secondary = document.getElementById("one-command-secondary");
+  if (secondary) secondary.textContent = model.secondary.label;
+  setText("one-command-source", model.context.source);
+  setText("one-command-evidence", model.context.evidence);
+  const conflict = document.getElementById("one-command-conflict");
+  if (conflict) conflict.hidden = !model.context.conflict;
+  setText("one-command-conflict-detail", model.context.conflict || "");
+  setText("today-sequence-shell-summary", `${model.progress.current} · ${model.context.evidence}`);
+  const ritual = document.getElementById("daily-ritual");
+  if (ritual) ritual.hidden = !["REVIEW_REQUIRED", "ADAPTATION_REQUIRED", "SECURED"].includes(model.state);
+  section.dataset.reconciledAt = new Date().toISOString();
+  renderActivationRepair(truth);
+}
+
+function relayClosedLoopAction(action) {
+  const relay = document.createElement("button");
+  relay.type = "button";
+  relay.hidden = true;
+  relay.dataset.closedLoopAction = action;
+  document.body.appendChild(relay);
+  relay.click();
+  relay.remove();
+}
+
+async function runActivationRepairAction(action = "RETRY", moduleId = "") {
+  setText("activation-repair-feedback", "");
+  if (action === "RETRY") {
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation(800);
+    setText("activation-repair-feedback", "Contract, plans, and week reconciled again. No saved work was changed.");
+    return;
+  }
+  if (["OPEN_CONTRACT", "EDIT_CONTRACT", "SIGN_CONTRACT", "OPEN_WEEK"].includes(action)) {
+    setActiveSection("contract");
+    window.history.replaceState(null, "", "#contract");
+    if (action === "EDIT_CONTRACT") {
+      const editor = document.getElementById("recruit-contract-editor");
+      if (editor) editor.open = true;
+      document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (action === "SIGN_CONTRACT") {
+      document.querySelector(".contract-signature-ceremony")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (action === "OPEN_WEEK") {
+      document.querySelector("#contract > .weekly-orchestrator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setText("contract-activation-feedback", "Resolve the named conflict, rebuild the draft, and recommit the week.");
+    } else {
+      document.getElementById("contract")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
+  if (action === "OPEN_MODULE") {
+    openContractActivationModule(moduleId);
+    return;
+  }
+  if (action === "STAGE_DRAFTS") {
+    await stageRecruitContractPlans();
+    renderContractActivation();
+    setText("activation-repair-feedback", "Plan updates prepared. Review and approve the named module next.");
+  }
+  if (action === "BUILD_WEEK") {
+    const active = readCommittedUnifiedWeek(todayISODate());
+    const weekStart = active
+      ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+      : unifiedWeekTargetStart();
+    const draft = await saveUnifiedWeekDraftForActivation(weekStart);
+    setText("activation-repair-feedback", draft?.approvalBlocked
+      ? "The week was rebuilt. Resolve the remaining named conflict before commitment."
+      : "The coordinated week is ready. Review it, then commit deliberately.");
+  }
+  if (action === "COMMIT_WEEK") {
+    try {
+      await commitUnifiedWeekDraft();
+      setText("activation-repair-feedback", "Your week is operational. Today is rebuilding from the committed plan.");
+    } catch (error) {
+      setText("activation-repair-feedback", error?.message || "The week could not be committed.");
+      return;
+    }
+  }
+  if (action === "OPEN_TODAY") {
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+  }
+  renderDominionExperienceShell();
+  scheduleOperatingTruthReconciliation(800);
+}
+
+async function runOneCommandAction(button) {
+  const action = button?.dataset.oneCommandAction || "REFRESH";
+  const section = button?.dataset.oneCommandSection || "today";
+  const moduleId = button?.dataset.oneCommandModule || "";
+  if (action === "REFRESH") {
+    renderDailyCoachingLoop();
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation(800);
+    return;
+  }
+  if (["CONTRACT", "PLAN", "BUILD_WEEK", "COMMIT_WEEK", "REPAIR_WEEK"].includes(action)) {
+    const repair = buildCurrentActivationRepair();
+    await runActivationRepairAction(repair?.primary?.action || "OPEN_CONTRACT", repair?.primary?.module || moduleId);
+    return;
+  }
+  if (action === "ROLL_CALL") {
+    openMobileCommandSheet("roll-call");
+    return;
+  }
+  if (action === "AUTHORIZE") {
+    relayClosedLoopAction("approve_decision");
+    return;
+  }
+  if (action === "REVIEW") {
+    relayClosedLoopAction("close_review");
+    return;
+  }
+  if (action === "ADAPT") {
+    relayClosedLoopAction("approve_adaptation");
+    return;
+  }
+  if (["MODULE", "VERIFY"].includes(action) && ["strength", "running", "core"].includes(moduleId)) {
+    await launchMobileModule(moduleId);
+    return;
+  }
+  if (["recovery", "record"].includes(moduleId)) {
+    const sequence = document.getElementById("today-sequence-detail");
+    if (sequence) sequence.open = true;
+    sequence?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setActiveSection(section);
+  window.history.replaceState(null, "", `#${section}`);
+  if (moduleId && section === "performance") {
+    setPerformanceActiveView(moduleId === "running" ? "running" : moduleId === "core" ? "core" : "today_training");
+  }
+}
+
+function renderDominionExperienceShell() {
+  if (typeof DominionExperienceShell === "undefined") return;
+  const contract = readApprovedRecruitContract();
+  const contractSigned = Boolean(contract && typeof DominionContractExperience !== "undefined"
+    && DominionContractExperience.signatureStatus(contract).valid);
+  let activation = { status: contract ? "ACTION_REQUIRED" : "CONTRACT_REQUIRED", next: {} };
+  if (contract && typeof DominionContractActivation !== "undefined") {
+    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    catch (_) {}
+  }
+  let readinessState = "";
+  if (dailyState?.date === todayISODate()) {
+    try { readinessState = evaluateOperationalReadiness(dailyState).state; }
+    catch (_) {}
+  }
+  const fallbackMission = DominionExperienceShell.buildMissionState({
+    hasApprovedContract: Boolean(contract),
+    contractSigned,
+    activationStatus: activation.status,
+    activationNextModule: activation.next?.module || "",
+    hasDailyState: Boolean(dailyState?.date === todayISODate()),
+    readinessState
+  });
+  const truth = buildCurrentOperatingTruth();
+  const mission = truth ? {
+    phase: truth.state.replaceAll("_", " "),
+    title: truth.title,
+    detail: truth.detail,
+    actionLabel: truth.action.label,
+    actionHref: truth.action.href,
+    actionSection: truth.action.section,
+    journey: truth.stages
+  } : fallbackMission;
+  setText("shell-mission-phase", mission.phase);
+  setText("shell-mission-heading", mission.title);
+  setText("shell-mission-detail", mission.detail);
+  const action = document.getElementById("shell-mission-action");
+  if (action) {
+    action.textContent = mission.actionLabel;
+    action.href = mission.actionHref;
+    action.dataset.section = mission.actionSection;
+    action.classList.remove("active");
+    action.setAttribute("aria-current", "false");
+  }
+  mission.journey.forEach((step) => {
+    const item = document.querySelector(`[data-shell-step="${step.id}"]`);
+    if (!item) return;
+    item.classList.toggle("complete", step.complete);
+    item.classList.toggle("current", step.current);
+    item.setAttribute("aria-current", step.current ? "step" : "false");
+  });
+  if (truth) {
+    setText("shell-truth-source", truth.source);
+    setText("shell-truth-evidence", `${truth.evidence.complete}/${truth.evidence.total} assigned domains`);
+    const alert = document.getElementById("shell-truth-alert");
+    const primaryConflict = truth.contradictions.find((item) => item.severity === "BLOCKING")
+      || truth.contradictions.find((item) => item.severity === "WARNING")
+      || null;
+    if (alert) alert.hidden = !primaryConflict;
+    setText("shell-truth-alert-detail", primaryConflict ? `${primaryConflict.message} ${primaryConflict.repair}` : "");
+  }
+  renderOneCommand(truth);
+  const section = DominionExperienceShell.sectionMeta(activeSection);
+  setText("shell-section-context", `${section.mode} · ${section.label}`);
+  setText("shell-rank-badge", String(rankStatus?.currentRank || "RECRUIT").replaceAll("_", " "));
+  document.title = `${section.label} | Coach Dominion`;
+  document.body.dataset.dominionPhase = (truth?.state || mission.phase).toLowerCase().replaceAll("_", "-");
+  document.body.dataset.dominionSection = activeSection;
+  document.querySelectorAll(".kicker:not([data-humanized])").forEach((element) => {
+    element.textContent = DominionExperienceShell.cleanBuildKicker(element.textContent);
+    element.dataset.humanized = "true";
+  });
+}
+
+function setActiveSection(section = "today") {
+  const normalized = normalizeSectionKey(section);
+  activeSection = normalized;
+  document.querySelectorAll('a[data-section][href^="#"]').forEach((link) => {
+    const isActive = link.dataset.section === normalized;
+    link.classList.toggle("active", isActive);
+    link.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+  const more = document.querySelector(".nav-more");
+  if (more) {
+    more.classList.toggle("active", ["trends", "standards", "rank", "record", "connected"].includes(normalized));
+    if (more.open) more.removeAttribute("open");
+  }
+  document.querySelectorAll(".scroll-anchor").forEach((element) => {
+    const isMatch = element.id === normalized || element.dataset.section === normalized;
+    element.classList.toggle("is-active", isMatch);
+    element.hidden = !isMatch;
+    element.setAttribute("aria-hidden", isMatch ? "false" : "true");
+  });
+  const mobileSectionMap = { today: "today", performance: "train", calendar: "calendar", nutrition: "fuel", contract: "contract" };
+  document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mobileNav === mobileSectionMap[normalized]);
+  });
+  const target = document.getElementById(normalized) || document.querySelector(`[data-section="${normalized}"]`);
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  renderDominionExperienceShell();
+}
+
+function organizeWorkspaceSections() {
+  const app = document.getElementById("app-content");
+  const today = document.getElementById("today");
+  if (!app || !today) return;
+  ["record", "inspection", "trends", "standards", "rank", "performance"].forEach((id) => {
+    const section = document.getElementById(id);
+    if (section && section.parentElement !== app) app.appendChild(section);
+  });
+  document.body.dataset.workspaceArchitecture = "009C";
+}
+
+function restoreSectionFromHash() {
+  const hash = window.location.hash ? window.location.hash.replace("#", "") : "";
+  setActiveSection(hash || "today");
+}
+
+async function signOutUser() {
+  const supabase = await getClient();
+  await supabase.auth.signOut();
+  window.location.replace("/");
+}
+
+function handleSectionNavigation(link) {
+  const nextSection = link?.dataset?.section || normalizeSectionKey(link?.hash?.replace("#", ""));
+  if (shouldWarnBeforeNavigation(nextSection, complianceDirtyState)) {
+    const proceed = window.confirm("You have unsaved Dominion Record changes. Leave this section anyway?");
+    if (!proceed) return false;
+  }
+  setActiveSection(nextSection);
+  window.history.replaceState(null, "", `#${nextSection}`);
+  const target = document.getElementById(nextSection) || document.querySelector(`[data-section="${nextSection}"]`);
+  if (target) {
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  }
+  return true;
+}
+
+function isDeveloperBuildLabel(text = "") {
+  return /^\s*BUILD\s+\d/i.test(String(text));
+}
+
+function applyProductPolish() {
+  if (typeof document === "undefined") return 0;
+  let hiddenCount = 0;
+  document.querySelectorAll(".kicker").forEach((label) => {
+    if (!isDeveloperBuildLabel(label.textContent)) return;
+    label.classList.add("developer-label");
+    label.setAttribute("aria-hidden", "true");
+    hiddenCount += 1;
+  });
+  document.body.dataset.productPolish = "012F";
+  return hiddenCount;
+}
+
+function connectedApi() {
+  return typeof ConnectedDominion !== "undefined" ? ConnectedDominion : null;
+}
+
+function connectedUserId() {
+  return session?.user?.id || "local";
+}
+
+function activeMfpNutritionFeedToken() {
+  return mfpNutritionFeedTokens.find((item) => item.status === "ACTIVE") || null;
+}
+
+function mfpNutritionFeedEndpoint() {
+  if (typeof window === "undefined") return "/api/nutrition-feed";
+  return `${window.location.origin}/api/nutrition-feed`;
+}
+
+function mfpNutritionFeedAccount() {
+  return connectedAccounts.find((item) => item.providerCode === "MYFITNESSPAL"
+    && (item.metadata?.connection_mode || item.metadata?.connectionMode) === "APPLE_HEALTH_SHORTCUT"
+    && item.connectionStatus !== "DISCONNECTED") || null;
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+function createMfpNutritionFeedSecret() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const encoded = btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  return `cdnf_${encoded}`;
+}
+
+async function loadMfpNutritionFeedState() {
+  mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: !session?.user?.id };
+  if (!session?.user?.id) {
+    mfpNutritionFeedTokens = [];
+    mfpNutritionFeedEvents = [];
+    return;
+  }
+  try {
+    const supabase = await getClient();
+    const [tokensResult, eventsResult] = await Promise.all([
+      supabase.from("nutrition_feed_tokens").select("id,label,token_hint,status,last_used_at,created_at,revoked_at").eq("user_id", session.user.id).order("created_at", { ascending: false }),
+      supabase.from("nutrition_feed_events").select("id,nutrition_date,outcome,sample_count,received_at").eq("user_id", session.user.id).order("received_at", { ascending: false }).limit(20)
+    ]);
+    if (tokensResult.error || eventsResult.error) throw tokensResult.error || eventsResult.error;
+    mfpNutritionFeedTokens = tokensResult.data || [];
+    mfpNutritionFeedEvents = eventsResult.data || [];
+    mfpNutritionFeedState = { loading: false, available: true, migrationRequired: false, authRequired: false };
+  } catch (_) {
+    mfpNutritionFeedTokens = [];
+    mfpNutritionFeedEvents = [];
+    mfpNutritionFeedState = { loading: false, available: false, migrationRequired: true, authRequired: false };
+  }
+}
+
+async function createMfpNutritionFeed() {
+  if (!session?.user?.id) {
+    setText("connected-feedback", "Sign in before creating a private nutrition feed.");
+    return;
+  }
+  if (!mfpNutritionFeedState.available) {
+    setText("connected-feedback", "Apply migration 014 before creating the automated nutrition feed.");
+    return;
+  }
+  const token = createMfpNutritionFeedSecret();
+  const now = new Date().toISOString();
+  const tokenHash = await sha256Hex(token);
+  try {
+    const supabase = await getClient();
+    const activeIds = mfpNutritionFeedTokens.filter((item) => item.status === "ACTIVE").map((item) => item.id);
+    if (activeIds.length) {
+      const revoked = await supabase.from("nutrition_feed_tokens")
+        .update({ status: "REVOKED", revoked_at: now })
+        .eq("user_id", session.user.id)
+        .in("id", activeIds);
+      if (revoked.error) throw revoked.error;
+    }
+    const result = await supabase.from("nutrition_feed_tokens").insert({
+      user_id: session.user.id,
+      label: "MyFitnessPal via Apple Health",
+      token_hash: tokenHash,
+      token_hint: token.slice(-8),
+      status: "ACTIVE"
+    }).select("id,label,token_hint,status,last_used_at,created_at,revoked_at").single();
+    if (result.error) throw result.error;
+    mfpNutritionFeedSecret = token;
+    await loadMfpNutritionFeedState();
+    renderConnectedDominion();
+    setText("connected-feedback", "Private feed key created. Copy it into your iPhone Shortcut now; Coach Dominion will not show it again after this page closes.");
+  } catch (_) {
+    setText("connected-feedback", "Coach Dominion could not create the feed key. Confirm migration 014 is applied, then try again.");
+  }
+}
+
+async function revokeMfpNutritionFeed() {
+  const active = activeMfpNutritionFeedToken();
+  if (!active || !session?.user?.id) return;
+  try {
+    const supabase = await getClient();
+    const result = await supabase.from("nutrition_feed_tokens")
+      .update({ status: "REVOKED", revoked_at: new Date().toISOString() })
+      .eq("user_id", session.user.id)
+      .eq("id", active.id);
+    if (result.error) throw result.error;
+    mfpNutritionFeedSecret = null;
+    await loadMfpNutritionFeedState();
+    await loadConnectedDominion();
+    setText("connected-feedback", "Automated MyFitnessPal feed revoked. Existing nutrition history was preserved.");
+  } catch (_) {
+    setText("connected-feedback", "The feed could not be revoked. Try again after the account connection is restored.");
+  }
+}
+
+async function copyMfpNutritionFeedValue(value, successMessage) {
+  try {
+    await navigator.clipboard.writeText(value);
+    setText("connected-feedback", successMessage);
+  } catch (_) {
+    setText("connected-feedback", "Copy was unavailable. Select the value shown in the setup panel and copy it manually.");
+  }
+}
+
+async function testMfpNutritionFeed() {
+  if (!mfpNutritionFeedSecret) {
+    setText("connected-feedback", "The private key is hidden after setup. Rotate the feed key if you need to test or configure it again.");
+    return;
+  }
+  try {
+    const response = await fetch(mfpNutritionFeedEndpoint(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mfpNutritionFeedSecret}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ dryRun: true })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || "Feed test failed.");
+    await loadMfpNutritionFeedState();
+    renderConnectedDominion();
+    setText("connected-feedback", "Feed authorization verified. No nutrition record was created by this test.");
+  } catch (_) {
+    setText("connected-feedback", "Feed test failed. Confirm migration 014 and the production endpoint are active.");
+  }
+}
+
+async function runMfpNutritionFeedAction(action) {
+  if (!String(action || "").startsWith("mfp-feed-")) return false;
+  if (action === "mfp-feed-open") {
+    setConnectedActiveView("nutrition");
+    document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (action === "mfp-feed-create") await createMfpNutritionFeed();
+  if (action === "mfp-feed-revoke") await revokeMfpNutritionFeed();
+  if (action === "mfp-feed-copy-endpoint") await copyMfpNutritionFeedValue(mfpNutritionFeedEndpoint(), "Feed endpoint");
+  if (action === "mfp-feed-copy-key" && mfpNutritionFeedSecret) await copyMfpNutritionFeedValue(mfpNutritionFeedSecret, "Private feed key");
+  if (action === "mfp-feed-copy-template" && typeof DominionNutritionFeed !== "undefined") {
+    const template = JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2);
+    await copyMfpNutritionFeedValue(template, "Shortcut payload");
+  }
+  if (action === "mfp-feed-test") await testMfpNutritionFeed();
+  return true;
+}
+
+function nutritionManualStorageKey(date) {
+  return `coach-dominion:nutrition-manual:${connectedUserId()}:${date}`;
+}
+
+function readManualNutrition(date) {
+  try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(date)) || "null"); }
+  catch (_) { return null; }
+}
+
+function nutritionCommandDate() {
+  return document.querySelector('#nutrition-manual-form [name="date"]')?.value || todayISODate();
+}
+
+function nutritionBaselineStorageKey() {
+  return `coach-dominion:nutrition-baselines:${connectedUserId()}`;
+}
+
+function adaptiveFuelingGoalStorageKey() {
+  return `coach-dominion:adaptive-fueling-goal:${connectedUserId()}`;
+}
+
+function readAdaptiveFuelingGoal() {
+  try {
+    const goal = window.localStorage.getItem(adaptiveFuelingGoalStorageKey()) || "MAINTAIN";
+    return ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].includes(goal) ? goal : "MAINTAIN";
+  } catch (_) {
+    return "MAINTAIN";
+  }
+}
+
+function readNutritionBaselineHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(nutritionBaselineStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function activeNutritionBaseline(date = todayISODate()) {
+  if (typeof DominionNutritionBaseline === "undefined") return null;
+  return DominionNutritionBaseline.selectEffectiveBaseline(readNutritionBaselineHistory(), date);
+}
+
+function dominionRecordNutritionTargets() {
+  if (!connectedApi()) return {};
+  const targetText = document.getElementById("nutrition_target")?.value || lastSavedComplianceState?.nutrition?.target || "";
+  return connectedApi().parseNutritionTarget(targetText);
+}
+
+function currentNutritionBaseTargets(date = todayISODate()) {
+  return activeNutritionBaseline(date)?.recoveryTargets || dominionRecordNutritionTargets();
+}
+
+function currentNutritionTargetsForContext(trainingDay, date = todayISODate()) {
+  const baseline = activeNutritionBaseline(date);
+  if (baseline) return trainingDay ? baseline.trainingTargets : baseline.recoveryTargets;
+  return dominionRecordNutritionTargets();
+}
+
+function buildNutritionBaselineFromForm() {
+  const form = document.getElementById("nutrition-baseline-form");
+  if (!form || typeof DominionNutritionBaseline === "undefined") return null;
+  const data = new FormData(form);
+  return DominionNutritionBaseline.buildNutritionBaselineProposal(Object.fromEntries(data.entries()));
+}
+
+function renderNutritionBaseline() {
+  const form = document.getElementById("nutrition-baseline-form");
+  const output = document.getElementById("nutrition-baseline-output");
+  const status = document.getElementById("nutrition-baseline-status");
+  const historyOutput = document.getElementById("nutrition-baseline-history");
+  if (!form || !output || !status || !historyOutput || typeof DominionNutritionBaseline === "undefined") return;
+  const history = readNutritionBaselineHistory();
+  const active = activeNutritionBaseline();
+  if (!form.elements.effectiveDate.value) form.elements.effectiveDate.value = todayISODate();
+  const current = nutritionBaselineDraft || active;
+  status.textContent = nutritionBaselineDraft?.status || (active ? "APPROVED" : "NOT SET");
+  status.className = `state-pill ${active && !nutritionBaselineDraft ? "green" : nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current) {
+    output.className = "performance-empty";
+    output.innerHTML = "No approved baseline yet. Complete the setup above to unlock nutrition coaching.";
+  } else if (current.status === "REVIEW REQUIRED") {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>Review required</strong><ul>${current.errors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  } else {
+    output.className = "";
+    output.innerHTML = `<p><strong>${escapeHtml(current.goal.replace("_", " "))}</strong> · effective ${escapeHtml(current.effectiveDate)}</p>
+      <p>${escapeHtml(current.rationale)}</p>
+      <div class="nutrition-baseline-variants">
+        <article class="nutrition-baseline-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
+        <article class="nutrition-baseline-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
+      </div>
+      <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      ${current.status === "READY FOR APPROVAL" ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-baseline-action="approve">Approve &amp; Activate Baseline</button><button type="button" class="ghost" data-nutrition-baseline-action="cancel">Cancel Draft</button></div>' : ""}`;
+  }
+  const historyRows = [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.approvedAt.localeCompare(a.approvedAt))
+    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} · approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal · ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
+  historyOutput.innerHTML = history.length ? `<details class="nutrition-baseline-history"><summary>Baseline history (${history.length})</summary><div class="nutrition-baseline-history-list">${historyRows}</div></details>` : "";
+}
+
+function reviewNutritionBaseline(event) {
+  event.preventDefault();
+  nutritionBaselineDraft = buildNutritionBaselineFromForm();
+  renderNutritionBaseline();
+  setText("nutrition-baseline-feedback", nutritionBaselineDraft?.status === "READY FOR APPROVAL" ? "Review both variants, then approve to activate this dated baseline." : "Correct the flagged items before approval.");
+}
+
+async function approveNutritionBaselineDraft() {
+  if (!nutritionBaselineDraft || typeof DominionNutritionBaseline === "undefined") return;
+  try {
+    const approved = DominionNutritionBaseline.approveNutritionBaseline(nutritionBaselineDraft);
+    const history = readNutritionBaselineHistory();
+    history.push(approved);
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(history));
+    ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => window.localStorage.removeItem(adaptiveFuelingStorageKey(goalName)));
+    nutritionBaselineDraft = null;
+    const goal = document.getElementById("adaptive-fueling-goal");
+    if (goal) goal.value = approved.goal;
+    window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), approved.goal);
+    const baselineSynced = await persistNutritionState("BASELINE_HISTORY", "current", { items: history });
+    await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: approved.goal });
+    await clearNutritionStateType("ADAPTIVE_APPROVAL");
+    await refreshUnifiedWeekDraftForNutrition();
+    renderNutritionCommand();
+    renderDailyCoachingLoop();
+    renderRecruitContract();
+    renderWeeklyOrchestrator();
+    setText("nutrition-baseline-feedback", approved.effectiveDate <= todayISODate()
+      ? `Baseline approved and active across Nutrition Command, Adaptive Fueling, and Weekly Intelligence.${baselineSynced ? " Saved to your account." : " Saved locally; account sync will retry next session."}`
+      : `Baseline approved and scheduled for ${approved.effectiveDate}.`);
+  } catch (error) {
+    setText("nutrition-baseline-feedback", error.message);
+  }
+}
+
+function adaptiveFuelingStorageKey(goal) {
+  return `coach-dominion:adaptive-fueling:${connectedUserId()}:${goal || "MAINTAIN"}`;
+}
+
+function readApprovedAdaptiveFueling(goal) {
+  try { return JSON.parse(window.localStorage.getItem(adaptiveFuelingStorageKey(goal)) || "null"); }
+  catch (_) { return null; }
+}
+
+function currentAdaptiveFuelingGoal() {
+  return document.getElementById("adaptive-fueling-goal")?.value || readAdaptiveFuelingGoal();
+}
+
+function buildCurrentAdaptiveFuelingProposal() {
+  if (typeof DominionAdaptiveFueling === "undefined" || !connectedApi()) return null;
+  const targets = currentNutritionBaseTargets();
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const readiness = dailyState ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  return DominionAdaptiveFueling.buildAdaptiveFuelingProposal({
+    targets,
+    nutritionDays,
+    goal: currentAdaptiveFuelingGoal(),
+    readiness
+  });
+}
+
+function adaptiveTargetCards(targets) {
+  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbs", "g"], fat: ["Fat", "g"] };
+  return Object.entries(labels).map(([key, [label, unit]]) => `<div class="adaptive-target-card"><span>${label}</span><strong>${Math.round(targets[key])}${unit}</strong></div>`).join("");
+}
+
+function renderAdaptiveFueling() {
+  const output = document.getElementById("adaptive-fueling-output");
+  const status = document.getElementById("adaptive-fueling-status");
+  if (!output || !status) return;
+  const proposal = buildCurrentAdaptiveFuelingProposal();
+  if (!proposal) return;
+  const approved = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const current = approved || proposal;
+  status.textContent = current.status;
+  status.className = `state-pill ${current.status === "APPROVED" ? "green" : current.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current.trainingTargets) {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>${escapeHtml(current.status)}</strong><p>${escapeHtml(current.reason)}</p><p>${current.evidenceDays || 0}${current.requiredDays ? ` / ${current.requiredDays}` : ""} complete nutrition day(s).</p>`;
+    return;
+  }
+  output.className = "";
+  output.innerHTML = `<p><strong>Strategy:</strong> ${escapeHtml(current.strategy)}</p>
+    <div class="adaptive-target-variants">
+      <article class="adaptive-target-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
+      <article class="adaptive-target-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
+    </div>
+    <p class="muted">${current.evidenceDays} complete nutrition day(s) · calorie adherence ${Math.round(current.adherence.calories * 100)}% · protein adherence ${Math.round(current.adherence.protein * 100)}%</p>
+    <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions"><button type="button" data-adaptive-fueling-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Fueling Variant Approved" : "Approve Fueling Variant"}</button></div>`;
+}
+
+function nutritionIntelligencePercent(value) {
+  return value === null || value === undefined ? "—" : `${Math.round(value * 100)}%`;
+}
+
+function nutritionIntelligenceAverage(value, unit) {
+  return value === null || value === undefined ? "—" : `${Math.round(value)}${unit || ""}`;
+}
+
+function nutritionEvidenceHistory(windowEnd) {
+  if (!connectedApi()) return [];
+  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const importedByDate = new Map(imported.map((day) => [day.date, { ...day, source: "MYFITNESSPAL" }]));
+  const history = [];
+  const anchor = new Date(`${windowEnd}T12:00:00`);
+  for (let offset = 13; offset >= 0; offset -= 1) {
+    const date = new Date(anchor);
+    date.setDate(anchor.getDate() - offset);
+    const dateKey = date.toISOString().slice(0, 10);
+    const manual = readManualNutrition(dateKey);
+    const record = importedByDate.get(dateKey) || (manual ? { ...manual, source: "MANUAL" } : null);
+    if (record) history.push(record);
+  }
+  return history;
+}
+
+function buildCurrentNutritionIntelligence() {
+  if (typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return null;
+  const windowEnd = todayISODate();
+  return DominionNutritionIntelligence.buildNutritionIntelligence({
+    windowEnd,
+    targets: currentNutritionBaseTargets(windowEnd),
+    trainingDates: connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).map((session) => session.date),
+    nutritionDays: nutritionEvidenceHistory(windowEnd)
+  });
+}
+
+function renderNutritionIntelligence() {
+  const output = document.getElementById("nutrition-intelligence-output");
+  const status = document.getElementById("nutrition-intelligence-status");
+  if (!output || !status || typeof DominionNutritionIntelligence === "undefined" || !connectedApi()) return;
+  const result = buildCurrentNutritionIntelligence();
+  if (!result) return;
+  status.textContent = result.status;
+  status.className = `state-pill ${result.status === "READY" ? "green" : result.status === "PROVISIONAL" ? "yellow" : "neutral"}`;
+  const recent = result.sevenDay;
+  const total = result.fourteenDay;
+  const trendText = result.trend.status === "AVAILABLE"
+    ? `Calories ${result.trend.calories.direction.toLowerCase()} ${Math.abs(result.trend.calories.delta)} · protein ${result.trend.protein.direction.toLowerCase()} ${Math.abs(result.trend.protein.delta)}g`
+    : "Needs 3 complete days in each 7-day window";
+  const contextCard = (label, summary) => `<article class="nutrition-context-card">
+    <span>${label}</span>
+    <strong>${summary.evidenceDays} evidence day${summary.evidenceDays === 1 ? "" : "s"}</strong>
+    <small>${nutritionIntelligenceAverage(summary.averageCalories, "")} kcal average · ${nutritionIntelligenceAverage(summary.averageProtein, "g")} protein</small>
+    <small>Calories ${nutritionIntelligencePercent(summary.calorieAdherence)} · protein ${nutritionIntelligencePercent(summary.proteinAdherence)}</small>
+  </article>`;
+  output.className = "";
+  output.innerHTML = `<div class="nutrition-intelligence-summary">
+      <div><span>14-day evidence</span><strong>${result.evidenceDays} / 14 days</strong><small>${result.evidenceCoverage}% coverage · ${result.missingDays} evidence gaps</small></div>
+      <div><span>Recent 7 days</span><strong>${nutritionIntelligenceAverage(recent.averageCalories, "")} kcal</strong><small>${nutritionIntelligenceAverage(recent.averageProtein, "g")} average protein</small></div>
+      <div><span>14-day adherence</span><strong>${nutritionIntelligencePercent(total.calorieAdherence)}</strong><small>Protein ${nutritionIntelligencePercent(total.proteinAdherence)}</small></div>
+      <div><span>Trend direction</span><strong>${escapeHtml(result.trend.status)}</strong><small>${escapeHtml(trendText)}</small></div>
+    </div>
+    <div class="nutrition-intelligence-context">${contextCard("Training days", result.training)}${contextCard("Recovery / unclassified days", result.recovery)}</div>
+    <div class="nutrition-priority"><span class="kicker">WEEKLY PRIORITY // ${escapeHtml(result.priority.code)}</span><strong>${escapeHtml(result.priority.title)}</strong><p>${escapeHtml(result.priority.message)}</p></div>
+    <ul class="baseline-safeguards">${result.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function nutritionReviewStorageKey() {
+  return `coach-dominion:nutrition-reviews:${connectedUserId()}`;
+}
+
+function readNutritionReviewHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(nutritionReviewStorageKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function buildCurrentNutritionReview() {
+  if (typeof DominionNutritionReview === "undefined") return null;
+  const intelligence = buildCurrentNutritionIntelligence();
+  if (!intelligence) return null;
+  return DominionNutritionReview.buildWeeklyNutritionReview({
+    intelligence,
+    goal: activeNutritionBaseline()?.goal || currentAdaptiveFuelingGoal(),
+    reviewEnd: todayISODate()
+  });
+}
+
+function renderNutritionReview() {
+  const output = document.getElementById("nutrition-review-output");
+  const status = document.getElementById("nutrition-review-status");
+  const historyOutput = document.getElementById("nutrition-review-history");
+  if (!output || !status || !historyOutput) return;
+  const review = buildCurrentNutritionReview();
+  if (!review) return;
+  status.textContent = review.status;
+  status.className = `state-pill ${review.status === "READY FOR REVIEW" ? "green" : review.status === "PROVISIONAL REVIEW" ? "yellow" : "neutral"}`;
+  const list = (items) => items.length ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : "<li>No conclusion available.</li>";
+  output.className = "";
+  output.innerHTML = `<p><strong>${escapeHtml(review.headline)}</strong></p>
+    <div class="nutrition-review-grid">
+      <article class="nutrition-review-card"><h4>Wins to preserve</h4><ul>${list(review.wins)}</ul></article>
+      <article class="nutrition-review-card"><h4>Evidence &amp; friction</h4><ul>${list(review.observations)}</ul></article>
+    </div>
+    <div class="nutrition-action-list">${review.actions.map((item) => `<article class="nutrition-action"><span>${escapeHtml(item.code)}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></article>`).join("")}</div>
+    <ul class="baseline-safeguards">${review.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    ${["PROVISIONAL REVIEW", "READY FOR REVIEW"].includes(review.status) ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-review-action="approve">Approve Next-Week Plan</button></div>' : ""}`;
+  const history = readNutritionReviewHistory();
+  historyOutput.innerHTML = history.length ? `<details class="nutrition-review-history"><summary>Approved reviews (${history.length})</summary>${[...history].reverse().map((item) =>
+    `<div class="nutrition-review-history-item"><strong>Week ending ${escapeHtml(item.reviewEnd || item.approvedAt.slice(0, 10))}</strong><small>${item.evidenceDays} evidence days · ${item.actions.map((action) => escapeHtml(action.code)).join(" · ")}</small></div>`).join("")}</details>` : "";
+}
+
+async function approveCurrentNutritionReview() {
+  if (typeof DominionNutritionReview === "undefined") return;
+  try {
+    const approved = DominionNutritionReview.approveWeeklyNutritionReview(buildCurrentNutritionReview());
+    const history = readNutritionReviewHistory();
+    history.push(approved);
+    window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(history));
+    const synced = await persistNutritionState("REVIEW_HISTORY", "current", { items: history });
+    renderNutritionReview();
+    setText("nutrition-review-feedback", `Next-week behavior plan approved${synced ? " and saved to your account" : " locally"}. Calorie and macro targets were not changed.`);
+  } catch (error) {
+    setText("nutrition-review-feedback", error.message);
+  }
+}
+
+function mealTrainingWindowStorageKey() {
+  return `coach-dominion:meal-training-window:${connectedUserId()}`;
+}
+
+function readMealTrainingWindow() {
+  try {
+    const value = window.localStorage.getItem(mealTrainingWindowStorageKey()) || "UNSCHEDULED";
+    return ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(value) ? value : "UNSCHEDULED";
+  }
+  catch (_) { return "UNSCHEDULED"; }
+}
+
+async function persistNutritionState(stateType, stateKey, payload) {
+  recordContinuityWrite("nutrition", stateType, stateKey, payload);
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("nutrition_state").upsert({
+      user_id: session.user.id,
+      state_type: stateType,
+      state_key: stateKey,
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" });
+    if (error) throw error;
+    markContinuityRecordSynced("nutrition", stateType, stateKey, payload);
+    if (stateType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
+    return true;
+  } catch (_) {
+    if (stateType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
+    return false;
+  }
+}
+
+async function clearNutritionStateType(stateType) {
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("nutrition_state")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("state_type", stateType);
+    if (error) throw error;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function applyNutritionStateRow(row) {
+  const payload = row?.payload || {};
+  if (row.state_type === "BASELINE_HISTORY" && Array.isArray(payload.items)) {
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(payload.items));
+  }
+  if (row.state_type === "ADAPTIVE_GOAL" && ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].includes(payload.goal)) {
+    window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), payload.goal);
+  }
+  if (row.state_type === "ADAPTIVE_APPROVAL" && payload.goal) {
+    window.localStorage.setItem(adaptiveFuelingStorageKey(payload.goal), JSON.stringify(payload));
+  }
+  if (row.state_type === "MEAL_WINDOW" && ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(payload.window)) {
+    window.localStorage.setItem(mealTrainingWindowStorageKey(), payload.window);
+  }
+  if (row.state_type === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
+    window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(payload.items));
+  }
+  if (row.state_type === "MANUAL_DAY" && payload.date) {
+    window.localStorage.setItem(nutritionManualStorageKey(payload.date), JSON.stringify(payload));
+  }
+}
+
+function readNutritionStatePayload(stateType, stateKey = "current") {
+  if (stateType === "BASELINE_HISTORY") return { items: readNutritionBaselineHistory() };
+  if (stateType === "ADAPTIVE_GOAL") return { goal: readAdaptiveFuelingGoal() };
+  if (stateType === "ADAPTIVE_APPROVAL") return readApprovedAdaptiveFueling(stateKey);
+  if (stateType === "MEAL_WINDOW") return { window: readMealTrainingWindow() };
+  if (stateType === "REVIEW_HISTORY") return { items: readNutritionReviewHistory() };
+  if (stateType === "MANUAL_DAY") {
+    try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(stateKey)) || "null"); }
+    catch (_) { return null; }
+  }
+  return null;
+}
+
+async function loadNutritionState() {
+  if (!session?.user?.id) return;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("nutrition_state")
+      .select("state_type,state_key,payload,updated_at")
+      .eq("user_id", session.user.id)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    const rows = data || [];
+    for (const row of rows) {
+      const localPayload = readNutritionStatePayload(row.state_type, row.state_key);
+      const selected = resolveContinuityPayload("nutrition", row.state_type, row.state_key, localPayload, row);
+      if (selected.payload) applyNutritionStateRow({ ...row, payload: selected.payload });
+      if (selected.source === "DEVICE" && selected.payload) await persistNutritionState(row.state_type, row.state_key, selected.payload);
+    }
+    const hasState = (type, key = null) => rows.some((row) => row.state_type === type && (key === null || row.state_key === key));
+    const localBaselines = readNutritionBaselineHistory();
+    const localReviews = readNutritionReviewHistory();
+    const localGoal = readAdaptiveFuelingGoal();
+    const localWindow = readMealTrainingWindow();
+    if (!hasState("BASELINE_HISTORY") && localBaselines.length) {
+      await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines });
+    }
+    if (!hasState("REVIEW_HISTORY") && localReviews.length) {
+      await persistNutritionState("REVIEW_HISTORY", "current", { items: localReviews });
+    }
+    if (!hasState("ADAPTIVE_GOAL")) {
+      await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: localGoal });
+    }
+    if (!hasState("MEAL_WINDOW")) {
+      await persistNutritionState("MEAL_WINDOW", "current", { window: localWindow });
+    }
+    ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => {
+      const approval = readApprovedAdaptiveFueling(goalName);
+      if (approval && !hasState("ADAPTIVE_APPROVAL", goalName)) {
+        persistNutritionState("ADAPTIVE_APPROVAL", goalName, approval);
+      }
+    });
+    const manualPrefix = `coach-dominion:nutrition-manual:${connectedUserId()}:`;
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith(manualPrefix)) continue;
+      const date = key.slice(manualPrefix.length);
+      if (hasState("MANUAL_DAY", date)) continue;
+      try {
+        const record = JSON.parse(window.localStorage.getItem(key) || "null");
+        if (record?.date) persistNutritionState("MANUAL_DAY", date, record);
+      } catch (_) {
+        // Ignore malformed legacy local records.
+      }
+    }
+    const goalSelect = document.getElementById("adaptive-fueling-goal");
+    if (goalSelect) goalSelect.value = readAdaptiveFuelingGoal();
+    const mealWindow = document.getElementById("meal-training-window");
+    if (mealWindow) mealWindow.value = readMealTrainingWindow();
+  } catch (_) {
+    // Existing account-scoped local state remains the explicit offline fallback.
+  }
+}
+
+function nutritionMealsForDate(date) {
+  return connectedImportedRecords.filter((record) =>
+    record.providerCode === "MYFITNESSPAL" &&
+    record.validationStatus === "VALID" &&
+    String(record.occurredAt || "").slice(0, 10) === date &&
+    ["CALORIES", "MACRONUTRIENTS"].includes(record.dataType)
+  ).map((record) => {
+    const payload = record.normalizedPayload || {};
+    return {
+      name: payload.meal_name || "Imported meal",
+      calories: payload.calories,
+      protein: payload.protein_grams ?? payload.protein,
+      carbs: payload.carbohydrate_grams ?? payload.carbs,
+      fat: payload.fat_grams ?? payload.fat
+    };
+  });
+}
+
+function renderMealCoaching() {
+  const output = document.getElementById("meal-coaching-output");
+  const status = document.getElementById("meal-coaching-status");
+  const windowSelect = document.getElementById("meal-training-window");
+  if (!output || !status || !windowSelect || typeof DominionMealCoaching === "undefined" || !connectedApi()) return;
+  const date = nutritionCommandDate();
+  const baseline = activeNutritionBaseline(date);
+  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  if (windowSelect.value === "UNSCHEDULED") windowSelect.value = readMealTrainingWindow();
+  const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
+  const plan = DominionMealCoaching.buildMealCoachingPlan({
+    date,
+    targets,
+    trainingDay,
+    trainingWindow: windowSelect.value,
+    meals: nutritionMealsForDate(date)
+  });
+  status.textContent = plan.status;
+  status.className = `state-pill ${plan.status === "MEAL EVIDENCE ACTIVE" ? "green" : plan.status === "FUELING MAP ACTIVE" ? "yellow" : "neutral"}`;
+  if (!plan.slots.length) {
+    output.className = "performance-empty";
+    output.innerHTML = `<strong>${escapeHtml(plan.status)}</strong><p>${escapeHtml(plan.reason)}</p>`;
+    return;
+  }
+  const slots = plan.slots.map((slot, index) => `<article class="meal-slot">
+    <span>Anchor ${index + 1}</span><strong>${escapeHtml(slot.label)}</strong>
+    <dl>
+      <div><dt>Calories</dt><dd>${Math.round(slot.calories)}</dd></div>
+      <div><dt>Protein</dt><dd>${Math.round(slot.protein)}g</dd></div>
+      <div><dt>Carbs</dt><dd>${Math.round(slot.carbs)}g</dd></div>
+      <div><dt>Fat</dt><dd>${Math.round(slot.fat)}g</dd></div>
+    </dl><p>${escapeHtml(slot.note)}</p>
+  </article>`).join("");
+  const meals = plan.meals.length ? `<div class="meal-evidence-list">${plan.meals.map((meal) => `<article class="meal-evidence"><strong>${escapeHtml(meal.name)}</strong><small>${Math.round(meal.calories)} kcal · ${Math.round(meal.protein)}g protein · ${Math.round(meal.carbs)}g carbs · ${Math.round(meal.fat)}g fat</small></article>`).join("")}</div>` : "";
+  output.className = "";
+  output.innerHTML = `<p><strong>${trainingDay ? "TRAINING DAY" : "RECOVERY / UNCLASSIFIED DAY"}</strong> · ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing · ${escapeHtml(date)}</p>
+    <div class="meal-slot-grid">${slots}</div>
+    <div class="nutrition-review-card"><h4>Imported meal evidence</h4><p>${escapeHtml(plan.evidenceMessage)}</p>${meals}</div>
+    <ul class="baseline-safeguards">${plan.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function buildCurrentTodayNutritionExecution() {
+  if (typeof DominionTodayNutrition === "undefined" || !connectedApi()) return null;
+  const date = todayISODate();
+  const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
+  const imported = nutritionDays.find((day) => day.date === date) || null;
+  const manual = readManualNutrition(date);
+  const actual = imported || manual || {};
+  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : nutritionDays.length ? "MYFITNESSPAL" : "NONE";
+  const sourceRecordedAt = imported?.records
+    ?.map((record) => record.sourceUpdatedAt || record.updatedAt || record.createdAt || record.occurredAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || manual?.updatedAt || null;
+  const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const trainingDay = trainingSessions.some((trainingSession) => trainingSession.date === date);
+  const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
+  const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
+  const readiness = dailyState?.date === date ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  return DominionTodayNutrition.buildTodayNutritionExecution({
+    date,
+    actualDate: imported?.date || manual?.date || null,
+    latestEvidenceDate: nutritionDays[0]?.date || null,
+    sourceRecordedAt,
+    actual,
+    targets,
+    source,
+    trainingDay,
+    trainingWindow: readMealTrainingWindow(),
+    readiness
+  });
+}
+
+function renderTodayNutritionExecution() {
+  const output = document.getElementById("today-nutrition-output");
+  const status = document.getElementById("today-nutrition-status");
+  if (!output || !status) return;
+  const execution = buildCurrentTodayNutritionExecution();
+  if (!execution) {
+    status.textContent = "UNAVAILABLE";
+    status.className = "state-pill neutral";
+    output.innerHTML = '<div class="performance-empty">Today’s nutrition evidence is not available yet.</div>';
+    return;
+  }
+  status.textContent = execution.status;
+  status.className = `state-pill ${execution.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(execution.status) ? "yellow" : "neutral"}`;
+  const labels = { calories: ["Calories", "kcal"], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
+  const metrics = Object.values(execution.metrics).map((metric) => {
+    const [label, unit] = labels[metric.key];
+    const actual = metric.actual === null ? "—" : `${Math.round(metric.actual)} ${unit}`;
+    const target = metric.target === null ? "No approved target" : `${Math.round(metric.target)} ${unit} target`;
+    const remaining = metric.target === null
+      ? metric.status
+      : metric.actual === null
+        ? "Awaiting intake"
+        : metric.remaining > 0
+          ? `${Math.round(metric.remaining)} ${unit} remaining`
+          : metric.status;
+    const progress = metric.percent === null ? 0 : Math.max(0, Math.min(100, metric.percent));
+    return `<article class="today-nutrition-metric">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(actual)}</strong>
+      <small>${escapeHtml(target)}</small>
+      <div class="today-nutrition-progress ${metric.status === "ABOVE PLAN" ? "over" : ""}" aria-hidden="true"><span style="width:${progress}%"></span></div>
+      <small>${escapeHtml(remaining)}</small>
+    </article>`;
+  }).join("");
+  const warnings = execution.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
+  const actions = execution.actions.map((action) =>
+    `<button type="button" class="${action.primary ? "primary" : ""}" data-today-nutrition-action="${escapeHtml(action.id)}">${escapeHtml(action.label)}</button>`
+  ).join("");
+  output.innerHTML = `<div class="today-nutrition-context">
+      <div><span>Operating date</span><strong>${escapeHtml(execution.date)}</strong><small>${escapeHtml(execution.readiness)} readiness</small></div>
+      <div><span>Intake evidence</span><strong>${escapeHtml(execution.sourceLabel)}</strong><small>${escapeHtml(execution.freshness.label)}</small></div>
+      <div><span>Training plan</span><strong>${execution.trainingDay ? "Training day" : "Recovery / unclassified"}</strong><small>${escapeHtml(execution.trainingWindowLabel)}</small></div>
+    </div>
+    <div class="today-nutrition-order"><span class="kicker">ATLAS // FUEL ORDER</span><p>${escapeHtml(execution.instruction)}</p></div>
+    <div class="today-nutrition-metrics">${metrics}</div>
+    ${warnings}
+    <div class="today-nutrition-actions">${actions}</div>
+    <ul class="today-nutrition-safeguards">${execution.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function renderNutritionCommand() {
+  const output = document.getElementById("nutrition-command-output");
+  const statusPill = document.getElementById("nutrition-command-status");
+  const form = document.getElementById("nutrition-manual-form");
+  if (!output || !statusPill || !form || typeof DominionNutritionCommand === "undefined" || !connectedApi()) return;
+  if (!form.elements.date.value) form.elements.date.value = todayISODate();
+  const date = nutritionCommandDate();
+  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords).find((day) => day.date === date);
+  const manual = readManualNutrition(date);
+  const actual = imported || manual || {};
+  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
+  const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
+  const trainingDay = trainingSessions.some((session) => session.date === date);
+  const latestTrainingDate = latestDatedItem(trainingSessions)?.date || null;
+  const trainingContext = trainingDay ? "TRAINING DAY" : latestTrainingDate ? `NO TRAINING TODAY · LAST ${latestTrainingDate}` : "NO TRAINING EVIDENCE";
+  const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
+  const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
+  const readiness = dailyState && date === todayISODate() ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  const command = DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
+  statusPill.textContent = command.status;
+  statusPill.className = `state-pill ${command.status === "ON TARGET" ? "green" : ["UNDER-FUELED", "REVIEW NEEDED"].includes(command.status) ? "yellow" : "neutral"}`;
+  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
+  const metrics = Object.values(command.metrics).map((metric) => {
+    const [label, unit] = labels[metric.key];
+    const actualText = metric.actual === null ? "—" : `${Math.round(metric.actual)}${unit}`;
+    const targetTextValue = metric.target ? `${Math.round(metric.target)}${unit}` : "No target";
+    return `<article class="nutrition-metric"><span>${label}</span><strong>${actualText}</strong><small>Target: ${targetTextValue}</small><small>${metric.percent === null ? metric.status : `${metric.percent}% · ${metric.status}`}</small></article>`;
+  }).join("");
+  output.innerHTML = `<div class="nutrition-command-context">
+      <div><span>Date</span><strong>${escapeHtml(date)}</strong></div>
+      <div><span>Intake source</span><strong>${escapeHtml(command.source)}</strong></div>
+      <div><span>Context</span><strong>${escapeHtml(trainingContext)} · ${escapeHtml(readiness)} READINESS</strong></div>
+    </div>
+    <div class="nutrition-command-grid">${metrics}</div>
+    <div class="nutrition-guidance"><strong>Atlas guidance</strong><ul>${command.guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+    <ul class="baseline-safeguards">${command.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions">
+      <button type="button" data-nutrition-command-action="review-targets">Review Nutrition Targets</button>
+      <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
+    </div>`;
+  renderNutritionBaseline();
+  renderAdaptiveFueling();
+  renderNutritionIntelligence();
+  renderNutritionReview();
+  renderMealCoaching();
+  renderNutritionNextAction({ imported, manual });
+  renderTodayNutritionExecution();
+  renderMobileCommand();
+}
+
+function nutritionViewStorageKey() {
+  return `coach-dominion:nutrition-view:${connectedUserId()}`;
+}
+
+function setNutritionActiveView(view = "today", persist = true) {
+  const allowed = ["today", "plan", "review", "details"];
+  nutritionActiveView = allowed.includes(view) ? view : "today";
+  document.querySelectorAll("[data-nutrition-view]").forEach((button) => {
+    const active = button.dataset.nutritionView === nutritionActiveView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-nutrition-view-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.nutritionViewPanel !== nutritionActiveView;
+  });
+  if (persist && typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.setItem(nutritionViewStorageKey(), nutritionActiveView);
+  }
+}
+
+function restoreNutritionActiveView() {
+  let saved = "today";
+  try {
+    saved = window.localStorage.getItem(nutritionViewStorageKey()) || "today";
+  } catch (_) {}
+  setNutritionActiveView(saved, false);
+}
+
+function renderNutritionNextAction({ imported = null, manual = null } = {}) {
+  const output = document.getElementById("nutrition-next-action");
+  if (!output) return;
+  const baseline = activeNutritionBaseline(nutritionCommandDate());
+  let action = {
+    status: "TODAY",
+    title: "Follow today’s fueling map",
+    copy: "Use the daily targets and meal anchors below as flexible guidance.",
+    view: "today",
+    label: "View Today"
+  };
+  if (!baseline) {
+    action = {
+      status: "SETUP",
+      title: "Set your fueling baseline",
+      copy: "Approve recovery and training-day targets to unlock daily coaching.",
+      view: "plan",
+      label: "Set Baseline"
+    };
+  } else if (!imported && !manual) {
+    action = {
+      status: "IMPORT",
+      title: "Add today’s intake",
+      copy: "Import MyFitnessPal data or enter daily totals so Atlas can compare intake with your plan.",
+      view: "details",
+      label: "Add Intake"
+    };
+  }
+  output.innerHTML = `<div><div class="kicker">ATLAS // NEXT BEST ACTION · ${escapeHtml(action.status)}</div><h3>${escapeHtml(action.title)}</h3><p>${escapeHtml(action.copy)}</p></div>
+    <button type="button" data-nutrition-next-action="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`;
+}
+
+async function saveManualNutrition(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const date = String(data.get("date") || todayISODate());
+  const record = { date, updatedAt: new Date().toISOString() };
+  ["calories", "protein", "carbs", "fat"].forEach((key) => {
+    const value = data.get(key);
+    record[key] = value === "" || value === null ? null : Number(value);
+  });
+  window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
+  const synced = await persistNutritionState("MANUAL_DAY", date, record);
+  renderNutritionCommand();
+  if (date === todayISODate()) renderDailyCoachingLoop();
+  renderMobileCommand();
+  setText("nutrition-command-feedback", `Manual totals saved${synced ? " to your account" : " locally"}. MyFitnessPal data will take priority when available for this date.`);
+}
+
+function readConnectedLocal(kind, normalizer) {
+  const api = connectedApi();
+  if (!api || typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(api.storageKey(kind, connectedUserId())) || "[]");
+    return Array.isArray(parsed) ? parsed.map((item) => normalizer(item, { userId: connectedUserId() })) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeConnectedLocal() {
+  const api = connectedApi();
+  if (!api || typeof window === "undefined" || !window.localStorage) return false;
+  try {
+    window.localStorage.setItem(api.storageKey("connected-accounts", connectedUserId()), JSON.stringify(connectedAccounts));
+    window.localStorage.setItem(api.storageKey("integration-sync-jobs", connectedUserId()), JSON.stringify(connectedSyncJobs));
+    window.localStorage.setItem(api.storageKey("imported-records", connectedUserId()), JSON.stringify(connectedImportedRecords));
+    window.localStorage.setItem(api.storageKey("connected-ui", connectedUserId()), JSON.stringify({ activeView: connectedActiveView }));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function connectedAccountPayload(account) {
+  return {
+    id: account.id, user_id: account.userId, provider_code: account.providerCode, provider_display_name: account.providerDisplayName,
+    connection_status: account.connectionStatus, permissions: account.permissions, external_account_id: account.externalAccountId,
+    external_account_label: account.externalAccountLabel, last_successful_sync_at: account.lastSuccessfulSyncAt,
+    last_attempted_sync_at: account.lastAttemptedSyncAt, last_sync_status: account.lastSyncStatus,
+    last_sync_error_code: account.lastSyncErrorCode, last_sync_error_message: account.lastSyncErrorMessage,
+    sync_cursor: account.syncCursor, metadata: account.metadata, is_simulated: account.isSimulated,
+    disconnected_at: account.disconnectedAt, created_at: account.createdAt, updated_at: account.updatedAt
+  };
+}
+
+function connectedJobPayload(job) {
+  return {
+    id: job.id, user_id: job.userId, connected_account_id: job.connectedAccountId, provider_code: job.providerCode,
+    sync_type: job.syncType, status: job.status, requested_at: job.requestedAt, started_at: job.startedAt,
+    completed_at: job.completedAt, cursor_before: job.cursorBefore, cursor_after: job.cursorAfter,
+    imported_count: job.importedCount, duplicate_count: job.duplicateCount, rejected_count: job.rejectedCount,
+    unmapped_count: job.unmappedCount, error_code: job.errorCode, error_message: job.errorMessage,
+    summary: job.summary, is_demo: job.isDemo, created_at: job.createdAt
+  };
+}
+
+function connectedRecordPayload(record) {
+  const integrity = {
+    sourceFingerprint: record.sourceFingerprint || null,
+    importClassification: record.importClassification || null,
+    importBatchId: record.importBatchId || record.sourceSyncJobId || null,
+    fileChecksum: record.fileChecksum || null
+  };
+  return {
+    id: record.id, user_id: record.userId, connected_account_id: record.connectedAccountId, provider_code: record.providerCode,
+    provider_record_id: record.providerRecordId, provider_record_type: record.providerRecordType,
+    source_created_at: record.sourceCreatedAt, source_updated_at: record.sourceUpdatedAt, occurred_at: record.occurredAt,
+    timezone: record.timezone, data_type: record.dataType, normalized_payload: record.normalizedPayload,
+    raw_payload: { ...(record.rawPayload || {}), _dominion_import_integrity: integrity }, deduplication_key: record.deduplicationKey, validation_status: record.validationStatus,
+    import_status: record.importStatus, rejection_reason: record.rejectionReason,
+    mapped_performance_entry_id: record.mappedPerformanceEntryId, source_sync_job_id: record.sourceSyncJobId,
+    is_demo: record.isDemo, created_at: record.createdAt, updated_at: record.updatedAt
+  };
+}
+
+async function persistConnectedRemote() {
+  const supabase = await getClient();
+  if (connectedAccounts.length) {
+    const result = await supabase.from("connected_accounts").upsert(connectedAccounts.map(connectedAccountPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+  if (connectedSyncJobs.length) {
+    const result = await supabase.from("integration_sync_jobs").upsert(connectedSyncJobs.map(connectedJobPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+  const canonicalRecords = [...new Map(
+    connectedImportedRecords
+      .filter((record) => record.importStatus !== "DUPLICATE")
+      .reverse()
+      .map((record) => [record.deduplicationKey || record.id, record])
+  ).values()];
+  if (canonicalRecords.length) {
+    const result = await supabase.from("imported_records").upsert(canonicalRecords.map(connectedRecordPayload), { onConflict: "id" });
+    if (result.error) throw result.error;
+  }
+}
+
+async function loadConnectedDominion() {
+  const api = connectedApi();
+  if (!api) return;
+  connectedLoadState = { loading: true, remoteLoadFailed: false, authRequired: !session?.user?.id, localFallback: false };
+  mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: !session?.user?.id };
+  renderConnectedDominion();
+  try {
+    if (!session?.user?.id) throw new Error("Authentication required.");
+    const supabase = await getClient();
+    const [accountsResult, jobsResult, recordsResult] = await Promise.all([
+      supabase.from("connected_accounts").select("*").eq("user_id", session.user.id).order("created_at", { ascending: true }),
+      supabase.from("integration_sync_jobs").select("*").eq("user_id", session.user.id).order("requested_at", { ascending: false }),
+      supabase.from("imported_records").select("*").eq("user_id", session.user.id).order("occurred_at", { ascending: false })
+    ]);
+    const error = accountsResult.error || jobsResult.error || recordsResult.error;
+    if (error) throw error;
+    connectedAccounts = (accountsResult.data || []).map((item) => api.normalizeConnectedAccount(item));
+    connectedSyncJobs = (jobsResult.data || []).map((item) => api.normalizeSyncJob(item));
+    connectedImportedRecords = (recordsResult.data || []).map((item) => api.normalizeImportedRecord(item));
+    connectedStorageMode = "SUPABASE";
+    connectedLoadState = { loading: false, remoteLoadFailed: false, authRequired: false, localFallback: false };
+    writeConnectedLocal();
+  } catch (_) {
+    connectedAccounts = readConnectedLocal("connected-accounts", api.normalizeConnectedAccount);
+    connectedSyncJobs = readConnectedLocal("integration-sync-jobs", api.normalizeSyncJob);
+    connectedImportedRecords = readConnectedLocal("imported-records", api.normalizeImportedRecord);
+    connectedStorageMode = "LOCAL FALLBACK";
+    connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+  }
+  await loadMfpNutritionFeedState();
+  renderConnectedDominion();
+  prefillMorningRollCallForm(dailyState);
+}
+
+function connectedStatusPill(value) {
+  const status = escapeHtml(value || "UNKNOWN");
+  const tone = ["CONNECTED", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
+  return `<span class="state-pill ${tone}">${status}</span>`;
+}
+
+function setConnectedActiveView(view = "overview") {
+  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "apple_health", "privacy"];
+  connectedActiveView = allowed.includes(view) ? view : "overview";
+  document.querySelectorAll("[data-connected-view]").forEach((button) => {
+    const active = button.dataset.connectedView === connectedActiveView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = active ? 0 : -1;
+  });
+  allowed.forEach((code) => {
+    const panel = document.getElementById(`connected-view-${code}`);
+    if (panel) panel.hidden = code !== connectedActiveView;
+  });
+  writeConnectedLocal();
+}
+
+function renderImportJobSummary(job = {}) {
+  const summary = job.summary || {};
+  const readable = summary.idempotencyKey
+    ? `${summary.new || 0} new · ${summary.updated || 0} updated · ${job.duplicateCount || 0} duplicate · ${job.rejectedCount || 0} rejected`
+    : `${job.importedCount || 0} imported · ${job.duplicateCount || 0} duplicate · ${job.rejectedCount || 0} rejected · ${job.unmappedCount || 0} unmapped`;
+  const details = summary.idempotencyKey ? `<details><summary>Technical details</summary><pre>${escapeHtml(JSON.stringify({ fileChecksum: summary.fileChecksum, idempotencyKey: summary.idempotencyKey, repeatedBatch: summary.repeatedBatch, priorJobId: summary.priorJobId, parseErrors: summary.parseErrors }, null, 2))}</pre></details>` : "";
+  const rollback = !job.isDemo && summary.idempotencyKey && !summary.rolledBackAt ? `<button type="button" class="ghost" data-connected-action="rollback-import" data-job-id="${escapeHtml(job.id)}">Rollback batch</button>` : "";
+  return `<strong>${readable}</strong>${summary.repeatedBatch ? `<p class="muted">Exact file previously imported${summary.priorJobId ? ` in batch ${escapeHtml(summary.priorJobId)}` : ""}.</p>` : ""}${job.errorMessage ? `<p>${escapeHtml(job.errorMessage)}</p>` : ""}${details}${rollback}`;
+}
+
+function renderMfpNutritionFeedCard() {
+  const active = activeMfpNutritionFeedToken();
+  const account = mfpNutritionFeedAccount();
+  const latestEvent = mfpNutritionFeedEvents[0] || null;
+  const endpoint = mfpNutritionFeedEndpoint();
+  let status = "NOT CONFIGURED";
+  if (mfpNutritionFeedState.loading) status = "CHECKING";
+  else if (mfpNutritionFeedState.authRequired) status = "SIGN IN REQUIRED";
+  else if (mfpNutritionFeedState.migrationRequired) status = "MIGRATION REQUIRED";
+  else if (active && account?.connectionStatus === "CONNECTED") status = "CONNECTED";
+  else if (active) status = "READY FOR SHORTCUT";
+  const statusTone = status === "CONNECTED" ? "green" : ["READY FOR SHORTCUT", "MIGRATION REQUIRED"].includes(status) ? "yellow" : "neutral";
+  const template = typeof DominionNutritionFeed !== "undefined"
+    ? JSON.stringify(DominionNutritionFeed.buildShortcutTemplate(window.location.origin, mfpNutritionFeedSecret || "PASTE_FEED_KEY"), null, 2)
+    : "";
+  const secretPanel = mfpNutritionFeedSecret ? `<div class="nutrition-feed-secret">
+    <div><span>Private feed key · shown once</span><code>${escapeHtml(mfpNutritionFeedSecret)}</code></div>
+    <button type="button" data-connected-action="mfp-feed-copy-key">Copy key</button>
+  </div>` : active ? `<div class="connected-notice"><strong>Feed key ending ${escapeHtml(active.token_hint)}</strong><p>The full key is hidden. Rotate it only if you need to configure the Shortcut again.</p></div>` : "";
+  const eventText = latestEvent
+    ? `${escapeHtml(latestEvent.nutrition_date)} · ${escapeHtml(latestEvent.outcome)} · ${latestEvent.sample_count} Health sample(s)`
+    : "No nutrition delivery received yet.";
+  return `<article class="connected-detail-card nutrition-feed-card">
+    <header><div><span class="kicker">BUILD 015A // AUTOMATED NUTRITION FEED</span><h3>MyFitnessPal → Apple Health → Coach Dominion</h3><p>Daily calorie and macro totals without storing your MyFitnessPal password or raw food diary.</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
+    <div class="nutrition-feed-summary">
+      <div><span>Endpoint</span><strong>${escapeHtml(endpoint)}</strong></div>
+      <div><span>Last delivery</span><strong>${active?.last_used_at ? escapeHtml(new Date(active.last_used_at).toLocaleString()) : "Never"}</strong></div>
+      <div><span>Latest result</span><strong>${eventText}</strong></div>
+    </div>
+    ${secretPanel}
+    <div class="connected-actions nutrition-feed-actions">
+      ${mfpNutritionFeedState.available ? `<button type="button" data-connected-action="mfp-feed-create">${active ? "Rotate feed key" : "Create private feed key"}</button>` : ""}
+      <button type="button" class="ghost" data-connected-action="mfp-feed-copy-endpoint">Copy endpoint</button>
+      ${mfpNutritionFeedSecret ? '<button type="button" class="ghost" data-connected-action="mfp-feed-copy-template">Copy Shortcut payload</button><button type="button" class="ghost" data-connected-action="mfp-feed-test">Verify feed</button>' : ""}
+      ${active ? '<button type="button" class="danger" data-connected-action="mfp-feed-revoke">Revoke feed</button>' : ""}
+    </div>
+    ${mfpNutritionFeedState.migrationRequired ? '<div class="connected-notice"><strong>Setup dependency</strong><p>Apply Supabase migration 014 to enable revocable keys and automated ingestion. Manual CSV import remains available.</p></div>' : ""}
+    <details class="nutrition-feed-setup" ${mfpNutritionFeedSecret ? "open" : ""}>
+      <summary>One-time iPhone Shortcut setup <span>Four Health totals · one secure POST</span></summary>
+      <ol>
+        <li>In MyFitnessPal, enable HealthKit Sharing for Food so meal calories and supported nutrients are written to Apple Health.</li>
+        <li>In Shortcuts, sum today’s MyFitnessPal samples for Dietary Energy, Protein, Carbohydrates, and Total Fat.</li>
+        <li>Send those four totals to the endpoint above with an <code>Authorization: Bearer YOUR_FEED_KEY</code> header.</li>
+        <li>Create a daily Personal Automation after your final meal. Disable “Ask Before Running” if your iOS version permits it.</li>
+      </ol>
+      <p class="muted">MyFitnessPal does not send meal timestamps to Apple Health, so Coach Dominion intentionally treats this as one daily-total record.</p>
+      ${mfpNutritionFeedSecret ? `<pre>${escapeHtml(template)}</pre>` : ""}
+    </details>
+  </article>`;
+}
+
+function renderConnectedDominion() {
+  const api = connectedApi();
+  if (!api || typeof document === "undefined") return;
+  const overview = api.buildConnectedOverviewModel({ accounts: connectedAccounts, jobs: connectedSyncJobs, records: connectedImportedRecords, storageState: connectedStorageMode });
+  setText("connected-storage", connectedStorageMode);
+  setText("diagnostic-storage", connectedStorageMode);
+  const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "Fitbod and Apple Health file imports are active. MyFitnessPal can also deliver daily nutrition totals automatically through Apple Health and a private iPhone Shortcut.");
+  const overviewPanel = document.getElementById("connected-view-overview");
+  const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
+  const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
+  const latestHealthDate = latestDatedItem(api.summarizeAppleHealthByDate(connectedImportedRecords))?.date || "—";
+  if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
+    <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
+    <div><span>Recent sync</span><strong>${escapeHtml(overview.mostRecentSyncStatus)}</strong></div><div><span>Imported records</span><strong>${overview.importedRecordCount}</strong></div>
+    <div><span>Duplicates</span><strong>${overview.duplicateCount}</strong></div><div><span>Rejected</span><strong>${overview.rejectedCount}</strong></div>
+    <div><span>Unmapped</span><strong>${overview.unmappedCount}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div>
+  </div><div class="connected-summary-grid data-date-summary"><div><span>Latest Fitbod date</span><strong>${escapeHtml(latestFitbodDate)}</strong></div><div><span>Latest nutrition date</span><strong>${escapeHtml(latestNutritionDate)}</strong></div><div><span>Latest Apple Health date</span><strong>${escapeHtml(latestHealthDate)}</strong></div></div><div class="connected-notice"><strong>Date integrity:</strong> imported records remain available historically, but only evidence matching the active date is treated as current.</div>`;
+
+  const providerPanel = document.getElementById("connected-view-providers");
+  if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
+    const account = connectedAccounts.find((item) => item.providerCode === provider.providerCode && item.connectionStatus !== "DISCONNECTED");
+    const permissions = provider.supportedPermissions.map((permission) => `<label class="permission-option"><input type="checkbox" data-permission="${escapeHtml(permission)}" data-provider="${provider.providerCode}" checked> ${escapeHtml(permission.replaceAll("_", " "))}</label>`).join("");
+    const fitbodImport = provider.providerCode === "FITBOD" ? `<button type="button" data-connected-action="fitbod-import">Import Fitbod workout CSV</button>` : "";
+    const mfpImport = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-import">Import MyFitnessPal nutrition CSV</button>` : "";
+    const mfpFeed = provider.providerCode === "MYFITNESSPAL" ? `<button type="button" data-connected-action="mfp-feed-open">Set up automatic feed</button>` : "";
+    const appleHealthImport = provider.providerCode === "APPLE_HEALTH" ? `<button type="button" data-connected-action="apple-health-import">Import Apple Health export.xml</button>` : "";
+    const previewAction = account ? `<button type="button" class="ghost" data-connected-action="review-account" data-account-id="${account.id}">Review account</button>` : `<button type="button" class="ghost" data-connected-action="simulate" data-provider="${provider.providerCode}">Simulate ${escapeHtml(provider.displayName)} connection</button>`;
+    return `<article class="provider-card"><header><div><span class="kicker">${escapeHtml(provider.category)}</span><h3>${escapeHtml(provider.displayName)}</h3></div>${connectedStatusPill(provider.implementationStatus)}</header>
+      <p>${escapeHtml(provider.description)}</p><p class="muted">Planned data: ${escapeHtml(provider.supportedDataTypes.join(", "))}</p>
+      <fieldset><legend>Simulation permissions</legend>${permissions}</fieldset>
+      <div class="connected-actions">${fitbodImport}${mfpImport}${mfpFeed}${appleHealthImport}${previewAction}</div>
+    </article>`;
+  }).join("")}</div>`;
+
+  const accountsPanel = document.getElementById("connected-view-accounts");
+  if (accountsPanel) accountsPanel.innerHTML = connectedAccounts.length ? `<div class="connected-card-list">${connectedAccounts.map((account) => {
+    const jobs = connectedSyncJobs.filter((job) => job.connectedAccountId === account.id);
+    const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
+    const counts = api.summarizeSyncJob(records);
+    const connectionMode = account.metadata?.connection_mode || account.metadata?.connectionMode || "";
+    const accountKind = account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : connectionMode === "APPLE_HEALTH_SHORTCUT" ? "AUTOMATED · APPLE HEALTH SHORTCUT" : "USER FILE IMPORT";
+    const accountActions = account.isSimulated && account.connectionStatus === "CONNECTED"
+      ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>`
+      : connectionMode === "APPLE_HEALTH_SHORTCUT" ? `<button type="button" data-connected-action="mfp-feed-open">Review automatic feed</button>` : "";
+    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${accountKind}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
+      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
+      <div class="connected-actions">${accountActions}</div>
+    </article>`;
+  }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
+
+  const historyPanel = document.getElementById("connected-view-sync_history");
+  if (historyPanel) historyPanel.innerHTML = connectedSyncJobs.length ? `<div class="connected-table-wrap"><table class="connected-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th>Requested</th><th>Import integrity</th></tr></thead><tbody>${api.sortByDate(connectedSyncJobs, "requestedAt").map((job) => `<tr><td>${escapeHtml(job.providerCode)}<br><span class="demo-badge">${job.isDemo ? "DEMO" : "USER FILE"}</span></td><td>${escapeHtml(job.syncType)}</td><td>${connectedStatusPill(job.status)}${job.summary?.rolledBackAt ? `<br>${connectedStatusPill("ROLLED BACK")}` : ""}</td><td>${escapeHtml(job.requestedAt || "—")}</td><td>${renderImportJobSummary(job)}${job.status === "FAILED" && job.isDemo ? `<br><button type="button" class="ghost" data-connected-action="retry" data-job-id="${job.id}">Retry as new DEMO job</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="connected-empty">No sync history. Imports remain auditable after completion or failure.</div>`;
+
+  const recordsPanel = document.getElementById("connected-view-imported_records");
+  if (recordsPanel) recordsPanel.innerHTML = connectedImportedRecords.length ? `<div class="connected-card-list">${api.sortByDate(connectedImportedRecords, "occurredAt").map((record) => `<article class="import-record-card"><header><div><strong>${escapeHtml(record.providerCode)} · ${escapeHtml(record.dataType || record.providerRecordType)}</strong><p>${escapeHtml(record.occurredAt || "No occurred date")} · ${escapeHtml(record.timezone)}</p></div><span class="demo-badge">${record.isDemo ? "DEMO" : "PROVIDER"}</span></header><div class="record-status-row">${record.importClassification ? connectedStatusPill(record.importClassification) : ""}${connectedStatusPill(record.validationStatus)}${connectedStatusPill(record.importStatus)}</div><p>${escapeHtml(record.rejectionReason || (record.mappedPerformanceEntryId ? `Mapped to Performance entry ${record.mappedPerformanceEntryId}.` : "Retained for audit; no mapped destination."))}</p><details><summary>Source provenance</summary><pre>${escapeHtml(JSON.stringify(api.buildImportProvenance(record), null, 2))}</pre></details></article>`).join("")}</div>` : `<div class="connected-empty">No imported records. Unsupported health-only records will remain visible here as UNMAPPED.</div>`;
+
+  const reconciliationPanel = document.getElementById("connected-view-reconciliation");
+  if (reconciliationPanel) {
+    const sessions = api.groupFitbodWorkoutSessions(connectedImportedRecords);
+    const strengthTarget = document.getElementById("strength_target")?.value || "";
+    reconciliationPanel.innerHTML = sessions.length ? `<div class="connected-card-list">${sessions.map((session) => {
+      const review = api.reconcileFitbodWorkoutSession(session, strengthTarget);
+      const matchText = review.prescribedExerciseCount ? `${review.matchedExercises} of ${review.prescribedExerciseCount} prescribed exercises matched` : "Add a structured Strength target to enable matching";
+      const setsText = review.prescribedSets ? `${review.completedSets} of ${review.prescribedSets} prescribed sets (${review.setCompletionPercent}%)` : `${review.completedSets} completed sets logged`;
+      return `<article class="connected-detail-card fitbod-reconciliation-card">
+        <header><div><span class="kicker">FITBOD WORKOUT REVIEW</span><h3>${escapeHtml(session.workoutName)}</h3><p>${escapeHtml(session.date)}</p></div>${connectedStatusPill(review.recommendation)}</header>
+        <div class="connected-summary-grid"><div><span>Exercise match</span><strong>${escapeHtml(matchText)}</strong></div><div><span>Set completion</span><strong>${escapeHtml(setsText)}</strong></div><div><span>Exercises logged</span><strong>${review.completedExerciseCount}</strong></div><div><span>Training volume</span><strong>${Math.round(session.volume).toLocaleString()}</strong></div></div>
+        <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}.</p>
+        <ul>${session.exercises.map((exercise) => `<li>${escapeHtml(exercise.name)} — ${exercise.sets} set(s), ${exercise.reps} total reps</li>`).join("")}</ul>
+        ${review.substitutions.length && review.prescribedExerciseCount ? `<p class="muted">Unmatched or substituted: ${escapeHtml(review.substitutions.map((item) => item.name).join(", "))}</p>` : ""}
+        <div class="connected-actions"><button type="button" data-connected-action="apply-reconciliation" data-session-id="${escapeHtml(session.id)}" ${["UNMATCHED", "REVIEW_REQUIRED"].includes(review.recommendation) ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-strength-target">Review Strength target</button></div>
+      </article>`;
+    }).join("")}</div>` : `<div class="connected-empty">No Fitbod workout is ready for reconciliation. Import a Fitbod workout CSV first.</div>`;
+  }
+  const nutritionPanel = document.getElementById("connected-view-nutrition");
+  if (nutritionPanel) {
+    const days = api.aggregateNutritionByDate(connectedImportedRecords);
+    const nutritionTarget = document.getElementById("nutrition_target")?.value || "";
+    const nutritionDaysMarkup = days.length ? `<div class="connected-card-list">${days.map((day) => {
+      const review = api.reconcileNutritionDay(day, nutritionTarget);
+      const metricRows = [["Calories", day.calories, review.target.calories], ["Protein", day.protein, review.target.protein], ["Carbs", day.carbs, review.target.carbs], ["Fat", day.fat, review.target.fat]]
+        .map(([label, actual, goal]) => `<div><span>${label}</span><strong>${Math.round(actual)}${label === "Calories" ? "" : "g"}${goal ? ` / ${goal}${label === "Calories" ? "" : "g"}` : ""}</strong></div>`).join("");
+      return `<article class="connected-detail-card"><header><div><span class="kicker">MYFITNESSPAL DAILY REVIEW</span><h3>${escapeHtml(day.date)}</h3><p>${day.meals} meal-level row(s)</p></div>${connectedStatusPill(review.recommendation)}</header>
+        <div class="connected-summary-grid">${metricRows}</div>
+        <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}. ${review.targetCount ? `${review.withinCount} of ${review.targetCount} nutrition targets were within tolerance.` : "Add a Nutrition assigned target to enable reconciliation."}</p>
+        <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
+      </article>`;
+    }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
+    nutritionPanel.innerHTML = `${renderMfpNutritionFeedCard()}${nutritionDaysMarkup}`;
+  }
+  const appleHealthPanel = document.getElementById("connected-view-apple_health");
+  if (appleHealthPanel) {
+    const days = api.summarizeAppleHealthByDate(connectedImportedRecords);
+    appleHealthPanel.innerHTML = `<article class="connected-detail-card"><header><div><span class="kicker">BUILD 006E // APPLE HEALTH IMPORT</span><h3>Readiness evidence</h3><p>Upload the export.xml produced by Apple Health. Coach Dominion reads supported metrics only and never stores the raw XML file.</p></div>${connectedStatusPill(days.length ? "VALID" : "NOT_IMPORTED")}</header>
+      <div class="connected-actions"><button type="button" data-connected-action="apple-health-import">Choose Apple Health export.xml</button></div>
+      <p class="muted">Supported: daily steps, resting heart rate, HRV, body weight, and sleep analysis. Other health categories are ignored.</p>
+    </article>
+    ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODate() ? connectedStatusPill("TODAY") : ""}</header>
+      <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>HRV</span><strong>${day.heartRateVariability === null ? "—" : `${day.heartRateVariability} ms`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
+      ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
+    </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
+  }
+  renderDailyCoachingLoop();
+  renderBaselineIntelligence();
+  renderNutritionCommand();
+  renderDataTruth();
+  renderActivationGuide();
+  setConnectedActiveView(connectedActiveView);
+}
+
+function applyFitbodReconciliation(sessionId) {
+  const api = connectedApi();
+  const sessionReview = api?.groupFitbodWorkoutSessions(connectedImportedRecords).find((item) => item.id === sessionId);
+  const form = document.getElementById("compliance-form");
+  if (!api || !sessionReview || !form) return;
+  const review = api.reconcileFitbodWorkoutSession(sessionReview, form.elements.strength_target.value);
+  if (!["COMPLETE", "COMPLETE_WITH_MODIFICATION", "PARTIAL"].includes(review.recommendation)) return;
+  form.elements.strength_status.value = review.recommendation === "PARTIAL" ? "partial" : "completed";
+  form.elements.strength_actual.value = `${sessionReview.workoutName}: ${review.completedExerciseCount} exercises, ${review.completedSets} sets, ${Math.round(sessionReview.volume).toLocaleString()} volume.`;
+  form.elements.strength_note.value = `Fitbod reconciliation: ${review.matchedExercises}/${review.prescribedExerciseCount} exercises matched${review.setCompletionPercent === null ? "" : `; ${review.setCompletionPercent}% prescribed sets`}.`;
+  form.elements.strength_approved_modification.checked = review.recommendation === "COMPLETE_WITH_MODIFICATION";
+  if (review.recommendation === "COMPLETE_WITH_MODIFICATION") form.elements.strength_restriction.value = `Fitbod substitutions: ${review.substitutions.map((item) => item.name).join(", ")}.`;
+  setComplianceDirtyState();
+  renderComplianceScore(readComplianceForm());
+  setText("connected-feedback", "Fitbod recommendation applied to Strength Compliance. Review it, then save the Dominion Record.");
+  setActiveSection("record");
+  window.history.replaceState(null, "", "#record");
+}
+
+function applyNutritionReconciliation(date) {
+  const api = connectedApi(), form = document.getElementById("compliance-form");
+  const day = api?.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date);
+  if (!api || !form || !day) return;
+  const review = api.reconcileNutritionDay(day, form.elements.nutrition_target.value);
+  if (review.recommendation === "REVIEW_REQUIRED") return;
+  form.elements.nutrition_status.value = review.recommendation === "COMPLETE" ? "completed" : review.recommendation === "PARTIAL" ? "partial" : "missed";
+  form.elements.nutrition_actual.value = `${Math.round(day.calories)} calories; ${Math.round(day.protein)}g protein; ${Math.round(day.carbs)}g carbs; ${Math.round(day.fat)}g fat.`;
+  form.elements.nutrition_note.value = `MyFitnessPal reconciliation: ${review.withinCount}/${review.targetCount} targets within tolerance.`;
+  setComplianceDirtyState();
+  renderComplianceScore(readComplianceForm());
+  setText("connected-feedback", "MyFitnessPal recommendation applied to Nutrition Compliance. Review it, then save the Dominion Record.");
+  setActiveSection("record");
+  window.history.replaceState(null, "", "#record");
+}
+
+async function saveConnectedState(message, forceLocalFallback = false) {
+  writeConnectedLocal();
+  try {
+    await persistConnectedRemote();
+    connectedStorageMode = forceLocalFallback ? "LOCAL FALLBACK" : "SUPABASE";
+    connectedLoadState = { loading: false, remoteLoadFailed: forceLocalFallback, authRequired: false, localFallback: forceLocalFallback };
+  } catch (error) {
+    console.warn("Connected Dominion persistence failed.", error);
+    connectedStorageMode = "LOCAL FALLBACK";
+    connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+  }
+  renderConnectedDominion();
+  setText("connected-feedback", `${message} ${connectedStorageMode === "LOCAL FALLBACK" ? "Saved locally; remote storage did not report success." : "Saved to remote storage."}`);
+}
+
+async function simulateConnectedAccount(providerCode) {
+  const api = connectedApi(), definition = api?.getProviderDefinition(providerCode);
+  if (!definition) return;
+  const selected = Array.from(document.querySelectorAll(`input[data-provider="${providerCode}"][data-permission]:checked`)).map((input) => input.dataset.permission);
+  const check = api.validatePermissionSelection(providerCode, selected);
+  if (!check.valid) { setText("connected-feedback", "Unsupported permission selection rejected."); return; }
+  const now = new Date().toISOString();
+  const account = api.normalizeConnectedAccount({ userId: connectedUserId(), providerCode, providerDisplayName: definition.displayName, connectionStatus: "CONNECTED", permissions: check.permissions, externalAccountLabel: `${definition.displayName} demo account`, isSimulated: true, createdAt: now, updatedAt: now });
+  connectedAccounts = [account, ...connectedAccounts.filter((item) => !(item.providerCode === providerCode && item.connectionStatus !== "DISCONNECTED"))];
+  await saveConnectedState(`${definition.displayName} SIMULATED connection created. No external request occurred.`);
+}
+
+async function runConnectedDemoSync(accountId, syncType = "MANUAL", retryOf = null) {
+  const api = connectedApi(), account = connectedAccounts.find((item) => item.id === accountId && item.isSimulated);
+  if (!api || !account || account.connectionStatus !== "CONNECTED") return;
+  const requestedAt = new Date().toISOString();
+  let job = api.normalizeSyncJob({ userId: connectedUserId(), connectedAccountId: account.id, providerCode: account.providerCode, syncType, status: "QUEUED", requestedAt, createdAt: requestedAt, isDemo: true, summary: retryOf ? { retryOf } : {} });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const fixtures = api.createDemoRecords(account, job);
+  const processed = [];
+  const mappedEntries = [];
+  fixtures.forEach((fixture) => {
+    const reconciled = api.reconcileImportedRecord(fixture, [...connectedImportedRecords, ...processed]);
+    if (reconciled.importStatus === "DUPLICATE") { processed.push(reconciled); return; }
+    const mapping = api.mapImportedRecordToPerformanceEntry(reconciled, { permissions: account.permissions, normalizePerformanceEntry, validatePerformanceEntry });
+    processed.push(mapping.record);
+    if (mapping.entry && !performanceEntries.some((entry) => entry.id === mapping.entry.id)) mappedEntries.push(mapping.entry);
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  performanceEntries = [...mappedEntries, ...performanceEntries];
+  if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
+  const counts = api.summarizeSyncJob(processed);
+  const terminal = counts.rejected || counts.unmapped ? (counts.imported ? "PARTIAL" : "PARTIAL") : "SUCCEEDED";
+  job = api.transitionSyncJob({ ...job, importedCount: counts.imported, duplicateCount: counts.duplicate, rejectedCount: counts.rejected, unmappedCount: counts.unmapped, summary: counts }, terminal, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  const accountIndex = connectedAccounts.findIndex((item) => item.id === account.id);
+  connectedAccounts[accountIndex] = { ...account, lastAttemptedSyncAt: job.completedAt, lastSuccessfulSyncAt: ["SUCCEEDED", "PARTIAL"].includes(job.status) ? job.completedAt : account.lastSuccessfulSyncAt, lastSyncStatus: job.status, lastSyncErrorCode: job.errorCode, lastSyncErrorMessage: job.errorMessage, updatedAt: job.completedAt };
+  let performancePersistFailed = false;
+  if (mappedEntries.length) {
+    try {
+      const supabase = await getClient();
+      const { error } = await supabase.from("performance_entries").upsert(mappedEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())), { onConflict: "id" });
+      if (error) throw error;
+    } catch (error) {
+      console.warn("Fitbod performance persistence failed.", error);
+      performancePersistFailed = true;
+      connectedStorageMode = "LOCAL FALLBACK";
+      connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
+    }
+  }
+  await saveConnectedState(`Manual DEMO sync ${job.status}: ${counts.imported} imported, ${counts.duplicate} duplicate, ${counts.rejected} rejected, ${counts.unmapped} unmapped.`, performancePersistFailed);
+  renderPerformanceSection();
+}
+
+async function importFitbodWorkoutFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  setText("connected-feedback", "Reading Fitbod workout file…");
+  const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "FITBOD", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
+  let account = connectedAccounts.find((item) => item.providerCode === "FITBOD" && item.connectionStatus !== "DISCONNECTED");
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "FITBOD", providerDisplayName: "Fitbod",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_STRENGTH_WORKOUTS"],
+      externalAccountLabel: "User-controlled workout-file import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "FITBOD",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseFitbodWorkoutCsv(fileText, {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    importBatchId: job.id, fileChecksum: batch.fileChecksum,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  });
+  const processed = [], mappedEntries = [];
+  parsed.records.forEach((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords, ...processed]);
+    if (reconciled.importStatus === "DUPLICATE") { processed.push(reconciled); return; }
+    const mapping = api.mapImportedRecordToPerformanceEntry(reconciled, {
+      permissions: ["READ_STRENGTH_WORKOUTS"], normalizePerformanceEntry, validatePerformanceEntry
+    });
+    processed.push(mapping.record);
+    if (mapping.entry && !performanceEntries.some((entry) => entry.id === mapping.entry.id)) mappedEntries.push(mapping.entry);
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  performanceEntries = [...mappedEntries, ...performanceEntries];
+  if (mappedEntries.length) saveLocalPerformanceEntries(performanceEntries);
+  let performancePersistFailed = false;
+  const connectedPerformanceIds = new Set(
+    connectedImportedRecords.map((record) => record.mappedPerformanceEntryId).filter(Boolean)
+  );
+  const connectedPerformanceEntries = performanceEntries.filter((entry) => connectedPerformanceIds.has(entry.id));
+  if (connectedPerformanceEntries.length && session?.user?.id) {
+    try {
+      const supabase = await getClient();
+      const { error } = await supabase.from("performance_entries").upsert(
+        connectedPerformanceEntries.map((entry) => buildPerformancePersistencePayload(entry, connectedUserId())),
+        { onConflict: "id" }
+      );
+      if (error) throw error;
+    } catch (_) {
+      performancePersistFailed = true;
+    }
+  }
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "FITBOD_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Fitbod import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected.${batch.repeatedBatch ? " This exact file was imported before." : ""}`, performancePersistFailed);
+  renderPerformanceSection();
+}
+
+async function importMyFitnessPalNutritionFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  setText("connected-feedback", "Reading MyFitnessPal nutrition file…");
+  const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "MYFITNESSPAL", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
+  let account = connectedAccounts.find((item) => item.providerCode === "MYFITNESSPAL" && item.connectionStatus !== "DISCONNECTED");
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "MYFITNESSPAL", providerDisplayName: "MyFitnessPal",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_NUTRITION"],
+      externalAccountLabel: "User-controlled nutrition-file import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "MYFITNESSPAL",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseMyFitnessPalNutritionCsv(fileText, {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id,
+    importBatchId: job.id, fileChecksum: batch.fileChecksum,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "MFP_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, parseErrors: parsed.errors.length, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`MyFitnessPal import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected.${batch.repeatedBatch ? " This exact file was imported before." : ""}`);
+  setConnectedActiveView("nutrition");
+}
+
+async function importAppleHealthFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  if (file.size > 100 * 1024 * 1024) {
+    setText("connected-feedback", "Apple Health export.xml exceeds the 100 MB browser-import limit.");
+    return;
+  }
+  setText("connected-feedback", "Reading supported Apple Health evidence…");
+  const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "APPLE_HEALTH", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
+  let account = connectedAccounts.find((item) => item.providerCode === "APPLE_HEALTH" && item.connectionStatus !== "DISCONNECTED" && !item.isSimulated);
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "APPLE_HEALTH", providerDisplayName: "Apple Health",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"],
+      externalAccountLabel: "User-controlled export.xml import", isSimulated: false,
+      createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "APPLE_HEALTH",
+    syncType: "MANUAL", status: "QUEUED", requestedAt, createdAt: requestedAt,
+    isDemo: false, summary: { fileName: file.name, rawFileStored: false, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseAppleHealthExportXml(fileText, {
+    userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id, importBatchId: job.id, fileChecksum: batch.fileChecksum
+  });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, [...connectedImportedRecords]);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate,
+    rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "APPLE_HEALTH_FILE_INVALID" : null,
+    errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, supportedSourceRows: parsed.supportedCount, ignoredSourceRows: parsed.ignoredCount, rawFileStored: false, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Apple Health import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected; ${parsed.ignoredCount} unsupported row(s) ignored.${batch.repeatedBatch ? " This exact file was imported before." : ""}`);
+  setConnectedActiveView("apple_health");
+}
+
+async function applyAppleHealthReadiness() {
+  const api = connectedApi();
+  if (!api || !dailyState) return;
+  const day = api.summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === todayISODate());
+  if (!day) return;
+  const weight = day.weight === null ? dailyState.weight : /kg/i.test(day.weightUnit || "") ? Math.round(day.weight * 2.2046226218 * 10) / 10 : day.weight;
+  const payload = {
+    ...dailyState,
+    user_id: session.user.id,
+    date: todayISODate(),
+    sleep: day.sleep || dailyState.sleep,
+    weight,
+    steps: day.steps ?? dailyState.steps,
+    resting_heart_rate: day.restingHeartRate ?? dailyState.resting_heart_rate,
+    heart_rate_variability: day.heartRateVariability ?? dailyState.heart_rate_variability,
+    objective_metric_sources: {
+      ...(dailyState.objective_metric_sources || {}),
+      ...(day.weight !== null ? { weight: "APPLE_HEALTH" } : {}),
+      ...(day.restingHeartRate !== null ? { resting_heart_rate: "APPLE_HEALTH" } : {}),
+      ...(day.heartRateVariability !== null ? { heart_rate_variability: "APPLE_HEALTH" } : {})
+    },
+    objective_metrics_updated_at: new Date().toISOString()
+  };
+  payload.confidence = evaluateReadiness(payload).confidence;
+  const supabase = await getClient();
+  const { data, error } = await supabase.from("daily_state").upsert(payload, { onConflict: "user_id,date" }).select(DAILY_STATE_COLUMNS).single();
+  if (error) {
+    setText("connected-feedback", error.message);
+    return;
+  }
+  dailyState = data;
+  readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+  renderWarRoom(dailyState);
+  renderConnectedDominion();
+  setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
+}
+
+async function init() {
+  try {
+    setLoading(true);
+    applyProductPolish();
+    const supabase = await getClient();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) {
+      window.location.replace("/");
+      return;
+    }
+    session = data.session;
+    setText("identity", "Signed in as " + session.user.email);
+    loadTrendPreferences();
+    await flushMobilePendingWrites();
+    loadStandardsReviewState();
+    loadRankStatus();
+    loadPromotionHistory();
+    organizeWorkspaceSections();
+    restoreSectionFromHash();
+    await loadDailyState();
+    try { await loadCommandFeed(); } catch (_) { renderCommandFeed([]); }
+    await loadDailyCompliance();
+    document.getElementById("weekly-date").value = todayISODate();
+    await loadWeeklyInspection();
+    await loadRecruitContractState();
+    await loadRecruitOnboardingState();
+    await loadNutritionState();
+    await loadRunningState();
+    await loadCoreProgramState();
+    await loadClosedLoopState();
+    await loadPerformanceEntries();
+    await loadStrengthTrainingState();
+    await loadWeeklyOrchestrationState();
+    await loadSplitDayCheckpointState();
+    await loadConnectedDominion();
+    await loadTrendsAnalytics();
+    await syncDominionContinuity();
+    renderRecruitContract();
+    renderWeeklyOrchestrator();
+    renderTodayCommittedWeek();
+    renderActivationGuide();
+    renderTodayStandardsDuty();
+    renderRankSection();
+    renderAdaptiveCoaching();
+    renderMobileCommand();
+    resetPerformanceForm();
+    setPerformanceActiveView("overview");
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    setLoading(false);
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation();
+  }
+}
+
+if (typeof document !== "undefined") {
+  applyProductPolish();
+  registerMobileServiceWorker();
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    mobileInstallPrompt = event;
+    renderMobileInstallExperience();
+  });
+  window.addEventListener("appinstalled", () => {
+    mobileInstallPrompt = null;
+    setText("mobile-command-feedback", "Dominion is installed and ready from your Home Screen.");
+    renderMobileInstallExperience();
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-continuity-action]");
+    if (!button) return;
+    const action = button.dataset.continuityAction;
+    const dialog = document.getElementById("continuity-repair-dialog");
+    if (action === "open") {
+      renderDominionContinuity();
+      if (dialog?.showModal && !dialog.open) dialog.showModal();
+      return;
+    }
+    if (action === "sync") await syncDominionContinuity();
+    if (action === "keep-device") await repairDominionContinuity("DEVICE");
+    if (action === "keep-account") await repairDominionContinuity("ACCOUNT");
+  });
+  window.addEventListener("online", async () => {
+    renderMobileCommand();
+    const synced = await flushMobilePendingWrites();
+    await syncDominionContinuity();
+    setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
+  });
+  window.addEventListener("offline", () => {
+    renderMobileCommand();
+    setContinuityMode("OFFLINE", { initialized: true });
+    setText("mobile-command-feedback", "You’re offline. Today’s changes will stay on this device and sync automatically.");
+  });
+  document.getElementById("mobile-roll-call-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+    if (event.target.name === "energy") setText("mobile-energy-value", event.target.value);
+    if (event.target.name === "soreness") setText("mobile-soreness-value", event.target.value);
+  });
+  document.getElementById("mobile-nutrition-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+  });
+  document.getElementById("mobile-roll-call-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving…";
+    }
+    try {
+      const values = Object.fromEntries(new FormData(form));
+      const payload = DominionMobileCommand.normalizeRollCall(values, {
+        userId: session.user.id,
+        date: todayISODate(),
+        now: new Date().toISOString()
+      });
+      const result = await saveMorningRollCallPayload(payload, { mobile: true });
+      form.dataset.dirty = "false";
+      document.getElementById("mobile-roll-call-sheet").open = false;
+      setText("mobile-command-feedback", result.synced
+        ? "Roll Call saved. Today’s training guardrails are updated."
+        : "Roll Call saved offline. It will sync automatically.");
+      prefillMobileCommandForms(true);
+    } catch (error) {
+      setText("mobile-command-feedback", error?.message || "Roll Call could not be saved.");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Roll Call";
+      }
+      renderMobileCommand();
+    }
+  });
+  document.getElementById("mobile-nutrition-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving…";
+    }
+    try {
+      const record = DominionMobileCommand.normalizeNutrition(Object.fromEntries(new FormData(form)), {
+        date: todayISODate(),
+        now: new Date().toISOString()
+      });
+      window.localStorage.setItem(nutritionManualStorageKey(record.date), JSON.stringify(record));
+      enqueueMobileWrite("NUTRITION_MANUAL", record.date, record);
+      const synced = await persistNutritionState("MANUAL_DAY", record.date, record);
+      form.dataset.dirty = "false";
+      document.getElementById("mobile-nutrition-sheet").open = false;
+      renderNutritionCommand();
+      renderDailyCoachingLoop();
+      setText("mobile-command-feedback", synced
+        ? "Fuel totals saved and synced."
+        : "Fuel totals saved offline. They will sync automatically.");
+      prefillMobileCommandForms(true);
+    } catch (error) {
+      setText("mobile-command-feedback", error?.message || "Fuel totals could not be saved.");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Save Fuel Totals";
+      }
+      renderMobileCommand();
+    }
+  });
+  document.getElementById("mobile-command")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-mobile-action]");
+    if (!button) return;
+    const action = button.dataset.mobileAction;
+    if (action === "ROLL_CALL") openMobileCommandSheet("roll-call");
+    if (action === "NUTRITION") openMobileCommandSheet("nutrition");
+    if (action === "MODULE") await launchMobileModule(button.dataset.mobileModule || "strength");
+    if (action === "TRUTH") {
+      const truth = buildCurrentOperatingTruth();
+      const section = truth?.action?.section || "today";
+      if (truth?.action?.module && section === "performance") {
+        setPerformanceActiveView(truth.action.module === "running" ? "running" : truth.action.module === "core" ? "core" : "today_training");
+      }
+      setActiveSection(section);
+      window.history.replaceState(null, "", `#${section}`);
+    }
+    if (action === "TODAY") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+    }
+  });
+  document.getElementById("trends")?.addEventListener("click", (event) => {
+    const rangeButton = event.target.closest("button[data-trend-range]");
+    if (rangeButton && typeof DominionTrends !== "undefined") {
+      trendRangeDays = DominionTrends.normalizeRangeDays(rangeButton.dataset.trendRange);
+      saveTrendPreferences();
+      if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+      return;
+    }
+    const viewButton = event.target.closest("button[data-trend-view]");
+    if (viewButton) {
+      setTrendView(viewButton.dataset.trendView);
+      return;
+    }
+    const metricButton = event.target.closest("button[data-trend-metric]");
+    if (metricButton) {
+      trendActiveMetric = metricButton.dataset.trendMetric;
+      saveTrendPreferences();
+      renderTrendPrimaryChart();
+    }
+  });
+  document.getElementById("one-command-primary")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try { await runOneCommandAction(button); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("one-command-secondary")?.addEventListener("click", () => {
+    const context = document.getElementById("one-command-context");
+    const button = document.getElementById("one-command-secondary");
+    if (!context || !button) return;
+    context.open = !context.open;
+    button.setAttribute("aria-expanded", context.open ? "true" : "false");
+    if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  document.getElementById("activation-repair")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-activation-repair-action]");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      await runActivationRepairAction(
+        button.dataset.activationRepairAction || "RETRY",
+        button.dataset.activationRepairModule || ""
+      );
+    } catch (error) {
+      setText("activation-repair-feedback", error?.message || "That repair step could not be completed.");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  document.getElementById("today-committed-week-panel")?.addEventListener("click", async (event) => {
+    const fuelButton = event.target.closest("button[data-two-a-day-action='fuel']");
+    if (fuelButton) {
+      openMobileCommandSheet("nutrition");
+      return;
+    }
+    const sessionButton = event.target.closest("button[data-today-session-module]");
+    if (!sessionButton || sessionButton.disabled) return;
+    if (Number(sessionButton.dataset.todaySessionOrder || 1) > 1) {
+      const gate = currentSplitDayCommand();
+      if (!gate.allowed) {
+        setText("mobile-command-feedback", gate.blockers?.[0] || "Complete the between-session checkpoint before the PM session.");
+        document.querySelector("[data-split-day-checkpoint]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+    sessionButton.disabled = true;
+    try {
+      await launchMobileModule(sessionButton.dataset.todaySessionModule || "strength");
+    } finally {
+      renderTodayCommittedWeek();
+    }
+  });
+  document.getElementById("today-committed-week-panel")?.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form[data-split-day-checkpoint]");
+    if (!form || typeof DominionSplitDayCommand === "undefined") return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const week = readCommittedUnifiedWeek();
+      const day = week ? DominionWeeklyOrchestrator.dayForDate(week, todayISODate()) : null;
+      const windows = splitDayTrainingWindows(day || {});
+      const sequence = windows.map((window) => window.items.find((item) => !item.tertiary) || window.items[0]).filter(Boolean);
+      const firstExecution = todayTrainingWindowExecution(windows[0]);
+      const payload = DominionSplitDayCommand.createCheckpoint(Object.fromEntries(new FormData(form).entries()), {
+        date: day?.date || todayISODate(),
+        weekId: week?.id || null,
+        weekRevision: week?.revision || 0,
+        sessionOneActivityId: sequence[0]?.activityId || sequence[0]?.id || null,
+        sessionOneCompletedAt: firstExecution?.completedAt || null,
+        recordedAt: new Date().toISOString()
+      });
+      saveSplitDayCheckpointLocal(payload);
+      const synced = await persistSplitDayCheckpoint(payload);
+      splitDayStorageMode = synced ? "REMOTE" : "LOCAL";
+      renderTodayCommittedWeek();
+      const gate = currentSplitDayCommand();
+      setText("mobile-command-feedback", gate.allowed
+        ? "Midday checkpoint saved. The PM session is cleared."
+        : `${gate.blockers?.[0] || "Checkpoint saved."}${synced ? " Account synced." : " Saved on this device."}`);
+    } catch (error) {
+      setText("mobile-command-feedback", error?.message || "The between-session checkpoint could not be saved.");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+  document.getElementById("mobile-command-dock")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mobile-nav]");
+    if (!button) return;
+    event.preventDefault();
+    const action = button.dataset.mobileNav;
+    if (action === "roll-call") return openMobileCommandSheet("roll-call");
+    if (action === "fuel") return openMobileCommandSheet("nutrition");
+    if (action === "train") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("mobile-command-modules")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const section = action === "contract" ? "contract" : action === "calendar" ? "calendar" : "today";
+    setActiveSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+  });
+  document.getElementById("mobile-install")?.addEventListener("click", requestMobileInstall);
+  initializeComplianceForm();
+  document.getElementById("recruit-contract-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const draft = await saveRecruitContractDraftForNavigation();
+    if (!draft) return;
+    routeRecruitContractReview(draft);
+  });
+  document.getElementById("recruit-contract-form")?.addEventListener("input", queueRecruitContractAutosave);
+  document.querySelector('#recruit-contract-form [name="runningDaysPerWeek"]')?.addEventListener("change", (event) => {
+    renderRecruitContractSetupStep();
+  });
+  document.querySelector('#recruit-contract-form [name="trainingYears"]')?.addEventListener("input", (event) => {
+    renderContractAthleteType(event.currentTarget.value);
+  });
+  document.querySelector('#recruit-contract-form [name="heightUnit"]')?.addEventListener("change", (event) => {
+    const height = event.currentTarget.form?.elements.namedItem("heightValue");
+    if (!height) return;
+    const centimeters = event.currentTarget.value === "cm";
+    height.min = centimeters ? "120" : "47";
+    height.max = centimeters ? "230" : "91";
+    height.placeholder = centimeters ? "175" : "69";
+  });
+  document.getElementById("contract-delete-confirmation")?.addEventListener("input", (event) => {
+    const confirm = document.getElementById("contract-delete-confirm");
+    if (confirm) confirm.disabled = event.currentTarget.value.trim().toUpperCase() !== "DELETE";
+  });
+  document.getElementById("contract")?.addEventListener("submit", async (event) => {
+    if (event.target.id !== "first-week-profile-form" || typeof DominionFirstWeekOrientation === "undefined") return;
+    event.preventDefault();
+    try {
+      const orientation = currentRecruitOrientation();
+      const updated = DominionFirstWeekOrientation.transition(
+        orientation,
+        "SAVE_PROFILE",
+        Object.fromEntries(new FormData(event.target).entries()),
+        { now: new Date().toISOString() }
+      );
+      saveRecruitOnboardingLocal(updated);
+      const synced = await persistRecruitOnboardingState(updated);
+      renderFirstWeekOrientation();
+      setText("first-week-orientation-feedback", `Recruit profile saved${synced ? " to your account" : " on this device"}. Atlas classified the training history and opened the daily-rhythm briefing.`);
+    } catch (error) {
+      setText("first-week-orientation-feedback", error?.message || "The recruit profile could not be saved.");
+    }
+  });
+  document.getElementById("calendar")?.addEventListener("change", async (event) => {
+    const control = event.target.closest("select[data-calendar-move-activity]");
+    if (!control || typeof DominionWeeklyOrchestrator === "undefined") return;
+    control.disabled = true;
+    try {
+      const draft = readUnifiedWeekDraft();
+      if (!draft) throw new Error("Build a draft week before moving assignments.");
+      const edited = DominionWeeklyOrchestrator.moveDraftActivity(draft, control.dataset.calendarMoveActivity, control.value);
+      saveWeeklyOrchestrationLocal("DRAFT", "current", edited);
+      const synced = await persistWeeklyOrchestrationState("DRAFT", "current", edited);
+      renderWeeklyOrchestrator();
+      renderContractActivation();
+      setText("weekly-orchestrator-feedback", `Assignment moved. Calendar logic recalculated${synced ? " and synced to your account" : " on this device"}.`);
+    } catch (error) {
+      renderWeeklyOrchestrator();
+      setText("weekly-orchestrator-feedback", error?.message || "That calendar edit could not be saved.");
+    }
+  });
+  document.getElementById("app-content")?.addEventListener("click", async (event) => {
+    const experienceButton = event.target.closest("button[data-contract-experience-action]");
+    if (experienceButton && typeof DominionContractExperience !== "undefined") {
+      const action = experienceButton.dataset.contractExperienceAction;
+      if (action === "setup-back") {
+        recruitContractSetupStep = Math.max(0, recruitContractSetupStep - 1);
+        renderRecruitContractSetupStep();
+        document.querySelector(`#recruit-contract-form [data-contract-form-step="${recruitContractSetupStep}"] input, #recruit-contract-form [data-contract-form-step="${recruitContractSetupStep}"] select`)?.focus();
+        return;
+      }
+      if (action === "setup-next") {
+        const draft = await saveRecruitContractDraftForNavigation();
+        if (!draft) return;
+        if (recruitContractSetupStep < 3) {
+          recruitContractSetupStep += 1;
+          renderRecruitContractSetupStep();
+          document.querySelector(`#recruit-contract-form [data-contract-form-step="${recruitContractSetupStep}"] input, #recruit-contract-form [data-contract-form-step="${recruitContractSetupStep}"] select`)?.focus();
+          return;
+        }
+        if (recruitContractSetupStep === 3) {
+          document.getElementById("recruit-contract-form")?.requestSubmit();
+          return;
+        }
+        routeRecruitContractReview(draft);
+        return;
+      }
+      if (action === "review-amendment") {
+        const draft = await saveRecruitContractDraftForNavigation();
+        if (!draft) return;
+        routeRecruitContractReview(draft, {
+          readyMessage: `Contract ${readApprovedRecruitContract()?.revision || "current"} is still active. Sign the replacement below to update the calendar.`
+        });
+        return;
+      }
+      if (action === "sign-request") {
+        const signerName = document.getElementById("contract-signer-name")?.value || "";
+        const accepted = document.getElementById("contract-signature-accepted")?.checked === true;
+        const validation = DominionContractExperience.validateSignature({ signerName, accepted });
+        if (!validation.valid) {
+          setText("recruit-contract-feedback", validation.errors[0]);
+          if (signerName.trim().length < 2) document.getElementById("contract-signer-name")?.focus();
+          else document.getElementById("contract-signature-accepted")?.focus();
+          return;
+        }
+        const current = readRecruitContractDraft() || readApprovedRecruitContract();
+        setText("contract-signing-dialog-summary", `${validation.signerName}, you are signing the commitment to ${current?.target || "the Dominion standard"}, effective ${current?.effectiveDate || todayISODate()}.`);
+        const dialog = document.getElementById("contract-signing-dialog");
+        if (dialog?.showModal) dialog.showModal();
+        return;
+      }
+      if (action === "sign-confirm") {
+        event.preventDefault();
+        experienceButton.disabled = true;
+        const previousLabel = experienceButton.textContent;
+        experienceButton.textContent = "Signing Contract…";
+        const completed = await signRecruitContractFromCeremony();
+        experienceButton.disabled = false;
+        experienceButton.textContent = previousLabel;
+        if (completed) document.getElementById("contract-signing-dialog")?.close("confirm");
+        return;
+      }
+      if (action === "amend") {
+        const approved = readApprovedRecruitContract();
+        if (!approved) return;
+        const draft = DominionRecruitContract.buildRecruitContractAmendment(approved, {}, readRecruitOnboardingState()?.profile || {}, {
+          today: todayISODate(),
+          createdAt: new Date().toISOString()
+        });
+        saveRecruitContractLocal("DRAFT", draft);
+        await persistRecruitContractState("DRAFT", draft);
+        recruitContractSetupStep = 0;
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = true;
+        renderRecruitContract();
+        document.querySelector('#recruit-contract-form [name="primaryGoal"]')?.focus({ preventScroll: true });
+        document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setText("recruit-contract-feedback", `Amending revision ${approved.revision}. The signed Contract and active plans remain unchanged until you sign a replacement.`);
+        return;
+      }
+    }
+    const lifecycleButton = event.target.closest("button[data-contract-lifecycle-action]");
+    if (lifecycleButton) {
+      const action = lifecycleButton.dataset.contractLifecycleAction;
+      if (action === "new-contract") {
+        await clearRecruitContractState("DRAFT");
+        recruitContractSetupStep = 0;
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) {
+          editor.open = true;
+          editor.dataset.focusInitialized = "true";
+        }
+        hydrateRecruitContractForm(DominionRecruitContract.defaultContract({ today: todayISODate() }));
+        document.querySelector('#recruit-contract-form [name="age"]')?.focus({ preventScroll: true });
+        editor?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (action === "open-orientation") {
+        document.getElementById("first-week-orientation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (action === "delete-request") {
+        const approved = readApprovedRecruitContract();
+        if (!approved) return;
+        setText("contract-delete-dialog-summary", `Contract ${approved.revision} — ${approved.target} — will be retired. Completed weeks, evidence, and inspection history remain preserved.`);
+        const input = document.getElementById("contract-delete-confirmation");
+        if (input) input.value = "";
+        const confirm = document.getElementById("contract-delete-confirm");
+        if (confirm) confirm.disabled = true;
+        const dialog = document.getElementById("contract-delete-dialog");
+        if (dialog?.showModal) dialog.showModal();
+        return;
+      }
+      if (action === "delete-confirm") {
+        const input = document.getElementById("contract-delete-confirmation");
+        if (input?.value.trim().toUpperCase() !== "DELETE") return;
+        lifecycleButton.disabled = true;
+        await retireActiveRecruitContract();
+        document.getElementById("contract-delete-dialog")?.close();
+        return;
+      }
+    }
+    const orientationButton = event.target.closest("button[data-first-week-action]");
+    if (orientationButton && typeof DominionFirstWeekOrientation !== "undefined") {
+      try {
+        const action = orientationButton.dataset.firstWeekAction;
+        const transitions = {
+          "acknowledge-rhythm": "ACKNOWLEDGE_RHYTHM",
+          "acknowledge-baseline": "ACKNOWLEDGE_BASELINE",
+          launch: "COMPLETE"
+        };
+        const updated = DominionFirstWeekOrientation.transition(currentRecruitOrientation(), transitions[action], {}, { now: new Date().toISOString() });
+        saveRecruitOnboardingLocal(updated);
+        await persistRecruitOnboardingState(updated);
+        renderFirstWeekOrientation();
+        if (action === "launch") {
+          await stageRecruitContractPlans();
+          renderRecruitContract();
+          setText("first-week-orientation-feedback", "Orientation complete. Week One plan drafts are staged for deliberate review and approval.");
+        } else {
+          setText("first-week-orientation-feedback", action === "acknowledge-rhythm" ? "Daily rhythm acknowledged. Baseline-week protocol is next." : "Baseline protocol protected. Review the Week One launch order.");
+        }
+      } catch (error) {
+        setText("first-week-orientation-feedback", error?.message || "First Week Orientation could not advance.");
+      }
+      return;
+    }
+    const weekButton = event.target.closest("button[data-weekly-orchestrator-action]");
+    if (weekButton && typeof DominionWeeklyOrchestrator !== "undefined") {
+      const action = weekButton.dataset.weeklyOrchestratorAction;
+      if (action === "amend-two-a-days") {
+        const approved = readApprovedRecruitContract();
+        if (!approved || typeof DominionRecruitContract === "undefined") return;
+        const existingDraft = readRecruitContractDraft();
+        if (!existingDraft) {
+          const draft = DominionRecruitContract.buildRecruitContract(approved, {
+            today: todayISODate(),
+            createdAt: new Date().toISOString()
+          });
+          saveRecruitContractLocal("DRAFT", draft);
+          await persistRecruitContractState("DRAFT", draft);
+        }
+        recruitContractSetupStep = 2;
+        setActiveSection("contract");
+        window.history.replaceState(null, "", "#contract");
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = true;
+        renderRecruitContract();
+        document.querySelector('#recruit-contract-form [name="twoADays"]')?.focus({ preventScroll: true });
+        document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setText("recruit-contract-feedback", "Two-a-Days are currently OFF. Enable them deliberately, review the 121–240 minute AM/PM capacity, and sign the replacement Contract.");
+        return;
+      }
+      if (["build", "rebuild"].includes(action)) {
+        const requested = document.getElementById("weekly-orchestrator-week-start")?.value || unifiedWeekTargetStart();
+        const weekStart = DominionWeeklyOrchestrator.weekStartIso(requested);
+        const active = readCommittedUnifiedWeek(todayISODate());
+        if (active?.weekStart === weekStart && DominionWeeklyOrchestrator.weekState(active, todayISODate()) === "ACTIVE") {
+          setText("weekly-orchestrator-feedback", `The active week is protected. Build the next week beginning ${DominionWeeklyOrchestrator.addDays(active.weekStart, 7)}.`);
+          return;
+        }
+        const draft = await saveUnifiedWeekDraftForActivation(weekStart);
+        if (!draft) return;
+        setText("weekly-orchestrator-feedback", `${draft.message} Draft saved for review.`);
+        setText("contract-activation-feedback", `${draft.message} Draft saved for review.`);
+        return;
+      }
+      if (action === "discard") {
+        await clearWeeklyOrchestrationDraft();
+        renderWeeklyOrchestrator();
+        renderContractActivation();
+        setText("weekly-orchestrator-feedback", "Weekly draft discarded. Every committed week remains unchanged.");
+        return;
+      }
+      if (action === "commit") {
+        try {
+          await commitUnifiedWeekDraft();
+        } catch (error) {
+          setText("weekly-orchestrator-feedback", error?.message || "The complete week could not be committed.");
+          setText("contract-activation-feedback", error?.message || "The complete week could not be committed.");
+        }
+        return;
+      }
+    }
+    const integrityButton = event.target.closest("button[data-contract-integrity-action]");
+    if (integrityButton && typeof DominionContractIntegrity !== "undefined") {
+      const integrityAction = integrityButton.dataset.contractIntegrityAction;
+      if (integrityAction === "open-calendar") {
+        document.querySelector("#contract > .weekly-orchestrator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setText("contract-activation-feedback", "The calendar below shows the Contract revision stamp and every staged AM/PM assignment.");
+        return;
+      }
+      if (integrityAction === "repair") {
+        integrityButton.disabled = true;
+        const previousLabel = integrityButton.textContent;
+        integrityButton.textContent = "Repairing handoff…";
+        setText("recruit-contract-feedback", "Rebuilding the coordinated calendar from the signed Contract…");
+        try {
+          const result = await repairContractCalendarIntegrity();
+          renderRecruitContract();
+          const repaired = result.integrity && !result.integrity.repairRequired;
+          setText("recruit-contract-feedback", repaired
+            ? `Calendar repaired. Contract ${result.contract.revision} now matches the ${result.integrity.status === "ACTIVE" ? "committed" : "staged"} calendar revision.`
+            : "The signed Contract remains active, but the calendar still needs its plan inputs reviewed before the handoff can complete.");
+        } catch (error) {
+          setText("recruit-contract-feedback", error?.message || "Calendar repair could not finish. The signed Contract remains active.");
+          integrityButton.disabled = false;
+          integrityButton.textContent = previousLabel;
+        }
+        return;
+      }
+    }
+    const activationButton = event.target.closest("button[data-contract-activation-action]");
+    if (activationButton && typeof DominionContractActivation !== "undefined") {
+      const activationAction = activationButton.dataset.contractActivationAction;
+      if (activationAction === "EDIT_CONTRACT") {
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = true;
+        document.querySelector('#recruit-contract-form [name="target"]')?.focus({ preventScroll: true });
+        document.getElementById("recruit-contract-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (activationAction === "STAGE_DRAFTS") {
+        await stageRecruitContractPlans();
+        renderContractActivation();
+        setText("contract-activation-feedback", "Plan updates are staged. Review and approve each draft; the current plans remain active until then.");
+        return;
+      }
+      if (activationAction === "OPEN_MODULE") {
+        openContractActivationModule(activationButton.dataset.contractActivationModule);
+        return;
+      }
+      if (activationAction === "BUILD_WEEK") {
+        const active = readCommittedUnifiedWeek(todayISODate());
+        const weekStart = active
+          ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+          : unifiedWeekTargetStart();
+        const draft = await saveUnifiedWeekDraftForActivation(weekStart);
+        setText("contract-activation-feedback", draft?.approvalBlocked
+          ? "The week was rebuilt, but an activation requirement still needs attention."
+          : "Coordinated week built. Review the calendar, then commit it deliberately.");
+        return;
+      }
+      if (activationAction === "COMMIT_WEEK") {
+        try {
+          await commitUnifiedWeekDraft();
+        } catch (error) {
+          setText("contract-activation-feedback", error?.message || "The coordinated week could not be committed.");
+        }
+        return;
+      }
+      if (activationAction === "OPEN_TODAY") {
+        setActiveSection("today");
+        window.history.replaceState(null, "", "#today");
+        document.getElementById("today")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+    const button = event.target.closest("button[data-recruit-contract-action]");
+    if (!button || typeof DominionRecruitContract === "undefined") return;
+    const action = button.dataset.recruitContractAction;
+    if (action === "nutrition-plan") {
+      setNutritionActiveView("plan");
+      setActiveSection("nutrition");
+      window.history.replaceState(null, "", "#nutrition");
+      document.querySelector('[data-nutrition-view-panel="plan"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "restore") {
+      await clearRecruitContractState("DRAFT");
+      recruitContractSetupStep = 0;
+      const editor = document.getElementById("recruit-contract-editor");
+      if (editor) editor.open = !readApprovedRecruitContract();
+      renderRecruitContract();
+      setText("recruit-contract-feedback", readApprovedRecruitContract()
+        ? "Approved contract restored. No module plan changed."
+        : "Draft cleared. No approved contract exists yet.");
+      return;
+    }
+    if (action === "approve") {
+      try {
+        const draft = readRecruitContractDraft();
+        const previous = readRecruitContractState("APPROVED", null);
+        const approved = DominionRecruitContract.approveRecruitContract(draft || {}, previous, {
+          today: todayISODate(),
+          approvedAt: new Date().toISOString()
+        });
+        const history = [approved, ...readRecruitContractHistory().filter((item) => item.id !== approved.id)].slice(0, 24);
+        saveRecruitContractLocal("APPROVED", approved);
+        saveRecruitContractLocal("HISTORY", history);
+        const synced = await persistRecruitContractState("APPROVED", approved);
+        await persistRecruitContractState("HISTORY", history);
+        await clearRecruitContractState("DRAFT");
+        await refreshUnifiedWeekDraftForPlans();
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = false;
+        renderRecruitContract();
+        renderActivationGuide();
+        renderTodayStandardsDuty();
+        setText("recruit-contract-feedback", `Recruit Contract revision ${approved.revision} approved${synced ? " and saved to your account" : " on this device"}. Active module plans remain unchanged.`);
+      } catch (error) {
+        setText("recruit-contract-feedback", error?.message || "The Recruit Contract could not be approved.");
+      }
+      return;
+    }
+    if (action === "stage") {
+      await stageRecruitContractPlans();
+      return;
+    }
+    if (action === "edit") {
+      const editor = document.getElementById("recruit-contract-editor");
+      if (editor) editor.open = true;
+      document.querySelector('#recruit-contract-form [name="target"]')?.focus({ preventScroll: true });
+      document.getElementById("recruit-contract-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setText("recruit-contract-feedback", "Edit the commitment, then choose Review contract. The approved revision stays active until a replacement is approved.");
+    }
+  });
+  document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
+  document.getElementById("compliance-form").addEventListener("submit", saveDailyCompliance);
+  document.getElementById("compliance-form").addEventListener("input", () => {
+    renderComplianceScore(readComplianceForm());
+    setComplianceDirtyState(readComplianceForm());
+    updateComplianceStatusMessage();
+  });
+  document.getElementById("inspect-week").addEventListener("click", loadWeeklyInspection);
+  document.getElementById("weekly-date").addEventListener("change", loadWeeklyInspection);
+  document.getElementById("finalize-week").addEventListener("click", finalizeWeeklyInspection);
+  document.getElementById("weekly-plan-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-weekly-plan-action]");
+    if (button?.dataset.weeklyPlanAction === "approve") approveCurrentWeeklyPlan();
+  });
+  document.getElementById("nutrition-manual-form")?.addEventListener("submit", saveManualNutrition);
+  document.querySelectorAll("[data-nutrition-view]").forEach((button) => {
+    button.addEventListener("click", () => setNutritionActiveView(button.dataset.nutritionView));
+  });
+  document.getElementById("nutrition-next-action")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-next-action]");
+    if (!button) return;
+    setNutritionActiveView(button.dataset.nutritionNextAction);
+    document.querySelector(`[data-nutrition-view-panel="${button.dataset.nutritionNextAction}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
+  document.getElementById("nutrition-baseline-form")?.addEventListener("submit", reviewNutritionBaseline);
+  document.getElementById("nutrition-baseline-output")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-nutrition-baseline-action]");
+    if (!button) return;
+    if (button.dataset.nutritionBaselineAction === "approve") await approveNutritionBaselineDraft();
+    if (button.dataset.nutritionBaselineAction === "cancel") {
+      nutritionBaselineDraft = null;
+      renderNutritionBaseline();
+      setText("nutrition-baseline-feedback", "Draft discarded. No approved baseline changed.");
+    }
+  });
+  document.getElementById("nutrition-review-output")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-nutrition-review-action]");
+    if (button?.dataset.nutritionReviewAction === "approve") await approveCurrentNutritionReview();
+  });
+  document.getElementById("meal-training-window")?.addEventListener("change", async (event) => {
+    window.localStorage.setItem(mealTrainingWindowStorageKey(), event.currentTarget.value);
+    const synced = await persistNutritionState("MEAL_WINDOW", "current", { window: event.currentTarget.value });
+    renderMealCoaching();
+    renderTodayNutritionExecution();
+    setText("meal-coaching-feedback", `Training window saved${synced ? " to your account" : " locally"}. Approved daily targets were not changed.`);
+  });
+  document.getElementById("adaptive-fueling-goal")?.addEventListener("change", async (event) => {
+    window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), event.currentTarget.value);
+    const synced = await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: event.currentTarget.value });
+    renderNutritionCommand();
+    setText("adaptive-fueling-feedback", `Goal updated${synced ? " and saved to your account" : " locally"}. No target change has been approved.`);
+  });
+  document.getElementById("adaptive-fueling-output")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-adaptive-fueling-action]");
+    if (button?.dataset.adaptiveFuelingAction !== "approve" || typeof DominionAdaptiveFueling === "undefined") return;
+    try {
+      const proposal = buildCurrentAdaptiveFuelingProposal();
+      const approved = DominionAdaptiveFueling.approveAdaptiveFuelingProposal(proposal);
+      window.localStorage.setItem(adaptiveFuelingStorageKey(approved.goal), JSON.stringify(approved));
+      const synced = await persistNutritionState("ADAPTIVE_APPROVAL", approved.goal, approved);
+      renderNutritionCommand();
+      setText("adaptive-fueling-feedback", `Fueling variant approved${synced ? " and saved to your account" : " locally"}. The Dominion Record target was not changed.`);
+    } catch (error) {
+      setText("adaptive-fueling-feedback", error.message);
+    }
+  });
+  document.getElementById("nutrition-command-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nutrition-command-action]");
+    if (!button) return;
+    if (button.dataset.nutritionCommandAction === "review-targets") {
+      setNutritionActiveView("plan");
+      document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (button.dataset.nutritionCommandAction === "open-import") {
+      setActiveSection("connected");
+      window.history.replaceState(null, "", "#connected");
+      setConnectedActiveView("providers");
+    }
+  });
+  document.getElementById("today-nutrition-card")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-today-nutrition-action]");
+    if (!button) return;
+    const action = button.dataset.todayNutritionAction;
+    if (action === "troubleshoot-sync") {
+      setActiveSection("connected");
+      window.history.replaceState(null, "", "#connected");
+      setConnectedActiveView("nutrition");
+      document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setActiveSection("nutrition");
+    window.history.replaceState(null, "", "#nutrition");
+    if (action === "set-baseline" || action === "review-targets") {
+      setNutritionActiveView("plan");
+      document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "log-intake") {
+      setNutritionActiveView("details");
+      document.querySelector('#nutrition-manual-form [name="calories"]')?.focus({ preventScroll: true });
+      document.getElementById("nutrition-manual-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setNutritionActiveView("today");
+    document.querySelector('[data-nutrition-view-panel="today"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  document.getElementById("today-recovery-card")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-today-recovery-action]");
+    if (!button) return;
+    const action = button.dataset.todayRecoveryAction;
+    if (action === "complete") {
+      saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
+      renderDailyCoachingLoop();
+      setText("today-recovery-feedback", "Recovery action recorded. Today's evidence and Daily Seal are updated.");
+      return;
+    }
+    if (action === "undo") {
+      saveDailyExecutionQueueState({ recoveryComplete: false, recoveryCompletedAt: null });
+      renderDailyCoachingLoop();
+      setText("today-recovery-feedback", "Recovery completion reopened for today.");
+      return;
+    }
+    if (action === "roll-call") {
+      document.getElementById("roll-call-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelector('#roll-call-form [name="energy"]')?.focus({ preventScroll: true });
+      return;
+    }
+    if (action === "review") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("recovery");
+      renderRecoveryReview();
+    }
+  });
+  restoreNutritionActiveView();
+  document.getElementById("performance-form").addEventListener("submit", savePerformanceEntry);
+  document.getElementById("performance-reset").addEventListener("click", resetPerformanceForm);
+  document.getElementById("performance-domain").addEventListener("change", () => { populatePerformanceActivityOptions(document.getElementById("performance-domain").value); refreshPerformanceFieldVisibility(); });
+  document.getElementById("performance-entry-type").addEventListener("change", refreshPerformanceFieldVisibility);
+  const fitnessStartButton = document.getElementById("fitness-start-new-test");
+  if (fitnessStartButton) {
+    fitnessStartButton.addEventListener("click", () => {
+      const protocolSelect = document.getElementById("fitness-protocol-selector");
+      const protocolCode = protocolSelect?.value || "CUSTOM_TEST";
+      const protocolName = protocolSelect?.options[protocolSelect.selectedIndex]?.text || "Custom Test";
+      const existingDraft = fitnessTestAttempts.find((attempt) => String(attempt.status).toUpperCase() === "DRAFT" && String(attempt.id).startsWith("draft-"));
+      const draft = existingDraft || initializeFitnessTestAttemptWorkspace({
+        id: `draft-${Date.now()}`,
+        protocolCode,
+        protocolName,
+        status: "DRAFT",
+        evidenceStatus: "SELF REPORTED"
+      });
+      setActiveFitnessTestAttempt(draft);
+      const nextAttempts = existingDraft ? fitnessTestAttempts : [draft, ...fitnessTestAttempts];
+      persistFitnessTestAttempts(nextAttempts);
+      renderPerformanceSection();
+      renderWeeklyOrchestrator();
+    });
+  }
+  const fitnessHistoryContainer = document.getElementById("fitness-test-history");
+  if (fitnessHistoryContainer) {
+    fitnessHistoryContainer.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.dataset.action;
+      if (action === "fitness-test-resume") {
+        const attempt = getFitnessTestAttemptById(button.dataset.id);
+        if (attempt) {
+          setActiveFitnessTestAttempt(attempt);
+          renderPerformanceSection();
+        }
+      }
+      if (action === "fitness-test-delete") {
+        const targetId = button.dataset.id;
+        if (!targetId) return;
+        const nextAttempts = fitnessTestAttempts.filter((attempt) => String(attempt.id) !== String(targetId));
+        persistFitnessTestAttempts(nextAttempts);
+        if (String(activeFitnessTestAttemptId) === String(targetId)) {
+          activeFitnessTestAttemptId = null;
+        }
+        renderPerformanceSection();
+      }
+      if (action === "fitness-test-save") {
+        const updatedAttempt = collectFitnessTestWorkspaceValues();
+        if (!updatedAttempt) return;
+        const nextAttempts = fitnessTestAttempts.map((attempt) => String(attempt.id) === String(updatedAttempt.id) ? { ...attempt, ...updatedAttempt, status: "DRAFT", updatedAt: new Date().toISOString() } : attempt);
+        persistFitnessTestAttempts(nextAttempts);
+        renderPerformanceSection();
+      }
+      if (action === "fitness-test-complete") {
+        const updatedAttempt = collectFitnessTestWorkspaceValues();
+        if (!updatedAttempt) return;
+        const nextAttempts = fitnessTestAttempts.map((attempt) => String(attempt.id) === String(updatedAttempt.id) ? { ...attempt, ...updatedAttempt, status: "COMPLETE", updatedAt: new Date().toISOString() } : attempt);
+        persistFitnessTestAttempts(nextAttempts);
+        activeFitnessTestAttemptId = null;
+        renderPerformanceSection();
+      }
+      if (action === "fitness-test-cancel") {
+        const updatedAttempt = collectFitnessTestWorkspaceValues();
+        if (!updatedAttempt) return;
+        const nextAttempts = fitnessTestAttempts.map((attempt) => String(attempt.id) === String(updatedAttempt.id) ? { ...attempt, ...updatedAttempt, status: "INVALIDATED", updatedAt: new Date().toISOString() } : attempt);
+        persistFitnessTestAttempts(nextAttempts);
+        activeFitnessTestAttemptId = null;
+        renderPerformanceSection();
+      }
+    });
+  }
+  document.getElementById("performance-filter-date").addEventListener("change", (event) => { performanceFilters.date = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-filter-domain").addEventListener("change", (event) => { performanceFilters.domain = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-filter-activity").addEventListener("input", (event) => { performanceFilters.activity = event.target.value; renderPerformanceSection(); });
+  document.getElementById("performance-filter-entry-type").addEventListener("change", (event) => { performanceFilters.entryType = event.target.value; renderPerformanceSection(); });
+  document.querySelectorAll("[data-performance-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setPerformanceActiveView(button.dataset.performanceView || "today_training");
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = [...document.querySelectorAll("[data-performance-view]")];
+      const currentIndex = tabs.indexOf(button);
+      const nextIndex = event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      const nextTab = tabs[nextIndex];
+      setPerformanceActiveView(nextTab?.dataset.performanceView || "today_training");
+      nextTab?.focus();
+    });
+  });
+  document.getElementById("performance-view-core")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-core-action]");
+    if (!button) return;
+    const entryType = button.dataset.coreAction === "benchmark" ? "BENCHMARK" : "TRAINING_SET";
+    setPerformanceActiveView("log");
+    const domain = document.getElementById("performance-domain");
+    const type = document.getElementById("performance-entry-type");
+    const activityCode = document.getElementById("performance-activity-code");
+    const activityName = document.getElementById("performance-activity-name");
+    if (domain) domain.value = "core";
+    if (type) type.value = entryType;
+    populatePerformanceActivityOptions("core");
+    if (activityCode) activityCode.value = "plank";
+    if (activityName) activityName.value = "Plank";
+    refreshPerformanceFieldVisibility();
+    document.getElementById(entryType === "BENCHMARK" ? "performance-core-duration-seconds" : "performance-activity-code")?.focus();
+  });
+  document.getElementById("core-programming-panel")?.addEventListener("submit", async (event) => {
+    if (event.target.id !== "core-profile-form" || typeof DominionCoreProgramming === "undefined") return;
+    event.preventDefault();
+    const now = new Date().toISOString();
+    const profile = DominionCoreProgramming.normalizeProfile({
+      goal: document.getElementById("core-goal")?.value,
+      sessionsPerWeek: document.getElementById("core-days")?.value,
+      experience: document.getElementById("core-experience")?.value,
+      equipment: document.getElementById("core-equipment")?.value,
+      sessionMinutes: document.getElementById("core-minutes")?.value,
+      updatedAt: now
+    });
+    const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now });
+    saveCoreProgramLocal("PROFILE", "current", profile);
+    saveCoreProgramLocal("DRAFT", "current", draft);
+    await persistCoreProgramState("PROFILE", "current", profile);
+    await persistCoreProgramState("DRAFT", "current", draft);
+    renderCoreProgramming();
+    setText("core-programming-feedback", "New four-week draft generated. Review it, then approve deliberately. Any active plan remains unchanged.");
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-core-program-action]");
+    if (!button || typeof DominionCoreProgramming === "undefined") return;
+    const action = button.dataset.coreProgramAction;
+    const plan = readApprovedCorePlan();
+    const prescription = currentCorePrescription();
+    if (action === "approve-plan") {
+      const draft = readCoreDraftPlan();
+      const approved = DominionCoreProgramming.approvePlan(draft, new Date().toISOString());
+      if (!approved) return;
+      saveCoreProgramLocal("PLAN", "current", approved);
+      saveCoreProgramLocal("DRAFT", "current", approved);
+      await persistCoreProgramState("PLAN", "current", approved);
+      await persistCoreProgramState("DRAFT", "current", approved);
+      await refreshUnifiedWeekDraftForPlans();
+      renderPerformanceSection();
+      renderContractActivation();
+      renderWeeklyOrchestrator();
+      setText("core-programming-feedback", "Four-week core plan approved and saved. Readiness may reduce daily volume, but the plan will not change silently.");
+      return;
+    }
+    if (action === "open-core-command") {
+      setActiveSection("performance");
+      setPerformanceActiveView("core");
+      window.history.replaceState(null, "", "#performance");
+      return;
+    }
+    if (action === "open-roll-call") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("roll-call-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!plan || !prescription?.session) return;
+    if (action === "start-session") {
+      const execution = DominionCoreProgramming.startExecution(prescription, new Date().toISOString());
+      if (!execution) return;
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      renderCoreProgramming();
+      setText("core-programming-feedback", "Core session started. Complete each movement with controlled, pain-free technique.");
+      setText("core-today-feedback", "Session started. Complete each movement, then close the session.");
+      return;
+    }
+    if (action === "complete-exercise") {
+      const current = readCurrentCoreExecution();
+      const execution = DominionCoreProgramming.completeExercise(current || {}, button.dataset.exerciseId);
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      renderCoreProgramming();
+      return;
+    }
+    if (action === "report-pain") {
+      const base = readCurrentCoreExecution() || {
+        version: DominionCoreProgramming.VERSION,
+        planId: plan.id,
+        sessionId: prescription.session.id,
+        date: todayISODate(),
+        completedExercises: {}
+      };
+      const execution = DominionCoreProgramming.reportPain(base, new Date().toISOString());
+      const history = [...readCoreHistory().filter((item) => !(item.planId === plan.id && item.date === todayISODate())), execution];
+      saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+      saveCoreProgramLocal("HISTORY", "current", history);
+      await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+      await persistCoreProgramState("HISTORY", "current", history);
+      renderCoreProgramming();
+      setText("core-programming-feedback", "Pain hold recorded. Today's session is closed and progression is blocked pending symptom resolution.");
+      setText("core-today-feedback", "Stop the session. Pain hold recorded; do not train through symptoms.");
+      return;
+    }
+    if (action === "complete-session") {
+      const current = readCurrentCoreExecution();
+      const fromToday = Boolean(button.closest("#core-today-panel"));
+      const quality = document.getElementById(fromToday ? "core-today-quality" : "core-session-quality")?.value || "CONTROLLED";
+      const effort = Number(document.getElementById(fromToday ? "core-today-effort" : "core-session-effort")?.value || 7);
+      const result = DominionCoreProgramming.completeSession(current || {}, prescription, {
+        quality,
+        effort,
+        completedAt: new Date().toISOString()
+      });
+      if (!result.valid) {
+        setText(fromToday ? "core-today-feedback" : "core-programming-feedback", result.message);
+        return;
+      }
+      const history = [...readCoreHistory().filter((item) => !(item.planId === plan.id && item.date === todayISODate())), result.execution];
+      saveCoreProgramLocal("EXECUTION", todayISODate(), result.execution);
+      saveCoreProgramLocal("HISTORY", "current", history);
+      await persistCoreProgramState("EXECUTION", todayISODate(), result.execution);
+      await persistCoreProgramState("HISTORY", "current", history);
+      await saveCorePerformanceEvidence(prescription, result.execution);
+      renderPerformanceSection();
+      renderTodayCommittedWeek();
+      setText("core-programming-feedback", `${result.message} Performance evidence was added automatically.`);
+      setText("core-today-feedback", `${result.message} Performance evidence was added automatically.`);
+    }
+  });
+  document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
+    if (event.target.id !== "running-profile-form") return;
+    event.preventDefault();
+    const distance = document.getElementById("running-benchmark-distance")?.value || "";
+    const minutes = Number(document.getElementById("running-benchmark-minutes")?.value || 0);
+    const seconds = Number(document.getElementById("running-benchmark-seconds")?.value || 0);
+    if (distance && !(minutes * 60 + seconds > 0)) {
+      setText("running-command-feedback", "Enter a valid benchmark time or choose Use performance evidence.");
+      return;
+    }
+    const now = new Date().toISOString();
+    const contract = readApprovedRecruitContract();
+    const savedProfile = saveRunningProfile({
+      goal: document.getElementById("running-goal")?.value,
+      targetDate: document.getElementById("running-target-date")?.value,
+      runningDaysPerWeek: document.getElementById("running-days")?.value,
+      preferredUnit: document.getElementById("running-unit")?.value,
+      declaredWeeklyDistance: document.getElementById("running-declared-distance")?.value,
+      benchmarkDistance: distance || null,
+      benchmarkSeconds: distance ? (minutes * 60) + seconds : null,
+      benchmarkDate: document.getElementById("running-benchmark-date")?.value,
+      approvedAt: now,
+      updatedAt: now,
+      recruitContractId: contract?.id || null,
+      recruitContractRevision: contract?.revision || null
+    });
+    await persistRunningState("PROFILE", "current", savedProfile);
+    renderRunningCommand();
+    setText("running-command-feedback", "Running setup saved. Build the four-week draft when you are ready; the active plan remains unchanged.");
+  });
+  document.getElementById("running-command-panel")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-running-action]");
+    if (!button) return;
+    if (button.dataset.runningAction === "open-contract") {
+      window.location.hash = "contract";
+      return;
+    }
+    if (button.dataset.runningAction === "generate-block" || button.dataset.runningAction === "approve-plan") {
+      const profile = readRunningProfile();
+      const contract = readApprovedRecruitContract();
+      const startDate = document.getElementById("running-block-start")?.value || todayISODate();
+      const draft = DominionRunning.buildRunningBlock(profile, performanceEntries, {
+        today: todayISODate(),
+        startDate,
+        generatedAt: new Date().toISOString(),
+        contractSchedule: contract?.schedule || [],
+        recruitContractId: contract?.id || profile.recruitContractId || null,
+        recruitContractRevision: contract?.revision || profile.recruitContractRevision || null
+      });
+      if (draft.status !== "DRAFT") {
+        setText("running-command-feedback", draft.message || "The running draft is not ready yet.");
+        return;
+      }
+      saveRunningBlockLocal("draft", draft);
+      await persistRunningState("PLAN", "draft", draft);
+      renderRunningCommand();
+      setText("running-command-feedback", "Four-week running draft saved. Review all four weeks, then approve it to make the plan active.");
+      return;
+    }
+    if (button.dataset.runningAction === "approve-block") {
+      const draft = readRunningBlockDraft();
+      const previous = readApprovedRunningBlock();
+      if (!draft) return;
+      try {
+        const approved = DominionRunning.approveRunningBlock(draft, previous, { approvedAt: new Date().toISOString() });
+        if (previous) await persistRunningState("PLAN", `archive:${previous.id}`, previous);
+        saveRunningBlockLocal("active", approved);
+        window.localStorage.removeItem(runningBlockStorageKey("draft"));
+        await persistRunningState("PLAN", "active", approved);
+        await deleteRunningState("PLAN", "draft");
+        await refreshUnifiedWeekDraftForPlans();
+        renderRunningCommand();
+        renderTodayCommandSurface();
+        renderDailyAssignment();
+        renderContractActivation();
+        renderWeeklyOrchestrator();
+        setText("running-command-feedback", `Four-week running block revision ${approved.revision} approved and saved to your account. Today now follows the active block.`);
+      } catch (error) {
+        setText("running-command-feedback", error?.message || "The running block could not be approved.");
+      }
+      return;
+    }
+    if (button.dataset.runningAction === "review-log") {
+      performanceFilters.domain = "running";
+      const filter = document.getElementById("performance-filter-domain");
+      if (filter) filter.value = "running";
+      setPerformanceActiveView("log");
+      renderPerformanceSection();
+    }
+    if (button.dataset.runningAction === "approve-reconciliation") {
+      const plan = readApprovedRunningPlan();
+      if (!plan) return;
+      const reconciliation = DominionRunning.reconcileWeeklyRunningPlan(plan, performanceEntries, { today: todayISODate() });
+      if (reconciliation.status !== "READY") return;
+      const approved = {
+        approvedAt: new Date().toISOString(),
+        planApprovedAt: plan.approvedAt,
+        weekStart: plan.weekStart,
+        summary: reconciliation.summary,
+        days: reconciliation.days.map((day) => ({ date: day.date, classification: day.classification, sourceIds: day.runs.map((run) => run.id) }))
+      };
+      window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(approved));
+      await persistRunningState("RECONCILIATION", plan.weekStart, approved);
+      renderRunningCommand();
+      setText("running-command-feedback", "Weekly run evidence review approved. Source records and the approved plan remain unchanged.");
+    }
+    if (button.dataset.runningAction === "start-run") {
+      const plan = readApprovedRunningPlan();
+      const prescription = DominionRunning.buildDailyRunPrescription(plan || {}, { today: todayISODate(), readiness: dailyState || {} });
+      if (!prescription.session || prescription.status === "PAIN_HOLD") return;
+      const state = {
+        state: "IN_PROGRESS",
+        date: todayISODate(),
+        blockId: plan?.blockId || null,
+        blockRevision: plan?.blockRevision || null,
+        weekStart: plan?.weekStart || null,
+        session: prescription.session,
+        startedAt: new Date().toISOString()
+      };
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
+      await persistRunningState("EXECUTION", todayISODate(), state);
+      renderRunningCommand();
+      setText("running-command-feedback", "Run started. Follow the prescribed steps and stop if pain develops.");
+    }
+    if (button.dataset.runningAction === "complete-run") {
+      const current = readRunningExecution() || {};
+      const state = { ...current, state: "COMPLETE", completedAt: new Date().toISOString() };
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
+      await persistRunningState("EXECUTION", todayISODate(), state);
+      renderRunningCommand();
+      renderTodayCommittedWeek();
+      setText("running-command-feedback", "Run marked complete. Imported or manual evidence will reconcile separately.");
+    }
+    if (button.dataset.runningAction === "modify-run") setText("running-command-feedback", "Use the readiness-adjusted easy alternative. The approved weekly plan remains unchanged.");
+    if (button.dataset.runningAction === "report-pain") {
+      setText("running-command-feedback", "Stop running and report pain in Morning Roll Call. Running progression is held.");
+      window.location.hash = "today";
+    }
+  });
+  document.getElementById("programming-review-panel")?.addEventListener("click", async (event) => {
+    const blockButton = event.target.closest("button[data-strength-block-action]");
+    if (blockButton && typeof DominionStrengthBlock !== "undefined") {
+      const blockAction = blockButton.dataset.strengthBlockAction;
+      const plan = readApprovedStrengthPlan();
+      if (!plan) {
+        setText("programming-feedback", "Approve the strength program before planning a training block.");
+        return;
+      }
+      const intelligence = currentStrengthIntelligence(plan) || {};
+      try {
+        if (blockAction === "generate") {
+          const options = strengthBlockOptionsFromPanel();
+          const draft = DominionStrengthBlock.buildBlockDraft(plan, intelligence, {
+            ...options,
+            today: todayISODate(),
+            createdAt: new Date().toISOString()
+          });
+          saveStrengthStateLocal("BLOCK", "draft", draft);
+          await persistStrengthTrainingState("BLOCK", "draft", draft);
+          renderProgrammingReview();
+          setText("programming-feedback", draft.approvalBlocked
+            ? "Block draft preserved, but pain evidence must be resolved before activation."
+            : `${draft.lengthWeeks}-week strength block drafted. Review every phase before approval.`);
+          return;
+        }
+        if (blockAction === "revise") {
+          const existing = readStrengthBlockDraft();
+          const revised = DominionStrengthBlock.reviseBlock(existing, plan, intelligence, strengthBlockOptionsFromPanel(), new Date().toISOString());
+          saveStrengthStateLocal("BLOCK", "draft", revised);
+          await persistStrengthTrainingState("BLOCK", "draft", revised);
+          renderProgrammingReview();
+          setText("programming-feedback", `Strength block draft updated to revision ${revised.revision}. Nothing was activated.`);
+          return;
+        }
+        if (blockAction === "approve") {
+          if (readActiveStrengthBlock()) throw new Error("End the active strength block before activating another one.");
+          const approved = DominionStrengthBlock.approveBlock(readStrengthBlockDraft(), plan, new Date().toISOString());
+          saveStrengthStateLocal("BLOCK", "current", approved);
+          await persistStrengthTrainingState("BLOCK", "current", approved);
+          await clearStrengthTrainingState("BLOCK", "draft");
+          renderProgrammingReview();
+          renderDailyAssignment();
+          renderDailyCoachingLoop();
+          setText("programming-feedback", `Strength block activated. ${DominionStrengthBlock.blockWeekForDate(approved, todayISODate()).label}. Today now honors phase-specific set reductions.`);
+          return;
+        }
+        if (blockAction === "end") {
+          const active = readActiveStrengthBlock();
+          const ended = DominionStrengthBlock.endBlock(active, new Date().toISOString(), "Ended explicitly from Strength Block Command.");
+          const history = [ended, ...readStrengthBlockHistory().filter((item) => item.id !== ended.id)].slice(0, 24);
+          saveStrengthStateLocal("BLOCK", "current", ended);
+          saveStrengthStateLocal("BLOCK", "history", history);
+          await persistStrengthTrainingState("BLOCK", "current", ended);
+          await persistStrengthTrainingState("BLOCK", "history", history);
+          renderProgrammingReview();
+          renderDailyAssignment();
+          renderDailyCoachingLoop();
+          setText("programming-feedback", "Strength block ended and preserved. The approved program remains intact; the next block still requires a new draft and approval.");
+          return;
+        }
+        if (blockAction === "next") {
+          const ended = readStrengthBlock();
+          const options = strengthBlockOptionsFromPanel();
+          const next = DominionStrengthBlock.buildNextBlockDraft(ended, plan, intelligence, {
+            lengthWeeks: options.lengthWeeks,
+            createdAt: new Date().toISOString()
+          });
+          saveStrengthStateLocal("BLOCK", "draft", next);
+          await persistStrengthTrainingState("BLOCK", "draft", next);
+          renderProgrammingReview();
+          setText("programming-feedback", "Next strength block drafted. No phase or prescription was activated automatically.");
+          return;
+        }
+      } catch (error) {
+        setText("programming-feedback", error?.message || "The strength block could not be updated.");
+        return;
+      }
+    }
+    const reviewButton = event.target.closest("button[data-strength-review-action]");
+    if (reviewButton && typeof DominionStrengthWeekReview !== "undefined" && typeof DominionStrengthSchedule !== "undefined") {
+      const reviewAction = reviewButton.dataset.strengthReviewAction;
+      const plan = readApprovedStrengthPlan();
+      const schedule = readApprovedStrengthSchedule();
+      if (!plan || !schedule) {
+        setText("programming-feedback", "Approve the strength program and weekly schedule before reviewing the week.");
+        return;
+      }
+      if (reviewAction === "refresh") {
+        const refreshed = buildCurrentStrengthWeekReview(plan, schedule);
+        saveStrengthStateLocal("WEEK_REVIEW", "current", refreshed);
+        await persistStrengthTrainingState("WEEK_REVIEW", "current", refreshed);
+        renderProgrammingReview();
+        setText("programming-feedback", `Strength evidence refreshed. ${refreshed.summary.completed} complete, ${refreshed.summary.partial} partial, ${refreshed.summary.missed} missed; ambiguous imports remain uncredited.`);
+        return;
+      }
+      if (reviewAction === "finalize") {
+        try {
+          const liveReview = buildCurrentStrengthWeekReview(plan, schedule);
+          const finalized = DominionStrengthWeekReview.finalizeWeekReview(liveReview, new Date().toISOString());
+          const history = [finalized, ...readStrengthWeekReviewHistory().filter((item) => item.id !== finalized.id)].slice(0, 52);
+          saveStrengthStateLocal("WEEK_REVIEW", "current", finalized);
+          saveStrengthStateLocal("WEEK_REVIEW", "history", history);
+          await persistStrengthTrainingState("WEEK_REVIEW", "current", finalized);
+          await persistStrengthTrainingState("WEEK_REVIEW", "history", history);
+          renderProgrammingReview();
+          setText("programming-feedback", `Strength week finalized. Coaching posture: ${finalized.recommendation.label}. The program and source history were not changed.`);
+        } catch (error) {
+          setText("programming-feedback", error?.message || "The strength week could not be finalized.");
+        }
+        return;
+      }
+      if (reviewAction === "rollover") {
+        try {
+          const finalized = readStrengthWeekReview();
+          if (finalized?.scheduleId !== schedule.id) throw new Error("Finalize the active strength week before drafting its rollover.");
+          const intent = DominionStrengthWeekReview.rolloverIntent(finalized);
+          const existingDraft = readStrengthScheduleDraft();
+          if (existingDraft && !(existingDraft.weekStart === intent.weekStart && existingDraft.sourceWeekReviewId === finalized.id)) {
+            throw new Error("An existing weekly schedule draft is protected. Review or approve it before creating the rollover.");
+          }
+          const draft = {
+            ...DominionStrengthSchedule.buildWeeklySchedule(plan, readStrengthHistory(), strengthScheduleContext(), {
+              today: todayISODate(),
+              preferredDays: schedule.preferredDays,
+              weekStart: intent.weekStart,
+              createdAt: new Date().toISOString()
+            }),
+            sourceWeekReviewId: intent.sourceReviewId,
+            sourceScheduleId: intent.sourceScheduleId,
+            rolloverRecommendation: intent.recommendationCode
+          };
+          saveStrengthStateLocal("SCHEDULE", "draft", draft);
+          await persistStrengthTrainingState("SCHEDULE", "draft", draft);
+          renderProgrammingReview();
+          setText("programming-feedback", "Next coordinated strength week drafted. Review every day; no schedule or progression was approved automatically.");
+        } catch (error) {
+          setText("programming-feedback", error?.message || "The next strength week could not be drafted.");
+        }
+        return;
+      }
+    }
+    const scheduleButton = event.target.closest("button[data-strength-schedule-action]");
+    if (scheduleButton && typeof DominionStrengthSchedule !== "undefined") {
+      const scheduleAction = scheduleButton.dataset.strengthScheduleAction;
+      const plan = readApprovedStrengthPlan();
+      const context = strengthScheduleContext();
+      if (!plan) {
+        setText("programming-feedback", "Approve the strength program before scheduling the week.");
+        return;
+      }
+      if (scheduleAction === "generate") {
+        const draft = DominionStrengthSchedule.buildWeeklySchedule(plan, readStrengthHistory(), context, {
+          today: todayISODate(),
+          preferredDays: strengthSchedulePreferredDaysFromForm(plan),
+          createdAt: new Date().toISOString()
+        });
+        saveStrengthStateLocal("SCHEDULE", "draft", draft);
+        await persistStrengthTrainingState("SCHEDULE", "draft", draft);
+        renderProgrammingReview();
+        setText("programming-feedback", draft.approvalBlocked
+          ? "Weekly draft generated, but a hard-session collision must be resolved before approval."
+          : "Coordinated seven-day strength draft generated. Review each day before approval.");
+        return;
+      }
+      if (scheduleAction === "approve") {
+        try {
+          const approved = DominionStrengthSchedule.approveSchedule(readStrengthScheduleDraft(), new Date().toISOString());
+          saveStrengthStateLocal("SCHEDULE", "current", approved);
+          await persistStrengthTrainingState("SCHEDULE", "current", approved);
+          await clearStrengthTrainingState("SCHEDULE", "draft");
+          await clearStrengthTrainingState("WEEK_REVIEW", "current");
+          renderProgrammingReview();
+          renderDailyAssignment();
+          renderDailyCoachingLoop();
+          setText("programming-feedback", "Weekly strength schedule approved. Scheduled sessions and recovery days now govern Today.");
+        } catch (error) {
+          setText("programming-feedback", error?.message || "The weekly strength schedule could not be approved.");
+        }
+        return;
+      }
+      if (scheduleAction === "move") {
+        const schedule = readApprovedStrengthSchedule();
+        const target = scheduleButton.closest(".strength-reschedule-control")?.querySelector("select")?.value || "";
+        const result = DominionStrengthSchedule.moveAssignment(schedule, scheduleButton.dataset.assignmentId, target, context, {
+          today: todayISODate(),
+          history: readStrengthHistory(),
+          changedAt: new Date().toISOString(),
+          reason: "Moved deliberately by the athlete in Weekly Strength Command."
+        });
+        if (result.valid) {
+          saveStrengthStateLocal("SCHEDULE", "current", result.schedule);
+          await persistStrengthTrainingState("SCHEDULE", "current", result.schedule);
+          renderProgrammingReview();
+          renderDailyAssignment();
+          renderDailyCoachingLoop();
+        }
+        setText("programming-feedback", result.message);
+        return;
+      }
+    }
+    const button = event.target.closest("button[data-programming-action]");
+    if (!button) return;
+    const action = button.dataset.programmingAction;
+    if (action === "view-intelligence") {
+      setPerformanceActiveView("progress");
+      renderStrengthIntelligence(readApprovedStrengthPlan());
+      const detail = document.getElementById("strength-intelligence-detail");
+      if (detail) {
+        detail.open = true;
+        detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+    if (button.dataset.programmingAction === "refresh") {
+      const profile = strengthProfileFromForm();
+      const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+        startDate: todayISODate(),
+        generatedAt: new Date().toISOString()
+      });
+      saveStrengthStateLocal("PROFILE", "current", profile);
+      saveStrengthStateLocal("DRAFT", "current", draft);
+      await persistStrengthTrainingState("PROFILE", "current", profile);
+      await persistStrengthTrainingState("DRAFT", "current", draft);
+      renderProgrammingReview();
+      setText("programming-feedback", "Evidence refreshed. Review the revised draft before approval.");
+    }
+    if (action === "build-plan") {
+      const profile = strengthProfileFromForm();
+      const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+        startDate: todayISODate(),
+        generatedAt: new Date().toISOString()
+      });
+      saveStrengthStateLocal("PROFILE", "current", profile);
+      saveStrengthStateLocal("DRAFT", "current", draft);
+      await persistStrengthTrainingState("PROFILE", "current", profile);
+      await persistStrengthTrainingState("DRAFT", "current", draft);
+      renderProgrammingReview();
+      setText("programming-feedback", "Balanced draft generated. Review every session, then approve when it matches your constraints.");
+    }
+    if (action === "approve") {
+      const profile = strengthProfileFromForm();
+      const draft = readStrengthDraft() || DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
+        startDate: todayISODate(),
+        generatedAt: new Date().toISOString()
+      });
+      const approved = DominionStrengthTraining.approvePlan(draft, new Date().toISOString());
+      saveStrengthStateLocal("PROFILE", "current", profile);
+      saveStrengthStateLocal("PLAN", "current", approved);
+      await persistStrengthTrainingState("PROFILE", "current", profile);
+      await persistStrengthTrainingState("PLAN", "current", approved);
+      await clearStrengthTrainingState("DRAFT", "current");
+      await clearStrengthTrainingState("ADJUSTMENT", "current");
+      await clearStrengthTrainingState("SCHEDULE", "current");
+      await clearStrengthTrainingState("SCHEDULE", "draft");
+      await clearStrengthTrainingState("WEEK_REVIEW", "current");
+      await clearStrengthTrainingState("BLOCK", "current");
+      await clearStrengthTrainingState("BLOCK", "draft");
+      await refreshUnifiedWeekDraftForPlans();
+      renderProgrammingReview();
+      renderDailyAssignment();
+      renderDailyCoachingLoop();
+      renderContractActivation();
+      renderWeeklyOrchestrator();
+      setText("programming-feedback", "Strength program approved and activated on Today. It now persists with your account.");
+    }
+    if (action === "approve-adjustment") {
+      const plan = readApprovedStrengthPlan();
+      const adjustment = readStrengthAdjustment();
+      try {
+        const approved = DominionStrengthTraining.applyAdjustmentProposal(plan, adjustment, new Date().toISOString());
+        saveStrengthStateLocal("PLAN", "current", approved.plan);
+        saveStrengthStateLocal("ADJUSTMENT", "current", approved.adjustment);
+        await persistStrengthTrainingState("PLAN", "current", approved.plan);
+        await persistStrengthTrainingState("ADJUSTMENT", "current", approved.adjustment);
+        renderProgrammingReview();
+        renderDailyAssignment();
+        renderDailyCoachingLoop();
+        setText("programming-feedback", `Strength adjustment approved. Plan revision ${approved.plan.revision} will govern the next matching session.`);
+      } catch (error) {
+        setText("programming-feedback", error?.message || "The adjustment could not be approved.");
+      }
+    }
+    if (action === "hold-adjustment") {
+      const held = DominionStrengthTraining.holdAdjustment(readStrengthAdjustment(), new Date().toISOString());
+      saveStrengthStateLocal("ADJUSTMENT", "current", held);
+      await persistStrengthTrainingState("ADJUSTMENT", "current", held);
+      renderProgrammingReview();
+      renderDailyAssignment();
+      setText("programming-feedback", "Recommendation held. The active strength plan remains unchanged.");
+    }
+  });
+  document.getElementById("recovery-review-panel")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-recovery-action]");
+    if (!button) return;
+    if (button.dataset.recoveryAction === "refresh") {
+      renderRecoveryReview();
+      setText("recovery-feedback", "Recovery and fueling evidence refreshed.");
+    }
+    if (button.dataset.recoveryAction === "approve") {
+      const recommendation = buildCurrentRecoveryRecommendation();
+      if (!recommendation) return;
+      const plan = {
+        approvedAt: new Date().toISOString(),
+        recommendation,
+        plan: DominionRecovery.formatRecoveryPlan(recommendation)
+      };
+      window.localStorage.setItem(recoveryStorageKey(), JSON.stringify(plan));
+      renderRecoveryReview();
+      renderDailyCoachingLoop();
+      setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
+    }
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-closed-loop-action]");
+    if (!button || typeof DominionClosedLoop === "undefined") return;
+    const action = button.dataset.closedLoopAction;
+    if (action === "operating_truth") {
+      const truth = buildCurrentOperatingTruth();
+      const section = truth?.action?.section || "today";
+      if (truth?.action?.module && section === "performance") {
+        setPerformanceActiveView(truth.action.module === "running" ? "running" : truth.action.module === "core" ? "core" : "today_training");
+      }
+      setActiveSection(section);
+      window.history.replaceState(null, "", `#${section}`);
+      return;
+    }
+    if (action === "refresh") {
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", "Readiness, prescriptions, execution, and evidence were reconciled again.");
+      return;
+    }
+    if (action === "complete_observation") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("energy")?.focus();
+      return;
+    }
+    if (action === "approve_decision") {
+      const approved = await approveCurrentClosedLoopDecision();
+      if (!approved) {
+        setText("closed-loop-feedback", "Complete today's Roll Call before authorizing a coaching decision.");
+        return;
+      }
+      const coaching = buildCurrentDailyCoachingLoop() || {};
+      window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify({
+        approvedAt: approved.approvedAt,
+        decisionId: approved.id,
+        posture: approved.posture,
+        headline: approved.mission,
+        orders: approved.mission,
+        safeguards: approved.safeguards,
+        coachingPosture: coaching.posture || null
+      }));
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", "Today's decision is authorized. The approved prescription fingerprint is now fixed for evidence reconciliation.");
+      setText("daily-orders-feedback", "Today's coaching decision and execution orders are authorized.");
+      return;
+    }
+    if (action === "continue_execution") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("daily-orders-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "close_review") {
+      const state = buildCurrentClosedLoopState();
+      const result = DominionClosedLoop.closeReview(state?.decision || {}, state?.reconciliation || {}, {
+        history: readClosedLoopHistory(),
+        closedAt: new Date().toISOString(),
+        effectiveDate: addClosedLoopDays(todayISODate(), 1)
+      });
+      if (!result.valid) {
+        setText("closed-loop-feedback", result.message);
+        return;
+      }
+      const history = [...readClosedLoopHistory().filter((item) => item.decisionId !== result.review.decisionId), result.review];
+      saveClosedLoopLocal("REVIEW", todayISODate(), result.review);
+      saveClosedLoopLocal("ADAPTATION", "current", result.review.adaptation);
+      saveClosedLoopLocal("HISTORY", "current", history);
+      await persistClosedLoopState("REVIEW", todayISODate(), result.review);
+      await persistClosedLoopState("ADAPTATION", "current", result.review.adaptation);
+      await persistClosedLoopState("HISTORY", "current", history);
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", result.message);
+      return;
+    }
+    if (action === "approve_adaptation") {
+      const state = buildCurrentClosedLoopState();
+      const approved = DominionClosedLoop.approveAdaptation(
+        state?.adaptation || {},
+        new Date().toISOString(),
+        addClosedLoopDays(todayISODate(), 1)
+      );
+      if (!approved) return;
+      const review = state.review ? { ...state.review, adaptation: approved } : null;
+      const history = readClosedLoopHistory().map((item) => item.decisionId === approved.decisionId ? { ...item, adaptation: approved } : item);
+      saveClosedLoopLocal("ADAPTATION", "current", approved);
+      if (review) saveClosedLoopLocal("REVIEW", todayISODate(), review);
+      saveClosedLoopLocal("HISTORY", "current", history);
+      await persistClosedLoopState("ADAPTATION", "current", approved);
+      if (review) await persistClosedLoopState("REVIEW", todayISODate(), review);
+      await persistClosedLoopState("HISTORY", "current", history);
+      renderDailyCoachingLoop();
+      setText("closed-loop-feedback", `Next adjustment approved for ${approved.effectiveDate}. Existing plans remain unchanged until their own approval workflow applies it.`);
+      return;
+    }
+    if (action === "view_history") {
+      const history = readClosedLoopHistory();
+      const last = history[history.length - 1];
+      setText("closed-loop-feedback", last
+        ? `${history.length} closed loop${history.length === 1 ? "" : "s"}. Latest: ${last.date} · ${last.adaptation?.label || "No adjustment"}.`
+        : "No prior closed loops yet.");
+    }
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-adaptive-action]");
+    if (!button || typeof DominionAdaptiveCoaching === "undefined") return;
+    const action = button.dataset.adaptiveAction;
+    if (action === "refresh") {
+      renderAdaptiveCoaching();
+      setText("adaptive-coaching-feedback", "Signals refreshed from readiness, execution, and current plan coverage.");
+      return;
+    }
+    if (action === "open-contract") {
+      setActiveSection("contract");
+      window.history.replaceState(null, "", "#contract");
+      document.getElementById("recruit-contract-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const proposal = buildCurrentAdaptiveCoaching();
+    if (!proposal) return;
+    if (action === "approve") {
+      const approved = DominionAdaptiveCoaching.approveProposal(
+        proposal,
+        new Date().toISOString(),
+        proposal.effectiveDate
+      );
+      if (!approved) {
+        setText("adaptive-coaching-feedback", "This coaching state does not require approval.");
+        return;
+      }
+      const synced = await saveAdaptiveCoachingRecord(approved);
+      renderDailyCoachingLoop();
+      setText("adaptive-coaching-feedback", `Directive approved for ${approved.effectiveDate}${synced ? " and synced to your account" : " on this device"}. Existing plans remain unchanged; only the bounded approved execution rules can carry forward.`);
+      return;
+    }
+    if (action === "hold") {
+      const held = DominionAdaptiveCoaching.holdProposal(proposal, new Date().toISOString());
+      if (!held) return;
+      const synced = await saveAdaptiveCoachingRecord(held);
+      renderDailyCoachingLoop();
+      setText("adaptive-coaching-feedback", `Current plan retained${synced ? " and the decision was synced" : " on this device"}. Atlas will propose again when the evidence fingerprint changes.`);
+    }
+  });
+  document.getElementById("daily-orders-panel")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-daily-action]");
+    if (!button) return;
+    const action = button.dataset.dailyAction;
+    if (action === "refresh") {
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Today’s readiness, connected evidence, and approved plans were refreshed.");
+    }
+    if (action === "approve_orders") {
+      const loop = buildCurrentDailyCoachingLoop();
+      if (!loop || !dailyState || loop.safeguards.painOverride || (loop.safeguards.progressionHeld && !readRecoveryPlan())) return;
+      const approval = {
+        approvedAt: new Date().toISOString(),
+        posture: loop.posture,
+        headline: loop.headline,
+        orders: DominionDailyCoaching.formatApprovedOrders(loop),
+        safeguards: loop.safeguards
+      };
+      window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify(approval));
+      await approveCurrentClosedLoopDecision();
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
+    }
+    if (action === "review_recovery") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("recovery");
+      renderRecoveryReview();
+    }
+    if (action === "review_programming") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("programming");
+      renderProgrammingReview();
+    }
+    if (action === "start_training") {
+      const assignment = buildCurrentDailyAssignment();
+      const execution = readDailyAssignmentExecution();
+      if (assignment?.exercises.length && execution.state === "READY") {
+        const started = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+        await saveDailyAssignmentExecution(started);
+      } else if (!assignment?.exercises.length) {
+        setActiveSection("performance");
+        window.history.replaceState(null, "", "#performance");
+        setPerformanceActiveView("programming");
+        renderProgrammingReview();
+      }
+      const workoutDetail = document.querySelector(".today-workout-detail");
+      if (workoutDetail) workoutDetail.open = true;
+      renderDailyAssignment();
+      document.getElementById("daily-assignment-heading")?.focus({ preventScroll: true });
+    }
+    if (action === "open_fuel") {
+      setActiveSection("nutrition");
+      window.history.replaceState(null, "", "#nutrition");
+    }
+    if (action === "complete_recovery") {
+      saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
+      renderDailyCoachingLoop();
+      setText("daily-orders-feedback", "Recovery action recorded. The queue advanced to the next incomplete step.");
+    }
+    if (action === "review_record") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+    }
+    if (action === "roll_call") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("energy")?.focus();
+    }
+  });
+  document.getElementById("daily-assignment-panel")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-assignment-action]");
+    if (!button) return;
+    const action = button.dataset.assignmentAction;
+    const assignment = buildCurrentDailyAssignment();
+    let execution = readDailyAssignmentExecution();
+    if (action === "start" && assignment?.exercises.length) {
+      execution = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Workout started. Record actual reps, load, and effort for every work set, then finish the session explicitly.");
+    }
+    if (action === "record-set") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      const card = button.closest(".daily-exercise-card");
+      const reps = Number(card?.querySelector('[data-set-field="reps"]')?.value);
+      const load = Number(card?.querySelector('[data-set-field="load"]')?.value);
+      const rpeValue = card?.querySelector('[data-set-field="rpe"]')?.value;
+      const warmup = Boolean(card?.querySelector('[data-set-field="warmup"]')?.checked);
+      execution = DominionStrengthTraining.recordSet(execution, exercise.id, {
+        reps,
+        load,
+        rpe: rpeValue === "" ? null : Number(rpeValue),
+        kind: warmup ? "WARMUP" : "WORK"
+      }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      const completed = DominionStrengthTraining.completedSetCount(execution);
+      const planned = DominionStrengthTraining.plannedSetCount(execution.sessionSnapshot);
+      setText("daily-assignment-feedback", warmup ? `${exercise.name}: warm-up set recorded without work-set credit.` : completed >= planned ? "All prescribed sets are recorded. Review the session before finalizing." : `${exercise.name}: work set ${strengthWorkLogs(execution, exercise.id).length} recorded. Rest timer started.`);
+    }
+    if (action === "repeat-set") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      const previous = exercise ? strengthWorkLogs(execution, exercise.id).at(-1) : null;
+      if (!exercise || !previous) return;
+      execution = DominionStrengthTraining.recordSet(execution, exercise.id, {
+        reps: previous.reps,
+        load: previous.load,
+        rpe: previous.rpe,
+        kind: "WORK"
+      }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${exercise.name}: repeated the previous work set and started the rest timer.`);
+    }
+    if (action === "edit-set") {
+      const row = button.closest(".strength-set-log-row");
+      execution = DominionStrengthTraining.editSet(execution, button.dataset.exerciseId, button.dataset.setId, {
+        reps: Number(row?.querySelector('[data-log-field="reps"]')?.value),
+        load: Number(row?.querySelector('[data-log-field="load"]')?.value),
+        rpe: row?.querySelector('[data-log-field="rpe"]')?.value || null
+      }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Set correction saved with its audit timestamp.");
+    }
+    if (action === "undo-set") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      execution = DominionStrengthTraining.undoLastSet(execution, exercise.id, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${exercise.name}: the last set was removed.`);
+    }
+    if (action === "substitute") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      const substitution = button.closest(".daily-exercise-card")?.querySelector("[data-substitution-choice]")?.value;
+      if (!substitution) {
+        setText("daily-assignment-feedback", "Choose a substitution first.");
+        return;
+      }
+      execution = DominionStrengthTraining.useSubstitution(execution, exercise.id, substitution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${substitution} selected for ${exercise.name}. The change is preserved with this session.`);
+    }
+    if (action === "skip") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      const reason = button.closest(".daily-exercise-card")?.querySelector("[data-skip-reason]")?.value || "Skipped during workout";
+      execution = DominionStrengthTraining.skipExercise(execution, exercise.id, reason, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `${exercise.name} skipped: ${reason}. The reason will remain with this attempt.`);
+    }
+    if (action === "pause") {
+      execution = DominionStrengthTraining.pauseWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Workout paused. Inactive time will not count toward duration.");
+    }
+    if (action === "resume") {
+      execution = DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Workout resumed. Active-time tracking restarted.");
+    }
+    if (action === "finish") {
+      execution = DominionStrengthTraining.prepareWorkoutReview(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", "Review the session summary and notes, then finalize or return to the workout.");
+    }
+    if (action === "finalize") {
+      const notes = document.querySelector("[data-strength-review-notes]")?.value || "";
+      execution = DominionStrengthTraining.finishWorkout({ ...execution, reviewNotes: notes }, { notes }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      await preserveStrengthWorkout(execution);
+      setText("daily-assignment-feedback", execution.state === "COMPLETE" ? "Workout complete. The session summary is saved to your account." : "Workout preserved as partial. Completed work, skipped exercises, and the remaining gap are all retained.");
+    }
+    if (action === "stop") {
+      execution = DominionStrengthTraining.finishWorkout(execution, { forceStop: true, reason: "Workout stopped by user." }, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      await preserveStrengthWorkout(execution);
+      setText("daily-assignment-feedback", "Workout stopped and preserved. No additional progression was authorized.");
+    }
+    if (action === "pain") {
+      execution = DominionStrengthTraining.reportPain(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      await preserveStrengthWorkout(execution);
+      setText("daily-assignment-feedback", "Workout stopped for pain. Loaded progression is held; update Morning Roll Call before the next session.");
+    }
+    if (action === "restart") {
+      await preserveStrengthWorkout(execution);
+      execution = DominionStrengthTraining.restartWorkout(execution, new Date().toISOString());
+      await saveDailyAssignmentExecution(execution);
+      setText("daily-assignment-feedback", `Attempt ${execution.attempt} is ready. The prior stopped or partial attempt remains in history.`);
+    }
+    if (action === "jump-active") {
+      document.getElementById(`strength-exercise-${button.dataset.exerciseId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (action === "program") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("programming");
+      const detail = document.getElementById("training-programming-detail");
+      if (detail) detail.open = true;
+      renderProgrammingReview();
+    }
+    if (action === "review-adjustment") {
+      setActiveSection("performance");
+      window.history.replaceState(null, "", "#performance");
+      setPerformanceActiveView("programming");
+      const detail = document.getElementById("training-programming-detail");
+      if (detail) detail.open = true;
+      renderProgrammingReview();
+      document.querySelector(".strength-adaptation-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (action === "refresh") setText("daily-assignment-feedback", "Fitbod evidence refreshed.");
+    renderDailyAssignment();
+    renderDailyCoachingLoop();
+    renderProgrammingReview();
+    renderTodayCommittedWeek();
+  });
+  document.getElementById("connected")?.addEventListener("click", async (event) => {
+    const viewButton = event.target.closest("button[data-connected-view]");
+    if (viewButton) {
+      event.stopImmediatePropagation();
+      setConnectedActiveView(viewButton.dataset.connectedView || "overview");
+      return;
+    }
+    const actionButton = event.target.closest("button[data-connected-action^='mfp-feed-']");
+    if (!actionButton) return;
+    event.stopImmediatePropagation();
+    await runMfpNutritionFeedAction(actionButton.dataset.connectedAction);
+  }, true);
+  document.getElementById("connected")?.addEventListener("keydown", async (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    const actionButton = event.target.closest("button[data-connected-action^='mfp-feed-']");
+    if (!actionButton) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await runMfpNutritionFeedAction(actionButton.dataset.connectedAction);
+  }, true);
+  document.querySelectorAll("[data-connected-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (["reconciliation", "nutrition", "apple_health"].includes(button.dataset.connectedView)) renderConnectedDominion();
+      setConnectedActiveView(button.dataset.connectedView || "overview");
+    });
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      const tabs = Array.from(document.querySelectorAll("[data-connected-view]"));
+      const index = tabs.indexOf(button);
+      const next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
+      next.focus();
+      setConnectedActiveView(next.dataset.connectedView);
+    });
+  });
+  document.getElementById("connected").addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-connected-action]");
+    if (!button) return;
+    const action = button.dataset.connectedAction;
+    if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
+    if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
+    if (await runMfpNutritionFeedAction(action)) return;
+    if (action === "apple-health-import") document.getElementById("apple-health-import-file")?.click();
+    if (action === "apply-apple-readiness") await applyAppleHealthReadiness();
+    if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);
+    if (action === "apply-nutrition") applyNutritionReconciliation(button.dataset.nutritionDate);
+    if (action === "review-strength-target") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("strength_target")?.focus();
+    }
+    if (action === "review-nutrition-target") {
+      setActiveSection("record");
+      window.history.replaceState(null, "", "#record");
+      document.getElementById("nutrition_target")?.focus();
+    }
+    if (action === "simulate") await simulateConnectedAccount(button.dataset.provider);
+    if (action === "review-account") setConnectedActiveView("accounts");
+    if (action === "sync") await runConnectedDemoSync(button.dataset.accountId);
+    if (action === "disconnect") {
+      const index = connectedAccounts.findIndex((item) => item.id === button.dataset.accountId);
+      if (index >= 0) {
+        const transitioned = connectedApi().transitionConnectedAccount(connectedAccounts[index], "DISCONNECTED");
+        if (transitioned.valid) connectedAccounts[index] = transitioned.account;
+        await saveConnectedState("Simulated account disconnected; history preserved.");
+      }
+    }
+    if (action === "retry") {
+      const original = connectedSyncJobs.find((item) => item.id === button.dataset.jobId);
+      if (original) await runConnectedDemoSync(original.connectedAccountId, "RETRY", original.id);
+    }
+    if (action === "rollback-import") {
+      const jobId = button.dataset.jobId;
+      const jobIndex = connectedSyncJobs.findIndex((item) => item.id === jobId);
+      if (jobIndex < 0 || !window.confirm("Rollback this import batch? Imported performance entries will be removed while the source audit trail is retained.")) return;
+      const rollback = connectedApi().rollbackImportBatch(connectedImportedRecords, jobId);
+      connectedImportedRecords = rollback.records;
+      const mappedIds = new Set(rollback.mappedPerformanceEntryIds);
+      performanceEntries = performanceEntries.filter((entry) => !mappedIds.has(entry.id));
+      saveLocalPerformanceEntries(performanceEntries);
+      connectedSyncJobs[jobIndex] = {
+        ...connectedSyncJobs[jobIndex],
+        summary: {
+          ...(connectedSyncJobs[jobIndex].summary || {}),
+          rolledBackAt: new Date().toISOString(),
+          rolledBackRecords: rollback.removed.length,
+          removedPerformanceEntries: mappedIds.size
+        }
+      };
+      if (session?.user?.id && mappedIds.size) {
+        try {
+          const supabase = await getClient();
+          const result = await supabase.from("performance_entries").delete().eq("user_id", session.user.id).in("id", [...mappedIds]);
+          if (result.error) throw result.error;
+        } catch (_) {
+          setText("connected-feedback", "Rollback is saved locally; remote Performance cleanup will retry on the next successful connection.");
+        }
+      }
+      await saveConnectedState(`Import batch rolled back. ${rollback.removed.length} source record(s) retained as invalidated; ${mappedIds.size} mapped Performance entry or entries removed.`);
+      renderPerformanceSection();
+    }
+  });
+  const fitbodImportFile = document.getElementById("fitbod-import-file");
+  if (fitbodImportFile) fitbodImportFile.addEventListener("change", async () => {
+    const file = fitbodImportFile.files?.[0];
+    fitbodImportFile.value = "";
+    if (file) await importFitbodWorkoutFile(file);
+  });
+  const mfpImportFile = document.getElementById("mfp-import-file");
+  if (mfpImportFile) mfpImportFile.addEventListener("change", async () => {
+    const file = mfpImportFile.files?.[0];
+    mfpImportFile.value = "";
+    if (file) await importMyFitnessPalNutritionFile(file);
+  });
+  const appleHealthImportFile = document.getElementById("apple-health-import-file");
+  if (appleHealthImportFile) appleHealthImportFile.addEventListener("change", async () => {
+    const file = appleHealthImportFile.files?.[0];
+    appleHealthImportFile.value = "";
+    if (file) await importAppleHealthFile(file);
+  });
+  document.getElementById("performance-entry-list").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+    const entryId = button.dataset.id;
+    if (button.dataset.action === "edit") {
+      const entry = performanceEntries.find((item) => String(item.id) === String(entryId));
+      if (entry) populatePerformanceForm(entry);
+    }
+    if (button.dataset.action === "delete") {
+      deletePerformanceEntry(entryId);
+    }
+  });
+  document.querySelectorAll('a[data-section][href^="#"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (handleSectionNavigation(link)) {
+        window.location.hash = `#${normalizeSectionKey(link.dataset.section)}`;
+      }
+    });
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const more = document.querySelector(".nav-more[open]");
+    if (!more) return;
+    more.removeAttribute("open");
+    more.querySelector("summary")?.focus();
+  });
+  document.addEventListener("click", (event) => {
+    const more = document.querySelector(".nav-more[open]");
+    if (more && !more.contains(event.target)) more.removeAttribute("open");
+  });
+  document.getElementById("edit-roll-call")?.addEventListener("click", () => {
+    prefillMorningRollCallForm(dailyState);
+    document.getElementById("roll-call-card").hidden = false;
+    document.getElementById("roll-call-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector('#roll-call-form [name="energy"]')?.focus({ preventScroll: true });
+  });
+  const reviewPromotionButton = document.getElementById("review-promotion");
+  const finalizePromotionButton = document.getElementById("finalize-promotion");
+  if (reviewPromotionButton) {
+    reviewPromotionButton.addEventListener("click", () => {
+      renderRankSection();
+    });
+  }
+  if (finalizePromotionButton) {
+    finalizePromotionButton.addEventListener("click", () => {
+      const nextRank = getNextRankDefinition(rankStatus.currentRank || "RECRUIT");
+      if (!nextRank) return;
+      const promotionInput = buildCanonicalPromotionInput(rankStatus.currentRank || "RECRUIT", nextRank.code);
+      const snapshot = finalizePromotionSnapshot({
+        currentRank: rankStatus.currentRank || "RECRUIT",
+        nextRank: nextRank.code,
+        status: "ELIGIBLE",
+        effectiveDate: todayISODate(),
+        promotionAuthorized: true,
+        qualificationSnapshot: buildPromotionEvidence({ ...promotionInput, nextRank: nextRank.code })
+      }, true);
+      rankStatus = {
+        ...rankStatus,
+        currentRank: snapshot.currentRank,
+        promotionState: snapshot.promotionState,
+        updatedAt: new Date().toISOString()
+      };
+      promotionHistory = [{ ...snapshot, createdAt: new Date().toISOString() }, ...promotionHistory];
+      saveRankStatus();
+      renderRankSection();
+    });
+  }
+  document.getElementById("standards")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-standard-action]");
+    if (!button) return;
+    const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
+    const selected = items.find((item) => item.id === button.dataset.standardId);
+    if (!selected) return;
+    const caseElement = button.closest(".standards-case");
+    if (button.dataset.standardAction === "save-plan") {
+      const dueDate = caseElement?.querySelector("[data-standard-due]")?.value || "";
+      const successCriteria = caseElement?.querySelector("[data-standard-criteria]")?.value?.trim() || "";
+      if (!dueDate || !successCriteria) {
+        setText("standards-feedback", "A due date and success criteria are required.");
+        return;
+      }
+      const updated = {
+        ...selected,
+        correctiveAction: { ...selected.correctiveAction, dueDate, successCriteria },
+        updatedAt: new Date().toISOString()
+      };
+      standardsReviewState = standardsReviewState.map((item) => item.id === updated.id ? updated : item);
+      saveStandardsReviewState(standardsReviewState);
+      const events = loadStandardsAuditEvents();
+      events.push({ ...buildViolationAuditEvent(updated.id, updated.status, updated.status, "Corrective action plan updated."), userId: session?.user?.id || null });
+      saveStandardsAuditEvents(events);
+      try {
+        await saveStandardsReviewStateToSupabase([updated]);
+        setText("standards-feedback", "Corrective action plan updated.");
+      } catch (_) {
+        setText("standards-feedback", "Corrective action plan saved locally.");
+      }
+      renderStandardsSection();
+      return;
+    }
+    if (button.dataset.standardAction === "submit-evidence") {
+      const completionEvidence = caseElement?.querySelector("[data-standard-evidence]")?.value?.trim() || "";
+      if (!completionEvidence) {
+        setText("standards-feedback", "Describe the completion evidence before submitting it for review.");
+        return;
+      }
+      const submittedAt = new Date().toISOString();
+      const enriched = {
+        ...selected,
+        correctionNote: completionEvidence,
+        correctiveAction: { ...selected.correctiveAction, completionEvidence, completionSubmittedAt: submittedAt }
+      };
+      const updated = updateStandardsReviewItem(enriched, "CORRECTED", "Completion evidence submitted for review.");
+      try {
+        await saveStandardsReviewStateToSupabase([updated]);
+        setText("standards-feedback", "Completion evidence submitted. Resolution now requires explicit review.");
+      } catch (_) {
+        setText("standards-feedback", "Completion evidence saved locally for review.");
+      }
+      renderStandardsSection();
+      return;
+    }
+    const statusByAction = {
+      review: "UNDER REVIEW", clarify: "UNDER REVIEW", confirm: "CONFIRMED",
+      dismiss: "DISMISSED", excuse: "EXCUSED", correct: "CORRECTED", resolve: "RESOLVED"
+    };
+    const nextStatus = statusByAction[button.dataset.standardAction];
+    if (!nextStatus) return;
+    const note = button.dataset.standardAction === "clarify" ? "Clarification requested before a decision." : `Decision recorded: ${nextStatus.toLowerCase().replaceAll(" ", "_")}.`;
+    const updated = updateStandardsReviewItem(selected, nextStatus, note);
+    if (!updated) {
+      setText("standards-feedback", `That transition is not available from ${selected.status}.`);
+      return;
+    }
+    try {
+      await saveStandardsReviewStateToSupabase([updated]);
+      setText("standards-feedback", `${nextStatus.replaceAll("_", " ")} saved to your account.`);
+    } catch (_) {
+      setText("standards-feedback", `${nextStatus.replaceAll("_", " ")} saved locally. Remote standards storage is temporarily unavailable.`);
+    }
+    renderStandardsSection();
+  });
+  window.addEventListener("hashchange", restoreSectionFromHash);
+  document.getElementById("logout").addEventListener("click", signOutUser);
+  document.getElementById("mobile-logout")?.addEventListener("click", signOutUser);
+
+  init();
+}
+
+if (typeof module !== "undefined") {
+  module.exports = {
+    normalizeFitnessTestAttempt,
+    validateFitnessTestAttempt,
+    buildPerformanceComparisonKey,
+    determineRecordCategory,
+    isPerformanceComparable,
+    evaluatePersonalRecord,
+    buildPersonalRecordSnapshot,
+    evaluateMilestones,
+    buildAtlasPerformanceReview,
+    normalizeFitnessTestProtocol,
+    getFitnessTestProtocolCatalog,
+    getMilestoneCatalog,
+    getPersonalRecordPersistenceKey,
+    getFitnessTestPersistenceKey,
+    getMilestonePersistenceKey,
+    getAtlasReviewPersistenceKey,
+    initializeFitnessTestAttemptWorkspace,
+    evaluateReadiness,
+    calculateConfidence,
+    calculateReadiness,
+    parseOptionalMetric,
+    OBJECTIVE_METRIC_CONFIG,
+    objectiveSourceLabel,
+    generateMission,
+    generateMorningBrief,
+    formatAtlasBriefVoice,
+    normalizeComplianceStatus,
+    scoreComplianceDomain,
+    calculateDisciplineScore,
+    formatDisciplineScore,
+    buildComplianceExplanation,
+    deriveDailyComplianceState,
+    getInspectionWeekRange,
+    calculateWeeklyDisciplineScore,
+    calculateEvidenceCoverage,
+    deriveInspectionStatus,
+    identifyStrongestAndWeakestDomains,
+    selectNextWeekPriority,
+    aggregateWeeklyCompliance,
+    inspectionAnalysisWindow,
+    canonicalFinalizedInspections,
+    buildInspectionIntegritySummary,
+    resolveWeeklyInspectionLoadOutcome,
+    generateWeeklyAfterActionReport,
+    finalizeWeeklyInspectionSnapshot,
+    sortInspectionHistory,
+    selectTrendWindow,
+    calculateLinearTrend,
+    deriveTrajectoryState,
+    calculateDomainTrends,
+    calculateComplianceStreaks,
+    summarizeInspectionHistory,
+    identifyBestAndLowestWeeks,
+    buildChartSeries,
+    generateAtlasTrendReport,
+    deriveCommandCenterOverview,
+    latestDatedItem,
+    dataTruthSource,
+    buildDataTruthModel,
+    buildActivationGuide,
+    buildReviewJourney,
+    isDeveloperBuildLabel,
+    applyProductPolish,
+    normalizeSectionKey,
+    shouldWarnBeforeNavigation,
+    deriveDirtyState,
+    deriveFinalizeConfirmationState,
+    isFinalizedReadOnlyInspection,
+    getStatusMessage,
+    deriveSaveState,
+    deriveInputImmutabilityState,
+    getStandardsCatalog,
+    normalizeRankCode,
+    getRankCatalog,
+    getCurrentRankDefinition,
+    getNextRankDefinition,
+    validateRankTransition,
+    calculatePromotionMetrics,
+    calculateConsecutiveQualifyingWeeks,
+    evaluatePromotionEligibility,
+    derivePromotionState,
+    buildPromotionEvidence,
+    generateAtlasPromotionReview,
+    finalizePromotionSnapshot,
+    buildRankStatusEvent,
+    deriveCorrectivePeriodState,
+    summarizePromotionHistory,
+    deriveRankStatusFromRecord,
+    formatPromotionMetric,
+    dedupeViolationCandidates,
+    deriveViolationCandidates,
+    detectProtectedException,
+    classifyViolationCandidate,
+    calculateViolationSeverity,
+    validateViolationTransition,
+    selectCorrectiveAction,
+    buildCorrectiveActionPlan,
+    deriveCorrectiveActionStatus,
+    generateAtlasStandardsReview,
+    buildViolationAuditEvent,
+    summarizeWeeklyViolationHistory,
+    deriveStandardsOperations,
+    buildTodayStandardsDuty,
+    detectStandardsPatterns,
+    deriveStandardsState,
+    buildStandardsReviewState,
+    deriveStandardsReviewStateFromRecord,
+    sanitizeStandardsReviewState,
+    buildStandardsPersistencePayload,
+    getPerformanceDomainCatalog,
+    getPerformanceActivityCatalog,
+    normalizePerformanceEntry,
+    validatePerformanceEntry,
+    calculateStrengthVolume,
+    estimateOneRepMax,
+    calculateRunningPace,
+    normalizePerformanceUnits,
+    buildPerformancePersistencePayload,
+    hydratePerformanceEntry,
+    summarizeRecentPerformance,
+    buildCoreWorkspaceModel,
+    normalizePerformanceViewCode,
+    filterPerformanceEntries,
+    removePerformanceEntry,
+    derivePerformanceEmptyState,
+    buildComparablePerformanceSeries,
+    calculateDirectionAwareChange,
+    detectPerformanceNoise,
+    calculateSeriesTrend,
+    classifyPerformanceTrajectory,
+    calculateTrendConfidence,
+    detectPerformancePlateau,
+    detectRecentRegression,
+    calculateBenchmarkProximity,
+    rankEligibleBenchmarks,
+    buildNextBenchmarkRecommendation,
+    evaluatePrAttemptReadiness,
+    buildDomainPerformanceIntelligence,
+    buildFitnessTestIntelligence,
+    buildPerformanceIntelligenceOverview,
+    buildAtlasPerformanceIntelligence,
+    derivePerformanceIntelligenceViewState,
+    formatIntelligenceDelta,
+    coreProgramStateTimestamp,
+    selectCoreProgramState,
+    corePlanMatchesContract,
+    coreProfileFingerprint,
+    WEEKLY_EVIDENCE_THRESHOLD,
+    TREND_WINDOW_SIZE,
+    TREND_SLOPE_THRESHOLD,
+    TREND_EVIDENCE_THRESHOLD,
+    dailyIntelligence,
+    buildCommandEvents,
+    __setSessionForTests: (value) => { session = value; }
+  };
+}
+
+function standardsStorageKey() {
+  return `coach-dominion:standards:${session?.user?.id || "local"}`;
+}
+
+function standardsEventStorageKey() {
+  return `coach-dominion:standards-events:${session?.user?.id || "local"}`;
+}
+
+function loadStandardsReviewState() {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(standardsStorageKey());
+    const parsed = stored ? JSON.parse(stored) : [];
+    standardsReviewState = Array.isArray(parsed) ? parsed : [];
+    return standardsReviewState;
+  } catch (_) {
+    standardsReviewState = [];
+    return standardsReviewState;
+  }
+}
+
+function saveStandardsReviewState(items = []) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    standardsReviewState = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(standardsStorageKey(), JSON.stringify(standardsReviewState));
+  } catch (_) {
+    standardsReviewState = [];
+  }
+}
+
+function loadStandardsAuditEvents() {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const stored = window.localStorage.getItem(standardsEventStorageKey());
+    return stored ? JSON.parse(stored) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveStandardsAuditEvents(items = []) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(standardsEventStorageKey(), JSON.stringify(items));
+  } catch (_) {
+    // Ignore local persistence failure.
+  }
+}
+
+function standardsDomainCode(domain = "reporting") {
+  const mapping = {
+    mission: "MISSION-EXECUTION-01",
+    strength: "STRENGTH-01",
+    cardio: "CARDIO-01",
+    recovery: "RECOVERY-01",
+    nutrition: "NUTRITION-01"
+  };
+  return mapping[domain] || "REPORTING-01";
+}
+
+function deriveStandardsReviewItems(record = null) {
+  if (!record) return [];
+  const entries = COMPLIANCE_DOMAINS.reduce((results, domain) => {
+    const status = normalizeComplianceStatus(record[`${domain}_status`]);
+    const evidence = [record[`${domain}_actual`] || "", record[`${domain}_note`] || "", record[`${domain}_restriction`] || ""].filter(Boolean).join(" | ");
+    const protectedException = record[`${domain}_approved_modification`] ? "approved_modification" : (record[`${domain}_restriction`] ? "approved_modification" : null);
+    if (status === "missed" && evidence && !protectedException) {
+      results.push({
+        id: `${record.compliance_date || todayISODate()}:${domain}`,
+        standardCode: standardsDomainCode(domain),
+        domain,
+        category: COMPLIANCE_DOMAIN_LABELS[domain],
+        title: `${COMPLIANCE_DOMAIN_LABELS[domain]} review`,
+        sourceType: "daily_compliance",
+        sourceDate: record.compliance_date || todayISODate(),
+        evidence,
+        status: "missed",
+        repeatCount: 1,
+        deliberate: false,
+        safety: false
+      });
+    }
+    return results;
+  }, []);
+  return deriveViolationCandidates(entries, []).map((candidate) => classifyViolationCandidate(candidate));
+}
+
+function mergeStandardsReviewItems(items = []) {
+  const existing = loadStandardsReviewState();
+  const mergedCurrent = items.map((item) => {
+    const persisted = existing.find((record) => record.id === item.id);
+    if (!persisted) return item;
+    return {
+      ...item,
+      ...persisted,
+      severity: persisted.severity || item.severity,
+      correctiveAction: persisted.correctiveAction || item.correctiveAction,
+      protectedException: persisted.protectedException || item.protectedException
+    };
+  });
+  const currentIds = new Set(mergedCurrent.map((item) => item.id));
+  return sanitizeStandardsReviewState([...mergedCurrent, ...existing.filter((item) => !currentIds.has(item.id))]);
+}
+
+function updateStandardsReviewItem(candidate, nextStatus, note = "") {
+  const transition = validateViolationTransition(candidate.status || "CANDIDATE", nextStatus);
+  if (!transition.valid) return null;
+  const now = new Date().toISOString();
+  const action = nextStatus === "CONFIRMED"
+    ? buildCorrectiveActionPlan({ domain: candidate.domain, severity: candidate.severity }, todayISODate())
+    : {
+      ...(candidate.correctiveAction || selectCorrectiveAction({ classification: candidate.classification || "CANDIDATE", severity: candidate.severity?.level || "LEVEL I", domain: candidate.domain })),
+      correctedAt: nextStatus === "CORRECTED" ? now : candidate.correctiveAction?.correctedAt || null,
+      resolvedAt: nextStatus === "RESOLVED" ? now : candidate.correctiveAction?.resolvedAt || null,
+      planStatus: nextStatus === "RESOLVED" ? "RESOLVED" : candidate.correctiveAction?.planStatus || "ACTIVE"
+    };
+  const updated = {
+    ...candidate,
+    status: nextStatus,
+    classification: nextStatus === "CONFIRMED" ? "CONFIRMED" : nextStatus === "DISMISSED" ? "DISMISSED" : nextStatus === "EXCUSED" ? "EXCUSED" : candidate.classification || "CANDIDATE",
+    correctiveAction: action,
+    confirmedAt: nextStatus === "CONFIRMED" ? now : candidate.confirmedAt,
+    correctedAt: nextStatus === "CORRECTED" ? now : candidate.correctedAt,
+    resolvedAt: nextStatus === "RESOLVED" ? now : candidate.resolvedAt,
+    dismissedAt: nextStatus === "DISMISSED" ? now : candidate.dismissedAt,
+    excusedAt: nextStatus === "EXCUSED" ? now : candidate.excusedAt,
+    updatedAt: now
+  };
+  const existingIndex = standardsReviewState.findIndex((item) => item.id === candidate.id);
+  if (existingIndex >= 0) {
+    standardsReviewState[existingIndex] = updated;
+  } else {
+    standardsReviewState.push(updated);
+  }
+  const event = buildViolationAuditEvent(candidate.id, candidate.status || "CANDIDATE", nextStatus, note || `Reviewed via ${nextStatus.toLowerCase().replaceAll(" ", "_")}`);
+  const events = loadStandardsAuditEvents();
+  events.push({ ...event, violationId: candidate.id, userId: session?.user?.id || null, createdAt: new Date().toISOString() });
+  saveStandardsAuditEvents(events);
+  saveStandardsReviewState(standardsReviewState);
+  return updated;
+}
+
+function composeStandardsPersistencePayload(candidate, storageMode = "SUPABASE") {
+  return buildStandardsPersistencePayload({
+    id: candidate.id,
+    userId: session?.user?.id || null,
+    standardCode: candidate.standardCode || candidate.standard_code || standardsDomainCode(candidate.domain),
+    category: candidate.category || "Reporting and Evidence",
+    title: candidate.title || "Standards review",
+    sourceType: candidate.sourceType || candidate.source_type || "daily_compliance",
+    sourceId: candidate.sourceId || candidate.source_id || null,
+    sourceDate: candidate.sourceDate || candidate.source_date || todayISODate(),
+    domain: candidate.domain || null,
+    evidence: candidate.evidence || null,
+    protectedException: candidate.protectedException || null,
+    candidateReason: candidate.candidateReason || candidate.candidate_reason || null,
+    classification: candidate.classification || "CANDIDATE",
+    severity: candidate.severity?.level || candidate.severity || "LEVEL I",
+    status: candidate.status || "CANDIDATE",
+    correctiveAction: candidate.correctiveAction || null,
+    correctionNote: candidate.correctionNote || candidate.correction_note || null,
+    confirmedAt: candidate.confirmedAt || candidate.confirmed_at || null,
+    correctedAt: candidate.correctedAt || candidate.corrected_at || null,
+    resolvedAt: candidate.resolvedAt || candidate.resolved_at || null,
+    dismissedAt: candidate.dismissedAt || candidate.dismissed_at || null,
+    excusedAt: candidate.excusedAt || candidate.excused_at || null,
+    createdAt: candidate.createdAt || candidate.created_at || null,
+    updatedAt: candidate.updatedAt || candidate.updated_at || null,
+    storageMode
+  });
+}
+
+async function saveStandardsReviewStateToSupabase(items = []) {
+  const supabase = await getClient();
+  const payloads = sanitizeStandardsReviewState(items).map((item) => {
+    const payload = composeStandardsPersistencePayload(item, "SUPABASE");
+    const databaseId = item.databaseId || item.database_id;
+    if (databaseId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(databaseId)) payload.id = databaseId;
+    else delete payload.id;
+    Object.keys(payload).forEach((key) => payload[key] === null && delete payload[key]);
+    return payload;
+  });
+  const { error } = await supabase.from("standards_violations").upsert(payloads, { onConflict: "user_id,standard_code,source_type,source_date,domain" });
+  if (error) throw error;
+}
+
+async function loadStandardsReviewStateFromSupabase() {
+  const supabase = await getClient();
+  const { data, error } = await supabase.from("standards_violations").select("*").eq("user_id", session.user.id).order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+function rankStorageKey() {
+  return `coach-dominion:rank:${session?.user?.id || "local"}`;
+}
+
+function promotionHistoryStorageKey() {
+  return `coach-dominion:rank-history:${session?.user?.id || "local"}`;
+}
+
+function loadRankStatus() {
+  if (typeof window === "undefined" || !window.localStorage) return rankStatus;
+  try {
+    const stored = window.localStorage.getItem(rankStorageKey());
+    const parsed = stored ? JSON.parse(stored) : null;
+    rankStatus = parsed ? { ...rankStatus, ...parsed } : rankStatus;
+    return rankStatus;
+  } catch (_) {
+    return rankStatus;
+  }
+}
+
+function saveRankStatus() {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(rankStorageKey(), JSON.stringify(rankStatus));
+  } catch (_) {
+    // Ignore local persistence failure.
+  }
+}
+
+function loadPromotionHistory() {
+  if (typeof window === "undefined" || !window.localStorage) return promotionHistory;
+  try {
+    const stored = window.localStorage.getItem(promotionHistoryStorageKey());
+    const parsed = stored ? JSON.parse(stored) : [];
+    promotionHistory = Array.isArray(parsed) ? parsed : [];
+    return promotionHistory;
+  } catch (_) {
+    return promotionHistory;
+  }
+}
+
+function savePromotionHistory(items = []) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    promotionHistory = Array.isArray(items) ? items : [];
+    window.localStorage.setItem(promotionHistoryStorageKey(), JSON.stringify(promotionHistory));
+  } catch (_) {
+    // Ignore local persistence failure.
+  }
+}
+
+function renderRankSection() {
+  if (typeof document === "undefined") return;
+  const container = document.getElementById("rank");
+  if (!container) return;
+  const currentRank = rankStatus.currentRank || "RECRUIT";
+  const nextRank = getNextRankDefinition(currentRank);
+  const promotionInput = buildCanonicalPromotionInput(currentRank, nextRank?.code || "CADET");
+  const eligibility = evaluatePromotionEligibility(promotionInput, nextRank?.code || "CADET");
+  const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
+  const review = generateAtlasPromotionReview({
+    currentRank,
+    nextRank: nextRank?.code || "CADET",
+    status: eligibility.status,
+    blockers: eligibility.blockers,
+    remainingActions: eligibility.remainingActions,
+    qualifyingHistory: `${promotionInput.finalizedInspections} finalized inspections available`,
+    disciplineStandard: `Recent weekly discipline score target is ${eligibility.target?.minimumAverageDisciplineScore || 0}`,
+    evidenceStandard: `Evidence coverage target is ${eligibility.target?.minimumAverageEvidenceCoverage || 0}%`,
+    standardsRecord: `Confirmed standards issues: ${eligibility.unresolvedConfirmedViolations || 0}`,
+    promotionOrder: "One rank at a time.",
+    commandNote: nextRank ? `${nextRank.promotionCommandNote}` : "No additional rank remains."
+  });
+  setText("rank-current", currentRank);
+  setText("rank-next", nextRank?.displayName || "—");
+  setText("rank-status", eligibility.status);
+  setText("rank-qualifying-weeks", String(eligibility.consecutiveQualifyingWeeksRequired || 0));
+  const rankStateBadge = document.getElementById("rank-state");
+  if (rankStateBadge) {
+    rankStateBadge.textContent = eligibility.status;
+    rankStateBadge.className = `state-pill ${eligibility.status === "ELIGIBLE" ? "green" : eligibility.status === "PROMOTED" ? "green" : eligibility.status === "PROGRESSING" ? "yellow" : eligibility.status === "BLOCKED" ? "red" : "neutral"}`;
+  }
+  const requirements = document.getElementById("rank-requirements");
+  if (requirements) {
+    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
+  }
+  const blockers = document.getElementById("rank-blockers");
+  if (blockers) {
+    blockers.innerHTML = eligibility.blockers.length ? eligibility.blockers.map((item) => `<div class="standards-item"><p>${item}</p></div>`).join("") : '<div class="standards-empty">No blockers detected.</div>';
+  }
+  const reviewOutput = document.getElementById("rank-review-output");
+  if (reviewOutput) reviewOutput.textContent = review.text;
+  const history = document.getElementById("rank-history");
+  if (history) {
+    const items = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${item.priorRank || "RECRUIT"} → ${item.currentRank || "CADET"}</strong><span>${item.promotionState || "PROMOTED"}</span></div><p>${item.effectiveDate || ""}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
+    history.innerHTML = items;
+  }
+  const ladder = document.getElementById("rank-ladder");
+  if (ladder) {
+    ladder.innerHTML = getRankCatalog().map((rank) => `<div class="standards-item"><div class="standards-item-header"><strong>${rank.displayName}</strong><span class="state-pill ${rank.code === currentRank ? "green" : "neutral"}">${rank.code}</span></div><p>${rank.description}</p><small>Min inspections ${rank.minimumFinalizedInspections}; min score ${rank.minimumAverageDisciplineScore}; evidence ${rank.minimumAverageEvidenceCoverage}%</small></div>`).join("");
+  }
+  renderReviewHub();
+}
+
+function renderStandardsSection() {
+  if (typeof document === "undefined") return;
+  const container = document.getElementById("standards");
+  if (!container) return;
+  const catalog = getStandardsCatalog();
+  const items = mergeStandardsReviewItems(deriveStandardsReviewItems(dailyCompliance));
+  const operations = deriveStandardsOperations(items);
+  const patterns = detectStandardsPatterns(items);
+  const openItems = [...operations.needsReview, ...operations.activeActions];
+  const summaryState = openItems.length ? (openItems.some((item) => item.status === "CONFIRMED") ? "REVIEWING" : "MONITORING") : "CLEAR";
+  setText("standards-catalog-count", catalog.length);
+  setText("standards-candidate-count", openItems.length);
+  setText("standards-confirmed-count", items.filter((item) => item.status === "CONFIRMED").length);
+  setText("standards-resolved-count", items.filter((item) => item.status === "RESOLVED").length);
+  const badge = document.getElementById("standards-state");
+  if (badge) {
+    badge.textContent = summaryState;
+    badge.className = `state-pill ${summaryState === "REVIEWING" ? "yellow" : summaryState === "MONITORING" ? "neutral" : "green"}`;
+  }
+  setText("standards-review-count", operations.needsReview.length);
+  setText("standards-active-count", operations.activeActions.length);
+  setText("standards-closed-count", operations.resolved.length);
+  const establishedPatterns = patterns.filter((pattern) => pattern.sufficient);
+  const patternBadge = document.getElementById("standards-pattern-state");
+  if (patternBadge) {
+    patternBadge.textContent = establishedPatterns.length ? `${establishedPatterns.length} REVIEW` : patterns.length ? "INSUFFICIENT EVIDENCE" : "NO PATTERN";
+    patternBadge.className = `state-pill ${establishedPatterns.length ? "yellow" : "neutral"}`;
+  }
+  const patternPanel = document.getElementById("standards-patterns");
+  if (patternPanel) {
+    patternPanel.innerHTML = patterns.length ? patterns.map((pattern) => `<article class="standards-pattern ${pattern.sufficient ? "established" : "insufficient"}">
+      <div class="standards-item-header"><div><span class="kicker">${escapeHtml(pattern.standardCode)}</span><strong>${escapeHtml(pattern.domain)} pattern review</strong></div><span class="state-pill ${pattern.sufficient ? "yellow" : "neutral"}">${pattern.confidence}</span></div>
+      <div class="standards-case-meta"><span>${pattern.caseCount} REVIEWED CASES</span><span>${pattern.distinctDateCount} DISTINCT DATES</span><span>${pattern.firstDate || "—"} → ${pattern.lastDate || "—"}</span></div>
+      <p>${escapeHtml(pattern.recommendation)}</p>
+      <small>Current severity remains ${escapeHtml(pattern.currentLevel)} until a human confirms any change.</small>
+    </article>`).join("") : '<div class="standards-empty">No repeated reviewed standards cases are available for pattern analysis.</div>';
+  }
+  const renderCard = (item, lane) => {
+    const standard = catalog.find((entry) => entry.code === (item.standardCode || standardsDomainCode(item.domain)));
+    const actions = lane === "review"
+      ? `<button type="button" class="ghost" data-standard-action="clarify" data-standard-id="${escapeHtml(item.id)}">Request context</button><button type="button" data-standard-action="confirm" data-standard-id="${escapeHtml(item.id)}">Confirm</button><button type="button" class="ghost" data-standard-action="excuse" data-standard-id="${escapeHtml(item.id)}">Excuse</button><button type="button" class="ghost" data-standard-action="dismiss" data-standard-id="${escapeHtml(item.id)}">Dismiss</button>`
+      : lane === "active"
+        ? `<button type="button" class="ghost" data-standard-action="save-plan" data-standard-id="${escapeHtml(item.id)}">Save plan</button>${item.status === "CONFIRMED" ? `<button type="button" data-standard-action="submit-evidence" data-standard-id="${escapeHtml(item.id)}">Submit evidence</button>` : `<button type="button" data-standard-action="resolve" data-standard-id="${escapeHtml(item.id)}">Approve resolution</button>`}`
+        : "";
+    return `<article class="standards-item standards-case">
+      <div class="standards-item-header"><div><span class="kicker">${escapeHtml(item.standardCode || standardsDomainCode(item.domain))}</span><strong>${escapeHtml(item.title || standard?.title || "Standards review")}</strong></div><span class="state-pill ${item.status === "CONFIRMED" ? "yellow" : item.status === "RESOLVED" ? "green" : "neutral"}">${escapeHtml(item.status)}</span></div>
+      <p>${escapeHtml(item.evidence || "No supporting evidence recorded.")}</p>
+      <div class="standards-case-meta"><span>${escapeHtml(item.severity?.level || "LEVEL I")}</span><span>${item.evidenceConfidence} EVIDENCE</span><span>${item.ageDays}D OLD</span></div>
+      ${item.protectedException ? `<p class="standards-protection">Protected context: ${escapeHtml(item.protectedException)}</p>` : ""}
+      ${lane === "active" ? `<div class="standards-action-order">
+        <div class="standards-action-heading"><strong>Corrective action plan</strong><span class="state-pill ${deriveCorrectiveActionStatus(item.correctiveAction) === "OVERDUE" ? "red" : deriveCorrectiveActionStatus(item.correctiveAction) === "AWAITING REVIEW" ? "yellow" : "neutral"}">${deriveCorrectiveActionStatus(item.correctiveAction)}</span></div>
+        <p>${escapeHtml(item.correctiveAction?.description || selectCorrectiveAction({ classification: item.classification, severity: item.severity?.level, domain: item.domain }).description)}</p>
+        <label>Due date<input type="date" data-standard-due value="${escapeHtml(item.correctiveAction?.dueDate || "")}"></label>
+        <label>Success criteria<textarea rows="2" data-standard-criteria>${escapeHtml(item.correctiveAction?.successCriteria || "")}</textarea></label>
+        <label>Completion evidence<textarea rows="3" data-standard-evidence placeholder="What was completed, where is the evidence, and what changed?">${escapeHtml(item.correctiveAction?.completionEvidence || "")}</textarea></label>
+        ${item.correctiveAction?.completionSubmittedAt ? `<small>Submitted ${new Date(item.correctiveAction.completionSubmittedAt).toLocaleString()} for explicit review.</small>` : ""}
+      </div>` : ""}
+      ${actions ? `<div class="standards-controls">${actions}</div>` : ""}
+    </article>`;
+  };
+  [
+    ["standards-review-queue", operations.needsReview, "review", "No evidence requires a decision."],
+    ["standards-active-queue", operations.activeActions, "active", "No confirmed corrective actions are active."],
+    ["standards-resolved-queue", operations.resolved, "resolved", "No resolved cases yet."]
+  ].forEach(([id, laneItems, lane, empty]) => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = laneItems.length ? laneItems.map((item) => renderCard(item, lane)).join("") : `<div class="standards-empty">${empty}</div>`;
+  });
+  const catalogElement = document.getElementById("standards-catalog");
+  if (catalogElement) catalogElement.innerHTML = catalog.map((standard) => `<article class="standards-item"><div class="standards-item-header"><strong>${escapeHtml(standard.title)}</strong><span>${escapeHtml(standard.code)}</span></div><p>${escapeHtml(standard.description)}</p><small>${escapeHtml(standard.evidenceRule)}</small></article>`).join("");
+  const auditTrail = document.getElementById("standards-audit-trail");
+  if (auditTrail) {
+    const events = loadStandardsAuditEvents().slice().sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || ""));
+    auditTrail.innerHTML = events.length
+      ? events.map((event) => `<li class="feed-event info"><div class="feed-meta"><strong>${event.violationId || "Review"}</strong><span>${event.priorStatus} → ${event.newStatus}</span></div><p>${event.note || "Reviewed"}</p><time>${event.createdAt ? new Date(event.createdAt).toLocaleString() : "Pending"}</time></li>`).join("")
+      : '<li class="feed-empty">Standards reviews are logged locally until a Supabase-backed audit table is applied.</li>';
+  }
+  renderTodayStandardsDuty();
+  renderReviewHub();
+}
+
+function emptyComplianceDomains() {
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => [key, {
+    status: null,
+    target: "",
+    actual: "",
+    note: "",
+    restriction: "",
+    approvedModification: false
+  }]));
+}
+
+function complianceDomainsFromRecord(record) {
+  const domains = emptyComplianceDomains();
+  if (!record) return domains;
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    domains[key] = {
+      status: normalizeComplianceStatus(record[`${key}_status`]),
+      target: record[`${key}_target`] || "",
+      actual: record[`${key}_actual`] || "",
+      note: record[`${key}_note`] || "",
+      restriction: record[`${key}_restriction`] || "",
+      approvedModification: Boolean(record[`${key}_approved_modification`])
+    };
+  });
+  return domains;
+}
+
+function complianceDomainRow(key) {
+  return `
+    <fieldset class="compliance-domain" data-domain="${key}">
+      <legend><button class="domain-toggle" type="button" aria-expanded="true" data-domain-toggle="${key}">${COMPLIANCE_DOMAIN_LABELS[key]}</button></legend>
+      <div class="compliance-domain-grid" data-domain-content="${key}">
+        <label for="${key}_target">Assigned target
+          <input id="${key}_target" name="${key}_target" maxlength="500" placeholder="What was assigned?">
+        </label>
+        <label for="${key}_status">Completion status
+          <select id="${key}_status" name="${key}_status">
+            <option value="">NOT ASSESSED</option>
+            <option value="completed">COMPLETE</option>
+            <option value="partial">PARTIAL</option>
+            <option value="missed">MISSED</option>
+            <option value="excused">EXCUSED</option>
+            <option value="not_applicable">N/A</option>
+          </select>
+        </label>
+        <label for="${key}_actual">Actual result
+          <input id="${key}_actual" name="${key}_actual" maxlength="500" placeholder="What was completed or modified?">
+        </label>
+        <label for="${key}_note">User note
+          <input id="${key}_note" name="${key}_note" maxlength="500" placeholder="Optional execution context">
+        </label>
+        <label class="compliance-restriction" for="${key}_restriction">Restriction or approved modification
+          <input id="${key}_restriction" name="${key}_restriction" maxlength="500" placeholder="Readiness, medical, or approved adjustment">
+        </label>
+        <label class="compliance-check" for="${key}_approved_modification"><input id="${key}_approved_modification" name="${key}_approved_modification" type="checkbox"> Approved modification</label>
+      </div>
+    </fieldset>`;
+}
+
+function initializeComplianceForm() {
+  const container = document.getElementById("compliance-domains");
+  container.innerHTML = COMPLIANCE_DOMAINS.map(complianceDomainRow).join("");
+  container.querySelectorAll(".domain-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      const domain = button.dataset.domainToggle;
+      const fieldset = container.querySelector(`[data-domain="${domain}"]`);
+      const content = fieldset?.querySelector(`[data-domain-content="${domain}"]`);
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", String(!expanded));
+      fieldset?.classList.toggle("collapsed", expanded);
+      if (content) content.hidden = expanded;
+    });
+  });
+}
+
+function applyMissionComplianceDefaults(domains) {
+  if (!dailyState || domains.mission.target) return domains;
+  const readinessResult = evaluateOperationalReadiness(dailyState);
+  const mission = generateMission(readinessResult);
+  domains.mission.target = `${mission.title}: ${mission.detail}`;
+  domains.mission.restriction = readinessResult.restrictions.join("; ");
+  domains.mission.approvedModification = readinessResult.state !== "GREEN";
+  return domains;
+}
+
+function readComplianceForm() {
+  const form = document.getElementById("compliance-form");
+  const values = new FormData(form);
+  return Object.fromEntries(COMPLIANCE_DOMAINS.map((key) => [key, {
+    status: normalizeComplianceStatus(values.get(`${key}_status`)),
+    target: String(values.get(`${key}_target`) || "").trim(),
+    actual: String(values.get(`${key}_actual`) || "").trim(),
+    note: String(values.get(`${key}_note`) || "").trim(),
+    restriction: String(values.get(`${key}_restriction`) || "").trim(),
+    approvedModification: values.get(`${key}_approved_modification`) === "on"
+  }]));
+}
+
+function renderComplianceScore(domains) {
+  const state = deriveDailyComplianceState(domains);
+  setText("discipline-score", state.displayScore);
+  setText("compliance-status", state.complianceStatus);
+  setText("compliance-formula", state.explanation.formula);
+  setList("compliance-included", state.explanation.included, "No domains included.");
+  setList("compliance-excluded", state.explanation.excluded, "No domains excluded.");
+}
+
+function updateComplianceStatusMessage() {
+  const saveState = deriveSaveState(currentSaveState);
+  const storageLabel = document.getElementById("compliance-storage");
+  storageLabel.textContent = saveState.label.toUpperCase();
+  storageLabel.className = `compliance-storage ${saveState.tone}`;
+  const updatedLabel = document.getElementById("compliance-updated");
+  updatedLabel.textContent = currentSaveState === "failed"
+    ? "Save failed. Retry when connection is available."
+    : currentSaveState === "locally saved"
+      ? "Saved locally while remote sync is unavailable."
+      : currentSaveState === "saving"
+        ? "Saving record…"
+        : currentSaveState === "saved"
+          ? "Saved successfully."
+          : "Not saved yet";
+}
+
+function setComplianceDirtyState(nextState = null) {
+  const form = document.getElementById("compliance-form");
+  if (!form) return;
+  const values = nextState || readComplianceForm();
+  complianceDirtyState = deriveDirtyState(compliancePreviousState || emptyComplianceDomains(), values);
+  const saveButton = document.getElementById("save-compliance");
+  if (saveButton) saveButton.disabled = !complianceDirtyState;
+  form.dataset.dirty = complianceDirtyState ? "true" : "false";
+}
+
+function setComplianceDefaultsFromState(record) {
+  const domains = applyMissionComplianceDefaults(complianceDomainsFromRecord(record));
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    const fieldset = document.querySelector(`[data-domain="${key}"]`);
+    if (fieldset) fieldset.classList.toggle("collapsed", false);
+  });
+  return domains;
+}
+
+function renderComplianceRecord(record, storageMode = "SUPABASE") {
+  const domains = setComplianceDefaultsFromState(record);
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    const domain = domains[key];
+    const form = document.getElementById("compliance-form");
+    form.elements[`${key}_status`].value = domain.status || "";
+    form.elements[`${key}_target`].value = domain.target;
+    form.elements[`${key}_actual`].value = domain.actual;
+    form.elements[`${key}_note`].value = domain.note;
+    form.elements[`${key}_restriction`].value = domain.restriction;
+    form.elements[`${key}_approved_modification`].checked = domain.approvedModification;
+  });
+  compliancePreviousState = readComplianceForm();
+  setComplianceDirtyState(compliancePreviousState);
+  setText("compliance-date", record?.compliance_date || todayISODate());
+  renderComplianceScore(domains);
+  currentSaveState = storageMode === "LOCAL" ? "locally saved" : "saved";
+  updateComplianceStatusMessage();
+  lastSavedComplianceState = structuredClone(compliancePreviousState);
+  renderStandardsSection();
+}
+
+function complianceStorageKey() {
+  return `coach-dominion:daily-compliance:${session?.user?.id || "local"}:${todayISODate()}`;
+}
+
+function loadLocalCompliance() {
+  try {
+    const stored = window.localStorage.getItem(complianceStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveLocalCompliance(record) {
+  try {
+    window.localStorage.setItem(complianceStorageKey(), JSON.stringify(record));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function loadDailyCompliance() {
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("daily_compliance")
+      .select(COMPLIANCE_COLUMNS)
+      .eq("user_id", session.user.id)
+      .eq("compliance_date", todayISODate())
+      .maybeSingle();
+    if (error) throw error;
+    dailyCompliance = data;
+    renderComplianceRecord(dailyCompliance, "SUPABASE");
+    try {
+      const remoteStandards = await loadStandardsReviewStateFromSupabase();
+      standardsReviewState = remoteStandards.map((item) => normalizeRemoteStandardsItem(item));
+      saveStandardsReviewState(standardsReviewState);
+      saveStandardsAuditEvents([]);
+    } catch (_) {
+      // No remote standards state available; fall back to local state.
+    }
+  } catch (_) {
+    dailyCompliance = loadLocalCompliance();
+    renderComplianceRecord(dailyCompliance, "LOCAL");
+    standardsReviewState = loadStandardsReviewState();
+  }
+}
+
+function compliancePayload(domains) {
+  const state = deriveDailyComplianceState(domains);
+  const payload = {
+    user_id: session?.user?.id || null,
+    compliance_date: todayISODate(),
+    discipline_score: state.score,
+    score_evidence: { evidence: state.evidence, explanation: state.explanation, complianceStatus: state.complianceStatus }
+  };
+  COMPLIANCE_DOMAINS.forEach((key) => {
+    payload[`${key}_status`] = domains[key].status;
+    payload[`${key}_target`] = domains[key].target || null;
+    payload[`${key}_actual`] = domains[key].actual || null;
+    payload[`${key}_note`] = domains[key].note || null;
+    payload[`${key}_restriction`] = domains[key].restriction || null;
+    payload[`${key}_approved_modification`] = domains[key].approvedModification;
+  });
+  return payload;
+}
+
+async function saveDailyCompliance(event) {
+  event.preventDefault();
+  const button = document.getElementById("save-compliance");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  currentSaveState = "saving";
+  updateComplianceStatusMessage();
+  const payload = compliancePayload(readComplianceForm());
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("daily_compliance")
+      .upsert(payload, { onConflict: "user_id,compliance_date" })
+      .select(COMPLIANCE_COLUMNS)
+      .single();
+    if (error) throw error;
+    dailyCompliance = data;
+    currentSaveState = "saved";
+    renderComplianceRecord(data, "SUPABASE");
+    try {
+      await saveStandardsReviewStateToSupabase(standardsReviewState);
+    } catch (_) {
+      // Ignore remote standards persistence failure and continue with local fallback.
+    }
+  } catch (_) {
+    const localRecord = { ...payload, updated_at: new Date().toISOString() };
+    dailyCompliance = localRecord;
+    const saved = saveLocalCompliance(localRecord);
+    currentSaveState = saved ? "locally saved" : "failed";
+    renderComplianceRecord(localRecord, "LOCAL");
+    if (!saved) setText("compliance-storage", "UNSAVED — local storage unavailable");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save Dominion Record";
+    updateComplianceStatusMessage();
+  }
+  await loadTrendsAnalytics();
+  const selectedWeek = getInspectionWeekRange(document.getElementById("weekly-date")?.value || todayISODate());
+  if (todayISODate() >= selectedWeek.weekStartDate && todayISODate() <= selectedWeek.weekEndDate) {
+    await loadWeeklyInspection();
+  }
+  renderDailyCoachingLoop();
+}
+
+function weeklyInspectionStorageKey(weekStartDate) {
+  return `coach-dominion:weekly-inspection:${session?.user?.id || "local"}:${weekStartDate}`;
+}
+
+function loadLocalWeeklyInspection(weekStartDate) {
+  try {
+    const stored = window.localStorage.getItem(weeklyInspectionStorageKey(weekStartDate));
+    return stored ? JSON.parse(stored) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveLocalWeeklyInspection(record) {
+  try {
+    window.localStorage.setItem(weeklyInspectionStorageKey(record.week_start_date), JSON.stringify(record));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function weeklyPlanStorageKey(nextWeekStart) {
+  return `coach-dominion:weekly-plan:${session?.user?.id || "local"}:${nextWeekStart || "pending"}`;
+}
+
+function loadApprovedWeeklyPlan(nextWeekStart) {
+  try { return JSON.parse(window.localStorage.getItem(weeklyPlanStorageKey(nextWeekStart)) || "null"); }
+  catch (_) { return null; }
+}
+
+function renderWeeklyPlan(inspection = weeklyInspection) {
+  const output = document.getElementById("weekly-plan-output");
+  const status = document.getElementById("weekly-plan-status");
+  if (!output || !status || typeof DominionWeeklyPlan === "undefined") return;
+  const plan = DominionWeeklyPlan.buildWeeklyPlan(inspection);
+  const approved = plan.nextWeekStart ? loadApprovedWeeklyPlan(plan.nextWeekStart) : null;
+  const current = approved || plan;
+  status.textContent = current.status;
+  status.className = `state-pill ${current.status === "APPROVED" ? "green" : current.status === "READY FOR APPROVAL" ? "yellow" : "neutral"}`;
+  if (!current.days?.length) {
+    output.className = "performance-empty";
+    output.textContent = current.reason;
+    return;
+  }
+  output.className = "";
+  const days = current.days.map((day) => `<article class="weekly-plan-day"><span>${escapeHtml(day.day)} · ${escapeHtml(day.date)}</span><strong>${escapeHtml(day.focus)}</strong><p>${escapeHtml(day.instruction)}</p></article>`).join("");
+  output.innerHTML = `<div class="weekly-plan-header">
+      <div><span>Next week</span><strong>${escapeHtml(current.nextWeekStart)} — ${escapeHtml(current.nextWeekEnd)}</strong></div>
+      <div><span>Priority</span><strong>${escapeHtml(current.focus)}</strong></div>
+      <div><span>Source discipline</span><strong>${formatDisciplineScore(current.disciplineScore)}</strong></div>
+      <div><span>Source evidence</span><strong>${Math.round(current.evidenceCoverage)}%</strong></div>
+    </div>
+    <p><strong>Atlas priority:</strong> ${escapeHtml(current.priority.text)}</p>
+    <div class="weekly-plan-days">${days}</div>
+    <ul class="baseline-safeguards">${current.guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <div class="weekly-plan-actions"><button type="button" data-weekly-plan-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Plan Approved" : "Approve Next Week’s Plan"}</button></div>`;
+}
+
+function approveCurrentWeeklyPlan() {
+  if (!weeklyInspection || typeof DominionWeeklyPlan === "undefined") return;
+  try {
+    const plan = DominionWeeklyPlan.buildWeeklyPlan(weeklyInspection);
+    const approved = DominionWeeklyPlan.approveWeeklyPlan(plan);
+    window.localStorage.setItem(weeklyPlanStorageKey(approved.nextWeekStart), JSON.stringify(approved));
+    renderWeeklyPlan(weeklyInspection);
+    setText("weekly-plan-feedback", "Plan approved. Daily readiness and pain rules still govern each day.");
+  } catch (error) {
+    setText("weekly-plan-feedback", error.message);
+  }
+}
+
+function loadLocalWeekRecords(range) {
+  const records = [];
+  try {
+    for (let offset = 0; offset < 7; offset += 1) {
+      const date = formatISODateUTC(addUTCDays(parseISODateUTC(range.weekStartDate), offset));
+      const key = `coach-dominion:daily-compliance:${session?.user?.id || "local"}:${date}`;
+      const stored = window.localStorage.getItem(key);
+      if (stored) records.push(JSON.parse(stored));
+    }
+  } catch (_) {
+    return records;
+  }
+  return records;
+}
+
+function resolveWeeklyInspectionLoadOutcome(input = {}) {
+  if (input.savedInspection?.finalized_at && !input.inspectionReadError) {
+    return { mode: "FINALIZED_REMOTE", storageMode: "SUPABASE", inspection: input.savedInspection, records: [], warning: "" };
+  }
+  if (!input.recordsReadError && Array.isArray(input.remoteRecords)) {
+    const warnings = [];
+    if (input.inspectionReadError) warnings.push(`Weekly snapshot storage is unavailable (${input.inspectionReadError.message || "unknown error"}).`);
+    if (input.draftWriteError) warnings.push(`The live inspection was calculated, but its draft snapshot was not saved (${input.draftWriteError.message || "unknown error"}).`);
+    return { mode: "REMOTE_RECORDS", storageMode: "SUPABASE", inspection: null, records: input.remoteRecords, warning: warnings.join(" ") };
+  }
+  if (input.savedInspection?.finalized_at) {
+    return { mode: "FINALIZED_LOCAL", storageMode: "LOCAL", inspection: input.savedInspection, records: [], warning: "Remote weekly data is unavailable. Showing the finalized local snapshot." };
+  }
+  const localRecords = Array.isArray(input.localRecords) ? input.localRecords : [];
+  return {
+    mode: "LOCAL_RECORDS",
+    storageMode: "LOCAL",
+    inspection: null,
+    records: localRecords,
+    warning: localRecords.length
+      ? `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). Showing local fallback.`
+      : `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). No local fallback rows were found.`
+  };
+}
+
+function weeklyPersistencePayload(aggregate, finalizedAt = null) {
+  const report = aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate);
+  return {
+    user_id: session?.user?.id || null,
+    week_start_date: aggregate.weekStartDate,
+    week_end_date: aggregate.weekEndDate,
+    inspection_status: finalizedAt ? "inspection_complete" : aggregate.inspectionStatus.toLowerCase().replaceAll(" ", "_"),
+    weekly_discipline_score: aggregate.score,
+    evidence_coverage: aggregate.evidenceCoverage,
+    domain_scores: aggregate.domainScores,
+    aggregate_counts: aggregate.counts,
+    strongest_domain: aggregate.strongestDomain,
+    weakest_domain: aggregate.weakestDomain,
+    next_week_priority: aggregate.nextWeekPriority,
+    report_evidence: aggregate,
+    atlas_report: report,
+    finalized_at: finalizedAt
+  };
+}
+
+function aggregateFromStoredInspection(record) {
+  if (!record?.report_evidence) return null;
+  const aggregate = structuredClone(record.report_evidence);
+  aggregate.finalizedAt = record.finalized_at || aggregate.finalizedAt;
+  aggregate.inspectionStatus = record.finalized_at ? "INSPECTION COMPLETE" : aggregate.inspectionStatus;
+  aggregate.atlasReport = record.atlas_report || aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate);
+  return aggregate;
+}
+
+function renderWeeklyInspection(aggregate, storageMode) {
+  weeklyInspection = aggregate;
+  const finalized = Boolean(aggregate.finalizedAt);
+  const finalizeState = deriveFinalizeConfirmationState(finalized, aggregate.evidenceCoverage);
+  const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
+  setText("weekly-status", aggregate.inspectionStatus);
+  document.getElementById("weekly-status").className = `state-pill ${aggregate.inspectionStatus === "INSPECTION COMPLETE" ? "green" : aggregate.inspectionStatus === "READY FOR INSPECTION" ? "yellow" : "neutral"}`;
+  setText("weekly-range", `${aggregate.weekStartDate} — ${aggregate.weekEndDate}`);
+  setText("weekly-score", `${formatDisciplineScore(aggregate.score)}${aggregate.score !== null && aggregate.scoreIsProvisional ? " · PROVISIONAL" : ""}`);
+  setText("weekly-coverage", `${Math.round(aggregate.evidenceCoverage)}%`);
+  setText("weekly-storage", storageMode === "SUPABASE" ? "SUPABASE" : "LOCAL FALLBACK");
+  setText("weekly-assessed-days", `${aggregate.counts.assessedDays} / ${aggregate.counts.fullyAssessedDays}`);
+  setText("weekly-unscored-days", aggregate.counts.unscoredDays);
+  setText("weekly-result-counts", `${aggregate.counts.completed} / ${aggregate.counts.partial} / ${aggregate.counts.missed}`);
+  setText("weekly-excluded-counts", `${aggregate.counts.excused} / ${aggregate.counts.notApplicable}`);
+  setText("weekly-modification-count", aggregate.counts.approvedModifications);
+  setText("weekly-evidence-through", aggregate.evidenceThroughDate || "Week not started");
+  setText("weekly-projected-coverage", `${Math.round(aggregate.projectedFullWeekCoverage || 0)}%`);
+  setText("weekly-calculation-meta", `${aggregate.calculationVersion || INSPECTION_CALCULATION_VERSION} · ${aggregate.elapsedDayCount || 0}/7 days elapsed`);
+  setText("weekly-strongest", aggregate.strongestDomains.length ? aggregate.strongestDomains.map(label).join(" / ") : "UNSCORED");
+  setText("weekly-weakest", aggregate.domainRankingTie ? "NO DISTINCT WEAKEST — TIED" : aggregate.weakestDomains.length ? aggregate.weakestDomains.map(label).join(" / ") : "UNSCORED");
+  setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
+  setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
+  document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
+  document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE · NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
+  setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
+  const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
+  const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
+  if (weeklyStandardsSummary) {
+    weeklyStandardsSummary.innerHTML = weeklyStandardsItems.length
+      ? weeklyStandardsItems.map((item) => `<article class="standards-item"><div class="standards-item-header"><strong>${item.domain}</strong><span class="state-pill ${item.status === "CONFIRMED" ? "green" : item.status === "RESOLVED" ? "neutral" : item.status === "DISMISSED" ? "neutral" : item.status === "EXCUSED" ? "neutral" : "yellow"}">${item.status || "CANDIDATE"}</span></div><p>${item.evidence || "No evidence recorded."}</p><small>${item.severity?.level || "LEVEL I"}</small></article>`).join("")
+      : '<div class="standards-empty">No standards review history for this inspection week.</div>';
+  }
+  const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
+  const warning = finalized
+    ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. Historical snapshot is read-only.`
+    : aggregate.scoreIsProvisional
+      ? `Provisional inspection. Evidence is measured only through ${aggregate.evidenceThroughDate || "the week start"}${missingLabels.length ? `; incomplete required domains: ${missingLabels.join(", ")}` : ""}${!aggregate.weekComplete ? "; the week is still in progress" : ""}.`
+      : "";
+  setText("weekly-warning", warning);
+  const finalizeButton = document.getElementById("finalize-week");
+  finalizeButton.disabled = finalized || !aggregate.canFinalize;
+  finalizeButton.textContent = finalized ? "Inspection Finalized" : "Finalize Inspection";
+  finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
+  const finalizeHint = document.getElementById("weekly-finalize-hint");
+  if (finalizeHint) finalizeHint.textContent = finalized ? "This inspection is finalized and read-only." : finalizeState.readOnlyMessage;
+  const inspectionSection = document.getElementById("inspection");
+  if (inspectionSection) inspectionSection.dataset.finalized = finalized ? "true" : "false";
+  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
+  renderWeeklyPlan(aggregate);
+  renderStandardsSection();
+  renderActivationGuide();
+  renderReviewHub();
+}
+
+async function loadWeeklyInspectionLegacy() {
+  const selectedDate = document.getElementById("weekly-date").value || todayISODate();
+  const range = getInspectionWeekRange(selectedDate);
+  setText("weekly-warning", "Calculating weekly evidence…");
+  try {
+    const supabase = await getClient();
+    const { data: saved, error: inspectionError } = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+    if (inspectionError) throw inspectionError;
+    if (saved?.finalized_at) {
+      renderWeeklyInspection(aggregateFromStoredInspection(saved), "SUPABASE");
+      return;
+    }
+    const { data: records, error: recordsError } = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
+    if (recordsError) throw recordsError;
+    weeklyDailyRecords = records || [];
+    const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
+    aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+    const payload = weeklyPersistencePayload(aggregate);
+    const { error: draftError } = await supabase.from("weekly_inspections").upsert(payload, { onConflict: "user_id,week_start_date" });
+    if (draftError) throw draftError;
+    renderWeeklyInspection(aggregate, "SUPABASE");
+  } catch (error) {
+    const saved = loadLocalWeeklyInspection(range.weekStartDate);
+    if (saved?.finalized_at) {
+      setText("weekly-warning", `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). Showing the finalized local snapshot.`);
+      renderWeeklyInspection(aggregateFromStoredInspection(saved), "LOCAL");
+      return;
+    }
+    weeklyDailyRecords = loadLocalWeekRecords(range);
+    const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
+    aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+    saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
+    const message = weeklyDailyRecords.length
+      ? `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). Showing local fallback.`
+      : `Remote weekly inspection data could not be loaded (${error?.message || "unknown error"}). No local fallback rows were found.`;
+    setText("weekly-warning", message);
+    renderWeeklyInspection(aggregate, "LOCAL");
+  }
+}
+
+async function loadWeeklyInspection() {
+  const selectedDate = document.getElementById("weekly-date").value || todayISODate();
+  const range = getInspectionWeekRange(selectedDate);
+  setText("weekly-warning", "Calculating weekly evidence…");
+  const supabase = await getClient();
+  const inspectionResult = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+  if (inspectionResult.data?.finalized_at && !inspectionResult.error) {
+    renderWeeklyInspection(aggregateFromStoredInspection(inspectionResult.data), "SUPABASE");
+    return;
+  }
+
+  const recordsResult = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
+
+  const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
+  const outcome = resolveWeeklyInspectionLoadOutcome({
+    savedInspection: inspectionResult.data || localSaved,
+    inspectionReadError: inspectionResult.error,
+    remoteRecords: recordsResult.data,
+    recordsReadError: recordsResult.error,
+    draftWriteError: null,
+    localRecords: loadLocalWeekRecords(range)
+  });
+  if (outcome.mode === "FINALIZED_LOCAL") {
+    renderWeeklyInspection(aggregateFromStoredInspection(outcome.inspection), outcome.storageMode);
+    setText("weekly-warning", outcome.warning);
+    return;
+  }
+  weeklyDailyRecords = outcome.records;
+  const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
+  aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+  if (outcome.storageMode === "LOCAL") saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
+  renderWeeklyInspection(aggregate, outcome.storageMode);
+  if (outcome.warning) setText("weekly-warning", outcome.warning);
+}
+
+async function finalizeWeeklyInspection() {
+  if (!weeklyInspection) return;
+  const finalizeState = deriveFinalizeConfirmationState(Boolean(weeklyInspection.finalizedAt), weeklyInspection.evidenceCoverage);
+  if (!finalizeState.canFinalize || !weeklyInspection.canFinalize) {
+    setText("weekly-warning", !weeklyInspection.weekComplete ? "Finalization is available after the inspection week ends." : "Finalization requires sufficient evidence across every required domain.");
+    return;
+  }
+  const confirmed = window.confirm(`${finalizeState.readOnlyMessage}\n\nFinalize this inspection now?`);
+  if (!confirmed) return;
+  const button = document.getElementById("finalize-week");
+  button.disabled = true;
+  try {
+    const finalized = finalizeWeeklyInspectionSnapshot(weeklyInspection);
+    const payload = weeklyPersistencePayload(finalized, finalized.finalizedAt);
+    try {
+      const supabase = await getClient();
+      const { data, error } = await supabase.from("weekly_inspections").upsert(payload, { onConflict: "user_id,week_start_date" }).select("*").single();
+      if (error) throw error;
       renderWeeklyInspection(aggregateFromStoredInspection(data), "SUPABASE");
     } catch (_) {
       saveLocalWeeklyInspection(payload);
@@ -567,4 +16087,3 @@ async function loadTrendsAnalytics() {
     renderTrendsAnalytics(local.inspections, local.dailyRecords, "LOCAL FALLBACK");
   }
 }
-

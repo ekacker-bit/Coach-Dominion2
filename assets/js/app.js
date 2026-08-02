@@ -6,6 +6,11 @@ let dailyCompliance;
 let weeklyInspection;
 let weeklyDailyRecords = [];
 let inspectionHistory = [];
+let trendRangeDays = 28;
+let trendActiveView = "overview";
+let trendActiveMetric = "discipline";
+let trendDashboardModel = null;
+let trendAnalyticsContext = null;
 let activeSection = "today";
 let complianceDirtyState = false;
 let compliancePreviousState = null;
@@ -1486,13 +1491,18 @@ function mergeReadinessHistory() {
   const byDate = new Map();
   if (connectedApi()) {
     connectedApi().summarizeAppleHealthByDate(connectedImportedRecords).forEach((item) => {
+      const weight = item.weight === null || item.weight === undefined
+        ? null
+        : /kg/i.test(item.weightUnit || "")
+          ? Math.round(Number(item.weight) * 2.2046226218 * 10) / 10
+          : Number(item.weight);
       byDate.set(item.date, {
         date: item.date,
         sleep: item.sleep,
         resting_heart_rate: item.restingHeartRate,
         heart_rate_variability: item.heartRateVariability,
         steps: item.steps,
-        weight: item.weight
+        weight
       });
     });
   }
@@ -10269,7 +10279,7 @@ async function loadDailyState() {
   try {
     const supabase = await getClient();
     const cutoff = new Date(`${todayISODate()}T00:00:00Z`);
-    cutoff.setUTCDate(cutoff.getUTCDate() - 28);
+    cutoff.setUTCDate(cutoff.getUTCDate() - 84);
     const { data, error } = await supabase
       .from("daily_state")
       .select(DAILY_STATE_COLUMNS)
@@ -12516,6 +12526,7 @@ async function init() {
     }
     session = data.session;
     setText("identity", "Signed in as " + session.user.email);
+    loadTrendPreferences();
     await flushMobilePendingWrites();
     loadStandardsReviewState();
     loadRankStatus();
@@ -12527,7 +12538,6 @@ async function init() {
     await loadDailyCompliance();
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
-    await loadTrendsAnalytics();
     await loadRecruitContractState();
     await loadRecruitOnboardingState();
     await loadNutritionState();
@@ -12539,6 +12549,7 @@ async function init() {
     await loadWeeklyOrchestrationState();
     await loadSplitDayCheckpointState();
     await loadConnectedDominion();
+    await loadTrendsAnalytics();
     await syncDominionContinuity();
     renderRecruitContract();
     renderWeeklyOrchestrator();
@@ -12690,6 +12701,26 @@ if (typeof document !== "undefined") {
     if (action === "TODAY") {
       setActiveSection("today");
       window.history.replaceState(null, "", "#today");
+    }
+  });
+  document.getElementById("trends")?.addEventListener("click", (event) => {
+    const rangeButton = event.target.closest("button[data-trend-range]");
+    if (rangeButton && typeof DominionTrends !== "undefined") {
+      trendRangeDays = DominionTrends.normalizeRangeDays(rangeButton.dataset.trendRange);
+      saveTrendPreferences();
+      if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+      return;
+    }
+    const viewButton = event.target.closest("button[data-trend-view]");
+    if (viewButton) {
+      setTrendView(viewButton.dataset.trendView);
+      return;
+    }
+    const metricButton = event.target.closest("button[data-trend-metric]");
+    if (metricButton) {
+      trendActiveMetric = metricButton.dataset.trendMetric;
+      saveTrendPreferences();
+      renderTrendPrimaryChart();
     }
   });
   document.getElementById("one-command-primary")?.addEventListener("click", async (event) => {
@@ -15813,7 +15844,7 @@ function renderTrendChart(elementId, series, valueKey, label) {
   element.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${label}. Fixed axis from zero to one hundred percent.">${grid}${finalizedCoordinates ? `<polyline class="chart-line" points="${finalizedCoordinates}"></polyline>` : ""}${provisionalLine}${marks}</svg><p class="chart-equivalent">${equivalent}</p>`;
 }
 
-function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
+function renderLegacyTrendsAnalytics(inspections, dailyRecords, storageMode) {
   inspectionHistory = canonicalFinalizedInspections(inspections);
   const currentRange = getInspectionWeekRange(todayISODate());
   const currentAggregate = aggregateWeeklyCompliance(dailyRecords, currentRange.weekStartDate);
@@ -15852,6 +15883,191 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
   renderTrendChart("evidence-trend-chart", chartSeries, "evidenceCoverage", "Weekly Evidence Coverage");
   setText("atlas-trend-report", report.text);
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || {}, trajectory.state);
+  renderRankSection();
+  renderReviewHub();
+}
+
+function trendPreferenceKey() {
+  return `coach-dominion:trends-view:${session?.user?.id || "local"}`;
+}
+
+function loadTrendPreferences() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(trendPreferenceKey()) || "null");
+    if (typeof DominionTrends !== "undefined") trendRangeDays = DominionTrends.normalizeRangeDays(stored?.rangeDays);
+    trendActiveView = ["overview", "training", "recovery", "body"].includes(stored?.view) ? stored.view : "overview";
+    trendActiveMetric = ["discipline", "readiness", "weight"].includes(stored?.metric) ? stored.metric : "discipline";
+  } catch (_) {
+    trendRangeDays = 28;
+    trendActiveView = "overview";
+    trendActiveMetric = "discipline";
+  }
+}
+
+function saveTrendPreferences() {
+  try {
+    window.localStorage.setItem(trendPreferenceKey(), JSON.stringify({
+      rangeDays: trendRangeDays,
+      view: trendActiveView,
+      metric: trendActiveMetric
+    }));
+  } catch (_) {}
+}
+
+function trendNutritionHistory(rangeDays = 84) {
+  const imported = connectedApi() ? connectedApi().aggregateNutritionByDate(connectedImportedRecords) : [];
+  const importedByDate = new Map(imported.map((item) => [item.date, { ...item, source: "IMPORTED" }]));
+  const rows = [];
+  const anchor = new Date(`${todayISODate()}T12:00:00Z`);
+  for (let offset = Math.max(1, Number(rangeDays || 84)) - 1; offset >= 0; offset -= 1) {
+    const date = new Date(anchor.getTime() - offset * 86400000).toISOString().slice(0, 10);
+    const manual = readManualNutrition(date);
+    const record = importedByDate.get(date) || (manual ? { ...manual, source: "MANUAL" } : null);
+    if (record) rows.push(record);
+  }
+  return rows;
+}
+
+function trendMetricValue(value, suffix = "") {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
+  return `${value}${suffix}`;
+}
+
+function trendSeriesBars(series = [], options = {}) {
+  const points = (series || []).filter((item) => Number.isFinite(Number(item.value))).slice(-12);
+  if (!points.length) return '<div class="trend-chart-empty"><strong>Signal not established</strong><span>Keep logging to unlock this trajectory.</span></div>';
+  const values = points.map((item) => Number(item.value));
+  const fixedMin = Number.isFinite(Number(options.min)) ? Number(options.min) : null;
+  const fixedMax = Number.isFinite(Number(options.max)) ? Number(options.max) : null;
+  let min = fixedMin ?? Math.min(...values);
+  let max = fixedMax ?? Math.max(...values);
+  if (min === max) {
+    min -= Math.max(1, Math.abs(min) * 0.04);
+    max += Math.max(1, Math.abs(max) * 0.04);
+  }
+  const span = max - min || 1;
+  const unit = options.unit || "";
+  return `<div class="trend-bars" role="img" aria-label="${escapeHtml(options.label || "Trend")} from ${escapeHtml(points[0].date)} to ${escapeHtml(points.at(-1).date)}">
+    ${points.map((item) => {
+      const value = Number(item.value);
+      const height = Math.max(8, Math.min(100, ((value - min) / span) * 88 + 8));
+      return `<div class="trend-bar" style="--trend-bar:${height}%"><i></i><strong>${escapeHtml(Number.isInteger(value) ? value : value.toFixed(1))}${escapeHtml(unit)}</strong><span>${escapeHtml(item.date.slice(5))}</span></div>`;
+    }).join("")}
+  </div>`;
+}
+
+function trendSparkBars(series = []) {
+  const points = (series || []).filter((item) => Number.isFinite(Number(item.value))).slice(-7);
+  if (!points.length) return '<span class="trend-spark empty"></span>';
+  const values = points.map((item) => Number(item.value));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  return `<span class="trend-spark" aria-hidden="true">${points.map((item) => `<i style="--spark:${Math.max(18, ((Number(item.value) - min) / span) * 82 + 18)}%"></i>`).join("")}</span>`;
+}
+
+function renderTrendPrimaryChart(model = trendDashboardModel) {
+  const element = document.getElementById("trend-primary-chart");
+  const title = document.getElementById("trend-focus-title");
+  if (!element || !title || !model) return;
+  const configs = {
+    discipline: { title: "Discipline", series: model.discipline.series, unit: "%", min: 0, max: 100 },
+    readiness: { title: "Readiness", series: model.readiness.series, unit: "", min: 1, max: 10 },
+    weight: { title: "Weight", series: model.weight.series, unit: "", min: null, max: null }
+  };
+  const config = configs[trendActiveMetric] || configs.discipline;
+  title.textContent = config.title;
+  element.innerHTML = trendSeriesBars(config.series, { ...config, label: `${config.title} trajectory` });
+  document.querySelectorAll("[data-trend-metric]").forEach((button) => button.setAttribute("aria-pressed", button.dataset.trendMetric === trendActiveMetric ? "true" : "false"));
+}
+
+function setTrendView(view = "overview") {
+  trendActiveView = ["overview", "training", "recovery", "body"].includes(view) ? view : "overview";
+  document.querySelectorAll("[data-trend-pane]").forEach((pane) => { pane.hidden = pane.dataset.trendPane !== trendActiveView; });
+  document.querySelectorAll("[data-trend-view]").forEach((button) => button.setAttribute("aria-selected", button.dataset.trendView === trendActiveView ? "true" : "false"));
+  saveTrendPreferences();
+}
+
+function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
+  trendDashboardModel = model;
+  setText("trend-command-signal", model.coaching.signal);
+  setText("trend-command-detail", model.coaching.detail);
+  const action = document.getElementById("trend-command-action");
+  action.textContent = model.coaching.action.label;
+  action.href = `#${model.coaching.action.section}`;
+  action.dataset.section = model.coaching.action.section;
+  setText("trend-evidence-score", `${model.evidence.score}%`);
+  setText("trend-evidence-label", model.evidence.label);
+  setText("trend-evidence-sources", `${model.evidence.sourceCount} of ${model.evidence.possibleSources} signals`);
+  document.getElementById("trend-evidence-ring").style.setProperty("--trend-evidence", model.evidence.score);
+  document.querySelectorAll("[data-trend-range]").forEach((button) => button.setAttribute("aria-pressed", Number(button.dataset.trendRange) === model.rangeDays ? "true" : "false"));
+
+  document.getElementById("trend-kpi-grid").innerHTML = model.kpis.map((item) => `<article class="trend-kpi ${escapeHtml(item.tone)}" data-kpi="${escapeHtml(item.id)}">
+    <header><span>${escapeHtml(item.label)}</span>${trendSparkBars(item.series)}</header>
+    <strong>${trendMetricValue(item.value, item.suffix)}</strong>
+    <small>${escapeHtml(item.deltaLabel || "Signal not established")}</small>
+    <em>${escapeHtml(item.evidence || "No evidence")}</em>
+  </article>`).join("");
+
+  setText("trend-win", model.coaching.win);
+  setText("trend-watch", model.coaching.watch);
+  setText("trend-next", model.coaching.next);
+  renderTrendPrimaryChart(model);
+
+  const training = model.training;
+  document.getElementById("trend-training-grid").innerHTML = [
+    ["Strength", training.strengthSessions, "days"],
+    ["Running", training.runMiles, "miles"],
+    ["Core", training.coreSessions, "sessions"],
+    ["Active", training.totalSessionDays, "days"]
+  ].map(([label, value, unit]) => `<article><span>${label}</span><strong>${value}</strong><small>${unit} · ${model.rangeLabel}</small></article>`).join("");
+
+  const readiness = model.readiness;
+  document.getElementById("trend-recovery-grid").innerHTML = [
+    ["Energy", trendMetricValue(readiness.value, "/10"), "latest 7d"],
+    ["Sleep", trendMetricValue(readiness.sleepAverage, " hr"), "range average"],
+    ["Resting HR", trendMetricValue(readiness.rhrAverage, " bpm"), "range average"],
+    ["HRV", trendMetricValue(readiness.hrvAverage, " ms"), "range average"]
+  ].map(([label, value, note]) => `<article><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
+
+  setText("trend-body-weight", trendMetricValue(model.weight.value, " lb"));
+  setText("trend-body-change", model.weight.changeLabel);
+  document.getElementById("trend-body-chart").innerHTML = trendSeriesBars(model.weight.series, { label: "Weight trajectory" });
+  const windowDates = trajectory.window.map((item) => item.weekStartDate);
+  setText("trend-window", windowDates.length ? `${windowDates[0]} — ${windowDates.at(-1)} · ${windowDates.length} finalized week${windowDates.length === 1 ? "" : "s"}` : "No finalized scored window yet.");
+  setText("analytics-storage", storageMode === "SUPABASE" ? "ACCOUNT EVIDENCE" : "DEVICE EVIDENCE");
+  setText("trend-method-version", model.version);
+  document.getElementById("trend-domain-grid").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div class="trend-domain-card ${domainTrends[key].direction.toLowerCase().replaceAll(" ", "-")}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${domainTrends[key].direction}</strong><small>${domainTrends[key].slope === null ? "Learning" : `${domainTrends[key].slope.toFixed(1)} pts/wk`}</small></div>`).join("");
+  setTrendView(trendActiveView);
+}
+
+function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
+  inspectionHistory = canonicalFinalizedInspections(inspections);
+  const currentRange = getInspectionWeekRange(todayISODate());
+  const currentAggregate = aggregateWeeklyCompliance(dailyRecords, currentRange.weekStartDate);
+  const hasFinalizedCurrentWeek = sortInspectionHistory(inspections).some((item) => item.weekStartDate === currentRange.weekStartDate && item.finalizedAt);
+  const provisional = currentAggregate.counts.assessedObservations > 0 && !hasFinalizedCurrentWeek ? currentAggregate : null;
+  const trajectory = deriveTrajectoryState(inspectionHistory, { windowSize: Math.max(4, Math.round(trendRangeDays / 7)) });
+  const domainTrends = calculateDomainTrends(inspectionHistory, { windowSize: Math.max(4, Math.round(trendRangeDays / 7)) });
+  if (typeof DominionTrends === "undefined") {
+    renderLegacyTrendsAnalytics(inspections, dailyRecords, storageMode);
+    return;
+  }
+  trendAnalyticsContext = { inspections, dailyRecords, storageMode };
+  const model = DominionTrends.buildProgramTrendModel({
+    today: todayISODate(),
+    rangeDays: trendRangeDays,
+    inspections: inspectionHistory,
+    dailyStates: mergeReadinessHistory(),
+    dailyRecords,
+    performanceEntries,
+    strengthHistory: readStrengthHistory(),
+    coreHistory: readCoreHistory(),
+    nutritionDays: trendNutritionHistory(84),
+    nutritionTargets: currentNutritionBaseTargets(todayISODate())
+  });
+  renderProgramTrends(model, domainTrends, trajectory, storageMode);
+  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || provisional || {}, trajectory.state);
   renderRankSection();
   renderReviewHub();
 }

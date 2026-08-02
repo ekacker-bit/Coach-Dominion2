@@ -9,6 +9,7 @@ let inspectionHistory = [];
 let trendRangeDays = 28;
 let trendActiveView = "overview";
 let trendActiveMetric = "discipline";
+let trendBodyMetric = "waist";
 let trendDashboardModel = null;
 let trendAnalyticsContext = null;
 let activeSection = "today";
@@ -2470,10 +2471,10 @@ function normalizePerformanceMetricValue(domain, key, value) {
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "body_metrics") {
-    const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location"]);
+    const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location", "waist", "chest", "hips", "arm", "thigh", "body_fat", "circumference_unit", "protocol"]);
     if (!allowedKeys.has(key)) return undefined;
   }
-  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score") {
+  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score" || ["waist", "chest", "hips", "arm", "thigh", "body_fat"].includes(key)) {
     return parsePerformanceNumber(value);
   }
   return value;
@@ -2620,7 +2621,8 @@ function validatePerformanceEntry(input = {}) {
   }
   if (entry.domain === "body_metrics") {
     const measurementValue = Number(metrics.measurement_value);
-    if (!Number.isFinite(measurementValue) || measurementValue < 0) errors.push({ field: "metrics.measurement_value", message: "Measurement value must be a non-negative number." });
+    const namedBodyValues = ["waist", "chest", "hips", "arm", "thigh", "body_fat"].map((key) => Number(metrics[key])).filter((value) => Number.isFinite(value) && value > 0);
+    if ((!Number.isFinite(measurementValue) || measurementValue < 0) && !namedBodyValues.length) errors.push({ field: "metrics.measurement_value", message: "Enter at least one non-negative body measurement." });
   }
   if (entry.domain === "fitness_test") {
     if (!entry.metrics?.test_protocol_name && !entry.activityName) errors.push({ field: "metrics.test_protocol_name", message: "Formal tests need a protocol name." });
@@ -9878,7 +9880,12 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
       metricsSummary.push(entry.metrics?.overall_score ? `score ${entry.metrics.overall_score}` : "protocol logged");
     }
     if (entry.domain === "body_metrics") {
-      metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
+      const bodyMetrics = ["waist", "chest", "hips", "arm", "thigh", "body_fat"].filter((key) => Number.isFinite(Number(entry.metrics?.[key])));
+      if (bodyMetrics.length) {
+        metricsSummary.push(bodyMetrics.slice(0, 3).map((key) => `${key.replaceAll("_", " ")} ${entry.metrics[key]}${key === "body_fat" ? "%" : ` ${entry.metrics.circumference_unit || "in"}`}`).join(" · "));
+      } else {
+        metricsSummary.push(entry.metrics?.measurement_value ? `${entry.metrics.measurement_value} ${entry.metrics.measurement_unit || ""}`.trim() : "measurement logged");
+      }
     }
     const sourceLabel = entry.provenance?.sourceIsDemo ? `DEMO ${entry.provenance.sourceProvider || "PROVIDER"} IMPORT` : entry.provenance?.sourceProvider ? `${entry.provenance.sourceProvider} IMPORT` : (entry.source || "MANUAL");
     return `<article class="performance-entry-card"><div class="performance-entry-header"><div><strong>${entry.activityName || "Entry"}</strong><p>${entry.performanceDate} • ${entry.entryType.replaceAll("_", " ")} • ${PERFORMANCE_DOMAIN_LABELS[entry.domain] || entry.domain}</p><span class="demo-badge">${escapeHtml(sourceLabel)}</span></div><span class="state-pill neutral">${entry.evidenceStatus || "SELF REPORTED"}</span></div><div class="performance-entry-meta"><span>${entry.notes || "No notes recorded."}</span><span>${metricsSummary.join(" • ") || "No metrics"}</span></div><div class="performance-entry-actions"><button type="button" class="ghost" data-action="edit" data-id="${entry.id || ""}">Edit</button><button type="button" data-action="delete" data-id="${entry.id || ""}">Delete</button></div></article>`;
@@ -12721,8 +12728,26 @@ if (typeof document !== "undefined") {
       trendActiveMetric = metricButton.dataset.trendMetric;
       saveTrendPreferences();
       renderTrendPrimaryChart();
+      return;
+    }
+    const bodyMetricButton = event.target.closest("button[data-body-metric]");
+    if (bodyMetricButton) {
+      trendBodyMetric = bodyMetricButton.dataset.bodyMetric;
+      saveTrendPreferences();
+      renderBodyMeasurementChart(trendDashboardModel?.bodyComposition || buildCurrentBodyOutcomeModel());
+      return;
+    }
+    const editBodyButton = event.target.closest("button[data-body-checkin-edit]");
+    if (editBodyButton) {
+      editBodyCheckIn(editBodyButton.dataset.bodyCheckinEdit);
+      return;
+    }
+    const deleteBodyButton = event.target.closest("button[data-body-checkin-delete]");
+    if (deleteBodyButton) {
+      deleteBodyCheckIn(deleteBodyButton.dataset.bodyCheckinDelete);
     }
   });
+  document.getElementById("body-checkin-form")?.addEventListener("submit", saveBodyCheckIn);
   document.getElementById("one-command-primary")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     button.disabled = true;
@@ -15655,6 +15680,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
   document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE · NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
+  renderWeeklyBodyOutcome(aggregate);
   const weeklyStandardsSummary = document.getElementById("weekly-standards-summary");
   const weeklyStandardsItems = standardsReviewState.filter((item) => item.sourceDate && item.sourceDate <= aggregate.weekEndDate && item.sourceDate >= aggregate.weekStartDate);
   if (weeklyStandardsSummary) {
@@ -15897,10 +15923,12 @@ function loadTrendPreferences() {
     if (typeof DominionTrends !== "undefined") trendRangeDays = DominionTrends.normalizeRangeDays(stored?.rangeDays);
     trendActiveView = ["overview", "training", "recovery", "body"].includes(stored?.view) ? stored.view : "overview";
     trendActiveMetric = ["discipline", "readiness", "weight"].includes(stored?.metric) ? stored.metric : "discipline";
+    trendBodyMetric = ["waist", "chest", "hips", "arm", "thigh", "body_fat"].includes(stored?.bodyMetric) ? stored.bodyMetric : "waist";
   } catch (_) {
     trendRangeDays = 28;
     trendActiveView = "overview";
     trendActiveMetric = "discipline";
+    trendBodyMetric = "waist";
   }
 }
 
@@ -15909,7 +15937,8 @@ function saveTrendPreferences() {
     window.localStorage.setItem(trendPreferenceKey(), JSON.stringify({
       rangeDays: trendRangeDays,
       view: trendActiveView,
-      metric: trendActiveMetric
+      metric: trendActiveMetric,
+      bodyMetric: trendBodyMetric
     }));
   } catch (_) {}
 }
@@ -15988,6 +16017,188 @@ function setTrendView(view = "overview") {
   saveTrendPreferences();
 }
 
+function buildCurrentBodyOutcomeModel(programModel = trendDashboardModel) {
+  if (typeof DominionBodyComposition === "undefined") return null;
+  return DominionBodyComposition.buildOutcomeModel({
+    today: todayISODate(),
+    rangeDays: trendRangeDays,
+    performanceEntries,
+    dailyStates: mergeReadinessHistory(),
+    contract: readApprovedRecruitContract() || {},
+    signals: {
+      discipline: programModel?.discipline?.value,
+      nutrition: programModel?.nutrition?.value,
+      strengthSessions: programModel?.training?.strengthSessions || 0
+    }
+  });
+}
+
+function renderBodyMeasurementChart(outcome) {
+  const chart = document.getElementById("body-measurement-chart");
+  const title = document.getElementById("body-measurement-title");
+  if (!chart || !title || !outcome) return;
+  const metric = outcome.measurements.summaries[trendBodyMetric] || outcome.measurements.summaries.waist;
+  title.textContent = metric.label;
+  const unit = metric.key === "body_fat" ? "%" : " in";
+  chart.innerHTML = trendSeriesBars(metric.series, { label: `${metric.label} trajectory`, unit });
+  document.querySelectorAll("[data-body-metric]").forEach((button) => button.setAttribute("aria-pressed", button.dataset.bodyMetric === metric.key ? "true" : "false"));
+}
+
+function renderBodyCheckInHistory(outcome) {
+  const history = document.getElementById("body-checkin-history");
+  if (!history || !outcome) return;
+  const rows = [...outcome.measurements.checkIns].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  history.innerHTML = rows.length ? rows.map((entry) => {
+    const values = DominionBodyComposition.METRICS.filter((metric) => Object.hasOwn(entry.values, metric.key)).map((metric) => {
+      const unit = metric.key === "body_fat" ? "%" : " in";
+      return `${metric.label} ${Number(entry.values[metric.key]).toFixed(1).replace(/\.0$/, "")}${unit}`;
+    });
+    return `<article data-body-entry-id="${escapeHtml(entry.id || "")}"><div><strong>${escapeHtml(entry.date)}</strong><span>${escapeHtml(values.join(" · "))}</span></div><div><button type="button" class="ghost" data-body-checkin-edit="${escapeHtml(entry.id || "")}">Edit</button><button type="button" class="ghost danger" data-body-checkin-delete="${escapeHtml(entry.id || "")}">Delete</button></div></article>`;
+  }).join("") : '<div class="trend-chart-empty"><strong>No checkpoints yet</strong><span>Record one comparable weekly measurement set.</span></div>';
+}
+
+function renderBodyOutcome(outcome) {
+  if (!outcome) return;
+  setText("body-outcome-decision", outcome.decision.label);
+  const decision = document.getElementById("body-outcome-decision");
+  if (decision) decision.className = outcome.decision.tone || "neutral";
+  setText("body-outcome-headline", outcome.decision.headline);
+  setText("body-outcome-detail", outcome.decision.detail);
+  setText("body-outcome-confidence", `${outcome.confidence}%`);
+  setText("body-outcome-confidence-label", outcome.confidenceLabel);
+  setText("trend-body-weight", trendMetricValue(outcome.weight.latest, " lb"));
+  setText("trend-body-change", outcome.weight.changeLabel);
+  setText("trend-body-average", `7-day average ${trendMetricValue(outcome.weight.sevenDayAverage, " lb")}`);
+  const chart = document.getElementById("trend-body-chart");
+  if (chart) chart.innerHTML = trendSeriesBars(outcome.weight.series, { label: "Weight trajectory" });
+  const dueLabel = outcome.nextCheckInDate <= todayISODate() ? "Due today" : `Next ${outcome.nextCheckInDate}`;
+  setText("body-next-checkin", dueLabel);
+  const grid = document.getElementById("body-measurement-grid");
+  if (grid) grid.innerHTML = DominionBodyComposition.METRICS.map((definition) => {
+    const metric = outcome.measurements.summaries[definition.key];
+    const unit = definition.key === "body_fat" ? "%" : " in";
+    const change = metric.change === null ? "Baseline needed" : `${metric.change > 0 ? "+" : metric.change < 0 ? "−" : ""}${Math.abs(metric.change)}${unit}`;
+    return `<article><span>${escapeHtml(definition.label)}</span><strong>${trendMetricValue(metric.latest, unit)}</strong><small>${escapeHtml(change)}</small></article>`;
+  }).join("");
+  renderBodyMeasurementChart(outcome);
+  renderBodyCheckInHistory(outcome);
+  const dateInput = document.getElementById("body-checkin-date");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = todayISODate();
+    dateInput.max = todayISODate();
+  }
+}
+
+function renderWeeklyBodyOutcome(aggregate) {
+  if (!aggregate || typeof DominionBodyComposition === "undefined") return;
+  const outcome = DominionBodyComposition.buildOutcomeModel({
+    today: aggregate.weekEndDate,
+    rangeDays: 84,
+    performanceEntries,
+    dailyStates: mergeReadinessHistory(),
+    contract: readApprovedRecruitContract() || {},
+    signals: {
+      discipline: trendDashboardModel?.discipline?.value,
+      nutrition: trendDashboardModel?.nutrition?.value,
+      strengthSessions: trendDashboardModel?.training?.strengthSessions || 0
+    }
+  });
+  const summary = DominionBodyComposition.weeklyOutcomeSummary(outcome, aggregate.weekStartDate, aggregate.weekEndDate);
+  setText("weekly-outcome-state", summary.state);
+  setText("weekly-outcome-detail", summary.detail);
+  setText("weekly-outcome-date", summary.date ? `${summary.date} · ${summary.decision}` : "No checkpoint this week");
+  const state = document.getElementById("weekly-outcome-state");
+  if (state) state.className = summary.state === "CAPTURED" ? "positive" : "neutral";
+}
+
+function bodyCheckInInput() {
+  const form = document.getElementById("body-checkin-form");
+  if (!form) return {};
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+function bodyCheckInUuid() {
+  return globalThis.crypto?.randomUUID?.() || null;
+}
+
+async function saveBodyCheckIn(event) {
+  event?.preventDefault();
+  if (typeof DominionBodyComposition === "undefined") return;
+  const input = bodyCheckInInput();
+  const existing = performanceEntries.find((entry) => entry.domain === "body_metrics" && entry.activityCode === "body_composition_checkin" && entry.performanceDate === input.date);
+  const result = DominionBodyComposition.buildCheckInEntry(input, {
+    today: todayISODate(),
+    now: new Date().toISOString(),
+    userId: session?.user?.id || null,
+    existingId: existing?.id || bodyCheckInUuid(),
+    createdAt: existing?.createdAt || null
+  });
+  if (!result.valid) {
+    setText("body-checkin-feedback", result.errors[0]);
+    return;
+  }
+  const validation = validatePerformanceEntry(result.entry);
+  if (!validation.valid) {
+    setText("body-checkin-feedback", validation.errors[0]?.message || "That checkpoint could not be validated.");
+    return;
+  }
+  setText("body-checkin-feedback", "Saving checkpoint…");
+  const payload = buildPerformancePersistencePayload(validation.entry, session?.user?.id || null);
+  let saved = hydratePerformanceEntry(payload);
+  let storage = "LOCAL";
+  try {
+    const supabase = await getClient();
+    const response = await supabase.from("performance_entries").upsert(payload, { onConflict: "id" }).select("*").single();
+    if (response.error) throw response.error;
+    saved = hydratePerformanceEntry(response.data || payload);
+    storage = "SUPABASE";
+  } catch (_) {}
+  performanceEntries = [saved, ...performanceEntries.filter((entry) => entry.id !== saved.id && !(entry.domain === "body_metrics" && entry.activityCode === "body_composition_checkin" && entry.performanceDate === saved.performanceDate))];
+  performanceStorageMode = storage;
+  performanceSaveState = storage === "SUPABASE" ? "saved" : "locally saved";
+  saveLocalPerformanceEntries(performanceEntries);
+  renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+  if (weeklyInspection) renderWeeklyBodyOutcome(weeklyInspection);
+  const form = document.getElementById("body-checkin-form");
+  const unit = input.unit || "in";
+  form?.reset();
+  if (document.getElementById("body-checkin-date")) document.getElementById("body-checkin-date").value = todayISODate();
+  if (document.getElementById("body-checkin-unit")) document.getElementById("body-checkin-unit").value = unit;
+  setText("body-checkin-feedback", storage === "SUPABASE" ? "Checkpoint saved to your account." : "Checkpoint saved on this device; account sync will retry.");
+}
+
+function editBodyCheckIn(entryId) {
+  const entry = performanceEntries.find((item) => String(item.id) === String(entryId));
+  if (!entry || typeof DominionBodyComposition === "undefined") return;
+  const normalized = DominionBodyComposition.normalizeBodyEntry(entry);
+  const form = document.getElementById("body-checkin-form");
+  if (!form) return;
+  form.elements.date.value = normalized.date || todayISODate();
+  form.elements.unit.value = normalized.unit || "in";
+  DominionBodyComposition.CIRCUMFERENCE_KEYS.forEach((key) => { form.elements[key].value = DominionBodyComposition.displayCircumference(normalized.values[key], normalized.unit) ?? ""; });
+  form.elements.body_fat.value = normalized.values.body_fat ?? "";
+  form.elements.notes.value = normalized.notes || "";
+  form.closest("details").open = true;
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  setText("body-checkin-feedback", `Editing ${normalized.date}. Saving will replace that date’s checkpoint.`);
+}
+
+async function deleteBodyCheckIn(entryId) {
+  if (!entryId || !window.confirm("Delete this body checkpoint? This action cannot be undone.")) return;
+  performanceEntries = performanceEntries.filter((entry) => String(entry.id) !== String(entryId));
+  saveLocalPerformanceEntries(performanceEntries);
+  try {
+    const supabase = await getClient();
+    const response = await supabase.from("performance_entries").delete().eq("id", entryId);
+    if (response.error) throw response.error;
+  } catch (_) {}
+  renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+  if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+  if (weeklyInspection) renderWeeklyBodyOutcome(weeklyInspection);
+  setText("body-checkin-feedback", "Checkpoint deleted.");
+}
+
 function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
   trendDashboardModel = model;
   setText("trend-command-signal", model.coaching.signal);
@@ -16030,9 +16241,7 @@ function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
     ["HRV", trendMetricValue(readiness.hrvAverage, " ms"), "range average"]
   ].map(([label, value, note]) => `<article><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
 
-  setText("trend-body-weight", trendMetricValue(model.weight.value, " lb"));
-  setText("trend-body-change", model.weight.changeLabel);
-  document.getElementById("trend-body-chart").innerHTML = trendSeriesBars(model.weight.series, { label: "Weight trajectory" });
+  renderBodyOutcome(model.bodyComposition || buildCurrentBodyOutcomeModel(model));
   const windowDates = trajectory.window.map((item) => item.weekStartDate);
   setText("trend-window", windowDates.length ? `${windowDates[0]} — ${windowDates.at(-1)} · ${windowDates.length} finalized week${windowDates.length === 1 ? "" : "s"}` : "No finalized scored window yet.");
   setText("analytics-storage", storageMode === "SUPABASE" ? "ACCOUNT EVIDENCE" : "DEVICE EVIDENCE");
@@ -16054,7 +16263,7 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
     return;
   }
   trendAnalyticsContext = { inspections, dailyRecords, storageMode };
-  const model = DominionTrends.buildProgramTrendModel({
+  const trendInputs = {
     today: todayISODate(),
     rangeDays: trendRangeDays,
     inspections: inspectionHistory,
@@ -16065,7 +16274,21 @@ function renderTrendsAnalytics(inspections, dailyRecords, storageMode) {
     coreHistory: readCoreHistory(),
     nutritionDays: trendNutritionHistory(84),
     nutritionTargets: currentNutritionBaseTargets(todayISODate())
+  };
+  const baseModel = DominionTrends.buildProgramTrendModel(trendInputs);
+  const bodyComposition = typeof DominionBodyComposition === "undefined" ? null : DominionBodyComposition.buildOutcomeModel({
+    today: todayISODate(),
+    rangeDays: trendRangeDays,
+    performanceEntries,
+    dailyStates: trendInputs.dailyStates,
+    contract: readApprovedRecruitContract() || {},
+    signals: {
+      discipline: baseModel.discipline.value,
+      nutrition: baseModel.nutrition.value,
+      strengthSessions: baseModel.training.strengthSessions
+    }
   });
+  const model = DominionTrends.buildProgramTrendModel({ ...trendInputs, bodyComposition });
   renderProgramTrends(model, domainTrends, trajectory, storageMode);
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, weeklyInspection || provisional || {}, trajectory.state);
   renderRankSection();

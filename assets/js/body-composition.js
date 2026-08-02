@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021K.1";
+  const VERSION = "021L.1";
   const DAY_MS = 86400000;
   const CIRCUMFERENCE_KEYS = Object.freeze(["waist", "chest", "hips", "arm", "thigh"]);
   const METRICS = Object.freeze([
@@ -27,6 +27,12 @@
   const shiftDate = (value, days) => {
     const date = dateOnly(value);
     return date ? new Date(new Date(`${date}T12:00:00Z`).getTime() + days * DAY_MS).toISOString().slice(0, 10) : null;
+  };
+  const daysBetween = (start, end) => {
+    const first = dateOnly(start);
+    const last = dateOnly(end);
+    if (!first || !last) return 0;
+    return Math.max(0, Math.round((new Date(`${last}T12:00:00Z`).getTime() - new Date(`${first}T12:00:00Z`).getTime()) / DAY_MS));
   };
   const signed = (value, digits = 1) => {
     const numeric = finite(value);
@@ -207,6 +213,93 @@
     return { code: "MONITOR", label: "MONITOR", tone: "neutral", headline: "Hold steady and measure again", detail: weight.changeLabel || "One more comparable checkpoint will sharpen the signal.", action: "Check in next week" };
   }
 
+  function checkpointCadence(entries = [], today, cadenceDays = 7) {
+    const date = dateOnly(today) || new Date().toISOString().slice(0, 10);
+    const rows = bodyEntries(entries).filter((entry) => entry.date <= date);
+    const latest = rows.at(-1) || null;
+    const nextDate = latest ? shiftDate(latest.date, Math.max(1, Number(cadenceDays) || 7)) : date;
+    const capturedToday = latest?.date === date;
+    const due = !latest || date >= nextDate;
+    return {
+      status: capturedToday ? "CAPTURED" : due ? "DUE" : "UPCOMING",
+      due,
+      capturedToday,
+      latestDate: latest?.date || null,
+      nextDate,
+      daysRemaining: due ? 0 : daysBetween(date, nextDate),
+      label: capturedToday ? "CAPTURED TODAY" : due ? "DUE TODAY" : `NEXT ${nextDate}`,
+      detail: latest ? `Last checkpoint ${latest.date}.` : "No body checkpoint has been recorded yet."
+    };
+  }
+
+  function buildOutcomeReview(model = {}, priorReview = null) {
+    const checkIns = model.measurements?.checkIns || [];
+    const latestDate = model.measurements?.latestDate || null;
+    const firstDate = checkIns[0]?.date || null;
+    const elapsedDays = daysBetween(firstDate, latestDate);
+    const eligible = checkIns.length >= 4 && elapsedDays >= 21;
+    const reviewId = latestDate ? `body-outcome:${latestDate}:${model.decision?.code || "MONITOR"}` : null;
+    if (priorReview && priorReview.id === reviewId && ["AUTHORIZED", "HELD"].includes(priorReview.status)) {
+      return { ...priorReview, eligible: true, checkpoints: checkIns.length, elapsedDays };
+    }
+    if (!eligible) {
+      const checkpointsNeeded = Math.max(0, 4 - checkIns.length);
+      return {
+        id: reviewId,
+        status: "BUILDING",
+        code: "BUILD_EVIDENCE",
+        eligible: false,
+        checkpoints: checkIns.length,
+        checkpointsNeeded,
+        elapsedDays,
+        label: "BUILDING THE SIGNAL",
+        headline: checkpointsNeeded ? `${checkpointsNeeded} checkpoint${checkpointsNeeded === 1 ? "" : "s"} until review` : "Complete the four-week window",
+        detail: "Atlas reviews outcomes only after four comparable weekly checkpoints spanning at least 21 days.",
+        sourceLatestDate: latestDate,
+        plansChanged: false
+      };
+    }
+    const reviewRequired = model.decision?.code === "REVIEW_ADJUSTMENT";
+    const continuePlan = model.decision?.code === "CONTINUE";
+    return {
+      id: reviewId,
+      status: reviewRequired ? "PROPOSED" : continuePlan ? "CURRENT" : "MONITORING",
+      code: reviewRequired ? "INVESTIGATE" : continuePlan ? "CONTINUE" : "MONITOR",
+      eligible: true,
+      checkpoints: checkIns.length,
+      elapsedDays,
+      label: reviewRequired ? "REVIEW PROPOSED" : continuePlan ? "CONTINUE" : "MONITOR",
+      headline: reviewRequired ? "Authorize an outcome review" : continuePlan ? "Stay the course" : "Keep the current plan",
+      detail: reviewRequired
+        ? "Execution is present while the outcome is flat. Authorize Atlas to open a module review; no target changes with this action."
+        : continuePlan
+          ? "The Contract outcome is moving. Preserve the approved training and nutrition plans."
+          : "The signal does not justify a plan change. Repeat the weekly protocol.",
+      sourceLatestDate: latestDate,
+      nextSection: model.goal === "LOSE_FAT" ? "nutrition" : "performance",
+      plansChanged: false
+    };
+  }
+
+  function resolveOutcomeReview(review = {}, resolution, options = {}) {
+    if (review.status !== "PROPOSED") throw new Error("No outcome adjustment review is awaiting a decision.");
+    if (!["AUTHORIZE_REVIEW", "KEEP_CURRENT"].includes(resolution)) throw new Error("Choose whether to authorize the review or keep the current plan.");
+    const authorized = resolution === "AUTHORIZE_REVIEW";
+    return {
+      ...review,
+      status: authorized ? "AUTHORIZED" : "HELD",
+      resolution,
+      label: authorized ? "REVIEW AUTHORIZED" : "CURRENT PLAN HELD",
+      headline: authorized ? "Module review is authorized" : "Stay on the current plan",
+      detail: authorized
+        ? "Open the named module to review a proposed revision. Training and nutrition remain unchanged until that module is approved."
+        : "Atlas will keep monitoring weekly outcomes. No training or nutrition target changed.",
+      resolvedAt: options.resolvedAt || new Date().toISOString(),
+      resolvedBy: options.userId || null,
+      plansChanged: false
+    };
+  }
+
   function buildOutcomeModel(input = {}) {
     const today = dateOnly(input.today) || new Date().toISOString().slice(0, 10);
     const rangeDays = Math.max(28, Number(input.rangeDays) || 84);
@@ -215,7 +308,7 @@
     const contract = input.contract || {};
     const decision = outcomeDecision(measurements, weight, contract, input.signals || {});
     const confidence = Math.min(100, (measurements.count ? 35 : 0) + (measurements.count >= 2 ? 25 : 0) + (measurements.count >= 3 ? 15 : 0) + (weight.observations >= 4 ? 15 : 0) + (weight.observations >= 10 ? 10 : 0));
-    return {
+    const model = {
       version: VERSION,
       today,
       rangeDays,
@@ -227,8 +320,11 @@
       decision,
       confidence,
       confidenceLabel: confidence >= 80 ? "STRONG" : confidence >= 60 ? "USABLE" : confidence >= 35 ? "LEARNING" : "BASELINE NEEDED",
-      nextCheckInDate: measurements.latestDate ? shiftDate(measurements.latestDate, 7) : today
+      nextCheckInDate: measurements.latestDate ? shiftDate(measurements.latestDate, 7) : today,
+      cadence: checkpointCadence(input.performanceEntries || [], today, 7)
     };
+    model.review = buildOutcomeReview(model, input.priorReview || null);
+    return model;
   }
 
   function weeklyOutcomeSummary(model = {}, weekStart, weekEnd) {
@@ -257,6 +353,9 @@
     summarizeWeight,
     summarizeMeasurements,
     outcomeDecision,
+    checkpointCadence,
+    buildOutcomeReview,
+    resolveOutcomeReview,
     buildOutcomeModel,
     weeklyOutcomeSummary
   };

@@ -27,7 +27,16 @@ assert.match(app, /function retireActiveRecruitContract/);
 assert.match(app, /data-contract-lifecycle-action/);
 assert.match(app, /recruitProfileForAtlas/);
 assert.match(app, /Hold progression through Week One/);
-assert.match(app, /persistRecruitOnboardingState/);
+for (const helper of [
+  "recruitOnboardingStorageKey",
+  "readRecruitOnboardingState",
+  "saveRecruitOnboardingLocal",
+  "persistRecruitOnboardingState",
+  "loadRecruitOnboardingState",
+  "clearRecruitOnboardingState"
+]) {
+  assert.match(app, new RegExp(`(?:async\\s+)?function\\s+${helper}\\s*\\(`), `missing orientation persistence helper ${helper}`);
+}
 
 assert.match(css, /\.first-week-orientation/);
 assert.match(css, /\.orientation-baseline-grid/);

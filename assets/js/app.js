@@ -5015,6 +5015,148 @@ async function loadRecruitContractState() {
   renderRecruitContract();
 }
 
+function recruitOnboardingStorageKey() {
+  return "coach-dominion:recruit-onboarding:" + (session?.user?.id || "local") + ":current";
+}
+
+function readRecruitOnboardingState(fallback = null) {
+  try {
+    const stored = window.localStorage.getItem(recruitOnboardingStorageKey());
+    return stored ? JSON.parse(stored) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function saveRecruitOnboardingLocal(payload) {
+  if (!payload) return payload;
+  try {
+    window.localStorage.setItem(recruitOnboardingStorageKey(), JSON.stringify(payload));
+  } catch (error) {
+    console.warn("[orientation:local] Device save failed.", {
+      message: error?.message || "Local storage unavailable"
+    });
+  }
+  return payload;
+}
+
+function recruitOnboardingFromRow(row) {
+  if (!row) return null;
+  const orientation = row.orientation && typeof row.orientation === "object" ? row.orientation : {};
+  return {
+    ...orientation,
+    contractId: row.contract_id || orientation.contractId || null,
+    contractRevision: Number(row.contract_revision ?? orientation.contractRevision ?? 0),
+    status: row.status || orientation.status || "PROFILE_REQUIRED",
+    currentStep: Number(row.current_step ?? orientation.currentStep ?? 0),
+    profile: row.profile && typeof row.profile === "object" ? row.profile : (orientation.profile || {}),
+    updatedAt: row.updated_at || orientation.updatedAt || new Date().toISOString()
+  };
+}
+
+function selectRecruitOnboardingState(local, account) {
+  if (!local) return account;
+  if (!account) return local;
+  const localUpdatedAt = Date.parse(local.updatedAt || "") || 0;
+  const accountUpdatedAt = Date.parse(account.updatedAt || "") || 0;
+  return localUpdatedAt > accountUpdatedAt ? local : account;
+}
+
+async function persistRecruitOnboardingState(payload) {
+  if (!payload || !session?.user?.id) return false;
+  try {
+    const accountWrite = (async () => {
+      const supabase = await getClient();
+      return supabase.from("recruit_onboarding_state").upsert({
+        user_id: session.user.id,
+        contract_id: payload.contractId,
+        contract_revision: Number(payload.contractRevision || 0),
+        status: payload.status || "PROFILE_REQUIRED",
+        current_step: Number(payload.currentStep || 0),
+        profile: payload.profile || {},
+        orientation: payload,
+        updated_at: payload.updatedAt || new Date().toISOString()
+      }, { onConflict: "user_id" });
+    })();
+    const { error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountWrite, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountWrite;
+    if (error) throw error;
+    recruitOnboardingStorageMode = "REMOTE";
+    return true;
+  } catch (error) {
+    console.error("[orientation:persist] Account save failed; device state remains active.", {
+      code: error?.code || null,
+      message: error?.message || "Unknown persistence error"
+    });
+    recruitOnboardingStorageMode = "LOCAL";
+    return false;
+  }
+}
+
+async function loadRecruitOnboardingState() {
+  const local = readRecruitOnboardingState();
+  if (!session?.user?.id) {
+    recruitOnboardingStorageMode = "LOCAL";
+    return local;
+  }
+  try {
+    const accountRead = (async () => {
+      const supabase = await getClient();
+      return supabase
+        .from("recruit_onboarding_state")
+        .select("contract_id,contract_revision,status,current_step,profile,orientation,updated_at")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+    })();
+    const { data, error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountRead, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountRead;
+    if (error) throw error;
+    const account = recruitOnboardingFromRow(data);
+    const selected = selectRecruitOnboardingState(local, account);
+    if (selected) saveRecruitOnboardingLocal(selected);
+    recruitOnboardingStorageMode = data ? "REMOTE" : "LOCAL";
+    if (selected === local && (!account || Date.parse(local?.updatedAt || "") > Date.parse(account?.updatedAt || ""))) {
+      await persistRecruitOnboardingState(local);
+    }
+    return selected;
+  } catch (error) {
+    console.warn("[orientation:load] Account state unavailable; continuing with device state.", {
+      code: error?.code || null,
+      message: error?.message || "Unknown load error"
+    });
+    recruitOnboardingStorageMode = "LOCAL";
+    return local;
+  }
+}
+
+async function clearRecruitOnboardingState() {
+  try {
+    window.localStorage.removeItem(recruitOnboardingStorageKey());
+  } catch (_) {}
+  recruitOnboardingStorageMode = "LOCAL";
+  if (!session?.user?.id) return false;
+  try {
+    const accountDelete = (async () => {
+      const supabase = await getClient();
+      return supabase.from("recruit_onboarding_state").delete().eq("user_id", session.user.id);
+    })();
+    const { error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountDelete, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountDelete;
+    if (error) throw error;
+    recruitOnboardingStorageMode = "REMOTE";
+    return true;
+  } catch (error) {
+    console.warn("[orientation:clear] Account state could not be cleared.", {
+      code: error?.code || null,
+      message: error?.message || "Unknown delete error"
+    });
+    return false;
+  }
+}
+
 function weeklyOrchestrationStorageKey(stateType = "HISTORY", stateKey = "current") {
   return `coach-dominion:weekly-orchestration:${session?.user?.id || "local"}:${String(stateType).toLowerCase()}:${stateKey}`;
 }

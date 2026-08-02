@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.1 seconds
-Output:
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -93,4 +90,3 @@ test("long-run windows remain time-uncapped", () => {
 });
 
 console.log(`Build 021I: ${passed} tests passed.`);
-

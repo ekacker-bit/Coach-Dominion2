@@ -25,7 +25,8 @@ assert.match(activation, /status: "COMPATIBLE"/);
 assert.match(activation, /changes\.length === 0/);
 assert.match(styles, /Build 021D: Contract amendment to calendar handoff/);
 assert.match(styles, /\.contract-amendment-handoff/);
-assert.match(worker, /coach-dominion-021[d-g]-v1/);
+assert.match(worker, /coach-dominion-021[a-n]-v1/);
 assert.match(packageJson, /node tests\/build-021d\.test\.js/);
 
 console.log("Build 021D Contract-to-Calendar handoff integration checks passed.");
+

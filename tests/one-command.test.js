@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const command = require("../assets/js/one-command.js");
 
-assert.equal(command.VERSION, "019E.1");
+assert.equal(command.VERSION, "021N.1");
 assert.equal(command.modeFor("PLANS_REQUIRED"), "SETUP");
 assert.equal(command.modeFor("EVIDENCE_REQUIRED"), "VERIFY");
 assert.equal(command.modeFor("REVIEW_REQUIRED"), "CLOSE");
@@ -70,4 +70,35 @@ assert.equal(model.secured, true);
 assert.equal(model.eyebrow, "DAY SECURED");
 assert.equal(model.progress.percent, 100);
 
-console.log("Build 019E One Command model tests passed.");
+model = command.buildTodayMission({
+  state: "ROLL_CALL_REQUIRED",
+  title: "Complete Roll Call",
+  detail: "Atlas needs today’s readiness.",
+  action: { action: "ROLL_CALL", label: "Start Roll Call", section: "today" },
+  stages,
+  modules: [],
+  evidence: { complete: 0, total: 2 }
+}, {
+  readiness: "ROLL_CALL_NEEDED",
+  schedule: "AM + PM · AM SESSION FIRST"
+});
+assert.equal(model.eyebrow, "TODAY // EXECUTE");
+assert.match(model.reason, /readiness/i);
+assert.equal(model.facts.readiness, "ROLL CALL NEEDED");
+assert.equal(model.facts.schedule, "AM + PM · AM SESSION FIRST");
+assert.match(model.after, /authorize|adjust|protect/i);
+assert.equal(model.closeoutReady, false);
+
+model = command.buildTodayMission({
+  state: "REVIEW_REQUIRED",
+  title: "Seal the Day",
+  action: { action: "REVIEW", label: "Review and Seal", section: "today" },
+  stages: stages.map((item) => ({ ...item, complete: item.id !== "review", current: item.id === "review" })),
+  evidence: { complete: 4, total: 4 }
+});
+assert.equal(model.mode, "CLOSE");
+assert.equal(model.closeoutReady, true);
+assert.match(model.after, /seal/i);
+
+console.log("Build 021N Today Mission model tests passed.");
+

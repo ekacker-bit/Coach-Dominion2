@@ -28,14 +28,14 @@ for (const id of [
   "today-sequence-detail"
 ]) assert.match(html, new RegExp(`id="${id}"`), `missing 019E one-command surface: ${id}`);
 
-assert.match(html, /BUILD 019E \/\/ SINGLE ORDER/);
-assert.match(html, /src="\/assets\/js\/one-command\.js"/);
+assert.match(html, /TODAY \/\/ MISSION/);
+assert.match(html, /src="\/assets\/js\/one-command\.js\?v=021n"/);
 assert.ok(html.indexOf("one-command.js") < html.indexOf("app.js"), "one-command model must load before app integration");
 assert.match(html, /Plan &amp; coaching context/);
 assert.match(html, /Orders, progress, and safeguards/);
 
 assert.match(app, /function renderOneCommand/);
-assert.match(app, /DominionOneCommand\.buildOneCommand/);
+assert.match(app, /DominionOneCommand\.buildTodayMission/);
 assert.match(app, /function runOneCommandAction/);
 assert.match(app, /relayClosedLoopAction/);
 assert.match(app, /one-command-primary/);
@@ -55,3 +55,4 @@ assert.match(packageJson, /node tests\/build-019e\.test\.js/);
 assert.match(packageJson, /"test:019e"/);
 
 console.log("Build 019E One Command integration passed.");
+

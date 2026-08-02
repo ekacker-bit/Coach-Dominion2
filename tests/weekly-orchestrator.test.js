@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.1 seconds
-Output:
 const assert = require("node:assert/strict");
 const recruit = require("../assets/js/recruit-contract.js");
 const strength = require("../assets/js/strength-training.js");
@@ -368,4 +365,3 @@ test("recovery protection blocks a plan that consumes all seven days", () => {
 });
 
 console.log(`Weekly orchestrator: ${passed} tests passed.`);
-

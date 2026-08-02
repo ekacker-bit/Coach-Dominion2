@@ -25,10 +25,10 @@ for (const id of [
   "daily-ritual-feedback"
 ]) assert.match(html, new RegExp(`id="${id}"`), `missing 019C ritual surface: ${id}`);
 
-assert.match(html, /BUILD 019C \/\/ THE DAILY SEAL/);
+assert.match(html, /CLOSE THE DAY/);
 assert.match(html, /data-daily-ritual-step="execute"/);
 assert.match(html, /data-closed-loop-action="continue_execution"/);
-assert.match(html, /src="\/assets\/js\/daily-ritual\.js"/);
+assert.match(html, /src="\/assets\/js\/daily-ritual\.js\?v=021n"/);
 assert.ok(html.indexOf("daily-ritual.js") < html.indexOf("app.js"), "daily ritual engine must load before app integration");
 assert.doesNotMatch(html, /id="onboarding"/);
 assert.doesNotMatch(html, /help-onboarding|dismiss-onboarding/);

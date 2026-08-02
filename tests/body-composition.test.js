@@ -97,3 +97,54 @@ test("weekly outcome evidence is optional and never represented as noncompliance
   assert.match(summary.detail, /does not reduce the discipline score/i);
 });
 
+test("weekly cadence distinguishes due, upcoming, and captured checkpoints", () => {
+  assert.equal(body.checkpointCadence([], "2026-08-02").status, "DUE");
+  assert.equal(body.checkpointCadence([checkIn("2026-07-30", { waist: 34 })], "2026-08-02").status, "UPCOMING");
+  assert.equal(body.checkpointCadence([checkIn("2026-07-26", { waist: 34 })], "2026-08-02").status, "DUE");
+  assert.equal(body.checkpointCadence([checkIn("2026-08-02", { waist: 34 })], "2026-08-02").status, "CAPTURED");
+});
+
+test("four-week review stays locked until four comparable checkpoints span 21 days", () => {
+  const short = body.buildOutcomeModel({
+    today: "2026-08-02",
+    performanceEntries: [checkIn("2026-07-12", { waist: 34 }), checkIn("2026-07-19", { waist: 34 }), checkIn("2026-07-26", { waist: 34 })],
+    contract: { primaryGoal: "LOSE_FAT" },
+    signals: { discipline: 90, nutrition: 85 }
+  });
+  assert.equal(short.review.status, "BUILDING");
+  assert.equal(short.review.checkpointsNeeded, 1);
+});
+
+test("flat four-week outcomes create a review proposal rather than a plan change", () => {
+  const model = body.buildOutcomeModel({
+    today: "2026-08-02",
+    performanceEntries: [
+      checkIn("2026-07-12", { waist: 34 }),
+      checkIn("2026-07-19", { waist: 34 }),
+      checkIn("2026-07-26", { waist: 34 }),
+      checkIn("2026-08-02", { waist: 34 })
+    ],
+    contract: { primaryGoal: "LOSE_FAT" },
+    signals: { discipline: 90, nutrition: 85 }
+  });
+  assert.equal(model.review.status, "PROPOSED");
+  assert.equal(model.review.code, "INVESTIGATE");
+  assert.equal(model.review.plansChanged, false);
+});
+
+test("authorizing an outcome review records consent without changing a plan", () => {
+  const proposal = {
+    id: "body-outcome:2026-08-02:REVIEW_ADJUSTMENT",
+    status: "PROPOSED",
+    nextSection: "nutrition",
+    checkpoints: 4,
+    elapsedDays: 21
+  };
+  const resolved = body.resolveOutcomeReview(proposal, "AUTHORIZE_REVIEW", {
+    resolvedAt: "2026-08-02T12:00:00Z",
+    userId: "recruit-1"
+  });
+  assert.equal(resolved.status, "AUTHORIZED");
+  assert.equal(resolved.plansChanged, false);
+  assert.match(resolved.detail, /remain unchanged/i);
+});

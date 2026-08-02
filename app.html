@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=021j">
+  <link rel="stylesheet" href="/assets/styles.css?v=021k">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -1089,6 +1089,12 @@
         </details>
         <h3>Standards review history</h3>
         <div id="weekly-standards-summary" class="standards-queue"></div>
+        <section class="weekly-outcome-card" aria-labelledby="weekly-outcome-heading">
+          <div><span>OUTCOME SIGNAL</span><h3 id="weekly-outcome-heading">Body checkpoint</h3></div>
+          <strong id="weekly-outcome-state">NOT CAPTURED</strong>
+          <p id="weekly-outcome-detail">Weekly body evidence is optional and does not change the discipline score.</p>
+          <small id="weekly-outcome-date">No checkpoint this week</small>
+        </section>
         <h3>Atlas After Action Report</h3>
         <pre id="weekly-report" class="atlas-brief-output" aria-live="polite">Select a week to inspect.</pre>
         <section class="weekly-plan-panel" aria-labelledby="weekly-plan-heading">
@@ -1106,7 +1112,7 @@
       <section id="trends" class="card trends-analytics trend-command scroll-anchor" aria-labelledby="trends-heading" data-section="trends">
         <header class="trend-command-header">
           <div>
-            <div class="kicker">BUILD 021J // PERFORMANCE SIGNALS</div>
+            <div class="kicker">BUILD 021K // OUTCOME LOOP</div>
             <h2 id="trends-heading">Trends</h2>
             <p>See what changed. Act on what matters.</p>
           </div>
@@ -1168,18 +1174,69 @@
         </div>
 
         <div data-trend-pane="body" hidden>
+          <section class="body-outcome-command" aria-live="polite">
+            <div>
+              <span>ATLAS OUTCOME</span>
+              <strong id="body-outcome-decision">ESTABLISH BASELINE</strong>
+              <h3 id="body-outcome-headline">Record the first checkpoint</h3>
+              <p id="body-outcome-detail">One truthful weekly check-in starts the outcome record.</p>
+            </div>
+            <div class="body-outcome-confidence"><strong id="body-outcome-confidence">0%</strong><span id="body-outcome-confidence-label">BASELINE NEEDED</span></div>
+          </section>
+
           <section class="trend-body-focus">
-            <div><span>WEIGHT TRAJECTORY</span><strong id="trend-body-weight">—</strong><small id="trend-body-change">Needs two weigh-ins</small></div>
+            <div><span>WEIGHT</span><strong id="trend-body-weight">—</strong><small id="trend-body-change">Needs a baseline and current week</small><em id="trend-body-average">7-day average —</em></div>
             <div id="trend-body-chart" class="trend-bar-chart"></div>
           </section>
-          <div class="trend-measurement-roadmap"><span>NEXT BUILD</span><strong>Body measurements</strong><small>Waist · chest · hips · arms · thighs</small></div>
+
+          <section class="body-measurement-panel">
+            <header>
+              <div><span>BODY COMPOSITION</span><h3 id="body-measurement-title">Waist</h3></div>
+              <small id="body-next-checkin">Due today</small>
+            </header>
+            <div class="body-metric-controls" role="group" aria-label="Body measurement trend">
+              <button type="button" data-body-metric="waist" aria-pressed="true">Waist</button>
+              <button type="button" data-body-metric="chest" aria-pressed="false">Chest</button>
+              <button type="button" data-body-metric="hips" aria-pressed="false">Hips</button>
+              <button type="button" data-body-metric="arm" aria-pressed="false">Arm</button>
+              <button type="button" data-body-metric="thigh" aria-pressed="false">Thigh</button>
+              <button type="button" data-body-metric="body_fat" aria-pressed="false">Body fat</button>
+            </div>
+            <div id="body-measurement-chart" class="trend-bar-chart"></div>
+            <div id="body-measurement-grid" class="body-measurement-grid"></div>
+          </section>
+
+          <details class="body-checkin-capture" open>
+            <summary><span>WEEKLY CHECK-IN</span><strong>Record measurements</strong></summary>
+            <form id="body-checkin-form">
+              <div class="body-checkin-meta">
+                <label>Date<input id="body-checkin-date" name="date" type="date" required></label>
+                <label>Unit<select id="body-checkin-unit" name="unit"><option value="in">in</option><option value="cm">cm</option></select></label>
+              </div>
+              <div class="body-checkin-grid">
+                <label>Waist<input name="waist" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label>Chest<input name="chest" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label>Hips<input name="hips" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label>Arm<input name="arm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label>Thigh<input name="thigh" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label>Body fat %<input name="body_fat" type="number" min="0" max="75" step="0.1" inputmode="decimal"></label>
+              </div>
+              <label>Note <span>(optional)</span><input name="notes" maxlength="500" placeholder="Same conditions, same protocol"></label>
+              <div class="body-checkin-actions"><button type="submit">Save checkpoint</button><span id="body-checkin-feedback" aria-live="polite">Measurements are private account evidence.</span></div>
+            </form>
+          </details>
+
+          <section class="body-checkin-history" aria-labelledby="body-history-heading">
+            <header><span>HISTORY</span><h3 id="body-history-heading">Weekly checkpoints</h3></header>
+            <div id="body-checkin-history"></div>
+          </section>
         </div>
 
         <details class="trend-methods">
           <summary>Evidence &amp; methods</summary>
           <p id="trend-window">No finalized scored trend window available.</p>
           <div id="trend-domain-grid" class="trend-domain-grid"></div>
-          <div class="trend-method-meta"><span id="analytics-storage">ANALYTICS NOT LOADED</span><span id="trend-method-version">021J.1</span></div>
+          <div class="trend-method-meta"><span id="analytics-storage">ANALYTICS NOT LOADED</span><span id="trend-method-version">021K.1</span></div>
         </details>
       </section>
 
@@ -1616,7 +1673,8 @@
 <script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/adaptive-fueling.js"></script>
 <script src="/assets/js/nutrition-intelligence.js"></script>
-<script src="/assets/js/trends-intelligence.js?v=021j"></script>
+<script src="/assets/js/body-composition.js?v=021k"></script>
+<script src="/assets/js/trends-intelligence.js?v=021k"></script>
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
@@ -1640,6 +1698,6 @@
 <script src="/assets/js/one-command.js"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=021j"></script>
+ <script src="/assets/js/app.js?v=021k"></script>
 </body>
 </html>

@@ -40,3 +40,4 @@ assert.match(worker, /coach-dominion-021[a-n]-v1/);
 assert.match(packageJson, /node tests\/build-021a\.test\.js/);
 
 console.log("Build 021A Coach Dominion brand-system integration passed.");
+

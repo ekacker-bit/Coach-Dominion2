@@ -276,7 +276,7 @@
           ? "The Contract outcome is moving. Preserve the approved training and nutrition plans."
           : "The signal does not justify a plan change. Repeat the weekly protocol.",
       sourceLatestDate: latestDate,
-      nextSection: model.goal === "LOSE_FAT" ? "nutrition" : "performance",
+      nextSection: "trends",
       plansChanged: false
     };
   }

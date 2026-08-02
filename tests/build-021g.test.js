@@ -30,3 +30,4 @@ assert.match(packageJson, /node tests\/contract-autosave\.test\.js/);
 assert.match(packageJson, /node tests\/build-021g\.test\.js/);
 
 console.log("Build 021G Contract amendment autosave recovery integration passed.");
+

@@ -15,7 +15,7 @@ test("Build 021K adds an operational Body outcome surface", () => {
   assert.match(html, /id="body-measurement-chart"/);
   assert.match(html, /id="body-outcome-decision"/);
   assert.match(html, /id="body-checkin-history"/);
-  assert.match(html, /body-composition\.js\?v=021l/);
+  assert.match(html, /body-composition\.js\?v=021m/);
 });
 
 test("Build 021K persists and re-renders body checkpoints", () => {
@@ -38,6 +38,6 @@ test("Build 021K retains the Dominion responsive visual system", () => {
   assert.match(styles, /\.body-outcome-command/);
   assert.match(styles, /\.body-checkin-grid/);
   assert.match(styles, /@media \(max-width: 620px\)/);
-  assert.match(html, /styles\.css\?v=021l/);
-  assert.match(html, /app\.js\?v=021l/);
+  assert.match(html, /styles\.css\?v=021m/);
+  assert.match(html, /app\.js\?v=021m/);
 });

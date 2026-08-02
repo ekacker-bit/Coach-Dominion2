@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021J.1";
+  const VERSION = "021K.1";
   const VALID_RANGES = Object.freeze([28, 56, 84]);
   const DAY_MS = 86400000;
 
@@ -237,7 +237,7 @@
   }
 
   function chooseCoachingReadout(model) {
-    const { discipline, readiness, nutrition, training, weight } = model;
+    const { discipline, readiness, nutrition, training, weight, bodyComposition } = model;
     let signal = "Build the signal";
     let detail = "Complete today’s inputs so Atlas can distinguish progress from noise.";
     let action = { label: "Complete today", section: "today" };
@@ -256,6 +256,11 @@
       detail = `${readiness.value}/10 average energy over the latest seven-day window.`;
       action = { label: "Review today", section: "today" };
     }
+    if (bodyComposition?.decision?.code === "REVIEW_ADJUSTMENT" && (readiness.value === null || readiness.value >= 5)) {
+      signal = "Outcome needs a review";
+      detail = bodyComposition.decision.detail;
+      action = { label: "Open Body", section: "trends" };
+    }
     const win = discipline.tone === "positive"
       ? `Discipline ${discipline.deltaLabel.toLowerCase()}`
       : training.totalSessionDays
@@ -263,6 +268,8 @@
         : "No win claimed yet";
     const watch = readiness.value !== null && readiness.value < 5
       ? `Energy ${readiness.value}/10`
+      : bodyComposition?.decision?.code === "REVIEW_ADJUSTMENT"
+        ? bodyComposition.decision.headline
       : nutrition.value !== null && nutrition.value < 80
         ? `Fuel adherence ${nutrition.value}%`
         : discipline.evidence !== null && discipline.evidence < 60
@@ -288,8 +295,9 @@
     const training = summarizeTraining(performanceEntries, input.strengthHistory || [], input.coreHistory || [], today, rangeDays);
     const nutrition = summarizeNutrition(input.nutritionDays || [], input.nutritionTargets || {}, today, rangeDays);
     const weight = summarizeWeight(dailyStates, today, rangeDays);
-    const measurements = bodyMeasurementFoundation(performanceEntries);
-    const base = { discipline, readiness, training, nutrition, weight };
+    const bodyComposition = input.bodyComposition || null;
+    const measurements = bodyComposition?.measurements || bodyMeasurementFoundation(performanceEntries);
+    const base = { discipline, readiness, training, nutrition, weight, bodyComposition };
     const coaching = chooseCoachingReadout(base);
     const evidenceSources = [discipline.observations >= 2, readiness.observations >= 3, training.observations >= 1, nutrition.evidenceDays >= 3, weight.observations >= 2];
     const evidenceScore = Math.round(evidenceSources.filter(Boolean).length / evidenceSources.length * 100);
@@ -311,6 +319,7 @@
       nutrition,
       weight,
       measurements,
+      bodyComposition,
       coaching,
       kpis: [
         kpiCard("discipline", "Discipline", discipline.value, "%", discipline.deltaLabel, discipline.tone, `${discipline.observations} finalized week${discipline.observations === 1 ? "" : "s"}`, discipline.series),

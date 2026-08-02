@@ -122,7 +122,7 @@ test("full model returns six primary KPIs, coaching readout, and source confiden
     ],
     nutritionTargets: { calories: 2000, protein: 150 }
   });
-  assert.equal(model.version, "021J.1");
+  assert.equal(model.version, "021K.1");
   assert.deepEqual(model.kpis.map((item) => item.id), ["discipline", "readiness", "strength", "running", "nutrition", "weight"]);
   assert.equal(model.coaching.signal, "The standard is rising");
   assert.ok(model.evidence.score >= 80);

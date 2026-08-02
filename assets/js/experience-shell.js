@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 1.2 seconds
+Output:
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -5,12 +8,13 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019B.1";
+  const VERSION = "021I.1";
   const SECTION_META = Object.freeze({
     today: { label: "Today", mode: "EXECUTE", title: "Command the day", description: "Readiness, orders, and the next action." },
     performance: { label: "Train", mode: "TRAIN", title: "Build capability", description: "Strength, running, core, and the evidence behind the plan." },
     nutrition: { label: "Fuel", mode: "FUEL", title: "Fuel the mission", description: "Targets, intake, and the adjustment that matters now." },
     contract: { label: "Contract", mode: "COMMIT", title: "Define the standard", description: "Your outcome, capacity, commitments, and coordinated week." },
+    calendar: { label: "Calendar", mode: "COORDINATE", title: "Command the week", description: "Training windows, recovery, conflicts, and deliberate calendar edits." },
     inspection: { label: "Review", mode: "INSPECT", title: "Inspect the week", description: "Resolve exceptions, learn from the evidence, and decide what changes." },
     trends: { label: "Trends", mode: "LEARN", title: "Read the trajectory", description: "Use finalized evidence to see what is actually changing." },
     standards: { label: "Standards", mode: "CORRECT", title: "Close the loop", description: "Review evidence, decide deliberately, and complete corrective action." },
@@ -97,3 +101,4 @@
 
   return { VERSION, SECTION_META, sectionMeta, cleanBuildKicker, journeyState, buildMissionState };
 });
+

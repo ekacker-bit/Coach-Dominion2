@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021C.1";
+  const VERSION = "021F.2";
   const TWO_A_DAY_TARGET_MINUTES = 121;
   const TWO_A_DAY_MAX_MINUTES = 240;
   const PRIMARY_GOALS = Object.freeze([
@@ -124,6 +124,34 @@
       gender: enumValue(source.gender, GENDER_OPTIONS, "PREFER_NOT_TO_SAY"),
       trainingYears: trainingYears === null ? null : Math.max(0, Number(trainingYears.toFixed(1))),
       athleteType
+    };
+  }
+
+  function mergeRecruitProfiles(primary = {}, secondary = {}, fallback = {}) {
+    const first = normalizeRecruitProfile(primary);
+    const second = normalizeRecruitProfile(secondary);
+    const third = normalizeRecruitProfile(fallback);
+    const value = (key) => first[key] ?? second[key] ?? third[key] ?? null;
+    const gender = first.gender !== "PREFER_NOT_TO_SAY"
+      ? first.gender
+      : second.gender !== "PREFER_NOT_TO_SAY"
+        ? second.gender
+        : third.gender;
+    const heightCm = value("heightCm");
+    const heightUnit = first.heightCm !== null
+      ? first.heightUnit
+      : second.heightCm !== null
+        ? second.heightUnit
+        : third.heightUnit;
+    const trainingYears = value("trainingYears");
+    return {
+      age: value("age"),
+      heightCm,
+      heightUnit,
+      heightValue: heightCm === null ? null : Number((heightUnit === "cm" ? heightCm : heightCm / 2.54).toFixed(1)),
+      gender,
+      trainingYears,
+      athleteType: deriveAthleteType(trainingYears)
     };
   }
 
@@ -458,6 +486,28 @@
     };
   }
 
+  function buildRecruitContractAmendment(previousApproved = {}, input = {}, recruitProfile = {}, options = {}) {
+    const today = dateIso(options.today) || new Date().toISOString().slice(0, 10);
+    const profile = mergeRecruitProfiles(input, previousApproved, recruitProfile?.profile || recruitProfile);
+    const previousTargetDate = dateIso(previousApproved.targetDate || previousApproved.target_date);
+    const submittedTargetDate = dateIso(input.targetDate || input.target_date || previousTargetDate);
+    const targetDate = submittedTargetDate && submittedTargetDate === previousTargetDate && submittedTargetDate < today
+      ? null
+      : submittedTargetDate;
+    const draft = buildRecruitContract({
+      ...previousApproved,
+      ...input,
+      ...profile,
+      athleteProfile: profile,
+      targetDate
+    }, options);
+    return {
+      ...draft,
+      amendsContractId: previousApproved.id || null,
+      amendsContractRevision: Number(previousApproved.revision || 0) || null
+    };
+  }
+
   function approveRecruitContract(draft = {}, previousApproved = null, options = {}) {
     const rebuilt = buildRecruitContract(draft, {
       today: options.today,
@@ -499,6 +549,7 @@
     WEEKDAYS,
     deriveAthleteType,
     normalizeRecruitProfile,
+    mergeRecruitProfiles,
     defaultContract,
     normalizeContractDraft,
     validateRecruitContract,
@@ -506,6 +557,7 @@
     contractPlanningInputs,
     resolveNutritionPlanReadiness,
     buildRecruitContract,
+    buildRecruitContractAmendment,
     approveRecruitContract,
     fingerprint
   };

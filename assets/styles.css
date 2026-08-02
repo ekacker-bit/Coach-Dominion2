@@ -4704,6 +4704,81 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .contract-amendment-comparison { grid-template-columns: 1fr; }
 }
 
+/* Build 021F: signed Contract-to-calendar integrity and amendment receipts. */
+.contract-amendment-diff {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1.65fr);
+  gap: 16px;
+  align-items: start;
+  padding-top: 18px;
+  border-top: 1px solid rgba(212, 175, 55, 0.28);
+}
+
+.contract-amendment-diff > div { display: grid; gap: 4px; }
+.contract-amendment-diff > div > strong { font: 25px/1 var(--font-command); letter-spacing: 0.04em; }
+.contract-amendment-diff ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.contract-amendment-diff li { display: grid; grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(10, 10, 10, 0.52); }
+.contract-amendment-diff li span { color: var(--dim); font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
+.contract-amendment-diff li small { overflow: hidden; color: var(--muted); text-decoration: line-through; text-overflow: ellipsis; white-space: nowrap; }
+.contract-amendment-diff li strong { overflow: hidden; color: var(--victory-gold); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.contract-amendment-diff.empty { grid-template-columns: 1fr; color: var(--muted); }
+.contract-amendment-diff.empty strong { color: var(--stone); }
+
+.contract-integrity-card {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid rgba(114, 169, 127, 0.42);
+  border-top: 3px solid var(--green);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(46, 75, 52, 0.28), rgba(16, 17, 18, 0.96) 55%);
+}
+
+.contract-integrity-card.draft-matched { border-color: rgba(212, 175, 55, 0.45); border-top-color: var(--victory-gold); }
+.contract-integrity-card.repair-required { border-color: rgba(185, 68, 68, 0.48); border-top-color: var(--red); }
+.contract-integrity-card > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.contract-integrity-card > header h3 { margin: 5px 0 7px; font-size: clamp(27px, 4vw, 40px); line-height: 1; }
+.contract-integrity-card > header p { max-width: 720px; margin: 0; color: var(--muted); line-height: 1.55; }
+
+.contract-integrity-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.contract-integrity-grid article { display: grid; gap: 7px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: rgba(10, 10, 10, 0.58); }
+.contract-integrity-grid span,
+.contract-integrity-grid small { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.contract-integrity-grid strong { color: var(--stone); font: 21px/1 var(--font-command); letter-spacing: 0.04em; }
+.contract-integrity-protected { margin: 0; padding: 12px 14px; border-left: 3px solid var(--victory-gold); color: #f1d88d; background: rgba(212, 175, 55, 0.08); font-size: 11px; line-height: 1.55; }
+
+.contract-handoff-receipt { display: grid; grid-template-columns: 0.65fr 0.8fr 1.55fr; gap: 0; overflow: hidden; border: 1px dashed rgba(212, 175, 55, 0.48); border-radius: 8px; }
+.contract-handoff-receipt > div { display: grid; gap: 5px; min-width: 0; padding: 12px 14px; border-right: 1px dashed rgba(212, 175, 55, 0.32); }
+.contract-handoff-receipt > div:last-child { border-right: 0; }
+.contract-handoff-receipt span { color: var(--victory-gold); font-size: 8px; font-weight: 900; letter-spacing: 0.1em; }
+.contract-handoff-receipt strong { overflow: hidden; color: var(--stone); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.contract-handoff-receipt.pending { grid-template-columns: 1fr; border-color: rgba(185, 68, 68, 0.45); }
+
+.contract-integrity-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.contract-integrity-actions button { min-height: 46px; }
+.contract-integrity-actions span { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+
+@media (max-width: 980px) {
+  .contract-amendment-diff { grid-template-columns: 1fr; }
+  .contract-integrity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .contract-amendment-diff ul,
+  .contract-integrity-grid { grid-template-columns: 1fr; }
+  .contract-amendment-diff li { grid-template-columns: 1fr; }
+  .contract-amendment-diff li small,
+  .contract-amendment-diff li strong { white-space: normal; }
+  .contract-integrity-card > header,
+  .contract-integrity-actions { align-items: stretch; flex-direction: column; }
+  .contract-integrity-actions button { width: 100%; }
+  .contract-handoff-receipt { grid-template-columns: 1fr; }
+  .contract-handoff-receipt > div { border-right: 0; border-bottom: 1px dashed rgba(212, 175, 55, 0.32); }
+  .contract-handoff-receipt > div:last-child { border-bottom: 0; }
+}
+
 /* 021A token lock: keep the approved brand palette authoritative over legacy build tokens. */
 :root {
   --dominion-black: #0a0a0a;

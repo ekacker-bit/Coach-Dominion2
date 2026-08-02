@@ -1,0 +1,42 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const root = path.join(__dirname, "..");
+const html = fs.readFileSync(path.join(root, "app.html"), "utf8");
+const app = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
+const integrity = fs.readFileSync(path.join(root, "assets/js/contract-integrity.js"), "utf8");
+const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
+const worker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
+
+assert.match(html, /assets\/js\/contract-integrity\.js/);
+assert.match(integrity, /const VERSION = "021F\.1"/);
+assert.match(integrity, /function amendmentChanges/);
+assert.match(integrity, /function calendarIntegrity/);
+assert.match(integrity, /function createHandoffReceipt/);
+assert.match(app, /function contractIntegrityMarkup/);
+assert.match(app, /One signed revision\. One calendar truth\./);
+assert.match(app, /data-contract-integrity-action="\$\{action\}"/);
+assert.match(app, /integrityAction === "repair"/);
+assert.match(app, /function repairContractCalendarIntegrity/);
+assert.match(app, /contractHandoff = false/);
+assert.match(app, /force: true, contractHandoff: true/);
+assert.match(app, /attachContractHandoffReceipt\(signed, previous/);
+assert.match(app, /buildRecruitContractAmendment\(previous, \{\}, previousOrientation\?\.profile/);
+assert.match(app, /finalizeRecruitContractDraftState\(signed\)/);
+assert.match(app, /function recruitContractDraftWasFinalized/);
+assert.match(app, /if \(recruitContractDraftWasFinalized\(strandedDraft, approved\)\)/);
+assert.match(app, /status: "FINALIZED"/);
+assert.match(app, /attachContractHandoffReceipt\(signed, previous, \{ persist: false \}\)/);
+assert.ok(app.indexOf('attachContractHandoffReceipt(signed, previous, { persist: false })') < app.indexOf('persistRecruitContractState("APPROVED", signed)'), "the immutable replacement must be complete before its first account save");
+assert.match(app, /calendar draft now uses/);
+assert.match(styles, /Build 021F: signed Contract-to-calendar integrity/);
+assert.match(styles, /\.contract-integrity-card/);
+assert.match(styles, /\.contract-handoff-receipt/);
+assert.match(worker, /coach-dominion-021f-v1/);
+assert.match(worker, /contract-integrity\.js/);
+assert.match(packageJson, /node tests\/contract-integrity\.test\.js/);
+assert.match(packageJson, /node tests\/build-021f\.test\.js/);
+
+console.log("Build 021F Contract-to-calendar integrity integration passed.");

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 021G Contract Amendment Save Recovery
+
+- Made Contract amendment navigation local-first so Continue and Review never wait on account sync.
+- Recovered the autosave queue after an earlier rejected write instead of leaving every later amendment stuck on Saving.
+- Bounded account sync to eight seconds and surfaced a clear device-saved, account-sync-pending state.
+- Isolated continuity-ledger failures from the canonical Contract draft save.
+- Advanced the app-shell cache so browsers receive the repaired Contract code immediately.
+
 ## Unreleased — Build 020B Between-Session Gate
 
 - Replaced the informational Two-a-Day recovery note with a persisted, account-scoped checkpoint.

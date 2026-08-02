@@ -18,14 +18,14 @@ assert.match(app, /const amendmentPending = Boolean\(signed && draft\)/);
 assert.match(app, /canSign && \(!signed \|\| amendmentPending\)/);
 assert.match(app, /data-contract-experience-action="review-amendment"/);
 assert.match(app, /AMENDMENT UNSIGNED/);
-assert.match(app, /refreshUnifiedWeekDraftForPlans\(\{ force: true \}\)/);
+assert.match(app, /refreshUnifiedWeekDraftForPlans\(\{ force: true, contractHandoff: true \}\)/);
 assert.match(app, /calendar draft now uses/);
 assert.match(app, /rebaseOrientation\(previousOrientation, previous, signed/);
 assert.match(activation, /status: "COMPATIBLE"/);
 assert.match(activation, /changes\.length === 0/);
 assert.match(styles, /Build 021D: Contract amendment to calendar handoff/);
 assert.match(styles, /\.contract-amendment-handoff/);
-assert.match(worker, /coach-dominion-021[d-e]-v1/);
+assert.match(worker, /coach-dominion-021[d-g]-v1/);
 assert.match(packageJson, /node tests\/build-021d\.test\.js/);
 
 console.log("Build 021D Contract-to-Calendar handoff integration checks passed.");

@@ -46,6 +46,7 @@ let recruitContractSetupStep = 0;
 let recruitContractAutosaveTimer = null;
 let recruitContractAutosaveRevision = 0;
 let recruitContractAutosavePromise = Promise.resolve(null);
+const RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS = 8000;
 let weeklyOrchestrationStorageMode = "LOCAL";
 let splitDayStorageMode = "LOCAL";
 let splitDayRefreshTimer = null;
@@ -4898,17 +4899,30 @@ function readRecruitContractHistory() {
 }
 
 async function persistRecruitContractState(stateType, payload) {
-  recordContinuityWrite("contract", stateType, "current", payload);
+  try {
+    recordContinuityWrite("contract", stateType, "current", payload);
+  } catch (error) {
+    console.warn("[contract:continuity] Contract save will continue without the continuity sidecar.", {
+      stateType,
+      code: error?.code || null,
+      message: error?.message || "Continuity metadata unavailable"
+    });
+  }
   if (!session?.user?.id) return false;
   try {
-    const supabase = await getClient();
-    const { error } = await supabase.from("recruit_contract_state").upsert({
-      user_id: session.user.id,
-      state_type: stateType,
-      state_key: "current",
-      payload,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "user_id,state_type,state_key" });
+    const accountWrite = (async () => {
+      const supabase = await getClient();
+      return supabase.from("recruit_contract_state").upsert({
+        user_id: session.user.id,
+        state_type: stateType,
+        state_key: "current",
+        payload,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,state_type,state_key" });
+    })();
+    const { error } = typeof DominionContractAutosave !== "undefined"
+      ? await DominionContractAutosave.withTimeout(accountWrite, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
+      : await accountWrite;
     if (error) throw error;
     markContinuityRecordSynced("contract", stateType, "current", payload);
     recruitContractStorageMode = "REMOTE";
@@ -5610,15 +5624,66 @@ async function saveRecruitContractDraftFromForm({ render = false, announce = tru
   const draft = recruitContractFromForm();
   if (!draft) return null;
   saveRecruitContractLocal("DRAFT", draft);
-  const synced = await persistRecruitContractState("DRAFT", draft);
   if (render) renderRecruitContract();
+  const approved = readApprovedRecruitContract();
   if (announce) {
+    setText("recruit-contract-autosave-status", approved
+      ? `Amendment saved on this device. Syncing to your account… Signed Contract ${approved.revision} remains active.`
+      : "Contract draft saved on this device. Syncing to your account…");
+  }
+  queueRecruitContractAccountSync(draft, recruitContractAutosaveRevision);
+  return draft;
+}
+
+function recruitContractAutosaveFailure(error, phase = "current") {
+  console.error("[contract:autosave] Draft save recovered without blocking the editor.", {
+    phase,
+    code: error?.code || null,
+    message: error?.message || "Unknown autosave error"
+  });
+  setText(
+    "recruit-contract-autosave-status",
+    "Draft save was interrupted. Your signed Contract is unchanged; edit a field or press Continue to retry."
+  );
+}
+
+function queueRecruitContractAccountSync(draft, revision = recruitContractAutosaveRevision) {
+  const task = () => persistRecruitContractState("DRAFT", draft);
+  recruitContractAutosavePromise = typeof DominionContractAutosave !== "undefined"
+    ? DominionContractAutosave.enqueue(recruitContractAutosavePromise, task, recruitContractAutosaveFailure)
+    : Promise.resolve(recruitContractAutosavePromise)
+      .catch((error) => {
+        recruitContractAutosaveFailure(error, "previous");
+        return null;
+      })
+      .then(task)
+      .catch((error) => {
+        recruitContractAutosaveFailure(error, "current");
+        return false;
+      });
+  recruitContractAutosavePromise.then((synced) => {
+    if (revision !== recruitContractAutosaveRevision) return;
     const approved = readApprovedRecruitContract();
     setText("recruit-contract-autosave-status", approved
-      ? `Amendment saved${synced ? " to your account" : " on this device"}. Signed Contract ${approved.revision} remains active until you sign the replacement.`
-      : `Contract draft saved${synced ? " to your account" : " on this device"}.`);
+      ? synced
+        ? `Amendment saved to your account. Signed Contract ${approved.revision} remains active until you sign the replacement.`
+        : `Amendment saved on this device. Account sync is pending; Continue is available. Signed Contract ${approved.revision} remains active.`
+      : synced
+        ? "Contract draft saved to your account."
+        : "Contract draft saved on this device. Account sync is pending; Continue is available.");
+  });
+  return recruitContractAutosavePromise;
+}
+
+async function saveRecruitContractDraftForNavigation() {
+  window.clearTimeout(recruitContractAutosaveTimer);
+  recruitContractAutosaveRevision += 1;
+  try {
+    return await saveRecruitContractDraftFromForm({ announce: false });
+  } catch (error) {
+    recruitContractAutosaveFailure(error, "navigation");
+    return null;
   }
-  return draft;
 }
 
 function updateRecruitContractAmendmentPreview(draft, approved = readApprovedRecruitContract()) {
@@ -5637,18 +5702,21 @@ function queueRecruitContractAutosave() {
   const revision = ++recruitContractAutosaveRevision;
   setText("recruit-contract-autosave-status", "Saving amendment draft…");
   recruitContractAutosaveTimer = window.setTimeout(async () => {
-    recruitContractAutosavePromise = recruitContractAutosavePromise.then(() => saveRecruitContractDraftFromForm({ announce: false }));
-    const draft = await recruitContractAutosavePromise;
-    if (!draft || revision !== recruitContractAutosaveRevision) return;
-    const approved = readApprovedRecruitContract();
-    updateRecruitContractAmendmentPreview(draft, approved);
-    setText("recruit-contract-autosave-status", approved
-      ? `Draft saved. Signed Contract ${approved.revision} is still in force until this replacement is signed.`
-      : "Draft saved. Review and sign to activate it.");
-    const status = document.getElementById("recruit-contract-status");
-    if (status && approved) {
-      status.textContent = "AMENDMENT UNSIGNED";
-      status.className = "state-pill yellow";
+    try {
+      const draft = await saveRecruitContractDraftFromForm({ announce: false });
+      if (!draft || revision !== recruitContractAutosaveRevision) return;
+      const approved = readApprovedRecruitContract();
+      updateRecruitContractAmendmentPreview(draft, approved);
+      setText("recruit-contract-autosave-status", approved
+        ? `Amendment saved on this device. Syncing to your account… Signed Contract ${approved.revision} remains active.`
+        : "Draft saved on this device. Syncing to your account…");
+      const status = document.getElementById("recruit-contract-status");
+      if (status && approved) {
+        status.textContent = "AMENDMENT UNSIGNED";
+        status.className = "state-pill yellow";
+      }
+    } catch (error) {
+      recruitContractAutosaveFailure(error, "local");
     }
   }, 350);
 }
@@ -12517,10 +12585,7 @@ if (typeof document !== "undefined") {
   initializeComplianceForm();
   document.getElementById("recruit-contract-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    window.clearTimeout(recruitContractAutosaveTimer);
-    recruitContractAutosaveRevision += 1;
-    await recruitContractAutosavePromise;
-    const draft = await saveRecruitContractDraftFromForm({ announce: false });
+    const draft = await saveRecruitContractDraftForNavigation();
     if (!draft) return;
     routeRecruitContractReview(draft);
   });
@@ -12573,10 +12638,8 @@ if (typeof document !== "undefined") {
         return;
       }
       if (action === "setup-next") {
-        window.clearTimeout(recruitContractAutosaveTimer);
-        recruitContractAutosaveRevision += 1;
-        await recruitContractAutosavePromise;
-        const draft = await saveRecruitContractDraftFromForm({ announce: false });
+        const draft = await saveRecruitContractDraftForNavigation();
+        if (!draft) return;
         if (recruitContractSetupStep < 3) {
           recruitContractSetupStep += 1;
           renderRecruitContractSetupStep();
@@ -12591,10 +12654,8 @@ if (typeof document !== "undefined") {
         return;
       }
       if (action === "review-amendment") {
-        window.clearTimeout(recruitContractAutosaveTimer);
-        recruitContractAutosaveRevision += 1;
-        await recruitContractAutosavePromise;
-        const draft = await saveRecruitContractDraftFromForm({ announce: false });
+        const draft = await saveRecruitContractDraftForNavigation();
+        if (!draft) return;
         routeRecruitContractReview(draft, {
           readyMessage: `Contract ${readApprovedRecruitContract()?.revision || "current"} is still active. Sign the replacement below to update the calendar.`
         });

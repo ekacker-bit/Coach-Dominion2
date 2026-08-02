@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 1.2 seconds
-Output:
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -101,4 +98,3 @@ Output:
 
   return { VERSION, SECTION_META, sectionMeta, cleanBuildKicker, journeyState, buildMissionState };
 });
-

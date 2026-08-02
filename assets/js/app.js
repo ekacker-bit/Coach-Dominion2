@@ -4883,7 +4883,8 @@ function saveRecruitContractLocal(stateType, payload) {
 }
 
 function readRecruitContractDraft() {
-  return readRecruitContractState("DRAFT", null);
+  const draft = readRecruitContractState("DRAFT", null);
+  return ["READY_FOR_APPROVAL", "REVIEW_REQUIRED"].includes(draft?.status) ? draft : null;
 }
 
 function readApprovedRecruitContract() {
@@ -4912,10 +4913,37 @@ async function persistRecruitContractState(stateType, payload) {
     markContinuityRecordSynced("contract", stateType, "current", payload);
     recruitContractStorageMode = "REMOTE";
     return true;
-  } catch (_) {
+  } catch (error) {
+    console.error("[contract:persist] Account save failed.", {
+      stateType,
+      code: error?.code || null,
+      message: error?.message || "Unknown persistence error"
+    });
     recruitContractStorageMode = "LOCAL";
     return false;
   }
+}
+
+async function finalizeRecruitContractDraftState(contract) {
+  const marker = {
+    status: "FINALIZED",
+    finalizedAt: contract?.signature?.signedAt || new Date().toISOString(),
+    finalizedContractId: contract?.id || null,
+    finalizedContractRevision: Number(contract?.revision || 0)
+  };
+  saveRecruitContractLocal("DRAFT", marker);
+  const synced = await persistRecruitContractState("DRAFT", marker);
+  window.localStorage.removeItem(recruitContractStorageKey("DRAFT"));
+  return synced;
+}
+
+function recruitContractDraftWasFinalized(draft, approved) {
+  if (!draft || !approved || typeof DominionContractExperience === "undefined") return false;
+  if (!DominionContractExperience.signatureStatus(approved).valid) return false;
+  if (draft.amendsContractId && approved.supersedesId === draft.amendsContractId) return true;
+  const signedAt = Date.parse(approved.signature?.signedAt || "") || 0;
+  const draftedAt = Date.parse(draft.updatedAt || draft.createdAt || "") || 0;
+  return Boolean(signedAt && draftedAt && draftedAt <= signedAt);
 }
 
 async function clearRecruitContractState(stateType = "DRAFT") {
@@ -4961,6 +4989,11 @@ async function loadRecruitContractState() {
       if (!exists && local && (stateType !== "HISTORY" || local.length)) {
         await persistRecruitContractState(stateType, local);
       }
+    }
+    const approved = readApprovedRecruitContract();
+    const strandedDraft = readRecruitContractDraft();
+    if (recruitContractDraftWasFinalized(strandedDraft, approved)) {
+      await finalizeRecruitContractDraftState(approved);
     }
   } catch (_) {
     recruitContractStorageMode = "LOCAL";
@@ -5173,10 +5206,14 @@ function unifiedWeekSourceSignature(week = null) {
   });
 }
 
-async function refreshUnifiedWeekDraftForPlans({ force = false } = {}) {
+async function refreshUnifiedWeekDraftForPlans({ force = false, contractHandoff = false } = {}) {
   const existing = readUnifiedWeekDraft();
   if (typeof DominionWeeklyOrchestrator === "undefined") return false;
-  const refreshed = buildUnifiedWeekDraft(existing?.weekStart || unifiedWeekTargetStart());
+  const active = contractHandoff ? readCommittedUnifiedWeek(todayISODate()) : null;
+  const targetWeekStart = active
+    ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
+    : existing?.weekStart || unifiedWeekTargetStart();
+  const refreshed = buildUnifiedWeekDraft(targetWeekStart);
   if (!refreshed) return false;
   if (!force && existing && unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
   saveWeeklyOrchestrationLocal("DRAFT", "current", refreshed);
@@ -5552,10 +5589,21 @@ function recruitContractFromForm() {
   const form = document.getElementById("recruit-contract-form");
   if (!form || typeof DominionRecruitContract === "undefined") return null;
   const existing = readRecruitContractDraft();
-  return DominionRecruitContract.buildRecruitContract(Object.fromEntries(new FormData(form).entries()), {
+  const approved = readApprovedRecruitContract();
+  const input = Object.fromEntries(new FormData(form).entries());
+  const options = {
     today: todayISODate(),
     createdAt: existing?.createdAt || new Date().toISOString()
-  });
+  };
+  if (approved && typeof DominionRecruitContract.buildRecruitContractAmendment === "function") {
+    return DominionRecruitContract.buildRecruitContractAmendment(
+      approved,
+      input,
+      readRecruitOnboardingState()?.profile || {},
+      options
+    );
+  }
+  return DominionRecruitContract.buildRecruitContract(input, options);
 }
 
 async function saveRecruitContractDraftFromForm({ render = false, announce = true } = {}) {
@@ -5658,6 +5706,105 @@ function routeRecruitContractReview(draft, { readyMessage = "Replacement Contrac
   field?.scrollIntoView({ behavior: "smooth", block: "center" });
   field?.focus({ preventScroll: true });
   return false;
+}
+
+function contractIntegrityInputs() {
+  return {
+    weekDraft: readUnifiedWeekDraft(),
+    committedWeeks: readUnifiedWeekHistory(),
+    currentWeek: readCommittedUnifiedWeek(todayISODate())
+  };
+}
+
+function currentContractCalendarIntegrity(contract = readApprovedRecruitContract()) {
+  if (typeof DominionContractIntegrity === "undefined") return null;
+  return DominionContractIntegrity.calendarIntegrity(contract, contractIntegrityInputs());
+}
+
+function contractIntegrityTone(status = "") {
+  if (status === "ACTIVE") return "green";
+  if (status === "DRAFT_MATCHED") return "yellow";
+  if (status === "REPAIR_REQUIRED") return "red";
+  return "neutral";
+}
+
+function contractAmendmentChangesMarkup(approved = null, draft = null) {
+  if (!approved || !draft || typeof DominionContractIntegrity === "undefined") return "";
+  const changes = DominionContractIntegrity.amendmentChanges(approved, draft);
+  if (!changes.length) return `<div class="contract-amendment-diff empty"><strong>No operating changes detected.</strong><span>The replacement still requires a new signature before it can supersede Contract ${escapeHtml(String(approved.revision))}.</span></div>`;
+  return `<div class="contract-amendment-diff"><div><span class="kicker">WHAT CHANGES</span><strong>${changes.length} operating term${changes.length === 1 ? "" : "s"}</strong></div><ul>${changes.map((change) => `<li><span>${escapeHtml(change.label)}</span><small>${escapeHtml(change.from)}</small><strong>${escapeHtml(change.to)}</strong></li>`).join("")}</ul></div>`;
+}
+
+function contractIntegrityMarkup(contract = null) {
+  if (!contract || typeof DominionContractIntegrity === "undefined") return "";
+  const integrity = currentContractCalendarIntegrity(contract);
+  if (!integrity) return "";
+  const receipt = DominionContractIntegrity.receiptMatchesContract(contract.handoffReceipt, contract)
+    ? contract.handoffReceipt
+    : null;
+  const receiptChanges = receipt?.changes?.length
+    ? receipt.changes.map((change) => change.label).join(", ")
+    : "Initial Contract activation";
+  const signedAt = receipt?.signedAt
+    ? new Date(receipt.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+    : contract.signature?.signedAt
+      ? new Date(contract.signature.signedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+      : "Receipt pending";
+  const calendarRevision = integrity.calendarRevision
+    ? `CONTRACT R${integrity.calendarRevision}`
+    : integrity.currentWeekRevision
+      ? `CURRENT WEEK R${integrity.currentWeekRevision}`
+      : "NO REVISION STAMP";
+  const twoADayDetail = integrity.twoADaysAuthorized
+    ? integrity.twoADayCount > 0
+      ? `${integrity.twoADayCount} AM/PM day${integrity.twoADayCount === 1 ? "" : "s"} staged`
+      : "Authorized; scheduled when the plan requires it"
+    : "Not authorized by this Contract";
+  const action = integrity.repairRequired ? "repair" : "open-calendar";
+  const actionLabel = integrity.repairRequired ? "Repair calendar handoff" : integrity.status === "ACTIVE" ? "Open active calendar" : "Review staged calendar";
+  const protectedWeek = integrity.protectedCurrentWeek
+    ? `<p class="contract-integrity-protected">The current week remains protected on its original Contract revision. The replacement governs the next coordinated week.</p>`
+    : "";
+  const receiptMarkup = receipt
+    ? `<footer class="contract-handoff-receipt"><div><span>SIGNED RECEIPT</span><strong>Contract R${escapeHtml(String(receipt.contractRevision))}</strong></div><div><span>Signed</span><strong>${escapeHtml(signedAt)}</strong></div><div><span>Changes</span><strong>${escapeHtml(receiptChanges)}</strong></div></footer>`
+    : `<footer class="contract-handoff-receipt pending"><div><span>RECEIPT</span><strong>Calendar confirmation pending</strong></div></footer>`;
+  return `<section class="contract-integrity-card ${integrity.status.toLowerCase().replaceAll("_", "-")}" aria-label="Contract to calendar integrity">
+    <header><div><span class="kicker">BUILD 021F // CONTRACT TO CALENDAR</span><h3>One signed revision. One calendar truth.</h3><p>${escapeHtml(integrity.detail)}</p></div><span class="state-pill ${contractIntegrityTone(integrity.status)}">${escapeHtml(integrity.label)}</span></header>
+    <div class="contract-integrity-grid">
+      <article><span>SIGNED CONTRACT</span><strong>REVISION ${escapeHtml(String(integrity.contractRevision))}</strong><small>${contract.twoADays ? "Two-a-Days authorized" : `${contract.sessionMinutes}-minute standard`}</small></article>
+      <article><span>CALENDAR STAMP</span><strong>${escapeHtml(calendarRevision)}</strong><small>${escapeHtml(integrity.weekStart || "Calendar rebuild required")}</small></article>
+      <article><span>TWO-A-DAY COMMAND</span><strong>${contract.twoADays ? "AM / PM ENABLED" : "OFF"}</strong><small>${escapeHtml(twoADayDetail)}</small></article>
+      <article><span>LONG-RUN RULE</span><strong>${Number(contract.runningDaysPerWeek || 0) > 0 || integrity.longRunsUncapped ? "TIME UNCAPPED" : "NOT SCHEDULED"}</strong><small>Distance and readiness govern the long run.</small></article>
+    </div>
+    ${protectedWeek}
+    ${receiptMarkup}
+    <div class="contract-integrity-actions"><button type="button" data-contract-integrity-action="${action}">${actionLabel}</button><span>Contract R${escapeHtml(String(integrity.contractRevision))} remains authoritative.</span></div>
+  </section>`;
+}
+
+async function attachContractHandoffReceipt(contract, previous = null, options = {}) {
+  if (!contract || typeof DominionContractIntegrity === "undefined") return { contract, integrity: null, synced: false };
+  const integrity = currentContractCalendarIntegrity(contract);
+  const receipt = DominionContractIntegrity.createHandoffReceipt(previous, contract, integrity, {
+    recordedAt: new Date().toISOString()
+  });
+  const updated = { ...contract, handoffReceipt: receipt };
+  const history = [updated, ...readRecruitContractHistory().filter((item) => item.id !== updated.id)].slice(0, 24);
+  saveRecruitContractLocal("APPROVED", updated);
+  saveRecruitContractLocal("HISTORY", history);
+  const synced = options.persist === false ? false : await persistRecruitContractState("APPROVED", updated);
+  if (options.persist !== false) await persistRecruitContractState("HISTORY", history);
+  return { contract: updated, integrity, synced };
+}
+
+async function repairContractCalendarIntegrity() {
+  const contract = readApprovedRecruitContract();
+  if (!contract) return { contract: null, integrity: null, synced: false };
+  await refreshUnifiedWeekDraftForPlans({ force: true, contractHandoff: true });
+  const previous = readRecruitContractHistory()
+    .filter((item) => item.id !== contract.id && Number(item.revision || 0) < Number(contract.revision || 0))
+    .sort((left, right) => Number(right.revision || 0) - Number(left.revision || 0))[0] || null;
+  return attachContractHandoffReceipt(contract, previous);
 }
 
 function recruitContractNutritionConnection(contract = {}, weekStart = unifiedWeekTargetStart()) {
@@ -6004,6 +6151,7 @@ function renderRecruitContract() {
         </div>
       </section>`
     : "";
+  const amendmentDiff = amendmentPending ? contractAmendmentChangesMarkup(approved, draft) : "";
   const amendmentHandoff = amendmentPending
     ? `<section class="contract-amendment-handoff" aria-label="Unsigned Contract amendment">
         <div><span class="kicker">UNSIGNED AMENDMENT</span><h3 id="contract-amendment-heading">${draft.twoADays ? "Two-a-Days are ON in the draft—not yet in force." : "Contract changes are saved—not yet in force."}</h3><p>Signed Contract ${approved.revision} still governs Today and the calendar until you sign the replacement.</p></div>
@@ -6012,6 +6160,7 @@ function renderRecruitContract() {
           <article><span>DRAFT REPLACEMENT</span><strong id="contract-amendment-draft-capacity">${draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small id="contract-amendment-draft-detail">${draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`}</small></article>
         </div>
         <button type="button" data-contract-experience-action="review-amendment">Review & sign replacement</button>
+        ${amendmentDiff}
       </section>`
     : "";
   if (signed && signedArtifact) {
@@ -6042,6 +6191,7 @@ function renderRecruitContract() {
           <div><span>Contract ID</span><strong>${escapeHtml(approved.id)}</strong></div>
         </footer>
       </article>
+      ${contractIntegrityMarkup(approved)}
       ${amendmentHandoff}
       ${amendmentPending ? signatureCeremony : ""}
       <section class="contract-momentum" aria-labelledby="contract-momentum-heading">
@@ -6078,8 +6228,14 @@ async function signRecruitContractFromCeremony() {
     const draft = readRecruitContractDraft();
     previous = readRecruitContractState("APPROVED", null);
     previousOrientation = readRecruitOnboardingState();
-    const approved = draft
-      ? DominionRecruitContract.approveRecruitContract(draft, previous, {
+    const approvalDraft = draft || (previous?.status === "APPROVED"
+      ? DominionRecruitContract.buildRecruitContractAmendment(previous, {}, previousOrientation?.profile || {}, {
+          today: todayISODate(),
+          createdAt: new Date().toISOString()
+        })
+      : null);
+    const approved = approvalDraft
+      ? DominionRecruitContract.approveRecruitContract(approvalDraft, previous, {
           today: todayISODate(),
           approvedAt: new Date().toISOString()
         })
@@ -6099,10 +6255,7 @@ async function signRecruitContractFromCeremony() {
   }
 
   const followupWarnings = [];
-  const history = readRecruitContractHistory();
-  const synced = await persistRecruitContractState("APPROVED", signed);
-  await persistRecruitContractState("HISTORY", history);
-  await clearRecruitContractState("DRAFT");
+  let synced = false;
   try {
     if (typeof DominionFirstWeekOrientation !== "undefined") {
       const orientation = previous?.status === "APPROVED"
@@ -6115,11 +6268,29 @@ async function signRecruitContractFromCeremony() {
     followupWarnings.push("Week One Orientation will retry on refresh");
   }
   let calendarRefreshed = false;
+  let handoffIntegrity = null;
   try {
-    calendarRefreshed = await refreshUnifiedWeekDraftForPlans({ force: true });
+    calendarRefreshed = await refreshUnifiedWeekDraftForPlans({ force: true, contractHandoff: true });
+    handoffIntegrity = currentContractCalendarIntegrity(signed);
+    if (handoffIntegrity?.repairRequired) followupWarnings.push("calendar revision verification needs a retry");
   } catch (_) {
     followupWarnings.push("calendar regeneration needs a retry");
   }
+  try {
+    const handoff = await attachContractHandoffReceipt(signed, previous, { persist: false });
+    signed = handoff.contract;
+    handoffIntegrity = handoff.integrity || handoffIntegrity;
+  } catch (_) {
+    followupWarnings.push("the signed amendment receipt will retry on refresh");
+  }
+  const history = [signed, ...readRecruitContractHistory().filter((item) => item.id !== signed.id)].slice(0, 24);
+  saveRecruitContractLocal("APPROVED", signed);
+  saveRecruitContractLocal("HISTORY", history);
+  synced = await persistRecruitContractState("APPROVED", signed);
+  await persistRecruitContractState("HISTORY", history);
+  const draftFinalized = await finalizeRecruitContractDraftState(signed);
+  if (session?.user?.id && !synced) followupWarnings.push("account Contract sync needs a retry");
+  if (session?.user?.id && !draftFinalized) followupWarnings.push("draft finalization sync needs a retry");
   recruitContractSetupStep = 0;
   const editor = document.getElementById("recruit-contract-editor");
   if (editor) editor.open = false;
@@ -6131,7 +6302,14 @@ async function signRecruitContractFromCeremony() {
     followupWarnings.push("the Contract view needs a refresh");
   }
   const warning = followupWarnings.length ? ` Follow-up: ${followupWarnings.join("; ")}. Your signed Contract is already in force.` : "";
-  setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}.${calendarRefreshed ? ` The calendar draft now uses ${signed.twoADays ? "AM/PM Two-a-Day capacity" : `${signed.sessionMinutes}-minute standard capacity`}.` : ""} First Week Orientation is ready below.${warning}`);
+  const calendarDetail = handoffIntegrity?.status === "ACTIVE"
+    ? ` The active calendar is stamped to Contract ${signed.revision}.`
+    : handoffIntegrity?.status === "DRAFT_MATCHED"
+      ? ` The calendar draft now uses ${signed.twoADays ? "AM/PM Two-a-Day capacity" : `${signed.sessionMinutes}-minute standard capacity`} and is stamped to Contract ${signed.revision}.`
+      : calendarRefreshed
+        ? " The calendar was rebuilt; verify the revision stamp below."
+        : "";
+  setText("recruit-contract-feedback", `Dominion Contract revision ${signed.revision} signed${synced ? " and saved to your account" : " on this device"}.${calendarDetail} First Week Orientation is ready below.${warning}`);
   return true;
 }
 
@@ -12452,7 +12630,7 @@ if (typeof document !== "undefined") {
       if (action === "amend") {
         const approved = readApprovedRecruitContract();
         if (!approved) return;
-        const draft = DominionRecruitContract.buildRecruitContract(approved, {
+        const draft = DominionRecruitContract.buildRecruitContractAmendment(approved, {}, readRecruitOnboardingState()?.profile || {}, {
           today: todayISODate(),
           createdAt: new Date().toISOString()
         });
@@ -12587,6 +12765,34 @@ if (typeof document !== "undefined") {
         } catch (error) {
           setText("weekly-orchestrator-feedback", error?.message || "The complete week could not be committed.");
           setText("contract-activation-feedback", error?.message || "The complete week could not be committed.");
+        }
+        return;
+      }
+    }
+    const integrityButton = event.target.closest("button[data-contract-integrity-action]");
+    if (integrityButton && typeof DominionContractIntegrity !== "undefined") {
+      const integrityAction = integrityButton.dataset.contractIntegrityAction;
+      if (integrityAction === "open-calendar") {
+        document.querySelector("#contract > .weekly-orchestrator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setText("contract-activation-feedback", "The calendar below shows the Contract revision stamp and every staged AM/PM assignment.");
+        return;
+      }
+      if (integrityAction === "repair") {
+        integrityButton.disabled = true;
+        const previousLabel = integrityButton.textContent;
+        integrityButton.textContent = "Repairing handoff…";
+        setText("recruit-contract-feedback", "Rebuilding the coordinated calendar from the signed Contract…");
+        try {
+          const result = await repairContractCalendarIntegrity();
+          renderRecruitContract();
+          const repaired = result.integrity && !result.integrity.repairRequired;
+          setText("recruit-contract-feedback", repaired
+            ? `Calendar repaired. Contract ${result.contract.revision} now matches the ${result.integrity.status === "ACTIVE" ? "committed" : "staged"} calendar revision.`
+            : "The signed Contract remains active, but the calendar still needs its plan inputs reviewed before the handoff can complete.");
+        } catch (error) {
+          setText("recruit-contract-feedback", error?.message || "Calendar repair could not finish. The signed Contract remains active.");
+          integrityButton.disabled = false;
+          integrityButton.textContent = previousLabel;
         }
         return;
       }

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=021n-css2">
+  <link rel="stylesheet" href="/assets/styles.css?v=021o">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -35,7 +35,7 @@
       </div>
         <button id="continuity-status" class="continuity-status neutral" type="button" data-continuity-action="open" aria-haspopup="dialog">
           <span class="continuity-status-dot" aria-hidden="true"></span>
-          <span><strong id="continuity-status-label">VERIFYING</strong><small id="continuity-status-detail">Checking saved program revisions</small></span>
+          <span><strong id="continuity-status-label">CHECKING</strong><small id="continuity-status-detail">Checking your saved program</small></span>
         </button>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
@@ -61,11 +61,11 @@
     </header>
 
     <section id="dominion-mission-rail" class="dominion-mission-rail" data-truth-layer="019D" aria-labelledby="shell-mission-heading">
-      <div class="shell-mission-phase"><span>Operating phase</span><strong id="shell-mission-phase">ASSEMBLING</strong></div>
+      <div class="shell-mission-phase"><span>Current step</span><strong id="shell-mission-phase">GETTING READY</strong></div>
       <div class="shell-mission-copy">
         <div class="kicker">BUILD 019D // OPERATING TRUTH</div>
-        <h2 id="shell-mission-heading">Assembling your next action</h2>
-        <p id="shell-mission-detail">Connecting the Contract, plans, week, and today.</p>
+        <h2 id="shell-mission-heading">Preparing your next action</h2>
+        <p id="shell-mission-detail">Checking your commitment, plans, and schedule.</p>
       </div>
       <a id="shell-mission-action" class="btn shell-mission-action" href="#today" data-section="today">Open Today</a>
       <ol id="shell-journey" class="shell-journey" aria-label="Dominion operating journey">
@@ -77,11 +77,11 @@
         <li data-shell-step="review"><span>6</span><strong>Review</strong></li>
       </ol>
       <div id="shell-truth-summary" class="shell-truth-summary" aria-live="polite">
-        <div><span>Canonical source</span><strong id="shell-truth-source">Checking Contract and plan revisions</strong></div>
-        <div><span>Verified today</span><strong id="shell-truth-evidence">0/0 assigned domains</strong></div>
+        <div><span>Based on</span><strong id="shell-truth-source">Checking your approved plans</strong></div>
+        <div><span>Done today</span><strong id="shell-truth-evidence">No planned items yet</strong></div>
       </div>
       <aside id="shell-truth-alert" class="shell-truth-alert" hidden>
-        <strong>Truth conflict</strong><span id="shell-truth-alert-detail"></span>
+        <strong>Saved plans disagree</strong><span id="shell-truth-alert-detail"></span>
       </aside>
     </section>
 
@@ -92,7 +92,7 @@
       <div><span>RHR</span><strong id="status-rhr">—</strong></div>
       <div><span>HRV</span><strong id="status-hrv">—</strong></div>
       <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
-      <div><span>Data</span><strong id="status-data">CHECKING</strong></div>
+      <div><span>Sync</span><strong id="status-data">CHECKING</strong></div>
     </section>
 
     <p class="status" id="status"></p>
@@ -101,19 +101,19 @@
     <dialog id="continuity-repair-dialog" class="continuity-repair-dialog" aria-labelledby="continuity-repair-heading">
       <form method="dialog" class="continuity-repair-shell">
         <header>
-          <div><div class="kicker">BUILD 021B // DOMINION CONTINUITY</div><h2 id="continuity-repair-heading">Your program, one source of truth</h2></div>
+          <div><div class="kicker">BUILD 021B // DOMINION CONTINUITY</div><h2 id="continuity-repair-heading">Keep your program in sync</h2></div>
           <button type="submit" class="ghost continuity-dialog-close" aria-label="Close continuity details">Close</button>
         </header>
-        <p id="continuity-repair-summary">Checking the Contract, active plans, calendar, and today's sessions.</p>
+        <p id="continuity-repair-summary">Checking your commitment, plans, schedule, and today.</p>
         <div id="continuity-canonical-grid" class="continuity-canonical-grid" aria-live="polite"></div>
         <aside id="continuity-conflict-panel" class="continuity-conflict-panel" hidden>
-          <div><strong>A saved-state decision is required</strong><p id="continuity-conflict-detail">Nothing will be overwritten until you choose which copy to keep.</p></div>
+          <div><strong>Choose which saved version to keep</strong><p id="continuity-conflict-detail">Nothing changes until you choose.</p></div>
           <div class="continuity-conflict-actions">
             <button type="button" data-continuity-action="keep-device">Keep this device</button>
             <button type="button" class="ghost" data-continuity-action="keep-account">Use account copy</button>
           </div>
         </aside>
-        <footer><span id="continuity-device-label">Device identity pending</span><button type="button" class="ghost" data-continuity-action="sync">Check sync now</button></footer>
+        <footer><span id="continuity-device-label">Checking this device</span><button type="button" class="ghost" data-continuity-action="sync">Check sync</button></footer>
       </form>
     </dialog>
 
@@ -130,7 +130,7 @@
           <div class="dominion-contract-intro">
             <div class="kicker">BUILD 021C // RECRUIT ENTRY</div>
             <h2 id="recruit-contract-heading">The Dominion Contract</h2>
-            <p>This is your commitment to disciplined action, honest evidence, responsible recovery, and weekly inspection.</p>
+            <p>Your commitment: train with discipline, log honestly, recover responsibly, and review weekly.</p>
           </div>
           <div class="recruit-contract-status-stack">
             <span id="recruit-contract-status" class="state-pill neutral">NOT SET</span>
@@ -343,7 +343,7 @@
             <div>
               <div class="kicker">BUILD 018G // CONTRACT ACTIVATION</div>
               <h3 id="contract-activation-heading">Activate the commitment</h3>
-              <p class="muted">Link every approved plan to this Contract, then commit one coordinated week.</p>
+              <p class="muted">Connect your plans, then schedule the week.</p>
             </div>
             <span id="contract-activation-status" class="state-pill neutral">CONTRACT REQUIRED</span>
           </div>
@@ -360,7 +360,7 @@
           <div>
             <div class="kicker">BUILD 021I // CALENDAR COMMAND</div>
             <h2 id="weekly-orchestrator-heading">Calendar</h2>
-            <p class="muted">Coordinate the week, move draft assignments, and clear visible blockers before commitment.</p>
+            <p class="muted">Set the week. Move sessions. Fix anything blocking the plan.</p>
           </div>
           <span id="weekly-orchestrator-status" class="state-pill neutral">CONTRACT REQUIRED</span>
         </div>
@@ -370,7 +370,7 @@
           <span><strong>Long run</strong> Time remains uncapped</span>
         </div>
         <div id="weekly-orchestrator-panel" aria-live="polite">
-          <div class="performance-empty">Approve the Recruit Contract to coordinate the operating week.</div>
+          <div class="performance-empty">Sign the Contract to build your week.</div>
         </div>
         <p id="weekly-orchestrator-feedback" class="muted" aria-live="polite"></p>
       </section>
@@ -392,9 +392,9 @@
           <button type="button" class="connected-view-tab active" role="tab" aria-selected="true" data-connected-view="overview">OVERVIEW</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="providers">PROVIDERS</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="accounts">ACCOUNTS</button>
-          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="sync_history">SYNC HISTORY</button>
-          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="imported_records">IMPORTED RECORDS</button>
-          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="reconciliation">RECONCILIATION</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="sync_history">ACTIVITY</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="imported_records">IMPORTS</button>
+          <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="reconciliation">REVIEW</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="nutrition">NUTRITION</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="apple_health">APPLE HEALTH</button>
           <button type="button" class="connected-view-tab" role="tab" aria-selected="false" data-connected-view="privacy">PRIVACY</button>
@@ -546,7 +546,7 @@
         </div>
         <div class="nutrition-workspace-panel" data-nutrition-view-panel="details" hidden>
         <details class="nutrition-manual-entry">
-          <summary>Manual daily totals fallback</summary>
+             <summary>Enter today&rsquo;s totals manually</summary>
           <form id="nutrition-manual-form" class="nutrition-manual-form">
             <label>Date<input name="date" type="date" required></label>
             <label>Calories<input name="calories" type="number" min="0" step="1"></label>
@@ -564,7 +564,7 @@
       <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
          <header class="today-command-header">
           <div>
-            <div class="kicker">TODAY // 21N</div>
+             <div class="kicker">TODAY</div>
             <h2 id="today-heading">Today</h2>
             <p>One mission. One proof. Then close the day.</p>
           </div>
@@ -576,12 +576,12 @@
             <div>
               <div id="one-command-eyebrow" class="kicker">TODAY // MISSION</div>
               <h2 id="one-command-heading">Assembling the next action</h2>
-              <p id="one-command-detail">Coach Dominion is reconciling the operating chain.</p>
+             <p id="one-command-detail">Checking your plan for today.</p>
             </div>
             <span id="one-command-state" class="state-pill neutral">ASSEMBLING</span>
           </header>
 
-          <p id="today-mission-reason" class="today-mission-reason"><span>WHY</span><strong>Atlas is checking readiness, the committed calendar, and current evidence.</strong></p>
+           <p id="today-mission-reason" class="today-mission-reason"><span>WHY</span><strong>Based on your readiness, schedule, and progress.</strong></p>
 
           <div class="today-mission-facts" aria-label="Mission facts">
             <div><span>Readiness</span><strong id="today-mission-readiness">ROLL CALL NEEDED</strong></div>
@@ -597,21 +597,21 @@
 
           <div class="one-command-actions today-mission-actions">
             <button id="one-command-primary" type="button" data-one-command-action="REFRESH">Refresh</button>
-            <p id="today-mission-after"><span>THEN</span><strong>Atlas will reveal the next required action.</strong></p>
+             <p id="today-mission-after"><span>THEN</span><strong>Your next action will appear here.</strong></p>
           </div>
 
           <details id="one-command-context" class="one-command-context today-mission-why">
-            <summary><span>Why this action?</span><small>Decision, evidence, and any blocker</small></summary>
+             <summary><span>Why this action?</span><small>Why this comes next</small></summary>
             <div>
-              <p><span>Decision</span><strong id="today-mission-decision">The next unfinished requirement comes first.</strong></p>
-              <p><span>Canonical source</span><strong id="one-command-source">Checking Contract and plan revisions</strong></p>
-              <p><span>Evidence</span><strong id="one-command-evidence">0/0 assigned domains verified</strong></p>
+               <p><span>Why</span><strong id="today-mission-decision">The next unfinished requirement comes first.</strong></p>
+               <p><span>Based on</span><strong id="one-command-source">Checking your approved plans</strong></p>
+               <p><span>Progress</span><strong id="one-command-evidence">No planned items yet</strong></p>
               <p id="one-command-conflict" class="one-command-conflict" hidden><span>Blocker</span><strong id="one-command-conflict-detail"></strong></p>
             </div>
           </details>
 
           <details id="today-mission-details" class="today-mission-details">
-            <summary><span>Details</span><small>Plan chain and assigned domains</small></summary>
+             <summary><span>Details</span><small>Plans and progress</small></summary>
             <ol id="one-command-stages" class="one-command-stages" aria-label="Current operating chain">
               <li data-one-command-stage="contract"><span>1</span><strong>Contract</strong></li>
               <li data-one-command-stage="plans"><span>2</span><strong>Plans</strong></li>
@@ -621,15 +621,15 @@
               <li data-one-command-stage="review"><span>6</span><strong>Review</strong></li>
             </ol>
             <div id="one-command-modules" class="one-command-modules" aria-label="Assigned domains"></div>
-            <button id="one-command-secondary" type="button" class="ghost" aria-controls="one-command-context" aria-expanded="false">Open decision context</button>
+             <button id="one-command-secondary" type="button" class="ghost" aria-controls="one-command-context" aria-expanded="false">Show why</button>
           </details>
 
           <section id="activation-repair" class="activation-repair" aria-labelledby="activation-repair-heading" hidden>
             <header class="activation-repair-header">
               <div>
                 <span class="kicker">BUILD 019F // ACTIVATION REPAIR</span>
-                <h3 id="activation-repair-heading">Resolve the operating chain</h3>
-                <p id="activation-repair-detail">Coach Dominion will identify the exact setup step blocking Today.</p>
+                 <h3 id="activation-repair-heading">Finish setup</h3>
+                 <p id="activation-repair-detail">We&rsquo;ll show the one setup step blocking Today.</p>
               </div>
               <span id="activation-repair-state" class="state-pill yellow">ACTION REQUIRED</span>
             </header>
@@ -642,7 +642,7 @@
             <div class="activation-repair-progress" aria-hidden="true"><span id="activation-repair-progress"></span></div>
             <div id="activation-repair-modules" class="activation-repair-modules" aria-label="Contract plan connections"></div>
             <div class="activation-repair-actions">
-              <button id="activation-repair-primary" type="button" data-activation-repair-action="RETRY">Reconcile again</button>
+               <button id="activation-repair-primary" type="button" data-activation-repair-action="RETRY">Check again</button>
               <button id="activation-repair-contract" type="button" class="ghost" data-activation-repair-action="OPEN_CONTRACT">Review Contract</button>
             </div>
             <p id="activation-repair-feedback" class="activation-repair-feedback" role="status" aria-live="polite"></p>
@@ -690,7 +690,7 @@
           <div class="today-body-checkpoint-meta">
             <div><span>Last</span><strong id="today-body-checkpoint-last">—</strong></div>
             <div><span>Next</span><strong id="today-body-checkpoint-next">Today</strong></div>
-            <div><span>Protocol</span><strong>Same conditions</strong></div>
+             <div><span>Method</span><strong>Same conditions</strong></div>
           </div>
           <details id="today-body-capture" class="today-body-capture">
             <summary><span id="today-body-capture-label">Log weekly measurements</span><small>About 30 seconds</small></summary>
@@ -1011,7 +1011,7 @@
             <div><dt>Primary risk</dt><dd id="readiness-risk">Operating without current readiness.</dd></div>
             <div><dt>Instruction</dt><dd id="readiness-instruction">Complete Morning Roll Call.</dd></div>
           </dl>
-          <details class="readiness-details" open>
+          <details class="readiness-details">
             <summary>Why this state?</summary>
             <ul id="readiness-rationale"><li>Submit Daily State evidence.</li></ul>
           </details>
@@ -1077,7 +1077,7 @@
           </div>
         </form>
 
-        <details class="readiness-details compliance-explanation" open>
+        <details class="readiness-details compliance-explanation">
           <summary>Score explanation and evidence</summary>
           <p id="compliance-formula">No applicable assessed domains; no Discipline Score calculated.</p>
           <div class="evidence-grid">
@@ -1139,14 +1139,14 @@
           <div><dt>Approved modifications</dt><dd id="weekly-modification-count">0</dd></div>
           <div><dt>Evidence through</dt><dd id="weekly-evidence-through">—</dd></div>
           <div><dt>Projected full-week coverage</dt><dd id="weekly-projected-coverage">0%</dd></div>
-          <div><dt>Calculation integrity</dt><dd id="weekly-calculation-meta">009A.1</dd></div>
+          <div><dt>Score version</dt><dd id="weekly-calculation-meta">009A.1</dd></div>
           <div><dt>Strongest domain</dt><dd id="weekly-strongest">UNSCORED</dd></div>
           <div><dt>Weakest domain</dt><dd id="weekly-weakest">UNSCORED</dd></div>
           <div><dt>Missed requirements</dt><dd id="weekly-missed">None recorded.</dd></div>
           <div><dt>Excused conditions</dt><dd id="weekly-excused">None recorded.</dd></div>
         </dl>
-        <details class="readiness-details" open>
-          <summary>Calculation evidence</summary>
+        <details class="readiness-details">
+          <summary>How this score works</summary>
           <div id="weekly-evidence" class="evidence-list"></div>
         </details>
         <h3>Standards review history</h3>
@@ -1250,11 +1250,11 @@
 
           <section id="outcome-plan-revision" class="outcome-plan-revision" aria-labelledby="outcome-plan-revision-heading">
             <header>
-              <div><span>OUTCOME → PLAN</span><h3 id="outcome-plan-revision-heading">Plan revision</h3></div>
+              <div><span>OUTCOME → PLAN</span><h3 id="outcome-plan-revision-heading">Plan update</h3></div>
               <strong id="outcome-plan-revision-state">WAITING</strong>
             </header>
             <div id="outcome-plan-revision-output" aria-live="polite"></div>
-            <p id="outcome-plan-revision-feedback" aria-live="polite">Authorize the four-week outcome review before Atlas drafts a revision.</p>
+            <p id="outcome-plan-revision-feedback" aria-live="polite">Review the last four weeks before Atlas suggests an update.</p>
           </section>
 
           <section class="trend-body-focus">
@@ -1306,7 +1306,7 @@
         </div>
 
         <details class="trend-methods">
-          <summary>Evidence &amp; methods</summary>
+          <summary>How this works</summary>
           <p id="trend-window">No finalized scored trend window available.</p>
           <div id="trend-domain-grid" class="trend-domain-grid"></div>
           <div class="trend-method-meta"><span id="analytics-storage">ANALYTICS NOT LOADED</span><span id="trend-method-version">021M.1</span></div>
@@ -1427,7 +1427,7 @@
             <a class="button-link" href="#today">Open today’s training</a>
           </div>
           <div class="training-review-stack">
-            <details id="training-closed-loop-detail" class="training-review-detail" open>
+            <details id="training-closed-loop-detail" class="training-review-detail">
               <summary>Closed-loop review <span>Decision, evidence reconciliation, and next adjustment</span></summary>
               <div id="training-closed-loop-panel" class="training-closed-loop-panel"></div>
             </details>
@@ -1585,7 +1585,7 @@
             <span id="performance-intelligence-status" class="state-pill neutral">LOADING</span>
           </div>
           <div class="progress-review-stack">
-            <details id="strength-intelligence-detail" class="progress-review-detail" open>
+            <details id="strength-intelligence-detail" class="progress-review-detail">
               <summary>Strength intelligence <span>Verified set records, exercise trajectories, workload, and fatigue guardrails</span></summary>
               <div class="section-heading compact strength-intelligence-heading">
                 <div>
@@ -1597,7 +1597,7 @@
               </div>
               <div id="strength-intelligence-panel" class="strength-intelligence-panel"></div>
             </details>
-            <details id="training-intelligence-detail" class="progress-review-detail" open>
+            <details id="training-intelligence-detail" class="progress-review-detail">
               <summary>Performance intelligence <span>Trajectory, confidence, and next benchmark</span></summary>
               <div id="performance-intelligence-panel" class="performance-intelligence-panel"></div>
             </details>
@@ -1772,6 +1772,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=021n"></script>
+ <script src="/assets/js/app.js?v=021o"></script>
 </body>
 </html>

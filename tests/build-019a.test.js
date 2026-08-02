@@ -19,7 +19,7 @@ for (const id of [
 ]) assert.match(`${html}\n${app}`, new RegExp(id), `missing 019A contract surface: ${id}`);
 
 assert.match(html, /BUILD (?:019A \/\/ THE DOMINION CONTRACT|021C \/\/ RECRUIT ENTRY)/);
-assert.match(html, /This is your commitment to disciplined action/);
+assert.match(html, /Your commitment: train with discipline/);
 assert.match(html, /Do you swear to uphold this Contract\?/);
 assert.match(html, /src="\/assets\/js\/contract-experience\.js"/);
 assert.ok(html.indexOf("contract-experience.js") < html.indexOf("app.js"), "contract experience engine must load before app integration");

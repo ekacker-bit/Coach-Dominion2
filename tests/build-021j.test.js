@@ -16,8 +16,8 @@ assert.match(appHtml, /data-trend-view="body"/);
 assert.match(appHtml, /id="trend-kpi-grid"/);
 assert.match(appHtml, /id="trend-evidence-ring"/);
 assert.match(appHtml, /trends-intelligence\.js\?v=021m/);
-assert.match(appHtml, /styles\.css\?v=021n/);
-assert.match(appHtml, /app\.js\?v=021n/);
+assert.match(appHtml, /styles\.css\?v=021o/);
+assert.match(appHtml, /app\.js\?v=021o/);
 assert.doesNotMatch(appHtml, /Atlas Trend Report/);
 
 assert.match(appJs, /DominionTrends\.buildProgramTrendModel/);
@@ -34,4 +34,3 @@ assert.match(moduleSource, /const VERSION = "021M\.1"/);
 assert.doesNotMatch(moduleSource, /<svg/i);
 
 console.log("Build 021J integration tests passed");
-

@@ -11071,17 +11071,134 @@ function isDeveloperBuildLabel(text = "") {
   return /^\s*BUILD\s+\d/i.test(String(text));
 }
 
-function applyProductPolish() {
+const PRODUCT_COPY_REWRITES = new Map([
+  ["Operating phase", "Current step"],
+  ["Canonical source", "Based on"],
+  ["Verified today", "Done today"],
+  ["Truth conflict", "Saved plans disagree"],
+  ["Checking saved program revisions", "Checking your saved program"],
+  ["Checking Contract and plan revisions", "Checking your approved plans"],
+  ["Your program, one source of truth", "Keep your program in sync"],
+  ["Device identity pending", "Checking this device"],
+  ["Manual daily totals fallback", "Enter today's totals manually"],
+  ["Decision", "Why"],
+  ["Open decision context", "Show why"],
+  ["Decision, evidence, and any blocker", "Why this comes next"],
+  ["Plan chain and assigned domains", "Plans and progress"],
+  ["Resolve the operating chain", "Finish setup"],
+  ["Reconcile again", "Check again"],
+  ["Evidence & methods", "How this works"],
+  ["Calculation evidence", "How this score works"],
+  ["Calculation integrity", "Score version"],
+  ["Plan revision", "Plan update"],
+  ["SYNC HISTORY", "ACTIVITY"],
+  ["IMPORTED RECORDS", "IMPORTS"],
+  ["RECONCILIATION", "REVIEW"],
+  ["ASSEMBLING", "GETTING READY"],
+  ["VERIFYING", "CHECKING"],
+  ["CONTRACT REQUIRED", "SIGN CONTRACT"],
+  ["PLAN REQUIRED", "PLAN NEEDED"],
+  ["DRAFT_READY", "READY TO REVIEW"],
+  ["DRAFT READY", "READY TO REVIEW"],
+  ["AWAITING INSPECTION", "REVIEW NEEDED"],
+  ["ANALYTICS NOT LOADED", "TRENDS NOT READY"],
+  ["LOCAL READY", "SAVED HERE"],
+  ["LOCAL FALLBACK", "SAVED HERE"],
+  ["LOCAL_FALLBACK_ACTIVE", "SAVED HERE"],
+  ["NOT_IMPORTED", "NOT CONNECTED"]
+]);
+
+function productCopyLabel(value = "") {
+  const source = String(value);
+  const text = source.trim();
+  if (!text) return source;
+  if (PRODUCT_COPY_REWRITES.has(text)) return PRODUCT_COPY_REWRITES.get(text);
+  if (/^Loading today's Daily State/i.test(text)) return "Preparing Today...";
+  if (/^Loading Connected Dominion state/i.test(text)) return "Loading your connections...";
+  if (/^Atlas uses this context to calibrate Week One/i.test(text)) return "Atlas uses this to set Week One, protect recovery, and guide progress.";
+  if (/^Coach Dominion is reconciling the operating chain/i.test(text)) return "Checking your plan for today.";
+  if (/^Atlas is checking readiness, the committed calendar/i.test(text)) return "Based on your readiness, schedule, and progress.";
+  if (/^Atlas will reveal the next required action/i.test(text)) return "Your next action will appear here.";
+  if (/^Authorize the four-week outcome review/i.test(text)) return "Review the last four weeks before Atlas suggests an update.";
+
+  let match = text.match(/^(\d+)\s*\/\s*(\d+)\s+assigned domains(?: verified)?$/i);
+  if (match) return Number(match[2]) ? `${match[1]} of ${match[2]} planned items complete` : "No planned items yet";
+  match = text.match(/^(\d+)\s+of\s+(\d+)\s+assigned domains$/i);
+  if (match) return Number(match[2]) ? `${match[1]} of ${match[2]} planned items complete` : "No planned items yet";
+  match = text.match(/^Approved (.+) plan matches Contract \d+\.$/i);
+  if (match) return `Your ${match[1]} plan is connected.`;
+  match = text.match(/^(\d+) of (\d+) plans are linked to Contract \d+\.$/i);
+  if (match) return `${match[1]} of ${match[2]} plans are connected.`;
+  match = text.match(/^The active (.+) plan predates Contract \d+\.$/i);
+  if (match) return `Your ${match[1]} plan needs an update.`;
+  match = text.match(/^Review and approve the Contract \d+ (.+) draft\.$/i);
+  if (match) return `Review and approve the ${match[1]} plan.`;
+  if (/^Contract \d+, every plan, and the committed week are aligned\.$/i.test(text)) return "Your Contract, plans, and calendar match.";
+
+  return text
+    .replace(/\boperating chain\b/gi, "plan")
+    .replace(/\bassigned domains\b/gi, "planned items")
+    .replace(/\bcontract revision\b/gi, "Contract version")
+    .replace(/\bplan revision\b/gi, "Plan version")
+    .replace(/\bledger revision\b/gi, "saved version")
+    .replace(/\blocal fallback\b/gi, "saved on this device")
+    .replace(/\breconcile\b/gi, "check");
+}
+
+function polishProductText(root = document) {
+  if (typeof document === "undefined" || !root) return 0;
+  const elements = [];
+  if (root.nodeType === 1) elements.push(root);
+  if (root.querySelectorAll) elements.push(...root.querySelectorAll("*"));
+  let changed = 0;
+  elements.forEach((element) => {
+    if (["SCRIPT", "STYLE", "PRE", "CODE", "TEXTAREA", "OPTION"].includes(element.tagName)) return;
+    if (element.closest?.("[data-keep-technical]")) return;
+    Array.from(element.childNodes || []).forEach((node) => {
+      if (node.nodeType !== 3 || !node.nodeValue?.trim()) return;
+      const original = node.nodeValue;
+      const trimmed = original.trim();
+      const replacement = productCopyLabel(trimmed);
+      if (replacement === trimmed) return;
+      node.nodeValue = `${original.match(/^\s*/)?.[0] || ""}${replacement}${original.match(/\s*$/)?.[0] || ""}`;
+      changed += 1;
+    });
+  });
+  return changed;
+}
+
+let productPolishObserver = null;
+
+function startProductPolishObserver() {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined" || productPolishObserver) return;
+  productPolishObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === "characterData") polishProductText(mutation.target.parentElement);
+      mutation.addedNodes?.forEach((node) => {
+        if (node.nodeType === 1) applyProductPolish(node);
+      });
+    });
+  });
+  productPolishObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
+function applyProductPolish(root = document) {
   if (typeof document === "undefined") return 0;
   let hiddenCount = 0;
-  document.querySelectorAll(".kicker").forEach((label) => {
+  const scope = root?.querySelectorAll ? root : document;
+  const labels = [
+    ...(scope.matches?.(".kicker") ? [scope] : []),
+    ...scope.querySelectorAll(".kicker")
+  ];
+  labels.forEach((label) => {
     if (!isDeveloperBuildLabel(label.textContent)) return;
     label.classList.add("developer-label");
     label.setAttribute("aria-hidden", "true");
     hiddenCount += 1;
   });
-  document.body.dataset.productPolish = "012F";
-  return hiddenCount;
+  const changedCount = polishProductText(scope);
+  document.body.dataset.productPolish = "021O";
+  return hiddenCount + changedCount;
 }
 
 function connectedApi() {
@@ -12671,12 +12788,14 @@ async function init() {
   } finally {
     setLoading(false);
     renderDominionExperienceShell();
+    applyProductPolish();
     scheduleOperatingTruthReconciliation();
   }
 }
 
 if (typeof document !== "undefined") {
   applyProductPolish();
+  startProductPolishObserver();
   registerMobileServiceWorker();
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();

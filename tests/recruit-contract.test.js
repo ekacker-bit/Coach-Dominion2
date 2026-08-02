@@ -223,6 +223,56 @@ test("approval is explicit, revisioned, and preserves the prior contract identit
   assert.notEqual(second.id, first.id);
 });
 
+test("an existing-user amendment recovers the saved orientation profile and creates a new immutable revision", () => {
+  const legacyApproved = {
+    ...contract.approveRecruitContract(contract.buildRecruitContract(validInput(), options), null, {
+      ...options,
+      approvedAt: "2026-07-30T13:00:00.000Z"
+    }),
+    age: null,
+    heightCm: null,
+    trainingYears: null,
+    athleteProfile: { age: null, heightCm: null, heightUnit: "in", gender: "PREFER_NOT_TO_SAY", trainingYears: null }
+  };
+  const amendment = contract.buildRecruitContractAmendment(legacyApproved, { twoADays: true }, {
+    age: 42,
+    heightCm: 177.8,
+    heightUnit: "in",
+    gender: "MAN",
+    trainingYears: 8
+  }, options);
+  assert.equal(amendment.status, "READY_FOR_APPROVAL");
+  assert.equal(amendment.age, 42);
+  assert.equal(amendment.heightCm, 177.8);
+  assert.equal(amendment.trainingYears, 8);
+  assert.equal(amendment.twoADays, true);
+  assert.equal(amendment.amendsContractId, legacyApproved.id);
+  const replacement = contract.approveRecruitContract(amendment, legacyApproved, {
+    ...options,
+    approvedAt: "2026-08-02T13:00:00.000Z"
+  });
+  assert.equal(replacement.revision, legacyApproved.revision + 1);
+  assert.notEqual(replacement.id, legacyApproved.id);
+  assert.equal(replacement.supersedesId, legacyApproved.id);
+});
+
+test("an unchanged expired target date does not trap an existing amendment", () => {
+  const previous = contract.approveRecruitContract(contract.buildRecruitContract(validInput({ targetDate: "2026-07-31" }), {
+    ...options,
+    today: "2026-07-30"
+  }), null, {
+    ...options,
+    today: "2026-07-30",
+    approvedAt: "2026-07-30T13:00:00.000Z"
+  });
+  const amendment = contract.buildRecruitContractAmendment(previous, { twoADays: true }, previous.athleteProfile, {
+    ...options,
+    today: "2026-08-02"
+  });
+  assert.equal(amendment.targetDate, null);
+  assert.equal(amendment.status, "READY_FOR_APPROVAL");
+});
+
 test("approving a contract never embeds or mutates active module plans", () => {
   const activePlan = Object.freeze({ id: "strength-plan-active", status: "APPROVED" });
   const draft = contract.buildRecruitContract(validInput(), options);

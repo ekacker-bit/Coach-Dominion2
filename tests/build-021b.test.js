@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -43,7 +42,7 @@ assert.match(migration, /DOMINION_CONTINUITY_REVISION_CONFLICT/);
 assert.match(migration, /auth\.uid\(\) = user_id/);
 assert.match(migration, /grant execute on function public\.sync_dominion_continuity_state/i);
 
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-b])-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-c])-v1/);
 assert.match(worker, /dominion-continuity\.js/);
 
 console.log("Build 021B continuity integration checks passed.");

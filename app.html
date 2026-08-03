@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=022a">
+  <link rel="stylesheet" href="/assets/styles.css?v=022b">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -706,6 +706,7 @@
             <div><span>Last</span><strong id="today-body-checkpoint-last">—</strong></div>
             <div><span>Next</span><strong id="today-body-checkpoint-next">Today</strong></div>
              <div><span>Method</span><strong>Same conditions</strong></div>
+            <div><span>Photos</span><strong id="today-body-photo-count">0/3</strong></div>
           </div>
           <details id="today-body-capture" class="today-body-capture">
             <summary><span id="today-body-capture-label">Log weekly measurements</span><small>About 30 seconds</small></summary>
@@ -714,8 +715,10 @@
               <div class="today-body-primary-fields">
                 <label>Unit<select id="today-body-checkin-unit" name="unit"><option value="in">in</option><option value="cm">cm</option></select></label>
                 <label>Waist<input name="waist" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></label>
-                <label>Body fat %<input name="body_fat" type="number" min="0" max="75" step="0.1" inputmode="decimal" placeholder="Optional"></label>
+                <label>Neck<input name="neck" type="number" min="0" step="0.1" inputmode="decimal" placeholder="For estimate"></label>
+                <label>Known body fat %<input name="body_fat" type="number" min="0" max="75" step="0.1" inputmode="decimal" placeholder="Optional override"></label>
               </div>
+              <output id="today-body-fat-estimate" class="body-fat-estimate" data-body-fat-estimate aria-live="polite">Add waist and neck for a body-fat estimate.</output>
               <details class="today-body-more">
                 <summary>Add the full measurement set</summary>
                 <div>
@@ -723,8 +726,18 @@
                   <label>Hips<input name="hips" type="number" min="0" step="0.1" inputmode="decimal"></label>
                   <label>Arm<input name="arm" type="number" min="0" step="0.1" inputmode="decimal"></label>
                   <label>Thigh<input name="thigh" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                  <label>Estimate formula<select name="formulaSex"><option value="">Use profile</option><option value="MAN">Man</option><option value="WOMAN">Woman</option></select></label>
                 </div>
               </details>
+              <fieldset class="body-photo-capture">
+                <legend><span>Progress photos</span><small>Optional · private</small></legend>
+                <p>Front, side, and back. Same place, lighting, distance, and clothing.</p>
+                <div class="body-photo-inputs">
+                  <label><span>Front</span><span class="body-photo-preview" data-body-photo-preview="FRONT">Add photo</span><input name="progress_front" type="file" accept="image/jpeg,image/png,image/webp" data-body-photo-angle="FRONT"></label>
+                  <label><span>Side</span><span class="body-photo-preview" data-body-photo-preview="SIDE">Add photo</span><input name="progress_side" type="file" accept="image/jpeg,image/png,image/webp" data-body-photo-angle="SIDE"></label>
+                  <label><span>Back</span><span class="body-photo-preview" data-body-photo-preview="BACK">Add photo</span><input name="progress_back" type="file" accept="image/jpeg,image/png,image/webp" data-body-photo-angle="BACK"></label>
+                </div>
+              </fieldset>
               <label>Note <span>(optional)</span><input name="notes" maxlength="500" placeholder="Same time, same conditions"></label>
               <div class="today-body-actions"><button type="submit">Save checkpoint</button><a href="#trends" data-section="trends" data-body-open-trends>Open Body trends</a></div>
               <p id="today-body-checkin-feedback" aria-live="polite">Enter at least one measurement. Weight remains part of Roll Call.</p>
@@ -1269,6 +1282,7 @@
             </header>
             <div class="body-metric-controls" role="group" aria-label="Body measurement trend">
               <button type="button" data-body-metric="waist" aria-pressed="true">Waist</button>
+              <button type="button" data-body-metric="neck" aria-pressed="false">Neck</button>
               <button type="button" data-body-metric="chest" aria-pressed="false">Chest</button>
               <button type="button" data-body-metric="hips" aria-pressed="false">Hips</button>
               <button type="button" data-body-metric="arm" aria-pressed="false">Arm</button>
@@ -1277,6 +1291,22 @@
             </div>
             <div id="body-measurement-chart" class="trend-bar-chart"></div>
             <div id="body-measurement-grid" class="body-measurement-grid"></div>
+          </section>
+
+          <section id="body-photo-progress" class="body-photo-progress" aria-labelledby="body-photo-progress-heading">
+            <header>
+              <div><span>PRIVATE VISUAL RECORD</span><h3 id="body-photo-progress-heading">Progress photos</h3></div>
+              <strong id="body-photo-vault-state">CHECKING</strong>
+            </header>
+            <div class="body-photo-compare-controls">
+              <label>From<select id="body-photo-from-date" data-body-photo-date="from"><option value="">First checkpoint</option></select></label>
+              <span aria-hidden="true">→</span>
+              <label>To<select id="body-photo-to-date" data-body-photo-date="to"><option value="">Latest checkpoint</option></select></label>
+            </div>
+            <div id="body-photo-comparison" class="body-photo-comparison" aria-live="polite">
+              <div class="trend-chart-empty"><strong>No progress photos yet</strong><span>Add them with a weekly checkpoint.</span></div>
+            </div>
+            <p id="body-photo-feedback" aria-live="polite">Only you can open or delete these photos.</p>
           </section>
 
           <details class="body-checkin-capture" open>
@@ -1288,12 +1318,24 @@
               </div>
               <div class="body-checkin-grid">
                 <label>Waist<input name="waist" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label>Neck<input name="neck" type="number" min="0" step="0.1" inputmode="decimal"></label>
                 <label>Chest<input name="chest" type="number" min="0" step="0.1" inputmode="decimal"></label>
                 <label>Hips<input name="hips" type="number" min="0" step="0.1" inputmode="decimal"></label>
                 <label>Arm<input name="arm" type="number" min="0" step="0.1" inputmode="decimal"></label>
                 <label>Thigh<input name="thigh" type="number" min="0" step="0.1" inputmode="decimal"></label>
-                <label>Body fat %<input name="body_fat" type="number" min="0" max="75" step="0.1" inputmode="decimal"></label>
+                <label>Known body fat %<input name="body_fat" type="number" min="0" max="75" step="0.1" inputmode="decimal" placeholder="Optional override"></label>
+                <label>Estimate formula<select name="formulaSex"><option value="">Use profile</option><option value="MAN">Man</option><option value="WOMAN">Woman</option></select></label>
               </div>
+              <output id="body-fat-estimate" class="body-fat-estimate" data-body-fat-estimate aria-live="polite">Add waist and neck for a body-fat estimate.</output>
+              <fieldset class="body-photo-capture">
+                <legend><span>Progress photos</span><small>Optional · private</small></legend>
+                <p>Use the same pose and conditions each checkpoint.</p>
+                <div class="body-photo-inputs">
+                  <label><span>Front</span><span class="body-photo-preview" data-body-photo-preview="FRONT">Add photo</span><input name="progress_front" type="file" accept="image/jpeg,image/png,image/webp" data-body-photo-angle="FRONT"></label>
+                  <label><span>Side</span><span class="body-photo-preview" data-body-photo-preview="SIDE">Add photo</span><input name="progress_side" type="file" accept="image/jpeg,image/png,image/webp" data-body-photo-angle="SIDE"></label>
+                  <label><span>Back</span><span class="body-photo-preview" data-body-photo-preview="BACK">Add photo</span><input name="progress_back" type="file" accept="image/jpeg,image/png,image/webp" data-body-photo-angle="BACK"></label>
+                </div>
+              </fieldset>
               <label>Note <span>(optional)</span><input name="notes" maxlength="500" placeholder="Same conditions, same protocol"></label>
               <div class="body-checkin-actions"><button type="submit">Save checkpoint</button><span id="body-checkin-feedback" aria-live="polite">Measurements are private account evidence.</span></div>
             </form>
@@ -1746,7 +1788,8 @@
 <script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/adaptive-fueling.js"></script>
 <script src="/assets/js/nutrition-intelligence.js"></script>
-<script src="/assets/js/body-composition.js?v=021m"></script>
+<script src="/assets/js/body-progress.js?v=022b"></script>
+<script src="/assets/js/body-composition.js?v=022b"></script>
 <script src="/assets/js/outcome-plan-revision.js?v=021m"></script>
 <script src="/assets/js/trends-intelligence.js?v=021m"></script>
 <script src="/assets/js/nutrition-baseline.js"></script>
@@ -1773,6 +1816,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=022a"></script>
+ <script src="/assets/js/app.js?v=022b"></script>
 </body>
 </html>

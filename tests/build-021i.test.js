@@ -1,3 +1,4 @@
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -13,7 +14,7 @@ let passed = 0;
 function test(name, fn) {
   fn();
   passed += 1;
-  console.log(`✓ ${passed} ${name}`);
+  console.log(`âœ“ ${passed} ${name}`);
 }
 
 test("Calendar is a first-class desktop and mobile destination", () => {
@@ -26,9 +27,9 @@ test("Calendar is a first-class desktop and mobile destination", () => {
 });
 
 test("calendar assets are cache-busted for Build 021I", () => {
-  assert.match(html, /styles\.css\?v=022a/);
+  assert.match(html, /styles\.css\?v=022b/);
   assert.match(html, /weekly-orchestrator\.js\?v=021i/);
-  assert.match(html, /app\.js\?v=022a/);
+  assert.match(html, /app\.js\?v=022b/);
 });
 
 test("Core pairing creates one training window through 120 minutes", () => {
@@ -90,3 +91,4 @@ test("long-run windows remain time-uncapped", () => {
 });
 
 console.log(`Build 021I: ${passed} tests passed.`);
+

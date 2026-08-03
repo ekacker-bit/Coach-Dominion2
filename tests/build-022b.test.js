@@ -48,9 +48,9 @@ test("Build 022B is responsive and cache-busted", () => {
   assert.match(styles, /@media \(max-width: 420px\)/);
   assert.match(html, /body-progress\.js\?v=022b/);
   assert.match(html, /body-composition\.js\?v=022b/);
-  assert.match(html, /styles\.css\?v=022[b-g]/);
-  assert.match(html, /app\.js\?v=022[b-g]/);
-  assert.match(worker, /coach-dominion-022[b-g]-v1/);
+  assert.match(html, /styles\.css\?v=(?:022[b-g]|023a)/);
+  assert.match(html, /app\.js\?v=(?:022[b-g]|023a)/);
+  assert.match(worker, /coach-dominion-(?:022[b-g]|023a)-v1/);
   assert.match(worker, /body-progress\.js\?v=022b/);
 });
 

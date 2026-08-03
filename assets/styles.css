@@ -189,6 +189,190 @@
   --font-body: "Raleway", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Build 023A: Unified Fuel Command. */
+.fuel-command-center {
+  margin-top: 18px;
+  padding: clamp(16px, 2.4vw, 26px);
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.07), transparent 34%),
+    #0d0e0f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.fuel-command-order.nutrition-next-action {
+  margin: 0 0 20px;
+  padding: 0 0 20px;
+  border: 0;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 0;
+  background: transparent;
+}
+.fuel-command-order h3 {
+  margin-top: 7px;
+  font: clamp(34px, 4vw, 52px)/0.98 var(--font-command);
+  letter-spacing: 0.025em;
+}
+.fuel-command-order p { max-width: 700px; font-size: 15px; }
+.fuel-command-order button {
+  min-width: 156px;
+  min-height: 50px;
+  border: 1px solid var(--victory-gold);
+  background: var(--victory-gold);
+  color: #0a0a0a;
+}
+
+.fuel-command-center .nutrition-workspace-nav {
+  position: static;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+.fuel-command-center .nutrition-workspace-tab {
+  min-height: 42px;
+  padding: 0 15px;
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+  font-size: 11px;
+}
+.fuel-command-center .nutrition-workspace-tab.active,
+.fuel-command-center .nutrition-workspace-tab[aria-selected="true"] {
+  border-color: transparent transparent var(--victory-gold);
+  background: transparent;
+  box-shadow: none;
+  color: var(--stone);
+}
+
+.fuel-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.fuel-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.fuel-metric {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  background: #121314;
+}
+.fuel-metric > span,
+.fuel-next-meal > div > span,
+.fuel-next-meal.empty > span,
+.fuel-evidence-grid span {
+  display: block;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.fuel-metric strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--stone);
+  font-size: clamp(19px, 2vw, 27px);
+}
+.fuel-metric small { display: block; margin-top: 5px; color: var(--muted); }
+.fuel-metric-progress {
+  height: 4px;
+  margin-top: 13px;
+  overflow: hidden;
+  background: #2b2c2e;
+}
+.fuel-metric-progress span { display: block; height: 100%; background: var(--ascent-green); }
+.fuel-metric.over .fuel-metric-progress span { background: var(--victory-gold); }
+
+.fuel-next-meal {
+  display: grid;
+  align-content: space-between;
+  gap: 18px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgba(212, 175, 55, 0.48);
+  background: linear-gradient(150deg, rgba(212, 175, 55, 0.16), rgba(46, 75, 52, 0.16) 72%), #111210;
+}
+.fuel-next-meal h3 {
+  margin: 7px 0 0;
+  font: clamp(29px, 3vw, 40px)/1 var(--font-command);
+  letter-spacing: 0.025em;
+}
+.fuel-next-meal p { margin: 9px 0 0; color: var(--muted); line-height: 1.55; }
+.fuel-next-meal dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 0; }
+.fuel-next-meal dl div { padding-top: 8px; border-top: 1px solid rgba(212, 175, 55, 0.24); }
+.fuel-next-meal dt { color: var(--dim); font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.fuel-next-meal dd { margin: 4px 0 0; color: var(--stone); font-weight: 900; }
+.fuel-next-meal > small { color: var(--dim); }
+.fuel-next-meal.empty { align-content: center; }
+
+.fuel-command-details {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.fuel-command-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--stone);
+  font-weight: 900;
+}
+.fuel-command-details > summary::-webkit-details-marker { display: none; }
+.fuel-command-details > summary::after { content: "+"; color: var(--victory-gold); font-size: 22px; }
+.fuel-command-details[open] > summary::after { content: "−"; }
+.fuel-command-details > summary small { margin-left: auto; color: var(--dim); font-weight: 600; }
+.fuel-command-evidence { padding: 4px 0 16px; }
+.fuel-evidence-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.fuel-evidence-grid > div { min-width: 0; padding: 13px; border: 1px solid var(--line); background: #111213; }
+.fuel-evidence-grid strong,
+.fuel-evidence-grid small { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+.fuel-evidence-grid small { color: var(--muted); line-height: 1.45; }
+.fuel-command-details .meal-coaching-panel { margin-top: 8px; padding-top: 20px; }
+
+.today-fuel-compact { display: grid; gap: 16px; }
+.today-fuel-compact h3 { margin: 6px 0 0; font: 33px/1 var(--font-command); letter-spacing: 0.025em; }
+.today-fuel-compact p { margin: 8px 0 0; color: var(--muted); line-height: 1.55; }
+.today-fuel-compact-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.today-fuel-compact-metrics > div { padding: 11px 12px; border: 1px solid var(--line); background: #111213; }
+.today-fuel-compact-metrics span { display: block; color: var(--dim); font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.today-fuel-compact-metrics strong { display: block; margin-top: 5px; }
+.today-fuel-compact > button { justify-self: start; min-height: 46px; }
+
+@media (max-width: 900px) {
+  .fuel-command-grid { grid-template-columns: 1fr; }
+  .fuel-evidence-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .fuel-command-center { margin-inline: -6px; padding: 16px; }
+  .fuel-command-order.nutrition-next-action { align-items: stretch; }
+  .fuel-command-order button { width: 100%; }
+  .fuel-command-center .nutrition-workspace-nav { width: 100%; overflow-x: auto; }
+  .fuel-command-center .nutrition-workspace-tab { min-width: 86px; padding-inline: 10px; }
+  .fuel-metrics { grid-template-columns: 1fr 1fr; }
+  .fuel-command-details > summary { align-items: flex-start; flex-direction: column; gap: 4px; padding: 12px 34px 12px 0; position: relative; }
+  .fuel-command-details > summary small { margin: 0; }
+  .fuel-command-details > summary::after { position: absolute; top: 12px; right: 2px; }
+}
+
+@media (max-width: 460px) {
+  .fuel-metrics { grid-template-columns: 1fr; }
+  .fuel-next-meal dl { grid-template-columns: 1fr; }
+  .today-fuel-compact-metrics { grid-template-columns: 1fr; }
+}
+
 /* Build 022G: mobile field app. */
 .mobile-more-dialog {
   width: min(560px, calc(100vw - 20px));

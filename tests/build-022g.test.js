@@ -49,13 +49,13 @@ test("022G eliminates horizontal status scrolling and protects touch ergonomics"
 });
 
 test("022G rotates every mutable shell asset", () => {
-  assert.match(html, /styles\.css\?v=022g/);
+  assert.match(html, /styles\.css\?v=(?:022g|023a)/);
   assert.match(html, /mobile-command\.js\?v=022g/);
-  assert.match(html, /app\.js\?v=022g/);
-  assert.match(worker, /coach-dominion-022g-v1/);
-  assert.match(worker, /styles\.css\?v=022g/);
+  assert.match(html, /app\.js\?v=(?:022g|023a)/);
+  assert.match(worker, /coach-dominion-(?:022g|023a)-v1/);
+  assert.match(worker, /styles\.css\?v=(?:022g|023a)/);
   assert.match(worker, /mobile-command\.js\?v=022g/);
-  assert.match(worker, /app\.js\?v=022g/);
+  assert.match(worker, /app\.js\?v=(?:022g|023a)/);
 });
 
 console.log("Build 022G Mobile Field App integration verified.");

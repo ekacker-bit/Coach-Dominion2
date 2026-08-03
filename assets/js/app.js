@@ -12144,23 +12144,28 @@ function nutritionMealsForDate(date) {
   });
 }
 
+function buildCurrentMealCoachingPlan(date = nutritionCommandDate()) {
+  if (typeof DominionMealCoaching === "undefined" || !connectedApi()) return null;
+  const baseline = activeNutritionBaseline(date);
+  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
+  return DominionMealCoaching.buildMealCoachingPlan({
+    date,
+    targets,
+    trainingDay,
+    trainingWindow: readMealTrainingWindow(),
+    meals: nutritionMealsForDate(date)
+  });
+}
+
 function renderMealCoaching() {
   const output = document.getElementById("meal-coaching-output");
   const status = document.getElementById("meal-coaching-status");
   const windowSelect = document.getElementById("meal-training-window");
   if (!output || !status || !windowSelect || typeof DominionMealCoaching === "undefined" || !connectedApi()) return;
-  const date = nutritionCommandDate();
-  const baseline = activeNutritionBaseline(date);
-  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
   if (windowSelect.value === "UNSCHEDULED") windowSelect.value = readMealTrainingWindow();
-  const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
-  const plan = DominionMealCoaching.buildMealCoachingPlan({
-    date,
-    targets,
-    trainingDay,
-    trainingWindow: windowSelect.value,
-    meals: nutritionMealsForDate(date)
-  });
+  const plan = buildCurrentMealCoachingPlan();
+  if (!plan) return;
   status.textContent = plan.status;
   status.className = `state-pill ${plan.status === "MEAL EVIDENCE ACTIVE" ? "green" : plan.status === "FUELING MAP ACTIVE" ? "yellow" : "neutral"}`;
   if (!plan.slots.length) {
@@ -12218,54 +12223,41 @@ function buildCurrentTodayNutritionExecution() {
   });
 }
 
+function buildCurrentFuelCommand() {
+  if (typeof DominionFuelCommand === "undefined") return null;
+  const execution = buildCurrentTodayNutritionExecution();
+  const mealPlan = buildCurrentMealCoachingPlan(todayISODate());
+  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, now: new Date() });
+}
+
 function renderTodayNutritionExecution() {
   const output = document.getElementById("today-nutrition-output");
   const status = document.getElementById("today-nutrition-status");
   if (!output || !status) return;
-  const execution = buildCurrentTodayNutritionExecution();
-  if (!execution) {
+  const command = buildCurrentFuelCommand();
+  if (!command) {
     status.textContent = "UNAVAILABLE";
     status.className = "state-pill neutral";
     output.innerHTML = '<div class="performance-empty">Today’s nutrition evidence is not available yet.</div>';
     return;
   }
-  status.textContent = execution.status;
-  status.className = `state-pill ${execution.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(execution.status) ? "yellow" : "neutral"}`;
-  const labels = { calories: ["Calories", "kcal"], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
-  const metrics = Object.values(execution.metrics).map((metric) => {
-    const [label, unit] = labels[metric.key];
-    const actual = metric.actual === null ? "—" : `${Math.round(metric.actual)} ${unit}`;
-    const target = metric.target === null ? "No approved target" : `${Math.round(metric.target)} ${unit} target`;
-    const remaining = metric.target === null
-      ? metric.status
-      : metric.actual === null
-        ? "Awaiting intake"
-        : metric.remaining > 0
-          ? `${Math.round(metric.remaining)} ${unit} remaining`
-          : metric.status;
-    const progress = metric.percent === null ? 0 : Math.max(0, Math.min(100, metric.percent));
-    return `<article class="today-nutrition-metric">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(actual)}</strong>
-      <small>${escapeHtml(target)}</small>
-      <div class="today-nutrition-progress ${metric.status === "ABOVE PLAN" ? "over" : ""}" aria-hidden="true"><span style="width:${progress}%"></span></div>
-      <small>${escapeHtml(remaining)}</small>
-    </article>`;
+  status.textContent = command.status;
+  status.className = `state-pill ${command.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(command.status) ? "yellow" : "neutral"}`;
+  const keyMetrics = command.metrics.filter((metric) => ["calories", "protein"].includes(metric.key));
+  const metrics = keyMetrics.map((metric) => {
+    const value = metric.target === null ? "—" : metric.actual === null ? `${Math.round(metric.target)} ${metric.unit} target` : `${Math.round(metric.remaining)} ${metric.unit} left`;
+    return `<div><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   }).join("");
-  const warnings = execution.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
-  const actions = execution.actions.map((action) =>
-    `<button type="button" class="${action.primary ? "primary" : ""}" data-today-nutrition-action="${escapeHtml(action.id)}">${escapeHtml(action.label)}</button>`
-  ).join("");
-  output.innerHTML = `<div class="today-nutrition-context">
-      <div><span>Operating date</span><strong>${escapeHtml(execution.date)}</strong><small>${escapeHtml(execution.readiness)} readiness</small></div>
-      <div><span>Intake evidence</span><strong>${escapeHtml(execution.sourceLabel)}</strong><small>${escapeHtml(execution.freshness.label)}</small></div>
-      <div><span>Training plan</span><strong>${execution.trainingDay ? "Training day" : "Recovery / unclassified"}</strong><small>${escapeHtml(execution.trainingWindowLabel)}</small></div>
-    </div>
-    <div class="today-nutrition-order"><span class="kicker">ATLAS // FUEL ORDER</span><p>${escapeHtml(execution.instruction)}</p></div>
-    <div class="today-nutrition-metrics">${metrics}</div>
-    ${warnings}
-    <div class="today-nutrition-actions">${actions}</div>
-    <ul class="today-nutrition-safeguards">${execution.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  const legacyAction = command.primaryAction.route === "plan"
+    ? "set-baseline"
+    : command.primaryAction.route === "connected"
+      ? "troubleshoot-sync"
+      : "open-nutrition";
+  output.innerHTML = `<div class="today-fuel-compact">
+      <div><span class="kicker">TODAY'S ORDER</span><h3>${escapeHtml(command.headline)}</h3><p>${escapeHtml(command.detail)}</p></div>
+      <div class="today-fuel-compact-metrics">${metrics}</div>
+      <button type="button" class="primary" data-today-nutrition-action="${escapeHtml(legacyAction)}">Open Fuel</button>
+    </div>`;
 }
 
 function renderNutritionCommand() {
@@ -12287,34 +12279,53 @@ function renderNutritionCommand() {
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
   const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
   const readiness = dailyState && date === todayISODate() ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
-  const command = DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
-  statusPill.textContent = command.status;
-  statusPill.className = `state-pill ${command.status === "ON TARGET" ? "green" : ["UNDER-FUELED", "REVIEW NEEDED"].includes(command.status) ? "yellow" : "neutral"}`;
-  const labels = { calories: ["Calories", ""], protein: ["Protein", "g"], carbs: ["Carbohydrates", "g"], fat: ["Fat", "g"] };
-  const metrics = Object.values(command.metrics).map((metric) => {
-    const [label, unit] = labels[metric.key];
-    const actualText = metric.actual === null ? "—" : `${Math.round(metric.actual)}${unit}`;
-    const targetTextValue = metric.target ? `${Math.round(metric.target)}${unit}` : "No target";
-    return `<article class="nutrition-metric"><span>${label}</span><strong>${actualText}</strong><small>Target: ${targetTextValue}</small><small>${metric.percent === null ? metric.status : `${metric.percent}% · ${metric.status}`}</small></article>`;
+  DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
+  const fuel = buildCurrentFuelCommand();
+  if (!fuel) return;
+  statusPill.textContent = fuel.status;
+  statusPill.className = `state-pill ${fuel.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(fuel.status) ? "yellow" : "neutral"}`;
+  const metrics = fuel.metrics.map((metric) => {
+    const remaining = metric.target === null
+      ? "No target"
+      : metric.actual === null
+        ? `${Math.round(metric.target)} ${metric.unit} target`
+        : metric.remaining > 0
+          ? `${Math.round(metric.remaining)} ${metric.unit} left`
+          : metric.status;
+    const progress = metric.percent === null ? 0 : Math.max(0, Math.min(100, metric.percent));
+    const comparison = metric.target === null
+      ? "Awaiting approved target"
+      : metric.actual === null
+        ? "Awaiting intake"
+        : `${Math.round(metric.actual)} / ${Math.round(metric.target)} ${metric.unit}`;
+    return `<article class="fuel-metric ${metric.status === "ABOVE PLAN" ? "over" : ""}">
+      <span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(remaining)}</strong><small>${escapeHtml(comparison)}</small>
+      <div class="fuel-metric-progress" aria-hidden="true"><span style="width:${progress}%"></span></div>
+    </article>`;
   }).join("");
-  output.innerHTML = `<div class="nutrition-command-context">
-      <div><span>Date</span><strong>${escapeHtml(date)}</strong></div>
-      <div><span>Intake source</span><strong>${escapeHtml(command.source)}</strong></div>
-      <div><span>Context</span><strong>${escapeHtml(trainingContext)} · ${escapeHtml(readiness)} READINESS</strong></div>
-    </div>
-    <div class="nutrition-command-grid">${metrics}</div>
-    <div class="nutrition-guidance"><strong>Atlas guidance</strong><ul>${command.guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
-    <ul class="baseline-safeguards">${command.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-    <div class="weekly-plan-actions">
-      <button type="button" data-nutrition-command-action="review-targets">Review Nutrition Targets</button>
-      <button type="button" class="ghost" data-nutrition-command-action="open-import">Open MyFitnessPal Import</button>
-    </div>`;
+  const nextMeal = fuel.nextMeal
+    ? `<article class="fuel-next-meal"><div><span>NEXT MEAL</span><h3>${escapeHtml(fuel.nextMeal.label)}</h3><p>${escapeHtml(fuel.nextMeal.note)}</p></div><dl>
+        <div><dt>Calories</dt><dd>${fuel.nextMeal.calories === null ? "—" : Math.round(fuel.nextMeal.calories)}</dd></div>
+        <div><dt>Protein</dt><dd>${fuel.nextMeal.protein === null ? "—" : `${Math.round(fuel.nextMeal.protein)}g`}</dd></div>
+        <div><dt>Carbs</dt><dd>${fuel.nextMeal.carbs === null ? "—" : `${Math.round(fuel.nextMeal.carbs)}g`}</dd></div>
+      </dl><small>Flexible example · ${escapeHtml(fuel.nextMeal.basis.toLowerCase())}</small></article>`
+    : `<article class="fuel-next-meal empty"><span>NEXT MEAL</span><h3>Approve targets to unlock meal guidance</h3></article>`;
+  output.innerHTML = `<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
+  const evidence = document.getElementById("fuel-command-evidence");
+  if (evidence) {
+    const warnings = fuel.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
+    evidence.innerHTML = `<div class="fuel-evidence-grid">
+        <div><span>Source</span><strong>${escapeHtml(fuel.evidence.source)}</strong><small>${escapeHtml(fuel.evidence.freshness)}</small></div>
+        <div><span>Training</span><strong>${escapeHtml(fuel.evidence.training)}</strong><small>${escapeHtml(fuel.evidence.window)}</small></div>
+        <div><span>Readiness</span><strong>${escapeHtml(fuel.evidence.readiness)}</strong><small>${escapeHtml(fuel.evidence.mealEvidence)}</small></div>
+      </div>${warnings}<ul class="baseline-safeguards">${fuel.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  }
   renderNutritionBaseline();
   renderAdaptiveFueling();
   renderNutritionIntelligence();
   renderNutritionReview();
   renderMealCoaching();
-  renderNutritionNextAction({ imported, manual });
+  renderNutritionNextAction(fuel);
   renderTodayNutritionExecution();
   renderMobileCommand();
 }
@@ -12347,36 +12358,13 @@ function restoreNutritionActiveView() {
   setNutritionActiveView(saved, false);
 }
 
-function renderNutritionNextAction({ imported = null, manual = null } = {}) {
+function renderNutritionNextAction(command = null) {
   const output = document.getElementById("nutrition-next-action");
   if (!output) return;
-  const baseline = activeNutritionBaseline(nutritionCommandDate());
-  let action = {
-    status: "TODAY",
-    title: "Follow today’s fueling map",
-    copy: "Use the daily targets and meal anchors below as flexible guidance.",
-    view: "today",
-    label: "View Today"
-  };
-  if (!baseline) {
-    action = {
-      status: "SETUP",
-      title: "Set your fueling baseline",
-      copy: "Approve recovery and training-day targets to unlock daily coaching.",
-      view: "plan",
-      label: "Set Baseline"
-    };
-  } else if (!imported && !manual) {
-    action = {
-      status: "IMPORT",
-      title: "Add today’s intake",
-      copy: "Import MyFitnessPal data or enter daily totals so Atlas can compare intake with your plan.",
-      view: "details",
-      label: "Add Intake"
-    };
-  }
-  output.innerHTML = `<div><div class="kicker">ATLAS // NEXT BEST ACTION · ${escapeHtml(action.status)}</div><h3>${escapeHtml(action.title)}</h3><p>${escapeHtml(action.copy)}</p></div>
-    <button type="button" data-nutrition-next-action="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`;
+  const fuel = command || buildCurrentFuelCommand();
+  if (!fuel) return;
+  output.innerHTML = `<div><div class="kicker">TODAY'S FUEL ORDER · ${escapeHtml(fuel.status)}</div><h3>${escapeHtml(fuel.headline)}</h3><p>${escapeHtml(fuel.detail)}</p></div>
+    <button type="button" data-nutrition-next-action="${escapeHtml(fuel.primaryAction.route)}">${escapeHtml(fuel.primaryAction.label)}</button>`;
 }
 
 async function saveManualNutrition(event) {
@@ -13841,6 +13829,13 @@ if (typeof document !== "undefined") {
   document.getElementById("nutrition-next-action")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-nutrition-next-action]");
     if (!button) return;
+    if (button.dataset.nutritionNextAction === "connected") {
+      setActiveSection("connected");
+      window.history.replaceState(null, "", "#connected");
+      setConnectedActiveView("nutrition");
+      document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     setNutritionActiveView(button.dataset.nutritionNextAction);
     document.querySelector(`[data-nutrition-view-panel="${button.dataset.nutritionNextAction}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -13863,8 +13858,7 @@ if (typeof document !== "undefined") {
   document.getElementById("meal-training-window")?.addEventListener("change", async (event) => {
     window.localStorage.setItem(mealTrainingWindowStorageKey(), event.currentTarget.value);
     const synced = await persistNutritionState("MEAL_WINDOW", "current", { window: event.currentTarget.value });
-    renderMealCoaching();
-    renderTodayNutritionExecution();
+    renderNutritionCommand();
     setText("meal-coaching-feedback", `Training window saved${synced ? " to your account" : " locally"}. Approved daily targets were not changed.`);
   });
   document.getElementById("adaptive-fueling-goal")?.addEventListener("change", async (event) => {

@@ -36,4 +36,3 @@ assert.match(worker, /styles\.css\?v=(?:022[b-g]|023a)/);
 assert.match(worker, /app\.js\?v=(?:022[b-g]|023a)/);
 
 console.log("Build 021O word diet and release guardrail tests passed.");
-

@@ -14,7 +14,7 @@ const worker = read("sw.js");
 test("022E loads the verdict engine between plan command and application", () => {
   const command = html.indexOf('/assets/js/plan-command.js?v=022d');
   const verdict = html.indexOf('/assets/js/observation-verdict.js?v=022e');
-  const application = html.search(/\/assets\/js\/app\.js\?v=022[e-g]/);
+  const application = html.search(/\/assets\/js\/app\.js\?v=(?:022[e-g]|023a)/);
   assert.ok(command > 0 && verdict > command && application > verdict);
   assert.match(html, /id="today-observation-verdict"/);
   assert.match(html, /id="body-observation-verdict"/);
@@ -52,10 +52,11 @@ test("022E is responsive, versioned, and available offline", () => {
   assert.match(css, /Build 022E/);
   assert.match(css, /\.observation-verdict-metrics/);
   assert.match(css, /@media \(max-width: 720px\)/);
-  assert.match(html, /styles\.css\?v=022[e-g]/);
-  assert.match(worker, /coach-dominion-022[e-g]-v1/);
+  assert.match(html, /styles\.css\?v=(?:022[e-g]|023a)/);
+  assert.match(worker, /coach-dominion-(?:022[e-g]|023a)-v1/);
   assert.match(worker, /observation-verdict\.js\?v=022e/);
-  assert.match(worker, /app\.js\?v=022[e-g]/);
+  assert.match(worker, /app\.js\?v=(?:022[e-g]|023a)/);
 });
 
 console.log("Build 022E Atlas Observation Verdict integration verified.");
+

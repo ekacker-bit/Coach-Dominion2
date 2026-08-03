@@ -22,6 +22,9 @@ let rankStatus = { currentRank: "RECRUIT", promotionState: "NOT ELIGIBLE", activ
 let promotionHistory = [];
 const INSPECTION_CALCULATION_VERSION = "009A.1";
 let performanceEntries = [];
+let bodyProgressPhotos = [];
+let bodyPhotoUrls = new Map();
+let bodyPhotoState = { loading: true, available: false, migrationRequired: false, error: null };
 let performanceStorageMode = "LOADING";
 let performanceSaveState = "loading";
 let performanceEditId = null;
@@ -2471,10 +2474,10 @@ function normalizePerformanceMetricValue(domain, key, value) {
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "body_metrics") {
-    const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location", "waist", "chest", "hips", "arm", "thigh", "body_fat", "circumference_unit", "protocol"]);
+    const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location", "waist", "neck", "chest", "hips", "arm", "thigh", "body_fat", "body_fat_method", "body_fat_estimated", "body_fat_range_low", "body_fat_range_high", "circumference_unit", "protocol"]);
     if (!allowedKeys.has(key)) return undefined;
   }
-  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score" || ["waist", "chest", "hips", "arm", "thigh", "body_fat"].includes(key)) {
+  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score" || ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat", "body_fat_range_low", "body_fat_range_high"].includes(key)) {
     return parsePerformanceNumber(value);
   }
   return value;
@@ -2621,7 +2624,7 @@ function validatePerformanceEntry(input = {}) {
   }
   if (entry.domain === "body_metrics") {
     const measurementValue = Number(metrics.measurement_value);
-    const namedBodyValues = ["waist", "chest", "hips", "arm", "thigh", "body_fat"].map((key) => Number(metrics[key])).filter((value) => Number.isFinite(value) && value > 0);
+    const namedBodyValues = ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat"].map((key) => Number(metrics[key])).filter((value) => Number.isFinite(value) && value > 0);
     if ((!Number.isFinite(measurementValue) || measurementValue < 0) && !namedBodyValues.length) errors.push({ field: "metrics.measurement_value", message: "Enter at least one non-negative body measurement." });
   }
   if (entry.domain === "fitness_test") {
@@ -9923,7 +9926,7 @@ function renderPerformanceSection(entries = performanceEntries, storageMode = pe
       metricsSummary.push(entry.metrics?.overall_score ? `score ${entry.metrics.overall_score}` : "protocol logged");
     }
     if (entry.domain === "body_metrics") {
-      const bodyMetrics = ["waist", "chest", "hips", "arm", "thigh", "body_fat"].filter((key) => Number.isFinite(Number(entry.metrics?.[key])));
+      const bodyMetrics = ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat"].filter((key) => Number.isFinite(Number(entry.metrics?.[key])));
       if (bodyMetrics.length) {
         metricsSummary.push(bodyMetrics.slice(0, 3).map((key) => `${key.replaceAll("_", " ")} ${entry.metrics[key]}${key === "body_fat" ? "%" : ` ${entry.metrics.circumference_unit || "in"}`}`).join(" · "));
       } else {
@@ -12774,6 +12777,7 @@ async function init() {
     await loadCoreProgramState();
     await loadClosedLoopState();
     await loadPerformanceEntries();
+    await loadBodyProgressPhotos();
     await loadStrengthTrainingState();
     await loadWeeklyOrchestrationState();
     await loadSplitDayCheckpointState();
@@ -12975,6 +12979,24 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("body-checkin-form")?.addEventListener("submit", saveBodyCheckIn);
   document.getElementById("today-body-checkin-form")?.addEventListener("submit", saveTodayBodyCheckIn);
+  [document.getElementById("body-checkin-form"), document.getElementById("today-body-checkin-form")].filter(Boolean).forEach((form) => {
+    form.addEventListener("input", () => renderBodyFatEstimate(form));
+    form.addEventListener("change", (event) => {
+      if (event.target.matches("input[data-body-photo-angle]")) previewBodyProgressPhoto(event.target);
+      renderBodyFatEstimate(form);
+    });
+  });
+  document.getElementById("body-photo-progress")?.addEventListener("change", (event) => {
+    if (event.target.matches("select[data-body-photo-date]")) renderBodyPhotoExperience();
+  });
+  document.getElementById("body-photo-progress")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-body-photo-delete]");
+    if (!button) return;
+    button.disabled = true;
+    try { await deleteBodyProgressPhoto(button.dataset.bodyPhotoDelete); }
+    catch (error) { setText("body-photo-feedback", error?.message || "Photo could not be deleted."); }
+    finally { button.disabled = false; }
+  });
   document.getElementById("today-body-checkpoint")?.addEventListener("click", handleBodyOutcomeAction);
   document.getElementById("today-body-capture")?.addEventListener("toggle", (event) => {
     if (event.isTrusted) event.currentTarget.dataset.userToggled = "true";
@@ -16186,7 +16208,7 @@ function loadTrendPreferences() {
     if (typeof DominionTrends !== "undefined") trendRangeDays = DominionTrends.normalizeRangeDays(stored?.rangeDays);
     trendActiveView = ["overview", "training", "recovery", "body"].includes(stored?.view) ? stored.view : "overview";
     trendActiveMetric = ["discipline", "readiness", "weight"].includes(stored?.metric) ? stored.metric : "discipline";
-    trendBodyMetric = ["waist", "chest", "hips", "arm", "thigh", "body_fat"].includes(stored?.bodyMetric) ? stored.bodyMetric : "waist";
+    trendBodyMetric = ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat"].includes(stored?.bodyMetric) ? stored.bodyMetric : "waist";
   } catch (_) {
     trendRangeDays = 28;
     trendActiveView = "overview";
@@ -16315,7 +16337,8 @@ function renderBodyCheckInHistory(outcome) {
   history.innerHTML = rows.length ? rows.map((entry) => {
     const values = DominionBodyComposition.METRICS.filter((metric) => Object.hasOwn(entry.values, metric.key)).map((metric) => {
       const unit = metric.key === "body_fat" ? "%" : " in";
-      return `${metric.label} ${Number(entry.values[metric.key]).toFixed(1).replace(/\.0$/, "")}${unit}`;
+      const estimated = metric.key === "body_fat" && entry.bodyFatEstimate?.estimated ? " est." : "";
+      return `${metric.label} ${Number(entry.values[metric.key]).toFixed(1).replace(/\.0$/, "")}${unit}${estimated}`;
     });
     return `<article data-body-entry-id="${escapeHtml(entry.id || "")}"><div><strong>${escapeHtml(entry.date)}</strong><span>${escapeHtml(values.join(" · "))}</span></div><div><button type="button" class="ghost" data-body-checkin-edit="${escapeHtml(entry.id || "")}">Edit</button><button type="button" class="ghost danger" data-body-checkin-delete="${escapeHtml(entry.id || "")}">Delete</button></div></article>`;
   }).join("") : '<div class="trend-chart-empty"><strong>No checkpoints yet</strong><span>Record one comparable weekly measurement set.</span></div>';
@@ -16539,6 +16562,8 @@ function renderTodayBodyCheckpoint(outcome = buildCurrentBodyOutcomeModel()) {
   if (capture && !capture.dataset.userToggled) capture.open = cadence.status === "DUE";
   const date = document.getElementById("today-body-checkin-date");
   if (date) date.value = todayISODate();
+  renderBodyFatEstimate(document.getElementById("today-body-checkin-form"));
+  renderBodyPhotoExperience();
   renderBodyOutcomeReview(outcome, "today-body-review", true);
 }
 
@@ -16563,7 +16588,13 @@ function renderBodyOutcome(outcome) {
     const metric = outcome.measurements.summaries[definition.key];
     const unit = definition.key === "body_fat" ? "%" : " in";
     const change = metric.change === null ? "Baseline needed" : `${metric.change > 0 ? "+" : metric.change < 0 ? "−" : ""}${Math.abs(metric.change)}${unit}`;
-    return `<article><span>${escapeHtml(definition.label)}</span><strong>${trendMetricValue(metric.latest, unit)}</strong><small>${escapeHtml(change)}</small></article>`;
+    const latestEntry = definition.key === "body_fat"
+      ? [...outcome.measurements.checkIns].reverse().find((entry) => Object.hasOwn(entry.values, "body_fat"))
+      : null;
+    const estimateNote = latestEntry?.bodyFatEstimate?.estimated
+      ? `<em>Estimated range ${escapeHtml(latestEntry.bodyFatEstimate.rangeLow ?? "—")}–${escapeHtml(latestEntry.bodyFatEstimate.rangeHigh ?? "—")}%</em>`
+      : "";
+    return `<article><span>${escapeHtml(definition.label)}</span><strong>${trendMetricValue(metric.latest, unit)}</strong><small>${escapeHtml(change)}</small>${estimateNote}</article>`;
   }).join("");
   renderBodyMeasurementChart(outcome);
   renderBodyCheckInHistory(outcome);
@@ -16574,6 +16605,8 @@ function renderBodyOutcome(outcome) {
     dateInput.value = todayISODate();
     dateInput.max = todayISODate();
   }
+  renderBodyFatEstimate(document.getElementById("body-checkin-form"));
+  renderBodyPhotoExperience();
 }
 
 function renderWeeklyBodyOutcome(aggregate) {
@@ -16598,10 +16631,267 @@ function renderWeeklyBodyOutcome(aggregate) {
   if (state) state.className = summary.state === "CAPTURED" ? "positive" : "neutral";
 }
 
+function bodyPhotoMigrationMissing(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return ["42p01", "pgrst205", "not found", "does not exist"].includes(String(error?.code || "").toLowerCase())
+    || message.includes("body_progress_photos")
+    || message.includes("body-progress-photos");
+}
+
+async function refreshBodyPhotoUrls() {
+  bodyPhotoUrls = new Map();
+  const paths = [...new Set(bodyProgressPhotos.map((item) => item.storagePath).filter(Boolean))];
+  if (!paths.length) return bodyPhotoUrls;
+  const supabase = await getClient();
+  const { data, error } = await supabase.storage.from(DominionBodyProgress.BUCKET).createSignedUrls(paths, 3600);
+  if (error) throw error;
+  (data || []).forEach((item, index) => {
+    const path = item.path || paths[index];
+    const url = item.signedUrl || item.signedURL;
+    if (path && url) bodyPhotoUrls.set(path, url);
+  });
+  return bodyPhotoUrls;
+}
+
+async function loadBodyProgressPhotos() {
+  if (typeof DominionBodyProgress === "undefined" || !session?.user?.id) return [];
+  bodyPhotoState = { loading: true, available: false, migrationRequired: false, error: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase
+      .from("body_progress_photos")
+      .select("id,user_id,performance_date,angle,storage_path,content_type,size_bytes,width,height,created_at,updated_at")
+      .eq("user_id", session.user.id)
+      .order("performance_date", { ascending: false })
+      .limit(60);
+    if (error) throw error;
+    bodyProgressPhotos = (data || []).map(DominionBodyProgress.normalizePhotoRecord);
+    await refreshBodyPhotoUrls();
+    bodyPhotoState = { loading: false, available: true, migrationRequired: false, error: null };
+  } catch (error) {
+    bodyProgressPhotos = [];
+    bodyPhotoUrls = new Map();
+    bodyPhotoState = { loading: false, available: false, migrationRequired: bodyPhotoMigrationMissing(error), error: error?.message || "Photo vault unavailable" };
+  }
+  renderBodyPhotoExperience();
+  return bodyProgressPhotos;
+}
+
+function bodyPhotoTile(record, label, allowDelete = true) {
+  const url = record?.storagePath ? bodyPhotoUrls.get(record.storagePath) : null;
+  if (!record || !url) return `<article class="body-photo-tile empty"><span>${escapeHtml(label)}</span><div>Not captured</div></article>`;
+  return `<article class="body-photo-tile"><span>${escapeHtml(label)}</span><img src="${escapeHtml(url)}" alt="${escapeHtml(label)} progress photo from ${record.date}" loading="lazy">${allowDelete ? `<button type="button" class="ghost danger" data-body-photo-delete="${escapeHtml(record.id || "")}" aria-label="Delete ${escapeHtml(label)} photo from ${escapeHtml(record.date)}">Delete</button>` : ""}</article>`;
+}
+
+function bodyPhotoDateColumn(group, heading) {
+  if (!group) return `<section><header><span>${escapeHtml(heading)}</span><strong>No checkpoint</strong></header><div class="body-photo-angle-grid">${DominionBodyProgress.PHOTO_ANGLES.map((angle) => bodyPhotoTile(null, angle.label, false)).join("")}</div></section>`;
+  return `<section><header><span>${escapeHtml(heading)}</span><strong>${escapeHtml(group.date)}</strong></header><div class="body-photo-angle-grid">${DominionBodyProgress.PHOTO_ANGLES.map((angle) => bodyPhotoTile(group.photos[angle.key], angle.label)).join("")}</div></section>`;
+}
+
+function renderBodyPhotoExperience() {
+  if (typeof DominionBodyProgress === "undefined") return;
+  const state = document.getElementById("body-photo-vault-state");
+  const output = document.getElementById("body-photo-comparison");
+  const feedback = document.getElementById("body-photo-feedback");
+  const from = document.getElementById("body-photo-from-date");
+  const to = document.getElementById("body-photo-to-date");
+  const todayStatus = DominionBodyProgress.checkpointStatus(bodyProgressPhotos, todayISODate());
+  setText("today-body-photo-count", `${todayStatus.count}/3`);
+  if (!state || !output || !from || !to) return;
+  if (bodyPhotoState.loading) {
+    state.textContent = "CHECKING";
+    output.innerHTML = '<div class="trend-chart-empty"><strong>Opening your private record</strong><span>Photos stay account-owned.</span></div>';
+    return;
+  }
+  if (!bodyPhotoState.available) {
+    state.textContent = bodyPhotoState.migrationRequired ? "ACTIVATION NEEDED" : "UNAVAILABLE";
+    output.innerHTML = '<div class="trend-chart-empty"><strong>Photo vault is not active yet</strong><span>Measurements and body-fat estimates still save normally.</span></div>';
+    if (feedback) feedback.textContent = "Progress photos require the private photo-vault migration.";
+    return;
+  }
+  const comparison = DominionBodyProgress.comparison(bodyProgressPhotos, from.value || null, to.value || null);
+  const options = comparison.dates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(date)}</option>`).join("");
+  const selectedFrom = comparison.from?.date || "";
+  const selectedTo = comparison.to?.date || "";
+  from.innerHTML = options || '<option value="">No checkpoints</option>';
+  to.innerHTML = options || '<option value="">No checkpoints</option>';
+  from.value = selectedFrom;
+  to.value = selectedTo;
+  state.textContent = comparison.dates.length ? `${comparison.dates.length} CHECKPOINT${comparison.dates.length === 1 ? "" : "S"}` : "EMPTY";
+  if (!comparison.dates.length) {
+    output.innerHTML = '<div class="trend-chart-empty"><strong>No progress photos yet</strong><span>Add front, side, and back with a weekly checkpoint.</span></div>';
+  } else if (comparison.dates.length === 1) {
+    output.innerHTML = `<div class="body-photo-single">${bodyPhotoDateColumn(comparison.to, "CURRENT")}</div>`;
+  } else {
+    output.innerHTML = `${bodyPhotoDateColumn(comparison.from, "FROM")}${bodyPhotoDateColumn(comparison.to, "TO")}`;
+  }
+  if (feedback) feedback.textContent = "Private account evidence. Compare the same pose and conditions.";
+}
+
+function renderBodyFatEstimate(form) {
+  if (!form || typeof DominionBodyProgress === "undefined") return null;
+  const output = form.querySelector("[data-body-fat-estimate]");
+  const values = Object.fromEntries(new FormData(form).entries());
+  const manual = Number(values.body_fat);
+  if (Number.isFinite(manual) && manual > 0) {
+    if (output) output.innerHTML = `<strong>${escapeHtml(manual.toFixed(1))}% entered</strong><span>Clear the override to use the circumference estimate.</span>`;
+    return { valid: true, manual: true, value: manual, method: "SELF_REPORTED" };
+  }
+  const estimate = DominionBodyProgress.estimateBodyFat(values, recruitProfileForAtlas() || {});
+  if (output) output.innerHTML = estimate.valid
+    ? `<strong>${escapeHtml(estimate.value)}%</strong><span>Estimated range ${escapeHtml(estimate.rangeLow)}–${escapeHtml(estimate.rangeHigh)}% · Navy circumference method</span>`
+    : `<strong>Estimate pending</strong><span>${escapeHtml(estimate.label)}</span>`;
+  return estimate;
+}
+
+function previewBodyProgressPhoto(input) {
+  const preview = input?.closest("label")?.querySelector("[data-body-photo-preview]");
+  if (!preview) return;
+  if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+  const file = input.files?.[0] || null;
+  if (!file) {
+    preview.textContent = "Add photo";
+    delete preview.dataset.objectUrl;
+    return;
+  }
+  const validation = DominionBodyProgress.validatePhotoFile(file);
+  if (!validation.valid) {
+    input.value = "";
+    preview.textContent = validation.errors[0];
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  preview.dataset.objectUrl = url;
+  preview.innerHTML = `<img src="${escapeHtml(url)}" alt="Selected ${escapeHtml(input.dataset.bodyPhotoAngle.toLowerCase())} progress photo preview"><small>Replace</small>`;
+}
+
+function resetBodyProgressPhotoPreviews(form) {
+  form?.querySelectorAll("[data-body-photo-preview]").forEach((preview) => {
+    if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+    delete preview.dataset.objectUrl;
+    preview.textContent = "Add photo";
+  });
+}
+
+async function prepareBodyProgressPhoto(file) {
+  const validation = DominionBodyProgress.validatePhotoFile(file);
+  if (!validation.valid) throw new Error(validation.errors[0]);
+  let bitmap;
+  let sourceUrl = null;
+  if (typeof createImageBitmap === "function") {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } else {
+    sourceUrl = URL.createObjectURL(file);
+    bitmap = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Photo could not be opened."));
+      image.src = sourceUrl;
+    });
+  }
+  const maxEdge = 1600;
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { alpha: false });
+  context.fillStyle = "#0a0a0a";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+  const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Photo processing failed.")), "image/jpeg", 0.86));
+  return { blob, width, height };
+}
+
+async function uploadBodyProgressPhotos(form, date) {
+  if (!form || typeof DominionBodyProgress === "undefined") return { count: 0, errors: [] };
+  const selections = [...form.querySelectorAll("input[data-body-photo-angle]")]
+    .map((input) => ({ angle: input.dataset.bodyPhotoAngle, file: input.files?.[0] || null }))
+    .filter((item) => item.file);
+  if (!selections.length) return { count: 0, errors: [] };
+  if (!session?.user?.id) return { count: 0, errors: ["Sign in to save private progress photos."] };
+  const supabase = await getClient();
+  const saved = [];
+  const errors = [];
+  for (const selection of selections) {
+    let path = null;
+    try {
+      const prepared = await prepareBodyProgressPhoto(selection.file);
+      path = DominionBodyProgress.photoPath(session.user.id, date, selection.angle);
+      const upload = await supabase.storage.from(DominionBodyProgress.BUCKET).upload(path, prepared.blob, { upsert: true, contentType: "image/jpeg", cacheControl: "3600" });
+      if (upload.error) throw upload.error;
+      const record = {
+        user_id: session.user.id,
+        performance_date: date,
+        angle: selection.angle,
+        storage_path: path,
+        content_type: "image/jpeg",
+        size_bytes: prepared.blob.size,
+        width: prepared.width,
+        height: prepared.height,
+        capture_protocol: "STANDARD_WEEKLY",
+        updated_at: new Date().toISOString()
+      };
+      const response = await supabase.from("body_progress_photos").upsert(record, { onConflict: "user_id,performance_date,angle" }).select("*").single();
+      if (response.error) throw response.error;
+      saved.push(DominionBodyProgress.normalizePhotoRecord(response.data));
+    } catch (error) {
+      if (path) await supabase.storage.from(DominionBodyProgress.BUCKET).remove([path]);
+      errors.push(`${selection.angle.toLowerCase()}: ${error?.message || "upload failed"}`);
+    }
+  }
+  if (saved.length) await loadBodyProgressPhotos();
+  return { count: saved.length, errors };
+}
+
+async function deleteBodyProgressPhoto(photoId) {
+  const record = bodyProgressPhotos.find((item) => String(item.id) === String(photoId));
+  if (!record || !window.confirm(`Delete the ${record.angle.toLowerCase()} photo from ${record.date}?`)) return;
+  const supabase = await getClient();
+  const storage = await supabase.storage.from(DominionBodyProgress.BUCKET).remove([record.storagePath]);
+  if (storage.error) throw storage.error;
+  const metadata = await supabase.from("body_progress_photos").delete().eq("id", record.id).eq("user_id", session.user.id);
+  if (metadata.error) throw metadata.error;
+  bodyProgressPhotos = bodyProgressPhotos.filter((item) => item.id !== record.id);
+  bodyPhotoUrls.delete(record.storagePath);
+  renderBodyPhotoExperience();
+  setText("body-photo-feedback", "Photo deleted.");
+}
+
+async function deleteBodyProgressPhotosForDate(date) {
+  const rows = bodyProgressPhotos.filter((item) => item.date === date);
+  if (!rows.length || !session?.user?.id) return;
+  const supabase = await getClient();
+  const paths = rows.map((item) => item.storagePath).filter(Boolean);
+  if (paths.length) await supabase.storage.from(DominionBodyProgress.BUCKET).remove(paths);
+  await supabase.from("body_progress_photos").delete().eq("user_id", session.user.id).eq("performance_date", date);
+  bodyProgressPhotos = bodyProgressPhotos.filter((item) => item.date !== date);
+  paths.forEach((path) => bodyPhotoUrls.delete(path));
+  renderBodyPhotoExperience();
+}
+
 function bodyCheckInInput(formId = "body-checkin-form") {
   const form = typeof formId === "string" ? document.getElementById(formId) : formId;
   if (!form) return {};
-  return Object.fromEntries(new FormData(form).entries());
+  const values = Object.fromEntries(new FormData(form).entries());
+  const manual = Number(values.body_fat);
+  if (typeof DominionBodyProgress !== "undefined" && (!Number.isFinite(manual) || manual <= 0)) {
+    const estimate = DominionBodyProgress.estimateBodyFat(values, recruitProfileForAtlas() || {});
+    if (estimate.valid) {
+      values.body_fat = estimate.value;
+      values.body_fat_method = estimate.method;
+      values.body_fat_estimated = true;
+      values.body_fat_range_low = estimate.rangeLow;
+      values.body_fat_range_high = estimate.rangeHigh;
+    }
+  } else if (Number.isFinite(manual) && manual > 0) {
+    values.body_fat_method = "SELF_REPORTED";
+    values.body_fat_estimated = false;
+  }
+  return values;
 }
 
 function bodyCheckInUuid() {
@@ -16646,16 +16936,24 @@ async function persistBodyCheckIn(form, feedbackId = "body-checkin-feedback") {
   renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
   if (weeklyInspection) renderWeeklyBodyOutcome(weeklyInspection);
+  const photoResult = await uploadBodyProgressPhotos(form, saved.performanceDate);
   const unit = input.unit || "in";
   form?.reset();
+  resetBodyProgressPhotoPreviews(form);
   const dateInput = form?.querySelector('[name="date"]');
   const unitInput = form?.querySelector('[name="unit"]');
   if (dateInput) dateInput.value = todayISODate();
   if (unitInput) unitInput.value = unit;
+  renderBodyFatEstimate(form);
   const outcome = buildCurrentBodyOutcomeModel();
   renderTodayBodyCheckpoint(outcome);
   if (outcome) renderBodyOutcome(outcome);
-  setText(feedbackId, storage === "SUPABASE" ? "Checkpoint saved to your account. Atlas updated the outcome signal." : "Checkpoint saved on this device; account sync will retry.");
+  const photoMessage = photoResult.count
+    ? ` ${photoResult.count} private photo${photoResult.count === 1 ? "" : "s"} saved.`
+    : photoResult.errors.length
+      ? ` Measurements saved; photos need attention (${photoResult.errors[0]}).`
+      : "";
+  setText(feedbackId, (storage === "SUPABASE" ? "Checkpoint saved to your account. Atlas updated the outcome signal." : "Checkpoint saved on this device; account sync will retry.") + photoMessage);
   return true;
 }
 
@@ -16686,11 +16984,14 @@ function editBodyCheckIn(entryId) {
   form.elements.notes.value = normalized.notes || "";
   form.closest("details").open = true;
   form.scrollIntoView({ behavior: "smooth", block: "center" });
+  renderBodyFatEstimate(form);
   setText("body-checkin-feedback", `Editing ${normalized.date}. Saving will replace that date’s checkpoint.`);
 }
 
 async function deleteBodyCheckIn(entryId) {
   if (!entryId || !window.confirm("Delete this body checkpoint? This action cannot be undone.")) return;
+  const removed = performanceEntries.find((entry) => String(entry.id) === String(entryId));
+  const removedDate = removed?.performanceDate || removed?.performance_date || null;
   performanceEntries = performanceEntries.filter((entry) => String(entry.id) !== String(entryId));
   saveLocalPerformanceEntries(performanceEntries);
   try {
@@ -16698,6 +16999,7 @@ async function deleteBodyCheckIn(entryId) {
     const response = await supabase.from("performance_entries").delete().eq("id", entryId);
     if (response.error) throw response.error;
   } catch (_) {}
+  if (removedDate) await deleteBodyProgressPhotosForDate(removedDate);
   renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
   if (weeklyInspection) renderWeeklyBodyOutcome(weeklyInspection);

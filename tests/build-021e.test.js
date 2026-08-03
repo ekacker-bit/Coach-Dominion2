@@ -29,4 +29,3 @@ assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|023a)-v1/);
 assert.match(packageJson, /node tests\/build-021e\.test\.js/);
 
 console.log("Build 021E Contract amendment finalization regression checks passed.");
-

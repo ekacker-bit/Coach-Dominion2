@@ -1,4 +1,3 @@
-
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -29,13 +28,17 @@ check("intervention engine", size("assets/js/atlas-intervention.js") >= 7000, "0
 check("body progress", html.includes('id="body-photo-progress"') && app.includes("uploadBodyProgressPhotos"), "022B photo checkpoint is missing");
 check("body progress engine", size("assets/js/body-progress.js") >= 6000, "022B body progress engine appears incomplete");
 check("private photo migration", size("supabase/migrations/027_body_progress_photos.sql") >= 3000, "022B private photo migration appears incomplete");
-check("stylesheet version", html.includes('/assets/styles.css?v=022b'), "app.html is not using the 022B stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=022b'), "app.html is not using the 022B application");
-check("cache version", worker.includes('coach-dominion-022b-v1'), "service-worker cache was not rotated");
-check("cached stylesheet", worker.includes('/assets/styles.css?v=022b'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=022b'), "service worker is caching the wrong application");
+check("progress review", html.includes('class="progress-review-surface"') && app.includes("buildCurrentProgressReview"), "022C progress review is missing");
+check("progress review engine", size("assets/js/progress-review.js") >= 12000, "022C progress review engine appears incomplete");
+check("progress approval", app.includes("resolveProgressReviewAction") && app.includes("saveProgressReview"), "022C approval loop is missing");
+check("stylesheet version", html.includes('/assets/styles.css?v=022c'), "app.html is not using the 022C stylesheet");
+check("application version", html.includes('/assets/js/app.js?v=022c'), "app.html is not using the 022C application");
+check("cache version", worker.includes('coach-dominion-022c-v1'), "service-worker cache was not rotated");
+check("cached stylesheet", worker.includes('/assets/styles.css?v=022c'), "service worker is caching the wrong stylesheet");
+check("cached application", worker.includes('/assets/js/app.js?v=022c'), "service worker is caching the wrong application");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
+check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");
 
 if (failures.length) {
   console.error("Release integrity failed:\n- " + failures.join("\n- "));

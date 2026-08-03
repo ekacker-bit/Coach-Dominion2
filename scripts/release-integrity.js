@@ -46,4 +46,3 @@ if (failures.length) {
 }
 
 console.log(`Release integrity passed: ${size("app.html")}B HTML, ${size("assets/js/app.js")}B JS, ${size("assets/styles.css")}B CSS.`);
-

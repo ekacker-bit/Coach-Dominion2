@@ -44,6 +44,8 @@
       EVENING: "Evening session",
       SPLIT_DAY: "AM + PM training windows",
       LONG_RUN: "Long run · duration open",
+      FASTING_TRAINING: "Eating window aligned to training",
+      FASTING_RECOVERY: "Approved fasting window",
       UNSCHEDULED: "Training time not scheduled"
     };
     return labels[trainingWindow] || labels.UNSCHEDULED;
@@ -167,6 +169,7 @@
       trainingWindow,
       trainingWindowLabel: formatTrainingWindow(Boolean(value.trainingDay), trainingWindow),
       calendarContext: value.calendarContext || null,
+      fastingContext: value.fastingContext || null,
       readiness,
       metrics,
       instruction: buildInstruction({

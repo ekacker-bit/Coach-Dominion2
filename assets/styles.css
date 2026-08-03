@@ -7146,3 +7146,162 @@ body[data-dominion-section="today"] #dominion-mission-rail {
     border-left: 0;
   }
 }
+/* Build 023C: Intermittent Fasting Protocol. */
+.intermittent-fasting-panel {
+  margin-top: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.055), rgba(10, 10, 10, 0.2));
+}
+
+.intermittent-fasting-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.intermittent-fasting-form > label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.intermittent-fasting-form > button {
+  justify-self: start;
+}
+
+.fasting-safety-screen {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(230, 230, 228, 0.14);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.fasting-safety-screen summary {
+  padding: 0.85rem 1rem;
+  color: var(--stone, #e6e6e4);
+  cursor: pointer;
+}
+
+.fasting-safety-screen[open] {
+  padding-bottom: 0.9rem;
+}
+
+.fasting-safety-screen[open] summary {
+  margin-bottom: 0.35rem;
+}
+
+.fasting-safety-screen p,
+.fasting-safety-screen label,
+.fasting-safety-screen small {
+  margin: 0.55rem 1rem;
+}
+
+.fasting-safety-screen label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: start;
+  color: var(--muted, #aab2bd);
+  line-height: 1.45;
+}
+
+.fasting-safety-screen input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+}
+
+.fasting-safety-screen a {
+  color: var(--gold, #d4af37);
+}
+
+.fasting-protocol-card {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.7fr) minmax(16rem, 1.3fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border-left: 3px solid var(--gold, #d4af37);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.fasting-protocol-card > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.fasting-protocol-card span,
+.fuel-fasting-brief span {
+  color: var(--gold, #d4af37);
+  font-family: var(--font-display, "Bebas Neue", sans-serif);
+  letter-spacing: 0.11em;
+}
+
+.fasting-protocol-card strong {
+  color: var(--stone, #e6e6e4);
+  font-size: 1.2rem;
+}
+
+.fasting-protocol-card p {
+  margin: 0;
+  color: var(--muted, #aab2bd);
+}
+
+.fasting-protocol-card .weekly-plan-actions,
+.fasting-blockers {
+  grid-column: 1 / -1;
+}
+
+.fasting-blockers {
+  margin: 0;
+  color: #f0b9b5;
+}
+
+.fuel-fasting-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.6fr);
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  border-left: 3px solid var(--gold, #d4af37);
+  background: linear-gradient(105deg, rgba(212, 175, 55, 0.11), rgba(10, 10, 10, 0.3));
+}
+
+.fuel-fasting-brief.suspended {
+  border-color: rgba(171, 65, 55, 0.55);
+  border-left-color: #ab4137;
+  background: linear-gradient(105deg, rgba(171, 65, 55, 0.11), rgba(10, 10, 10, 0.3));
+}
+
+.fuel-fasting-brief strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--stone, #e6e6e4);
+}
+
+.fuel-fasting-brief p,
+.fuel-fasting-brief small {
+  margin: 0.25rem 0 0;
+  color: var(--muted, #aab2bd);
+}
+
+.fuel-fasting-brief > div:last-child {
+  padding-left: 1rem;
+  border-left: 1px solid rgba(230, 230, 228, 0.14);
+}
+
+@media (max-width: 760px) {
+  .intermittent-fasting-form,
+  .fasting-protocol-card,
+  .fuel-fasting-brief {
+    grid-template-columns: 1fr;
+  }
+
+  .fuel-fasting-brief > div:last-child {
+    padding: 0.75rem 0 0;
+    border-top: 1px solid rgba(230, 230, 228, 0.14);
+    border-left: 0;
+  }
+}

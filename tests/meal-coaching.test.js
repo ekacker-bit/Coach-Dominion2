@@ -36,4 +36,12 @@ const longRun = buildMealCoachingPlan({ targets, trainingDay: true, trainingWind
 assert.strictEqual(longRun.slots[1].label, "During-run plan");
 assert.strictEqual(longRun.slots.reduce((sum, slot) => sum + slot.carbs, 0), targets.carbs);
 assert.ok(longRun.safeguards.some((item) => item.includes("never approved daily totals")));
+
+const fastingRecovery = buildMealCoachingPlan({ targets, trainingDay: false, trainingWindow: "FASTING_RECOVERY" });
+assert.strictEqual(fastingRecovery.slots[0].label, "Open eating window");
+assert.strictEqual(fastingRecovery.slots.reduce((sum, slot) => sum + slot.calories, 0), targets.calories);
+const fastingTraining = buildMealCoachingPlan({ targets, trainingDay: true, trainingWindow: "FASTING_TRAINING" });
+assert.strictEqual(fastingTraining.slots[1].label, "Pre-training fuel");
+assert.strictEqual(fastingTraining.slots[2].label, "Post-training meal");
+assert.strictEqual(fastingTraining.slots.reduce((sum, slot) => sum + slot.protein, 0), targets.protein);
 console.log("meal coaching tests passed");

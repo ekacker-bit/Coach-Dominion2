@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionMealCoaching = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const WINDOWS = ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING", "SPLIT_DAY", "LONG_RUN"];
+  const WINDOWS = ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING", "SPLIT_DAY", "LONG_RUN", "FASTING_RECOVERY", "FASTING_TRAINING"];
   const round5 = (value) => Math.round(Number(value) / 5) * 5;
   const distribute = (total, weights) => {
     if (!(Number(total) > 0)) return weights.map(() => null);
@@ -14,6 +14,16 @@
   };
 
   function slotDefinition(trainingDay, trainingWindow) {
+    if (trainingWindow === "FASTING_RECOVERY") return {
+      labels: ["Open eating window", "Mid-window meal", "Protein anchor", "Close eating window"],
+      notes: ["Open with a normal mixed meal and fluids.", "Continue the approved daily target.", "Keep protein distribution deliberate.", "Complete the target without overeating or compensatory restriction."],
+      calories: [.3, .25, .2, .25], carbs: [.3, .25, .2, .25], fat: [.25, .25, .2, .3]
+    };
+    if (trainingWindow === "FASTING_TRAINING") return {
+      labels: ["Open eating window", "Pre-training fuel", "Post-training meal", "Close eating window"],
+      notes: ["Open with a normal mixed meal and fluids.", "Use familiar carbohydrate and protein before training.", "Recovery fuel overrides the fasting clock.", "Complete the approved target without compensating for the fast."],
+      calories: [.25, .25, .35, .15], carbs: [.22, .28, .38, .12], fat: [.3, .15, .25, .3]
+    };
     if (!trainingDay) return {
       labels: ["Breakfast", "Midday meal", "Afternoon anchor", "Evening meal"],
       notes: ["Start protein distribution.", "Continue steady fueling.", "Use if needed for consistency.", "Close the day without compensation."],
@@ -103,6 +113,8 @@
     return [
       "Meal timing is flexible guidance, not a compliance requirement.",
       "Calendar context changes timing guidance, never approved daily totals.",
+      "Fasting changes meal timing, never approved calories or macros.",
+      "Training fuel, hydration, recovery, and safety override the fasting clock.",
       "Daily totals and recovery needs matter more than perfect timing.",
       "No exact foods, supplements, or medical nutrition treatment are prescribed.",
       "Late training never authorizes skipping the post-training meal.",

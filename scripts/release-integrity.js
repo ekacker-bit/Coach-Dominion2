@@ -31,14 +31,19 @@ check("private photo migration", size("supabase/migrations/027_body_progress_pho
 check("progress review", html.includes('class="progress-review-surface"') && app.includes("buildCurrentProgressReview"), "022C progress review is missing");
 check("progress review engine", size("assets/js/progress-review.js") >= 12000, "022C progress review engine appears incomplete");
 check("progress approval", app.includes("resolveProgressReviewAction") && app.includes("saveProgressReview"), "022C approval loop is missing");
-check("stylesheet version", html.includes('/assets/styles.css?v=022c'), "app.html is not using the 022C stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=022c'), "app.html is not using the 022C application");
-check("cache version", worker.includes('coach-dominion-022c-v1'), "service-worker cache was not rotated");
-check("cached stylesheet", worker.includes('/assets/styles.css?v=022c'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=022c'), "service worker is caching the wrong application");
+check("plan command", html.includes('id="body-plan-command"') && app.includes("buildCurrentPlanCommand"), "022D plan command is missing");
+check("plan command engine", size("assets/js/plan-command.js") >= 15000, "022D plan command engine appears incomplete");
+check("plan command persistence", app.includes('"plan-command-current"') && app.includes("savePlanCommand"), "022D account persistence is missing");
+check("plan command activation", app.includes("activateDuePlanCommand") && app.includes("rollbackPlanCommand"), "022D activation or rollback is missing");
+check("stylesheet version", html.includes('/assets/styles.css?v=022d'), "app.html is not using the 022D stylesheet");
+check("application version", html.includes('/assets/js/app.js?v=022d'), "app.html is not using the 022D application");
+check("cache version", worker.includes('coach-dominion-022d-v1'), "service-worker cache was not rotated");
+check("cached stylesheet", worker.includes('/assets/styles.css?v=022d'), "service worker is caching the wrong stylesheet");
+check("cached application", worker.includes('/assets/js/app.js?v=022d'), "service worker is caching the wrong application");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");
+check("cached plan command", worker.includes('/assets/js/plan-command.js?v=022d'), "service worker is not caching the plan command engine");
 
 if (failures.length) {
   console.error("Release integrity failed:\n- " + failures.join("\n- "));

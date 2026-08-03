@@ -42,7 +42,7 @@ assert.match(migration, /DOMINION_CONTINUITY_REVISION_CONFLICT/);
 assert.match(migration, /auth\.uid\(\) = user_id/);
 assert.match(migration, /grant execute on function public\.sync_dominion_continuity_state/i);
 
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-d])-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-e])-v1/);
 assert.match(worker, /dominion-continuity\.js/);
 
 console.log("Build 021B continuity integration checks passed.");

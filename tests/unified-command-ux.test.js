@@ -27,4 +27,3 @@ assert(html.includes('class="nav-more"'), "More navigation menu missing");
 assert(css.includes(".nav-more-menu"), "More navigation styles missing");
 
 console.log("Unified command UX tests passed.");
-

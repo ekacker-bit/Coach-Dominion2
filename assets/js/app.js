@@ -48,6 +48,7 @@ let mfpNutritionFeedEvents = [];
 let mfpNutritionFeedSecret = null;
 let mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: false };
 let nutritionBaselineDraft = null;
+let fastingProtocolDraft = null;
 let nutritionActiveView = "today";
 let recruitContractStorageMode = "LOCAL";
 let recruitOnboardingStorageMode = "LOCAL";
@@ -11993,6 +11994,110 @@ function readMealTrainingWindow() {
   catch (_) { return "UNSCHEDULED"; }
 }
 
+function fastingProtocolStorageKey() {
+  return `coach-dominion:fasting-protocol:${connectedUserId()}`;
+}
+
+function readApprovedFastingProtocol() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(fastingProtocolStorageKey()) || "null");
+    return value && ["APPROVED", "OFF"].includes(value.status) ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function fastingProfileAge() {
+  const atlasProfile = recruitProfileForAtlas();
+  return Number(atlasProfile?.age || readApprovedRecruitContract()?.age || 0) || null;
+}
+
+function buildCurrentFastingContext(date = todayISODate(), calendarContext = null) {
+  if (typeof DominionIntermittentFasting === "undefined") return null;
+  const targetCalendar = calendarContext || buildCurrentFuelCalendarContext(date);
+  const readiness = dailyState?.date === date ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
+  const now = date === todayISODate() ? new Date() : new Date(`${date}T12:00:00`);
+  return DominionIntermittentFasting.dailyFastingContext({
+    protocol: readApprovedFastingProtocol(),
+    date,
+    now,
+    calendarContext: targetCalendar,
+    readiness,
+    pain: dailyState?.date === date && Boolean(dailyState?.pain)
+  });
+}
+
+function hydrateFastingProtocolForm(force = false) {
+  const form = document.getElementById("intermittent-fasting-form");
+  if (!form || form.dataset.hydrated === "true" && !force) return;
+  const approved = readApprovedFastingProtocol();
+  form.elements.protocol.value = approved?.protocol || "OFF";
+  form.elements.eatingStart.value = approved?.eatingStart || "10:00";
+  form.elements.effectiveDate.value = approved?.effectiveDate || todayISODate();
+  form.dataset.hydrated = "true";
+}
+
+function renderFastingProtocol() {
+  const output = document.getElementById("intermittent-fasting-output");
+  const status = document.getElementById("intermittent-fasting-status");
+  if (!output || !status || typeof DominionIntermittentFasting === "undefined") return;
+  hydrateFastingProtocolForm();
+  const approved = readApprovedFastingProtocol();
+  const current = fastingProtocolDraft || approved;
+  status.textContent = current?.status || "OFF";
+  status.className = `state-pill ${current?.status === "APPROVED" ? "green" : current?.status === "READY FOR APPROVAL" ? "yellow" : current?.status === "REVIEW REQUIRED" ? "red" : "neutral"}`;
+  if (!current || current.status === "OFF" && !fastingProtocolDraft) {
+    output.className = "performance-empty";
+    output.innerHTML = "Fasting is optional and currently off.";
+    return;
+  }
+  const blockers = current.blockers?.length
+    ? `<ul class="fasting-blockers">${current.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : "";
+  const actions = fastingProtocolDraft
+    ? `<div class="weekly-plan-actions"><button type="button" data-fasting-action="approve" ${current.status !== "READY FOR APPROVAL" ? "disabled" : ""}>${current.enabled ? "Activate protocol" : "Turn fasting off"}</button><button type="button" data-fasting-action="cancel" class="ghost">Cancel</button></div>`
+    : "";
+  output.className = "fasting-protocol-card";
+  output.innerHTML = `<div><span>${current.enabled ? escapeHtml(current.label) : "OFF"}</span><strong>${escapeHtml(current.windowLabel || "No fasting window")}</strong><small>Effective ${escapeHtml(current.effectiveDate || todayISODate())}</small></div>
+    <p>${current.enabled ? "The fasting clock controls timing only. Approved calories and macros do not change." : "Approve this change to remove the eating window."}</p>
+    ${blockers}${actions}`;
+}
+
+function reviewFastingProtocol(event) {
+  event.preventDefault();
+  if (typeof DominionIntermittentFasting === "undefined") return;
+  const data = new FormData(event.currentTarget);
+  fastingProtocolDraft = DominionIntermittentFasting.reviewFastingProtocol({
+    protocol: data.get("protocol"),
+    eatingStart: data.get("eatingStart"),
+    effectiveDate: data.get("effectiveDate"),
+    notPregnantOrBreastfeeding: data.get("notPregnantOrBreastfeeding") === "on",
+    noEatingDisorderHistory: data.get("noEatingDisorderHistory") === "on",
+    medicalClearanceConfirmed: data.get("medicalClearanceConfirmed") === "on",
+    trainingOverrideAccepted: data.get("trainingOverrideAccepted") === "on"
+  }, { age: fastingProfileAge(), today: todayISODate() });
+  renderFastingProtocol();
+  setText("intermittent-fasting-feedback", fastingProtocolDraft.status === "READY FOR APPROVAL"
+    ? "Review the window, then activate it. Daily targets will not change."
+    : "Fasting was not activated. Resolve the safety review first.");
+}
+
+async function approveCurrentFastingProtocol() {
+  if (!fastingProtocolDraft || typeof DominionIntermittentFasting === "undefined") return;
+  try {
+    const approved = DominionIntermittentFasting.approveFastingProtocol(fastingProtocolDraft, readApprovedFastingProtocol());
+    window.localStorage.setItem(fastingProtocolStorageKey(), JSON.stringify(approved));
+    const synced = await persistNutritionState("FASTING_PROTOCOL", "current", approved);
+    fastingProtocolDraft = null;
+    hydrateFastingProtocolForm(true);
+    renderNutritionCommand();
+    renderDailyCoachingLoop();
+    setText("intermittent-fasting-feedback", `${approved.enabled ? `${approved.label} activated` : "Fasting turned off"}${synced ? " and saved to your account" : " locally"}. Approved daily targets were not changed.`);
+  } catch (error) {
+    setText("intermittent-fasting-feedback", error.message);
+  }
+}
+
 async function persistNutritionState(stateType, stateKey, payload) {
   recordContinuityWrite("nutrition", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
@@ -12044,6 +12149,9 @@ function applyNutritionStateRow(row) {
   if (row.state_type === "MEAL_WINDOW" && ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(payload.window)) {
     window.localStorage.setItem(mealTrainingWindowStorageKey(), payload.window);
   }
+  if (row.state_type === "FASTING_PROTOCOL" && ["APPROVED", "OFF"].includes(payload.status)) {
+    window.localStorage.setItem(fastingProtocolStorageKey(), JSON.stringify(payload));
+  }
   if (row.state_type === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
     window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(payload.items));
   }
@@ -12057,6 +12165,7 @@ function readNutritionStatePayload(stateType, stateKey = "current") {
   if (stateType === "ADAPTIVE_GOAL") return { goal: readAdaptiveFuelingGoal() };
   if (stateType === "ADAPTIVE_APPROVAL") return readApprovedAdaptiveFueling(stateKey);
   if (stateType === "MEAL_WINDOW") return { window: readMealTrainingWindow() };
+  if (stateType === "FASTING_PROTOCOL") return readApprovedFastingProtocol();
   if (stateType === "REVIEW_HISTORY") return { items: readNutritionReviewHistory() };
   if (stateType === "MANUAL_DAY") {
     try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(stateKey)) || "null"); }
@@ -12086,6 +12195,7 @@ async function loadNutritionState() {
     const localReviews = readNutritionReviewHistory();
     const localGoal = readAdaptiveFuelingGoal();
     const localWindow = readMealTrainingWindow();
+    const localFastingProtocol = readApprovedFastingProtocol();
     if (!hasState("BASELINE_HISTORY") && localBaselines.length) {
       await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines });
     }
@@ -12097,6 +12207,9 @@ async function loadNutritionState() {
     }
     if (!hasState("MEAL_WINDOW")) {
       await persistNutritionState("MEAL_WINDOW", "current", { window: localWindow });
+    }
+    if (!hasState("FASTING_PROTOCOL") && localFastingProtocol) {
+      await persistNutritionState("FASTING_PROTOCOL", "current", localFastingProtocol);
     }
     ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => {
       const approval = readApprovedAdaptiveFueling(goalName);
@@ -12121,6 +12234,7 @@ async function loadNutritionState() {
     if (goalSelect) goalSelect.value = readAdaptiveFuelingGoal();
     const mealWindow = document.getElementById("meal-training-window");
     if (mealWindow) mealWindow.value = readMealTrainingWindow();
+    hydrateFastingProtocolForm(true);
   } catch (_) {
     // Existing account-scoped local state remains the explicit offline fallback.
   }
@@ -12160,16 +12274,17 @@ function buildCurrentMealCoachingPlan(date = nutritionCommandDate()) {
   if (typeof DominionMealCoaching === "undefined" || !connectedApi()) return null;
   const baseline = activeNutritionBaseline(date);
   const calendarContext = buildCurrentFuelCalendarContext(date);
+  const fastingContext = buildCurrentFastingContext(date, calendarContext);
   const trainingDay = calendarContext?.trainingDay === true;
   const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
   const plan = DominionMealCoaching.buildMealCoachingPlan({
     date,
     targets,
     trainingDay,
-    trainingWindow: calendarContext?.mealWindow || readMealTrainingWindow(),
+    trainingWindow: fastingContext?.mealWindow || calendarContext?.mealWindow || readMealTrainingWindow(),
     meals: nutritionMealsForDate(date)
   });
-  return { ...plan, calendarContext };
+  return { ...plan, calendarContext, fastingContext };
 }
 
 function renderMealCoaching() {
@@ -12219,6 +12334,7 @@ function buildCurrentTodayNutritionExecution() {
     .at(-1) || manual?.updatedAt || null;
   const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
   const calendarContext = buildCurrentFuelCalendarContext(date);
+  const fastingContext = buildCurrentFastingContext(date, calendarContext);
   const trainingDay = calendarContext?.trainingDay === true;
   const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
@@ -12233,8 +12349,9 @@ function buildCurrentTodayNutritionExecution() {
     targets,
     source,
     trainingDay,
-    trainingWindow: calendarContext?.mealWindow || readMealTrainingWindow(),
+    trainingWindow: fastingContext?.mealWindow || calendarContext?.mealWindow || readMealTrainingWindow(),
     calendarContext,
+    fastingContext,
     readiness
   });
 }
@@ -12243,7 +12360,7 @@ function buildCurrentFuelCommand() {
   if (typeof DominionFuelCommand === "undefined") return null;
   const execution = buildCurrentTodayNutritionExecution();
   const mealPlan = buildCurrentMealCoachingPlan(todayISODate());
-  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, calendarContext: execution?.calendarContext, now: new Date() });
+  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, calendarContext: execution?.calendarContext, fastingContext: execution?.fastingContext, now: new Date() });
 }
 
 function renderTodayNutritionExecution() {
@@ -12264,8 +12381,10 @@ function renderTodayNutritionExecution() {
     const value = metric.target === null ? "—" : metric.actual === null ? `${Math.round(metric.target)} ${metric.unit} target` : `${Math.round(metric.remaining)} ${metric.unit} left`;
     return `<div><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   }).join("");
-  const legacyAction = command.primaryAction.route === "plan"
-    ? "set-baseline"
+  const legacyAction = command.primaryAction.id === "view-fast"
+    ? "view-fast"
+    : command.primaryAction.route === "plan"
+      ? "set-baseline"
     : command.primaryAction.route === "connected"
       ? "troubleshoot-sync"
       : "open-nutrition";
@@ -12332,17 +12451,24 @@ function renderNutritionCommand() {
       <div><span>${escapeHtml(calendar.source)}</span><strong>${escapeHtml(calendar.headline)}</strong><p>${escapeHtml(calendar.detail)}</p></div>
       <div class="fuel-calendar-sessions">${sessionLabels}</div>
     </section>` : "";
-  output.innerHTML = `${calendarBrief}<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
+  const fasting = fuel.fastingContext;
+  const fastingBrief = fasting?.enabled ? `<section class="fuel-fasting-brief ${fasting.suspended ? "suspended" : ""}" aria-label="Fasting protocol status">
+      <div><span>${escapeHtml(fasting.status)}</span><strong>${escapeHtml(fasting.headline)}</strong><p>${escapeHtml(fasting.detail)}</p></div>
+      <div><span>WINDOW</span><strong>${escapeHtml(fasting.windowLabel || "Paused today")}</strong><small>${escapeHtml(fasting.targetPolicy)}</small></div>
+    </section>` : "";
+  output.innerHTML = `${fastingBrief}${calendarBrief}<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
   const evidence = document.getElementById("fuel-command-evidence");
   if (evidence) {
     const warnings = fuel.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
     evidence.innerHTML = `<div class="fuel-evidence-grid">
         <div><span>Source</span><strong>${escapeHtml(fuel.evidence.source)}</strong><small>${escapeHtml(fuel.evidence.freshness)}</small></div>
         <div><span>Calendar</span><strong>${escapeHtml(fuel.evidence.calendarSource)}</strong><small>${escapeHtml(calendar?.headline || fuel.evidence.window)} · ${escapeHtml(fuel.evidence.calendarPolicy)}</small></div>
+        <div><span>Fasting</span><strong>${escapeHtml(fuel.evidence.fastingStatus)}</strong><small>${escapeHtml(fuel.evidence.fastingWindow)} · ${escapeHtml(fuel.evidence.fastingPolicy)}</small></div>
         <div><span>Readiness</span><strong>${escapeHtml(fuel.evidence.readiness)}</strong><small>${escapeHtml(fuel.evidence.mealEvidence)}</small></div>
       </div>${warnings}<ul class="baseline-safeguards">${fuel.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   }
   renderNutritionBaseline();
+  renderFastingProtocol();
   renderAdaptiveFueling();
   renderNutritionIntelligence();
   renderNutritionReview();
@@ -13879,6 +14005,17 @@ if (typeof document !== "undefined") {
       setText("nutrition-baseline-feedback", "Draft discarded. No approved baseline changed.");
     }
   });
+  document.getElementById("intermittent-fasting-form")?.addEventListener("submit", reviewFastingProtocol);
+  document.getElementById("intermittent-fasting-output")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-fasting-action]");
+    if (!button) return;
+    if (button.dataset.fastingAction === "approve") await approveCurrentFastingProtocol();
+    if (button.dataset.fastingAction === "cancel") {
+      fastingProtocolDraft = null;
+      renderFastingProtocol();
+      setText("intermittent-fasting-feedback", "Draft discarded. The active Fuel protocol did not change.");
+    }
+  });
   document.getElementById("nutrition-review-output")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-nutrition-review-action]");
     if (button?.dataset.nutritionReviewAction === "approve") await approveCurrentNutritionReview();
@@ -13935,6 +14072,11 @@ if (typeof document !== "undefined") {
     }
     setActiveSection("nutrition");
     window.history.replaceState(null, "", "#nutrition");
+    if (action === "view-fast") {
+      setNutritionActiveView("plan");
+      document.getElementById("intermittent-fasting-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     if (action === "set-baseline" || action === "review-targets") {
       setNutritionActiveView("plan");
       document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });

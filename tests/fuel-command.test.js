@@ -45,8 +45,8 @@ function mealPlan(overrides = {}) {
   };
 }
 
-test("023B exposes a versioned deterministic Fuel engine", () => {
-  assert.equal(VERSION, "023B.1");
+test("023C exposes a versioned deterministic Fuel engine", () => {
+  assert.equal(VERSION, "023C.1");
 });
 
 test("023A makes baseline approval the one action when targets are missing", () => {
@@ -106,4 +106,33 @@ test("023B selects between-session recovery from calendar phase", () => {
   const next = selectNextMeal(mealPlan(), 7, { phase: "BETWEEN_SESSIONS" });
   assert.equal(next.index, 1);
   assert.equal(next.basis, "CALENDAR PHASE");
+});
+
+test("023C makes an active fast the visible order without changing targets", () => {
+  const fastingContext = {
+    enabled: true,
+    status: "FAST ACTIVE",
+    headline: "Fast active · eat at 10:00 AM",
+    detail: "Approved daily targets remain unchanged.",
+    eatingStart: "10:00",
+    windowLabel: "10:00 AM–8:00 PM",
+    targetPolicy: "APPROVED DAILY TARGETS UNCHANGED",
+    safeguards: ["Do not compensate for a shortened fast."]
+  };
+  const result = buildFuelCommand({ execution: execution(), mealPlan: mealPlan(), fastingContext, now: 7 });
+  assert.equal(result.primaryAction.id, "view-fast");
+  assert.equal(result.nextMeal.index, 0);
+  assert.equal(result.nextMeal.basis, "FASTING WINDOW");
+  assert.match(result.headline, /Fast active/);
+  assert.equal(result.metrics.find((metric) => metric.key === "calories").target, 2400);
+});
+
+test("023C lets safety suspension replace the fasting order", () => {
+  const result = buildFuelCommand({
+    execution: execution(),
+    mealPlan: mealPlan(),
+    fastingContext: { enabled: true, status: "SUSPENDED TODAY", headline: "Fasting paused · fuel the assignment", detail: "Long-run fuel overrides the clock.", safeguards: [] }
+  });
+  assert.match(result.headline, /Fasting paused/);
+  assert.notEqual(result.primaryAction.id, "view-fast");
 });

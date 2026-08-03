@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionFuelCommand = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023B.1";
+  const VERSION = "023C.1";
   const METRICS = [
     { key: "calories", label: "Calories", unit: "kcal" },
     { key: "protein", label: "Protein", unit: "g" },
@@ -30,14 +30,15 @@
     return new Set(names).size;
   }
 
-  function selectNextMeal(mealPlan, now, calendarContext = null) {
+  function selectNextMeal(mealPlan, now, calendarContext = null, fastingContext = null) {
     const slots = Array.isArray(mealPlan?.slots) ? mealPlan.slots : [];
     if (!slots.length) return null;
     const evidenceCount = uniqueMealCount(mealPlan?.meals);
     const hour = currentHour(now);
     const timeIndex = hour < 10 ? 0 : hour < 14 ? 1 : hour < 17 ? 2 : 3;
+    const fastingIndex = fastingContext?.status === "FAST ACTIVE" ? 0 : null;
     const calendarIndex = calendarContext?.phase === "BETWEEN_SESSIONS" ? 1 : null;
-    const index = Math.min(slots.length - 1, calendarIndex ?? (evidenceCount > 0 ? evidenceCount : timeIndex));
+    const index = Math.min(slots.length - 1, fastingIndex ?? calendarIndex ?? (evidenceCount > 0 ? evidenceCount : timeIndex));
     const slot = slots[index];
     return {
       index,
@@ -47,16 +48,20 @@
       protein: finite(slot.protein),
       carbs: finite(slot.carbs),
       fat: finite(slot.fat),
-      basis: calendarIndex !== null ? "CALENDAR PHASE" : evidenceCount > 0 ? "MEAL EVIDENCE" : "TIME OF DAY"
+      availableAt: fastingIndex !== null ? fastingContext?.eatingStart || null : null,
+      basis: fastingIndex !== null ? "FASTING WINDOW" : calendarIndex !== null ? "CALENDAR PHASE" : evidenceCount > 0 ? "MEAL EVIDENCE" : "TIME OF DAY"
     };
   }
 
-  function primaryAction(execution, calendarContext = null) {
+  function primaryAction(execution, calendarContext = null, fastingContext = null) {
     if (!execution || execution.status === "SETUP REQUIRED") {
       return { id: "set-baseline", label: "Set baseline", route: "plan" };
     }
     if (calendarContext?.blocker === true) {
       return { id: "commit-calendar", label: "Open Calendar", route: "calendar" };
+    }
+    if (fastingContext?.status === "FAST ACTIVE") {
+      return { id: "view-fast", label: "View protocol", route: "plan" };
     }
     if (execution.status === "AWAITING INTAKE") {
       if (execution.source === "MYFITNESSPAL" && execution.freshness?.state === "HISTORICAL") {
@@ -70,7 +75,7 @@
     return { id: "review-intake", label: "Update intake", route: "details" };
   }
 
-  function commandCopy(execution, nextMeal, calendarContext = null) {
+  function commandCopy(execution, nextMeal, calendarContext = null, fastingContext = null) {
     if (!execution || execution.status === "SETUP REQUIRED") {
       return {
         headline: "Set your fueling baseline",
@@ -81,6 +86,12 @@
       return {
         headline: "Commit the week to plan Fuel",
         detail: calendarContext.detail || "No committed calendar day is available."
+      };
+    }
+    if (fastingContext?.enabled && fastingContext.status !== "OFF") {
+      return {
+        headline: fastingContext.headline,
+        detail: fastingContext.detail
       };
     }
     if (execution.status === "AWAITING INTAKE") {
@@ -127,9 +138,10 @@
     const execution = value.execution || null;
     const mealPlan = value.mealPlan || null;
     const calendarContext = value.calendarContext || execution?.calendarContext || null;
-    const nextMeal = selectNextMeal(mealPlan, value.now, calendarContext);
-    const copy = commandCopy(execution, nextMeal, calendarContext);
-    const action = primaryAction(execution, calendarContext);
+    const fastingContext = value.fastingContext || execution?.fastingContext || mealPlan?.fastingContext || null;
+    const nextMeal = selectNextMeal(mealPlan, value.now, calendarContext, fastingContext);
+    const copy = commandCopy(execution, nextMeal, calendarContext, fastingContext);
+    const action = primaryAction(execution, calendarContext, fastingContext);
     const warnings = Array.isArray(execution?.warnings) ? execution.warnings : [];
     const safeguards = Array.isArray(execution?.safeguards) ? execution.safeguards : [];
     return {
@@ -142,6 +154,7 @@
       metrics: normalizeMetrics(execution),
       nextMeal,
       calendarContext,
+      fastingContext,
       primaryAction: action,
       evidence: {
         source: execution?.sourceLabel || "No intake source",
@@ -151,10 +164,13 @@
         window: execution?.trainingWindowLabel || "Training time not scheduled",
         mealEvidence: mealPlan?.evidenceMessage || "No meal-level evidence available.",
         calendarSource: calendarContext?.source || "No committed calendar day",
-        calendarPolicy: calendarContext?.targetPolicy || "Approved targets unchanged"
+        calendarPolicy: calendarContext?.targetPolicy || "Approved targets unchanged",
+        fastingStatus: fastingContext?.status || "OFF",
+        fastingWindow: fastingContext?.windowLabel || "No fasting window",
+        fastingPolicy: fastingContext?.targetPolicy || "Approved targets unchanged"
       },
       warnings,
-      safeguards,
+      safeguards: [...new Set([...safeguards, ...(fastingContext?.safeguards || [])])],
       hasApprovedTargets: normalizeMetrics(execution).some((metric) => metric.target > 0)
     };
   }

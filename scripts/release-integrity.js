@@ -35,15 +35,19 @@ check("plan command", html.includes('id="body-plan-command"') && app.includes("b
 check("plan command engine", size("assets/js/plan-command.js") >= 15000, "022D plan command engine appears incomplete");
 check("plan command persistence", app.includes('"plan-command-current"') && app.includes("savePlanCommand"), "022D account persistence is missing");
 check("plan command activation", app.includes("activateDuePlanCommand") && app.includes("rollbackPlanCommand"), "022D activation or rollback is missing");
-check("stylesheet version", html.includes('/assets/styles.css?v=022e'), "app.html is not using the 022E stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=022e'), "app.html is not using the 022E application");
-check("cache version", worker.includes('coach-dominion-022e-v1'), "service-worker cache was not rotated");
-check("cached stylesheet", worker.includes('/assets/styles.css?v=022e'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=022e'), "service worker is caching the wrong application");
+check("daily closeout", html.includes('id="daily-closeout-form"') && app.includes("submitDailyCloseout"), "022F daily closeout is missing");
+check("daily closeout engine", size("assets/js/daily-closeout.js") >= 8000, "022F daily closeout engine appears incomplete");
+check("daily closeout persistence", app.includes('persistClosedLoopState("CLOSEOUT", record.date, record)') && app.includes('"HISTORY", "daily-closeout"'), "022F closeout persistence is missing");
+check("stylesheet version", html.includes('/assets/styles.css?v=022f'), "app.html is not using the 022F stylesheet");
+check("application version", html.includes('/assets/js/app.js?v=022f'), "app.html is not using the 022F application");
+check("cache version", worker.includes('coach-dominion-022f-v1'), "service-worker cache was not rotated");
+check("cached stylesheet", worker.includes('/assets/styles.css?v=022f'), "service worker is caching the wrong stylesheet");
+check("cached application", worker.includes('/assets/js/app.js?v=022f'), "service worker is caching the wrong application");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");
 check("cached plan command", worker.includes('/assets/js/plan-command.js?v=022d'), "service worker is not caching the plan command engine");
+check("cached daily closeout", worker.includes('/assets/js/daily-closeout.js?v=022f'), "service worker is not caching the closeout engine");
 
 if (failures.length) {
   console.error("Release integrity failed:\n- " + failures.join("\n- "));

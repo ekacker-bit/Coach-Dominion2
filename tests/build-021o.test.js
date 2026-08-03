@@ -36,4 +36,3 @@ assert.match(worker, /styles\.css\?v=022[bc]/);
 assert.match(worker, /app\.js\?v=022[bc]/);
 
 console.log("Build 021O word diet and release guardrail tests passed.");
-

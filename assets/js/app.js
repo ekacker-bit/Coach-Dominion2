@@ -8625,6 +8625,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "progress-review"],
       ["ADAPTATION", "plan-command-current"],
       ["HISTORY", "plan-command"],
+      ["ADAPTATION", "observation-verdict-current"],
+      ["HISTORY", "observation-verdict"],
       ["ADAPTATION", "outcome-plan-current"],
       ["HISTORY", "outcome-plan"]
     ];
@@ -8719,6 +8721,27 @@ async function savePlanCommand(record) {
   saveClosedLoopLocal("HISTORY", "plan-command", history);
   const currentSaved = await persistClosedLoopState("ADAPTATION", "plan-command-current", record);
   const historySaved = await persistClosedLoopState("HISTORY", "plan-command", history);
+  return currentSaved && historySaved;
+}
+
+function readObservationVerdict() {
+  return readClosedLoopState("ADAPTATION", "observation-verdict-current", null);
+}
+
+function readObservationVerdictHistory() {
+  const history = readClosedLoopState("HISTORY", "observation-verdict", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function saveObservationVerdict(record) {
+  if (!record?.id) return false;
+  const receiptKey = record.receiptId || `${record.id}:${record.status}:${record.generatedAt || record.decidedAt || "current"}`;
+  const receipt = { ...record, receiptId: receiptKey };
+  const history = [receipt, ...readObservationVerdictHistory().filter((item) => item.receiptId !== receiptKey)].slice(0, 32);
+  saveClosedLoopLocal("ADAPTATION", "observation-verdict-current", receipt);
+  saveClosedLoopLocal("HISTORY", "observation-verdict", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "observation-verdict-current", receipt);
+  const historySaved = await persistClosedLoopState("HISTORY", "observation-verdict", history);
   return currentSaved && historySaved;
 }
 
@@ -12985,6 +13008,7 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("trends")?.addEventListener("click", async (event) => {
+    if (await handleObservationVerdictAction(event)) return;
     if (await handleProgressReviewAction(event)) return;
     if (await handlePlanCommandAction(event)) return;
     if (await handleOutcomePlanAction(event)) return;
@@ -13046,6 +13070,7 @@ if (typeof document !== "undefined") {
     finally { button.disabled = false; }
   });
   document.getElementById("today-body-checkpoint")?.addEventListener("click", async (event) => {
+    if (await handleObservationVerdictAction(event)) return;
     if (await handleProgressReviewAction(event)) return;
     if (await handlePlanCommandAction(event)) return;
     await handleBodyOutcomeAction(event);
@@ -16441,6 +16466,88 @@ function buildCurrentPlanCommand(review = readProgressReview()) {
   return preview ? DominionPlanCommand.withCalendarPreview(command, preview) : command;
 }
 
+function buildCurrentObservationVerdict(command = buildCurrentPlanCommand()) {
+  if (typeof DominionObservationVerdict === "undefined") return null;
+  const prior = readObservationVerdict();
+  return DominionObservationVerdict.buildObservationVerdict({
+    today: todayISODate(),
+    command,
+    priorVerdict: prior?.commandId === command?.id ? prior : null,
+    dailyStates: mergeReadinessHistory(),
+    nutritionDays: trendNutritionHistory(120),
+    nutritionTargets: currentNutritionBaseTargets(todayISODate()),
+    performanceEntries,
+    strengthHistory: readStrengthHistory(),
+    coreHistory: readCoreHistory(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function observationVerdictTone(verdict = {}) {
+  if (verdict.decision === "RETAIN" || verdict.recommendation === "RETAIN") return "positive";
+  if (verdict.decision === "ROLLBACK" || verdict.recommendation === "ROLLBACK") return "danger";
+  return "warning";
+}
+
+function observationVerdictMarkup(verdict = {}, compact = false) {
+  if (!verdict?.id || verdict.status === "WAITING") return "";
+  const tone = observationVerdictTone(verdict);
+  const recommendation = verdict.decision || verdict.recommendation;
+  if (compact) {
+    if (verdict.status !== "READY") return "";
+    return `<article class="observation-verdict-card compact ${tone}" data-observation-state="${escapeHtml(verdict.status)}">
+      <header><span>ATLAS VERDICT · ${escapeHtml(verdict.domain)}</span><strong>${escapeHtml(verdict.confidence?.label || "LEARNING")} EVIDENCE</strong></header>
+      <h3>${escapeHtml(recommendation === "RETAIN" ? "Keep the change" : recommendation === "ROLLBACK" ? "Restore the prior plan" : "Observe seven more days")}</h3>
+      <p>${escapeHtml(verdict.rationale)}</p>
+      <div class="observation-verdict-actions"><button type="button" data-observation-verdict-route="trends">Review evidence</button></div>
+    </article>`;
+  }
+  const metrics = (verdict.metrics || []).map((item) => `<article>
+    <span>${escapeHtml(item.label)}</span>
+    <div><small>BEFORE</small><strong>${escapeHtml(item.baseline)}</strong></div>
+    <i aria-hidden="true">→</i>
+    <div><small>AFTER</small><strong>${escapeHtml(item.observed)}</strong></div>
+  </article>`).join("");
+  const requirements = (verdict.requirements || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const title = verdict.status === "RESOLVED"
+    ? `${verdict.decision === "RETAIN" ? "Change retained" : "Prior plan restored"}`
+    : verdict.status === "EXTENDED"
+      ? `Observation extended to ${verdict.nextObservationEnd}`
+      : verdict.status === "READY"
+        ? recommendation === "RETAIN" ? "Retain the change" : recommendation === "ROLLBACK" ? "Roll back the change" : "Observe seven more days"
+        : verdict.status === "SCHEDULED" ? `Observation starts ${verdict.windows?.observationStart}` : `Observation in progress`;
+  let actions = "";
+  if (verdict.status === "READY") {
+    actions = `<div class="observation-verdict-actions">
+      <button type="button" data-observation-verdict-action="RETAIN">Retain change</button>
+      <button type="button" class="ghost" data-observation-verdict-action="EXTEND" ${Number(verdict.extensionCount || 0) >= 2 ? "disabled" : ""}>Observe 7 more days</button>
+      <button type="button" class="ghost danger" data-observation-verdict-action="ROLLBACK">Roll back</button>
+    </div>`;
+  }
+  return `<article class="observation-verdict-card ${tone}" data-observation-state="${escapeHtml(verdict.status)}">
+    <header><div><span>ATLAS OBSERVATION VERDICT · ${escapeHtml(verdict.domain)}</span><h3>${escapeHtml(title)}</h3></div><strong>${escapeHtml(verdict.confidence?.score ?? 0)}% ${escapeHtml(verdict.confidence?.label || "LEARNING")}</strong></header>
+    <p>${escapeHtml(verdict.rationale || "Atlas is collecting the result of the approved change.")}</p>
+    <div class="observation-verdict-window"><span>BEFORE · ${escapeHtml(verdict.windows?.baselineStart || "—")} TO ${escapeHtml(verdict.windows?.baselineEnd || "—")}</span><span>AFTER · ${escapeHtml(verdict.windows?.observationStart || "—")} TO ${escapeHtml(verdict.windows?.observedThrough || "—")}</span></div>
+    <div class="observation-verdict-metrics">${metrics}</div>
+    <div class="observation-verdict-evidence"><strong>Evidence check</strong><ul>${requirements}</ul></div>
+    ${actions}
+    <footer><small>${readObservationVerdictHistory().length} decision receipt${readObservationVerdictHistory().length === 1 ? "" : "s"}</small><small>No plan changes without your decision</small></footer>
+  </article>`;
+}
+
+function renderObservationVerdict(targetId, compact = false) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const verdict = buildCurrentObservationVerdict();
+  target.innerHTML = verdict ? observationVerdictMarkup(verdict, compact) : "";
+  target.hidden = !target.innerHTML;
+}
+
+function renderObservationVerdictSurfaces() {
+  renderObservationVerdict("today-observation-verdict", true);
+  renderObservationVerdict("body-observation-verdict");
+}
+
 function planCommandPlanSummary(domain, plan = {}) {
   if (domain === "NUTRITION") {
     const targets = plan.recoveryTargets || {};
@@ -16506,7 +16613,7 @@ function planCommandMarkup(command = {}, compact = false) {
     const elapsed = Math.max(1, Math.min(total, Math.round((new Date(`${todayISODate()}T12:00:00Z`) - new Date(`${command.effectiveDate}T12:00:00Z`)) / 86400000) + 1));
     actions = `<div class="plan-command-observation"><span>OBSERVATION</span><strong>Day ${elapsed} of ${total}</strong><i><b style="--plan-observation:${elapsed / total * 100}%"></b></i></div><div class="plan-command-actions"><button type="button" class="ghost danger" data-plan-command-action="ROLLBACK">Roll back now</button></div>`;
   } else if (command.status === "REVIEW_DUE") {
-    actions = '<div class="plan-command-actions"><button type="button" data-plan-command-action="RETAIN">Retain change</button><button type="button" class="ghost danger" data-plan-command-action="ROLLBACK">Roll back</button></div>';
+    actions = '<div class="plan-command-actions"><button type="button" data-plan-command-route="trends">Review Atlas verdict</button></div>';
   } else if (command.status === "BLOCKED") {
     actions = `<div class="plan-command-actions"><button type="button" data-plan-command-route="${domain === "NUTRITION" ? "nutrition" : "performance"}">Open ${escapeHtml(domain.toLowerCase())}</button></div>`;
   }
@@ -16686,12 +16793,67 @@ async function activateDuePlanCommand() {
 function renderPlanCommandSurfaces() {
   renderPlanCommand("today-plan-command", true);
   renderPlanCommand("body-plan-command");
+  renderObservationVerdictSurfaces();
   renderWeeklyOrchestrator();
   renderTodayCommittedWeek();
   renderTodayCommandSurface();
   renderDailyAssignment();
   renderNutritionCommand();
   renderPerformanceSection();
+}
+
+async function handleObservationVerdictAction(event) {
+  const route = event.target.closest("button[data-observation-verdict-route]");
+  if (route) {
+    setActiveSection("trends");
+    setTrendView("body");
+    window.history.replaceState(null, "", "#trends");
+    document.getElementById("body-observation-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  const button = event.target.closest("button[data-observation-verdict-action]");
+  if (!button || typeof DominionObservationVerdict === "undefined" || typeof DominionPlanCommand === "undefined") return false;
+  button.disabled = true;
+  try {
+    const action = button.dataset.observationVerdictAction;
+    let command = buildCurrentPlanCommand();
+    const verdict = buildCurrentObservationVerdict(command);
+    if (!command?.id || !verdict?.id) throw new Error("No observation verdict is ready.");
+    const receipt = DominionObservationVerdict.resolveVerdict(verdict, action, {
+      decidedAt: new Date().toISOString(),
+      userId: session?.user?.id || null
+    });
+    if (action === "EXTEND") {
+      command = {
+        ...command,
+        status: "OBSERVING",
+        observationEnd: receipt.nextObservationEnd,
+        extensionCount: receipt.extensionCount,
+        extendedAt: receipt.decidedAt,
+        lastObservationDecision: "EXTEND"
+      };
+    } else if (action === "RETAIN") {
+      command = DominionPlanCommand.completeObservation(command, "RETAIN", { closedAt: receipt.decidedAt });
+    } else {
+      command = await rollbackPlanCommand(command);
+    }
+    const [commandSynced, verdictSynced] = await Promise.all([savePlanCommand(command), saveObservationVerdict(receipt)]);
+    renderPlanCommandSurfaces();
+    if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+    const message = action === "EXTEND"
+      ? `Observation extended through ${receipt.nextObservationEnd}. The approved change remains active.`
+      : action === "RETAIN"
+        ? "Verdict recorded. The observed change is now the retained plan."
+        : "Verdict recorded. The prior plan and calendar were restored.";
+    const syncNote = commandSynced && verdictSynced ? " Saved to your account." : " Saved on this device; account sync will retry.";
+    setText("observation-verdict-feedback", `${message}${syncNote}`);
+    setText("plan-command-feedback", `${message}${syncNote}`);
+  } catch (error) {
+    setText("observation-verdict-feedback", error?.message || "That observation decision could not be completed.");
+  } finally {
+    button.disabled = false;
+  }
+  return true;
 }
 
 async function handlePlanCommandAction(event) {
@@ -17099,6 +17261,7 @@ function renderTodayBodyCheckpoint(outcome = buildCurrentBodyOutcomeModel()) {
   renderBodyPhotoExperience();
   renderProgressReview(outcome, "today-body-review", true);
   renderPlanCommand("today-plan-command", true);
+  renderObservationVerdict("today-observation-verdict", true);
 }
 
 function renderBodyOutcome(outcome) {
@@ -17134,6 +17297,7 @@ function renderBodyOutcome(outcome) {
   renderBodyCheckInHistory(outcome);
   renderProgressReview(outcome, "body-four-week-review");
   renderPlanCommand("body-plan-command");
+  renderObservationVerdict("body-observation-verdict");
   const dateInput = document.getElementById("body-checkin-date");
   if (dateInput && !dateInput.value) {
     dateInput.value = todayISODate();

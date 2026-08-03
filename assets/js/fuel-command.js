@@ -147,4 +147,3 @@
 
   return { VERSION, selectNextMeal, primaryAction, buildFuelCommand };
 }));
-

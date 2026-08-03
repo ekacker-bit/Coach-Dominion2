@@ -41,4 +41,3 @@ test("Build 021K retains the Dominion responsive visual system", () => {
   assert.match(html, /styles\.css\?v=022[bc]/);
   assert.match(html, /app\.js\?v=022[bc]/);
 });
-

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=022f">
+  <link rel="stylesheet" href="/assets/styles.css?v=022g">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -1839,12 +1839,30 @@
       <small>COACH DOMINION // OPERATING SYSTEM FOR SELF-MASTERY</small>
     </footer>
   </main>
+  <dialog id="mobile-more-dialog" class="mobile-more-dialog" aria-labelledby="mobile-more-heading">
+    <div class="mobile-more-shell">
+      <header>
+        <div><span>COMMAND MENU</span><h2 id="mobile-more-heading">Go anywhere</h2></div>
+        <button type="button" class="ghost" data-mobile-more-action="close" aria-label="Close command menu">Close</button>
+      </header>
+      <nav class="mobile-more-grid" aria-label="More Coach Dominion destinations">
+        <a href="#calendar" data-section="calendar"><strong>Calendar</strong><small>Plan the week</small></a>
+        <a href="#contract" data-section="contract"><strong>Contract</strong><small>Your commitment</small></a>
+        <a href="#trends" data-section="trends"><strong>Trends</strong><small>See progress</small></a>
+        <a href="#standards" data-section="standards"><strong>Standards</strong><small>Review discipline</small></a>
+        <a href="#rank" data-section="rank"><strong>Rank</strong><small>Track ascension</small></a>
+        <a href="#record" data-section="record"><strong>Record</strong><small>Log evidence</small></a>
+        <a href="#connected" data-section="connected"><strong>Connections</strong><small>Manage data</small></a>
+      </nav>
+      <button type="button" class="ghost mobile-more-signout" data-mobile-more-action="signout">Sign out</button>
+    </div>
+  </dialog>
   <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
     <a data-mobile-nav="today" href="#today">Today</a>
-    <a data-mobile-nav="train" href="#today">Train</a>
-    <a data-mobile-nav="calendar" href="#calendar" data-section="calendar">Calendar</a>
+    <a data-mobile-nav="train" href="#performance">Train</a>
     <a data-mobile-nav="fuel" href="#nutrition">Fuel</a>
-    <a data-mobile-nav="contract" href="#contract" data-section="contract">Contract</a>
+    <a data-mobile-nav="review" href="#inspection">Review</a>
+    <button type="button" data-mobile-nav="more" aria-haspopup="dialog" aria-controls="mobile-more-dialog">More</button>
   </nav>
 
 <script src="/assets/js/connected.js"></script>
@@ -1887,7 +1905,7 @@
 <script src="/assets/js/contract-activation.js"></script>
 <script src="/assets/js/contract-integrity.js"></script>
 <script src="/assets/js/contract-autosave.js?v=021h"></script>
-<script src="/assets/js/mobile-command.js"></script>
+<script src="/assets/js/mobile-command.js?v=022g"></script>
 <script src="/assets/js/experience-shell.js"></script>
 <script src="/assets/js/daily-ritual.js?v=022f"></script>
 <script src="/assets/js/operating-truth.js"></script>
@@ -1895,6 +1913,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=022f"></script>
+<script src="/assets/js/app.js?v=022g"></script>
 </body>
 </html>

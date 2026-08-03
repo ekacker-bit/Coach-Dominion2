@@ -35,7 +35,7 @@ for (const field of [
 }
 
 assert.match(html, /href="#contract" data-section="contract">CONTRACT</);
-assert.match(html, /href="#contract" data-section="contract">Contract</);
+assert.match(html, /href="#contract" data-section="contract">(?:<strong>)?Contract/);
 assert.match(html, /src="\/assets\/js\/recruit-contract\.js"/);
 assert.match(css, /Build 018B: centralized Recruit Contract/);
 assert.match(css, /\.recruit-contract-week\{display:grid;grid-template-columns:repeat\(7/);

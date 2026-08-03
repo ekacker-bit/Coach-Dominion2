@@ -2240,6 +2240,13 @@ function setStatus(message) {
 function setLoading(isLoading) {
   document.getElementById("app-content").hidden = isLoading;
   document.getElementById("loading").hidden = !isLoading;
+  document.body.dataset.appLoading = isLoading ? "true" : "false";
+}
+
+function revealMobileShell() {
+  if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
+  setLoading(false);
+  document.body.dataset.mobileHydration = "progressive";
 }
 
 function setText(id, value) {
@@ -7962,8 +7969,12 @@ function renderMobileCommand() {
   setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Today’s totals");
   prefillMobileCommandForms();
   renderMobileInstallExperience();
+  const activeMobileNav = DominionMobileCommand.mobileNavForSection(activeSection);
   document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.mobileNav === "today" && activeSection === "today");
+    const isActive = button.dataset.mobileNav === activeMobileNav;
+    button.classList.toggle("active", isActive);
+    if (isActive) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   });
   renderDominionExperienceShell();
 }
@@ -11290,9 +11301,14 @@ function setActiveSection(section = "today") {
     element.hidden = !isMatch;
     element.setAttribute("aria-hidden", isMatch ? "false" : "true");
   });
-  const mobileSectionMap = { today: "today", performance: "train", calendar: "calendar", nutrition: "fuel", contract: "contract" };
+  const activeMobileNav = typeof DominionMobileCommand !== "undefined"
+    ? DominionMobileCommand.mobileNavForSection(normalized)
+    : ({ today: "today", performance: "train", nutrition: "fuel", inspection: "review" }[normalized] || "more");
   document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.mobileNav === mobileSectionMap[normalized]);
+    const isActive = button.dataset.mobileNav === activeMobileNav;
+    button.classList.toggle("active", isActive);
+    if (isActive) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   });
   const target = document.getElementById(normalized) || document.querySelector(`[data-section="${normalized}"]`);
   if (target) {
@@ -13030,6 +13046,7 @@ async function init() {
     restoreSectionFromHash();
     await loadDailyState();
     try { await loadCommandFeed(); } catch (_) { renderCommandFeed([]); }
+    revealMobileShell();
     await loadDailyCompliance();
     document.getElementById("weekly-date").value = todayISODate();
     await loadWeeklyInspection();
@@ -13058,6 +13075,7 @@ async function init() {
     renderMobileCommand();
     resetPerformanceForm();
     setPerformanceActiveView("overview");
+    document.body.dataset.mobileHydration = "ready";
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -13364,17 +13382,29 @@ if (typeof document !== "undefined") {
     if (!button) return;
     event.preventDefault();
     const action = button.dataset.mobileNav;
-    if (action === "roll-call") return openMobileCommandSheet("roll-call");
-    if (action === "fuel") return openMobileCommandSheet("nutrition");
-    if (action === "train") {
-      setActiveSection("today");
-      window.history.replaceState(null, "", "#today");
-      document.getElementById("mobile-command-modules")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const destination = typeof DominionMobileCommand !== "undefined"
+      ? DominionMobileCommand.resolveMobileDestination(action)
+      : { section: action === "train" ? "performance" : action === "fuel" ? "nutrition" : action === "review" ? "inspection" : "today" };
+    if (destination.dialog) {
+      const dialog = document.getElementById(destination.dialog);
+      if (dialog?.showModal && !dialog.open) dialog.showModal();
       return;
     }
-    const section = action === "contract" ? "contract" : action === "calendar" ? "calendar" : "today";
-    setActiveSection(section);
-    window.history.replaceState(null, "", `#${section}`);
+    if (destination.performanceView) setPerformanceActiveView(destination.performanceView);
+    setActiveSection(destination.section);
+    window.history.replaceState(null, "", `#${destination.section}`);
+  });
+  document.getElementById("mobile-more-dialog")?.addEventListener("click", async (event) => {
+    const dialog = event.currentTarget;
+    const action = event.target.closest("[data-mobile-more-action]")?.dataset.mobileMoreAction;
+    if (action === "close") return dialog.close();
+    if (action === "signout") {
+      dialog.close();
+      await signOutUser();
+      return;
+    }
+    if (event.target === dialog) dialog.close();
+    if (event.target.closest('a[data-section][href^="#"]')) dialog.close();
   });
   document.getElementById("mobile-install")?.addEventListener("click", requestMobileInstall);
   initializeComplianceForm();

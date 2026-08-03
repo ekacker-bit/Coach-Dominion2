@@ -19,16 +19,17 @@ function test(name, fn) {
 test("Calendar is a first-class desktop and mobile destination", () => {
   assert.match(html, /href="#calendar" data-section="calendar">CALENDAR<\/a>/);
   assert.match(html, /id="calendar" class="card calendar-command weekly-orchestrator scroll-anchor"/);
-  assert.match(html, /data-mobile-nav="calendar" href="#calendar"/);
+  assert.match(html, /href="#calendar" data-section="calendar"/);
+  assert.match(html, /id="mobile-more-dialog"/);
   assert.equal((html.match(/id="weekly-orchestrator-panel"/g) || []).length, 1);
   assert.match(app, /const SECTION_ORDER = \[[^\]]*"calendar"/);
   assert.match(shell, /calendar: \{ label: "Calendar", mode: "COORDINATE"/);
 });
 
 test("calendar assets are cache-busted for Build 021I", () => {
-  assert.match(html, /styles\.css\?v=022[b-f]/);
+  assert.match(html, /styles\.css\?v=022[b-g]/);
   assert.match(html, /weekly-orchestrator\.js\?v=021i/);
-  assert.match(html, /app\.js\?v=022[b-f]/);
+  assert.match(html, /app\.js\?v=022[b-g]/);
 });
 
 test("Core pairing creates one training window through 120 minutes", () => {

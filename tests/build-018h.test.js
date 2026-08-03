@@ -24,7 +24,7 @@ for (const id of [
 assert.match(html, /BUILD 018H \/\/ MOBILE COMMAND/);
 assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
 assert.match(html, /name="apple-mobile-web-app-capable" content="yes"/);
-assert.match(html, /src="\/assets\/js\/mobile-command\.js"/);
+assert.match(html, /src="\/assets\/js\/mobile-command\.js(?:\?v=022g)?"/);
 assert.ok(html.indexOf("mobile-command.js") < html.indexOf("app.js"), "mobile engine must load before app integration");
 
 for (const marker of [

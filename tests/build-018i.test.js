@@ -18,8 +18,8 @@ for (const id of [
   "adaptive-coaching-feedback"
 ]) assert.match(html, new RegExp(`id="${id}"`), `missing 018I surface: ${id}`);
 
-assert.match(html, /BUILD 018I \/\/ ADAPTIVE COACHING/);
-assert.match(html, /src="\/assets\/js\/adaptive-coaching\.js"/);
+assert.match(html, /ATLAS COACH CHECK/);
+assert.match(html, /src="\/assets\/js\/adaptive-coaching\.js\?v=022a"/);
 assert.ok(html.indexOf("adaptive-coaching.js") < html.indexOf("app.js"), "adaptive engine must load before app integration");
 
 for (const marker of [

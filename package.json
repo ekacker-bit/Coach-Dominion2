@@ -1,3 +1,4 @@
+
 {
   "name": "coach-dominion",
   "version": "0.3.2",
@@ -69,7 +70,9 @@
     "test:021n": "node tests/one-command.test.js && node tests/daily-ritual.test.js && node tests/build-021n.test.js && node tests/build-021m.test.js && node tests/build-019e.test.js && node tests/build-019c.test.js",
     "test:021o": "node scripts/release-integrity.js && node tests/build-021o.test.js && node tests/build-021n.test.js",
     "test:022a": "node tests/atlas-intervention.test.js && node tests/build-022a.test.js && node tests/adaptive-coaching.test.js",
+    "test:022b": "node tests/body-progress.test.js && node tests/body-composition.test.js && node tests/build-022b.test.js && node tests/build-022a.test.js",
     "release:check": "node scripts/release-integrity.js",
     "pretest": "node scripts/release-integrity.js && node tests/atlas-intervention.test.js && node tests/build-022a.test.js && node tests/build-021o.test.js && node tests/operating-truth.test.js && node tests/build-019d.test.js && node tests/one-command.test.js && node tests/build-019e.test.js && node tests/activation-repair.test.js && node tests/build-019f.test.js && node tests/recruit-contract.test.js && node tests/contract-experience.test.js && node tests/weekly-orchestrator.test.js && node tests/running-block.test.js && node tests/build-019g.test.js && node tests/build-020a.test.js && node tests/split-day-command.test.js && node tests/build-020b.test.js && node tests/build-021a.test.js && node tests/dominion-continuity.test.js && node tests/build-021b.test.js && node tests/first-week-orientation.test.js && node tests/build-021c.test.js && node tests/build-021d.test.js && node tests/build-021e.test.js && node tests/contract-integrity.test.js && node tests/build-021f.test.js && node tests/contract-autosave.test.js && node tests/build-021g.test.js && node tests/build-021h.test.js && node tests/build-021i.test.js && node tests/trends-intelligence.test.js && node tests/build-021j.test.js && node tests/body-composition.test.js && node tests/build-021k.test.js && node tests/build-021l.test.js && node tests/outcome-plan-revision.test.js && node tests/build-021m.test.js && node tests/build-021n.test.js"
   }
 }
+

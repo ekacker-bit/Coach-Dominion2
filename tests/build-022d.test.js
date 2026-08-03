@@ -54,4 +54,3 @@ test("022D is word-light, responsive, versioned, and cached", () => {
 });
 
 console.log("Build 022D Review-to-Plan Command integration verified.");
-

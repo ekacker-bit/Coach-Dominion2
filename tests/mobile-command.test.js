@@ -3,6 +3,15 @@ const mobile = require("../assets/js/mobile-command.js");
 
 const date = "2026-08-03";
 
+assert.equal(mobile.VERSION, "022G.1");
+assert.deepEqual(mobile.resolveMobileDestination("train"), { section: "performance", performanceView: "today_training" });
+assert.deepEqual(mobile.resolveMobileDestination("review"), { section: "inspection" });
+assert.equal(mobile.resolveMobileDestination("more").dialog, "mobile-more-dialog");
+assert.equal(mobile.mobileNavForSection("calendar"), "more");
+assert.equal(mobile.mobileNavForSection("contract"), "more");
+assert.equal(mobile.mobileNavForSection("inspection"), "review");
+assert.equal(mobile.mobileNavForSection("performance"), "train");
+
 function base(overrides = {}) {
   return {
     date,
@@ -100,4 +109,4 @@ function base(overrides = {}) {
   assert.equal(mobile.acknowledgeWrite(replaced, `DAILY_STATE:${date}`).length, 0);
 }
 
-console.log("Build 018H Mobile Command tests passed.");
+console.log("Build 022G Mobile Command tests passed.");

@@ -200,6 +200,297 @@
     #111314;
 }
 
+/* Build 022B: private progress photos and body-fat estimate. */
+.body-fat-estimate {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  color: var(--stone);
+  background: linear-gradient(100deg, rgba(212, 175, 55, 0.11), rgba(46, 75, 52, 0.12));
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  border-left: 3px solid var(--victory-gold);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.body-fat-estimate strong {
+  color: var(--stone);
+  font: 28px/1 var(--font-command);
+  letter-spacing: 0.035em;
+}
+
+.body-fat-estimate span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.body-measurement-grid article em {
+  color: var(--victory-gold);
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.body-photo-capture {
+  min-width: 0;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid rgba(212, 175, 55, 0.26);
+  border-radius: 10px;
+  background: rgba(5, 8, 7, 0.48);
+}
+
+.body-photo-capture legend {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 8px;
+  color: var(--stone);
+  font: 18px/1 var(--font-command);
+  letter-spacing: 0.045em;
+}
+
+.body-photo-capture legend small,
+.body-photo-capture > p {
+  color: var(--muted);
+  font: 11px/1.45 var(--font-body);
+  letter-spacing: normal;
+}
+
+.body-photo-capture > p { margin: 0 0 14px; }
+
+.body-photo-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.body-photo-inputs > label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.body-photo-inputs input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.body-photo-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  min-height: 130px;
+  overflow: hidden;
+  color: var(--muted);
+  background:
+    linear-gradient(135deg, rgba(212, 175, 55, 0.07), transparent 45%),
+    #0d1210;
+  border: 1px dashed rgba(230, 230, 228, 0.28);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.body-photo-preview:hover,
+.body-photo-inputs label:focus-within .body-photo-preview {
+  border-color: var(--victory-gold);
+  transform: translateY(-1px);
+}
+
+.body-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body-photo-preview small {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  padding: 5px 7px;
+  color: var(--dominion-black);
+  background: var(--victory-gold);
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+.body-photo-progress {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(212, 175, 55, 0.09), transparent 28%),
+    rgba(10, 14, 12, 0.78);
+}
+
+.body-photo-progress > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.body-photo-progress > header span {
+  color: var(--victory-gold);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+.body-photo-progress > header h3 {
+  margin: 4px 0 0;
+  font: clamp(30px, 5vw, 46px)/0.95 var(--font-command);
+}
+
+.body-photo-progress > header > strong {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.body-photo-compare-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+  max-width: 680px;
+}
+
+.body-photo-compare-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.body-photo-compare-controls > span {
+  padding-bottom: 14px;
+  color: var(--victory-gold);
+}
+
+.body-photo-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 3vw, 30px);
+}
+
+.body-photo-single { max-width: 720px; }
+
+.body-photo-comparison > section,
+.body-photo-single > section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.body-photo-comparison section > header,
+.body-photo-single section > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.body-photo-comparison section > header strong,
+.body-photo-single section > header strong { color: var(--stone); }
+
+.body-photo-angle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.body-photo-tile {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.body-photo-tile > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.body-photo-tile img,
+.body-photo-tile > div {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 7px;
+}
+
+.body-photo-tile img {
+  display: block;
+  object-fit: cover;
+  background: #080b09;
+  border: 1px solid rgba(230, 230, 228, 0.14);
+}
+
+.body-photo-tile > div {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  color: var(--dim);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px dashed rgba(230, 230, 228, 0.15);
+  font-size: 10px;
+  text-align: center;
+}
+
+.body-photo-tile button {
+  min-height: 34px;
+  padding: 7px 8px;
+  font-size: 9px;
+}
+
+.body-photo-progress > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  .today-body-primary-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .body-photo-capture { padding: 13px; }
+  .body-photo-inputs { gap: 7px; }
+  .body-photo-preview { min-height: 104px; }
+  .body-photo-progress > header { align-items: flex-start; flex-direction: column; }
+  .body-photo-comparison { grid-template-columns: 1fr; }
+  .body-photo-angle-grid { gap: 6px; }
+  .body-photo-tile button { width: 100%; }
+}
+
+@media (max-width: 420px) {
+  .body-photo-compare-controls { grid-template-columns: 1fr; }
+  .body-photo-compare-controls > span { display: none; }
+  .body-photo-preview { min-height: 88px; }
+  .body-photo-progress { padding: 15px; }
+}
+
 #today > .atlas-intervention::before {
   position: absolute;
   inset: 0 auto auto 0;

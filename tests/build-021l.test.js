@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -40,8 +39,8 @@ test("Build 021L ships the responsive Dominion checkpoint experience", () => {
   assert.match(styles, /\.today-body-checkpoint/);
   assert.match(styles, /\.body-review-card/);
   assert.match(styles, /@media \(max-width: 700px\)/);
-  assert.match(html, /styles\.css\?v=022b/);
+  assert.match(html, /styles\.css\?v=022[bc]/);
   assert.match(html, /body-composition\.js\?v=022b/);
-  assert.match(html, /app\.js\?v=022b/);
+  assert.match(html, /app\.js\?v=022[bc]/);
 });
 

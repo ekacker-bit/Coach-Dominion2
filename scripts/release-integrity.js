@@ -35,11 +35,11 @@ check("plan command", html.includes('id="body-plan-command"') && app.includes("b
 check("plan command engine", size("assets/js/plan-command.js") >= 15000, "022D plan command engine appears incomplete");
 check("plan command persistence", app.includes('"plan-command-current"') && app.includes("savePlanCommand"), "022D account persistence is missing");
 check("plan command activation", app.includes("activateDuePlanCommand") && app.includes("rollbackPlanCommand"), "022D activation or rollback is missing");
-check("stylesheet version", html.includes('/assets/styles.css?v=022d'), "app.html is not using the 022D stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=022d'), "app.html is not using the 022D application");
-check("cache version", worker.includes('coach-dominion-022d-v1'), "service-worker cache was not rotated");
-check("cached stylesheet", worker.includes('/assets/styles.css?v=022d'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=022d'), "service worker is caching the wrong application");
+check("stylesheet version", html.includes('/assets/styles.css?v=022e'), "app.html is not using the 022E stylesheet");
+check("application version", html.includes('/assets/js/app.js?v=022e'), "app.html is not using the 022E application");
+check("cache version", worker.includes('coach-dominion-022e-v1'), "service-worker cache was not rotated");
+check("cached stylesheet", worker.includes('/assets/styles.css?v=022e'), "service worker is caching the wrong stylesheet");
+check("cached application", worker.includes('/assets/js/app.js?v=022e'), "service worker is caching the wrong application");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

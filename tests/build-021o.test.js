@@ -29,10 +29,10 @@ assert.match(css, /--dominion-page-max: 1480px/);
 assert.match(css, /\.dominion-brand-mark[\s\S]*object-fit: contain/);
 assert.match(css, /@media \(max-width: 720px\)/);
 
-assert.match(html, /styles\.css\?v=022[b-d]/);
-assert.match(html, /app\.js\?v=022[b-d]/);
-assert.match(worker, /coach-dominion-022[b-d]-v1/);
-assert.match(worker, /styles\.css\?v=022[b-d]/);
-assert.match(worker, /app\.js\?v=022[b-d]/);
+assert.match(html, /styles\.css\?v=022[b-e]/);
+assert.match(html, /app\.js\?v=022[b-e]/);
+assert.match(worker, /coach-dominion-022[b-e]-v1/);
+assert.match(worker, /styles\.css\?v=022[b-e]/);
+assert.match(worker, /app\.js\?v=022[b-e]/);
 
 console.log("Build 021O word diet and release guardrail tests passed.");

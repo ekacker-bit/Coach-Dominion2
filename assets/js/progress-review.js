@@ -22,8 +22,8 @@
   };
   const signed = (value, unit = "") => {
     const number = finite(value);
-    if (number === null) return "â€”";
-    const prefix = number > 0 ? "+" : number < 0 ? "âˆ’" : "";
+    if (number === null) return "—";
+    const prefix = number > 0 ? "+" : number < 0 ? "−" : "";
     return `${prefix}${Math.abs(number).toFixed(1).replace(/\.0$/, "")}${unit}`;
   };
 
@@ -212,4 +212,3 @@
     resolveProgressReview
   });
 });
-

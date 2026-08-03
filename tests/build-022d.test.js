@@ -14,7 +14,7 @@ const worker = read("sw.js");
 test("022D loads one plan command after the Progress Review engine", () => {
   const review = html.indexOf('/assets/js/progress-review.js?v=022c');
   const command = html.indexOf('/assets/js/plan-command.js?v=022d');
-  const application = html.search(/\/assets\/js\/app\.js\?v=022[d-e]/);
+  const application = html.search(/\/assets\/js\/app\.js\?v=022[d-f]/);
   assert.ok(review > 0 && command > review && application > command);
   assert.match(html, /id="today-plan-command" class="plan-command-surface compact"/);
   assert.match(html, /id="body-plan-command" class="plan-command-surface"/);
@@ -47,10 +47,10 @@ test("022D is word-light, responsive, versioned, and cached", () => {
   assert.match(css, /\.plan-command-compare/);
   assert.match(css, /\.plan-command-calendar/);
   assert.match(css, /@media \(max-width: 720px\)/);
-  assert.match(html, /styles\.css\?v=022[d-e]/);
-  assert.match(worker, /coach-dominion-022[d-e]-v1/);
+  assert.match(html, /styles\.css\?v=022[d-f]/);
+  assert.match(worker, /coach-dominion-022[d-f]-v1/);
   assert.match(worker, /plan-command\.js\?v=022d/);
-  assert.match(worker, /app\.js\?v=022[d-e]/);
+  assert.match(worker, /app\.js\?v=022[d-f]/);
 });
 
 console.log("Build 022D Review-to-Plan Command integration verified.");

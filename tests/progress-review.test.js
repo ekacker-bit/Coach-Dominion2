@@ -113,4 +113,3 @@ test("a deferred review reopens on its reassessment date", () => {
 });
 
 console.log(`Build 022C progress review: ${review.VERSION}`);
-

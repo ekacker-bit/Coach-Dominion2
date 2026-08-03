@@ -43,4 +43,3 @@ test("Build 021L ships the responsive Dominion checkpoint experience", () => {
   assert.match(html, /body-composition\.js\?v=022b/);
   assert.match(html, /app\.js\?v=(?:022[b-g]|023a)/);
 });
-

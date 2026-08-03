@@ -1,3 +1,4 @@
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -43,10 +44,11 @@ test("Build 022A is responsive, cached, and versioned", () => {
   assert.match(styles, /@media \(max-width: 720px\)/);
   assert.match(html, /atlas-intervention\.js\?v=022a/);
   assert.match(html, /adaptive-coaching\.js\?v=022a/);
-  assert.match(html, /styles\.css\?v=022a/);
-  assert.match(html, /app\.js\?v=022a/);
-  assert.match(worker, /coach-dominion-022a-v1/);
+  assert.match(html, /styles\.css\?v=022b/);
+  assert.match(html, /app\.js\?v=022b/);
+  assert.match(worker, /coach-dominion-022b-v1/);
   assert.match(worker, /atlas-intervention\.js\?v=022a/);
 });
 
 console.log("Build 022A integration tests passed.");
+

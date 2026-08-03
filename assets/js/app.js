@@ -8822,51 +8822,58 @@ function adaptiveCoachingTone(status = "", code = "") {
 function renderAdaptiveCoaching() {
   const panel = document.getElementById("adaptive-coaching-panel");
   const status = document.getElementById("adaptive-coaching-status");
-  if (!panel || !status || typeof DominionAdaptiveCoaching === "undefined") return;
+  const section = document.getElementById("adaptive-coaching");
+  if (!panel || !status || !section || typeof DominionAdaptiveCoaching === "undefined" || typeof DominionAtlasIntervention === "undefined") return;
   const proposal = buildCurrentAdaptiveCoaching();
   if (!proposal) {
-    panel.innerHTML = '<div class="performance-empty">Adaptive coaching is unavailable.</div>';
+    panel.innerHTML = '<div class="performance-empty">Atlas coaching is unavailable.</div>';
     return;
   }
-  status.textContent = proposal.status;
+  const intervention = DominionAtlasIntervention.buildIntervention(
+    proposal,
+    proposal.atlasIntervention?.response || null
+  );
+  section.dataset.interventionState = intervention.stateLabel;
+  status.textContent = intervention.stateLabel;
   status.className = `state-pill ${adaptiveCoachingTone(proposal.status, proposal.code)}`;
-  const readiness = proposal.signals.readiness;
-  const evidence = proposal.signals.evidence;
-  const recruitSignal = proposal.recruitContext
-    ? `<div><span>Recruit profile</span><strong>${escapeHtml(proposal.recruitContext.athleteTypeLabel)}</strong><small>${escapeHtml(String(proposal.recruitContext.trainingYears))} years · ${proposal.recruitContext.progressionPolicy === "HOLD_PROGRESSION" ? "Baseline hold" : "Evidence governed"}</small></div>`
-    : "";
-  const changeMarkup = (proposal.changes || []).map((change) => `
-    <article class="adaptive-domain ${escapeHtml(change.domain.toLowerCase())}">
-      <span>${escapeHtml(change.domain)}</span>
-      <strong>${escapeHtml(change.label)}</strong>
-      <p>${escapeHtml(change.detail)}</p>
-      ${change.requiresPlanApproval ? '<small>Plan approval required</small>' : '<small>Applies only after directive approval</small>'}
-    </article>`).join("");
-  let actions = '<button type="button" class="ghost" data-adaptive-action="refresh">Refresh signals</button>';
-  if (proposal.status === "PROPOSED") {
-    actions = `<button type="button" data-adaptive-action="approve">Approve for ${escapeHtml(proposal.effectiveDate)}</button>
-      <button type="button" class="ghost" data-adaptive-action="hold">Keep current plan</button>`;
-  } else if (proposal.status === "APPROVED") {
-    actions = `<button type="button" class="ghost" data-adaptive-action="hold">End directive</button>
-      <button type="button" class="ghost" data-adaptive-action="refresh">Refresh signals</button>`;
+  const questionMarkup = intervention.question ? `<fieldset class="atlas-intervention-question">
+      <legend>${escapeHtml(intervention.question.prompt)}</legend>
+      <div>${intervention.question.answers.map((answer) => `<button type="button" class="${intervention.response?.answerId === answer.id ? "selected" : "ghost"}" data-atlas-intervention-action="answer" data-answer="${escapeHtml(answer.id)}">${escapeHtml(answer.label)}</button>`).join("")}</div>
+    </fieldset>` : "";
+  let actions = "";
+  if (proposal.status === "APPROVED") {
+    actions = '<button type="button" class="ghost" data-atlas-intervention-action="hold">End adjustment</button>';
+  } else if (proposal.status === "HELD") {
+    actions = '<button type="button" data-atlas-intervention-action="continue">Continue Today</button>';
+  } else if (intervention.canApprove) {
+    actions = `<button type="button" data-atlas-intervention-action="approve">${escapeHtml(intervention.primaryLabel)}</button><button type="button" class="ghost" data-atlas-intervention-action="hold">Keep current plan</button>`;
+  } else if (intervention.canHold) {
+    actions = '<button type="button" data-atlas-intervention-action="hold">Keep current plan</button>';
+  } else if (intervention.needsRollCallReview) {
+    actions = '<button type="button" data-atlas-intervention-action="open-roll-call">Review Roll Call</button>';
   } else if (proposal.code === "SETUP_REQUIRED") {
-    actions = '<button type="button" data-adaptive-action="open-contract">Finish Contract setup</button>';
+    actions = '<button type="button" data-atlas-intervention-action="open-contract">Finish setup</button>';
+  } else if (proposal.code === "OBSERVATION_REQUIRED") {
+    actions = '<button type="button" data-atlas-intervention-action="open-roll-call">Complete Roll Call</button>';
+  } else {
+    actions = '<button type="button" data-atlas-intervention-action="continue">Continue Today</button>';
   }
-  panel.innerHTML = `<div class="adaptive-coaching-shell ${escapeHtml(proposal.code.toLowerCase())}">
-    <article class="adaptive-primary">
-      <div><span class="kicker">ATLAS RECOMMENDS</span><h3>${escapeHtml(proposal.label)}</h3><p>${escapeHtml(proposal.reason)}</p></div>
-      <div class="adaptive-confidence"><strong>${escapeHtml(proposal.confidence)}</strong><span>signal confidence</span></div>
+  const changeMarkup = intervention.changes.length ? `<ul>${intervention.changes.map((change) => `<li><strong>${escapeHtml(change.label)}</strong><span>${escapeHtml(change.detail)}</span></li>`).join("")}</ul>` : '<p>No plan change is proposed.</p>';
+  panel.innerHTML = `<div class="atlas-intervention-shell ${escapeHtml(proposal.code.toLowerCase())}">
+    <article class="atlas-intervention-call">
+      <span>TODAY'S PRIORITY</span>
+      <h3>${escapeHtml(intervention.issue)}</h3>
+      <p>${escapeHtml(intervention.move)}</p>
+      <small>${escapeHtml(intervention.signal)} · ${escapeHtml(intervention.confidence.toLowerCase())} confidence</small>
     </article>
-    <div class="adaptive-signal-strip">
-      <div><span>Readiness</span><strong>${readiness.days} days</strong><small>${readiness.greenDays} green · ${readiness.redDays} red</small></div>
-      <div><span>Recovery</span><strong>${readiness.painDays ? `${readiness.painDays} pain flag${readiness.painDays === 1 ? "" : "s"}` : readiness.strainFlag ? "Strain flag" : "No red flag"}</strong><small>Energy ${readiness.averageEnergy ?? "—"} · Soreness ${readiness.averageSoreness ?? "—"}</small></div>
-      <div><span>Execution</span><strong>${evidence.adherencePercent === null ? "—" : `${evidence.adherencePercent}%`}</strong><small>${evidence.completed}/${evidence.planned} committed exposures</small></div>
-      <div><span>Plans linked</span><strong>${proposal.planCoverage}/4</strong><small>Contract revision ${proposal.contractRevision || "—"}</small></div>
-      ${recruitSignal}
-    </div>
-    ${changeMarkup ? `<div class="adaptive-domain-grid">${changeMarkup}</div>` : ""}
-    <aside class="adaptive-guardrail"><strong>No silent plan changes.</strong><span>Protection and deload reductions require this directive. Progressions still return to each module's plan approval workflow.</span></aside>
-    <div class="adaptive-actions">${actions}<small>Effective ${escapeHtml(proposal.effectiveDate)} · Review ${escapeHtml(proposal.reviewDate)} · ${readAdaptiveCoachingHistory().length} prior decision${readAdaptiveCoachingHistory().length === 1 ? "" : "s"}</small></div>
+    ${questionMarkup}
+    <div class="atlas-intervention-actions">${actions}</div>
+    <details class="atlas-intervention-proof">
+      <summary><span>Why this call</span><small>Evidence and limits</small></summary>
+      <p>${escapeHtml(proposal.reason)}</p>
+      ${changeMarkup}
+      <footer><strong>No silent changes.</strong><span>Every adjustment is bounded, saved, and reversible.</span></footer>
+    </details>
   </div>`;
 }
 
@@ -14398,12 +14405,12 @@ if (typeof document !== "undefined") {
     }
   });
   document.addEventListener("click", async (event) => {
-    const button = event.target.closest("button[data-adaptive-action]");
-    if (!button || typeof DominionAdaptiveCoaching === "undefined") return;
-    const action = button.dataset.adaptiveAction;
+    const button = event.target.closest("button[data-atlas-intervention-action], button[data-adaptive-action]");
+    if (!button || typeof DominionAdaptiveCoaching === "undefined" || typeof DominionAtlasIntervention === "undefined") return;
+    const action = button.dataset.atlasInterventionAction || button.dataset.adaptiveAction;
     if (action === "refresh") {
       renderAdaptiveCoaching();
-      setText("adaptive-coaching-feedback", "Signals refreshed from readiness, execution, and current plan coverage.");
+      setText("adaptive-coaching-feedback", "Coach check refreshed.");
       return;
     }
     if (action === "open-contract") {
@@ -14412,9 +14419,39 @@ if (typeof document !== "undefined") {
       document.getElementById("recruit-contract-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
+    if (action === "open-roll-call") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      document.getElementById("energy")?.focus();
+      setText("adaptive-coaching-feedback", "Review today's Roll Call, then Atlas will check again.");
+      return;
+    }
+    if (action === "continue") {
+      document.getElementById("one-command-primary")?.click();
+      return;
+    }
     const proposal = buildCurrentAdaptiveCoaching();
     if (!proposal) return;
+    if (action === "answer") {
+      const intervention = DominionAtlasIntervention.buildIntervention(proposal, proposal.atlasIntervention?.response || null);
+      const response = DominionAtlasIntervention.answerIntervention(
+        intervention,
+        button.dataset.answer,
+        new Date().toISOString()
+      );
+      const answeredProposal = DominionAtlasIntervention.attachResponse(proposal, response);
+      if (!answeredProposal) return;
+      await saveAdaptiveCoachingRecord(answeredProposal);
+      renderAdaptiveCoaching();
+      setText("adaptive-coaching-feedback", "Answer saved. Review the coaching call.");
+      return;
+    }
     if (action === "approve") {
+      const intervention = DominionAtlasIntervention.buildIntervention(proposal, proposal.atlasIntervention?.response || null);
+      if (!intervention.canApprove) {
+        setText("adaptive-coaching-feedback", "The adjustment could not be approved without your answer.");
+        return;
+      }
       const approved = DominionAdaptiveCoaching.approveProposal(
         proposal,
         new Date().toISOString(),
@@ -14426,7 +14463,7 @@ if (typeof document !== "undefined") {
       }
       const synced = await saveAdaptiveCoachingRecord(approved);
       renderDailyCoachingLoop();
-      setText("adaptive-coaching-feedback", `Directive approved for ${approved.effectiveDate}${synced ? " and synced to your account" : " on this device"}. Existing plans remain unchanged; only the bounded approved execution rules can carry forward.`);
+      setText("adaptive-coaching-feedback", `Adjustment approved for ${approved.effectiveDate}${synced ? " and saved to your account" : " on this device"}.`);
       return;
     }
     if (action === "hold") {
@@ -14434,7 +14471,7 @@ if (typeof document !== "undefined") {
       if (!held) return;
       const synced = await saveAdaptiveCoachingRecord(held);
       renderDailyCoachingLoop();
-      setText("adaptive-coaching-feedback", `Current plan retained${synced ? " and the decision was synced" : " on this device"}. Atlas will propose again when the evidence fingerprint changes.`);
+      setText("adaptive-coaching-feedback", `Current plan kept${synced ? " and saved to your account" : " on this device"}.`);
     }
   });
   document.getElementById("daily-orders-panel")?.addEventListener("click", async (event) => {

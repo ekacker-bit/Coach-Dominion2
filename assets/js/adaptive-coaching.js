@@ -196,6 +196,9 @@
     const prior = input.priorProposal || null;
     if (prior?.status === "APPROVED" && directiveForDate(prior, date)) return JSON.parse(JSON.stringify(prior));
     if (prior?.fingerprint === fingerprint && ["APPROVED", "HELD"].includes(prior.status)) return JSON.parse(JSON.stringify(prior));
+    if (prior?.fingerprint === fingerprint && prior?.status === "PROPOSED" && prior?.atlasIntervention?.response) {
+      return JSON.parse(JSON.stringify(prior));
+    }
     return {
       version: VERSION,
       id: `adaptive-${date}-${fingerprint}`,

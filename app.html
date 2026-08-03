@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=021o">
+  <link rel="stylesheet" href="/assets/styles.css?v=022a">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -678,6 +678,21 @@
           </section>
         </section>
 
+        <section id="adaptive-coaching" class="card adaptive-coaching atlas-intervention" aria-labelledby="adaptive-coaching-heading" data-intervention-state="CHECKING">
+          <header class="atlas-intervention-header">
+            <div>
+              <div class="kicker">ATLAS COACH CHECK</div>
+              <h2 id="adaptive-coaching-heading">Today&rsquo;s coaching call</h2>
+              <p>One priority. One decision.</p>
+            </div>
+            <span id="adaptive-coaching-status" class="state-pill neutral">CHECKING</span>
+          </header>
+          <div id="adaptive-coaching-panel" aria-live="polite">
+            <div class="performance-empty">Atlas is checking readiness and completed work.</div>
+          </div>
+          <p id="adaptive-coaching-feedback" class="muted" aria-live="polite"></p>
+        </section>
+
         <section id="today-body-checkpoint" class="card today-body-checkpoint" aria-labelledby="today-body-checkpoint-heading" data-checkpoint-state="LOADING">
           <header class="today-body-checkpoint-header">
             <div>
@@ -791,21 +806,6 @@
             <span id="today-committed-week-state" class="state-pill neutral">NOT COMMITTED</span>
           </div>
           <div id="today-committed-week-panel"></div>
-        </section>
-
-        <section id="adaptive-coaching" class="card adaptive-coaching" aria-labelledby="adaptive-coaching-heading">
-          <div class="section-heading compact">
-            <div>
-              <div class="kicker">BUILD 018I // ADAPTIVE COACHING</div>
-              <h2 id="adaptive-coaching-heading">Next coaching move</h2>
-              <p class="muted">Readiness and completed work become one bounded, reviewable directive.</p>
-            </div>
-            <span id="adaptive-coaching-status" class="state-pill neutral">ASSEMBLING</span>
-          </div>
-          <div id="adaptive-coaching-panel" aria-live="polite">
-            <div class="performance-empty">Atlas is reconciling the last seven days.</div>
-          </div>
-          <p id="adaptive-coaching-feedback" class="muted" aria-live="polite"></p>
         </section>
 
         <details class="data-truth-strip">
@@ -1756,7 +1756,8 @@
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>
-<script src="/assets/js/adaptive-coaching.js"></script>
+<script src="/assets/js/adaptive-coaching.js?v=022a"></script>
+<script src="/assets/js/atlas-intervention.js?v=022a"></script>
  <script src="/assets/js/recruit-contract.js"></script>
 <script src="/assets/js/contract-experience.js"></script>
 <script src="/assets/js/weekly-orchestrator.js?v=021i"></script>
@@ -1772,6 +1773,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
- <script src="/assets/js/app.js?v=021o"></script>
+ <script src="/assets/js/app.js?v=022a"></script>
 </body>
 </html>

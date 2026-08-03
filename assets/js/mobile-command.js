@@ -5,9 +5,30 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "018H.1";
+  const VERSION = "022G.1";
   const ACTIVE_STATES = new Set(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const COMPLETE_STATES = new Set(["COMPLETE", "COMPLETED"]);
+  const MOBILE_DESTINATIONS = Object.freeze({
+    today: { section: "today" },
+    train: { section: "performance", performanceView: "today_training" },
+    fuel: { section: "nutrition" },
+    review: { section: "inspection" },
+    more: { dialog: "mobile-more-dialog" }
+  });
+  const MORE_SECTIONS = new Set(["calendar", "contract", "trends", "standards", "rank", "record", "connected"]);
+
+  function resolveMobileDestination(action = "today") {
+    return MOBILE_DESTINATIONS[String(action || "today").toLowerCase()] || MOBILE_DESTINATIONS.today;
+  }
+
+  function mobileNavForSection(section = "today") {
+    const normalized = String(section || "today").toLowerCase();
+    if (normalized === "performance") return "train";
+    if (normalized === "nutrition") return "fuel";
+    if (normalized === "inspection") return "review";
+    if (MORE_SECTIONS.has(normalized)) return "more";
+    return "today";
+  }
 
   function numeric(value, minimum, maximum, label, optional = false) {
     if ((value === "" || value === null || typeof value === "undefined") && optional) return null;
@@ -177,6 +198,9 @@
   return {
     VERSION,
     ACTIVE_STATES,
+    MOBILE_DESTINATIONS,
+    resolveMobileDestination,
+    mobileNavForSection,
     normalizeRollCall,
     normalizeNutrition,
     moduleAction,

@@ -8571,7 +8571,9 @@ function closedLoopPayloadTimestamp(payload) {
     payload.updatedAt,
     payload.approvedAt,
     payload.resolvedAt,
+    payload.appliedAt,
     payload.closedAt,
+    payload.rolledBackAt,
     payload.generatedAt,
     payload.adaptation?.approvedAt,
     payload.adaptation?.generatedAt,
@@ -8621,6 +8623,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "body-outcome"],
       ["ADAPTATION", "progress-review-current"],
       ["HISTORY", "progress-review"],
+      ["ADAPTATION", "plan-command-current"],
+      ["HISTORY", "plan-command"],
       ["ADAPTATION", "outcome-plan-current"],
       ["HISTORY", "outcome-plan"]
     ];
@@ -8696,6 +8700,25 @@ async function saveProgressReview(record) {
   saveClosedLoopLocal("HISTORY", "progress-review", history);
   const currentSaved = await persistClosedLoopState("ADAPTATION", "progress-review-current", record);
   const historySaved = await persistClosedLoopState("HISTORY", "progress-review", history);
+  return currentSaved && historySaved;
+}
+
+function readPlanCommand() {
+  return readClosedLoopState("ADAPTATION", "plan-command-current", null);
+}
+
+function readPlanCommandHistory() {
+  const history = readClosedLoopState("HISTORY", "plan-command", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function savePlanCommand(record) {
+  if (!record?.id) return false;
+  const history = [record, ...readPlanCommandHistory().filter((item) => item.id !== record.id)].slice(0, 24);
+  saveClosedLoopLocal("ADAPTATION", "plan-command-current", record);
+  saveClosedLoopLocal("HISTORY", "plan-command", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "plan-command-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "plan-command", history);
   return currentSaved && historySaved;
 }
 
@@ -12802,6 +12825,7 @@ async function init() {
     await loadBodyProgressPhotos();
     await loadStrengthTrainingState();
     await loadWeeklyOrchestrationState();
+    await activateDuePlanCommand();
     await loadSplitDayCheckpointState();
     await loadConnectedDominion();
     await loadTrendsAnalytics();
@@ -12962,6 +12986,7 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("trends")?.addEventListener("click", async (event) => {
     if (await handleProgressReviewAction(event)) return;
+    if (await handlePlanCommandAction(event)) return;
     if (await handleOutcomePlanAction(event)) return;
     if (await handleBodyOutcomeAction(event)) return;
     const rangeButton = event.target.closest("button[data-trend-range]");
@@ -13022,6 +13047,7 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("today-body-checkpoint")?.addEventListener("click", async (event) => {
     if (await handleProgressReviewAction(event)) return;
+    if (await handlePlanCommandAction(event)) return;
     await handleBodyOutcomeAction(event);
   });
   document.getElementById("today-body-capture")?.addEventListener("toggle", (event) => {
@@ -16367,6 +16393,362 @@ function buildCurrentProgressReview(outcome = buildCurrentBodyOutcomeModel(), pr
   });
 }
 
+function planCommandCurrentPlans() {
+  return {
+    nutrition: typeof activeNutritionBaseline === "function" ? activeNutritionBaseline(todayISODate()) : null,
+    strength: readApprovedStrengthPlan(),
+    running: readApprovedRunningBlock(),
+    core: readApprovedCorePlan()
+  };
+}
+
+function planCommandPlansFor(command = {}, useProposed = true) {
+  const plans = planCommandCurrentPlans();
+  if (!useProposed || !command?.domain || !command.proposedPlan) return plans;
+  const key = { NUTRITION: "nutrition", STRENGTH: "strength", RUNNING: "running", CORE: "core" }[command.domain];
+  if (key) plans[key] = command.proposedPlan;
+  return plans;
+}
+
+function planCommandCalendarPreview(command = {}, useProposed = true, weekStart = command.effectiveDate) {
+  if (!weekStart || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const plans = planCommandPlansFor(command, useProposed);
+  const draft = DominionWeeklyOrchestrator.buildUnifiedWeek({
+    contract: readApprovedRecruitContract(),
+    strengthPlan: plans.strength,
+    runningBlock: plans.running,
+    corePlan: plans.core,
+    nutritionBaseline: plans.nutrition
+  }, {
+    today: todayISODate(),
+    weekStart,
+    generatedAt: new Date().toISOString()
+  });
+  return applyContractActivationGuards(draft, weekStart);
+}
+
+function buildCurrentPlanCommand(review = readProgressReview()) {
+  if (typeof DominionPlanCommand === "undefined") return null;
+  const command = DominionPlanCommand.buildPlanCommand({
+    today: todayISODate(),
+    review: review || {},
+    currentPlans: planCommandCurrentPlans(),
+    priorCommand: readPlanCommand(),
+    generatedAt: new Date().toISOString()
+  });
+  if (command.status !== "DRAFT") return command;
+  const preview = planCommandCalendarPreview(command, true, command.effectiveDate);
+  return preview ? DominionPlanCommand.withCalendarPreview(command, preview) : command;
+}
+
+function planCommandPlanSummary(domain, plan = {}) {
+  if (domain === "NUTRITION") {
+    const targets = plan.recoveryTargets || {};
+    return `<strong>${Math.round(Number(targets.calories || 0))} kcal</strong><small>${Math.round(Number(targets.protein || 0))}g protein · ${Math.round(Number(targets.carbs || 0))}g carbs</small>`;
+  }
+  if (domain === "STRENGTH") {
+    const sets = (plan.sessions || []).flatMap((item) => item.exercises || []).reduce((sum, item) => sum + Number(item.recommendedSets || 0), 0);
+    return `<strong>${Number(plan.profile?.daysPerWeek || plan.sessions?.length || 0)} days</strong><small>${sets} work sets · revision ${Number(plan.revision || 1)}</small>`;
+  }
+  if (domain === "RUNNING") {
+    const week = plan.weeks?.[0] || {};
+    return `<strong>${Number(week.weeklyDistance || plan.baselineDistance || 0)} ${escapeHtml(plan.profile?.preferredUnit || "mi")}</strong><small>${Number(plan.profile?.runningDaysPerWeek || 0)} run days · block ${Number(plan.revision || 1)}</small>`;
+  }
+  if (domain === "CORE") {
+    return `<strong>${Number(plan.profile?.sessionMinutes || 0)} min/session</strong><small>${Number(plan.profile?.sessionsPerWeek || 0)} sessions/week</small>`;
+  }
+  return "<strong>Current plan</strong>";
+}
+
+function planCommandStatusTone(status = "") {
+  if (["SCHEDULED", "OBSERVING", "RETAINED"].includes(status)) return "positive";
+  if (["DRAFT", "REVIEW_DUE"].includes(status)) return "warning";
+  if (["BLOCKED", "ROLLED_BACK"].includes(status)) return "danger";
+  return "neutral";
+}
+
+function planCommandMarkup(command = {}, compact = false) {
+  if (!command?.id || command.status === "WAITING") return "";
+  if (compact && ["HELD", "REJECTED", "RETAINED", "ROLLED_BACK"].includes(command.status)) return "";
+  const tone = planCommandStatusTone(command.status);
+  const domain = String(command.domain || "PLAN").toUpperCase();
+  if (compact) {
+    const action = ["DRAFT", "BLOCKED", "REVIEW_DUE"].includes(command.status)
+      ? '<button type="button" data-plan-command-route="trends">Open plan decision</button>'
+      : command.status === "OBSERVING"
+        ? '<button type="button" class="ghost danger" data-plan-command-action="ROLLBACK">Roll back</button>'
+        : "";
+    return `<article class="plan-command-card compact ${tone}" data-plan-command-state="${escapeHtml(command.status)}">
+      <header><span>${escapeHtml(domain)} PLAN</span><strong>${escapeHtml(command.status.replaceAll("_", " "))}</strong></header>
+      <h3>${escapeHtml(command.headline)}</h3><p>${escapeHtml(command.detail)}</p>
+      ${action ? `<div class="plan-command-actions">${action}</div>` : ""}
+    </article>`;
+  }
+  const comparison = command.currentPlan && command.proposedPlan ? `<div class="plan-command-compare">
+    <article><span>CURRENT</span>${planCommandPlanSummary(domain, command.currentPlan)}</article>
+    <i aria-hidden="true">→</i>
+    <article class="proposed"><span>PROPOSED</span>${planCommandPlanSummary(domain, command.proposedPlan)}</article>
+  </div>` : "";
+  const preview = command.calendarPreview || {};
+  const blockers = (preview.conflicts || []).filter((item) => item.severity === "BLOCKING");
+  const calendar = preview.weekStart ? `<div class="plan-command-calendar ${blockers.length ? "blocked" : "clear"}">
+    <div><span>NEXT WEEK</span><strong>${escapeHtml(preview.weekStart)}</strong><small>${Number(preview.trainingDays || 0)} training days · ${Number(preview.recoveryDays || 0)} recovery</small></div>
+    <div><span>CALENDAR</span><strong>${blockers.length ? `${blockers.length} blocker${blockers.length === 1 ? "" : "s"}` : "CLEAR"}</strong><small>${escapeHtml(command.change?.calendar || "No placement change")}</small></div>
+  </div>` : "";
+  const blockerList = blockers.length ? `<details class="plan-command-blockers" open><summary>Resolve before approval</summary><ul>${blockers.map((item) => `<li>${escapeHtml(item.detail || item.code)}</li>`).join("")}</ul></details>` : "";
+  let actions = "";
+  if (command.status === "DRAFT") {
+    actions = `<div class="plan-command-actions"><button type="button" data-plan-command-action="APPROVE" ${command.approvalBlocked ? "disabled" : ""}>Approve for ${escapeHtml(command.effectiveDate)}</button><button type="button" class="ghost" data-plan-command-action="HOLD">Hold current plan</button><button type="button" class="ghost danger" data-plan-command-action="REJECT">Reject change</button></div>`;
+  } else if (command.status === "SCHEDULED") {
+    actions = `<div class="plan-command-actions"><button type="button" class="ghost danger" data-plan-command-action="ROLLBACK">Cancel scheduled change</button></div>`;
+  } else if (command.status === "OBSERVING") {
+    const total = 14;
+    const elapsed = Math.max(1, Math.min(total, Math.round((new Date(`${todayISODate()}T12:00:00Z`) - new Date(`${command.effectiveDate}T12:00:00Z`)) / 86400000) + 1));
+    actions = `<div class="plan-command-observation"><span>OBSERVATION</span><strong>Day ${elapsed} of ${total}</strong><i><b style="--plan-observation:${elapsed / total * 100}%"></b></i></div><div class="plan-command-actions"><button type="button" class="ghost danger" data-plan-command-action="ROLLBACK">Roll back now</button></div>`;
+  } else if (command.status === "REVIEW_DUE") {
+    actions = '<div class="plan-command-actions"><button type="button" data-plan-command-action="RETAIN">Retain change</button><button type="button" class="ghost danger" data-plan-command-action="ROLLBACK">Roll back</button></div>';
+  } else if (command.status === "BLOCKED") {
+    actions = `<div class="plan-command-actions"><button type="button" data-plan-command-route="${domain === "NUTRITION" ? "nutrition" : "performance"}">Open ${escapeHtml(domain.toLowerCase())}</button></div>`;
+  }
+  return `<article class="plan-command-card ${tone}" data-plan-command-state="${escapeHtml(command.status)}">
+    <header><div><span>ATLAS PLAN COMMAND · ${escapeHtml(domain)}</span><h3>${escapeHtml(command.headline)}</h3></div><strong>${escapeHtml(command.status.replaceAll("_", " "))}</strong></header>
+    <p>${escapeHtml(command.detail)}</p>${comparison}
+    ${command.change ? `<div class="plan-command-change"><span>ONE LEVER</span><strong>${escapeHtml(command.change.label)}</strong><small>Effective ${escapeHtml(command.effectiveDate || "after approval")}</small></div>` : ""}
+    ${calendar}${blockerList}${actions}
+    <footer><small>${readPlanCommandHistory().length} prior decision${readPlanCommandHistory().length === 1 ? "" : "s"}</small><small>Preview · approve · observe · retain or roll back</small></footer>
+  </article>`;
+}
+
+function renderPlanCommand(targetId, compact = false) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const command = buildCurrentPlanCommand();
+  target.innerHTML = command ? planCommandMarkup(command, compact) : "";
+  target.hidden = !target.innerHTML;
+}
+
+function planCommandNutritionInput(plan = {}, effectiveDate = plan.effectiveDate) {
+  const recovery = plan.recoveryTargets || {};
+  const adjustments = plan.trainingAdjustments || {};
+  return {
+    goal: plan.goal || "FAT_LOSS",
+    effectiveDate,
+    calories: recovery.calories,
+    protein: recovery.protein,
+    carbs: recovery.carbs,
+    fat: recovery.fat,
+    trainingCalories: Number(adjustments.calories || 0),
+    trainingCarbs: Number(adjustments.carbs || 0)
+  };
+}
+
+function preparePlanCommandNutritionBaseline(command = {}) {
+  if (command.domain !== "NUTRITION") return null;
+  if (typeof DominionNutritionBaseline === "undefined") throw new Error("Nutrition baseline controls are unavailable.");
+  const proposal = DominionNutritionBaseline.buildNutritionBaselineProposal(planCommandNutritionInput(command.proposedPlan, command.effectiveDate));
+  if (proposal.status !== "READY FOR APPROVAL") throw new Error(proposal.errors?.[0] || "The proposed Nutrition baseline did not pass its safeguards.");
+  return DominionNutritionBaseline.approveNutritionBaseline(proposal, command.approvedAt || new Date().toISOString(), command.proposedPlan?.id || `plan-command-nutrition:${command.id}`);
+}
+
+async function persistPlanCommandNutritionBaseline(baseline = null) {
+  if (!baseline?.id) return null;
+  const history = readNutritionBaselineHistory();
+  const next = [baseline, ...history.filter((item) => item.id !== baseline.id)];
+  await persistOutcomeNutritionHistory(next);
+  return baseline;
+}
+
+async function commitPlanCommandCalendar(command = {}, useProposed = true, weekStart = command.effectiveDate) {
+  if (typeof DominionWeeklyOrchestrator === "undefined") throw new Error("Calendar coordination is unavailable.");
+  const draft = planCommandCalendarPreview(command, useProposed, weekStart);
+  if (!draft) throw new Error("The next operating week could not be built.");
+  if (draft.approvalBlocked) throw new Error("Resolve the calendar blockers before approving this plan change.");
+  const history = readUnifiedWeekHistory();
+  const previous = history.find((item) => item.status !== "REPLACED" && item.weekStart === draft.weekStart) || null;
+  const approved = DominionWeeklyOrchestrator.approveWeek(draft, previous, { approvedAt: new Date().toISOString() });
+  const nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(history, approved);
+  const strengthSchedule = DominionWeeklyOrchestrator.strengthScheduleFromWeek(approved);
+  saveWeeklyOrchestrationLocal("HISTORY", "current", nextHistory);
+  saveWeeklyOrchestrationLocal("WEEK", approved.weekStart, approved);
+  saveStrengthStateLocal("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
+  await persistWeeklyOrchestrationState("WEEK", approved.weekStart, approved);
+  await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory);
+  await persistStrengthTrainingState("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
+  if (readUnifiedWeekDraft()?.weekStart === approved.weekStart) await clearWeeklyOrchestrationDraft();
+  return approved;
+}
+
+async function stagePlanCommand(command = {}) {
+  const nutritionBaseline = preparePlanCommandNutritionBaseline(command);
+  const calendar = await commitPlanCommandCalendar(command, true, command.effectiveDate);
+  if (nutritionBaseline) await persistPlanCommandNutritionBaseline(nutritionBaseline);
+  return {
+    ...command,
+    scheduledPlanId: nutritionBaseline?.id || command.proposedPlan?.id || null,
+    scheduledCalendarId: calendar?.id || null,
+    calendarPreview: calendar || command.calendarPreview
+  };
+}
+
+async function applyPlanCommandToModule(command = {}) {
+  const plan = { ...(command.proposedPlan || {}), approvedAt: command.approvedAt || new Date().toISOString(), activatedAt: new Date().toISOString() };
+  if (command.domain === "NUTRITION") {
+    let baseline = readNutritionBaselineHistory().find((item) => item.id === command.scheduledPlanId || item.id === command.proposedPlan?.id) || null;
+    if (!baseline) baseline = await persistPlanCommandNutritionBaseline(preparePlanCommandNutritionBaseline(command));
+    return baseline?.id || null;
+  }
+  if (command.domain === "STRENGTH") {
+    saveStrengthStateLocal("PLAN", "current", plan);
+    await persistStrengthTrainingState("PLAN", "current", plan);
+  } else if (command.domain === "RUNNING") {
+    if (command.currentPlan?.id) await persistRunningState("PLAN", `archive:${command.currentPlan.id}`, command.currentPlan);
+    saveRunningBlockLocal("active", plan);
+    await persistRunningState("PLAN", "active", plan);
+  } else if (command.domain === "CORE") {
+    saveCoreProgramLocal("PLAN", "current", plan);
+    saveCoreProgramLocal("DRAFT", "current", plan);
+    await persistCoreProgramState("PLAN", "current", plan);
+    await persistCoreProgramState("DRAFT", "current", plan);
+  } else {
+    throw new Error("That plan module is not available for activation.");
+  }
+  return plan.id || null;
+}
+
+async function restorePlanCommandModule(command = {}) {
+  const plan = { ...(command.currentPlan || {}), restoredAt: new Date().toISOString(), restoredFromPlanCommandId: command.id };
+  if (command.domain === "NUTRITION") {
+    const history = readNutritionBaselineHistory();
+    const scheduledId = command.scheduledPlanId || command.proposedPlan?.id;
+    if (todayISODate() < command.effectiveDate) {
+      const next = history.map((item) => item.id === scheduledId ? { ...item, status: "REVERTED", revertedAt: new Date().toISOString() } : item);
+      await persistOutcomeNutritionHistory(next);
+      return plan.id || null;
+    }
+    if (typeof DominionNutritionBaseline === "undefined") throw new Error("Nutrition baseline controls are unavailable.");
+    const proposal = DominionNutritionBaseline.buildNutritionBaselineProposal(planCommandNutritionInput(plan, todayISODate()));
+    if (proposal.status !== "READY FOR APPROVAL") throw new Error(proposal.errors?.[0] || "The prior Nutrition baseline could not be restored.");
+    const rollback = DominionNutritionBaseline.approveNutritionBaseline(proposal, new Date().toISOString(), `rollback:${command.id}:${todayISODate()}`);
+    await persistOutcomeNutritionHistory([rollback, ...history.filter((item) => item.id !== rollback.id)]);
+    return rollback.id;
+  }
+  if (todayISODate() < command.effectiveDate) return plan.id || null;
+  if (command.domain === "STRENGTH") {
+    saveStrengthStateLocal("PLAN", "current", plan);
+    await persistStrengthTrainingState("PLAN", "current", plan);
+  } else if (command.domain === "RUNNING") {
+    saveRunningBlockLocal("active", plan);
+    await persistRunningState("PLAN", "active", plan);
+  } else if (command.domain === "CORE") {
+    saveCoreProgramLocal("PLAN", "current", plan);
+    saveCoreProgramLocal("DRAFT", "current", plan);
+    await persistCoreProgramState("PLAN", "current", plan);
+    await persistCoreProgramState("DRAFT", "current", plan);
+  }
+  return plan.id || null;
+}
+
+async function rollbackPlanCommand(command = {}) {
+  const planId = await restorePlanCommandModule(command);
+  const rollbackWeek = todayISODate() < command.effectiveDate
+    ? command.effectiveDate
+    : (typeof DominionWeeklyOrchestrator === "undefined" ? command.effectiveDate : DominionWeeklyOrchestrator.weekStartIso(todayISODate()));
+  const calendar = await commitPlanCommandCalendar(command, false, rollbackWeek);
+  return DominionPlanCommand.completeObservation(command, "ROLLBACK", {
+    closedAt: new Date().toISOString(),
+    planId,
+    calendarId: calendar?.id || null
+  });
+}
+
+async function activateDuePlanCommand() {
+  if (typeof DominionPlanCommand === "undefined") return null;
+  let command = readPlanCommand();
+  if (!command?.id) return null;
+  const refreshed = DominionPlanCommand.refreshLifecycle(command, todayISODate());
+  if (refreshed.status === "SCHEDULED" && todayISODate() >= refreshed.effectiveDate && !refreshed.appliedAt) {
+    const planId = await applyPlanCommandToModule(refreshed);
+    command = DominionPlanCommand.markApplied(refreshed, {
+      appliedAt: new Date().toISOString(),
+      planId,
+      calendarId: refreshed.scheduledCalendarId || refreshed.calendarPreview?.id || null
+    });
+    await savePlanCommand(command);
+    return command;
+  }
+  if (refreshed.status !== command.status) {
+    await savePlanCommand(refreshed);
+    return refreshed;
+  }
+  return refreshed;
+}
+
+function renderPlanCommandSurfaces() {
+  renderPlanCommand("today-plan-command", true);
+  renderPlanCommand("body-plan-command");
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  renderTodayCommandSurface();
+  renderDailyAssignment();
+  renderNutritionCommand();
+  renderPerformanceSection();
+}
+
+async function handlePlanCommandAction(event) {
+  const routeButton = event.target.closest("button[data-plan-command-route]");
+  if (routeButton) {
+    const route = routeButton.dataset.planCommandRoute;
+    if (route === "trends") {
+      setActiveSection("trends");
+      setTrendView("body");
+      window.history.replaceState(null, "", "#trends");
+    } else if (route === "nutrition") {
+      setActiveSection("nutrition");
+      window.history.replaceState(null, "", "#nutrition");
+    } else {
+      setActiveSection("performance");
+      const domain = String(buildCurrentPlanCommand()?.domain || "STRENGTH").toLowerCase();
+      setPerformanceActiveView(domain === "running" ? "running" : domain === "core" ? "core" : "today_training");
+      window.history.replaceState(null, "", "#performance");
+    }
+    return true;
+  }
+  const button = event.target.closest("button[data-plan-command-action]");
+  if (!button || typeof DominionPlanCommand === "undefined") return false;
+  button.disabled = true;
+  try {
+    const action = button.dataset.planCommandAction;
+    let command = buildCurrentPlanCommand();
+    if (!command?.id) throw new Error("No plan decision is ready.");
+    if (["APPROVE", "HOLD", "REJECT"].includes(action)) {
+      command = DominionPlanCommand.resolvePlanCommand(command, action, { resolvedAt: new Date().toISOString(), userId: session?.user?.id || null });
+      if (action === "APPROVE") command = await stagePlanCommand(command);
+    } else if (action === "RETAIN") {
+      command = DominionPlanCommand.completeObservation(command, "RETAIN", { closedAt: new Date().toISOString() });
+    } else if (action === "ROLLBACK") {
+      command = await rollbackPlanCommand(command);
+    }
+    const synced = await savePlanCommand(command);
+    renderPlanCommandSurfaces();
+    const message = command.status === "SCHEDULED"
+      ? `Plan and calendar approved for ${command.effectiveDate}${synced ? " and saved to your account" : " on this device"}. The current plan remains active until then.`
+      : command.status === "ROLLED_BACK"
+        ? "The prior plan and calendar were restored. The decision remains in history."
+        : command.status === "RETAINED"
+          ? "The observed change is now the retained plan."
+          : "Decision saved. No unapproved plan change was made.";
+    setText("plan-command-feedback", message);
+    setText("body-checkin-feedback", message);
+    setText("today-body-checkin-feedback", message);
+  } catch (error) {
+    setText("plan-command-feedback", error?.message || "That plan decision could not be completed.");
+    setText("body-checkin-feedback", error?.message || "That plan decision could not be completed.");
+  } finally {
+    button.disabled = false;
+  }
+  return true;
+}
+
 function progressReviewTone(review = {}) {
   if (review.classification === "ADVANCING" || review.status === "CONFIRMED") return "positive";
   if (review.classification === "REGRESSING" || review.status === "READY") return "warning";
@@ -16716,6 +17098,7 @@ function renderTodayBodyCheckpoint(outcome = buildCurrentBodyOutcomeModel()) {
   renderBodyFatEstimate(document.getElementById("today-body-checkin-form"));
   renderBodyPhotoExperience();
   renderProgressReview(outcome, "today-body-review", true);
+  renderPlanCommand("today-plan-command", true);
 }
 
 function renderBodyOutcome(outcome) {
@@ -16750,7 +17133,7 @@ function renderBodyOutcome(outcome) {
   renderBodyMeasurementChart(outcome);
   renderBodyCheckInHistory(outcome);
   renderProgressReview(outcome, "body-four-week-review");
-  renderOutcomePlanRevision(outcome);
+  renderPlanCommand("body-plan-command");
   const dateInput = document.getElementById("body-checkin-date");
   if (dateInput && !dateInput.value) {
     dateInput.value = todayISODate();

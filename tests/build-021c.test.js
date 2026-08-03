@@ -51,4 +51,3 @@ assert.match(packageJson, /node tests\/first-week-orientation\.test\.js/);
 assert.match(packageJson, /node tests\/build-021c\.test\.js/);
 
 console.log("Build 021C First Week Orientation integration checks passed.");
-

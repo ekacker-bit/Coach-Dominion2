@@ -189,6 +189,180 @@
   --font-body: "Raleway", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Build 022F: one private, amendable Daily Closeout and a supplemental weekly roll-up. */
+.daily-closeout-panel {
+  margin: 18px 0 4px;
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.075), rgba(10, 10, 10, 0.86) 44%);
+  overflow: hidden;
+}
+
+.daily-closeout-panel[hidden] { display: none !important; }
+.daily-closeout-panel > summary {
+  min-height: 66px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  cursor: pointer;
+  list-style: none;
+}
+.daily-closeout-panel > summary::-webkit-details-marker { display: none; }
+.daily-closeout-panel > summary > span { display: grid; gap: 2px; }
+.daily-closeout-panel > summary small,
+.daily-closeout-panel > summary em {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.daily-closeout-panel > summary > span small { color: var(--gold); }
+.daily-closeout-panel > summary strong {
+  color: var(--text);
+  font-family: var(--font-command);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.daily-closeout-panel[open] > summary { border-bottom: 1px solid rgba(212, 175, 55, 0.24); }
+#daily-closeout-form { padding: 18px; display: grid; gap: 18px; }
+.daily-closeout-intro {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: baseline;
+}
+.daily-closeout-intro p { margin: 0; color: var(--text); line-height: 1.55; }
+.daily-closeout-intro span { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+.daily-closeout-primary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(180px, .8fr);
+  gap: 12px;
+  align-items: stretch;
+}
+.daily-closeout-primary > label,
+.daily-closeout-grid label,
+.daily-closeout-processed label,
+.daily-closeout-reflection label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.daily-closeout-primary input,
+.daily-closeout-grid input,
+.daily-closeout-grid select,
+.daily-closeout-processed select,
+.daily-closeout-processed textarea,
+.daily-closeout-reflection input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.82);
+  color: var(--text);
+  font: 600 15px/1.3 var(--font-body);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.daily-closeout-processed textarea { min-height: 76px; resize: vertical; }
+.daily-closeout-preview {
+  padding: 13px 15px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border: 1px solid rgba(114, 169, 127, 0.32);
+  border-radius: 6px;
+  background: rgba(46, 75, 52, 0.16);
+}
+.daily-closeout-preview span,
+.daily-closeout-receipt span,
+.weekly-closeout-metrics span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.daily-closeout-preview strong { color: var(--text); font-size: 17px; }
+.daily-closeout-discipline { margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
+.daily-closeout-discipline legend { padding: 0 8px; color: var(--gold); font-family: var(--font-command); font-size: 20px; letter-spacing: .04em; text-transform: uppercase; }
+.daily-closeout-discipline legend small { margin-left: 8px; color: var(--muted); font: 700 10px var(--font-body); letter-spacing: .06em; }
+.daily-closeout-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.daily-closeout-processed { margin-top: 12px; display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); gap: 12px; }
+.daily-closeout-processed [hidden] { display: none !important; }
+.daily-closeout-reflection { border-top: 1px solid var(--line); padding-top: 13px; }
+.daily-closeout-reflection > summary { cursor: pointer; color: var(--text); font-weight: 800; }
+.daily-closeout-reflection > summary small { margin-left: 6px; color: var(--muted); }
+.daily-closeout-reflection > div { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.daily-closeout-receipt {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border: 1px solid rgba(114, 169, 127, 0.36);
+  border-radius: 8px;
+  background: rgba(46, 75, 52, 0.18);
+}
+.daily-closeout-receipt[hidden] { display: none !important; }
+.daily-closeout-receipt > div { display: grid; gap: 4px; }
+.daily-closeout-receipt strong { color: var(--text); font-size: 18px; }
+.daily-closeout-receipt p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 11px; }
+.daily-closeout-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.daily-closeout-actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.daily-closeout-actions button { flex: 0 0 auto; min-height: 48px; }
+
+.weekly-closeout-evidence {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.42);
+}
+.weekly-closeout-evidence > header { display: flex; justify-content: space-between; gap: 16px; align-items: end; }
+.weekly-closeout-evidence > header span { color: var(--gold); font: 700 11px var(--font-body); letter-spacing: .1em; }
+.weekly-closeout-evidence > header h3 { margin: 4px 0 0; }
+.weekly-closeout-evidence > header small { color: var(--muted); text-align: right; }
+.weekly-closeout-metrics { margin-top: 15px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.weekly-closeout-metrics > div { min-width: 0; padding: 13px; display: grid; gap: 5px; border-right: 1px solid var(--line); }
+.weekly-closeout-metrics > div:last-child { border-right: 0; }
+.weekly-closeout-metrics strong { color: var(--text); font-size: 18px; }
+.weekly-closeout-days-list { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.weekly-closeout-days-list > span { padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; }
+.weekly-closeout-days-list strong { margin-right: 6px; color: var(--gold); }
+
+@media (max-width: 720px) {
+  .daily-closeout-panel > summary { min-height: 58px; padding: 12px; }
+  .daily-closeout-panel > summary strong { font-size: 22px; }
+  .daily-closeout-panel > summary em { text-align: right; }
+  #daily-closeout-form { padding: 14px 12px; gap: 15px; }
+  .daily-closeout-intro { display: grid; gap: 5px; }
+  .daily-closeout-primary,
+  .daily-closeout-grid,
+  .daily-closeout-processed,
+  .daily-closeout-reflection > div { grid-template-columns: 1fr; }
+  .daily-closeout-discipline { padding: 13px 10px; }
+  .daily-closeout-discipline legend small { display: block; margin: 3px 0 0; }
+  .daily-closeout-receipt { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .daily-closeout-receipt strong { font-size: 15px; }
+  .daily-closeout-actions { display: grid; }
+  .daily-closeout-actions button { width: 100%; }
+  .weekly-closeout-evidence { padding: 14px 12px; }
+  .weekly-closeout-evidence > header { align-items: start; }
+  .weekly-closeout-evidence > header small { max-width: 120px; }
+  .weekly-closeout-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .weekly-closeout-metrics > div:nth-child(2) { border-right: 0; }
+  .weekly-closeout-metrics > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+}
+
 /* Build 022E — Atlas closes the loop with an evidence-backed observation verdict. */
 .observation-verdict-surface { margin-top: 16px; scroll-margin-top: 120px; }
 .observation-verdict-surface[hidden] { display: none !important; }

@@ -91,4 +91,3 @@ test("023A presents remaining targets without changing approved values", () => {
   assert.ok(result.safeguards.some((item) => item.includes("No compensatory restriction")));
 });
 
-

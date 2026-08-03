@@ -1,3 +1,4 @@
+
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -5,11 +6,12 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021L.1";
+  const VERSION = "022B.1";
   const DAY_MS = 86400000;
-  const CIRCUMFERENCE_KEYS = Object.freeze(["waist", "chest", "hips", "arm", "thigh"]);
+  const CIRCUMFERENCE_KEYS = Object.freeze(["waist", "neck", "chest", "hips", "arm", "thigh"]);
   const METRICS = Object.freeze([
     { key: "waist", label: "Waist", unit: "circumference" },
+    { key: "neck", label: "Neck", unit: "circumference" },
     { key: "chest", label: "Chest", unit: "circumference" },
     { key: "hips", label: "Hips", unit: "circumference" },
     { key: "arm", label: "Arm", unit: "circumference" },
@@ -36,8 +38,8 @@
   };
   const signed = (value, digits = 1) => {
     const numeric = finite(value);
-    if (numeric === null) return "—";
-    return `${numeric > 0 ? "+" : numeric < 0 ? "−" : ""}${Math.abs(numeric).toFixed(digits).replace(/\.0$/, "")}`;
+    if (numeric === null) return "â€”";
+    return `${numeric > 0 ? "+" : numeric < 0 ? "âˆ’" : ""}${Math.abs(numeric).toFixed(digits).replace(/\.0$/, "")}`;
   };
 
   function normalizeUnit(value) {
@@ -86,7 +88,13 @@
       notes: entry.notes || "",
       evidenceStatus: entry.evidenceStatus || entry.evidence_status || "SELF REPORTED",
       activityCode: entry.activityCode || entry.activity_code || null,
-      source: entry.source || "MANUAL"
+      source: entry.source || "MANUAL",
+      bodyFatEstimate: values.body_fat ? {
+        method: metrics.body_fat_method || null,
+        rangeLow: finite(metrics.body_fat_range_low),
+        rangeHigh: finite(metrics.body_fat_range_high),
+        estimated: Boolean(metrics.body_fat_estimated)
+      } : null
     };
   }
 
@@ -115,7 +123,15 @@
     const bodyFat = finite(input.body_fat ?? input.bodyFat);
     if (bodyFat !== null) {
       if (bodyFat <= 0 || bodyFat > 75) errors.push("Body-fat estimate must be between 0 and 75%.");
-      else metrics.body_fat = round(bodyFat, 1);
+      else {
+        metrics.body_fat = round(bodyFat, 1);
+        metrics.body_fat_method = String(input.body_fat_method || input.bodyFatMethod || "SELF_REPORTED").slice(0, 80);
+        metrics.body_fat_estimated = String(input.body_fat_estimated ?? input.bodyFatEstimated) === "true" || input.body_fat_estimated === true;
+        const rangeLow = finite(input.body_fat_range_low ?? input.bodyFatRangeLow);
+        const rangeHigh = finite(input.body_fat_range_high ?? input.bodyFatRangeHigh);
+        if (rangeLow !== null) metrics.body_fat_range_low = round(rangeLow, 1);
+        if (rangeHigh !== null) metrics.body_fat_range_high = round(rangeHigh, 1);
+      }
     }
     if (!METRICS.some((metric) => Object.hasOwn(metrics, metric.key))) errors.push("Enter at least one body measurement.");
     const now = options.now || new Date().toISOString();
@@ -360,3 +376,4 @@
     weeklyOutcomeSummary
   };
 });
+

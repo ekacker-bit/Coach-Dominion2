@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionFuelCommand = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023A.1";
+  const VERSION = "023B.1";
   const METRICS = [
     { key: "calories", label: "Calories", unit: "kcal" },
     { key: "protein", label: "Protein", unit: "g" },
@@ -30,13 +30,14 @@
     return new Set(names).size;
   }
 
-  function selectNextMeal(mealPlan, now) {
+  function selectNextMeal(mealPlan, now, calendarContext = null) {
     const slots = Array.isArray(mealPlan?.slots) ? mealPlan.slots : [];
     if (!slots.length) return null;
     const evidenceCount = uniqueMealCount(mealPlan?.meals);
     const hour = currentHour(now);
     const timeIndex = hour < 10 ? 0 : hour < 14 ? 1 : hour < 17 ? 2 : 3;
-    const index = Math.min(slots.length - 1, evidenceCount > 0 ? evidenceCount : timeIndex);
+    const calendarIndex = calendarContext?.phase === "BETWEEN_SESSIONS" ? 1 : null;
+    const index = Math.min(slots.length - 1, calendarIndex ?? (evidenceCount > 0 ? evidenceCount : timeIndex));
     const slot = slots[index];
     return {
       index,
@@ -46,13 +47,16 @@
       protein: finite(slot.protein),
       carbs: finite(slot.carbs),
       fat: finite(slot.fat),
-      basis: evidenceCount > 0 ? "MEAL EVIDENCE" : "TIME OF DAY"
+      basis: calendarIndex !== null ? "CALENDAR PHASE" : evidenceCount > 0 ? "MEAL EVIDENCE" : "TIME OF DAY"
     };
   }
 
-  function primaryAction(execution) {
+  function primaryAction(execution, calendarContext = null) {
     if (!execution || execution.status === "SETUP REQUIRED") {
       return { id: "set-baseline", label: "Set baseline", route: "plan" };
+    }
+    if (calendarContext?.blocker === true) {
+      return { id: "commit-calendar", label: "Open Calendar", route: "calendar" };
     }
     if (execution.status === "AWAITING INTAKE") {
       if (execution.source === "MYFITNESSPAL" && execution.freshness?.state === "HISTORICAL") {
@@ -66,11 +70,17 @@
     return { id: "review-intake", label: "Update intake", route: "details" };
   }
 
-  function commandCopy(execution, nextMeal) {
+  function commandCopy(execution, nextMeal, calendarContext = null) {
     if (!execution || execution.status === "SETUP REQUIRED") {
       return {
         headline: "Set your fueling baseline",
         detail: "Approve training and recovery targets before Atlas coaches the day."
+      };
+    }
+    if (calendarContext?.blocker === true) {
+      return {
+        headline: "Commit the week to plan Fuel",
+        detail: calendarContext.detail || "No committed calendar day is available."
       };
     }
     if (execution.status === "AWAITING INTAKE") {
@@ -116,9 +126,10 @@
     const value = input || {};
     const execution = value.execution || null;
     const mealPlan = value.mealPlan || null;
-    const nextMeal = selectNextMeal(mealPlan, value.now);
-    const copy = commandCopy(execution, nextMeal);
-    const action = primaryAction(execution);
+    const calendarContext = value.calendarContext || execution?.calendarContext || null;
+    const nextMeal = selectNextMeal(mealPlan, value.now, calendarContext);
+    const copy = commandCopy(execution, nextMeal, calendarContext);
+    const action = primaryAction(execution, calendarContext);
     const warnings = Array.isArray(execution?.warnings) ? execution.warnings : [];
     const safeguards = Array.isArray(execution?.safeguards) ? execution.safeguards : [];
     return {
@@ -130,6 +141,7 @@
       instruction: execution?.instruction || copy.detail,
       metrics: normalizeMetrics(execution),
       nextMeal,
+      calendarContext,
       primaryAction: action,
       evidence: {
         source: execution?.sourceLabel || "No intake source",
@@ -137,7 +149,9 @@
         readiness: execution?.readiness || "UNKNOWN",
         training: execution?.trainingDay ? "Training day" : "Recovery / unclassified",
         window: execution?.trainingWindowLabel || "Training time not scheduled",
-        mealEvidence: mealPlan?.evidenceMessage || "No meal-level evidence available."
+        mealEvidence: mealPlan?.evidenceMessage || "No meal-level evidence available.",
+        calendarSource: calendarContext?.source || "No committed calendar day",
+        calendarPolicy: calendarContext?.targetPolicy || "Approved targets unchanged"
       },
       warnings,
       safeguards,

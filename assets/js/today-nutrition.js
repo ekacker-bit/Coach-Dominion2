@@ -42,6 +42,8 @@
       MORNING: "Morning session",
       MIDDAY: "Midday session",
       EVENING: "Evening session",
+      SPLIT_DAY: "AM + PM training windows",
+      LONG_RUN: "Long run · duration open",
       UNSCHEDULED: "Training time not scheduled"
     };
     return labels[trainingWindow] || labels.UNSCHEDULED;
@@ -164,6 +166,7 @@
       trainingDay: Boolean(value.trainingDay),
       trainingWindow,
       trainingWindowLabel: formatTrainingWindow(Boolean(value.trainingDay), trainingWindow),
+      calendarContext: value.calendarContext || null,
       readiness,
       metrics,
       instruction: buildInstruction({

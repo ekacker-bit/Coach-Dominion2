@@ -45,8 +45,8 @@ function mealPlan(overrides = {}) {
   };
 }
 
-test("023A exposes a versioned deterministic Fuel engine", () => {
-  assert.equal(VERSION, "023A.1");
+test("023B exposes a versioned deterministic Fuel engine", () => {
+  assert.equal(VERSION, "023B.1");
 });
 
 test("023A makes baseline approval the one action when targets are missing", () => {
@@ -91,3 +91,19 @@ test("023A presents remaining targets without changing approved values", () => {
   assert.ok(result.safeguards.some((item) => item.includes("No compensatory restriction")));
 });
 
+test("023B routes a missing committed day to Calendar", () => {
+  const result = buildFuelCommand({
+    execution: execution(),
+    mealPlan: mealPlan(),
+    calendarContext: { blocker: true, detail: "Commit the week.", source: "NO COMMITTED DAY" }
+  });
+  assert.equal(result.primaryAction.id, "commit-calendar");
+  assert.equal(result.primaryAction.route, "calendar");
+  assert.match(result.headline, /Commit the week/);
+});
+
+test("023B selects between-session recovery from calendar phase", () => {
+  const next = selectNextMeal(mealPlan(), 7, { phase: "BETWEEN_SESSIONS" });
+  assert.equal(next.index, 1);
+  assert.equal(next.basis, "CALENDAR PHASE");
+});

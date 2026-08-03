@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -39,7 +38,6 @@ test("Build 021K retains the Dominion responsive visual system", () => {
   assert.match(styles, /\.body-outcome-command/);
   assert.match(styles, /\.body-checkin-grid/);
   assert.match(styles, /@media \(max-width: 620px\)/);
-  assert.match(html, /styles\.css\?v=022b/);
-  assert.match(html, /app\.js\?v=022b/);
+  assert.match(html, /styles\.css\?v=022[bc]/);
+  assert.match(html, /app\.js\?v=022[bc]/);
 });
-

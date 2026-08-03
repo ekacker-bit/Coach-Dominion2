@@ -8570,6 +8570,7 @@ function closedLoopPayloadTimestamp(payload) {
   const direct = [
     payload.updatedAt,
     payload.approvedAt,
+    payload.resolvedAt,
     payload.closedAt,
     payload.generatedAt,
     payload.adaptation?.approvedAt,
@@ -8618,6 +8619,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "adaptive"],
       ["ADAPTATION", "body-outcome-current"],
       ["HISTORY", "body-outcome"],
+      ["ADAPTATION", "progress-review-current"],
+      ["HISTORY", "progress-review"],
       ["ADAPTATION", "outcome-plan-current"],
       ["HISTORY", "outcome-plan"]
     ];
@@ -8674,6 +8677,25 @@ async function saveBodyOutcomeReview(record) {
   saveClosedLoopLocal("HISTORY", "body-outcome", history);
   const currentSaved = await persistClosedLoopState("ADAPTATION", "body-outcome-current", record);
   const historySaved = await persistClosedLoopState("HISTORY", "body-outcome", history);
+  return currentSaved && historySaved;
+}
+
+function readProgressReview() {
+  return readClosedLoopState("ADAPTATION", "progress-review-current", null);
+}
+
+function readProgressReviewHistory() {
+  const history = readClosedLoopState("HISTORY", "progress-review", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function saveProgressReview(record) {
+  if (!record?.id) return false;
+  const history = [record, ...readProgressReviewHistory().filter((item) => item.id !== record.id)].slice(0, 24);
+  saveClosedLoopLocal("ADAPTATION", "progress-review-current", record);
+  saveClosedLoopLocal("HISTORY", "progress-review", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "progress-review-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "progress-review", history);
   return currentSaved && historySaved;
 }
 
@@ -12939,6 +12961,7 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("trends")?.addEventListener("click", async (event) => {
+    if (await handleProgressReviewAction(event)) return;
     if (await handleOutcomePlanAction(event)) return;
     if (await handleBodyOutcomeAction(event)) return;
     const rangeButton = event.target.closest("button[data-trend-range]");
@@ -12997,7 +13020,10 @@ if (typeof document !== "undefined") {
     catch (error) { setText("body-photo-feedback", error?.message || "Photo could not be deleted."); }
     finally { button.disabled = false; }
   });
-  document.getElementById("today-body-checkpoint")?.addEventListener("click", handleBodyOutcomeAction);
+  document.getElementById("today-body-checkpoint")?.addEventListener("click", async (event) => {
+    if (await handleProgressReviewAction(event)) return;
+    await handleBodyOutcomeAction(event);
+  });
   document.getElementById("today-body-capture")?.addEventListener("toggle", (event) => {
     if (event.isTrusted) event.currentTarget.dataset.userToggled = "true";
   });
@@ -16319,6 +16345,131 @@ function buildCurrentBodyOutcomeModel(programModel = trendDashboardModel) {
   });
 }
 
+function buildCurrentProgressReview(outcome = buildCurrentBodyOutcomeModel(), programModel = trendDashboardModel) {
+  if (!outcome || typeof DominionProgressReview === "undefined") return null;
+  const latestWeek = addClosedLoopDays(todayISODate(), -6);
+  const readinessPain = mergeReadinessHistory().some((item) => item.date >= latestWeek && item.date <= todayISODate() && Boolean(item.pain));
+  const trends = programModel || {
+    weight: { observations: outcome.weight?.observations || 0, change: outcome.weight?.change ?? null },
+    nutrition: { evidenceDays: 0, value: null },
+    training: { observations: 0, strengthSessions: 0, strengthDelta: 0, runSessions: 0, runDelta: null, totalSessionDays: 0 },
+    readiness: { observations: 0, value: null },
+    discipline: { observations: 0, value: null }
+  };
+  return DominionProgressReview.buildProgressReview({
+    today: todayISODate(),
+    contract: readApprovedRecruitContract() || {},
+    bodyOutcome: outcome,
+    trends,
+    readinessPain,
+    priorReview: readProgressReview(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function progressReviewTone(review = {}) {
+  if (review.classification === "ADVANCING" || review.status === "CONFIRMED") return "positive";
+  if (review.classification === "REGRESSING" || review.status === "READY") return "warning";
+  return "neutral";
+}
+
+function progressReviewMarkup(review = {}, compact = false) {
+  const count = Math.min(Number(review.cycleTarget || 4), Number(review.cycleCount || 0));
+  const progress = Math.min(100, count / Number(review.cycleTarget || 4) * 100);
+  if (["BUILDING", "MONITORING"].includes(review.status)) {
+    return `<article class="progress-review-card neutral ${compact ? "compact" : ""}" data-progress-review-state="${escapeHtml(review.status)}">
+      <header><div><span>${escapeHtml(review.label || "NEXT REVIEW")}</span><h3>${escapeHtml(review.headline || "Build the signal")}</h3></div><strong>${count}/4</strong></header>
+      <p>${escapeHtml(review.detail || "Four comparable checkpoints unlock the review.")}</p>
+      <div class="progress-review-bar" aria-label="${count} of 4 checkpoints"><span style="--progress-review:${progress}%"></span></div>
+      <footer><small>Next checkpoint ${escapeHtml(review.nextCheckInDate || "today")}</small><small>No plan changes</small></footer>
+    </article>`;
+  }
+  const recommendation = review.recommendation || {};
+  const signals = (review.signal?.signals || []).slice(0, compact ? 3 : 6);
+  const signalMarkup = signals.length ? `<div class="progress-review-signals">${signals.map((item) => `<div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join("")}</div>` : "";
+  const checks = (review.evidence?.checks || []).map((item) => `<li class="${item.pass ? "pass" : "hold"}"><span>${item.pass ? "✓" : "—"}</span>${escapeHtml(item.label)}</li>`).join("");
+  const evidence = compact || !checks ? "" : `<details class="progress-review-evidence"><summary>Evidence ${Number(review.evidence?.score || 0)}% · ${escapeHtml(review.evidence?.label || "LEARNING")}</summary><ul>${checks}</ul></details>`;
+  let actions = "";
+  if (review.status === "READY") {
+    actions = compact
+      ? '<div class="progress-review-actions"><button type="button" data-progress-review-route="trends">Review the coaching call</button></div>'
+      : `<div class="progress-review-actions"><button type="button" data-progress-review-action="ACCEPT">${escapeHtml(recommendation.label || "Accept recommendation")}</button><button type="button" class="ghost" data-progress-review-action="HOLD">Keep current plan</button><button type="button" class="ghost" data-progress-review-action="REASSESS_LATER">Reassess in 7 days</button></div>`;
+  } else if (review.status === "DEFERRED") {
+    actions = `<p class="progress-review-guardrail">Reopens ${escapeHtml(review.reassessDate || "after the next checkpoint")}.</p>`;
+  } else if (review.status === "CONFIRMED" && recommendation.requiresPlanApproval) {
+    actions = `<div class="progress-review-actions"><button type="button" data-progress-review-route="${escapeHtml(recommendation.section || "trends")}">Open ${escapeHtml(recommendation.domain || "plan")} decision</button></div>`;
+  } else if (["CONFIRMED", "HELD"].includes(review.status)) {
+    actions = `<p class="progress-review-guardrail">Decision recorded. The approved Contract and plans remain authoritative.</p>`;
+  }
+  return `<article class="progress-review-card ${progressReviewTone(review)} ${compact ? "compact" : ""}" data-progress-review-state="${escapeHtml(review.status || "READY")}">
+    <header><div><span>ATLAS PROGRESS REVIEW</span><h3>${escapeHtml(review.headline || "Progress review")}</h3></div><strong>${escapeHtml(review.status === "READY" ? review.classification : review.status)}</strong></header>
+    <div class="progress-review-call"><span>ONE COACHING CALL</span><h4>${escapeHtml(recommendation.headline || review.detail || "Hold the approved plan")}</h4><p>${escapeHtml(recommendation.detail || review.detail || "Atlas is monitoring the next evidence window.")}</p></div>
+    ${signalMarkup}${evidence}${actions}
+    <footer><small>${escapeHtml(review.sourceFirstDate || "—")} → ${escapeHtml(review.sourceLatestDate || "—")}</small><small>${readProgressReviewHistory().length} prior decision${readProgressReviewHistory().length === 1 ? "" : "s"} · No silent changes</small></footer>
+  </article>`;
+}
+
+function renderProgressReview(outcome, targetId, compact = false) {
+  const target = document.getElementById(targetId);
+  if (!target || !outcome || typeof DominionProgressReview === "undefined") return;
+  const review = buildCurrentProgressReview(outcome);
+  if (!review) return;
+  target.innerHTML = progressReviewMarkup(review, compact);
+}
+
+async function resolveProgressReviewAction(action) {
+  if (typeof DominionProgressReview === "undefined") return false;
+  const outcome = buildCurrentBodyOutcomeModel();
+  const current = buildCurrentProgressReview(outcome);
+  if (!current || current.status !== "READY") return false;
+  const record = DominionProgressReview.resolveProgressReview(current, action, {
+    resolvedAt: new Date().toISOString(),
+    userId: session?.user?.id || null
+  });
+  if (action === "ACCEPT" && current.recommendation?.requiresPlanApproval && outcome?.review?.status === "PROPOSED" && typeof DominionBodyComposition !== "undefined") {
+    const authorized = DominionBodyComposition.resolveOutcomeReview(outcome.review, "AUTHORIZE_REVIEW", {
+      resolvedAt: new Date().toISOString(),
+      userId: session?.user?.id || null
+    });
+    await saveBodyOutcomeReview(authorized);
+  }
+  const synced = await saveProgressReview(record);
+  const nextOutcome = buildCurrentBodyOutcomeModel();
+  renderTodayBodyCheckpoint(nextOutcome);
+  renderBodyOutcome(nextOutcome);
+  const message = action === "ACCEPT" && current.recommendation?.requiresPlanApproval
+    ? `Review authorized${synced ? " and saved to your account" : " on this device"}. No plan changed; the separate plan decision is ready below.`
+    : action === "ACCEPT"
+      ? `Recommendation confirmed${synced ? " and saved to your account" : " on this device"}. The approved plan remains active.`
+      : action === "REASSESS_LATER"
+        ? "Review deferred for seven days. No plan changed."
+        : "Current plan held. Atlas will start the next evidence cycle.";
+  setText("body-checkin-feedback", message);
+  setText("today-body-checkin-feedback", message);
+  return true;
+}
+
+async function handleProgressReviewAction(event) {
+  const actionButton = event.target.closest("button[data-progress-review-action]");
+  if (actionButton) {
+    actionButton.disabled = true;
+    try { await resolveProgressReviewAction(actionButton.dataset.progressReviewAction); }
+    catch (error) { setText("body-checkin-feedback", error?.message || "That progress decision could not be saved."); }
+    finally { actionButton.disabled = false; }
+    return true;
+  }
+  const routeButton = event.target.closest("button[data-progress-review-route]");
+  if (routeButton) {
+    const section = routeButton.dataset.progressReviewRoute || "trends";
+    if (section === "trends") setTrendView("body");
+    if (section === "performance" && readProgressReview()?.recommendation?.domain === "RUNNING") setPerformanceActiveView("running");
+    setActiveSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+    return true;
+  }
+  return false;
+}
+
 function renderBodyMeasurementChart(outcome) {
   const chart = document.getElementById("body-measurement-chart");
   const title = document.getElementById("body-measurement-title");
@@ -16564,7 +16715,7 @@ function renderTodayBodyCheckpoint(outcome = buildCurrentBodyOutcomeModel()) {
   if (date) date.value = todayISODate();
   renderBodyFatEstimate(document.getElementById("today-body-checkin-form"));
   renderBodyPhotoExperience();
-  renderBodyOutcomeReview(outcome, "today-body-review", true);
+  renderProgressReview(outcome, "today-body-review", true);
 }
 
 function renderBodyOutcome(outcome) {
@@ -16598,7 +16749,7 @@ function renderBodyOutcome(outcome) {
   }).join("");
   renderBodyMeasurementChart(outcome);
   renderBodyCheckInHistory(outcome);
-  renderBodyOutcomeReview(outcome, "body-four-week-review");
+  renderProgressReview(outcome, "body-four-week-review");
   renderOutcomePlanRevision(outcome);
   const dateInput = document.getElementById("body-checkin-date");
   if (dateInput && !dateInput.value) {
@@ -17093,7 +17244,9 @@ function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
     ["HRV", trendMetricValue(readiness.hrvAverage, " ms"), "range average"]
   ].map(([label, value, note]) => `<article><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
 
-  renderBodyOutcome(model.bodyComposition || buildCurrentBodyOutcomeModel(model));
+  const bodyOutcome = model.bodyComposition || buildCurrentBodyOutcomeModel(model);
+  renderBodyOutcome(bodyOutcome);
+  renderTodayBodyCheckpoint(bodyOutcome);
   const windowDates = trajectory.window.map((item) => item.weekStartDate);
   setText("trend-window", windowDates.length ? `${windowDates[0]} — ${windowDates.at(-1)} · ${windowDates.length} finalized week${windowDates.length === 1 ? "" : "s"}` : "No finalized scored window yet.");
   setText("analytics-storage", storageMode === "SUPABASE" ? "ACCOUNT EVIDENCE" : "DEVICE EVIDENCE");

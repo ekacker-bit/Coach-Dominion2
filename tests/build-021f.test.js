@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -35,10 +34,9 @@ assert.match(app, /calendar draft now uses/);
 assert.match(styles, /Build 021F: signed Contract-to-calendar integrity/);
 assert.match(styles, /\.contract-integrity-card/);
 assert.match(styles, /\.contract-handoff-receipt/);
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-b])-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-c])-v1/);
 assert.match(worker, /contract-integrity\.js/);
 assert.match(packageJson, /node tests\/contract-integrity\.test\.js/);
 assert.match(packageJson, /node tests\/build-021f\.test\.js/);
 
 console.log("Build 021F Contract-to-calendar integrity integration passed.");
-

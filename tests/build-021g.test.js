@@ -24,9 +24,10 @@ assert.match(app, /DominionContractAutosave\.enqueue\(recruitContractAutosavePro
 assert.match(app, /function saveRecruitContractDraftForNavigation/);
 assert.doesNotMatch(app, /await recruitContractAutosavePromise/);
 assert.match(app, /Account sync is pending; Continue is available/);
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g])-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|023a)-v1/);
 assert.match(worker, /contract-autosave\.js/);
 assert.match(packageJson, /node tests\/contract-autosave\.test\.js/);
 assert.match(packageJson, /node tests\/build-021g\.test\.js/);
 
 console.log("Build 021G Contract amendment autosave recovery integration passed.");
+

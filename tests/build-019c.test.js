@@ -28,7 +28,7 @@ for (const id of [
 assert.match(html, /CLOSE THE DAY/);
 assert.match(html, /data-daily-ritual-step="execute"/);
 assert.match(html, /data-closed-loop-action="continue_execution"/);
-assert.match(html, /src="\/assets\/js\/daily-ritual\.js\?v=021n"/);
+assert.match(html, /src="\/assets\/js\/daily-ritual\.js\?v=(?:021n|022f)"/);
 assert.ok(html.indexOf("daily-ritual.js") < html.indexOf("app.js"), "daily ritual engine must load before app integration");
 assert.doesNotMatch(html, /id="onboarding"/);
 assert.doesNotMatch(html, /help-onboarding|dismiss-onboarding/);
@@ -53,4 +53,3 @@ assert.match(packageJson, /node tests\/daily-ritual\.test\.js/);
 assert.match(packageJson, /node tests\/build-019c\.test\.js/);
 
 console.log("Build 019C Daily Seal integration passed.");
-

@@ -1373,6 +1373,7 @@ function formatObjectiveMetric(value, unit) {
 function objectiveSourceLabel(source) {
   const normalized = String(source || "").trim().toUpperCase();
   if (normalized === "APPLE_HEALTH") return "Apple Health";
+  if (normalized === "SELF_REPORTED_CLOSEOUT") return "Daily closeout";
   if (normalized === "MANUAL") return "Manual";
   if (normalized === "SAVED") return "Saved";
   return "";
@@ -8439,6 +8440,7 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
     date: todayISODate(),
     queue: queue || {},
     closedLoop: closedLoop || {},
+    closeout: readDailyCloseout(),
     history: readClosedLoopHistory(),
     readinessState,
     rank: rankStatus?.currentRank || "RECRUIT"
@@ -8471,7 +8473,7 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
   setText("daily-ritual-streak", ritual.stats.streak);
   setText("daily-ritual-rank", ritual.rank);
   const badge = document.getElementById("daily-ritual-state");
-  if (badge) badge.className = `state-pill ${ritual.tone === "protect" ? "red" : ritual.sealed ? "green" : ["READY_TO_SEAL", "LESSON_READY"].includes(ritual.state) ? "yellow" : "neutral"}`;
+  if (badge) badge.className = `state-pill ${ritual.tone === "protect" ? "red" : ritual.sealed ? "green" : ["CLOSEOUT_READY", "READY_TO_SEAL", "LESSON_READY"].includes(ritual.state) ? "yellow" : "neutral"}`;
   const action = document.getElementById("daily-ritual-action");
   if (action) {
     action.textContent = ritual.actionLabel;
@@ -8489,6 +8491,7 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
       ? `Day secured. ${ritual.stats.streak} day chain active.`
       : `${ritual.state.replaceAll("_", " ")}: ${ritual.title}`);
   }
+  renderDailyCloseout(queue, ritual);
 }
 
 function renderDailyCoachingLoop() {
@@ -8562,6 +8565,192 @@ function readClosedLoopHistory() {
   return Array.isArray(history) ? history : [];
 }
 
+function readDailyCloseout(date = todayISODate()) {
+  return readClosedLoopState("CLOSEOUT", date, null);
+}
+
+function readDailyCloseoutHistory() {
+  const history = readClosedLoopState("HISTORY", "daily-closeout", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function connectedStepsForCloseout(closeout = readDailyCloseout()) {
+  if (closeout?.steps?.connected !== null && closeout?.steps?.connected !== undefined) return Number(closeout.steps.connected);
+  try {
+    const health = appleHealthReadinessForDate();
+    if (Number.isFinite(Number(health?.steps))) return Number(health.steps);
+  } catch (_) {}
+  const source = String(dailyState?.objective_metric_sources?.steps || "").toUpperCase();
+  return source === "SELF_REPORTED_CLOSEOUT" ? null : Number.isFinite(Number(dailyState?.steps)) ? Number(dailyState.steps) : null;
+}
+
+async function saveDailyCloseoutState(record) {
+  const history = [record, ...readDailyCloseoutHistory().filter((item) => item.id !== record.id)]
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 120);
+  saveClosedLoopLocal("CLOSEOUT", record.date, record);
+  saveClosedLoopLocal("HISTORY", "daily-closeout", history);
+  const currentSaved = await persistClosedLoopState("CLOSEOUT", record.date, record);
+  const historySaved = await persistClosedLoopState("HISTORY", "daily-closeout", history);
+  return currentSaved && historySaved;
+}
+
+async function applyCloseoutSteps(record) {
+  if (!dailyState || record?.steps?.selfReported === null || record?.steps?.selfReported === undefined) return false;
+  const { deviceSavedAt, ...current } = dailyState;
+  const payload = {
+    ...current,
+    user_id: session?.user?.id || null,
+    date: record.date,
+    steps: record.steps.selfReported,
+    objective_metric_sources: { ...(current.objective_metric_sources || {}), steps: "SELF_REPORTED_CLOSEOUT" },
+    objective_metrics_updated_at: record.updatedAt
+  };
+  payload.confidence = evaluateReadiness(payload).confidence;
+  saveMobileDailyState(payload);
+  enqueueMobileWrite("DAILY_STATE", payload.date, payload);
+  dailyState = payload;
+  readinessHistory = [...readinessHistory.filter((item) => item.date !== payload.date), payload];
+  renderWarRoom(dailyState);
+  if (!session?.user?.id) return false;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("daily_state")
+      .upsert(payload, { onConflict: "user_id,date" })
+      .select(DAILY_STATE_COLUMNS)
+      .single();
+    if (error) throw error;
+    acknowledgeMobileWrite("DAILY_STATE", payload.date);
+    saveMobileDailyState(data);
+    dailyState = data;
+    readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+    renderWarRoom(dailyState);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function closeoutFormInput() {
+  const form = document.getElementById("daily-closeout-form");
+  if (!form) return null;
+  const values = new FormData(form);
+  return {
+    date: todayISODate(),
+    selfReportedSteps: values.get("selfReportedSteps"),
+    connectedSteps: connectedStepsForCloseout(),
+    alcoholAbstained: values.get("alcoholAbstained"),
+    masturbationCount: values.get("masturbationCount"),
+    friedFoodAvoided: values.get("friedFoodAvoided"),
+    dessertDeclined: values.get("dessertDeclined"),
+    processedFoodStatus: values.get("processedFoodStatus"),
+    processedFoods: values.get("processedFoods"),
+    win: values.get("win"),
+    adjustment: values.get("adjustment")
+  };
+}
+
+function closeoutResponseValue(value, notApplicable = false) {
+  if (notApplicable) return "NOT_APPLICABLE";
+  if (value === true) return "MET";
+  if (value === false) return "NOT_MET";
+  return "";
+}
+
+function updateDailyCloseoutPreview() {
+  if (typeof DominionDailyCloseout === "undefined") return;
+  try {
+    const input = closeoutFormInput() || {};
+    const discipline = DominionDailyCloseout.disciplineObservation(input);
+    setText("daily-closeout-coverage", `${discipline.answered}/5 answered${discipline.score === null ? "" : ` · ${discipline.score}% observed`}`);
+    setText("daily-closeout-feedback", discipline.answered
+      ? `${discipline.met} of ${discipline.assessed} applicable answers met. Missing answers remain unknown.`
+      : "Nothing is scored until you answer it.");
+  } catch (error) {
+    setText("daily-closeout-feedback", error.message);
+  }
+}
+
+function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual = null) {
+  const panel = document.getElementById("daily-closeout-panel");
+  const form = document.getElementById("daily-closeout-form");
+  if (!panel || !form || typeof DominionDailyCloseout === "undefined") return;
+  const closeout = readDailyCloseout();
+  const eligible = Boolean(closeout) || ["CLOSEOUT_READY", "READY_TO_SEAL", "LESSON_READY", "SEALED"].includes(ritual?.state);
+  panel.hidden = !eligible;
+  if (!eligible) return;
+  const connected = connectedStepsForCloseout(closeout);
+  setText("daily-closeout-connected", connected === null ? "No connected step evidence" : `${Number(connected).toLocaleString()} connected steps preserved for comparison`);
+  const revision = String(closeout?.revision || 0);
+  if (form.dataset.loadedRevision !== revision && form.dataset.dirty !== "true") {
+    form.elements.selfReportedSteps.value = closeout?.steps?.selfReported ?? "";
+    form.elements.alcoholAbstained.value = closeoutResponseValue(closeout?.discipline?.alcoholAbstained);
+    form.elements.masturbationCount.value = closeout?.discipline?.masturbationCount ?? "";
+    form.elements.friedFoodAvoided.value = closeoutResponseValue(closeout?.discipline?.friedFoodAvoided);
+    form.elements.dessertDeclined.value = closeoutResponseValue(closeout?.discipline?.dessertDeclined, closeout?.discipline?.dessertNotApplicable);
+    form.elements.processedFoodStatus.value = closeout?.discipline?.processedFoodStatus === "UNANSWERED" ? "" : closeout?.discipline?.processedFoodStatus || "";
+    form.elements.processedFoods.value = (closeout?.discipline?.processedFoods || []).join("\n");
+    form.elements.win.value = closeout?.reflection?.win || "";
+    form.elements.adjustment.value = closeout?.reflection?.adjustment || "";
+    form.dataset.loadedRevision = revision;
+  }
+  const list = document.getElementById("daily-closeout-processed-list");
+  if (list) list.hidden = form.elements.processedFoodStatus.value !== "LISTED";
+  const save = document.getElementById("daily-closeout-save");
+  if (save) save.textContent = closeout ? "Update Closeout" : "Seal Closeout";
+  setText("daily-closeout-summary", closeout ? `Sealed · revision ${closeout.revision}` : "About 60 seconds");
+  const receipt = document.getElementById("daily-closeout-receipt");
+  if (receipt) {
+    receipt.hidden = !closeout;
+    receipt.innerHTML = closeout ? `<div><span>FINAL STEPS</span><strong>${Number(closeout.steps.effective || 0).toLocaleString()}</strong></div><div><span>DISCIPLINE</span><strong>${closeout.discipline.score === null ? "UNSCORED" : `${closeout.discipline.score}%`}</strong></div><div><span>COVERAGE</span><strong>${closeout.discipline.answered}/5</strong></div><p>Sealed ${escapeHtml(new Date(closeout.updatedAt).toLocaleString())}. You can amend this closeout without creating a duplicate day.</p>` : "";
+  }
+  updateDailyCloseoutPreview();
+}
+
+async function submitDailyCloseout(event) {
+  event.preventDefault();
+  const button = document.getElementById("daily-closeout-save");
+  if (!button || typeof DominionDailyCloseout === "undefined") return;
+  button.disabled = true;
+  button.textContent = "Saving…";
+  setText("daily-closeout-feedback", "Saving one closeout for today…");
+  try {
+    const previous = readDailyCloseout();
+    const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(), { previous, now: new Date().toISOString() });
+    const accountSaved = await saveDailyCloseoutState(record);
+    const stepsSynced = await applyCloseoutSteps(record);
+    const form = document.getElementById("daily-closeout-form");
+    if (form) form.dataset.dirty = "false";
+    renderDailyCoachingLoop();
+    renderWeeklyCloseoutEvidence();
+    const panel = document.getElementById("daily-closeout-panel");
+    if (panel) panel.open = true;
+    setText("daily-closeout-feedback", `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. Use Seal the Day to finish.`);
+    document.getElementById("daily-ritual-action")?.focus({ preventScroll: true });
+  } catch (error) {
+    setText("daily-closeout-feedback", error.message || "The closeout could not be saved.");
+  } finally {
+    button.disabled = false;
+    button.textContent = readDailyCloseout() ? "Update Closeout" : "Seal Closeout";
+  }
+}
+
+function renderWeeklyCloseoutEvidence(range = null) {
+  if (typeof DominionDailyCloseout === "undefined") return;
+  const selectedDate = document.getElementById("weekly-date")?.value || todayISODate();
+  const selectedRange = range || getInspectionWeekRange(selectedDate);
+  const summary = DominionDailyCloseout.summarizeWeek(readDailyCloseoutHistory(), selectedRange);
+  setText("weekly-closeout-days", `${summary.sealedDays}/7`);
+  setText("weekly-closeout-steps", summary.averageSteps === null ? "—" : summary.averageSteps.toLocaleString());
+  setText("weekly-closeout-coverage", `${summary.disciplineCoverage}%`);
+  setText("weekly-closeout-adherence", summary.observedAdherence === null ? "UNSCORED" : `${summary.observedAdherence}%`);
+  const list = document.getElementById("weekly-closeout-days-list");
+  if (!list) return;
+  list.innerHTML = summary.days.length
+    ? summary.days.map((day) => `<span><strong>${escapeHtml(day.date.slice(5))}</strong>${Number(day.steps?.effective || 0).toLocaleString()} steps · ${day.discipline?.answered || 0}/5</span>`).join("")
+    : "<span>No daily closeouts in this week.</span>";
+}
+
 function closedLoopPayloadTimestamp(payload) {
   if (Array.isArray(payload)) {
     return payload.reduce((latest, item) => Math.max(latest, closedLoopPayloadTimestamp(item)), 0);
@@ -8569,6 +8758,7 @@ function closedLoopPayloadTimestamp(payload) {
   if (!payload || typeof payload !== "object") return 0;
   const direct = [
     payload.updatedAt,
+    payload.sealedAt,
     payload.approvedAt,
     payload.resolvedAt,
     payload.appliedAt,
@@ -8628,7 +8818,9 @@ async function loadClosedLoopState() {
       ["ADAPTATION", "observation-verdict-current"],
       ["HISTORY", "observation-verdict"],
       ["ADAPTATION", "outcome-plan-current"],
-      ["HISTORY", "outcome-plan"]
+      ["HISTORY", "outcome-plan"],
+      ["CLOSEOUT", todayISODate()],
+      ["HISTORY", "daily-closeout"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -8647,6 +8839,8 @@ async function loadClosedLoopState() {
         saveClosedLoopLocal(stateType, stateKey, row.payload);
       }
     }
+    renderDailyCoachingLoop();
+    renderWeeklyCloseoutEvidence();
   } catch (_) {
     // Device state remains the explicit fallback.
   }
@@ -12795,7 +12989,8 @@ async function applyAppleHealthReadiness() {
       ...(dailyState.objective_metric_sources || {}),
       ...(day.weight !== null ? { weight: "APPLE_HEALTH" } : {}),
       ...(day.restingHeartRate !== null ? { resting_heart_rate: "APPLE_HEALTH" } : {}),
-      ...(day.heartRateVariability !== null ? { heart_rate_variability: "APPLE_HEALTH" } : {})
+      ...(day.heartRateVariability !== null ? { heart_rate_variability: "APPLE_HEALTH" } : {}),
+      ...(day.steps !== null ? { steps: "APPLE_HEALTH" } : {})
     },
     objective_metrics_updated_at: new Date().toISOString()
   };
@@ -13582,6 +13777,20 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("roll-call-form").addEventListener("submit", saveMorningRollCall);
+  document.getElementById("daily-closeout-form")?.addEventListener("submit", submitDailyCloseout);
+  document.getElementById("daily-closeout-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+    updateDailyCloseoutPreview();
+  });
+  document.querySelector('#daily-closeout-form [name="processedFoodStatus"]')?.addEventListener("change", (event) => {
+    const list = document.getElementById("daily-closeout-processed-list");
+    if (list) list.hidden = event.currentTarget.value !== "LISTED";
+    if (event.currentTarget.value === "NONE") {
+      const textarea = document.querySelector('#daily-closeout-form [name="processedFoods"]');
+      if (textarea) textarea.value = "";
+    }
+    updateDailyCloseoutPreview();
+  });
   document.getElementById("compliance-form").addEventListener("submit", saveDailyCompliance);
   document.getElementById("compliance-form").addEventListener("input", () => {
     renderComplianceScore(readComplianceForm());
@@ -14453,7 +14662,24 @@ if (typeof document !== "undefined") {
       document.getElementById("daily-orders-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
+    if (action === "open_closeout") {
+      const panel = document.getElementById("daily-closeout-panel");
+      if (panel) {
+        panel.hidden = false;
+        panel.open = true;
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      document.getElementById("daily-closeout-steps")?.focus({ preventScroll: true });
+      return;
+    }
     if (action === "close_review") {
+      if (readDailyCloseout()?.status !== "SEALED") {
+        const panel = document.getElementById("daily-closeout-panel");
+        if (panel) { panel.hidden = false; panel.open = true; }
+        setText("daily-closeout-feedback", "Complete the daily closeout before sealing the evidence review.");
+        document.getElementById("daily-closeout-steps")?.focus();
+        return;
+      }
       const state = buildCurrentClosedLoopState();
       const result = DominionClosedLoop.closeReview(state?.decision || {}, state?.reconciliation || {}, {
         history: readClosedLoopHistory(),
@@ -16040,6 +16266,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   setText("weekly-missed", aggregate.missedRequirements.length ? aggregate.missedRequirements.map((item) => `${item.date} ${label(item.domain)}`).join("; ") : "None recorded.");
   setText("weekly-excused", aggregate.excusedConditions.length ? aggregate.excusedConditions.map((item) => `${item.date} ${label(item.domain)}: ${item.restriction}`).join("; ") : "None recorded.");
   document.getElementById("weekly-domain-scores").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores[key].score)}</strong></div>`).join("");
+  renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   document.getElementById("weekly-evidence").innerHTML = aggregate.dailyEvidence.map((day) => `<details class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><summary><strong>${day.date}</strong><span>${day.periodState === "FUTURE" ? "FUTURE · NOT COUNTED" : `${day.assessedCount}/5 ASSESSED`}</span></summary><p>${day.periodState === "FUTURE" ? "Excluded from current inspection evidence." : `${day.includedCount} applicable scoring observations`}</p></details>`).join("");
   setText("weekly-report", (aggregate.atlasReport || generateWeeklyAfterActionReport(aggregate)).text);
   renderWeeklyBodyOutcome(aggregate);

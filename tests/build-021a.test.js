@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -37,7 +36,7 @@ assert.match(mark, /id="gold"/);
 assert.match(mark, /id="earned"/);
 assert.match(mark, /#d4af37/i);
 assert.match(manifest, /"theme_color": "#0a0a0a"/);
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-b])-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-c])-v1/);
 assert.match(packageJson, /node tests\/build-021a\.test\.js/);
 
 console.log("Build 021A Coach Dominion brand-system integration passed.");

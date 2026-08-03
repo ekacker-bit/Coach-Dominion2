@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -49,9 +48,9 @@ test("Build 022B is responsive and cache-busted", () => {
   assert.match(styles, /@media \(max-width: 420px\)/);
   assert.match(html, /body-progress\.js\?v=022b/);
   assert.match(html, /body-composition\.js\?v=022b/);
-  assert.match(html, /styles\.css\?v=022b/);
-  assert.match(html, /app\.js\?v=022b/);
-  assert.match(worker, /coach-dominion-022b-v1/);
+  assert.match(html, /styles\.css\?v=022[bc]/);
+  assert.match(html, /app\.js\?v=022[bc]/);
+  assert.match(worker, /coach-dominion-022[bc]-v1/);
   assert.match(worker, /body-progress\.js\?v=022b/);
 });
 

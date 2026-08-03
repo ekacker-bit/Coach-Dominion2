@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const ritual = require("../assets/js/daily-ritual.js");
 
-assert.equal(ritual.VERSION, "019C.1");
+assert.equal(ritual.VERSION, "022F.1");
 assert.deepEqual(ritual.MILESTONES.map((item) => item.id), ["execute", "record", "verify", "adapt"]);
 
 const openQueue = {
@@ -25,6 +25,10 @@ const completeQueue = {
   steps: [{ id: "record", complete: true }]
 };
 state = ritual.buildDailyRitual({ date: "2026-07-31", queue: completeQueue, closedLoop: { state: "REVIEW READY", reconciliation: { summary: { completionPercent: 100, confidence: "HIGH" } } } });
+assert.equal(state.state, "CLOSEOUT_READY");
+assert.equal(state.action, "open_closeout");
+
+state = ritual.buildDailyRitual({ date: "2026-07-31", queue: completeQueue, closeout: { status: "SEALED" }, closedLoop: { state: "REVIEW READY", reconciliation: { summary: { completionPercent: 100, confidence: "HIGH" } } } });
 assert.equal(state.state, "READY_TO_SEAL");
 assert.equal(state.action, "close_review");
 assert.equal(state.evidence.confidence, "HIGH");
@@ -61,4 +65,4 @@ assert.equal(state.milestones.every((item) => item.complete), true);
 state = ritual.buildDailyRitual({ date: "2026-07-31", queue: openQueue, readinessState: "RED" });
 assert.equal(state.tone, "protect");
 
-console.log("Build 019C Daily Seal tests passed.");
+console.log("Build 022F Daily Seal tests passed.");

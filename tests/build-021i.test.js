@@ -13,7 +13,7 @@ let passed = 0;
 function test(name, fn) {
   fn();
   passed += 1;
-  console.log(`âœ“ ${passed} ${name}`);
+  console.log(`✓ ${passed} ${name}`);
 }
 
 test("Calendar is a first-class desktop and mobile destination", () => {
@@ -90,4 +90,3 @@ test("long-run windows remain time-uncapped", () => {
 });
 
 console.log(`Build 021I: ${passed} tests passed.`);
-

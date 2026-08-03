@@ -1,3 +1,4 @@
+
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -30,7 +31,7 @@
     const numeric = finite(value);
     if (numeric === null) return null;
     const formatted = Number(Math.abs(numeric).toFixed(digits));
-    return `${numeric > 0 ? "+" : numeric < 0 ? "−" : ""}${formatted}`;
+    return `${numeric > 0 ? "+" : numeric < 0 ? "âˆ’" : ""}${formatted}`;
   };
 
   function normalizeRangeDays(value) {
@@ -217,7 +218,7 @@
   }
 
   function bodyMeasurementFoundation(performanceEntries = []) {
-    const supported = ["waist", "chest", "hips", "arm", "thigh", "body_fat"];
+    const supported = ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat"];
     const series = Object.fromEntries(supported.map((key) => [key, []]));
     performanceEntries.map(normalizePerformanceEntry).filter((item) => item.domain === "body_metrics").forEach((item) => {
       supported.forEach((key) => {
@@ -239,11 +240,11 @@
   function chooseCoachingReadout(model) {
     const { discipline, readiness, nutrition, training, weight, bodyComposition } = model;
     let signal = "Build the signal";
-    let detail = "Complete today’s inputs so Atlas can distinguish progress from noise.";
+    let detail = "Complete todayâ€™s inputs so Atlas can distinguish progress from noise.";
     let action = { label: "Complete today", section: "today" };
     if (discipline.value !== null && discipline.observations >= 2) {
       signal = discipline.tone === "positive" ? "The standard is rising" : discipline.tone === "negative" ? "Execution is slipping" : "Execution is holding";
-      detail = `${Math.round(discipline.value)}% discipline · ${discipline.deltaLabel.toLowerCase()}.`;
+      detail = `${Math.round(discipline.value)}% discipline Â· ${discipline.deltaLabel.toLowerCase()}.`;
       action = discipline.tone === "negative" ? { label: "Open inspection", section: "inspection" } : { label: "Stay on plan", section: "today" };
     }
     if (nutrition.value !== null && nutrition.value < 60) {
@@ -346,3 +347,4 @@
     buildProgramTrendModel
   };
 });
+

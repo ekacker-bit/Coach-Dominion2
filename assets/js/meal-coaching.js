@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionMealCoaching = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const WINDOWS = ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"];
+  const WINDOWS = ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING", "SPLIT_DAY", "LONG_RUN"];
   const round5 = (value) => Math.round(Number(value) / 5) * 5;
   const distribute = (total, weights) => {
     if (!(Number(total) > 0)) return weights.map(() => null);
@@ -34,6 +34,16 @@
         labels: ["Breakfast", "Midday meal", "Pre-training meal", "Post-training meal"],
         notes: ["Establish the first protein anchor.", "Maintain energy before the session.", "Use familiar fuel before training.", "Prioritize recovery fuel; do not skip because it is late."],
         calories: [.2, .25, .25, .3], carbs: [.2, .2, .25, .35], fat: [.3, .3, .15, .25]
+      },
+      SPLIT_DAY: {
+        labels: ["Pre-session 1", "Between-session recovery", "Pre-session 2", "Post-session recovery"],
+        notes: ["Begin with familiar carbohydrate, protein, and fluids.", "Restore fuel and hydration during the recovery window.", "Use familiar fuel before the second session.", "Complete the approved target without compensation."],
+        calories: [.18, .32, .2, .3], carbs: [.2, .35, .2, .25], fat: [.12, .25, .18, .45]
+      },
+      LONG_RUN: {
+        labels: ["Pre-run fuel", "During-run plan", "Post-run meal", "Evening meal"],
+        notes: ["Start with familiar carbohydrate, protein, and fluids.", "Carry familiar fuel and fluids appropriate to the full duration.", "Prioritize carbohydrate, protein, and hydration after the run.", "Finish the approved daily target without restriction."],
+        calories: [.2, .18, .37, .25], carbs: [.22, .23, .38, .17], fat: [.12, .08, .35, .45]
       },
       UNSCHEDULED: {
         labels: ["Breakfast", "Midday meal", "Afternoon anchor", "Evening meal"],
@@ -92,6 +102,7 @@
   function safeguards() {
     return [
       "Meal timing is flexible guidance, not a compliance requirement.",
+      "Calendar context changes timing guidance, never approved daily totals.",
       "Daily totals and recovery needs matter more than perfect timing.",
       "No exact foods, supplements, or medical nutrition treatment are prescribed.",
       "Late training never authorizes skipping the post-training meal.",

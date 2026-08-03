@@ -26,4 +26,14 @@ assert.strictEqual(imported.status, "MEAL EVIDENCE ACTIVE");
 assert.strictEqual(imported.meals[0].protein, 40);
 assert.ok(imported.evidenceMessage.includes("1 imported meal"));
 assert.ok(imported.safeguards.some((item) => item.includes("flexible")));
+
+const splitDay = buildMealCoachingPlan({ targets, trainingDay: true, trainingWindow: "SPLIT_DAY" });
+assert.strictEqual(splitDay.slots[1].label, "Between-session recovery");
+assert.strictEqual(splitDay.slots.reduce((sum, slot) => sum + slot.calories, 0), targets.calories);
+assert.strictEqual(splitDay.slots.reduce((sum, slot) => sum + slot.protein, 0), targets.protein);
+
+const longRun = buildMealCoachingPlan({ targets, trainingDay: true, trainingWindow: "LONG_RUN" });
+assert.strictEqual(longRun.slots[1].label, "During-run plan");
+assert.strictEqual(longRun.slots.reduce((sum, slot) => sum + slot.carbs, 0), targets.carbs);
+assert.ok(longRun.safeguards.some((item) => item.includes("never approved daily totals")));
 console.log("meal coaching tests passed");

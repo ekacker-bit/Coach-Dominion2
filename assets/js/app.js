@@ -12144,18 +12144,32 @@ function nutritionMealsForDate(date) {
   });
 }
 
+function buildCurrentFuelCalendarContext(date = todayISODate()) {
+  if (typeof DominionFuelCalendar === "undefined" || !connectedApi()) return null;
+  const importedTrainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  return DominionFuelCalendar.buildFuelCalendarContext({
+    date,
+    committedDay: readCommittedUnifiedDay(date),
+    importedTrainingDay,
+    fallbackWindow: readMealTrainingWindow(),
+    splitCheckpoint: readSplitDayCheckpoint(date)
+  });
+}
+
 function buildCurrentMealCoachingPlan(date = nutritionCommandDate()) {
   if (typeof DominionMealCoaching === "undefined" || !connectedApi()) return null;
   const baseline = activeNutritionBaseline(date);
-  const trainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
+  const calendarContext = buildCurrentFuelCalendarContext(date);
+  const trainingDay = calendarContext?.trainingDay === true;
   const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
-  return DominionMealCoaching.buildMealCoachingPlan({
+  const plan = DominionMealCoaching.buildMealCoachingPlan({
     date,
     targets,
     trainingDay,
-    trainingWindow: readMealTrainingWindow(),
+    trainingWindow: calendarContext?.mealWindow || readMealTrainingWindow(),
     meals: nutritionMealsForDate(date)
   });
+  return { ...plan, calendarContext };
 }
 
 function renderMealCoaching() {
@@ -12184,7 +12198,7 @@ function renderMealCoaching() {
   </article>`).join("");
   const meals = plan.meals.length ? `<div class="meal-evidence-list">${plan.meals.map((meal) => `<article class="meal-evidence"><strong>${escapeHtml(meal.name)}</strong><small>${Math.round(meal.calories)} kcal · ${Math.round(meal.protein)}g protein · ${Math.round(meal.carbs)}g carbs · ${Math.round(meal.fat)}g fat</small></article>`).join("")}</div>` : "";
   output.className = "";
-  output.innerHTML = `<p><strong>${trainingDay ? "TRAINING DAY" : "RECOVERY / UNCLASSIFIED DAY"}</strong> · ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing · ${escapeHtml(date)}</p>
+  output.innerHTML = `<p><strong>${plan.trainingDay ? "TRAINING DAY" : "RECOVERY DAY"}</strong> · ${escapeHtml(plan.trainingWindow.replace("_", " "))} timing · ${escapeHtml(plan.date)}</p>
     <div class="meal-slot-grid">${slots}</div>
     <div class="nutrition-review-card"><h4>Imported meal evidence</h4><p>${escapeHtml(plan.evidenceMessage)}</p>${meals}</div>
     <ul class="baseline-safeguards">${plan.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
@@ -12204,7 +12218,8 @@ function buildCurrentTodayNutritionExecution() {
     .sort()
     .at(-1) || manual?.updatedAt || null;
   const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
-  const trainingDay = trainingSessions.some((trainingSession) => trainingSession.date === date);
+  const calendarContext = buildCurrentFuelCalendarContext(date);
+  const trainingDay = calendarContext?.trainingDay === true;
   const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
   const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
@@ -12218,7 +12233,8 @@ function buildCurrentTodayNutritionExecution() {
     targets,
     source,
     trainingDay,
-    trainingWindow: readMealTrainingWindow(),
+    trainingWindow: calendarContext?.mealWindow || readMealTrainingWindow(),
+    calendarContext,
     readiness
   });
 }
@@ -12227,7 +12243,7 @@ function buildCurrentFuelCommand() {
   if (typeof DominionFuelCommand === "undefined") return null;
   const execution = buildCurrentTodayNutritionExecution();
   const mealPlan = buildCurrentMealCoachingPlan(todayISODate());
-  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, now: new Date() });
+  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, calendarContext: execution?.calendarContext, now: new Date() });
 }
 
 function renderTodayNutritionExecution() {
@@ -12271,10 +12287,8 @@ function renderNutritionCommand() {
   const manual = readManualNutrition(date);
   const actual = imported || manual || {};
   const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
-  const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
-  const trainingDay = trainingSessions.some((session) => session.date === date);
-  const latestTrainingDate = latestDatedItem(trainingSessions)?.date || null;
-  const trainingContext = trainingDay ? "TRAINING DAY" : latestTrainingDate ? `NO TRAINING TODAY · LAST ${latestTrainingDate}` : "NO TRAINING EVIDENCE";
+  const calendarContext = buildCurrentFuelCalendarContext(date);
+  const trainingDay = calendarContext?.trainingDay === true;
   const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
   const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
@@ -12310,13 +12324,21 @@ function renderNutritionCommand() {
         <div><dt>Carbs</dt><dd>${fuel.nextMeal.carbs === null ? "—" : `${Math.round(fuel.nextMeal.carbs)}g`}</dd></div>
       </dl><small>Flexible example · ${escapeHtml(fuel.nextMeal.basis.toLowerCase())}</small></article>`
     : `<article class="fuel-next-meal empty"><span>NEXT MEAL</span><h3>Approve targets to unlock meal guidance</h3></article>`;
-  output.innerHTML = `<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
+  const calendar = fuel.calendarContext;
+  const sessionLabels = calendar?.sessions?.length
+    ? calendar.sessions.map((session) => `<span>${escapeHtml(session.label)}</span>`).join("")
+    : `<span>${calendar?.recoveryDay ? "Recovery" : "No committed assignment"}</span>`;
+  const calendarBrief = calendar ? `<section class="fuel-calendar-brief ${calendar.blocker ? "blocked" : ""}" aria-label="Calendar fueling context">
+      <div><span>${escapeHtml(calendar.source)}</span><strong>${escapeHtml(calendar.headline)}</strong><p>${escapeHtml(calendar.detail)}</p></div>
+      <div class="fuel-calendar-sessions">${sessionLabels}</div>
+    </section>` : "";
+  output.innerHTML = `${calendarBrief}<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
   const evidence = document.getElementById("fuel-command-evidence");
   if (evidence) {
     const warnings = fuel.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
     evidence.innerHTML = `<div class="fuel-evidence-grid">
         <div><span>Source</span><strong>${escapeHtml(fuel.evidence.source)}</strong><small>${escapeHtml(fuel.evidence.freshness)}</small></div>
-        <div><span>Training</span><strong>${escapeHtml(fuel.evidence.training)}</strong><small>${escapeHtml(fuel.evidence.window)}</small></div>
+        <div><span>Calendar</span><strong>${escapeHtml(fuel.evidence.calendarSource)}</strong><small>${escapeHtml(calendar?.headline || fuel.evidence.window)} · ${escapeHtml(fuel.evidence.calendarPolicy)}</small></div>
         <div><span>Readiness</span><strong>${escapeHtml(fuel.evidence.readiness)}</strong><small>${escapeHtml(fuel.evidence.mealEvidence)}</small></div>
       </div>${warnings}<ul class="baseline-safeguards">${fuel.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   }
@@ -13834,6 +13856,12 @@ if (typeof document !== "undefined") {
       window.history.replaceState(null, "", "#connected");
       setConnectedActiveView("nutrition");
       document.getElementById("connected-view-nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (button.dataset.nutritionNextAction === "calendar") {
+      setActiveSection("calendar");
+      window.history.replaceState(null, "", "#calendar");
+      document.getElementById("calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     setNutritionActiveView(button.dataset.nutritionNextAction);

@@ -45,8 +45,8 @@ function mealPlan(overrides = {}) {
   };
 }
 
-test("023C exposes a versioned deterministic Fuel engine", () => {
-  assert.equal(VERSION, "023C.1");
+test("023D exposes a versioned deterministic Fuel engine", () => {
+  assert.equal(VERSION, "023D.1");
 });
 
 test("023A makes baseline approval the one action when targets are missing", () => {
@@ -135,4 +135,25 @@ test("023C lets safety suspension replace the fasting order", () => {
   });
   assert.match(result.headline, /Fasting paused/);
   assert.notEqual(result.primaryAction.id, "view-fast");
+});
+
+test("023D promotes the live fasting action into the one Fuel order", () => {
+  const fastingContext = {
+    enabled: true,
+    status: "FAST ACTIVE",
+    eatingStart: "10:00",
+    safeguards: [],
+    liveCommand: {
+      visible: true,
+      status: "FAST ACTIVE",
+      headline: "Hold the window",
+      detail: "One hour remains.",
+      primaryAction: { id: "END_FAST", label: "End fast" }
+    }
+  };
+  const result = buildFuelCommand({ execution: execution(), mealPlan: mealPlan(), fastingContext, now: 8 });
+  assert.equal(result.primaryAction.id, "END_FAST");
+  assert.equal(result.primaryAction.route, "fasting");
+  assert.equal(result.headline, "Hold the window");
+  assert.equal(result.evidence.fastingExecution, "FAST ACTIVE");
 });

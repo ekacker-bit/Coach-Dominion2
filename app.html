@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=023c">
+  <link rel="stylesheet" href="/assets/styles.css?v=023d">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -455,6 +455,23 @@
         </div>
         <div class="nutrition-workspace-panel" data-nutrition-view-panel="today">
           <div id="nutrition-command-output"><div class="performance-empty">Atlas is assembling today’s fuel order.</div></div>
+          <section id="fasting-execution-panel" class="fasting-execution-panel" aria-labelledby="fasting-execution-heading" hidden>
+            <div class="section-heading compact">
+              <div><div class="kicker">FASTING WINDOW</div><h3 id="fasting-execution-heading">Today&rsquo;s window</h3></div>
+              <span id="fasting-execution-status" class="state-pill neutral">CHECKING</span>
+            </div>
+            <div id="fasting-execution-output" aria-live="polite"></div>
+            <form id="fasting-closeout-form" class="fasting-closeout-form" hidden>
+              <div class="fasting-closeout-heading"><strong>How did the window land?</strong><small>Honest evidence changes the recommendation. It does not create a violation.</small></div>
+              <label>Hunger<select name="hunger" required><option value="">Choose</option><option value="1">1 · Low</option><option value="2">2</option><option value="3">3 · Moderate</option><option value="4">4</option><option value="5">5 · Severe</option></select></label>
+              <label>Energy<select name="energy" required><option value="">Choose</option><option value="1">1 · Poor</option><option value="2">2</option><option value="3">3 · Normal</option><option value="4">4</option><option value="5">5 · Excellent</option></select></label>
+              <label>Training quality<select name="trainingQuality"><option value="">No training</option><option value="1">1 · Poor</option><option value="2">2</option><option value="3">3 · Normal</option><option value="4">4</option><option value="5">5 · Excellent</option></select></label>
+              <label>Symptoms<select name="symptoms" required><option value="NONE">None</option><option value="DIZZINESS">Dizziness</option><option value="SHAKING">Shaking</option><option value="NAUSEA">Nausea</option><option value="HEADACHE">Headache</option><option value="OTHER">Other</option></select></label>
+              <label class="fasting-closeout-note">Optional note<input name="note" maxlength="280" placeholder="What affected the day?"></label>
+              <button type="submit">Save check-in</button>
+            </form>
+            <p id="fasting-execution-feedback" class="muted"></p>
+          </section>
           <details class="fuel-command-details">
             <summary><span>Targets, timing &amp; evidence</span><small>Approved plan, meal map, source, and safeguards</small></summary>
             <div id="fuel-command-evidence" class="fuel-command-evidence"></div>
@@ -563,6 +580,14 @@
         </section>
         </div>
         <div class="nutrition-workspace-panel" data-nutrition-view-panel="review" hidden>
+        <section class="fasting-review-panel" aria-labelledby="fasting-review-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">ATLAS FASTING REVIEW</div><h3 id="fasting-review-heading">Protocol verdict</h3></div>
+            <span id="fasting-review-status" class="state-pill neutral">LEARNING</span>
+          </div>
+          <div id="fasting-review-output" class="performance-empty">Atlas is waiting for daily fasting check-ins.</div>
+          <p id="fasting-review-feedback" class="muted"></p>
+        </section>
         <section class="nutrition-intelligence-panel" aria-labelledby="nutrition-intelligence-heading">
           <div class="section-heading compact">
             <div><div class="kicker">BUILD 008C // WEEKLY NUTRITION INTELLIGENCE</div><h3 id="nutrition-intelligence-heading">Nutrition Trend</h3></div>
@@ -1932,10 +1957,11 @@
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
-<script src="/assets/js/intermittent-fasting.js?v=023c"></script>
+<script src="/assets/js/intermittent-fasting.js?v=023d"></script>
+<script src="/assets/js/fasting-execution.js?v=023d"></script>
 <script src="/assets/js/fuel-calendar.js?v=023b"></script>
 <script src="/assets/js/today-nutrition.js"></script>
-<script src="/assets/js/fuel-command.js?v=023c"></script>
+<script src="/assets/js/fuel-command.js?v=023d"></script>
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>
@@ -1956,6 +1982,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-<script src="/assets/js/app.js?v=023c"></script>
+<script src="/assets/js/app.js?v=023d"></script>
 </body>
 </html>

@@ -40,11 +40,14 @@ check("daily closeout engine", size("assets/js/daily-closeout.js") >= 8000, "022
 check("daily closeout persistence", app.includes('persistClosedLoopState("CLOSEOUT", record.date, record)') && app.includes('"HISTORY", "daily-closeout"'), "022F closeout persistence is missing");
 check("mobile field app", html.includes('id="mobile-more-dialog"') && app.includes("resolveMobileDestination(action)"), "022G mobile navigation is missing");
 check("mobile field engine", read("assets/js/mobile-command.js").includes('const VERSION = "022G.1"'), "022G mobile engine is missing");
-check("stylesheet version", html.includes('/assets/styles.css?v=022g'), "app.html is not using the 022G stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=022g'), "app.html is not using the 022G application");
-check("cache version", worker.includes('coach-dominion-022g-v1'), "service-worker cache was not rotated");
-check("cached stylesheet", worker.includes('/assets/styles.css?v=022g'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=022g'), "service worker is caching the wrong application");
+check("unified fuel command", html.includes('class="fuel-command-center"') && app.includes("DominionFuelCommand.buildFuelCommand"), "023A unified Fuel surface is missing");
+check("fuel command engine", size("assets/js/fuel-command.js") >= 5500 && read("assets/js/fuel-command.js").includes('const VERSION = "023A.1"'), "023A Fuel engine appears incomplete");
+check("stylesheet version", html.includes('/assets/styles.css?v=023a'), "app.html is not using the 023A stylesheet");
+check("application version", html.includes('/assets/js/app.js?v=023a'), "app.html is not using the 023A application");
+check("cache version", worker.includes('coach-dominion-023a-v1'), "service-worker cache was not rotated");
+check("cached stylesheet", worker.includes('/assets/styles.css?v=023a'), "service worker is caching the wrong stylesheet");
+check("cached application", worker.includes('/assets/js/app.js?v=023a'), "service worker is caching the wrong application");
+check("cached fuel command", worker.includes('/assets/js/fuel-command.js?v=023a'), "service worker is not caching the Fuel engine");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");
@@ -58,3 +61,4 @@ if (failures.length) {
 }
 
 console.log(`Release integrity passed: ${size("app.html")}B HTML, ${size("assets/js/app.js")}B JS, ${size("assets/styles.css")}B CSS.`);
+

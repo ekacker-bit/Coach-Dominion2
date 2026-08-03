@@ -1,3 +1,4 @@
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -51,8 +52,9 @@ test("Build 021N ships a responsive branded surface and fresh application cache"
   assert.match(engine, /const VERSION = "021N\.1"/);
   assert.match(styles, /Build 021N: Today 2\.0/);
   assert.match(styles, /@media \(max-width: 760px\)/);
-  assert.match(html, /styles\.css\?v=022a/);
+  assert.match(html, /styles\.css\?v=022b/);
   assert.match(html, /one-command\.js\?v=021n/);
   assert.match(html, /daily-ritual\.js\?v=021n/);
-  assert.match(html, /app\.js\?v=022a/);
+  assert.match(html, /app\.js\?v=022b/);
 });
+

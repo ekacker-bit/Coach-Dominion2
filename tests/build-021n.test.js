@@ -56,4 +56,3 @@ test("Build 021N ships a responsive branded surface and fresh application cache"
   assert.match(html, /daily-ritual\.js\?v=021n/);
   assert.match(html, /app\.js\?v=022[bc]/);
 });
-

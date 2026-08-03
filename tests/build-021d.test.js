@@ -29,4 +29,3 @@ assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|023a)-v1/);
 assert.match(packageJson, /node tests\/build-021d\.test\.js/);
 
 console.log("Build 021D Contract-to-Calendar handoff integration checks passed.");
-

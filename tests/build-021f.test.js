@@ -40,4 +40,3 @@ assert.match(packageJson, /node tests\/contract-integrity\.test\.js/);
 assert.match(packageJson, /node tests\/build-021f\.test\.js/);
 
 console.log("Build 021F Contract-to-calendar integrity integration passed.");
-

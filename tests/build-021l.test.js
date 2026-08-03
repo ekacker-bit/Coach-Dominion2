@@ -39,7 +39,7 @@ test("Build 021L ships the responsive Dominion checkpoint experience", () => {
   assert.match(styles, /\.today-body-checkpoint/);
   assert.match(styles, /\.body-review-card/);
   assert.match(styles, /@media \(max-width: 700px\)/);
-  assert.match(html, /styles\.css\?v=021o/);
+  assert.match(html, /styles\.css\?v=022a/);
   assert.match(html, /body-composition\.js\?v=021m/);
-  assert.match(html, /app\.js\?v=021o/);
+  assert.match(html, /app\.js\?v=022a/);
 });

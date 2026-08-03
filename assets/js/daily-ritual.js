@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019C.1";
+  const VERSION = "022F.1";
   const MILESTONES = Object.freeze([
     { id: "execute", label: "Execute" },
     { id: "record", label: "Record" },
@@ -72,6 +72,7 @@
     const stats = securedDayStats(input.history, input.date);
     const reviewClosed = loop.review?.status === "CLOSED";
     const adaptationApproved = loop.adaptation?.status === "APPROVED" || loop.state === "LOOP CLOSED";
+    const closeoutSealed = input.closeout?.status === "SEALED";
     const reconciliation = loop.reconciliation?.summary || loop.review?.reconciliation?.summary || {};
     let state = "LOCKED";
     let eyebrow = "THE DAILY SEAL";
@@ -98,6 +99,17 @@
       action = "close_review";
       actionLabel = "Seal the Day";
     }
+    if (loop.state === "REVIEW READY" && !closeoutSealed) {
+      state = "CLOSEOUT_READY";
+      eyebrow = "DAILY CLOSEOUT";
+      title = "Report the day as lived";
+      detail = "Add final steps and private discipline evidence. Unanswered items remain unknown—not failures.";
+      action = "open_closeout";
+      actionLabel = "Complete Closeout";
+    }
+    if (loop.state === "REVIEW READY" && closeoutSealed) {
+      detail = "Your closeout is saved. Seal the evidence review to preserve today’s lesson.";
+    }
     if (reviewClosed && !adaptationApproved) {
       state = "LESSON_READY";
       eyebrow = "LESSON EXTRACTED";
@@ -121,7 +133,7 @@
     return {
       version: VERSION,
       state,
-      tone: readiness === "RED" ? "protect" : state === "SEALED" ? "sealed" : state === "READY_TO_SEAL" || state === "LESSON_READY" ? "ready" : "active",
+      tone: readiness === "RED" ? "protect" : state === "SEALED" ? "sealed" : ["CLOSEOUT_READY", "READY_TO_SEAL", "LESSON_READY"].includes(state) ? "ready" : "active",
       eyebrow,
       title,
       detail,

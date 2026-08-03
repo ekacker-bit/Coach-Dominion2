@@ -1,3 +1,4 @@
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -15,7 +16,7 @@ test("Build 021K adds an operational Body outcome surface", () => {
   assert.match(html, /id="body-measurement-chart"/);
   assert.match(html, /id="body-outcome-decision"/);
   assert.match(html, /id="body-checkin-history"/);
-  assert.match(html, /body-composition\.js\?v=021m/);
+  assert.match(html, /body-composition\.js\?v=022b/);
 });
 
 test("Build 021K persists and re-renders body checkpoints", () => {
@@ -38,6 +39,7 @@ test("Build 021K retains the Dominion responsive visual system", () => {
   assert.match(styles, /\.body-outcome-command/);
   assert.match(styles, /\.body-checkin-grid/);
   assert.match(styles, /@media \(max-width: 620px\)/);
-  assert.match(html, /styles\.css\?v=022a/);
-  assert.match(html, /app\.js\?v=022a/);
+  assert.match(html, /styles\.css\?v=022b/);
+  assert.match(html, /app\.js\?v=022b/);
 });
+

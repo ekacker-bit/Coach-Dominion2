@@ -46,4 +46,3 @@ assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-c])-v1/);
 assert.match(worker, /dominion-continuity\.js/);
 
 console.log("Build 021B continuity integration checks passed.");
-

@@ -32,7 +32,7 @@ test("023C injects fasting into the live Fuel command and meal map", () => {
   assert.match(app, /buildCurrentFastingContext/);
   assert.match(app, /fastingContext\?\.mealWindow/);
   assert.match(app, /class="fuel-fasting-brief/);
-  assert.match(app, /fuel\.evidence\.fastingStatus/);
+  assert.match(app, /fuel\.evidence\.fasting(?:Status|Execution)/);
   assert.match(css, /Build 023C: Intermittent Fasting Protocol/);
 });
 
@@ -43,12 +43,12 @@ test("023C ships clear safety and target-preservation language", () => {
 });
 
 test("023C rotates and caches the mutable shell", () => {
-  assert.match(html, /styles\.css\?v=023c/);
-  assert.match(html, /intermittent-fasting\.js\?v=023c/);
-  assert.match(html, /fuel-command\.js\?v=023c/);
-  assert.match(html, /app\.js\?v=023c/);
-  assert.match(worker, /coach-dominion-023c-v1/);
-  assert.match(worker, /intermittent-fasting\.js\?v=023c/);
+  assert.match(html, /styles\.css\?v=023[cd]/);
+  assert.match(html, /intermittent-fasting\.js\?v=023[cd]/);
+  assert.match(html, /fuel-command\.js\?v=023[cd]/);
+  assert.match(html, /app\.js\?v=023[cd]/);
+  assert.match(worker, /coach-dominion-023[cd]-v1/);
+  assert.match(worker, /intermittent-fasting\.js\?v=023[cd]/);
 });
 
 console.log("Build 023C Intermittent Fasting integration verified.");

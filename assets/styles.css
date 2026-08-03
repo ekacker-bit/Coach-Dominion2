@@ -154,6 +154,235 @@
   .strength-adaptation-decision>div:last-child{justify-items:start;text-align:left}
 }
 
+/* Build 023D: Fasting Execution and Adaptation. */
+.fasting-execution-panel,
+.fasting-review-panel {
+  margin-top: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.045), rgba(10, 10, 10, 0.28));
+}
+
+.fasting-live-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.5rem;
+  align-items: center;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border-left: 4px solid rgba(212, 175, 55, 0.62);
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.fasting-live-command.protected {
+  border-left-color: #ab4137;
+  background: linear-gradient(100deg, rgba(171, 65, 55, 0.12), rgba(0, 0, 0, 0.24));
+}
+
+.fasting-live-command > div:first-child > span,
+.fasting-verdict-copy > span,
+.fasting-execution-receipt > div > span {
+  color: var(--gold, #d4af37);
+  font-family: var(--font-display, "Bebas Neue", sans-serif);
+  letter-spacing: 0.12em;
+}
+
+.fasting-live-command h3,
+.fasting-verdict-copy h4 {
+  margin: 0.25rem 0;
+  color: var(--stone, #e6e6e4);
+  font-size: clamp(1.5rem, 3vw, 2.15rem);
+}
+
+.fasting-live-command p,
+.fasting-verdict-copy p {
+  max-width: 56rem;
+  margin: 0;
+  color: var(--muted, #aab2bd);
+}
+
+.fasting-countdown {
+  display: grid;
+  min-width: 9rem;
+  text-align: right;
+}
+
+.fasting-countdown strong {
+  color: var(--gold, #d4af37);
+  font-family: var(--font-display, "Bebas Neue", sans-serif);
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+}
+
+.fasting-countdown span {
+  margin-top: 0.45rem;
+  color: var(--muted, #aab2bd);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.fasting-execution-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.fasting-execution-receipt {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.8fr) minmax(18rem, 1.2fr);
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(46, 75, 52, 0.75);
+  background: rgba(46, 75, 52, 0.1);
+}
+
+.fasting-execution-receipt.protected {
+  border-color: rgba(212, 175, 55, 0.32);
+  background: rgba(212, 175, 55, 0.06);
+}
+
+.fasting-execution-receipt > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.fasting-execution-receipt > div > strong {
+  color: var(--stone, #e6e6e4);
+  font-size: 1.25rem;
+}
+
+.fasting-execution-receipt small {
+  color: var(--muted, #aab2bd);
+}
+
+.fasting-execution-receipt dl,
+.fasting-verdict-card dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.fasting-execution-receipt dl div,
+.fasting-verdict-card dl div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(230, 230, 228, 0.1);
+}
+
+.fasting-execution-receipt dt,
+.fasting-verdict-card dt {
+  color: var(--muted, #aab2bd);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fasting-execution-receipt dd,
+.fasting-verdict-card dd {
+  margin: 0;
+  color: var(--stone, #e6e6e4);
+  font-weight: 800;
+}
+
+.fasting-closeout-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(230, 230, 228, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.fasting-closeout-heading,
+.fasting-closeout-note {
+  grid-column: 1 / -1;
+}
+
+.fasting-closeout-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fasting-closeout-heading strong {
+  color: var(--stone, #e6e6e4);
+  font-size: 1.15rem;
+}
+
+.fasting-closeout-heading small {
+  color: var(--muted, #aab2bd);
+}
+
+.fasting-closeout-form > label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.fasting-closeout-form > button {
+  justify-self: start;
+}
+
+.fasting-verdict-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 0.8fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid rgba(230, 230, 228, 0.14);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.fasting-verdict-card.pause {
+  border-left: 4px solid #ab4137;
+}
+
+.fasting-verdict-card.shorten,
+.fasting-verdict-card.widen {
+  border-left: 4px solid var(--gold, #d4af37);
+}
+
+.fasting-verdict-card > button,
+.fasting-verdict-card > small {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.fasting-verdict-card > small {
+  color: var(--muted, #aab2bd);
+}
+
+@media (max-width: 760px) {
+  .fasting-live-command,
+  .fasting-execution-receipt,
+  .fasting-verdict-card,
+  .fasting-closeout-form {
+    grid-template-columns: 1fr;
+  }
+
+  .fasting-countdown {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .fasting-execution-receipt dl,
+  .fasting-verdict-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fasting-closeout-heading {
+    display: grid;
+  }
+}
+
 /* Build 021A: Coach Dominion brand system — The Standard Is Earned. */
 :root {
   --dominion-black: #0a0a0a;

@@ -16,8 +16,8 @@ assert.match(appHtml, /data-trend-view="body"/);
 assert.match(appHtml, /id="trend-kpi-grid"/);
 assert.match(appHtml, /id="trend-evidence-ring"/);
 assert.match(appHtml, /trends-intelligence\.js\?v=021m/);
-assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|023[abc])/);
-assert.match(appHtml, /app\.js\?v=(?:022[b-g]|023[abc])/);
+assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|023[abcd])/);
+assert.match(appHtml, /app\.js\?v=(?:022[b-g]|023[abcd])/);
 assert.doesNotMatch(appHtml, /Atlas Trend Report/);
 
 assert.match(appJs, /DominionTrends\.buildProgramTrendModel/);

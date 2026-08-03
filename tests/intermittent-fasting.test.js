@@ -24,8 +24,8 @@ function approved(overrides = {}) {
   return approveFastingProtocol(reviewFastingProtocol(eligible(overrides), { age: 40, today: "2026-08-03" }));
 }
 
-test("023C exposes a deterministic fasting protocol engine", () => {
-  assert.equal(VERSION, "023C.1");
+test("023D exposes a deterministic fasting protocol engine", () => {
+  assert.equal(VERSION, "023D.1");
 });
 
 test("protocol review blocks minors and incomplete safety screening", () => {
@@ -100,4 +100,3 @@ test("an eligible recovery-day window opens without changing targets", () => {
   assert.equal(context.mealWindow, "FASTING_RECOVERY");
   assert.match(context.targetPolicy, /UNCHANGED/);
 });
-

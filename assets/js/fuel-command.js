@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionFuelCommand = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023C.1";
+  const VERSION = "023D.1";
   const METRICS = [
     { key: "calories", label: "Calories", unit: "kcal" },
     { key: "protein", label: "Protein", unit: "g" },
@@ -60,8 +60,11 @@
     if (calendarContext?.blocker === true) {
       return { id: "commit-calendar", label: "Open Calendar", route: "calendar" };
     }
-    if (fastingContext?.status === "FAST ACTIVE") {
-      return { id: "view-fast", label: "View protocol", route: "plan" };
+    if (fastingContext?.liveCommand?.primaryAction) {
+      return { ...fastingContext.liveCommand.primaryAction, route: "fasting" };
+    }
+    if (fastingContext?.enabled && !["OFF", "SUSPENDED TODAY"].includes(fastingContext.status)) {
+      return { id: "view-fast", label: "View window", route: "fasting" };
     }
     if (execution.status === "AWAITING INTAKE") {
       if (execution.source === "MYFITNESSPAL" && execution.freshness?.state === "HISTORICAL") {
@@ -86,6 +89,12 @@
       return {
         headline: "Commit the week to plan Fuel",
         detail: calendarContext.detail || "No committed calendar day is available."
+      };
+    }
+    if (fastingContext?.liveCommand?.visible) {
+      return {
+        headline: fastingContext.liveCommand.headline,
+        detail: fastingContext.liveCommand.detail
       };
     }
     if (fastingContext?.enabled && fastingContext.status !== "OFF") {
@@ -167,7 +176,8 @@
         calendarPolicy: calendarContext?.targetPolicy || "Approved targets unchanged",
         fastingStatus: fastingContext?.status || "OFF",
         fastingWindow: fastingContext?.windowLabel || "No fasting window",
-        fastingPolicy: fastingContext?.targetPolicy || "Approved targets unchanged"
+        fastingPolicy: fastingContext?.targetPolicy || "Approved targets unchanged",
+        fastingExecution: fastingContext?.liveCommand?.status || "NOT STARTED"
       },
       warnings,
       safeguards: [...new Set([...safeguards, ...(fastingContext?.safeguards || [])])],

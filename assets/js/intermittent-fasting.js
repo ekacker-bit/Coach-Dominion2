@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionIntermittentFasting = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023C.1";
+  const VERSION = "023D.1";
   const PROTOCOLS = {
     OFF: { label: "Off", fastHours: 0, eatingHours: 24 },
     "12_12": { label: "12:12", fastHours: 12, eatingHours: 12 },

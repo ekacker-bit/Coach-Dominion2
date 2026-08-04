@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionFuelCommand = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023D.1";
+  const VERSION = "023E.1";
   const METRICS = [
     { key: "calories", label: "Calories", unit: "kcal" },
     { key: "protein", label: "Protein", unit: "g" },
@@ -74,6 +74,9 @@
     }
     if (execution.status === "REVIEW EVIDENCE") {
       return { id: "review-intake", label: "Review intake", route: "details" };
+    }
+    if (execution.status === "EXECUTE") {
+      return { id: "build-meal", label: "Build next meal", route: "meal" };
     }
     return { id: "review-intake", label: "Update intake", route: "details" };
   }

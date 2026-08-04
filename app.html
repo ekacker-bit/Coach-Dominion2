@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=023d">
+  <link rel="stylesheet" href="/assets/styles.css?v=023e">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -472,6 +472,22 @@
             </form>
             <p id="fasting-execution-feedback" class="muted"></p>
           </section>
+          <section id="meal-execution-panel" class="meal-execution-panel" aria-labelledby="meal-execution-heading">
+            <div class="meal-execution-heading">
+              <div><div class="kicker">PRECISION MEAL</div><h3 id="meal-execution-heading">Build the next meal</h3><p>One plate from what remains today.</p></div>
+              <span id="meal-execution-status" class="state-pill neutral">CHECKING</span>
+            </div>
+            <div id="meal-execution-output" aria-live="polite"><div class="performance-empty">Atlas is building the next meal.</div></div>
+            <form id="meal-confirm-form" class="meal-confirm-form" hidden>
+              <div><strong>Confirm what you ate</strong><small>Leave estimates as-is or enter the actual totals.</small></div>
+              <label>Calories<input name="calories" type="number" min="0" step="1"></label>
+              <label>Protein<input name="protein" type="number" min="0" step="1"></label>
+              <label>Carbs<input name="carbs" type="number" min="0" step="1"></label>
+              <label>Fat<input name="fat" type="number" min="0" step="1"></label>
+              <button type="submit">Confirm eaten</button>
+            </form>
+            <p id="meal-execution-feedback" class="muted"></p>
+          </section>
           <details class="fuel-command-details">
             <summary><span>Targets, timing &amp; evidence</span><small>Approved plan, meal map, source, and safeguards</small></summary>
             <div id="fuel-command-evidence" class="fuel-command-evidence"></div>
@@ -563,6 +579,17 @@
           <div id="intermittent-fasting-output" class="performance-empty">Fasting is optional and currently off.</div>
           <p id="intermittent-fasting-feedback" class="muted"></p>
         </section>
+        <details class="meal-preferences-panel">
+          <summary><span>Meal preferences</span><small>Diet, prep speed, and food exclusions</small></summary>
+          <form id="meal-execution-preferences-form" class="meal-execution-preferences-form">
+            <label>Eating style<select name="diet"><option value="OMNIVORE">Omnivore</option><option value="PESCATARIAN">Pescatarian</option><option value="VEGETARIAN">Vegetarian</option><option value="PLANT_BASED">Plant-based</option></select></label>
+            <label>Prep<select name="prep"><option value="STANDARD">Standard</option><option value="QUICK">Quick</option></select></label>
+            <fieldset><legend>Exclude</legend><label><input name="exclusions" type="checkbox" value="DAIRY"> Dairy</label><label><input name="exclusions" type="checkbox" value="GLUTEN"> Gluten</label><label><input name="exclusions" type="checkbox" value="SOY"> Soy</label><label><input name="exclusions" type="checkbox" value="FISH"> Fish</label></fieldset>
+            <button type="submit">Save preferences</button>
+          </form>
+          <p>Filters guide suggestions only. Check labels and ingredients for allergies or clinical needs.</p>
+          <p id="meal-preferences-feedback" class="muted"></p>
+        </details>
         <section class="adaptive-fueling-panel" aria-labelledby="adaptive-fueling-heading">
           <div class="section-heading compact">
             <div><div class="kicker">BUILD 008B // ADAPTIVE FUELING TARGETS</div><h3 id="adaptive-fueling-heading">Training-Day Fueling</h3></div>
@@ -622,6 +649,10 @@
           </form>
           <p class="muted">Manual totals save to your account when available and are used only when no MyFitnessPal day exists for that date.</p>
         </details>
+        <section class="meal-execution-history-panel" aria-labelledby="meal-execution-history-heading">
+          <div class="section-heading compact"><div><div class="kicker">MEAL RECORD</div><h3 id="meal-execution-history-heading">Planned and eaten</h3></div></div>
+          <div id="meal-execution-history" class="performance-empty">No meal execution recorded yet.</div>
+        </section>
         <p id="nutrition-command-feedback" class="muted"></p>
         </div>
       </section>
@@ -1960,8 +1991,9 @@
 <script src="/assets/js/intermittent-fasting.js?v=023d"></script>
 <script src="/assets/js/fasting-execution.js?v=023d"></script>
 <script src="/assets/js/fuel-calendar.js?v=023b"></script>
-<script src="/assets/js/today-nutrition.js"></script>
-<script src="/assets/js/fuel-command.js?v=023d"></script>
+  <script src="/assets/js/today-nutrition.js"></script>
+  <script src="/assets/js/meal-execution.js?v=023e"></script>
+  <script src="/assets/js/fuel-command.js?v=023e"></script>
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>
@@ -1982,6 +2014,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-<script src="/assets/js/app.js?v=023d"></script>
+  <script src="/assets/js/app.js?v=023e"></script>
 </body>
 </html>

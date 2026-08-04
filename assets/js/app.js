@@ -49,6 +49,7 @@ let mfpNutritionFeedSecret = null;
 let mfpNutritionFeedState = { loading: true, available: false, migrationRequired: false, authRequired: false };
 let nutritionBaselineDraft = null;
 let fastingProtocolDraft = null;
+let mealExecutionDraft = null;
 let nutritionActiveView = "today";
 let recruitContractStorageMode = "LOCAL";
 let recruitOnboardingStorageMode = "LOCAL";
@@ -12050,6 +12051,38 @@ function saveFastingExecutionRecord(record, sync = true) {
   return saved;
 }
 
+function mealExecutionStorageKey() {
+  return `coach-dominion:meal-execution:${connectedUserId()}`;
+}
+
+function readMealExecutionLedger() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(mealExecutionStorageKey()) || "null") || {};
+    return typeof DominionMealExecution === "undefined"
+      ? { current: value.current || null, history: Array.isArray(value.history) ? value.history : [], preferences: value.preferences || {}, updatedAt: value.updatedAt || null }
+      : DominionMealExecution.normalizeLedger(value);
+  } catch (_) {
+    return typeof DominionMealExecution === "undefined"
+      ? { current: null, history: [], preferences: {}, updatedAt: null }
+      : DominionMealExecution.normalizeLedger();
+  }
+}
+
+function writeMealExecutionLedger(value = {}) {
+  const normalized = typeof DominionMealExecution === "undefined"
+    ? value
+    : DominionMealExecution.normalizeLedger(value);
+  const saved = { ...normalized, updatedAt: value.updatedAt || new Date().toISOString() };
+  window.localStorage.setItem(mealExecutionStorageKey(), JSON.stringify(saved));
+  return saved;
+}
+
+async function saveMealExecutionLedger(value = {}) {
+  const saved = writeMealExecutionLedger({ ...value, updatedAt: new Date().toISOString() });
+  const synced = await persistNutritionState("MEAL_EXECUTION", "current", saved);
+  return { saved, synced };
+}
+
 function latestFastingRecordForDate(date = todayISODate()) {
   const ledger = readFastingExecutionLedger();
   if (ledger.active) return ledger.active;
@@ -12325,6 +12358,9 @@ function applyNutritionStateRow(row) {
   if (row.state_type === "FASTING_EXECUTION" && (Array.isArray(payload.history) || payload.active)) {
     writeFastingExecutionLedger(payload);
   }
+  if (row.state_type === "MEAL_EXECUTION" && (Array.isArray(payload.history) || payload.current || payload.preferences)) {
+    writeMealExecutionLedger(payload);
+  }
   if (row.state_type === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
     window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(payload.items));
   }
@@ -12340,6 +12376,7 @@ function readNutritionStatePayload(stateType, stateKey = "current") {
   if (stateType === "MEAL_WINDOW") return { window: readMealTrainingWindow() };
   if (stateType === "FASTING_PROTOCOL") return readApprovedFastingProtocol();
   if (stateType === "FASTING_EXECUTION") return readFastingExecutionLedger();
+  if (stateType === "MEAL_EXECUTION") return readMealExecutionLedger();
   if (stateType === "REVIEW_HISTORY") return { items: readNutritionReviewHistory() };
   if (stateType === "MANUAL_DAY") {
     try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(stateKey)) || "null"); }
@@ -12371,6 +12408,7 @@ async function loadNutritionState() {
     const localWindow = readMealTrainingWindow();
     const localFastingProtocol = readApprovedFastingProtocol();
     const localFastingExecution = readFastingExecutionLedger();
+    const localMealExecution = readMealExecutionLedger();
     if (!hasState("BASELINE_HISTORY") && localBaselines.length) {
       await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines });
     }
@@ -12388,6 +12426,9 @@ async function loadNutritionState() {
     }
     if (!hasState("FASTING_EXECUTION") && (localFastingExecution.active || localFastingExecution.history.length)) {
       await persistNutritionState("FASTING_EXECUTION", "current", localFastingExecution);
+    }
+    if (!hasState("MEAL_EXECUTION") && (localMealExecution.current || localMealExecution.history.length || localMealExecution.preferences)) {
+      await persistNutritionState("MEAL_EXECUTION", "current", localMealExecution);
     }
     ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => {
       const approval = readApprovedAdaptiveFueling(goalName);
@@ -12413,6 +12454,7 @@ async function loadNutritionState() {
     const mealWindow = document.getElementById("meal-training-window");
     if (mealWindow) mealWindow.value = readMealTrainingWindow();
     hydrateFastingProtocolForm(true);
+    hydrateMealExecutionPreferences(true);
   } catch (_) {
     // Existing account-scoped local state remains the explicit offline fallback.
   }
@@ -12541,6 +12583,196 @@ function buildCurrentFuelCommand() {
   return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, calendarContext: execution?.calendarContext, fastingContext: execution?.fastingContext, now: new Date() });
 }
 
+function hydrateMealExecutionPreferences(force = false) {
+  const form = document.getElementById("meal-execution-preferences-form");
+  if (!form || form.dataset.hydrated === "true" && !force || typeof DominionMealExecution === "undefined") return;
+  const preferences = readMealExecutionLedger().preferences;
+  form.elements.diet.value = preferences.diet;
+  form.elements.prep.value = preferences.prep;
+  form.querySelectorAll('input[name="exclusions"]').forEach((input) => {
+    input.checked = preferences.exclusions.includes(input.value);
+  });
+  form.dataset.hydrated = "true";
+}
+
+function mealExecutionSequence(record) {
+  const match = String(record?.id || "").match(/-(\d+)$/);
+  return match ? Number(match[1]) : 1;
+}
+
+function nextMealExecutionSequence(date = todayISODate()) {
+  const ledger = readMealExecutionLedger();
+  const records = DominionMealExecution.mergeRecord(ledger.history, ledger.current).filter((item) => item.date === date);
+  return Math.max(0, ...records.map(mealExecutionSequence)) + 1;
+}
+
+function buildCurrentMealExecutionOrder(options = {}) {
+  if (typeof DominionMealExecution === "undefined") return null;
+  const fuel = buildCurrentFuelCommand();
+  if (!fuel) return null;
+  const ledger = readMealExecutionLedger();
+  const remaining = { metrics: Object.fromEntries(fuel.metrics.map((metric) => [metric.key, { remaining: metric.remaining }])) };
+  return DominionMealExecution.buildMealOrder({
+    date: todayISODate(),
+    nextMeal: fuel.nextMeal,
+    remaining,
+    preferences: ledger.preferences,
+    selection: options.selection || null,
+    sequence: options.sequence || nextMealExecutionSequence(),
+    now: new Date().toISOString()
+  });
+}
+
+function currentMealExecutionOrder() {
+  const date = todayISODate();
+  if (mealExecutionDraft?.date === date) return mealExecutionDraft;
+  const current = readMealExecutionLedger().current;
+  if (current?.date === date) return current;
+  mealExecutionDraft = buildCurrentMealExecutionOrder();
+  return mealExecutionDraft;
+}
+
+function mealMacroMarkup(label, value, unit = "g") {
+  const amount = Number.isFinite(Number(value)) ? Math.round(Number(value)) : null;
+  return `<div><span>${escapeHtml(label)}</span><strong>${amount === null ? "-" : `${amount}${unit}`}</strong></div>`;
+}
+
+function mealComponentControl(order, component) {
+  const options = order.options?.[component.kind] || [];
+  if (order.status !== "READY") return `<div class="meal-component-copy"><span>${escapeHtml(component.kind)}</span><strong>${escapeHtml(component.portion)}</strong></div>`;
+  const choices = options.map((item) => `<option value="${escapeHtml(item.key)}" ${item.key === component.key ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("");
+  return `<label class="meal-component-control"><span>${escapeHtml(component.kind)}</span><select data-meal-component="${escapeHtml(component.kind)}">${choices}</select><small>${escapeHtml(component.portion)}</small></label>`;
+}
+
+function renderMealExecutionHistory() {
+  const output = document.getElementById("meal-execution-history");
+  if (!output || typeof DominionMealExecution === "undefined") return;
+  const ledger = readMealExecutionLedger();
+  const records = DominionMealExecution.mergeRecord(ledger.history, ledger.current).slice(0, 12);
+  if (!records.length) {
+    output.className = "performance-empty";
+    output.textContent = "No meal execution recorded yet.";
+    return;
+  }
+  output.className = "meal-record-list";
+  output.innerHTML = records.map((record) => {
+    const macros = record.actual || record.estimate || {};
+    const source = record.actualSource === "SELF_REPORTED_ACTUAL" ? "Entered totals" : record.status === "CONFIRMED" ? "Confirmed estimate" : "Planning estimate";
+    return `<article><div><span>${escapeHtml(record.date || "")}</span><strong>${escapeHtml(record.name || record.slotLabel || "Meal")}</strong><small>${escapeHtml(source)} - imported daily totals remain authoritative</small></div><div><span class="state-pill ${record.status === "CONFIRMED" ? "green" : "yellow"}">${escapeHtml(record.status || "PLANNED")}</span><strong>${Math.round(Number(macros.calories || 0))} kcal</strong><small>${Math.round(Number(macros.protein || 0))}g P / ${Math.round(Number(macros.carbs || 0))}g C / ${Math.round(Number(macros.fat || 0))}g F</small></div></article>`;
+  }).join("");
+}
+
+function renderMealExecution() {
+  const panel = document.getElementById("meal-execution-panel");
+  const output = document.getElementById("meal-execution-output");
+  const status = document.getElementById("meal-execution-status");
+  const confirmForm = document.getElementById("meal-confirm-form");
+  if (!panel || !output || !status || !confirmForm || typeof DominionMealExecution === "undefined") return;
+  hydrateMealExecutionPreferences();
+  const order = currentMealExecutionOrder();
+  confirmForm.hidden = true;
+  if (!order || ["NEEDS TARGETS", "BLOCKED"].includes(order.status)) {
+    status.textContent = order?.status || "UNAVAILABLE";
+    status.className = `state-pill ${order?.status === "BLOCKED" ? "red" : "neutral"}`;
+    output.innerHTML = `<div class="performance-empty"><strong>${escapeHtml(order?.status === "BLOCKED" ? "Meal blocked" : "Targets needed")}</strong><p>${escapeHtml(order?.reason || "Approve daily Fuel targets to build a meal.")}</p></div>`;
+    renderMealExecutionHistory();
+    return;
+  }
+  status.textContent = order.status;
+  status.className = `state-pill ${order.status === "CONFIRMED" ? "green" : order.status === "PLANNED" ? "yellow" : "neutral"}`;
+  const components = order.components.map((component) => mealComponentControl(order, component)).join("");
+  const macros = `${mealMacroMarkup("Calories", order.estimate?.calories, "")}${mealMacroMarkup("Protein", order.estimate?.protein)}${mealMacroMarkup("Carbs", order.estimate?.carbs)}${mealMacroMarkup("Fat", order.estimate?.fat)}`;
+  const actions = order.status === "READY"
+    ? `<button type="button" data-meal-execution-action="PLAN">Plan this meal</button>`
+    : order.status === "PLANNED"
+      ? `<button type="button" data-meal-execution-action="CONFIRM">Confirm eaten</button><button type="button" class="ghost" data-meal-execution-action="CHANGE">Change meal</button>`
+      : `<button type="button" data-meal-execution-action="NEW">Build another meal</button>`;
+  output.innerHTML = `<article class="meal-order ${order.status.toLowerCase()}">
+    <header><div><span>${escapeHtml(order.slotLabel)}</span><h4>${escapeHtml(order.name)}</h4><p>${escapeHtml(order.note)}</p></div><strong>${escapeHtml(order.timing)}</strong></header>
+    <div class="meal-component-grid">${components}</div>
+    <div class="meal-estimate"><div>${macros}</div><small>Estimated portions. Verify packaged-food labels and adjust for what you actually eat.</small></div>
+    <div class="meal-execution-actions">${actions}</div>
+    <footer><span>USDA-informed planning estimate</span><a href="https://fdc.nal.usda.gov/" target="_blank" rel="noreferrer">FoodData Central</a><small>${escapeHtml(order.evidencePolicy)}</small></footer>
+  </article>`;
+  renderMealExecutionHistory();
+}
+
+async function saveMealExecutionPreferences(event) {
+  event.preventDefault();
+  if (typeof DominionMealExecution === "undefined") return;
+  const data = new FormData(event.currentTarget);
+  const ledger = readMealExecutionLedger();
+  const preferences = DominionMealExecution.normalizePreferences({
+    diet: data.get("diet"),
+    prep: data.get("prep"),
+    exclusions: data.getAll("exclusions")
+  });
+  mealExecutionDraft = null;
+  const result = await saveMealExecutionLedger({ ...ledger, preferences });
+  hydrateMealExecutionPreferences(true);
+  renderNutritionCommand();
+  setText("meal-preferences-feedback", `Preferences saved${result.synced ? " to your account" : " locally"}. Food filters do not replace label or allergy checks.`);
+}
+
+async function handleMealExecutionAction(action) {
+  if (typeof DominionMealExecution === "undefined") return;
+  const ledger = readMealExecutionLedger();
+  const order = currentMealExecutionOrder();
+  if (!order) return;
+  if (action === "PLAN") {
+    const planned = DominionMealExecution.planMeal(order);
+    mealExecutionDraft = null;
+    const result = await saveMealExecutionLedger({ ...ledger, current: planned });
+    renderNutritionCommand();
+    setText("meal-execution-feedback", `Meal planned${result.synced ? " to your account" : " locally"}. The estimate did not change today's intake.`);
+    return;
+  }
+  if (action === "CONFIRM") {
+    const form = document.getElementById("meal-confirm-form");
+    if (!form) return;
+    ["calories", "protein", "carbs", "fat"].forEach((key) => { form.elements[key].value = Math.round(Number(order.estimate?.[key] || 0)); });
+    form.hidden = false;
+    form.elements.calories.focus({ preventScroll: true });
+    return;
+  }
+  if (action === "CHANGE") {
+    mealExecutionDraft = buildCurrentMealExecutionOrder({ selection: order.selection, sequence: mealExecutionSequence(order) });
+    renderMealExecution();
+    setText("meal-execution-feedback", "Meal reopened. Swap foods, then plan the replacement.");
+    return;
+  }
+  if (action === "NEW") {
+    mealExecutionDraft = buildCurrentMealExecutionOrder({ sequence: nextMealExecutionSequence() });
+    renderMealExecution();
+    setText("meal-execution-feedback", "Next meal ready to adjust.");
+  }
+}
+
+function swapMealExecutionComponent(event) {
+  const select = event.target.closest("select[data-meal-component]");
+  if (!select || typeof DominionMealExecution === "undefined") return;
+  const order = currentMealExecutionOrder();
+  const selection = { ...(order?.selection || {}), [select.dataset.mealComponent]: select.value };
+  mealExecutionDraft = buildCurrentMealExecutionOrder({ selection, sequence: mealExecutionSequence(order) });
+  renderMealExecution();
+}
+
+async function confirmMealExecution(event) {
+  event.preventDefault();
+  if (typeof DominionMealExecution === "undefined") return;
+  const ledger = readMealExecutionLedger();
+  const order = ledger.current?.status === "PLANNED" ? ledger.current : currentMealExecutionOrder();
+  const data = new FormData(event.currentTarget);
+  const actual = Object.fromEntries(["calories", "protein", "carbs", "fat"].map((key) => [key, data.get(key)]));
+  const confirmed = DominionMealExecution.confirmMeal(order, actual);
+  const history = DominionMealExecution.mergeRecord(ledger.history, confirmed);
+  mealExecutionDraft = null;
+  const result = await saveMealExecutionLedger({ ...ledger, current: confirmed, history });
+  event.currentTarget.hidden = true;
+  renderNutritionCommand();
+  setText("meal-execution-feedback", `Meal confirmed${result.synced ? " to your account" : " locally"}. Imported daily totals still take priority.`);
+}
+
 function renderTodayNutritionExecution() {
   const output = document.getElementById("today-nutrition-output");
   const status = document.getElementById("today-nutrition-status");
@@ -12649,6 +12881,7 @@ function renderNutritionCommand() {
   renderNutritionBaseline();
   renderFastingProtocol();
   renderFastingExecution();
+  renderMealExecution();
   renderFastingReview();
   renderAdaptiveFueling();
   renderNutritionIntelligence();
@@ -14176,6 +14409,11 @@ if (typeof document !== "undefined") {
       document.getElementById("fasting-execution-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
+    if (button.dataset.nutritionNextAction === "meal") {
+      setNutritionActiveView("today");
+      document.getElementById("meal-execution-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     setNutritionActiveView(button.dataset.nutritionNextAction);
     document.querySelector(`[data-nutrition-view-panel="${button.dataset.nutritionNextAction}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -14210,6 +14448,16 @@ if (typeof document !== "undefined") {
     finally { button.disabled = false; }
   });
   document.getElementById("fasting-closeout-form")?.addEventListener("submit", saveFastingCloseout);
+  document.getElementById("meal-execution-preferences-form")?.addEventListener("submit", saveMealExecutionPreferences);
+  document.getElementById("meal-execution-output")?.addEventListener("change", swapMealExecutionComponent);
+  document.getElementById("meal-execution-output")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-meal-execution-action]");
+    if (!button) return;
+    button.disabled = true;
+    try { await handleMealExecutionAction(button.dataset.mealExecutionAction); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("meal-confirm-form")?.addEventListener("submit", confirmMealExecution);
   document.getElementById("fasting-review-output")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-fasting-review-action]");
     if (button?.dataset.fastingReviewAction === "review-change") reviewFastingVerdictChange(button.dataset.protocol);

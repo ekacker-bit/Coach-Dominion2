@@ -383,6 +383,306 @@
   }
 }
 
+/* Build 023E: Precision Meal Execution */
+.meal-execution-panel {
+  margin: 1rem 0;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  border-left: 3px solid var(--gold, #d4af37);
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.08), rgba(13, 20, 24, 0.96) 42%);
+}
+
+.meal-execution-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.meal-execution-heading h3,
+.meal-execution-heading p {
+  margin: 0.2rem 0 0;
+}
+
+.meal-execution-heading p {
+  color: var(--muted, #aab2bd);
+}
+
+.meal-order {
+  display: grid;
+  gap: 1rem;
+}
+
+.meal-order > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+}
+
+.meal-order > header span,
+.meal-component-control > span,
+.meal-component-copy > span,
+.meal-estimate span,
+.meal-record-list article span {
+  color: var(--gold, #d4af37);
+  font-family: var(--font-display, "Bebas Neue", sans-serif);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.meal-order > header h4 {
+  margin: 0.15rem 0 0;
+  color: var(--stone, #e6e6e4);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1;
+}
+
+.meal-order > header p,
+.meal-order > header > strong {
+  margin: 0.45rem 0 0;
+  color: var(--muted, #aab2bd);
+}
+
+.meal-order > header > strong {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(230, 230, 228, 0.18);
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.meal-component-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.meal-component-control,
+.meal-component-copy {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid rgba(230, 230, 228, 0.13);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.meal-component-control select {
+  width: 100%;
+  min-width: 0;
+}
+
+.meal-component-control small,
+.meal-component-copy strong {
+  color: var(--muted, #aab2bd);
+  overflow-wrap: anywhere;
+}
+
+.meal-estimate {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(46, 75, 52, 0.8);
+  background: rgba(46, 75, 52, 0.13);
+}
+
+.meal-estimate > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.meal-estimate > div > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.meal-estimate strong {
+  color: var(--stone, #e6e6e4);
+  font-size: 1.1rem;
+}
+
+.meal-estimate small,
+.meal-order > footer,
+.meal-order > footer small {
+  color: var(--muted, #aab2bd);
+}
+
+.meal-execution-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.meal-order > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(230, 230, 228, 0.12);
+  font-size: 0.78rem;
+}
+
+.meal-order > footer a {
+  color: var(--gold, #d4af37);
+}
+
+.meal-order > footer small {
+  flex-basis: 100%;
+}
+
+.meal-confirm-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.4fr) repeat(4, minmax(5.5rem, 0.65fr)) auto;
+  gap: 0.7rem;
+  align-items: end;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.meal-confirm-form[hidden] {
+  display: none;
+}
+
+.meal-confirm-form > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.meal-confirm-form small,
+.meal-preferences-panel > p {
+  color: var(--muted, #aab2bd);
+}
+
+.meal-preferences-panel {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(230, 230, 228, 0.14);
+}
+
+.meal-preferences-panel > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.meal-execution-preferences-form {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 0.65fr) minmax(16rem, 1.6fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.meal-execution-preferences-form fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.8rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(230, 230, 228, 0.18);
+}
+
+.meal-execution-preferences-form fieldset label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.meal-execution-history-panel {
+  margin-top: 1rem;
+}
+
+.meal-record-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.meal-record-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgba(230, 230, 228, 0.12);
+}
+
+.meal-record-list article > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.meal-record-list article > div:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.meal-record-list small {
+  color: var(--muted, #aab2bd);
+}
+
+@media (max-width: 900px) {
+  .meal-component-grid,
+  .meal-estimate > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meal-confirm-form,
+  .meal-execution-preferences-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meal-confirm-form > div,
+  .meal-execution-preferences-form fieldset {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .meal-execution-heading,
+  .meal-order > header,
+  .meal-record-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-execution-heading {
+    display: grid;
+  }
+
+  .meal-execution-heading .state-pill,
+  .meal-order > header > strong {
+    justify-self: start;
+  }
+
+  .meal-component-grid,
+  .meal-confirm-form,
+  .meal-execution-preferences-form {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-confirm-form > div,
+  .meal-execution-preferences-form fieldset {
+    grid-column: auto;
+  }
+
+  .meal-record-list article > div:last-child {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .meal-preferences-panel > summary {
+    display: grid;
+    gap: 0.2rem;
+  }
+}
+
 /* Build 021A: Coach Dominion brand system — The Standard Is Earned. */
 :root {
   --dominion-black: #0a0a0a;

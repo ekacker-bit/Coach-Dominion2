@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionMealExecution = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023E.1";
+  const VERSION = "023F.1";
   const METRICS = ["calories", "protein", "carbs", "fat"];
   const DIETS = ["OMNIVORE", "PESCATARIAN", "VEGETARIAN", "PLANT_BASED"];
   const PREP = ["QUICK", "STANDARD"];
@@ -231,10 +231,13 @@
     const records = [...(Array.isArray(history) ? history : []).filter(Boolean)];
     if (record?.id) records.push(record);
     const byId = new Map();
+    const rank = { READY: 0, PLANNED: 1, CONFIRMED: 2 };
     records.forEach((item) => {
       if (!item?.id) return;
       const current = byId.get(item.id);
-      if (!current || String(item.updatedAt || "") >= String(current.updatedAt || "")) byId.set(item.id, item);
+      const itemRank = rank[item.status] ?? -1;
+      const currentRank = rank[current?.status] ?? -1;
+      if (!current || itemRank > currentRank || itemRank === currentRank && String(item.updatedAt || "") >= String(current.updatedAt || "")) byId.set(item.id, item);
     });
     return [...byId.values()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 90);
   }

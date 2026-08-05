@@ -12083,6 +12083,36 @@ async function saveMealExecutionLedger(value = {}) {
   return { saved, synced };
 }
 
+function fuelClosedLoopStorageKey() {
+  return `coach-dominion:fuel-closed-loop:${connectedUserId()}`;
+}
+
+function readFuelClosedLoopLedger() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(fuelClosedLoopStorageKey()) || "null") || {};
+    return typeof DominionFuelClosedLoop === "undefined"
+      ? { feedback: Array.isArray(value.feedback) ? value.feedback : [], closeouts: Array.isArray(value.closeouts) ? value.closeouts : [], updatedAt: value.updatedAt || null }
+      : DominionFuelClosedLoop.normalizeLedger(value);
+  } catch (_) {
+    return typeof DominionFuelClosedLoop === "undefined"
+      ? { feedback: [], closeouts: [], updatedAt: null }
+      : DominionFuelClosedLoop.normalizeLedger();
+  }
+}
+
+function writeFuelClosedLoopLedger(value = {}) {
+  const normalized = typeof DominionFuelClosedLoop === "undefined" ? value : DominionFuelClosedLoop.normalizeLedger(value);
+  const saved = { ...normalized, updatedAt: value.updatedAt || new Date().toISOString() };
+  window.localStorage.setItem(fuelClosedLoopStorageKey(), JSON.stringify(saved));
+  return saved;
+}
+
+async function saveFuelClosedLoopLedger(value = {}) {
+  const saved = writeFuelClosedLoopLedger({ ...value, updatedAt: new Date().toISOString() });
+  const synced = await persistNutritionState("FUEL_CLOSED_LOOP", "current", saved);
+  return { saved, synced };
+}
+
 function latestFastingRecordForDate(date = todayISODate()) {
   const ledger = readFastingExecutionLedger();
   if (ledger.active) return ledger.active;
@@ -12361,6 +12391,9 @@ function applyNutritionStateRow(row) {
   if (row.state_type === "MEAL_EXECUTION" && (Array.isArray(payload.history) || payload.current || payload.preferences)) {
     writeMealExecutionLedger(payload);
   }
+  if (row.state_type === "FUEL_CLOSED_LOOP" && (Array.isArray(payload.feedback) || Array.isArray(payload.closeouts))) {
+    writeFuelClosedLoopLedger(payload);
+  }
   if (row.state_type === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
     window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(payload.items));
   }
@@ -12377,6 +12410,7 @@ function readNutritionStatePayload(stateType, stateKey = "current") {
   if (stateType === "FASTING_PROTOCOL") return readApprovedFastingProtocol();
   if (stateType === "FASTING_EXECUTION") return readFastingExecutionLedger();
   if (stateType === "MEAL_EXECUTION") return readMealExecutionLedger();
+  if (stateType === "FUEL_CLOSED_LOOP") return readFuelClosedLoopLedger();
   if (stateType === "REVIEW_HISTORY") return { items: readNutritionReviewHistory() };
   if (stateType === "MANUAL_DAY") {
     try { return JSON.parse(window.localStorage.getItem(nutritionManualStorageKey(stateKey)) || "null"); }
@@ -12409,6 +12443,7 @@ async function loadNutritionState() {
     const localFastingProtocol = readApprovedFastingProtocol();
     const localFastingExecution = readFastingExecutionLedger();
     const localMealExecution = readMealExecutionLedger();
+    const localFuelClosedLoop = readFuelClosedLoopLedger();
     if (!hasState("BASELINE_HISTORY") && localBaselines.length) {
       await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines });
     }
@@ -12429,6 +12464,9 @@ async function loadNutritionState() {
     }
     if (!hasState("MEAL_EXECUTION") && (localMealExecution.current || localMealExecution.history.length || localMealExecution.preferences)) {
       await persistNutritionState("MEAL_EXECUTION", "current", localMealExecution);
+    }
+    if (!hasState("FUEL_CLOSED_LOOP") && (localFuelClosedLoop.feedback.length || localFuelClosedLoop.closeouts.length)) {
+      await persistNutritionState("FUEL_CLOSED_LOOP", "current", localFuelClosedLoop);
     }
     ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => {
       const approval = readApprovedAdaptiveFueling(goalName);
@@ -12576,11 +12614,25 @@ function buildCurrentTodayNutritionExecution() {
   });
 }
 
+function buildCurrentFuelClosedLoop(date = todayISODate(), execution = null) {
+  if (typeof DominionFuelClosedLoop === "undefined") return null;
+  const targetExecution = execution || buildCurrentTodayNutritionExecution();
+  if (!targetExecution) return null;
+  return DominionFuelClosedLoop.buildFuelLoop({
+    date,
+    execution: targetExecution,
+    mealLedger: readMealExecutionLedger(),
+    ledger: readFuelClosedLoopLedger(),
+    now: date === todayISODate() ? new Date() : new Date(`${date}T20:00:00`)
+  });
+}
+
 function buildCurrentFuelCommand() {
   if (typeof DominionFuelCommand === "undefined") return null;
   const execution = buildCurrentTodayNutritionExecution();
   const mealPlan = buildCurrentMealCoachingPlan(todayISODate());
-  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, calendarContext: execution?.calendarContext, fastingContext: execution?.fastingContext, now: new Date() });
+  const closedLoop = buildCurrentFuelClosedLoop(todayISODate(), execution);
+  return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, closedLoop, calendarContext: execution?.calendarContext, fastingContext: execution?.fastingContext, now: new Date() });
 }
 
 function hydrateMealExecutionPreferences(force = false) {
@@ -12773,6 +12825,178 @@ async function confirmMealExecution(event) {
   setText("meal-execution-feedback", `Meal confirmed${result.synced ? " to your account" : " locally"}. Imported daily totals still take priority.`);
 }
 
+function fuelLoopStepMarkup(loop) {
+  const steps = [
+    { label: "Meal", complete: Boolean(loop.latestMeal) },
+    { label: "Check-in", complete: Boolean(loop.latestFeedback) },
+    { label: "Daily total", complete: Boolean(loop.hasAuthoritative) },
+    { label: "Close", complete: Boolean(loop.closeout) }
+  ];
+  const firstOpen = steps.findIndex((item) => !item.complete);
+  return steps.map((item, index) => `<span class="${item.complete ? "complete" : index === firstOpen ? "current" : ""}">${escapeHtml(item.label)}</span>`).join("");
+}
+
+function fuelLoopActionMarkup(loop) {
+  const action = loop.primaryAction || {};
+  if (loop.closeout) return '<button type="button" class="ghost" data-fuel-loop-action="amend-closeout">Amend closeout</button>';
+  const primary = `<button type="button" data-fuel-loop-action="${escapeHtml(action.id || "build-meal")}">${escapeHtml(action.label || "Build next meal")}</button>`;
+  const secondary = loop.canClose && action.id !== "close-fuel"
+    ? '<button type="button" class="ghost" data-fuel-loop-action="close-fuel">Close Fuel</button>'
+    : "";
+  return `${primary}${secondary}`;
+}
+
+function renderFuelClosedLoop() {
+  const output = document.getElementById("fuel-closed-loop-output");
+  const status = document.getElementById("fuel-closed-loop-status");
+  const feedbackForm = document.getElementById("fuel-meal-feedback-form");
+  const closeoutForm = document.getElementById("fuel-day-closeout-form");
+  if (!output || !status || !feedbackForm || !closeoutForm || typeof DominionFuelClosedLoop === "undefined") return;
+  const loop = buildCurrentFuelClosedLoop();
+  feedbackForm.hidden = true;
+  closeoutForm.hidden = true;
+  if (!loop) {
+    status.textContent = "UNAVAILABLE";
+    status.className = "state-pill neutral";
+    output.innerHTML = '<div class="performance-empty">Fuel evidence is unavailable.</div>';
+    return;
+  }
+  status.textContent = loop.status;
+  status.className = `state-pill ${loop.status === "DAY CLOSED" ? "green" : ["CHECK IN", "CLOSE DAY", "REVIEW SYNC"].includes(loop.status) ? "yellow" : "neutral"}`;
+  const recommendation = loop.closeout?.recommendation || loop.recommendation;
+  const closeoutMeta = loop.closeout
+    ? `<small>${escapeHtml(loop.closeout.evidenceConfidence)} · revision ${Number(loop.closeout.revision || 1)}</small>`
+    : `<small>${loop.reconciliation.meals.length} confirmed meal${loop.reconciliation.meals.length === 1 ? "" : "s"} · ${loop.feedback.length} check-in${loop.feedback.length === 1 ? "" : "s"}</small>`;
+  output.className = "fuel-loop-card";
+  output.innerHTML = `<div class="fuel-loop-progress" aria-label="Fuel loop progress">${fuelLoopStepMarkup(loop)}</div>
+    <div class="fuel-loop-summary">
+      <div><span>${escapeHtml(loop.reconciliation.label)}</span><strong>${escapeHtml(loop.reconciliation.detail)}</strong><small>${escapeHtml(loop.reconciliation.doubleCountPolicy)}</small></div>
+      <div><span>Tomorrow</span><strong>${escapeHtml(recommendation.headline)}</strong><small>${escapeHtml(recommendation.detail)}</small></div>
+    </div>
+    <div class="fuel-loop-actions">${fuelLoopActionMarkup(loop)}</div>
+    ${closeoutMeta}
+    <details><summary>Evidence rules</summary><ul class="baseline-safeguards">${loop.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>`;
+  renderFuelLoopReview();
+}
+
+function fuelLoopWeekRange(date = todayISODate()) {
+  const current = new Date(`${date}T12:00:00`);
+  const day = current.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  const start = new Date(current);
+  start.setDate(current.getDate() + offset);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function renderFuelLoopReview() {
+  const output = document.getElementById("fuel-loop-review-output");
+  const status = document.getElementById("fuel-loop-review-status");
+  if (!output || !status || typeof DominionFuelClosedLoop === "undefined") return;
+  const summary = DominionFuelClosedLoop.summarizeWeek(readFuelClosedLoopLedger(), fuelLoopWeekRange());
+  status.textContent = summary.confidence;
+  status.className = `state-pill ${summary.confidence === "USEFUL" ? "green" : summary.confidence === "EARLY" ? "yellow" : "neutral"}`;
+  if (!summary.feedbackCount && !summary.closedDays) {
+    output.className = "performance-empty";
+    output.textContent = "Rate a confirmed meal, then close a Fuel day to reveal useful patterns.";
+    return;
+  }
+  const score = (value) => value === null ? "—" : `${value} / 5`;
+  const pattern = summary.bestPattern
+    ? `${escapeHtml(summary.bestPattern.label)} · ${summary.bestPattern.count} check-in${summary.bestPattern.count === 1 ? "" : "s"}`
+    : "Still learning";
+  output.className = "";
+  output.innerHTML = `<div class="fuel-loop-review-grid">
+      <article class="fuel-loop-review-card"><span>Closed days</span><strong>${summary.closedDays}</strong><small>This week</small></article>
+      <article class="fuel-loop-review-card"><span>Meal response</span><strong>${summary.feedbackCount}</strong><small>Check-ins</small></article>
+      <article class="fuel-loop-review-card"><span>Energy</span><strong>${score(summary.feedbackSummary.energy)}</strong><small>Average after meals</small></article>
+      <article class="fuel-loop-review-card"><span>Best pattern</span><strong>${pattern}</strong><small>${escapeHtml(summary.confidence.toLowerCase())} evidence</small></article>
+    </div>
+    ${summary.recommendation ? `<div class="fuel-loop-review-recommendation"><span class="kicker">NEXT ACTION</span><strong>${escapeHtml(summary.recommendation.headline)}</strong><p>${escapeHtml(summary.recommendation.detail)}</p></div>` : ""}`;
+}
+
+async function saveFuelMealFeedback(event) {
+  event.preventDefault();
+  if (typeof DominionFuelClosedLoop === "undefined") return;
+  try {
+    const loop = buildCurrentFuelClosedLoop();
+    if (!loop?.latestMeal) throw new Error("Confirm a meal before rating it.");
+    const data = new FormData(event.currentTarget);
+    const ledger = readFuelClosedLoopLedger();
+    const previous = ledger.feedback.find((item) => item.mealId === loop.latestMeal.id) || null;
+    const record = DominionFuelClosedLoop.buildMealFeedback(loop.latestMeal, {
+      hungerAfter: data.get("hungerAfter"),
+      fullness: data.get("fullness"),
+      energy: data.get("energy"),
+      cravings: data.get("cravings"),
+      digestion: data.get("digestion"),
+      note: data.get("note")
+    }, { previous });
+    const result = await saveFuelClosedLoopLedger({ ...ledger, feedback: DominionFuelClosedLoop.mergeById(ledger.feedback, record) });
+    event.currentTarget.reset();
+    event.currentTarget.hidden = true;
+    renderNutritionCommand();
+    setText("fuel-closed-loop-feedback", `Meal response saved${result.synced ? " to your account" : " locally"}. Atlas did not change your targets.`);
+  } catch (error) {
+    setText("fuel-closed-loop-feedback", error.message);
+  }
+}
+
+async function sealFuelDay(event) {
+  event.preventDefault();
+  if (typeof DominionFuelClosedLoop === "undefined") return;
+  try {
+    const loop = buildCurrentFuelClosedLoop();
+    const ledger = readFuelClosedLoopLedger();
+    const previous = ledger.closeouts.find((item) => item.date === loop?.date) || null;
+    const data = new FormData(event.currentTarget);
+    const record = DominionFuelClosedLoop.closeFuelDay(loop, { note: data.get("note") }, { previous });
+    const result = await saveFuelClosedLoopLedger({ ...ledger, closeouts: DominionFuelClosedLoop.mergeById(ledger.closeouts, record, 120) });
+    event.currentTarget.reset();
+    event.currentTarget.hidden = true;
+    renderNutritionCommand();
+    setText("fuel-closed-loop-feedback", `Fuel day sealed${result.synced ? " to your account" : " locally"}. Tomorrow's action is ready.`);
+  } catch (error) {
+    setText("fuel-closed-loop-feedback", error.message);
+  }
+}
+
+function handleFuelLoopAction(action) {
+  const feedbackForm = document.getElementById("fuel-meal-feedback-form");
+  const closeoutForm = document.getElementById("fuel-day-closeout-form");
+  if (action === "rate-meal") {
+    if (feedbackForm) {
+      feedbackForm.hidden = false;
+      feedbackForm.querySelector("select")?.focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (["close-fuel", "amend-closeout"].includes(action)) {
+    if (closeoutForm) {
+      const current = buildCurrentFuelClosedLoop()?.closeout;
+      closeoutForm.elements.note.value = current?.note || "";
+      closeoutForm.hidden = false;
+      closeoutForm.elements.note.focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (["build-meal", "confirm-meal"].includes(action)) {
+    document.getElementById("meal-execution-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (action === "confirm-meal") handleMealExecutionAction("CONFIRM");
+    return;
+  }
+  if (action === "review-sync") {
+    setNutritionActiveView("details");
+    document.querySelector('[data-nutrition-view-panel="details"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (action === "set-baseline") {
+    setNutritionActiveView("plan");
+    document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 function renderTodayNutritionExecution() {
   const output = document.getElementById("today-nutrition-output");
   const status = document.getElementById("today-nutrition-status");
@@ -12876,12 +13100,14 @@ function renderNutritionCommand() {
         <div><span>Calendar</span><strong>${escapeHtml(fuel.evidence.calendarSource)}</strong><small>${escapeHtml(calendar?.headline || fuel.evidence.window)} · ${escapeHtml(fuel.evidence.calendarPolicy)}</small></div>
         <div><span>Fasting</span><strong>${escapeHtml(fuel.evidence.fastingExecution)}</strong><small>${escapeHtml(fuel.evidence.fastingWindow)} · ${escapeHtml(fuel.evidence.fastingPolicy)}</small></div>
         <div><span>Readiness</span><strong>${escapeHtml(fuel.evidence.readiness)}</strong><small>${escapeHtml(fuel.evidence.mealEvidence)}</small></div>
+        <div><span>Reconciliation</span><strong>${escapeHtml(fuel.evidence.fuelReconciliation)}</strong><small>Daily totals are used once; confirmed meals stay supplemental.</small></div>
       </div>${warnings}<ul class="baseline-safeguards">${fuel.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   }
   renderNutritionBaseline();
   renderFastingProtocol();
   renderFastingExecution();
   renderMealExecution();
+  renderFuelClosedLoop();
   renderFastingReview();
   renderAdaptiveFueling();
   renderNutritionIntelligence();
@@ -14414,6 +14640,13 @@ if (typeof document !== "undefined") {
       document.getElementById("meal-execution-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
+    if (["loop", "loop-feedback", "loop-closeout"].includes(button.dataset.nutritionNextAction)) {
+      setNutritionActiveView("today");
+      document.getElementById("fuel-closed-loop-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (button.dataset.nutritionNextAction === "loop-feedback") handleFuelLoopAction("rate-meal");
+      if (button.dataset.nutritionNextAction === "loop-closeout") handleFuelLoopAction("close-fuel");
+      return;
+    }
     setNutritionActiveView(button.dataset.nutritionNextAction);
     document.querySelector(`[data-nutrition-view-panel="${button.dataset.nutritionNextAction}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -14458,6 +14691,12 @@ if (typeof document !== "undefined") {
     finally { button.disabled = false; }
   });
   document.getElementById("meal-confirm-form")?.addEventListener("submit", confirmMealExecution);
+  document.getElementById("fuel-closed-loop-output")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-fuel-loop-action]");
+    if (button) handleFuelLoopAction(button.dataset.fuelLoopAction);
+  });
+  document.getElementById("fuel-meal-feedback-form")?.addEventListener("submit", saveFuelMealFeedback);
+  document.getElementById("fuel-day-closeout-form")?.addEventListener("submit", sealFuelDay);
   document.getElementById("fasting-review-output")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-fasting-review-action]");
     if (button?.dataset.fastingReviewAction === "review-change") reviewFastingVerdictChange(button.dataset.protocol);

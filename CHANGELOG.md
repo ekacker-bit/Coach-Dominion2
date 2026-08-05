@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 023F Fuel Closed Loop
+
+- Connected meal planning, eaten confirmation, a 20-second meal response, daily reconciliation, and Fuel closeout into one guided loop.
+- Kept MyFitnessPal or manual daily totals authoritative; confirmed meals provide context and are never added a second time.
+- Added an explicit stale-sync review when confirmed meal evidence is newer than the current daily total.
+- Added account-backed meal feedback and amendable daily Fuel closeouts without requiring a new database migration.
+- Gave Atlas one tomorrow recommendation while preserving the approved targets until the recruit deliberately changes them.
+- Added a compact weekly view of meal-response energy, closeout coverage, and the strongest emerging meal pattern.
+- Fixed meal-state reconciliation so a confirmed meal cannot be replaced by an older planned lifecycle state.
+
 ## Unreleased - Build 021G Contract Amendment Save Recovery
 
 - Made Contract amendment navigation local-first so Continue and Review never wait on account sync.

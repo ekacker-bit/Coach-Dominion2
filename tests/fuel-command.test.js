@@ -45,8 +45,8 @@ function mealPlan(overrides = {}) {
   };
 }
 
-test("023E exposes a versioned deterministic Fuel engine", () => {
-  assert.equal(VERSION, "023E.1");
+test("023F exposes a versioned deterministic Fuel engine", () => {
+  assert.equal(VERSION, "023F.1");
 });
 
 test("023A makes baseline approval the one action when targets are missing", () => {
@@ -163,4 +163,38 @@ test("023E promotes meal execution when current evidence has targets remaining",
   assert.equal(result.primaryAction.id, "build-meal");
   assert.equal(result.primaryAction.route, "meal");
   assert.equal(result.primaryAction.label, "Build next meal");
+});
+
+test("023F promotes the next closed-loop action without hiding safety or calendar blockers", () => {
+  const closedLoop = {
+    headline: "How did that meal land?",
+    detail: "A short check-in improves tomorrow's recommendation.",
+    primaryAction: { id: "rate-meal", label: "Rate this meal", route: "loop-feedback" },
+    reconciliation: { label: "Evidence reconciled" }
+  };
+  const result = buildFuelCommand({ execution: execution(), mealPlan: mealPlan(), closedLoop, now: 18 });
+  assert.equal(result.primaryAction.id, "rate-meal");
+  assert.equal(result.primaryAction.route, "loop-feedback");
+  assert.equal(result.headline, "How did that meal land?");
+  assert.equal(result.evidence.fuelReconciliation, "Evidence reconciled");
+  const blocked = buildFuelCommand({ execution: execution(), mealPlan: mealPlan(), closedLoop, calendarContext: { blocker: true } });
+  assert.equal(blocked.primaryAction.id, "commit-calendar");
+});
+
+test("023F lets meal feedback lead during an open eating window", () => {
+  const closedLoop = {
+    status: "CHECK IN",
+    headline: "How did that meal land?",
+    detail: "Rate the meal.",
+    primaryAction: { id: "rate-meal", label: "Rate this meal", route: "loop-feedback" },
+    reconciliation: { label: "Evidence reconciled" }
+  };
+  const fastingContext = {
+    enabled: true,
+    status: "EATING WINDOW OPEN",
+    liveCommand: { visible: true, status: "EATING WINDOW OPEN", headline: "Complete today's Fuel targets", detail: "Window open.", primaryAction: { id: "START_FAST", label: "Start next fast" } }
+  };
+  const result = buildFuelCommand({ execution: execution(), mealPlan: mealPlan(), closedLoop, fastingContext, now: 18 });
+  assert.equal(result.primaryAction.id, "rate-meal");
+  assert.equal(result.headline, "How did that meal land?");
 });

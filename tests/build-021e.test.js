@@ -25,7 +25,7 @@ assert.match(app, /Your signed Contract is already in force/);
 assert.match(app, /return true;\s*\n\}/);
 
 assert.match(html, /<button type="button" value="confirm" data-contract-experience-action="sign-confirm">/);
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|023[abcde])-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|023[abcdef])-v1/);
 assert.match(packageJson, /node tests\/build-021e\.test\.js/);
 
 console.log("Build 021E Contract amendment finalization regression checks passed.");

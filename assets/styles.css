@@ -393,6 +393,73 @@
   }
 }
 
+/* Build 024A — Atlas Program Commissioning */
+.contract-activation-summary {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(212, 175, 55, 0.46);
+  background:
+    linear-gradient(110deg, rgba(212, 175, 55, 0.12), transparent 44%),
+    rgba(7, 10, 9, 0.72);
+}
+
+.contract-activation-summary::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(var(--gold, #d4af37), var(--ascent, #2e4b34));
+}
+
+.contract-activation-summary button[data-contract-activation-action="APPROVE_PROGRAM"] {
+  color: #0a0a0a;
+  border-color: var(--gold, #d4af37);
+  background: linear-gradient(135deg, #efd05e, var(--gold, #d4af37));
+  box-shadow: 0 12px 32px rgba(212, 175, 55, 0.16);
+}
+
+.contract-activation-module {
+  min-height: 9rem;
+  background: linear-gradient(145deg, rgba(30, 31, 33, 0.92), rgba(10, 10, 10, 0.82));
+}
+
+.contract-activation-module.pending {
+  border-color: rgba(212, 175, 55, 0.38);
+}
+
+.atlas-program-guardrails {
+  margin-top: 1rem;
+  border: 1px solid rgba(230, 230, 228, 0.13);
+  background: rgba(10, 10, 10, 0.42);
+}
+
+.atlas-program-guardrails summary {
+  padding: 0.9rem 1rem;
+  color: var(--stone, #e6e6e4);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.atlas-program-guardrails ul {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0 1.25rem 1rem 2rem;
+  color: var(--muted, #aab2bd);
+}
+
+@media (max-width: 720px) {
+  .contract-activation-summary button[data-contract-activation-action="APPROVE_PROGRAM"] {
+    width: 100%;
+  }
+
+  .contract-activation-module {
+    min-height: 0;
+  }
+}
+
 /* Build 023E: Precision Meal Execution */
 .meal-execution-panel {
   margin: 1rem 0;

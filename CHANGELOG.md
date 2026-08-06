@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 024A Atlas Program Commissioning
+
+- Replaced four separate plan-approval chores with one coordinated Atlas program package.
+- Used the signed Recruit Contract and profile to prepare Fuel, Strength, Core, Cardio, and the first calendar week together.
+- Added current weight to the Contract so Fuel starts with explicit, reviewable targets instead of a missing-plan blocker.
+- Gave recruits one deliberate approval that activates the complete package while protecting the current week until handoff.
+- Kept specialized module editors available for later changes without making them part of first-time activation.
+- Added conservative Week One cardio defaults when no running-distance baseline exists, so one missing estimate cannot deadlock setup.
+
 ## Unreleased - Build 023F Fuel Closed Loop
 
 - Connected meal planning, eaten confirmation, a 20-second meal response, daily reconciliation, and Fuel closeout into one guided loop.

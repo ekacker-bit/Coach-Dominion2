@@ -8,10 +8,10 @@ const app = fs.readFileSync(path.join(root, "assets", "js", "app.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "assets", "styles.css"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 
-assert.match(html, /BUILD 018G \/\/ CONTRACT ACTIVATION/);
+assert.match(html, /BUILD (?:018G \/\/ CONTRACT ACTIVATION|024A \/\/ ATLAS PROGRAM)/);
 assert.match(html, /id="contract-activation"/);
 assert.match(html, /id="contract-activation-progress"/);
-assert.match(html, /src="\/assets\/js\/contract-activation\.js"/);
+assert.match(html, /src="\/assets\/js\/contract-activation\.js(?:\?v=024a)?"/);
 assert.match(app, /function contractActivationInputs/);
 assert.match(app, /function renderContractActivation/);
 assert.match(app, /function applyContractActivationGuards/);

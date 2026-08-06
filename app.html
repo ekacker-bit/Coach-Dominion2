@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=023f">
+  <link rel="stylesheet" href="/assets/styles.css?v=024a">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -160,6 +160,12 @@
                   <select name="heightUnit" aria-label="Height unit"><option value="in">in</option><option value="cm">cm</option></select>
                 </span>
               </label>
+              <label>Current weight
+                <span class="recruit-height-control">
+                  <input name="weightValue" type="number" min="30" max="772" step="0.1" inputmode="decimal" required placeholder="Weight">
+                  <select name="weightUnit" aria-label="Weight unit"><option value="lb">lb</option><option value="kg">kg</option></select>
+                </span>
+              </label>
               <label>Gender
                 <select name="gender">
                   <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
@@ -283,7 +289,7 @@
           <div class="contract-review-step" data-contract-form-step="4" hidden>
             <span class="kicker">FINAL REVIEW</span>
             <h3>Read the commitment below.</h3>
-            <p>Your signature will approve this revision. Current plans remain protected until you activate their replacements.</p>
+            <p>Your signature creates one Atlas program for Fuel, Strength, Core, and Cardio. Review it once, then activate the complete package.</p>
           </div>
           <button id="recruit-contract-review-submit" type="submit" hidden>Review contract</button>
           <div class="recruit-contract-actions">
@@ -341,9 +347,9 @@
         <section id="contract-activation" class="contract-activation" aria-labelledby="contract-activation-heading">
           <div class="section-heading compact">
             <div>
-              <div class="kicker">BUILD 018G // CONTRACT ACTIVATION</div>
-              <h3 id="contract-activation-heading">Activate the commitment</h3>
-              <p class="muted">Connect your plans, then schedule the week.</p>
+              <div class="kicker">BUILD 024A // ATLAS PROGRAM</div>
+              <h3 id="contract-activation-heading">Your complete program</h3>
+              <p class="muted">One Contract. Four coordinated plans. One approval.</p>
             </div>
             <span id="contract-activation-status" class="state-pill neutral">CONTRACT REQUIRED</span>
           </div>
@@ -2030,11 +2036,12 @@
 <script src="/assets/js/closed-loop.js"></script>
 <script src="/assets/js/adaptive-coaching.js?v=022a"></script>
 <script src="/assets/js/atlas-intervention.js?v=022a"></script>
- <script src="/assets/js/recruit-contract.js"></script>
+ <script src="/assets/js/recruit-contract.js?v=024a"></script>
 <script src="/assets/js/contract-experience.js"></script>
 <script src="/assets/js/weekly-orchestrator.js?v=021i"></script>
 <script src="/assets/js/split-day-command.js"></script>
-<script src="/assets/js/contract-activation.js"></script>
+<script src="/assets/js/contract-activation.js?v=024a"></script>
+<script src="/assets/js/atlas-program.js?v=024a"></script>
 <script src="/assets/js/contract-integrity.js"></script>
 <script src="/assets/js/contract-autosave.js?v=021h"></script>
 <script src="/assets/js/mobile-command.js?v=022g"></script>
@@ -2045,6 +2052,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=023f"></script>
+  <script src="/assets/js/app.js?v=024a"></script>
 </body>
 </html>

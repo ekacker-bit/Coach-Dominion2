@@ -64,18 +64,30 @@ function matchingWeek(context, overrides = {}) {
   const state = activation.buildActivation({ contract, nutritionConnection: { status: "TARGETS_REQUIRED" } });
   assert.equal(state.status, "ACTION_REQUIRED");
   assert.equal(state.modules.find((item) => item.id === "strength").status, "PLAN_REQUIRED");
-  assert.equal(state.next.action, "STAGE_DRAFTS");
+  assert.equal(state.next.action, "STAGE_PROGRAM");
 }
 
 {
   const oldStrength = { id: "strength-1", revision: 1, status: "APPROVED", recruitContractId: "contract-1", recruitContractRevision: 1, profile: { daysPerWeek: 3, sessionMinutes: 45 } };
   const draft = { ...plan("strength-draft"), status: "DRAFT" };
-  const state = activation.buildActivation(linkedContext({ strengthPlan: oldStrength, strengthDraft: draft }));
+  const runningDraft = { ...plan("running-draft"), status: "DRAFT", weeks: [{}, {}, {}, {}] };
+  const coreDraft = { ...plan("core-draft"), status: "DRAFT", weeks: [{}, {}, {}, {}] };
+  const nutritionDraft = { status: "READY FOR APPROVAL", recruitContractId: contract.id, recruitContractRevision: contract.revision };
+  const state = activation.buildActivation(linkedContext({
+    strengthPlan: oldStrength,
+    strengthDraft: draft,
+    runningPlan: null,
+    runningDraft,
+    corePlan: null,
+    coreDraft,
+    nutritionBaseline: null,
+    nutritionConnection: { status: "TARGETS_REQUIRED" },
+    nutritionDraft
+  }));
   const strength = state.modules.find((item) => item.id === "strength");
   assert.equal(strength.status, "DRAFT_READY");
   assert.equal(strength.changes.length, 4);
-  assert.equal(state.next.action, "OPEN_MODULE");
-  assert.equal(state.next.module, "strength");
+  assert.equal(state.next.action, "APPROVE_PROGRAM");
 }
 
 {
@@ -133,7 +145,7 @@ function matchingWeek(context, overrides = {}) {
   const nutrition = state.modules.find((item) => item.id === "nutrition");
   assert.equal(nutrition.status, "UPDATE_REQUIRED");
   assert.equal(nutrition.changes.length, 1);
-  assert.equal(state.next.module, "nutrition");
+  assert.equal(state.next.action, "STAGE_PROGRAM");
 }
 
 {

@@ -17,6 +17,8 @@ function approvedContract(overrides = {}) {
     age: 42,
     heightValue: 70,
     heightUnit: "in",
+    weightValue: 175,
+    weightUnit: "lb",
     gender: "MAN",
     trainingYears: 8,
     primaryGoal: "BALANCED_FITNESS",

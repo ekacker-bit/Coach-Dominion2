@@ -13,6 +13,8 @@ function validInput(overrides = {}) {
     age: 42,
     heightValue: 70,
     heightUnit: "in",
+    weightValue: 175,
+    weightUnit: "lb",
     gender: "MAN",
     trainingYears: 8,
     primaryGoal: "BALANCED_FITNESS",
@@ -74,8 +76,8 @@ test("module minimums never schedule more than the recruit committed to", () => 
 test("running baseline gaps are visible without blocking the whole contract", () => {
   const result = contract.buildRecruitContract(validInput({ declaredWeeklyDistance: 0 }), options);
   assert.equal(result.status, "READY_FOR_APPROVAL");
-  assert.equal(result.moduleReadiness.running.status, "BASELINE_REQUIRED");
-  assert.match(result.warnings.join(" "), /weekly-distance baseline/i);
+  assert.equal(result.moduleReadiness.running.status, "READY_TO_STAGE");
+  assert.match(result.warnings.join(" "), /conservative Week One cardio baseline/i);
 });
 
 test("the seven-day commitment map coordinates stacked modalities", () => {
@@ -138,6 +140,7 @@ test("contract inputs map cleanly into every planning module", () => {
   assert.equal(inputs.core.goal, "RUNNING_SUPPORT");
   assert.equal(inputs.core.experience, "ADVANCED");
   assert.equal(inputs.nutrition.goal, "PERFORMANCE");
+  assert.equal(inputs.athleteProfile.weightKg, 79.4);
   assert.equal(inputs.athleteProfile.athleteType, "VETERAN");
 });
 
@@ -149,6 +152,7 @@ test("recruit context derives athlete type and training experience", () => {
   assert.equal(trained.athleteType, "TRAINED");
   assert.equal(trained.experience, "INTERMEDIATE");
   assert.equal(trained.heightCm, 177.8);
+  assert.equal(trained.weightKg, 79.4);
 });
 
 test("a deleted contract remains a revision boundary for its replacement", () => {
@@ -238,6 +242,8 @@ test("an existing-user amendment recovers the saved orientation profile and crea
     age: 42,
     heightCm: 177.8,
     heightUnit: "in",
+    weightValue: 175,
+    weightUnit: "lb",
     gender: "MAN",
     trainingYears: 8
   }, options);
@@ -283,7 +289,7 @@ test("approving a contract never embeds or mutates active module plans", () => {
   assert.equal(activePlan.status, "APPROVED");
   assert.equal(Object.hasOwn(approved, "activePlan"), false);
   assert.equal(Object.hasOwn(approved.planningInputs, "plans"), false);
-  assert.match(approved.safeguards.join(" "), /does not activate or replace/i);
+  assert.match(approved.safeguards.join(" "), /one explicit approval/i);
 });
 
 console.log(`Recruit Contract tests passed (${passed}).`);

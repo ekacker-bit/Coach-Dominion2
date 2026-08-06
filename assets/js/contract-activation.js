@@ -5,12 +5,12 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021D.1";
+  const VERSION = "024A.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength", section: "performance", view: "today_training" },
-    { id: "running", label: "Running", section: "performance", view: "running" },
+    { id: "running", label: "Cardio", section: "performance", view: "running" },
     { id: "core", label: "Core", section: "performance", view: "core" },
-    { id: "nutrition", label: "Nutrition", section: "nutrition", view: "plan" }
+    { id: "nutrition", label: "Fuel", section: "nutrition", view: "plan" }
   ]);
 
   function numberValue(value) {
@@ -79,6 +79,7 @@
     if (definition.id === "nutrition") {
       const connection = context.nutritionConnection || {};
       const active = context.nutritionBaseline || connection.baseline || null;
+      const draft = context.nutritionDraft || null;
       const changes = planChanges("nutrition", expected, active);
       if (["PLAN_LINKED", "SCHEDULED"].includes(connection.status)) {
         return {
@@ -88,6 +89,18 @@
           status: connection.status === "SCHEDULED" ? "SCHEDULED" : "LINKED",
           message: connection.message || "Approved Nutrition targets are linked.",
           changes: []
+        };
+      }
+      if (draft?.status === "READY FOR APPROVAL"
+        && draft.recruitContractId === contract.id
+        && Number(draft.recruitContractRevision || 0) === Number(contract.revision || 0)) {
+        return {
+          ...definition,
+          included: true,
+          complete: false,
+          status: "DRAFT_READY",
+          message: `Atlas prepared Fuel for Contract ${contract.revision}.`,
+          changes
         };
       }
       return {
@@ -174,17 +187,19 @@
     const protectedWeek = currentWeek && !weekMatchesSources(currentWeek, contract, context) ? currentWeek : null;
 
     if (pending) {
-      const stageable = pending.id !== "nutrition" && pending.status !== "DRAFT_READY";
+      const packageReady = required.filter((item) => !item.complete).every((item) => item.status === "DRAFT_READY");
       return {
         version: VERSION,
         status: "ACTION_REQUIRED",
-        message: `${linked.length} of ${required.length} plans are linked to Contract ${contract.revision}.`,
+        message: packageReady
+          ? "The complete Atlas program is ready for one approval."
+          : `Atlas is preparing all ${required.length} plans from Contract ${contract.revision}.`,
         modules,
         progress,
         protectedWeek,
-        next: stageable
-          ? { action: "STAGE_DRAFTS", label: "Prepare plan updates", section: "contract" }
-          : { action: "OPEN_MODULE", label: `Review ${pending.label}`, section: pending.section, view: pending.view, module: pending.id }
+        next: packageReady
+          ? { action: "APPROVE_PROGRAM", label: "Approve full program", section: "contract" }
+          : { action: "STAGE_PROGRAM", label: "Generate my program", section: "contract" }
       };
     }
     if (matchingDraft) {

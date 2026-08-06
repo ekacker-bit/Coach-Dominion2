@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021F.2";
+  const VERSION = "024A.1";
   const TWO_A_DAY_TARGET_MINUTES = 121;
   const TWO_A_DAY_MAX_MINUTES = 240;
   const PRIMARY_GOALS = Object.freeze([
@@ -115,12 +115,23 @@
         ? null
         : Number((heightUnit === "cm" ? enteredHeight : enteredHeight * 2.54).toFixed(1));
     const trainingYears = numberOrNull(source.trainingYears ?? source.training_years);
+    const weightUnit = String(source.weightUnit || source.weight_unit || "lb").toLowerCase() === "kg" ? "kg" : "lb";
+    const storedWeightKg = numberOrNull(source.weightKg ?? source.weight_kg);
+    const enteredWeight = numberOrNull(source.weightValue ?? source.weight_value);
+    const weightKg = storedWeightKg !== null
+      ? Number(storedWeightKg.toFixed(1))
+      : enteredWeight === null
+        ? null
+        : Number((weightUnit === "kg" ? enteredWeight : enteredWeight / 2.2046226218).toFixed(1));
     const athleteType = deriveAthleteType(trainingYears);
     return {
       age: numberOrNull(source.age) === null ? null : Math.round(Number(source.age)),
       heightCm,
       heightUnit,
       heightValue: heightCm === null ? null : Number((heightUnit === "cm" ? heightCm : heightCm / 2.54).toFixed(1)),
+      weightKg,
+      weightUnit,
+      weightValue: weightKg === null ? null : Number((weightUnit === "kg" ? weightKg : weightKg * 2.2046226218).toFixed(1)),
       gender: enumValue(source.gender, GENDER_OPTIONS, "PREFER_NOT_TO_SAY"),
       trainingYears: trainingYears === null ? null : Math.max(0, Number(trainingYears.toFixed(1))),
       athleteType
@@ -144,11 +155,20 @@
         ? second.heightUnit
         : third.heightUnit;
     const trainingYears = value("trainingYears");
+    const weightKg = value("weightKg");
+    const weightUnit = first.weightKg !== null
+      ? first.weightUnit
+      : second.weightKg !== null
+        ? second.weightUnit
+        : third.weightUnit;
     return {
       age: value("age"),
       heightCm,
       heightUnit,
       heightValue: heightCm === null ? null : Number((heightUnit === "cm" ? heightCm : heightCm / 2.54).toFixed(1)),
+      weightKg,
+      weightUnit,
+      weightValue: weightKg === null ? null : Number((weightUnit === "kg" ? weightKg : weightKg * 2.2046226218).toFixed(1)),
       gender,
       trainingYears,
       athleteType: deriveAthleteType(trainingYears)
@@ -168,6 +188,9 @@
       heightCm: null,
       heightUnit: "in",
       heightValue: null,
+      weightKg: null,
+      weightUnit: "lb",
+      weightValue: null,
       gender: "PREFER_NOT_TO_SAY",
       trainingYears: null,
       athleteType: null,
@@ -226,6 +249,7 @@
 
     if (contract.age === null || contract.age < 13 || contract.age > 100) errors.push("Enter an age between 13 and 100.");
     if (contract.heightCm === null || contract.heightCm < 120 || contract.heightCm > 230) errors.push("Enter a height between 120 and 230 cm (47 to 91 in).");
+    if (contract.weightKg === null || contract.weightKg < 30 || contract.weightKg > 350) errors.push("Enter a current weight between 30 and 350 kg (66 to 772 lb).");
     if (contract.trainingYears === null || contract.trainingYears > 70) errors.push("Enter total years of structured training between 0 and 70.");
     if (contract.target.length < 3) errors.push("Name the outcome this contract is meant to achieve.");
     if (contract.targetDate && contract.targetDate < today) errors.push("Target date cannot be in the past.");
@@ -246,9 +270,7 @@
     if (contract.primaryGoal === "BALANCED_FITNESS" && (contract.strengthDaysPerWeek < 2 || contract.runningDaysPerWeek < 2)) {
       warnings.push("Balanced fitness works best with at least two Strength and two Running days.");
     }
-    if (contract.runningDaysPerWeek > 0 && contract.declaredWeeklyDistance <= 0) {
-      warnings.push("Running can be staged, but a weekly-distance baseline is still required before a plan can be approved.");
-    }
+    if (contract.runningDaysPerWeek > 0 && contract.declaredWeeklyDistance <= 0) warnings.push("Atlas will use a conservative Week One cardio baseline until real distance evidence is available.");
     if (contract.trainingDaysPerWeek === 6) warnings.push("Six training days preserves exactly one full recovery day.");
     if (contract.sessionMinutes === 90 && contract.trainingDaysPerWeek >= 5) {
       warnings.push("Five or more 90-minute training days is a high time commitment; confirm it is sustainable.");
@@ -373,7 +395,8 @@
       nutrition: {
         goal: nutritionGoal,
         commitment: contract.nutritionCommitment,
-        effectiveDate: contract.effectiveDate
+        effectiveDate: contract.effectiveDate,
+        weightKg: contract.weightKg
       }
     };
   }
@@ -386,8 +409,8 @@
       running: !planningInputs.running
         ? { status: "NOT_COMMITTED", message: "No running work in this contract." }
         : contract.declaredWeeklyDistance > 0
-          ? { status: "READY_TO_STAGE", message: `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} with a declared baseline.` }
-          : { status: "BASELINE_REQUIRED", message: "Add current weekly distance before approving a running week." },
+          ? { status: "READY_TO_STAGE", message: `${contract.runningDaysPerWeek} cardio day${contract.runningDaysPerWeek === 1 ? "" : "s"} with a declared baseline.` }
+          : { status: "READY_TO_STAGE", message: "Atlas will begin with a conservative cardio baseline and learn from Week One." },
       core: planningInputs.core
         ? { status: "READY_TO_STAGE", message: `${contract.coreDaysPerWeek} core exposure${contract.coreDaysPerWeek === 1 ? "" : "s"} committed.` }
         : { status: "NOT_COMMITTED", message: "No core work in this contract." },
@@ -477,8 +500,8 @@
         validation.contract.twoADays
           ? "Two-a-Day calendar days may contain no more than two sessions and 240 combined minutes; long runs have no time ceiling."
           : "Combined training remains within the standard daily session commitment.",
-        "Approving this contract does not activate or replace a module plan.",
-        "Contract inputs create reviewable drafts; each plan keeps its own approval boundary.",
+        "Approving this contract prepares one reviewable Atlas program package.",
+        "The complete package receives one explicit approval before its plans and calendar activate.",
         "Pain and RED readiness override every commitment."
       ],
       createdAt: options.createdAt || new Date().toISOString(),

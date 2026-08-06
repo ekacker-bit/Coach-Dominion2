@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionFuelCommand = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "023E.1";
+  const VERSION = "023F.1";
   const METRICS = [
     { key: "calories", label: "Calories", unit: "kcal" },
     { key: "protein", label: "Protein", unit: "g" },
@@ -53,19 +53,20 @@
     };
   }
 
-  function primaryAction(execution, calendarContext = null, fastingContext = null) {
+  function primaryAction(execution, calendarContext = null, fastingContext = null, closedLoop = null) {
     if (!execution || execution.status === "SETUP REQUIRED") {
       return { id: "set-baseline", label: "Set baseline", route: "plan" };
     }
     if (calendarContext?.blocker === true) {
       return { id: "commit-calendar", label: "Open Calendar", route: "calendar" };
     }
-    if (fastingContext?.liveCommand?.primaryAction) {
+    if (fastingContext?.liveCommand?.primaryAction && fastingContext.liveCommand.status !== "EATING WINDOW OPEN") {
       return { ...fastingContext.liveCommand.primaryAction, route: "fasting" };
     }
-    if (fastingContext?.enabled && !["OFF", "SUSPENDED TODAY"].includes(fastingContext.status)) {
-      return { id: "view-fast", label: "View window", route: "fasting" };
-    }
+    if (closedLoop?.primaryAction && closedLoop.status !== "DAY CLOSED") return { ...closedLoop.primaryAction };
+    if (fastingContext?.liveCommand?.primaryAction) return { ...fastingContext.liveCommand.primaryAction, route: "fasting" };
+    if (fastingContext?.enabled && !["OFF", "SUSPENDED TODAY", "EATING WINDOW OPEN"].includes(fastingContext.status)) return { id: "view-fast", label: "View window", route: "fasting" };
+    if (closedLoop?.primaryAction) return { ...closedLoop.primaryAction };
     if (execution.status === "AWAITING INTAKE") {
       if (execution.source === "MYFITNESSPAL" && execution.freshness?.state === "HISTORICAL") {
         return { id: "sync-intake", label: "Sync nutrition", route: "connected" };
@@ -81,7 +82,7 @@
     return { id: "review-intake", label: "Update intake", route: "details" };
   }
 
-  function commandCopy(execution, nextMeal, calendarContext = null, fastingContext = null) {
+  function commandCopy(execution, nextMeal, calendarContext = null, fastingContext = null, closedLoop = null) {
     if (!execution || execution.status === "SETUP REQUIRED") {
       return {
         headline: "Set your fueling baseline",
@@ -94,17 +95,26 @@
         detail: calendarContext.detail || "No committed calendar day is available."
       };
     }
-    if (fastingContext?.liveCommand?.visible) {
+    if (fastingContext?.liveCommand?.visible && fastingContext.liveCommand.status !== "EATING WINDOW OPEN") {
       return {
         headline: fastingContext.liveCommand.headline,
         detail: fastingContext.liveCommand.detail
       };
     }
-    if (fastingContext?.enabled && fastingContext.status !== "OFF") {
+    if (closedLoop?.headline && closedLoop?.detail && closedLoop.status !== "DAY CLOSED") {
+      return { headline: closedLoop.headline, detail: closedLoop.detail };
+    }
+    if (fastingContext?.liveCommand?.visible) {
+      return { headline: fastingContext.liveCommand.headline, detail: fastingContext.liveCommand.detail };
+    }
+    if (fastingContext?.enabled && !["OFF", "EATING WINDOW OPEN"].includes(fastingContext.status)) {
       return {
         headline: fastingContext.headline,
         detail: fastingContext.detail
       };
+    }
+    if (closedLoop?.headline && closedLoop?.detail) {
+      return { headline: closedLoop.headline, detail: closedLoop.detail };
     }
     if (execution.status === "AWAITING INTAKE") {
       const syncedBefore = execution.source === "MYFITNESSPAL" && execution.freshness?.state === "HISTORICAL";
@@ -151,9 +161,10 @@
     const mealPlan = value.mealPlan || null;
     const calendarContext = value.calendarContext || execution?.calendarContext || null;
     const fastingContext = value.fastingContext || execution?.fastingContext || mealPlan?.fastingContext || null;
+    const closedLoop = value.closedLoop || null;
     const nextMeal = selectNextMeal(mealPlan, value.now, calendarContext, fastingContext);
-    const copy = commandCopy(execution, nextMeal, calendarContext, fastingContext);
-    const action = primaryAction(execution, calendarContext, fastingContext);
+    const copy = commandCopy(execution, nextMeal, calendarContext, fastingContext, closedLoop);
+    const action = primaryAction(execution, calendarContext, fastingContext, closedLoop);
     const warnings = Array.isArray(execution?.warnings) ? execution.warnings : [];
     const safeguards = Array.isArray(execution?.safeguards) ? execution.safeguards : [];
     return {
@@ -167,6 +178,7 @@
       nextMeal,
       calendarContext,
       fastingContext,
+      closedLoop,
       primaryAction: action,
       evidence: {
         source: execution?.sourceLabel || "No intake source",
@@ -180,7 +192,8 @@
         fastingStatus: fastingContext?.status || "OFF",
         fastingWindow: fastingContext?.windowLabel || "No fasting window",
         fastingPolicy: fastingContext?.targetPolicy || "Approved targets unchanged",
-        fastingExecution: fastingContext?.liveCommand?.status || "NOT STARTED"
+        fastingExecution: fastingContext?.liveCommand?.status || "NOT STARTED",
+        fuelReconciliation: closedLoop?.reconciliation?.label || "Not checked"
       },
       warnings,
       safeguards: [...new Set([...safeguards, ...(fastingContext?.safeguards || [])])],

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=023e">
+  <link rel="stylesheet" href="/assets/styles.css?v=023f">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -488,6 +488,29 @@
             </form>
             <p id="meal-execution-feedback" class="muted"></p>
           </section>
+          <section id="fuel-closed-loop-panel" class="fuel-closed-loop-panel" aria-labelledby="fuel-closed-loop-heading">
+            <div class="fuel-loop-heading">
+              <div><div class="kicker">FUEL LOOP</div><h3 id="fuel-closed-loop-heading">Close the loop</h3><p>Eat. Check in. Reconcile. Close.</p></div>
+              <span id="fuel-closed-loop-status" class="state-pill neutral">CHECKING</span>
+            </div>
+            <div id="fuel-closed-loop-output" aria-live="polite"><div class="performance-empty">Atlas is checking today&rsquo;s Fuel evidence.</div></div>
+            <form id="fuel-meal-feedback-form" class="fuel-meal-feedback-form" hidden>
+              <div><strong>How did the meal land?</strong><small>Twenty seconds. Honest feedback, no penalty.</small></div>
+              <label>Hunger now<select name="hungerAfter" required><option value="">Choose</option><option value="1">1 &middot; None</option><option value="2">2</option><option value="3">3 &middot; Moderate</option><option value="4">4</option><option value="5">5 &middot; High</option></select></label>
+              <label>Fullness<select name="fullness" required><option value="">Choose</option><option value="1">1 &middot; Still hungry</option><option value="2">2</option><option value="3">3 &middot; Satisfied</option><option value="4">4</option><option value="5">5 &middot; Overfull</option></select></label>
+              <label>Energy<select name="energy" required><option value="">Choose</option><option value="1">1 &middot; Drained</option><option value="2">2</option><option value="3">3 &middot; Steady</option><option value="4">4</option><option value="5">5 &middot; Strong</option></select></label>
+              <label>Cravings<select name="cravings" required><option value="">Choose</option><option value="1">1 &middot; None</option><option value="2">2</option><option value="3">3 &middot; Moderate</option><option value="4">4</option><option value="5">5 &middot; High</option></select></label>
+              <label>Digestion<select name="digestion" required><option value="">Choose</option><option value="GOOD">Good</option><option value="OK">Okay</option><option value="POOR">Poor</option></select></label>
+              <label class="fuel-loop-note">Note<input name="note" maxlength="280" placeholder="Optional context"></label>
+              <button type="submit">Save check-in</button>
+            </form>
+            <form id="fuel-day-closeout-form" class="fuel-day-closeout-form" hidden>
+              <div><strong>Close today&rsquo;s Fuel</strong><small>Seal the evidence you have. Missing intake is not a failure.</small></div>
+              <label>Final note<input name="note" maxlength="280" placeholder="What should Atlas remember tomorrow?"></label>
+              <button type="submit">Seal Fuel day</button>
+            </form>
+            <p id="fuel-closed-loop-feedback" class="muted"></p>
+          </section>
           <details class="fuel-command-details">
             <summary><span>Targets, timing &amp; evidence</span><small>Approved plan, meal map, source, and safeguards</small></summary>
             <div id="fuel-command-evidence" class="fuel-command-evidence"></div>
@@ -607,6 +630,13 @@
         </section>
         </div>
         <div class="nutrition-workspace-panel" data-nutrition-view-panel="review" hidden>
+        <section class="fuel-loop-review-panel" aria-labelledby="fuel-loop-review-heading">
+          <div class="section-heading compact">
+            <div><div class="kicker">FUEL FEEDBACK</div><h3 id="fuel-loop-review-heading">What works</h3><p class="muted">Meal response and closeout patterns from this week.</p></div>
+            <span id="fuel-loop-review-status" class="state-pill neutral">LEARNING</span>
+          </div>
+          <div id="fuel-loop-review-output" class="performance-empty">Atlas is waiting for meal check-ins and Fuel closeouts.</div>
+        </section>
         <section class="fasting-review-panel" aria-labelledby="fasting-review-heading">
           <div class="section-heading compact">
             <div><div class="kicker">ATLAS FASTING REVIEW</div><h3 id="fasting-review-heading">Protocol verdict</h3></div>
@@ -1992,8 +2022,9 @@
 <script src="/assets/js/fasting-execution.js?v=023d"></script>
 <script src="/assets/js/fuel-calendar.js?v=023b"></script>
   <script src="/assets/js/today-nutrition.js"></script>
-  <script src="/assets/js/meal-execution.js?v=023e"></script>
-  <script src="/assets/js/fuel-command.js?v=023e"></script>
+  <script src="/assets/js/meal-execution.js?v=023f"></script>
+  <script src="/assets/js/fuel-closed-loop.js?v=023f"></script>
+  <script src="/assets/js/fuel-command.js?v=023f"></script>
 <script src="/assets/js/running-command.js"></script>
 <script src="/assets/js/core-programming.js"></script>
 <script src="/assets/js/closed-loop.js"></script>
@@ -2014,6 +2045,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=023e"></script>
+  <script src="/assets/js/app.js?v=023f"></script>
 </body>
 </html>

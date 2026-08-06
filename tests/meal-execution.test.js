@@ -15,8 +15,8 @@ function order(overrides = {}) {
   });
 }
 
-test("023E exposes a deterministic precision-meal engine", () => {
-  assert.equal(engine.VERSION, "023E.1");
+test("023F exposes the current deterministic precision-meal engine", () => {
+  assert.equal(engine.VERSION, "023F.1");
   assert.equal(order().status, "READY");
 });
 
@@ -72,4 +72,3 @@ test("missing targets return a setup state", () => {
   const result = engine.buildMealOrder({ date: "2026-08-04", nextMeal: null, remaining: {} });
   assert.equal(result.status, "NEEDS TARGETS");
 });
-

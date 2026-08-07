@@ -8,6 +8,7 @@
   const VERSION = "021I.1";
   const SECTION_META = Object.freeze({
     today: { label: "Today", mode: "EXECUTE", title: "Command the day", description: "Readiness, orders, and the next action." },
+    program: { label: "Program", mode: "COMMAND", title: "Command the program", description: "Goal, commitments, weekly load, and the next deliberate change." },
     performance: { label: "Train", mode: "TRAIN", title: "Build capability", description: "Strength, running, core, and the evidence behind the plan." },
     nutrition: { label: "Fuel", mode: "FUEL", title: "Fuel the mission", description: "Targets, intake, and the adjustment that matters now." },
     contract: { label: "Contract", mode: "COMMIT", title: "Define the standard", description: "Your outcome, capacity, commitments, and coordinated week." },

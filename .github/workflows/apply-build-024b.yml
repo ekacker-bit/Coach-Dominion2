@@ -24,32 +24,26 @@ jobs:
           fetch-depth: 0
 
       - name: Apply verified release delta
-        id: apply
-        continue-on-error: true
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if grep -q 'coach-dominion-024b-v1' sw.js; then
             echo "Build 024B is already applied."
             exit 0
           fi
           base64 --decode .codex/build-024b.patch.gz.b64 | gzip --decompress > /tmp/build-024b.patch
-          git apply --check /tmp/build-024b.patch
+          if ! apply_error=$(git apply --check /tmp/build-024b.patch 2>&1); then
+            gh pr comment 109 --body "Build 024B apply error: \`\`\`$apply_error\`\`\`"
+            echo "$apply_error"
+            exit 1
+          fi
           git apply --index /tmp/build-024b.patch
 
-      - name: Report apply failure
-        if: steps.apply.outcome == 'failure'
+      - name: Commit release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr comment 109 --body "Build 024B handoff stopped while applying the verified patch."
-
-      - name: Stop after apply failure
-        if: steps.apply.outcome == 'failure'
-        run: exit 1
-
-      - name: Commit release
-        id: commit
-        continue-on-error: true
-        shell: bash
         run: |
           if git diff --cached --quiet; then
             echo "No release changes to commit."
@@ -58,14 +52,8 @@ jobs:
           git config user.name "Coach Dominion Release"
           git config user.email "actions@users.noreply.github.com"
           git commit -m "Build 024B atomic program activation"
-          git push origin HEAD:agent/build-024b-atomic-activation
-
-      - name: Report commit failure
-        if: steps.commit.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh pr comment 109 --body "Build 024B was applied, but GitHub could not commit or push the release branch."
-
-      - name: Stop after commit failure
-        if: steps.commit.outcome == 'failure'
-        run: exit 1
+          if ! push_error=$(git push origin HEAD:agent/build-024b-atomic-activation 2>&1); then
+            gh pr comment 109 --body "Build 024B push error: \`\`\`$push_error\`\`\`"
+            echo "$push_error"
+            exit 1
+          fi

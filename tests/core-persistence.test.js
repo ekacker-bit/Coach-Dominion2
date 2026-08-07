@@ -12,7 +12,7 @@ assert.match(migration, /primary key \(user_id, state_type, state_key\)/i);
 assert.match(migration, /enable row level security/i);
 assert.match(migration, /auth\.uid\(\) = user_id/i);
 assert.match(app, /\.from\("core_program_state"\)\.upsert/);
-assert.match(app, /await loadCoreProgramState\(\)/);
+assert.match(app, /runStartupTask\("Core", loadCoreProgramState, startupIssues\)/);
 assert.match(app, /await reconcileCoreProgramWithContract\(\)/);
 assert.match(app, /function selectCoreProgramState/);
 assert.match(app, /persistCoreProgramState\("PLAN"/);

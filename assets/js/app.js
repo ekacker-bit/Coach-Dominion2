@@ -5363,12 +5363,32 @@ async function loadWeeklyOrchestrationState() {
 
 function unifiedWeekTargetStart() {
   if (typeof DominionWeeklyOrchestrator === "undefined") return todayISODate();
+  const contract = readApprovedRecruitContract();
   const draft = readUnifiedWeekDraft();
-  if (draft?.weekStart) return draft.weekStart;
+  if (draft?.weekStart && unifiedWeekMatchesContract(draft, contract)) return draft.weekStart;
   const active = readCommittedUnifiedWeek(todayISODate());
   return active
     ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
     : DominionWeeklyOrchestrator.weekStartIso(todayISODate());
+}
+
+function unifiedWeekMatchesContract(week = null, contract = readApprovedRecruitContract()) {
+  if (typeof DominionAtlasProgramRepair !== "undefined") {
+    return DominionAtlasProgramRepair.weekLinkedToContract(week, contract);
+  }
+  return Boolean(week && contract?.id
+    && week.contractId === contract.id
+    && Number(week.contractRevision || 0) === Number(contract.revision || 0));
+}
+
+function unifiedWeekDisposition(week = null, contract = readApprovedRecruitContract()) {
+  if (typeof DominionAtlasProgramRepair !== "undefined") {
+    return DominionAtlasProgramRepair.calendarDisposition(week, contract, todayISODate());
+  }
+  if (!week) return "MISSING";
+  if (unifiedWeekMatchesContract(week, contract)) return "CURRENT_CONTRACT";
+  if (week.weekStart <= todayISODate() && week.weekEnd >= todayISODate() && week.status !== "REPLACED") return "PROTECTED_CURRENT_WEEK";
+  return week.weekEnd < todayISODate() ? "EXPIRED_LEGACY_WEEK" : "STALE_CONTRACT_WEEK";
 }
 
 function nutritionBaselineForUnifiedWeek(weekStart = unifiedWeekTargetStart()) {
@@ -5397,13 +5417,15 @@ function unifiedWeekSourceSignature(week = null) {
 async function refreshUnifiedWeekDraftForPlans({ force = false, contractHandoff = false } = {}) {
   const existing = readUnifiedWeekDraft();
   if (typeof DominionWeeklyOrchestrator === "undefined") return false;
+  const contract = readApprovedRecruitContract();
   const active = contractHandoff ? readCommittedUnifiedWeek(todayISODate()) : null;
+  const existingMatchesContract = unifiedWeekMatchesContract(existing, contract);
   const targetWeekStart = active
     ? DominionWeeklyOrchestrator.addDays(active.weekStart, 7)
-    : existing?.weekStart || unifiedWeekTargetStart();
+    : existingMatchesContract ? existing.weekStart : unifiedWeekTargetStart();
   const refreshed = buildUnifiedWeekDraft(targetWeekStart);
   if (!refreshed) return false;
-  if (!force && existing && unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
+  if (!force && existingMatchesContract && unifiedWeekSourceSignature(existing) === unifiedWeekSourceSignature(refreshed)) return false;
   saveWeeklyOrchestrationLocal("DRAFT", "current", refreshed);
   await persistWeeklyOrchestrationState("DRAFT", "current", refreshed);
   return true;
@@ -5544,8 +5566,23 @@ function renderWeeklyOrchestrator() {
   const targetWeekStart = unifiedWeekTargetStart();
   const active = readCommittedUnifiedWeek(todayISODate());
   const history = readUnifiedWeekHistory();
-  const future = history.filter((item) => item.status !== "REPLACED" && item.weekStart > todayISODate()).sort((left, right) => left.weekStart.localeCompare(right.weekStart))[0] || null;
+  const future = history.filter((item) => item.status !== "REPLACED"
+    && item.weekStart > todayISODate()
+    && unifiedWeekMatchesContract(item, contract))
+    .sort((left, right) => left.weekStart.localeCompare(right.weekStart))[0] || null;
   let savedDraft = readUnifiedWeekDraft();
+  const legacyDraftDisposition = unifiedWeekDisposition(savedDraft, contract);
+  if (savedDraft && legacyDraftDisposition !== "CURRENT_CONTRACT") {
+    try {
+      savedDraft = buildUnifiedWeekDraft(targetWeekStart);
+      if (savedDraft) {
+        saveWeeklyOrchestrationLocal("DRAFT", "current", savedDraft);
+        persistWeeklyOrchestrationState("DRAFT", "current", savedDraft).catch(() => {});
+      }
+    } catch (_) {
+      savedDraft = null;
+    }
+  }
   if (savedDraft?.status === "DRAFT" && savedDraft.version !== DominionWeeklyOrchestrator.VERSION) {
     try {
       savedDraft = buildUnifiedWeekDraft(savedDraft.weekStart || targetWeekStart);
@@ -5737,7 +5774,7 @@ function renderTodayCommittedWeek() {
   status.className = `state-pill ${weeklyOrchestrationTone(state)}`;
   const sequence = day?.sessionSequence?.length ? day.sessionSequence : day?.activities || [];
   const sessionModels = sequence.map((item) => ({ item, execution: todaySessionExecution(item) }));
-  const splitDayGate = currentSplitDayCommand(day, week);
+  const splitDayGate = currentSplitDayCommand(day, week) || { required: false, status: "NOT_REQUIRED", allowed: true, blockers: [] };
   if (splitDayRefreshTimer) window.clearTimeout(splitDayRefreshTimer);
   if (splitDayGate.status === "RECOVERING") {
     splitDayRefreshTimer = window.setTimeout(renderTodayCommittedWeek, 60000);
@@ -6407,6 +6444,24 @@ async function retireActiveRecruitContract() {
   return true;
 }
 
+function recruitContractModuleReadiness(contract = {}, key = "", nutritionConnection = null) {
+  if (key === "nutrition" && nutritionConnection) return nutritionConnection;
+  const original = contract.moduleReadiness?.[key] || null;
+  const included = key === "nutrition" || Boolean(contract.planningInputs?.[key]);
+  const fallback = included
+    ? {
+        status: key === "nutrition" ? "TARGETS_REQUIRED" : "READY_TO_STAGE",
+        message: key === "nutrition"
+          ? "Fuel targets must be linked to the signed Contract."
+          : "Atlas will prepare this plan from the signed Contract."
+      }
+    : { status: "NOT_COMMITTED", message: "Not included in this Contract." };
+  if (typeof DominionAtlasProgramRepair !== "undefined") {
+    return DominionAtlasProgramRepair.normalizeModuleReadiness(original, fallback);
+  }
+  return original?.status ? original : fallback;
+}
+
 function renderRecruitContract() {
   const output = document.getElementById("recruit-contract-output");
   const status = document.getElementById("recruit-contract-status");
@@ -6475,8 +6530,8 @@ function renderRecruitContract() {
     <small>${day.isRecoveryDay ? "No assigned training." : day.load === "TWO_A_DAY" ? "Two-session capacity · target 121–240 min." : `${day.activities.length} commitment${day.activities.length === 1 ? "" : "s"}.`}</small>
   </article>`).join("");
   const nutritionConnection = recruitContractNutritionConnection(current);
-  const modules = Object.entries(current.moduleReadiness || {}).map(([key, originalItem]) => {
-    const item = key === "nutrition" && nutritionConnection ? nutritionConnection : originalItem;
+  const modules = ["strength", "running", "core", "nutrition"].map((key) => {
+    const item = recruitContractModuleReadiness(current, key, nutritionConnection);
     const labels = { strength: "Strength", running: "Cardio", core: "Core", nutrition: "Fuel" };
     const inputs = current.planningInputs?.[key];
     const detail = key === "strength" && inputs ? `${inputs.daysPerWeek} days · ${inputs.sessionMinutes} min` :
@@ -6693,14 +6748,23 @@ async function signRecruitContractFromCeremony() {
   return true;
 }
 
-function atlasProgramStorageKey() {
+function atlasProgramStorageKey(state = "receipt") {
+  return `coach-dominion:atlas-program:${session?.user?.id || "local"}:${state}`;
+}
+
+function legacyAtlasProgramStorageKey() {
   return `coach-dominion:atlas-program:${session?.user?.id || "local"}:current`;
 }
 
 function readAtlasProgramReceipt() {
   try {
     const stored = JSON.parse(window.localStorage.getItem(atlasProgramStorageKey()) || "null");
-    if (stored) return stored;
+    if (stored?.status === "ACTIVE") return stored;
+    const legacy = JSON.parse(window.localStorage.getItem(legacyAtlasProgramStorageKey()) || "null");
+    if (legacy?.status === "ACTIVE") {
+      saveAtlasProgramReceipt(legacy);
+      return legacy;
+    }
     const recovered = readUnifiedWeekHistory()
       .filter((item) => item?.atlasActivationReceipt)
       .sort((left, right) => String(right.atlasActivationReceipt.activatedAt || "").localeCompare(String(left.atlasActivationReceipt.activatedAt || "")))[0]
@@ -6712,6 +6776,22 @@ function readAtlasProgramReceipt() {
 
 function saveAtlasProgramReceipt(value) {
   window.localStorage.setItem(atlasProgramStorageKey(), JSON.stringify(value));
+  if (value?.status === "ACTIVE") window.localStorage.setItem(legacyAtlasProgramStorageKey(), JSON.stringify(value));
+  return value;
+}
+
+function readAtlasProgramDraft() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(atlasProgramStorageKey("draft")) || "null");
+    if (stored) return stored;
+    const legacy = JSON.parse(window.localStorage.getItem(legacyAtlasProgramStorageKey()) || "null");
+    return legacy?.status === "ACTIVE" ? null : legacy;
+  } catch (_) { return null; }
+}
+
+function saveAtlasProgramDraft(value) {
+  if (!value) return null;
+  window.localStorage.setItem(atlasProgramStorageKey("draft"), JSON.stringify(value));
   return value;
 }
 
@@ -6877,7 +6957,7 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
       };
     }
   }
-  if (program) saveAtlasProgramReceipt({ ...program, status: program.status, stagedAt: now });
+  if (program) saveAtlasProgramDraft({ ...program, status: program.status, stagedAt: now });
 
   renderProgrammingReview();
   renderCoreProgramming();
@@ -7067,6 +7147,8 @@ async function runAtlasProgramRepairAction(action = "PREPARE") {
 function atlasActivationStorageKeys(weekStart = unifiedWeekTargetStart()) {
   return [
     atlasProgramStorageKey(),
+    atlasProgramStorageKey("draft"),
+    legacyAtlasProgramStorageKey(),
     strengthStateStorageKey("PLAN", "current"),
     strengthStateStorageKey("DRAFT", "current"),
     strengthStateStorageKey("SCHEDULE", `unified-${weekStart}`),
@@ -7142,6 +7224,9 @@ async function approveAtlasProgram() {
     writes.push(persistNutritionState("BASELINE_HISTORY", "current", { items: nutritionHistory }));
     writes.push(persistWeeklyOrchestrationState("DRAFT", "current", weekDraft));
     const syncResults = await Promise.all(writes);
+    if (session?.user?.id && !syncResults.every(Boolean)) {
+      throw new Error("Account sync did not confirm every plan. Nothing was activated");
+    }
     const week = await commitUnifiedWeekDraft();
     if (!week) throw new Error("The coordinated week could not be committed.");
 
@@ -7180,6 +7265,7 @@ async function approveAtlasProgram() {
       window.localStorage.removeItem(runningBlockStorageKey("draft"));
       await deleteRunningState("PLAN", "draft");
     }
+    window.localStorage.removeItem(atlasProgramStorageKey("draft"));
     nutritionBaselineDraft = null;
     try { await attachContractHandoffReceipt(contract, null); } catch (_) {}
     renderRecruitContract();
@@ -8458,7 +8544,14 @@ function renderMobileCommand() {
   if (progress) progress.style.width = `${command.progress.percent}%`;
   nextPanel.innerHTML = `<div><span>Next action · ${command.progress.completed}/${command.progress.total}</span><strong>${escapeHtml(command.next.label)}</strong><p>${escapeHtml(command.next.detail)}</p></div>
     <button type="button" data-mobile-action="${escapeHtml(command.next.action)}" data-mobile-module="${escapeHtml(command.next.module || "")}">${escapeHtml(command.next.label)}</button>`;
-  modulePanel.innerHTML = command.modules.map((item) => `<article class="mobile-command-module ${item.active ? "active" : ""} ${item.complete ? "complete" : ""}">
+  const commandModules = (command.modules || []).filter(Boolean).map((item) => ({
+    ...item,
+    id: item.id || "",
+    status: item.status || "WAITING",
+    label: item.label || "Program",
+    actionLabel: item.actionLabel || "Open"
+  }));
+  modulePanel.innerHTML = commandModules.map((item) => `<article class="mobile-command-module ${item.active ? "active" : ""} ${item.complete ? "complete" : ""}">
     <span>${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail || "Today’s assignment")}</small>
     <button type="button" class="ghost" data-mobile-action="MODULE" data-mobile-module="${escapeHtml(item.id)}">${escapeHtml(item.actionLabel)}</button>
   </article>`).join("");
@@ -9552,6 +9645,7 @@ function buildCurrentAdaptiveCoaching() {
     priorProposal: readAdaptiveCoachingState(),
     generatedAt: new Date().toISOString()
   });
+  if (!proposal) return null;
   const recruitContext = recruitProfileForAtlas();
   if (proposal.code === "PROGRESS" && recruitContext?.progressionPolicy === "HOLD_PROGRESSION") {
     return {
@@ -11615,6 +11709,11 @@ function programModuleStatus(status = "") {
   return ({ APPROVED: "ACTIVE", OUTDATED: "UPDATE NEEDED", DRAFT: "DRAFT", MISSING: "NEEDED" })[status] || status.replaceAll("_", " ");
 }
 
+function programModuleRoute(module = {}) {
+  if (module.id === "nutrition") return { section: "nutrition", module: "" };
+  return { section: "performance", module: module.id || "strength" };
+}
+
 function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
   const panel = document.getElementById("program-command-panel");
   if (!panel || typeof DominionProgramCommand === "undefined") return;
@@ -11657,7 +11756,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
         <div><strong>${model.week.twoADays}</strong><span>Two-a-Days</span></div>
       </div>
       <div class="program-command-modules">
-        ${model.modules.map((module) => `<article class="${module.status.toLowerCase()}"><div><span>${escapeHtml(module.label)}</span><strong>${escapeHtml(module.summary)}</strong></div><small>${escapeHtml(programModuleStatus(module.status))}</small></article>`).join("")}
+        ${(model.modules || []).filter(Boolean).map((module) => { const route = programModuleRoute(module); return `<article class="${String(module.status || "MISSING").toLowerCase()}"><div><span>${escapeHtml(module.label || "Program")}</span><strong>${escapeHtml(module.summary || "Review this plan")}</strong></div><div><small>${escapeHtml(programModuleStatus(module.status || "MISSING"))}</small><button type="button" class="ghost" data-program-route="${escapeHtml(route.section)}" data-program-module="${escapeHtml(route.module)}">Open plan</button></div></article>`; }).join("")}
       </div>
     </section>
     <details class="program-command-why">
@@ -14394,6 +14493,18 @@ async function applyAppleHealthReadiness() {
   setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
 }
 
+async function runStartupTask(label, task, issues = []) {
+  try {
+    return await task();
+  } catch (error) {
+    issues.push({ label, message: error?.message || "Unknown startup error" });
+    console.error(`[startup:${label}] Recovered without stopping the command center.`, {
+      message: error?.message || "Unknown startup error"
+    });
+    return null;
+  }
+}
+
 async function init() {
   try {
     setLoading(true);
@@ -14407,45 +14518,59 @@ async function init() {
     }
     session = data.session;
     setText("identity", "Signed in as " + session.user.email);
-    loadTrendPreferences();
-    await flushMobilePendingWrites();
-    loadStandardsReviewState();
-    loadRankStatus();
-    loadPromotionHistory();
-    organizeWorkspaceSections();
-    restoreSectionFromHash();
-    await loadDailyState();
-    try { await loadCommandFeed(); } catch (_) { renderCommandFeed([]); }
-    revealMobileShell();
-    await loadDailyCompliance();
-    document.getElementById("weekly-date").value = todayISODate();
-    await loadWeeklyInspection();
-    await loadRecruitContractState();
-    await loadRecruitOnboardingState();
-    await loadNutritionState();
-    await loadRunningState();
-    await loadCoreProgramState();
-    await loadClosedLoopState();
-    await loadPerformanceEntries();
-    await loadBodyProgressPhotos();
-    await loadStrengthTrainingState();
-    await loadWeeklyOrchestrationState();
-    await activateDuePlanCommand();
-    await loadSplitDayCheckpointState();
-    await loadConnectedDominion();
-    await loadTrendsAnalytics();
-    await syncDominionContinuity();
-    renderRecruitContract();
-    renderWeeklyOrchestrator();
-    renderTodayCommittedWeek();
-    renderActivationGuide();
-    renderTodayStandardsDuty();
-    renderRankSection();
-    renderAdaptiveCoaching();
-    renderMobileCommand();
-    resetPerformanceForm();
-    setPerformanceActiveView("overview");
+    const startupIssues = [];
+    await runStartupTask("preferences", async () => {
+      loadTrendPreferences();
+      loadStandardsReviewState();
+      loadRankStatus();
+      loadPromotionHistory();
+      organizeWorkspaceSections();
+      restoreSectionFromHash();
+    }, startupIssues);
+    await runStartupTask("pending mobile writes", flushMobilePendingWrites, startupIssues);
+    await runStartupTask("daily state", loadDailyState, startupIssues);
+    await runStartupTask("command feed", async () => {
+      try { await loadCommandFeed(); }
+      catch (_) { renderCommandFeed([]); }
+    }, startupIssues);
+    await runStartupTask("mobile shell", async () => revealMobileShell(), startupIssues);
+    await runStartupTask("daily compliance", loadDailyCompliance, startupIssues);
+    const weeklyDate = document.getElementById("weekly-date");
+    if (weeklyDate) weeklyDate.value = todayISODate();
+    await runStartupTask("weekly inspection", loadWeeklyInspection, startupIssues);
+    await runStartupTask("Recruit Contract", loadRecruitContractState, startupIssues);
+    await runStartupTask("Week One orientation", loadRecruitOnboardingState, startupIssues);
+    await runStartupTask("Fuel", loadNutritionState, startupIssues);
+    await runStartupTask("Cardio", loadRunningState, startupIssues);
+    await runStartupTask("Core", loadCoreProgramState, startupIssues);
+    await runStartupTask("coaching loop", loadClosedLoopState, startupIssues);
+    await runStartupTask("performance evidence", loadPerformanceEntries, startupIssues);
+    await runStartupTask("progress photos", loadBodyProgressPhotos, startupIssues);
+    await runStartupTask("Strength", loadStrengthTrainingState, startupIssues);
+    await runStartupTask("Calendar", loadWeeklyOrchestrationState, startupIssues);
+    await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
+    await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
+    await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
+    await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
+    await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
+    const finalRenders = [
+      ["Contract view", renderRecruitContract],
+      ["Calendar view", renderWeeklyOrchestrator],
+      ["Today calendar", renderTodayCommittedWeek],
+      ["activation guide", renderActivationGuide],
+      ["standards duty", renderTodayStandardsDuty],
+      ["rank", renderRankSection],
+      ["adaptive coaching", renderAdaptiveCoaching],
+      ["mobile command", renderMobileCommand],
+      ["performance form", resetPerformanceForm],
+      ["performance workspace", () => setPerformanceActiveView("overview")]
+    ];
+    for (const [label, render] of finalRenders) {
+      await runStartupTask(label, async () => render(), startupIssues);
+    }
     document.body.dataset.mobileHydration = "ready";
+    document.body.dataset.startupRecovery = startupIssues.length ? "recovered" : "clean";
+    setStatus(startupIssues.length ? "Command center loaded. One saved item needs reconciliation; your work is protected." : "");
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -14692,6 +14817,8 @@ if (typeof document !== "undefined") {
     const moduleId = button.dataset.programModule || "";
     if (section === "performance" && moduleId) {
       setPerformanceActiveView(moduleId === "running" ? "running" : moduleId === "core" ? "core" : "today_training");
+    } else if (section === "nutrition") {
+      setNutritionActiveView("plan");
     }
   });
   document.getElementById("program-change-form")?.addEventListener("submit", (event) => {
@@ -17260,7 +17387,14 @@ function renderRankSection() {
   const currentRank = rankStatus.currentRank || "RECRUIT";
   const nextRank = getNextRankDefinition(currentRank);
   const promotionInput = buildCanonicalPromotionInput(currentRank, nextRank?.code || "CADET");
-  const eligibility = evaluatePromotionEligibility(promotionInput, nextRank?.code || "CADET");
+  const eligibility = evaluatePromotionEligibility(promotionInput, nextRank?.code || "CADET") || {
+    status: "PROGRESSING",
+    blockers: [],
+    remainingActions: [],
+    target: {},
+    unresolvedConfirmedViolations: 0,
+    consecutiveQualifyingWeeksRequired: 0
+  };
   const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
   const review = generateAtlasPromotionReview({
     currentRank,
@@ -18563,6 +18697,7 @@ async function activateDuePlanCommand() {
   let command = readPlanCommand();
   if (!command?.id) return null;
   const refreshed = DominionPlanCommand.refreshLifecycle(command, todayISODate());
+  if (!refreshed) return null;
   if (refreshed.status === "SCHEDULED" && todayISODate() >= refreshed.effectiveDate && !refreshed.appliedAt) {
     const planId = await applyPlanCommandToModule(refreshed);
     command = DominionPlanCommand.markApplied(refreshed, {

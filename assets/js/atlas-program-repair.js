@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024E.1";
+  const VERSION = "024F.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -31,6 +31,35 @@
       && record.status === "APPROVED"
       && record.recruitContractId === contract.id
       && Number(record.recruitContractRevision || 0) === Number(contract.revision || 0));
+  }
+
+  function weekLinkedToContract(week = null, contract = null) {
+    return Boolean(week && contract?.id
+      && week.contractId === contract.id
+      && Number(week.contractRevision || 0) === Number(contract.revision || 0));
+  }
+
+  function calendarDisposition(week = null, contract = null, today = "") {
+    if (!week) return "MISSING";
+    if (weekLinkedToContract(week, contract)) return "CURRENT_CONTRACT";
+    const date = String(today || "").slice(0, 10);
+    if (date && week.weekStart <= date && week.weekEnd >= date && week.status !== "REPLACED") return "PROTECTED_CURRENT_WEEK";
+    if (date && week.weekEnd && week.weekEnd < date) return "EXPIRED_LEGACY_WEEK";
+    return "STALE_CONTRACT_WEEK";
+  }
+
+  function normalizeModuleReadiness(value = null, fallback = {}) {
+    if (value && typeof value === "object" && value.status) {
+      return {
+        ...value,
+        status: upper(value.status),
+        message: value.message || fallback.message || "Review this program link."
+      };
+    }
+    return {
+      status: fallback.status || "PLAN_REQUIRED",
+      message: fallback.message || "This program link must be rebuilt from the signed Contract."
+    };
   }
 
   function includedModule(program = {}, definition = {}) {
@@ -166,5 +195,15 @@
     };
   }
 
-  return Object.freeze({ VERSION, MODULES, SAFETY_CODES, linkedToContract, blockerKind, buildRepairPlan });
+  return Object.freeze({
+    VERSION,
+    MODULES,
+    SAFETY_CODES,
+    linkedToContract,
+    weekLinkedToContract,
+    calendarDisposition,
+    normalizeModuleReadiness,
+    blockerKind,
+    buildRepairPlan
+  });
 });

@@ -21,7 +21,7 @@ assert.match(migration, /'MANUAL_DAY'/);
 assert.match(app, /async function persistNutritionState/);
 assert.match(app, /\.from\("nutrition_state"\)\.upsert/);
 assert.match(app, /async function loadNutritionState/);
-assert.match(app, /await loadNutritionState\(\)/);
+assert.match(app, /runStartupTask\("Fuel", loadNutritionState, startupIssues\)/);
 assert.match(app, /async function clearNutritionStateType/);
 assert.match(app, /\.eq\("state_type", stateType\)/);
 assert.match(app, /persistNutritionState\("BASELINE_HISTORY"/);
@@ -33,4 +33,3 @@ assert.match(app, /persistNutritionState\("MANUAL_DAY"/);
 assert.match(app, /Saved to your account/);
 
 console.log("Nutrition persistence: 24 assertions passed.");
-

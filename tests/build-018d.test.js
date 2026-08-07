@@ -34,7 +34,7 @@ assert.match(app, /data-weekly-orchestrator-action="\$\{atlasProgramDraft && !ac
 assert.match(app, /The active week is protected/);
 assert.match(app, /DominionWeeklyOrchestrator\.strengthScheduleFromWeek\(unifiedWeek\)/);
 assert.match(app, /The committed weekly calendar does not assign Core today/);
-assert.match(app, /await loadWeeklyOrchestrationState\(\)/);
+assert.match(app, /runStartupTask\("Calendar", loadWeeklyOrchestrationState, startupIssues\)/);
 
 assert.match(styles, /Build 018D: unified weekly plan orchestration/);
 assert.match(styles, /\.weekly-orchestrator-week\{display:grid;grid-template-columns:repeat\(7/);

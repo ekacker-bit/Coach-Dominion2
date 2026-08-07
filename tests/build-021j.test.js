@@ -16,8 +16,8 @@ assert.match(appHtml, /data-trend-view="body"/);
 assert.match(appHtml, /id="trend-kpi-grid"/);
 assert.match(appHtml, /id="trend-evidence-ring"/);
 assert.match(appHtml, /trends-intelligence\.js\?v=021m/);
-assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcde]))/);
-assert.match(appHtml, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcde]))/);
+assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdef]))/);
+assert.match(appHtml, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdef]))/);
 assert.doesNotMatch(appHtml, /Atlas Trend Report/);
 
 assert.match(appJs, /DominionTrends\.buildProgramTrendModel/);
@@ -25,7 +25,7 @@ assert.match(appJs, /trendNutritionHistory\(84\)/);
 assert.match(appJs, /cutoff\.getUTCDate\(\) - 84/);
 assert.match(appJs, /button\[data-trend-range\]/);
 assert.match(appJs, /function renderTrendPrimaryChart/);
-assert.ok(appJs.indexOf("await loadConnectedDominion();") < appJs.indexOf("await loadTrendsAnalytics();", appJs.indexOf("async function init")), "Trends loads after connected evidence");
+assert.ok(appJs.indexOf('runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues)') < appJs.indexOf('runStartupTask("Trends", loadTrendsAnalytics, startupIssues)', appJs.indexOf("async function init")), "Trends loads after connected evidence");
 
 assert.match(styles, /Build 021J: operational, word-light program trends/);
 assert.match(styles, /\.trend-kpi-grid/);

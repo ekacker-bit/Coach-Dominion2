@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 024F Contract-Linked Program Integrity
+
+- Separated the staged Atlas package from the active-program receipt so reviewing a replacement can no longer erase the identity of the program still in force.
+- Rebuilt stale Calendar drafts against the signed Contract instead of letting an expired prior-Contract week remain the operating preview.
+- Added legacy-state normalization for missing plan-readiness records and isolated startup failures so one malformed record cannot stop the authenticated app from hydrating.
+- Added direct links from the unified Program card to the real Strength, Cardio, Core, and Fuel plan surfaces.
+- Required every account plan write to confirm before committing the coordinated week, preserving the previous program when sync is incomplete.
+
 ## Unreleased - Build 024E Atlas Program Repair
 
 - Replaced four separate plan-repair chores with one `Complete my program` action across Today, Program, Contract, and Calendar.

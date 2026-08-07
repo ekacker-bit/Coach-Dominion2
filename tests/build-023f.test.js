@@ -47,12 +47,12 @@ test("023F adds weekly meal-response learning without silent target changes", ()
 test("023F is responsive and rotates all mutable release assets", () => {
   assert.match(css, /Build 023F: Fuel closed loop and reconciliation/);
   assert.match(css, /\.fuel-loop-progress/);
-  assert.match(html, /styles\.css\?v=(?:023f|024[abcde])/);
-  assert.match(html, /fuel-closed-loop\.js\?v=(?:023f|024[abcde])/);
-  assert.match(html, /fuel-command\.js\?v=(?:023f|024[abcde])/);
-  assert.match(html, /app\.js\?v=(?:023f|024[abcde])/);
-  assert.match(worker, /coach-dominion-(?:023f|024[abcde])-v1/);
-  assert.match(worker, /fuel-closed-loop\.js\?v=(?:023f|024[abcde])/);
+  assert.match(html, /styles\.css\?v=(?:023f|024[abcdef])/);
+  assert.match(html, /fuel-closed-loop\.js\?v=(?:023f|024[abcdef])/);
+  assert.match(html, /fuel-command\.js\?v=(?:023f|024[abcdef])/);
+  assert.match(html, /app\.js\?v=(?:023f|024[abcdef])/);
+  assert.match(worker, /coach-dominion-(?:023f|024[abcdef])-v1/);
+  assert.match(worker, /fuel-closed-loop\.js\?v=(?:023f|024[abcdef])/);
 });
 
 console.log("Build 023F Fuel Closed Loop integration verified.");

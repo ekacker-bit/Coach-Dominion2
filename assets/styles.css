@@ -8285,3 +8285,20 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .atlas-repair-blockers article { grid-template-columns: 1fr; }
   .atlas-repair-blockers article small { grid-column: 1; grid-row: auto; }
 }
+
+/* Build 024F: contract-linked program integrity. */
+.program-command-modules article > div:last-child {
+  justify-items: end;
+}
+
+.program-command-modules article > div:last-child .ghost {
+  min-height: 2rem;
+  padding: .35rem .55rem;
+  font-size: .62rem;
+}
+
+@media (max-width: 520px) {
+  .program-command-modules article > div:last-child {
+    justify-items: start;
+  }
+}

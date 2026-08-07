@@ -17,6 +17,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `assets/js/experience-shell.js` derives the global current order and Contract-to-Today operating journey from existing canonical state.
 - `assets/js/daily-ritual.js` derives the Daily Seal, secured-day chain, and Execute-to-Adapt close progression from the existing daily queue and closed-loop record.
 - `assets/js/activation-repair.js` derives the guided Contract-to-Today repair flow and exact domain handoff from canonical activation state.
+- `assets/js/atlas-program-repair.js` reconciles legacy plan links and Calendar drafts against the currently signed Contract without overwriting the active-program receipt.
 - `assets/js/nutrition-feed.js` validates the privacy-limited daily nutrition payload and generates the iPhone Shortcut request contract.
 - `assets/styles.css` contains the application styles.
 - `api/health.js`, `api/config.js`, and `api/nutrition-feed.js` are Vercel Node.js serverless functions.

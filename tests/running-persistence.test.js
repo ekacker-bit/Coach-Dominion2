@@ -10,10 +10,9 @@ assert.match(migration, /primary key \(user_id, state_type, state_key\)/i);
 assert.match(migration, /enable row level security/i);
 assert.match(migration, /auth\.uid\(\) = user_id/i);
 assert.match(app, /\.from\("running_state"\)\.upsert/);
-assert.match(app, /await loadRunningState\(\)/);
+assert.match(app, /runStartupTask\("Cardio", loadRunningState, startupIssues\)/);
 assert.match(app, /persistRunningState\("PLAN"/);
 assert.match(app, /persistRunningState\("EXECUTION"/);
 assert.match(app, /persistRunningState\("RECONCILIATION"/);
 
 console.log("Running persistence: 8 assertions passed.");
-

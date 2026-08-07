@@ -31,9 +31,9 @@ test("022G makes Calendar and the deeper program surfaces reachable from More", 
 });
 
 test("022G reveals the mobile shell after critical daily state is ready", () => {
-  const reveal = app.indexOf("revealMobileShell();");
-  const daily = app.indexOf("await loadDailyState();");
-  const contract = app.indexOf("await loadRecruitContractState();");
+  const reveal = app.indexOf('runStartupTask("mobile shell"');
+  const daily = app.indexOf('runStartupTask("daily state"');
+  const contract = app.indexOf('runStartupTask("Recruit Contract"');
   assert.ok(reveal > daily && reveal < contract, "mobile shell should reveal before secondary program data finishes");
   assert.match(app, /dataset\.mobileHydration = "progressive"/);
   assert.match(app, /dataset\.mobileHydration = "ready"/);
@@ -49,13 +49,13 @@ test("022G eliminates horizontal status scrolling and protects touch ergonomics"
 });
 
 test("022G rotates every mutable shell asset", () => {
-  assert.match(html, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcde]))/);
+  assert.match(html, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdef]))/);
   assert.match(html, /mobile-command\.js\?v=022g/);
-  assert.match(html, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcde]))/);
-  assert.match(worker, /coach-dominion-(?:022g|(?:023[abcdef]|024[abcde]))-v1/);
-  assert.match(worker, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcde]))/);
+  assert.match(html, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdef]))/);
+  assert.match(worker, /coach-dominion-(?:022g|(?:023[abcdef]|024[abcdef]))-v1/);
+  assert.match(worker, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdef]))/);
   assert.match(worker, /mobile-command\.js\?v=022g/);
-  assert.match(worker, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcde]))/);
+  assert.match(worker, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdef]))/);
 });
 
 console.log("Build 022G Mobile Field App integration verified.");

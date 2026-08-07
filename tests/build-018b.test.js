@@ -36,7 +36,7 @@ for (const field of [
 
 assert.match(html, /href="#program" data-section="program">PROGRAM</);
 assert.match(html, /href="#contract" data-section="contract">(?:<strong>)?Contract/);
-assert.match(html, /src="\/assets\/js\/recruit-contract\.js(?:\?v=024[abcde])?"/);
+assert.match(html, /src="\/assets\/js\/recruit-contract\.js(?:\?v=024[abcdef])?"/);
 assert.match(css, /Build 018B: centralized Recruit Contract/);
 assert.match(css, /\.recruit-contract-week\{display:grid;grid-template-columns:repeat\(7/);
 assert.match(css, /scroll-snap-type:x mandatory/, "mobile weekly contract should remain horizontally scannable");
@@ -47,7 +47,7 @@ assert.match(js, /async function stageRecruitContractPlans\(/);
 assert.match(js, /Current \$\{protectedPlans\.join/);
 assert.match(js, /Active module plans remain unchanged/);
 assert.match(js, /hasRecruitContract: Boolean\(readApprovedRecruitContract\(\)\)/);
-assert.match(js, /await loadRecruitContractState\(\)/);
+assert.match(js, /runStartupTask\("Recruit Contract", loadRecruitContractState, startupIssues\)/);
 
 assert.match(migration, /create table if not exists public\.recruit_contract_state/);
 assert.match(migration, /state_type in \('DRAFT', 'APPROVED', 'HISTORY'\)/);

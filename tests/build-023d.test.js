@@ -48,11 +48,11 @@ test("023D adds an approval-gated Atlas protocol verdict", () => {
 test("023D is responsive and rotates every mutable production asset", () => {
   assert.match(css, /Build 023D: Fasting Execution and Adaptation/);
   assert.match(css, /fasting-countdown/);
-  assert.match(html, /styles\.css\?v=(?:023[def]|024[abcde])/);
+  assert.match(html, /styles\.css\?v=(?:023[def]|024[abcdef])/);
   assert.match(html, /fasting-execution\.js\?v=023d/);
-  assert.match(html, /fuel-command\.js\?v=(?:023[def]|024[abcde])/);
-  assert.match(html, /app\.js\?v=(?:023[def]|024[abcde])/);
-  assert.match(worker, /coach-dominion-(?:023[def]|024[abcde])-v1/);
+  assert.match(html, /fuel-command\.js\?v=(?:023[def]|024[abcdef])/);
+  assert.match(html, /app\.js\?v=(?:023[def]|024[abcdef])/);
+  assert.match(worker, /coach-dominion-(?:023[def]|024[abcdef])-v1/);
   assert.match(worker, /fasting-execution\.js\?v=023d/);
 });
 

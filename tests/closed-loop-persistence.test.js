@@ -11,7 +11,7 @@ assert.match(migration, /primary key \(user_id, state_type, state_key\)/i);
 assert.match(migration, /enable row level security/i);
 assert.match(migration, /auth\.uid\(\) = user_id/i);
 assert.match(app, /\.from\("coaching_loop_state"\)\.upsert/);
-assert.match(app, /await loadClosedLoopState\(\)/);
+assert.match(app, /runStartupTask\("coaching loop", loadClosedLoopState, startupIssues\)/);
 assert.match(app, /persistClosedLoopState\("DECISION"/);
 assert.match(app, /persistClosedLoopState\("REVIEW"/);
 assert.match(app, /persistClosedLoopState\("ADAPTATION"/);

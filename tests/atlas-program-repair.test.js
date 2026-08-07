@@ -41,7 +41,7 @@ function linked(id, revision = 4) {
       nutrition: null
     }
   });
-  assert.equal(repair.VERSION, "024E.1");
+  assert.equal(repair.VERSION, "024F.1");
   assert.equal(model.status, "READY_TO_REPAIR");
   assert.deepEqual(model.primary, { action: "PREPARE", label: "Complete my program" });
   assert.equal(model.progress.kept, 2);
@@ -49,6 +49,45 @@ function linked(id, revision = 4) {
   assert.equal(model.modules.find((item) => item.id === "strength").state, "KEEP");
   assert.equal(model.modules.find((item) => item.id === "core").state, "REPLACE");
   assert.equal(model.modules.find((item) => item.id === "nutrition").state, "CREATE");
+}
+
+{
+  const current = contract({ revision: 10 });
+  const expiredLegacyWeek = {
+    status: "APPROVED",
+    contractId: current.id,
+    contractRevision: 9,
+    weekStart: "2026-07-27",
+    weekEnd: "2026-08-02"
+  };
+  const protectedLegacyWeek = {
+    ...expiredLegacyWeek,
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09"
+  };
+  const replacementWeek = {
+    ...protectedLegacyWeek,
+    contractRevision: 10
+  };
+  assert.equal(repair.calendarDisposition(expiredLegacyWeek, current, "2026-08-07"), "EXPIRED_LEGACY_WEEK");
+  assert.equal(repair.calendarDisposition(protectedLegacyWeek, current, "2026-08-07"), "PROTECTED_CURRENT_WEEK");
+  assert.equal(repair.calendarDisposition(replacementWeek, current, "2026-08-07"), "CURRENT_CONTRACT");
+  assert.equal(repair.weekLinkedToContract(replacementWeek, current), true);
+  assert.equal(repair.weekLinkedToContract(expiredLegacyWeek, current), false);
+}
+
+{
+  assert.deepEqual(repair.normalizeModuleReadiness(null, {
+    status: "TARGETS_REQUIRED",
+    message: "Fuel must be linked."
+  }), {
+    status: "TARGETS_REQUIRED",
+    message: "Fuel must be linked."
+  });
+  assert.deepEqual(repair.normalizeModuleReadiness({ status: "ready to stage", message: "Ready." }), {
+    status: "READY_TO_STAGE",
+    message: "Ready."
+  });
 }
 
 {
@@ -120,4 +159,4 @@ function linked(id, revision = 4) {
   assert.equal(model.primary.action, "OPEN_TODAY");
 }
 
-console.log("Build 024E Atlas Program Repair tests passed.");
+console.log("Build 024F Atlas Program Repair tests passed.");

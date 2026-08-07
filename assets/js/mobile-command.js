@@ -15,7 +15,7 @@
     review: { section: "inspection" },
     more: { dialog: "mobile-more-dialog" }
   });
-  const MORE_SECTIONS = new Set(["calendar", "contract", "trends", "standards", "rank", "record", "connected"]);
+  const MORE_SECTIONS = new Set(["program", "calendar", "contract", "trends", "standards", "rank", "record", "connected"]);
 
   function resolveMobileDestination(action = "today") {
     return MOBILE_DESTINATIONS[String(action || "today").toLowerCase()] || MOBILE_DESTINATIONS.today;

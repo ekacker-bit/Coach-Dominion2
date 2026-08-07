@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 024C Program Command Center
+
+- Added one word-light Program view for the active goal, Contract revision, weekly load, recovery, and all four approved modules.
+- Made the current blocker or next order the dominant action instead of asking the recruit to interpret setup screens.
+- Added a concise Atlas rationale for training density, Two-a-Day pairing, recovery space, and long-run protection.
+- Added controlled change-impact previews for goal, capacity, training-mix, and schedule requests.
+- Protected the active week from silent mutation: Contract-level changes require amendment and activation, while schedule changes keep the signed Contract in force.
+- Moved Contract editing into the secondary menu so Program becomes the primary operating destination.
+
 ## Unreleased - Build 024B Atomic Program Activation
 
 - Added a complete preflight that validates Contract linkage, all four plans, and the proposed calendar before any active state changes.

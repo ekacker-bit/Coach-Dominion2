@@ -64,6 +64,7 @@ let splitDayRefreshTimer = null;
 let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
+let currentProgramCommand = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityState = { mode: "CHECKING", initialized: false, accountRevision: 0, manifest: null, accountManifest: null, manifestConflicts: [] };
@@ -278,9 +279,10 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "contract", "calendar", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
+const SECTION_ORDER = ["today", "program", "contract", "calendar", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
 const SECTION_LABELS = {
   today: "Today",
+  program: "Program",
   contract: "Contract",
   calendar: "Calendar",
   nutrition: "Nutrition",
@@ -11399,6 +11401,94 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   renderActivationRepair(truth);
 }
 
+function buildCurrentProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
+  if (typeof DominionProgramCommand === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const receipt = readAtlasProgramReceipt();
+  let receiptAudit = null;
+  if (receipt?.status === "ACTIVE") {
+    try { receiptAudit = currentAtlasActivationAudit(receipt); }
+    catch (_) {}
+  }
+  currentProgramCommand = DominionProgramCommand.buildProgramCommand({
+    contract,
+    receipt,
+    receiptAudit,
+    week: readCommittedUnifiedWeek(todayISODate()),
+    truth,
+    plans: {
+      strength: readApprovedStrengthPlan(),
+      running: readApprovedRunningBlock(),
+      core: readApprovedCorePlan(),
+      nutrition: activeNutritionBaseline(todayISODate())
+    }
+  });
+  return currentProgramCommand;
+}
+
+function programModuleStatus(status = "") {
+  return ({ APPROVED: "ACTIVE", OUTDATED: "UPDATE NEEDED", DRAFT: "DRAFT", MISSING: "NEEDED" })[status] || status.replaceAll("_", " ");
+}
+
+function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
+  const panel = document.getElementById("program-command-panel");
+  if (!panel || typeof DominionProgramCommand === "undefined") return;
+  let model;
+  try { model = buildCurrentProgramCommand(truth); }
+  catch (_) { model = null; }
+  if (!model) {
+    panel.innerHTML = `<div class="performance-empty">Atlas could not reconcile the active program. Your saved work is protected.</div>`;
+    setText("program-command-status", "CHECK AGAIN");
+    return;
+  }
+  const status = document.getElementById("program-command-status");
+  if (status) {
+    status.textContent = model.status.replaceAll("_", " ");
+    status.className = `state-pill ${model.tone}`;
+  }
+  const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
+  const weekDate = model.week.start ? `${escapeHtml(model.week.start)}${model.week.end ? ` – ${escapeHtml(model.week.end)}` : ""}` : "Not committed";
+  panel.innerHTML = `
+    <section class="program-command-goal">
+      <div><span>THE OUTCOME</span><h3>${escapeHtml(model.goal.target)}</h3><p>${escapeHtml(model.goal.label)}</p></div>
+      <div class="program-command-goal-meta"><strong>Contract ${model.goal.revision || "—"}</strong>${targetDate}</div>
+    </section>
+    <section class="program-command-next ${escapeHtml(model.tone)}">
+      <div><span>${model.status === "ACTIVE" ? "NEXT ORDER" : "PROGRAM BLOCKER"}</span><h3>${escapeHtml(model.next.title)}</h3><p>${escapeHtml(model.next.detail)}</p></div>
+      <button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>
+    </section>
+    <section class="program-command-week" aria-label="Current week summary">
+      <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
+      <div class="program-command-metrics">
+        <div><strong>${model.week.trainingWindows}</strong><span>training windows</span></div>
+        <div><strong>${model.week.estimatedMinutes}</strong><span>planned minutes</span></div>
+        <div><strong>${model.week.recoveryDays}</strong><span>recovery days</span></div>
+        <div><strong>${model.week.twoADays}</strong><span>Two-a-Days</span></div>
+      </div>
+      <div class="program-command-modules">
+        ${model.modules.map((module) => `<article class="${module.status.toLowerCase()}"><div><span>${escapeHtml(module.label)}</span><strong>${escapeHtml(module.summary)}</strong></div><small>${escapeHtml(programModuleStatus(module.status))}</small></article>`).join("")}
+      </div>
+    </section>
+    <details class="program-command-why">
+      <summary>Why Atlas built it this way</summary>
+      <ul>${model.rationale.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </details>`;
+}
+
+function renderProgramChangeImpact(form) {
+  const output = document.getElementById("program-change-impact");
+  if (!output || typeof DominionProgramCommand === "undefined") return;
+  const data = new FormData(form);
+  const model = currentProgramCommand || buildCurrentProgramCommand();
+  const impact = DominionProgramCommand.previewChange(model, Object.fromEntries(data.entries()));
+  output.hidden = false;
+  output.innerHTML = `
+    <div><span>IMPACT PREVIEW</span><h3>${escapeHtml(impact.title)}</h3><p>${escapeHtml(impact.message)}</p></div>
+    <dl><div><dt>Affects</dt><dd>${impact.modules.map(escapeHtml).join(" · ")}</dd></div><div><dt>Effective</dt><dd>${escapeHtml(impact.timing)}</dd></div><div><dt>Current week</dt><dd>Protected</dd></div></dl>
+    <button type="button" data-program-route="${escapeHtml(impact.route)}">${escapeHtml(impact.label)}</button>`;
+  setText("program-command-feedback", "Impact preview only. No saved plan changed.");
+}
+
 function relayClosedLoopAction(action) {
   const relay = document.createElement("button");
   relay.type = "button";
@@ -11580,6 +11670,7 @@ function renderDominionExperienceShell() {
     setText("shell-truth-alert-detail", primaryConflict ? `${primaryConflict.message} ${primaryConflict.repair}` : "");
   }
   renderOneCommand(truth);
+  renderProgramCommand(truth);
   const section = DominionExperienceShell.sectionMeta(activeSection);
   setText("shell-section-context", `${section.mode} · ${section.label}`);
   setText("shell-rank-badge", String(rankStatus?.currentRank || "RECRUIT").replaceAll("_", " "));
@@ -11602,7 +11693,7 @@ function setActiveSection(section = "today") {
   });
   const more = document.querySelector(".nav-more");
   if (more) {
-    more.classList.toggle("active", ["trends", "standards", "rank", "record", "connected"].includes(normalized));
+    more.classList.toggle("active", ["contract", "trends", "standards", "rank", "record", "connected"].includes(normalized));
     if (more.open) more.removeAttribute("open");
   }
   document.querySelectorAll(".scroll-anchor").forEach((element) => {
@@ -14388,6 +14479,21 @@ if (typeof document !== "undefined") {
     context.open = !context.open;
     button.setAttribute("aria-expanded", context.open ? "true" : "false");
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  document.getElementById("program")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-program-route]");
+    if (!button) return;
+    const section = normalizeSectionKey(button.dataset.programRoute || "today");
+    setActiveSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+    const moduleId = button.dataset.programModule || "";
+    if (section === "performance" && moduleId) {
+      setPerformanceActiveView(moduleId === "running" ? "running" : moduleId === "core" ? "core" : "today_training");
+    }
+  });
+  document.getElementById("program-change-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    renderProgramChangeImpact(event.currentTarget);
   });
   document.getElementById("activation-repair")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-activation-repair-action]");

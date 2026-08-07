@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=024b">
+  <link rel="stylesheet" href="/assets/styles.css?v=024c">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -43,11 +43,12 @@
           <a class="nav-link" href="#performance" data-section="performance">TRAIN</a>
           <a class="nav-link" href="#calendar" data-section="calendar">CALENDAR</a>
           <a class="nav-link" href="#nutrition" data-section="nutrition">FUEL</a>
-          <a class="nav-link" href="#contract" data-section="contract">CONTRACT</a>
+          <a class="nav-link" href="#program" data-section="program">PROGRAM</a>
           <a class="nav-link" href="#inspection" data-section="inspection">REVIEW</a>
           <details class="nav-more">
             <summary>MORE</summary>
             <div class="nav-more-menu">
+              <a class="nav-link" href="#contract" data-section="contract">Contract</a>
               <a class="nav-link" href="#trends" data-section="trends">Trends</a>
               <a class="nav-link" href="#standards" data-section="standards">Standards</a>
               <a class="nav-link" href="#rank" data-section="rank">Rank</a>
@@ -122,6 +123,36 @@
         <div class="kicker">DAILY STATE</div>
         <h2>Morning Roll Call Required.</h2>
         <p class="muted">Submit today's Energy, Soreness, and Pain to generate readiness and mission guidance.</p>
+      </section>
+
+      <section id="program" class="card program-command scroll-anchor" aria-labelledby="program-command-heading" data-section="program">
+        <header class="program-command-header">
+          <div>
+            <div class="kicker">PROGRAM</div>
+            <h2 id="program-command-heading">My Program</h2>
+            <p>Goal. Commitments. This week.</p>
+          </div>
+          <span id="program-command-status" class="state-pill neutral" aria-live="polite">CHECKING</span>
+        </header>
+        <div id="program-command-panel" aria-live="polite">
+          <div class="performance-empty">Atlas is reconciling your Contract, plans, and calendar.</div>
+        </div>
+        <details class="program-change-request">
+          <summary>Request a change</summary>
+          <form id="program-change-form">
+            <fieldset>
+              <legend>What needs to change?</legend>
+              <label><input type="radio" name="type" value="SCHEDULE" checked><span><strong>Schedule</strong><small>Move this week&rsquo;s work</small></span></label>
+              <label><input type="radio" name="type" value="CAPACITY"><span><strong>Capacity</strong><small>Days, time, Two-a-Days</small></span></label>
+              <label><input type="radio" name="type" value="TRAINING_MIX"><span><strong>Training mix</strong><small>Strength, Cardio, Core</small></span></label>
+              <label><input type="radio" name="type" value="GOAL"><span><strong>Goal</strong><small>Change the outcome</small></span></label>
+            </fieldset>
+            <label class="program-change-note">What should Atlas know?<textarea name="note" maxlength="240" rows="2" placeholder="Optional context"></textarea></label>
+            <button type="submit" class="ghost">Preview impact</button>
+          </form>
+          <div id="program-change-impact" class="program-change-impact" hidden aria-live="polite"></div>
+        </details>
+        <p id="program-command-feedback" class="muted" aria-live="polite"></p>
       </section>
 
       <section id="contract" class="card recruit-contract recruit-contract-experience scroll-anchor" aria-labelledby="recruit-contract-heading" data-section="contract">
@@ -1978,6 +2009,7 @@
         <button type="button" class="ghost" data-mobile-more-action="close" aria-label="Close command menu">Close</button>
       </header>
       <nav class="mobile-more-grid" aria-label="More Coach Dominion destinations">
+        <a href="#program" data-section="program"><strong>Program</strong><small>Goal and commitments</small></a>
         <a href="#calendar" data-section="calendar"><strong>Calendar</strong><small>Plan the week</small></a>
         <a href="#contract" data-section="contract"><strong>Contract</strong><small>Your commitment</small></a>
         <a href="#trends" data-section="trends"><strong>Trends</strong><small>See progress</small></a>
@@ -2043,6 +2075,7 @@
 <script src="/assets/js/contract-activation.js?v=024a"></script>
 <script src="/assets/js/atlas-program.js?v=024a"></script>
 <script src="/assets/js/atlas-activation.js?v=024b"></script>
+<script src="/assets/js/program-command.js?v=024c"></script>
 <script src="/assets/js/contract-integrity.js"></script>
 <script src="/assets/js/contract-autosave.js?v=021h"></script>
 <script src="/assets/js/mobile-command.js?v=022g"></script>
@@ -2053,6 +2086,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=024b"></script>
+  <script src="/assets/js/app.js?v=024c"></script>
 </body>
 </html>

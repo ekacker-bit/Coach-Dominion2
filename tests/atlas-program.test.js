@@ -68,4 +68,26 @@ const coreDraft = { id: "core-draft", profile: { sessionsPerWeek: 3 }, weeks: [{
   assert.equal(program.modules.find((item) => item.id === "running").status, "NEEDS_REBUILD");
 }
 
+{
+  const recruitContract = contract();
+  const nutrition = atlas.estimateNutrition(recruitContract);
+  const approved = {
+    recruitContractId: recruitContract.id,
+    recruitContractRevision: recruitContract.revision,
+    status: "APPROVED"
+  };
+  const program = atlas.buildProgramPackage({
+    contract: recruitContract,
+    recruitContract,
+    strengthDraft: { ...strengthDraft, ...approved },
+    runningDraft: { ...runningDraft, ...approved },
+    coreDraft: { ...coreDraft, ...approved },
+    nutrition,
+    nutritionProposal: { ...approved, recoveryTargets: { calories: nutrition.input.calories, protein: nutrition.input.protein } }
+  });
+  assert.equal(atlas.VERSION, "024E.1");
+  assert.equal(program.status, "READY_FOR_APPROVAL");
+  assert.equal(program.progress.ready, 4);
+}
+
 console.log("Build 024A Atlas Program tests passed.");

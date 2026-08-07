@@ -5593,6 +5593,10 @@ function renderWeeklyOrchestrator() {
   const activeProgramMatches = activationReceipt?.status === "ACTIVE"
     && activationReceipt.contractId === contract.id
     && Number(activationReceipt.contractRevision || 0) === Number(contract.revision || 0);
+  const atlasRepairableBlockers = blocking.filter((item) => {
+    const code = String(item.code || "");
+    return code.includes("PLAN_REQUIRED") || code.includes("COVERAGE") || code.includes("CONTRACT_LINK_REQUIRED") || code.includes("NUTRITION");
+  });
   const atlasProgramDraft = preview.status === "DRAFT" && preview.generatedBy === "ATLAS_PROGRAM";
   const controls = preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
@@ -5604,7 +5608,7 @@ function renderWeeklyOrchestrator() {
     <div class="weekly-orchestrator-module-grid">${modules}</div>
     <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
     ${!preview.twoADaysEnabled && preview.days?.some((day) => day.twoADayAuthorizationRequired) ? `<div class="weekly-orchestrator-alert"><strong>Two-a-Days are off in the signed Contract.</strong><p>These stacked days exceed 120 minutes, but they cannot become AM/PM Two-a-Days until you deliberately amend and re-sign the Contract.</p><button type="button" class="ghost" data-weekly-orchestrator-action="amend-two-a-days">Review Two-a-Days</button></div>` : ""}
-    ${blocking.length ? `<section id="calendar-blockers" class="calendar-blockers" aria-labelledby="calendar-blockers-heading"><header><div><span class="kicker">COMMITMENT BLOCKED</span><strong id="calendar-blockers-heading">Clear ${blocking.length} blocker${blocking.length === 1 ? "" : "s"}</strong></div><span>${blocking.length}</span></header><div>${blocking.map((item) => { const meta = weeklyOrchestrationBlockerMeta(item); return `<article><div><span>${escapeHtml(meta.label)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span><p>${escapeHtml(item.detail)}</p></div><a href="#${escapeHtml(meta.section)}" data-section="${escapeHtml(meta.section)}">${escapeHtml(meta.action)}</a></article>`; }).join("")}</div></section>` : ""}
+    ${blocking.length ? `<section id="calendar-blockers" class="calendar-blockers" aria-labelledby="calendar-blockers-heading"><header><div><span class="kicker">COMMITMENT BLOCKED</span><strong id="calendar-blockers-heading">${atlasRepairableBlockers.length ? "Atlas can complete the program" : `Clear ${blocking.length} blocker${blocking.length === 1 ? "" : "s"}`}</strong></div><span>${blocking.length}</span></header>${atlasRepairableBlockers.length ? `<button type="button" class="calendar-repair-primary" data-weekly-orchestrator-action="repair-program">Complete my program</button>` : ""}<div>${blocking.map((item) => { const meta = weeklyOrchestrationBlockerMeta(item); return `<article><div><span>${escapeHtml(meta.label)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span><p>${escapeHtml(item.detail)}</p></div>${atlasRepairableBlockers.includes(item) ? `<small>Atlas repair</small>` : `<a href="#${escapeHtml(meta.section)}" data-section="${escapeHtml(meta.section)}">${escapeHtml(meta.action)}</a>`}</article>`; }).join("")}</div></section>` : ""}
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
     <div class="weekly-orchestrator-actions"><p>${escapeHtml(preview.message || "Review the complete week before commitment.")}${existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
@@ -6229,9 +6233,12 @@ function renderContractActivation() {
         <dl><div><dt>Contract</dt><dd>R${escapeHtml(String(receipt.contractRevision))}</dd></div><div><dt>Effective</dt><dd>${escapeHtml(receipt.effectiveDate || "—")}</dd></div><div><dt>Week</dt><dd>${escapeHtml(receipt.weekStart || "—")}</dd></div></dl>
       </section>`
     : "";
+  const programCompletionNeeded = !receiptMatchesContract && ["ACTION_REQUIRED", "PLANS_REQUIRED", "WEEK_READY", "READY_TO_BUILD"].includes(state.status);
   const next = repairRequired
-    ? { action: "REPAIR_PROGRAM", label: "Repair active program", section: "contract" }
-    : state.next;
+    ? { action: "REPAIR_PROGRAM", label: "Repair complete program", section: "contract" }
+    : programCompletionNeeded
+      ? { action: "REPAIR_PROGRAM", label: "Complete my program", section: "contract" }
+      : state.next;
   const preflightBlocked = next.action === "APPROVE_PROGRAM" && activationPreview?.status !== "READY_TO_ACTIVATE";
   panel.innerHTML = `
     ${receiptMarkup}
@@ -6736,25 +6743,45 @@ function buildAtlasNutritionDraft(contract = readApprovedRecruitContract()) {
   };
 }
 
+function atlasPlanMatchesContract(record = null, contract = readApprovedRecruitContract()) {
+  if (typeof DominionAtlasProgramRepair !== "undefined") return DominionAtlasProgramRepair.linkedToContract(record, contract);
+  return Boolean(record && record.status === "APPROVED" && contract?.id
+    && record.recruitContractId === contract.id
+    && Number(record.recruitContractRevision || 0) === Number(contract.revision || 0));
+}
+
+function currentAtlasActivePlans(contract = readApprovedRecruitContract()) {
+  const programStart = atlasProgramWeekStart(contract);
+  return {
+    strength: readApprovedStrengthPlan(),
+    running: readApprovedRunningBlock(),
+    core: readApprovedCorePlan(),
+    nutrition: nutritionBaselineForUnifiedWeek(programStart)
+  };
+}
+
 function buildCurrentAtlasProgramPackage() {
   if (typeof DominionAtlasProgram === "undefined") return null;
   const contract = readApprovedRecruitContract();
+  const active = currentAtlasActivePlans(contract);
   const nutrition = contract ? DominionAtlasProgram.estimateNutrition(contract, { weightValue: dailyState?.weight, weightUnit: "lb" }) : null;
-  const proposal = nutritionBaselineDraft?.recruitContractId === contract?.id
+  const proposal = atlasPlanMatchesContract(active.nutrition, contract)
+    ? active.nutrition
+    : nutritionBaselineDraft?.recruitContractId === contract?.id
     && Number(nutritionBaselineDraft?.recruitContractRevision || 0) === Number(contract?.revision || 0)
     ? nutritionBaselineDraft
     : buildAtlasNutritionDraft(contract);
   return DominionAtlasProgram.buildProgramPackage({
     contract,
-    strengthDraft: readStrengthDraft(),
-    runningDraft: readRunningBlockDraft(),
-    coreDraft: readCoreDraftPlan(),
+    strengthDraft: atlasPlanMatchesContract(active.strength, contract) ? active.strength : readStrengthDraft(),
+    runningDraft: atlasPlanMatchesContract(active.running, contract) ? active.running : readRunningBlockDraft(),
+    coreDraft: atlasPlanMatchesContract(active.core, contract) ? active.core : readCoreDraftPlan(),
     nutrition,
     nutritionProposal: proposal
   });
 }
 
-async function stageRecruitContractPlans({ announce = true } = {}) {
+async function stageRecruitContractPlans({ announce = true, repairOnly = false } = {}) {
   const contract = readApprovedRecruitContract();
   if (!contract || typeof DominionRecruitContract === "undefined") return;
   const inputs = contract.planningInputs || DominionRecruitContract.contractPlanningInputs(contract, { today: todayISODate() });
@@ -6762,8 +6789,10 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
   const protectedPlans = [];
   const now = new Date().toISOString();
   const programStart = atlasProgramWeekStart(contract);
+  const active = currentAtlasActivePlans(contract);
+  const keep = (moduleId) => repairOnly && atlasPlanMatchesContract(active[moduleId], contract);
 
-  if (inputs.strength && typeof DominionStrengthTraining !== "undefined") {
+  if (inputs.strength && typeof DominionStrengthTraining !== "undefined" && !keep("strength")) {
     const profile = DominionStrengthTraining.normalizeProfile(inputs.strength);
     const draft = DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, { startDate: programStart, generatedAt: now });
     saveStrengthStateLocal("PROFILE", "current", profile);
@@ -6774,7 +6803,7 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
     if (readApprovedStrengthPlan()) protectedPlans.push("active Strength plan");
   }
 
-  if (inputs.core && typeof DominionCoreProgramming !== "undefined") {
+  if (inputs.core && typeof DominionCoreProgramming !== "undefined" && !keep("core")) {
     const profile = DominionCoreProgramming.normalizeProfile({ ...inputs.core, updatedAt: now });
     const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: programStart, generatedAt: now });
     saveCoreProgramLocal("PROFILE", "current", profile);
@@ -6785,7 +6814,7 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
     if (readApprovedCorePlan()) protectedPlans.push("active Core plan");
   }
 
-  if (inputs.running && typeof DominionRunning !== "undefined") {
+  if (inputs.running && typeof DominionRunning !== "undefined" && !keep("running")) {
     const existingProfile = readRunningProfile();
     const activeRunningBlock = readApprovedRunningBlock();
     const profile = saveRunningProfile({
@@ -6821,8 +6850,10 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
     if (activeRunningBlock) protectedPlans.push("active Running block");
   }
 
-  nutritionBaselineDraft = buildAtlasNutritionDraft(contract);
-  if (nutritionBaselineDraft?.status === "READY FOR APPROVAL") staged.push("Fuel");
+  if (!keep("nutrition")) {
+    nutritionBaselineDraft = buildAtlasNutritionDraft(contract);
+    if (nutritionBaselineDraft?.status === "READY FOR APPROVAL") staged.push("Fuel");
+  }
   if (nutritionBaselineForUnifiedWeek(programStart)) protectedPlans.push("active Fuel plan");
 
   let program = buildCurrentAtlasProgramPackage();
@@ -6856,27 +6887,28 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
   renderWeeklyOrchestrator();
   const protectedText = protectedPlans.length ? ` Current ${protectedPlans.join(", ")} remain protected until approval.` : "";
   if (announce) setText("recruit-contract-feedback", program?.status === "READY_FOR_APPROVAL"
-    ? `Atlas prepared Fuel, Strength, Core, and Cardio as one program.${protectedText}`
+    ? `Atlas prepared the complete program${repairOnly && staged.length ? ` by updating ${staged.join(", ")}` : ""}.${protectedText}`
     : program?.message || "Atlas needs one profile correction before it can prepare the complete program.");
   return program;
 }
 
 function buildAtlasApprovalCandidates(contract = readApprovedRecruitContract(), approvedAt = new Date().toISOString()) {
   if (!contract) throw new Error("Sign the Recruit Contract first.");
-  const strengthDraft = readStrengthDraft();
-  const runningDraft = readRunningBlockDraft();
-  const coreDraft = readCoreDraftPlan();
-  const nutritionDraft = nutritionBaselineDraft || buildAtlasNutritionDraft(contract);
+  const active = currentAtlasActivePlans(contract);
+  const strengthDraft = atlasPlanMatchesContract(active.strength, contract) ? active.strength : readStrengthDraft();
+  const runningDraft = atlasPlanMatchesContract(active.running, contract) ? active.running : readRunningBlockDraft();
+  const coreDraft = atlasPlanMatchesContract(active.core, contract) ? active.core : readCoreDraftPlan();
+  const nutritionDraft = atlasPlanMatchesContract(active.nutrition, contract) ? active.nutrition : nutritionBaselineDraft || buildAtlasNutritionDraft(contract);
   if (contract.planningInputs?.strength && !strengthDraft) throw new Error("Atlas could not prepare Strength. Generate the program again.");
   if (contract.planningInputs?.running && !runningDraft) throw new Error("Atlas could not prepare Cardio. Generate the program again.");
   if (contract.planningInputs?.core && !coreDraft) throw new Error("Atlas could not prepare Core. Generate the program again.");
   if (!nutritionDraft || nutritionDraft.status !== "READY FOR APPROVAL") throw new Error("Atlas needs a valid weight and profile before Fuel can be approved.");
 
   const candidates = {
-    strength: strengthDraft ? DominionStrengthTraining.approvePlan(strengthDraft, approvedAt) : null,
-    running: runningDraft ? DominionRunning.approveRunningBlock(runningDraft, readApprovedRunningBlock(), { approvedAt }) : null,
-    core: coreDraft ? DominionCoreProgramming.approvePlan(coreDraft, approvedAt) : null,
-    nutrition: DominionNutritionBaseline.approveNutritionBaseline(nutritionDraft, approvedAt, `atlas-fuel:${contract.id}:r${contract.revision}`)
+    strength: strengthDraft?.status === "APPROVED" ? strengthDraft : strengthDraft ? DominionStrengthTraining.approvePlan(strengthDraft, approvedAt) : null,
+    running: runningDraft?.status === "APPROVED" ? runningDraft : runningDraft ? DominionRunning.approveRunningBlock(runningDraft, readApprovedRunningBlock(), { approvedAt }) : null,
+    core: coreDraft?.status === "APPROVED" ? coreDraft : coreDraft ? DominionCoreProgramming.approvePlan(coreDraft, approvedAt) : null,
+    nutrition: nutritionDraft?.status === "APPROVED" ? nutritionDraft : DominionNutritionBaseline.approveNutritionBaseline(nutritionDraft, approvedAt, `atlas-fuel:${contract.id}:r${contract.revision}`)
   };
   const nutritionHistory = [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== candidates.nutrition.id)];
   return { candidates, nutritionHistory };
@@ -6912,6 +6944,124 @@ function buildAtlasProgramPreflight(program = buildCurrentAtlasProgramPackage(),
     : generatedWeekDraft;
   const preflight = DominionAtlasActivation.preflightActivation({ contract, program, candidates, weekDraft });
   return { contract, program, candidates, nutritionHistory, weekDraft, preflight, approvedAt };
+}
+
+function buildAtlasProgramRepairModel(program = buildCurrentAtlasProgramPackage(), transaction = null) {
+  if (typeof DominionAtlasProgramRepair === "undefined") return null;
+  const receipt = readAtlasProgramReceipt();
+  let receiptAudit = null;
+  try { receiptAudit = receipt?.status === "ACTIVE" ? currentAtlasActivationAudit(receipt) : null; }
+  catch (_) {}
+  return DominionAtlasProgramRepair.buildRepairPlan({
+    contract: readApprovedRecruitContract(),
+    program,
+    activePlans: currentAtlasActivePlans(),
+    preflight: transaction?.preflight || null,
+    weekDraft: transaction?.weekDraft || readUnifiedWeekDraft(),
+    receiptAudit
+  });
+}
+
+function atlasRepairStateTone(status = "") {
+  if (["ACTIVE", "READY_TO_ACTIVATE"].includes(status)) return "green";
+  if (["READY_TO_REPAIR", "PREPARING"].includes(status)) return "yellow";
+  if (["SAFETY_REVIEW", "DECISION_REQUIRED"].includes(status)) return "red";
+  return "neutral";
+}
+
+function renderAtlasProgramRepair(model = buildAtlasProgramRepairModel()) {
+  const dialog = document.getElementById("atlas-program-repair-dialog");
+  const panel = document.getElementById("atlas-program-repair-panel");
+  const status = document.getElementById("atlas-program-repair-status");
+  const primary = document.getElementById("atlas-program-repair-primary");
+  if (!dialog || !panel || !status || !primary || !model) return;
+  status.textContent = model.status.replaceAll("_", " ");
+  status.className = `state-pill ${atlasRepairStateTone(model.status)}`;
+  setText("atlas-program-repair-heading", model.headline);
+  setText("atlas-program-repair-detail", model.detail);
+  const moduleLabels = { KEEP: "KEEP", CREATE: "CREATE", REPLACE: "RELINK", DECISION_REQUIRED: "NEEDS YOU" };
+  const modules = (model.modules || []).map((item) => `<article class="atlas-repair-module ${item.state.toLowerCase()}">
+    <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.detail)}</strong></div><small>${escapeHtml(moduleLabels[item.state] || item.state.replaceAll("_", " "))}</small>
+  </article>`).join("");
+  const week = model.week
+    ? `<section class="atlas-repair-week"><header><span>COORDINATED WEEK</span><strong>${escapeHtml(model.week.weekStart || "Prepared")}</strong></header><div><p><b>${model.week.trainingDays}</b> training days</p><p><b>${model.week.recoveryDays}</b> recovery days</p><p><b>${model.week.twoADayCount}</b> Two-a-Days</p><p><b>${model.week.estimatedMinutes}</b> planned minutes</p></div></section>`
+    : `<section class="atlas-repair-week empty"><span>COORDINATED WEEK</span><p>Atlas will build the calendar after the required plans are ready.</p></section>`;
+  const blockers = (model.blockers || []).length
+    ? `<section class="atlas-repair-blockers"><span>NEEDS ATTENTION</span>${model.blockers.map((item) => `<article><strong>${escapeHtml(item.title || item.code)}</strong><p>${escapeHtml(item.detail || "Review this item before activation.")}</p><small>${escapeHtml(String(item.kind || "ATLAS_REPAIR").replaceAll("_", " "))}</small></article>`).join("")}</section>`
+    : "";
+  panel.innerHTML = `<div class="atlas-repair-progress-copy"><strong>${model.progress?.kept || 0} kept</strong><span>${model.progress?.changing || 0} changing</span><span>Contract R${model.contractRevision || "—"}</span></div><div class="atlas-repair-modules">${modules}</div>${week}${blockers}<details class="atlas-repair-safeguards"><summary>What Atlas protects</summary><ul>${(model.safeguards || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>`;
+  primary.dataset.programRepairAction = model.primary?.action || "PREPARE";
+  primary.textContent = model.primary?.label || "Complete my program";
+  primary.disabled = false;
+}
+
+function showAtlasProgramRepairPreparing() {
+  const dialog = document.getElementById("atlas-program-repair-dialog");
+  if (!dialog) return;
+  setText("atlas-program-repair-heading", "Atlas is completing your program");
+  setText("atlas-program-repair-detail", "Contract-matched plans stay in force while missing or stale links are rebuilt.");
+  const status = document.getElementById("atlas-program-repair-status");
+  if (status) { status.textContent = "PREPARING"; status.className = "state-pill yellow"; }
+  const panel = document.getElementById("atlas-program-repair-panel");
+  if (panel) panel.innerHTML = `<div class="atlas-repair-preparing"><span aria-hidden="true"></span><strong>Strength. Cardio. Core. Fuel. Calendar.</strong><p>One package. No active plan changes yet.</p></div>`;
+  const primary = document.getElementById("atlas-program-repair-primary");
+  if (primary) { primary.disabled = true; primary.textContent = "Preparing…"; }
+  setText("atlas-program-repair-feedback", "");
+  if (!dialog.open) dialog.showModal();
+}
+
+async function openAtlasProgramRepairPreview() {
+  showAtlasProgramRepairPreparing();
+  try {
+    const program = await stageRecruitContractPlans({ announce: false, repairOnly: true });
+    let transaction = null;
+    if (program?.status === "READY_FOR_APPROVAL") transaction = buildAtlasProgramPreflight(program);
+    const model = buildAtlasProgramRepairModel(program, transaction);
+    renderAtlasProgramRepair(model);
+    setText("atlas-program-repair-feedback", model?.status === "READY_TO_ACTIVATE"
+      ? "Review the complete package. Nothing changes until you activate it."
+      : model?.detail || "Atlas needs one item before activation.");
+    return model;
+  } catch (error) {
+    const fallback = buildAtlasProgramRepairModel();
+    renderAtlasProgramRepair(fallback);
+    setText("atlas-program-repair-feedback", error?.message || "Atlas could not prepare the complete program. Your active plans are unchanged.");
+    return fallback;
+  }
+}
+
+function routeAtlasProgramRepair(action = "") {
+  const routes = { OPEN_CONTRACT: "contract", OPEN_CALENDAR: "calendar", OPEN_TODAY: "today" };
+  const section = routes[action];
+  if (!section) return false;
+  document.getElementById("atlas-program-repair-dialog")?.close();
+  setActiveSection(section);
+  window.history.replaceState(null, "", `#${section}`);
+  document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
+}
+
+async function runAtlasProgramRepairAction(action = "PREPARE") {
+  if (action === "PREPARE") return openAtlasProgramRepairPreview();
+  if (routeAtlasProgramRepair(action)) return null;
+  if (action !== "ACTIVATE") return null;
+  const primary = document.getElementById("atlas-program-repair-primary");
+  if (primary) { primary.disabled = true; primary.textContent = "Activating…"; }
+  setText("atlas-program-repair-feedback", "Activating the complete package. The previous program remains protected until every write succeeds.");
+  try {
+    const receipt = await approveAtlasProgram();
+    renderContractActivation();
+    renderWeeklyOrchestrator();
+    renderProgramCommand();
+    renderDominionExperienceShell();
+    renderAtlasProgramRepair(buildAtlasProgramRepairModel());
+    setText("atlas-program-repair-feedback", `${receipt.headline}. Today is ready.`);
+    return receipt;
+  } catch (error) {
+    if (primary) primary.disabled = false;
+    setText("atlas-program-repair-feedback", error?.message || "Atlas could not activate the package. The previous program remains active.");
+    throw error;
+  }
 }
 
 function atlasActivationStorageKeys(weekStart = unifiedWeekTargetStart()) {
@@ -11476,10 +11626,14 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     setText("program-command-status", "CHECK AGAIN");
     return;
   }
+  const repair = buildAtlasProgramRepairModel();
+  const repairVisible = Boolean(repair?.visible && readApprovedRecruitContract());
+  const displayStatus = repairVisible ? repair.status : model.status;
+  const displayTone = repairVisible ? atlasRepairStateTone(repair.status) : model.tone;
   const status = document.getElementById("program-command-status");
   if (status) {
-    status.textContent = model.status.replaceAll("_", " ");
-    status.className = `state-pill ${model.tone}`;
+    status.textContent = displayStatus.replaceAll("_", " ");
+    status.className = `state-pill ${displayTone}`;
   }
   const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
   const weekDate = model.week.start ? `${escapeHtml(model.week.start)}${model.week.end ? ` – ${escapeHtml(model.week.end)}` : ""}` : "Not committed";
@@ -11488,9 +11642,11 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
       <div><span>THE OUTCOME</span><h3>${escapeHtml(model.goal.target)}</h3><p>${escapeHtml(model.goal.label)}</p></div>
       <div class="program-command-goal-meta"><strong>Contract ${model.goal.revision || "—"}</strong>${targetDate}</div>
     </section>
-    <section class="program-command-next ${escapeHtml(model.tone)}">
-      <div><span>${model.status === "ACTIVE" ? "NEXT ORDER" : "PROGRAM BLOCKER"}</span><h3>${escapeHtml(model.next.title)}</h3><p>${escapeHtml(model.next.detail)}</p></div>
-      <button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>
+    <section class="program-command-next ${escapeHtml(displayTone)}">
+      <div><span>${!repairVisible && model.status === "ACTIVE" ? "NEXT ORDER" : "PROGRAM BLOCKER"}</span><h3>${escapeHtml(repairVisible ? repair.headline : model.next.title)}</h3><p>${escapeHtml(repairVisible ? repair.detail : model.next.detail)}</p></div>
+      ${repairVisible
+        ? `<button type="button" data-program-repair-action="${escapeHtml(repair.primary.action)}">${escapeHtml(repair.primary.label)}</button>`
+        : `<button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>`}
     </section>
     <section class="program-command-week" aria-label="Current week summary">
       <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
@@ -11536,6 +11692,10 @@ function relayClosedLoopAction(action) {
 
 async function runActivationRepairAction(action = "RETRY", moduleId = "") {
   setText("activation-repair-feedback", "");
+  if (action === "REPAIR_PROGRAM") {
+    await openAtlasProgramRepairPreview();
+    return;
+  }
   if (action === "RETRY") {
     renderDominionExperienceShell();
     scheduleOperatingTruthReconciliation(800);
@@ -14515,7 +14675,15 @@ if (typeof document !== "undefined") {
     button.setAttribute("aria-expanded", context.open ? "true" : "false");
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
-  document.getElementById("program")?.addEventListener("click", (event) => {
+  document.getElementById("program")?.addEventListener("click", async (event) => {
+    const repairButton = event.target.closest("button[data-program-repair-action]");
+    if (repairButton) {
+      repairButton.disabled = true;
+      try { await runAtlasProgramRepairAction(repairButton.dataset.programRepairAction || "PREPARE"); }
+      catch (error) { setText("program-command-feedback", error?.message || "Atlas could not prepare the complete program."); }
+      finally { repairButton.disabled = false; }
+      return;
+    }
     const button = event.target.closest("button[data-program-route]");
     if (!button) return;
     const section = normalizeSectionKey(button.dataset.programRoute || "today");
@@ -14529,6 +14697,17 @@ if (typeof document !== "undefined") {
   document.getElementById("program-change-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     renderProgramChangeImpact(event.currentTarget);
+  });
+  document.getElementById("atlas-program-repair-dialog")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-program-repair-action]");
+    if (!button) return;
+    const action = button.dataset.programRepairAction || "PREPARE";
+    if (action === "CLOSE") {
+      document.getElementById("atlas-program-repair-dialog")?.close();
+      return;
+    }
+    try { await runAtlasProgramRepairAction(action); }
+    catch (_) {}
   });
   document.getElementById("activation-repair")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-activation-repair-action]");
@@ -14896,6 +15075,10 @@ if (typeof document !== "undefined") {
         setText("weekly-orchestrator-feedback", "Weekly draft discarded. Every committed week remains unchanged.");
         return;
       }
+      if (action === "repair-program") {
+        await openAtlasProgramRepairPreview();
+        return;
+      }
       if (action === "activate-program") {
         weekButton.disabled = true;
         const previousLabel = weekButton.textContent;
@@ -14985,19 +15168,7 @@ if (typeof document !== "undefined") {
         return;
       }
       if (activationAction === "REPAIR_PROGRAM") {
-        activationButton.disabled = true;
-        const previousLabel = activationButton.textContent;
-        activationButton.textContent = "Repairing program…";
-        try {
-          await stageRecruitContractPlans({ announce: false });
-          const receipt = await approveAtlasProgram();
-          renderContractActivation();
-          setText("contract-activation-feedback", `${receipt.headline}. Every active link was rebuilt from the signed Contract.`);
-        } catch (error) {
-          activationButton.disabled = false;
-          activationButton.textContent = previousLabel;
-          setText("contract-activation-feedback", error?.message || "The active program could not be repaired. The previous program remains protected.");
-        }
+        await openAtlasProgramRepairPreview();
         return;
       }
       if (activationAction === "OPEN_MODULE") {

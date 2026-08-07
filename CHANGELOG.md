@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 024E Atlas Program Repair
+
+- Replaced four separate plan-repair chores with one `Complete my program` action across Today, Program, Contract, and Calendar.
+- Preserved every approved plan that already matches the signed Contract and rebuilt only missing or stale links.
+- Added a before-approval package preview covering Strength, Cardio, Core, Fuel, the exact week, and named safeguards.
+- Kept the existing atomic activation boundary so all plans and the coordinated calendar activate together or the prior program is restored.
+- Separated Atlas-fixable gaps from recruit decisions and safety conflicts, with a direct route for anything Atlas cannot resolve automatically.
+
 ## Unreleased - Build 024D Atlas Program Calendar
 
 - Replaced after-the-fact plan reconciliation with one Atlas scheduler for Strength, Cardio, Core, Fuel, recovery, and Contract time capacity.

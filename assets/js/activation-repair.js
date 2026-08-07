@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019F.1";
+  const VERSION = "024E.1";
   const REPAIRABLE_STATES = new Set([
     "CONTRACT_REQUIRED",
     "SIGNATURE_REQUIRED",
@@ -44,12 +44,7 @@
     if (state === "CONTRACT_REQUIRED") return { action: "EDIT_CONTRACT", label: "Set the Contract", module: null };
     if (state === "SIGNATURE_REQUIRED") return { action: "SIGN_CONTRACT", label: "Sign the Contract", module: null };
     if (state === "PLANS_REQUIRED") {
-      const pending = (activation.modules || []).find((item) => item.included && !item.complete);
-      return moduleAction(pending, activation) || {
-        action: activation.next?.action || "STAGE_DRAFTS",
-        label: activation.next?.label || "Prepare plan updates",
-        module: activation.next?.module || null
-      };
+      return { action: "REPAIR_PROGRAM", label: "Complete my program", module: null };
     }
     if (state === "WEEK_REQUIRED") {
       return {
@@ -105,7 +100,7 @@
         : state === "SIGNATURE_REQUIRED"
           ? "Seal the Contract"
           : state === "PLANS_REQUIRED"
-            ? pending ? `Repair the ${pending.label} link` : "Connect the required plans"
+            ? "Complete the Atlas program"
             : state === "CONFLICT"
               ? "Repair the coordinated week"
               : state === "WEEK_REQUIRED"

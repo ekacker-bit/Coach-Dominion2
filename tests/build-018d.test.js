@@ -21,8 +21,8 @@ for (const id of [
   assert.match(html, new RegExp(`id="${id}"`), `missing Build 018D surface: ${id}`);
 }
 
-assert.match(html, /BUILD 021I \/\/ CALENDAR COMMAND/);
-assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js\?v=021i"/);
+assert.match(html, /BUILD (?:021I \/\/ CALENDAR COMMAND|024D \/\/ ATLAS PROGRAM CALENDAR)/);
+assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js\?v=024d"/);
 assert.ok(html.indexOf("weekly-orchestrator.js") < html.indexOf("app.js"), "orchestrator must load before app integration");
 
 assert.match(app, /async function loadWeeklyOrchestrationState\(\)/);
@@ -30,7 +30,7 @@ assert.match(app, /async function persistWeeklyOrchestrationState\(stateType, st
 assert.match(app, /function renderWeeklyOrchestrator\(\)/);
 assert.match(app, /function renderTodayCommittedWeek\(\)/);
 assert.match(app, /CURRENT WEEK PROTECTED/);
-assert.match(app, /data-weekly-orchestrator-action="commit"/);
+assert.match(app, /data-weekly-orchestrator-action="\$\{atlasProgramDraft && !activeProgramMatches \? "activate-program" : "commit"\}"/);
 assert.match(app, /The active week is protected/);
 assert.match(app, /DominionWeeklyOrchestrator\.strengthScheduleFromWeek\(unifiedWeek\)/);
 assert.match(app, /The committed weekly calendar does not assign Core today/);

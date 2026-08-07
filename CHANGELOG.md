@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 024D Atlas Program Calendar
+
+- Replaced after-the-fact plan reconciliation with one Atlas scheduler for Strength, Cardio, Core, Fuel, recovery, and Contract time capacity.
+- Treated module dates as preferences while the signed Contract remains the source of truth for weekly load and available days.
+- Scheduled long and hard runs first, kept loaded Strength away from hard running, and protected one full recovery day.
+- Paired Core as tertiary work inside a Run or Strength window when the combined duration is 120 minutes or less.
+- Preserved Two-a-Day capacity, AM/PM separation, the 240-minute ceiling, and uncapped long-run duration.
+- Made the staged calendar part of the same atomic program approval so the plans and exact week cannot diverge.
+- Kept deliberate calendar moves available and retained them through activation when they remain valid.
+
 ## Unreleased - Build 024C Program Command Center
 
 - Added one word-light Program view for the active goal, Contract revision, weekly load, recovery, and all four approved modules.

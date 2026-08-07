@@ -10,7 +10,7 @@ const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
 const worker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 
-assert.equal(orchestrator.VERSION, "021I.1");
+assert.equal(orchestrator.VERSION, "024D.1");
 assert.equal(orchestrator.TWO_A_DAY_MINIMUM_SEPARATION_MINUTES, 240);
 assert.equal(typeof orchestrator.buildSessionSequence, "function");
 

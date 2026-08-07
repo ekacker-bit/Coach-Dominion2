@@ -337,6 +337,14 @@ test("draft calendar edits move one activity and recalculate blockers", () => {
   assert.equal(edited.blockingConflictCount, edited.conflicts.filter((item) => item.severity === "BLOCKING").length);
 });
 
+test("recalculation upgrades legacy drafts to the current Atlas calendar version", () => {
+  const legacy = { ...draft(), version: "021I.1" };
+  const recalculated = orchestrator.recalculateDraftWeek(legacy);
+  assert.equal(recalculated.version, orchestrator.VERSION);
+  assert.equal(recalculated.generatedBy, "ATLAS_PROGRAM");
+  assert.equal(recalculated.programId, legacy.programId);
+});
+
 test("the committed week produces the exact Strength schedule consumed by Today", () => {
   const approved = orchestrator.approveWeek(draft(), null, { approvedAt: "2026-08-02T14:00:00.000Z" });
   const schedule = orchestrator.strengthScheduleFromWeek(approved);
@@ -346,7 +354,7 @@ test("the committed week produces the exact Strength schedule consumed by Today"
   assert.deepEqual(schedule.assignments.map((item) => item.date), approved.days.filter((day) => day.activities.some((item) => item.module === "STRENGTH")).map((day) => day.date));
 });
 
-test("recovery protection blocks a plan that consumes all seven days", () => {
+test("Atlas protects recovery and ignores module volume beyond the signed Contract", () => {
   const input = modules();
   input.contract = {
     ...input.contract,
@@ -362,8 +370,10 @@ test("recovery protection blocks a plan that consumes all seven days", () => {
     }]
   };
   const result = draft(input);
-  assert.equal(result.trainingDays, 7);
-  assert.ok(result.conflicts.some((item) => item.code === "RECOVERY_MINIMUM_VIOLATED" && item.severity === "BLOCKING"));
+  assert.equal(result.trainingDays, 6);
+  assert.equal(result.recoveryDays, 1);
+  assert.equal(result.actual.running, result.expected.running);
+  assert.equal(result.conflicts.some((item) => item.code === "RECOVERY_MINIMUM_VIOLATED"), false);
 });
 
 console.log(`Weekly orchestrator: ${passed} tests passed.`);

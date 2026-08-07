@@ -5386,7 +5386,10 @@ function unifiedWeekSourceSignature(week = null) {
   return JSON.stringify({
     contractId: week.contractId || null,
     contractRevision: Number(week.contractRevision || 0),
+    generatedBy: week.generatedBy || null,
+    programId: week.programId || null,
     sourceRefs: week.sourceRefs || {},
+    placements: (week.placementDecisions || []).map((item) => `${item.activityId}:${item.scheduledDate}`),
     blocking: (week.conflicts || []).filter((item) => item.severity === "BLOCKING").map((item) => item.code).sort()
   });
 }
@@ -5412,8 +5415,9 @@ async function refreshUnifiedWeekDraftForNutrition() {
 
 function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
   if (typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const contract = readApprovedRecruitContract();
   const draft = DominionWeeklyOrchestrator.buildUnifiedWeek({
-    contract: readApprovedRecruitContract(),
+    contract,
     strengthPlan: readApprovedStrengthPlan(),
     runningBlock: readApprovedRunningBlock(),
     corePlan: readApprovedCorePlan(),
@@ -5421,6 +5425,7 @@ function buildUnifiedWeekDraft(weekStart = unifiedWeekTargetStart()) {
   }, {
     today: todayISODate(),
     weekStart,
+    programId: `atlas-program:${contract?.id || "contract"}:r${Number(contract?.revision || 0)}`,
     generatedAt: new Date().toISOString()
   });
   return applyContractActivationGuards(draft, weekStart);
@@ -5543,14 +5548,7 @@ function renderWeeklyOrchestrator() {
   let savedDraft = readUnifiedWeekDraft();
   if (savedDraft?.status === "DRAFT" && savedDraft.version !== DominionWeeklyOrchestrator.VERSION) {
     try {
-      savedDraft = DominionWeeklyOrchestrator.recalculateDraftWeek({
-        ...savedDraft,
-        calendarPolicy: {
-          twoADays: contract.twoADays === true,
-          sessionMinutes: Number(contract.sessionMinutes || 60),
-          primaryGoal: contract.primaryGoal || null
-        }
-      });
+      savedDraft = buildUnifiedWeekDraft(savedDraft.weekStart || targetWeekStart);
       saveWeeklyOrchestrationLocal("DRAFT", "current", savedDraft);
       persistWeeklyOrchestrationState("DRAFT", "current", savedDraft).catch(() => {});
     } catch (_) {
@@ -5591,11 +5589,17 @@ function renderWeeklyOrchestrator() {
   const blocking = preview.conflicts?.filter((item) => item.severity === "BLOCKING") || [];
   const advisories = preview.conflicts?.filter((item) => item.severity === "ADVISORY") || [];
   const existingSameWeek = history.find((item) => item.status !== "REPLACED" && item.weekStart === preview.weekStart);
+  const activationReceipt = readAtlasProgramReceipt();
+  const activeProgramMatches = activationReceipt?.status === "ACTIVE"
+    && activationReceipt.contractId === contract.id
+    && Number(activationReceipt.contractRevision || 0) === Number(contract.revision || 0);
+  const atlasProgramDraft = preview.status === "DRAFT" && preview.generatedBy === "ATLAS_PROGRAM";
   const controls = preview.status === "DRAFT" && savedDraft
-    ? `<button type="button" data-weekly-orchestrator-action="commit" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>Commit complete week</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
+    ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">Build ${active ? "next" : "this"} week</button>`;
   panel.innerHTML = `
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
+    ${preview.generatedBy === "ATLAS_PROGRAM" ? `<article class="atlas-calendar-source"><div><span>ATLAS PROGRAM CALENDAR</span><strong>Built from the complete plan</strong><p>Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together.</p></div><small>Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}</small></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
     <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
@@ -6821,7 +6825,27 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
   if (nutritionBaselineDraft?.status === "READY FOR APPROVAL") staged.push("Fuel");
   if (nutritionBaselineForUnifiedWeek(programStart)) protectedPlans.push("active Fuel plan");
 
-  const program = buildCurrentAtlasProgramPackage();
+  let program = buildCurrentAtlasProgramPackage();
+  if (program?.status === "READY_FOR_APPROVAL") {
+    const transaction = buildAtlasProgramPreflight(program, { approvedAt: now });
+    const calendarDraft = transaction?.weekDraft || null;
+    if (calendarDraft) {
+      saveWeeklyOrchestrationLocal("DRAFT", "current", calendarDraft);
+      await persistWeeklyOrchestrationState("DRAFT", "current", calendarDraft);
+      program = {
+        ...program,
+        calendar: {
+          status: calendarDraft.approvalBlocked ? "BLOCKED" : "READY",
+          weekStart: calendarDraft.weekStart,
+          weekEnd: calendarDraft.weekEnd,
+          trainingDays: calendarDraft.trainingDays,
+          recoveryDays: calendarDraft.recoveryDays,
+          twoADayCount: calendarDraft.twoADayCount,
+          blockerCount: calendarDraft.blockingConflictCount
+        }
+      };
+    }
+  }
   if (program) saveAtlasProgramReceipt({ ...program, status: program.status, stagedAt: now });
 
   renderProgrammingReview();
@@ -6864,7 +6888,7 @@ function buildAtlasProgramPreflight(program = buildCurrentAtlasProgramPackage(),
   const approvedAt = options.approvedAt || new Date().toISOString();
   const { candidates, nutritionHistory } = buildAtlasApprovalCandidates(contract, approvedAt);
   const weekStart = options.weekStart || atlasProgramWeekStart(contract);
-  const weekDraft = DominionWeeklyOrchestrator.buildUnifiedWeek({
+  const generatedWeekDraft = DominionWeeklyOrchestrator.buildUnifiedWeek({
     contract,
     strengthPlan: candidates.strength,
     runningBlock: candidates.running,
@@ -6873,8 +6897,19 @@ function buildAtlasProgramPreflight(program = buildCurrentAtlasProgramPackage(),
   }, {
     today: todayISODate(),
     weekStart,
+    programId: program?.id,
     generatedAt: approvedAt
   });
+  const savedDraft = readUnifiedWeekDraft();
+  const weekDraft = savedDraft?.status === "DRAFT"
+    && savedDraft.version === DominionWeeklyOrchestrator.VERSION
+    && savedDraft.generatedBy === "ATLAS_PROGRAM"
+    && savedDraft.programId === program?.id
+    && savedDraft.weekStart === weekStart
+    && savedDraft.contractId === contract?.id
+    && Number(savedDraft.contractRevision || 0) === Number(contract?.revision || 0)
+    ? savedDraft
+    : generatedWeekDraft;
   const preflight = DominionAtlasActivation.preflightActivation({ contract, program, candidates, weekDraft });
   return { contract, program, candidates, nutritionHistory, weekDraft, preflight, approvedAt };
 }
@@ -14859,6 +14894,23 @@ if (typeof document !== "undefined") {
         renderWeeklyOrchestrator();
         renderContractActivation();
         setText("weekly-orchestrator-feedback", "Weekly draft discarded. Every committed week remains unchanged.");
+        return;
+      }
+      if (action === "activate-program") {
+        weekButton.disabled = true;
+        const previousLabel = weekButton.textContent;
+        weekButton.textContent = "Activating complete program…";
+        try {
+          const receipt = await approveAtlasProgram();
+          renderWeeklyOrchestrator();
+          renderContractActivation();
+          renderProgramCommand();
+          setText("weekly-orchestrator-feedback", `${receipt.headline}. Atlas activated the plans and this exact calendar together.`);
+        } catch (error) {
+          weekButton.disabled = false;
+          weekButton.textContent = previousLabel;
+          setText("weekly-orchestrator-feedback", error?.message || "Atlas could not activate the complete program.");
+        }
         return;
       }
       if (action === "commit") {

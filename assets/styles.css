@@ -460,6 +460,138 @@
   }
 }
 
+/* Build 024B — Atomic Program Activation */
+.atlas-program-preflight,
+.atlas-program-receipt {
+  margin-top: 1rem;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid rgba(230, 230, 228, 0.14);
+  background: rgba(4, 7, 6, 0.72);
+}
+
+.atlas-program-preflight.ready,
+.atlas-program-receipt.active {
+  border-left: 4px solid var(--ascent, #2e4b34);
+  background: linear-gradient(115deg, rgba(46, 75, 52, 0.26), rgba(4, 7, 6, 0.78) 48%);
+}
+
+.atlas-program-preflight.blocked,
+.atlas-program-receipt.repair {
+  border-left: 4px solid #ab4137;
+  background: linear-gradient(115deg, rgba(171, 65, 55, 0.15), rgba(4, 7, 6, 0.78) 48%);
+}
+
+.atlas-program-preflight > header,
+.atlas-program-receipt {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.atlas-program-preflight > header > div,
+.atlas-program-receipt > div {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.atlas-program-preflight > header span,
+.atlas-program-receipt > div > span {
+  color: var(--gold, #d4af37);
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.12em;
+}
+
+.atlas-program-preflight > header strong,
+.atlas-program-receipt > div > strong {
+  color: var(--stone, #e6e6e4);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+}
+
+.atlas-program-preflight > header b {
+  color: var(--stone, #e6e6e4);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+}
+
+.atlas-program-preflight > p,
+.atlas-program-receipt small {
+  margin: 0.7rem 0 0;
+  color: var(--muted, #aab2bd);
+}
+
+.atlas-program-blockers {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.atlas-program-blockers article {
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(171, 65, 55, 0.35);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.atlas-program-blockers article > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.atlas-program-blockers p {
+  margin: 0.35rem 0;
+  color: var(--stone, #e6e6e4);
+}
+
+.atlas-program-blockers small {
+  color: var(--gold, #d4af37);
+}
+
+.atlas-program-receipt dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(5rem, auto));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.atlas-program-receipt dl div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 6rem;
+}
+
+.atlas-program-receipt dt {
+  color: var(--muted, #aab2bd);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.atlas-program-receipt dd {
+  margin: 0;
+  color: var(--stone, #e6e6e4);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .atlas-program-receipt {
+    display: grid;
+  }
+
+  .atlas-program-receipt dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .atlas-program-receipt dl div {
+    min-width: 0;
+  }
+
+  .atlas-program-blockers article > div {
+    display: grid;
+  }
+}
+
 /* Build 023E: Precision Meal Execution */
 .meal-execution-panel {
   margin: 1rem 0;

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 024B Atomic Program Activation
+
+- Added a complete preflight that validates Contract linkage, all four plans, and the proposed calendar before any active state changes.
+- Replaced generic activation failures with plain-language blockers and direct corrective guidance.
+- Made the device handoff transactional: if activation throws, the previous plans, week, drafts, and receipt are restored.
+- Added a durable active-program receipt with Contract revision, effective date, coordinated week, and sync posture.
+- Added a guided repair action for missing or mismatched active links without requiring a new Contract.
+- Moved future-dated programs to the Contract's effective week instead of activating them into an earlier calendar.
+
 ## Unreleased - Build 024A Atlas Program Commissioning
 
 - Replaced four separate plan-approval chores with one coordinated Atlas program package.

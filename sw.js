@@ -1,10 +1,10 @@
-const CACHE_NAME = "coach-dominion-024a-v1";
+const CACHE_NAME = "coach-dominion-024b-v1";
 const APP_SHELL = [
   "/",
   "/app",
   "/app.html",
   "/manifest.webmanifest",
-  "/assets/styles.css?v=024a",
+  "/assets/styles.css?v=024b",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",
@@ -49,6 +49,7 @@ const APP_SHELL = [
   "/assets/js/split-day-command.js",
   "/assets/js/contract-activation.js?v=024a",
   "/assets/js/atlas-program.js?v=024a",
+  "/assets/js/atlas-activation.js?v=024b",
   "/assets/js/contract-integrity.js",
   "/assets/js/contract-autosave.js",
   "/assets/js/mobile-command.js?v=022g",
@@ -59,7 +60,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=024a"
+  "/assets/js/app.js?v=024b"
 ];
 
 self.addEventListener("install", (event) => {

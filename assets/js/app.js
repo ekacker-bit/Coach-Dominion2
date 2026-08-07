@@ -6154,7 +6154,7 @@ function contractActivationInputs(weekStart = unifiedWeekTargetStart(), override
 function contractActivationTone(status = "") {
   if (["ACTIVE", "LINKED", "SCHEDULED", "COMPATIBLE", "READY_FOR_APPROVAL"].includes(status)) return "green";
   if (["READY_TO_BUILD", "WEEK_READY", "DRAFT_READY", "ACTION_REQUIRED", "REVIEW_REQUIRED"].includes(status)) return "yellow";
-  if (["PLAN_REQUIRED", "UPDATE_REQUIRED"].includes(status)) return "red";
+  if (["PLAN_REQUIRED", "UPDATE_REQUIRED", "BLOCKED", "REPAIR_REQUIRED"].includes(status)) return "red";
   return "neutral";
 }
 
@@ -6164,15 +6164,38 @@ function renderContractActivation() {
   const progress = document.getElementById("contract-activation-progress");
   if (!panel || !status || typeof DominionContractActivation === "undefined") return;
   const state = DominionContractActivation.buildActivation(contractActivationInputs());
-  status.textContent = state.status.replaceAll("_", " ");
-  status.className = `state-pill ${contractActivationTone(state.status)}`;
-  if (progress) progress.style.width = `${state.progress.percent}%`;
   if (state.status === "CONTRACT_REQUIRED") {
+    status.textContent = state.status.replaceAll("_", " ");
+    status.className = `state-pill ${contractActivationTone(state.status)}`;
+    if (progress) progress.style.width = `${state.progress.percent}%`;
     panel.innerHTML = `<div class="contract-activation-empty"><p>${escapeHtml(state.message)}</p><button type="button" data-contract-activation-action="EDIT_CONTRACT">Set the Contract</button></div>`;
     return;
   }
   const candidateProgram = typeof DominionAtlasProgram === "undefined" ? null : buildCurrentAtlasProgramPackage();
   const program = state.status === "ACTION_REQUIRED" ? candidateProgram : null;
+  let activationPreview = null;
+  if (program?.status === "READY_FOR_APPROVAL" && typeof DominionAtlasActivation !== "undefined") {
+    try {
+      activationPreview = buildAtlasProgramPreflight(program)?.preflight || null;
+    } catch (error) {
+      activationPreview = {
+        status: "BLOCKED",
+        blockers: [{ title: "Program needs a rebuild", detail: error?.message || "Atlas could not complete preflight.", action: "Generate the program again." }],
+        checks: []
+      };
+    }
+  }
+  const receipt = readAtlasProgramReceipt();
+  const contract = readApprovedRecruitContract();
+  const receiptMatchesContract = receipt?.status === "ACTIVE"
+    && receipt.contractId === contract?.id
+    && Number(receipt.contractRevision || 0) === Number(contract?.revision || 0);
+  const receiptAudit = receiptMatchesContract ? currentAtlasActivationAudit(receipt) : null;
+  const repairRequired = receiptAudit?.status === "REPAIR_REQUIRED";
+  const displayStatus = repairRequired ? "REPAIR_REQUIRED" : state.status;
+  status.textContent = displayStatus.replaceAll("_", " ");
+  status.className = `state-pill ${contractActivationTone(displayStatus)}`;
+  if (progress) progress.style.width = `${state.progress.percent}%`;
   const programModules = program?.modules?.length ? program.modules : state.modules;
   const modules = programModules.map((item) => {
     const changes = item.changes?.length
@@ -6187,9 +6210,28 @@ function renderContractActivation() {
   const protectedWeek = state.protectedWeek
     ? `<div class="contract-activation-protected"><strong>Current week protected</strong><p>${escapeHtml(state.protectedWeek.weekStart || "Current week")} continues unchanged while Contract ${readApprovedRecruitContract()?.revision || "current"} is activated for the next coordinated week.</p></div>`
     : "";
+  const blockers = activationPreview?.blockers || [];
+  const preflight = activationPreview
+    ? `<section class="atlas-program-preflight ${activationPreview.status === "READY_TO_ACTIVATE" ? "ready" : "blocked"}">
+        <header><div><span>${activationPreview.status === "READY_TO_ACTIVATE" ? "PREFLIGHT CLEAR" : "ACTIVATION BLOCKED"}</span><strong>${escapeHtml(activationPreview.status === "READY_TO_ACTIVATE" ? "Complete package verified" : `${blockers.length} issue${blockers.length === 1 ? "" : "s"} before activation`)}</strong></div><b>${activationPreview.status === "READY_TO_ACTIVATE" ? `${activationPreview.checks?.filter((item) => item.passed).length || 0}/${activationPreview.checks?.length || 0}` : blockers.length}</b></header>
+        ${blockers.length ? `<div class="atlas-program-blockers">${blockers.map((item) => `<article><div><strong>${escapeHtml(item.title)}</strong>${item.date ? `<span>${escapeHtml(item.date)}</span>` : ""}</div><p>${escapeHtml(item.detail)}</p><small>${escapeHtml(item.action)}</small></article>`).join("")}</div>` : `<p>Fuel, Strength, Core, Cardio, and the week of ${escapeHtml(activationPreview.weekStart || atlasProgramWeekStart(contract))} agree with Contract ${escapeHtml(String(contract?.revision || "current"))}.</p>`}
+      </section>`
+    : "";
+  const receiptMarkup = receiptMatchesContract
+    ? `<section class="atlas-program-receipt ${repairRequired ? "repair" : "active"}">
+        <div><span>${repairRequired ? "LINK REPAIR REQUIRED" : "PROGRAM ACTIVE"}</span><strong>${escapeHtml(repairRequired ? receiptAudit.message : receipt.headline)}</strong><small>${receipt.syncStatus === "ACCOUNT_SAVED" ? "Saved to your account" : "Saved on this device; account sync will retry"}</small></div>
+        <dl><div><dt>Contract</dt><dd>R${escapeHtml(String(receipt.contractRevision))}</dd></div><div><dt>Effective</dt><dd>${escapeHtml(receipt.effectiveDate || "—")}</dd></div><div><dt>Week</dt><dd>${escapeHtml(receipt.weekStart || "—")}</dd></div></dl>
+      </section>`
+    : "";
+  const next = repairRequired
+    ? { action: "REPAIR_PROGRAM", label: "Repair active program", section: "contract" }
+    : state.next;
+  const preflightBlocked = next.action === "APPROVE_PROGRAM" && activationPreview?.status !== "READY_TO_ACTIVATE";
   panel.innerHTML = `
-    <div class="contract-activation-summary"><div><span>${program?.status === "READY_FOR_APPROVAL" ? "ATLAS PRESCRIPTION READY" : `${state.progress.complete}/${state.progress.total} active`}</span><strong>${escapeHtml(program?.message || state.message)}</strong></div><button type="button" data-contract-activation-action="${escapeHtml(state.next.action)}" data-contract-activation-module="${escapeHtml(state.next.module || "")}">${escapeHtml(state.next.label)}</button></div>
+    ${receiptMarkup}
+    <div class="contract-activation-summary"><div><span>${program?.status === "READY_FOR_APPROVAL" ? "ATLAS PRESCRIPTION READY" : `${state.progress.complete}/${state.progress.total} active`}</span><strong>${escapeHtml(program?.message || state.message)}</strong></div><button type="button" data-contract-activation-action="${escapeHtml(next.action)}" data-contract-activation-module="${escapeHtml(next.module || "")}" ${preflightBlocked ? "disabled" : ""}>${escapeHtml(preflightBlocked ? "Resolve blockers first" : next.label)}</button></div>
     ${protectedWeek}
+    ${preflight}
     <div class="contract-activation-modules">${modules}</div>
     ${program?.safeguards?.length ? `<details class="atlas-program-guardrails"><summary>How Atlas built this</summary><ul>${program.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>` : ""}`;
 }
@@ -6643,13 +6685,33 @@ function atlasProgramStorageKey() {
 }
 
 function readAtlasProgramReceipt() {
-  try { return JSON.parse(window.localStorage.getItem(atlasProgramStorageKey()) || "null"); }
-  catch (_) { return null; }
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(atlasProgramStorageKey()) || "null");
+    if (stored) return stored;
+    const recovered = readUnifiedWeekHistory()
+      .filter((item) => item?.atlasActivationReceipt)
+      .sort((left, right) => String(right.atlasActivationReceipt.activatedAt || "").localeCompare(String(left.atlasActivationReceipt.activatedAt || "")))[0]
+      ?.atlasActivationReceipt || null;
+    if (recovered) saveAtlasProgramReceipt(recovered);
+    return recovered;
+  } catch (_) { return null; }
 }
 
 function saveAtlasProgramReceipt(value) {
   window.localStorage.setItem(atlasProgramStorageKey(), JSON.stringify(value));
   return value;
+}
+
+function atlasProgramWeekStart(contract = readApprovedRecruitContract()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined") return todayISODate();
+  const activeWeek = readCommittedUnifiedWeek(todayISODate());
+  const availableStart = activeWeek
+    ? DominionWeeklyOrchestrator.addDays(activeWeek.weekStart, 7)
+    : unifiedWeekTargetStart();
+  const effectiveWeek = contract?.effectiveDate
+    ? DominionWeeklyOrchestrator.weekStartIso(contract.effectiveDate)
+    : availableStart;
+  return effectiveWeek > availableStart ? effectiveWeek : availableStart;
 }
 
 function buildAtlasNutritionDraft(contract = readApprovedRecruitContract()) {
@@ -6693,10 +6755,7 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
   const staged = [];
   const protectedPlans = [];
   const now = new Date().toISOString();
-  const activeWeek = readCommittedUnifiedWeek(todayISODate());
-  const programStart = activeWeek && typeof DominionWeeklyOrchestrator !== "undefined"
-    ? DominionWeeklyOrchestrator.addDays(activeWeek.weekStart, 7)
-    : unifiedWeekTargetStart();
+  const programStart = atlasProgramWeekStart(contract);
 
   if (inputs.strength && typeof DominionStrengthTraining !== "undefined") {
     const profile = DominionStrengthTraining.normalizeProfile(inputs.strength);
@@ -6776,13 +6835,8 @@ async function stageRecruitContractPlans({ announce = true } = {}) {
   return program;
 }
 
-async function approveAtlasProgram() {
-  const contract = readApprovedRecruitContract();
+function buildAtlasApprovalCandidates(contract = readApprovedRecruitContract(), approvedAt = new Date().toISOString()) {
   if (!contract) throw new Error("Sign the Recruit Contract first.");
-  let program = buildCurrentAtlasProgramPackage();
-  if (program?.status !== "READY_FOR_APPROVAL") program = await stageRecruitContractPlans({ announce: false });
-  if (program?.status !== "READY_FOR_APPROVAL") throw new Error(program?.message || "The complete Atlas program is not ready yet.");
-  const approvedAt = new Date().toISOString();
   const strengthDraft = readStrengthDraft();
   const runningDraft = readRunningBlockDraft();
   const coreDraft = readCoreDraftPlan();
@@ -6792,62 +6846,168 @@ async function approveAtlasProgram() {
   if (contract.planningInputs?.core && !coreDraft) throw new Error("Atlas could not prepare Core. Generate the program again.");
   if (!nutritionDraft || nutritionDraft.status !== "READY FOR APPROVAL") throw new Error("Atlas needs a valid weight and profile before Fuel can be approved.");
 
-  const approvedStrength = strengthDraft ? DominionStrengthTraining.approvePlan(strengthDraft, approvedAt) : null;
-  const approvedRunning = runningDraft ? DominionRunning.approveRunningBlock(runningDraft, readApprovedRunningBlock(), { approvedAt }) : null;
-  const approvedCore = coreDraft ? DominionCoreProgramming.approvePlan(coreDraft, approvedAt) : null;
-  const approvedNutrition = DominionNutritionBaseline.approveNutritionBaseline(nutritionDraft, approvedAt, `atlas-fuel:${contract.id}:r${contract.revision}`);
+  const candidates = {
+    strength: strengthDraft ? DominionStrengthTraining.approvePlan(strengthDraft, approvedAt) : null,
+    running: runningDraft ? DominionRunning.approveRunningBlock(runningDraft, readApprovedRunningBlock(), { approvedAt }) : null,
+    core: coreDraft ? DominionCoreProgramming.approvePlan(coreDraft, approvedAt) : null,
+    nutrition: DominionNutritionBaseline.approveNutritionBaseline(nutritionDraft, approvedAt, `atlas-fuel:${contract.id}:r${contract.revision}`)
+  };
+  const nutritionHistory = [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== candidates.nutrition.id)];
+  return { candidates, nutritionHistory };
+}
 
-  if (approvedStrength) saveStrengthStateLocal("PLAN", "current", approvedStrength);
-  if (approvedRunning) saveRunningBlockLocal("active", approvedRunning);
-  if (approvedCore) {
-    saveCoreProgramLocal("PLAN", "current", approvedCore);
-    saveCoreProgramLocal("DRAFT", "current", approvedCore);
-  }
-  const nutritionHistory = [approvedNutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== approvedNutrition.id)];
-  window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(nutritionHistory));
-
-  const writes = [];
-  if (approvedStrength) writes.push(persistStrengthTrainingState("PLAN", "current", approvedStrength));
-  if (approvedRunning) {
-    writes.push(persistRunningState("PLAN", "active", approvedRunning));
-    writes.push(deleteRunningState("PLAN", "draft"));
-  }
-  if (approvedCore) {
-    writes.push(persistCoreProgramState("PLAN", "current", approvedCore));
-    writes.push(persistCoreProgramState("DRAFT", "current", approvedCore));
-  }
-  writes.push(persistNutritionState("BASELINE_HISTORY", "current", { items: nutritionHistory }));
-  await Promise.all(writes);
-  if (approvedStrength) await clearStrengthTrainingState("DRAFT", "current");
-  window.localStorage.removeItem(runningBlockStorageKey("draft"));
-  nutritionBaselineDraft = null;
-
-  const activeWeek = readCommittedUnifiedWeek(todayISODate());
-  const programWeekStart = activeWeek && typeof DominionWeeklyOrchestrator !== "undefined"
-    ? DominionWeeklyOrchestrator.addDays(activeWeek.weekStart, 7)
-    : unifiedWeekTargetStart();
-  const draft = await saveUnifiedWeekDraftForActivation(programWeekStart);
-  if (!draft || draft.approvalBlocked) throw new Error("The plans are approved, but Atlas found a calendar conflict that needs review.");
-  const week = await commitUnifiedWeekDraft();
-  const receipt = saveAtlasProgramReceipt({
-    ...program,
-    status: "APPROVED",
-    approvedAt,
-    planRefs: {
-      strength: approvedStrength?.id || null,
-      running: approvedRunning?.id || null,
-      core: approvedCore?.id || null,
-      nutrition: approvedNutrition.id
-    },
-    weekId: week?.id || null
+function buildAtlasProgramPreflight(program = buildCurrentAtlasProgramPackage(), options = {}) {
+  if (typeof DominionAtlasActivation === "undefined" || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const approvedAt = options.approvedAt || new Date().toISOString();
+  const { candidates, nutritionHistory } = buildAtlasApprovalCandidates(contract, approvedAt);
+  const weekStart = options.weekStart || atlasProgramWeekStart(contract);
+  const weekDraft = DominionWeeklyOrchestrator.buildUnifiedWeek({
+    contract,
+    strengthPlan: candidates.strength,
+    runningBlock: candidates.running,
+    corePlan: candidates.core,
+    nutritionBaseline: candidates.nutrition
+  }, {
+    today: todayISODate(),
+    weekStart,
+    generatedAt: approvedAt
   });
-  await attachContractHandoffReceipt(contract, null);
-  renderRecruitContract();
-  renderPerformanceSection();
-  renderNutritionCommand();
-  renderTodayCommandSurface();
-  renderDailyAssignment();
-  return receipt;
+  const preflight = DominionAtlasActivation.preflightActivation({ contract, program, candidates, weekDraft });
+  return { contract, program, candidates, nutritionHistory, weekDraft, preflight, approvedAt };
+}
+
+function atlasActivationStorageKeys(weekStart = unifiedWeekTargetStart()) {
+  return [
+    atlasProgramStorageKey(),
+    strengthStateStorageKey("PLAN", "current"),
+    strengthStateStorageKey("DRAFT", "current"),
+    strengthStateStorageKey("SCHEDULE", `unified-${weekStart}`),
+    runningBlockStorageKey("active"),
+    runningBlockStorageKey("draft"),
+    coreProgramStorageKey("PLAN", "current"),
+    coreProgramStorageKey("DRAFT", "current"),
+    nutritionBaselineStorageKey(),
+    weeklyOrchestrationStorageKey("DRAFT", "current"),
+    weeklyOrchestrationStorageKey("HISTORY", "current"),
+    weeklyOrchestrationStorageKey("WEEK", weekStart)
+  ];
+}
+
+function snapshotAtlasActivationState(weekStart) {
+  return atlasActivationStorageKeys(weekStart).map((key) => ({ key, value: window.localStorage.getItem(key) }));
+}
+
+function restoreAtlasActivationState(snapshot = []) {
+  snapshot.forEach(({ key, value }) => {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  });
+}
+
+function currentAtlasActivationAudit(receipt = readAtlasProgramReceipt()) {
+  if (typeof DominionAtlasActivation === "undefined") return null;
+  const week = receipt?.weekId ? readUnifiedWeekHistory().find((item) => item.id === receipt.weekId) || null : null;
+  return DominionAtlasActivation.auditReceipt(receipt, {
+    contract: readApprovedRecruitContract(),
+    activePlans: {
+      strength: readApprovedStrengthPlan(),
+      running: readApprovedRunningBlock(),
+      core: readApprovedCorePlan(),
+      nutrition: readNutritionBaselineHistory().find((item) => item.id === receipt?.planRefs?.nutrition) || null
+    },
+    week
+  });
+}
+
+async function approveAtlasProgram() {
+  const contract = readApprovedRecruitContract();
+  if (!contract) throw new Error("Sign the Recruit Contract first.");
+  let program = buildCurrentAtlasProgramPackage();
+  if (program?.status !== "READY_FOR_APPROVAL") program = await stageRecruitContractPlans({ announce: false });
+  if (program?.status !== "READY_FOR_APPROVAL") throw new Error(program?.message || "The complete Atlas program is not ready yet.");
+  const transaction = buildAtlasProgramPreflight(program);
+  if (!transaction || transaction.preflight.status !== "READY_TO_ACTIVATE") {
+    const first = transaction?.preflight?.blockers?.[0];
+    throw new Error(first ? `${first.detail} ${first.action}` : "Atlas found a blocker before activation. Nothing changed.");
+  }
+
+  const { candidates, nutritionHistory, weekDraft, preflight, approvedAt } = transaction;
+  const snapshot = snapshotAtlasActivationState(weekDraft.weekStart);
+  const previousNutritionDraft = nutritionBaselineDraft;
+  try {
+    if (candidates.strength) saveStrengthStateLocal("PLAN", "current", candidates.strength);
+    if (candidates.running) saveRunningBlockLocal("active", candidates.running);
+    if (candidates.core) {
+      saveCoreProgramLocal("PLAN", "current", candidates.core);
+      saveCoreProgramLocal("DRAFT", "current", candidates.core);
+    }
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(nutritionHistory));
+    saveWeeklyOrchestrationLocal("DRAFT", "current", weekDraft);
+
+    const writes = [];
+    if (candidates.strength) writes.push(persistStrengthTrainingState("PLAN", "current", candidates.strength));
+    if (candidates.running) writes.push(persistRunningState("PLAN", "active", candidates.running));
+    if (candidates.core) {
+      writes.push(persistCoreProgramState("PLAN", "current", candidates.core));
+      writes.push(persistCoreProgramState("DRAFT", "current", candidates.core));
+    }
+    writes.push(persistNutritionState("BASELINE_HISTORY", "current", { items: nutritionHistory }));
+    writes.push(persistWeeklyOrchestrationState("DRAFT", "current", weekDraft));
+    const syncResults = await Promise.all(writes);
+    const week = await commitUnifiedWeekDraft();
+    if (!week) throw new Error("The coordinated week could not be committed.");
+
+    let activationReceipt = DominionAtlasActivation.buildReceipt({
+      contract,
+      candidates,
+      weekDraft,
+      week,
+      preflight,
+      activatedAt: approvedAt,
+      syncStatus: "DEVICE_SAVED"
+    });
+    let receipt = saveAtlasProgramReceipt({ ...program, ...activationReceipt });
+    let activatedWeek = { ...week, atlasActivationReceipt: receipt };
+    let activatedHistory = readUnifiedWeekHistory().map((item) => item.id === week.id ? activatedWeek : item);
+    saveWeeklyOrchestrationLocal("WEEK", week.weekStart, activatedWeek);
+    saveWeeklyOrchestrationLocal("HISTORY", "current", activatedHistory);
+    const receiptSync = await Promise.all([
+      persistWeeklyOrchestrationState("WEEK", week.weekStart, activatedWeek),
+      persistWeeklyOrchestrationState("HISTORY", "current", activatedHistory)
+    ]);
+    if (session?.user?.id && syncResults.every(Boolean) && receiptSync.every(Boolean)) {
+      activationReceipt = { ...activationReceipt, syncStatus: "ACCOUNT_SAVED" };
+      receipt = saveAtlasProgramReceipt({ ...program, ...activationReceipt });
+      activatedWeek = { ...activatedWeek, atlasActivationReceipt: receipt };
+      activatedHistory = activatedHistory.map((item) => item.id === week.id ? activatedWeek : item);
+      saveWeeklyOrchestrationLocal("WEEK", week.weekStart, activatedWeek);
+      saveWeeklyOrchestrationLocal("HISTORY", "current", activatedHistory);
+      await Promise.all([
+        persistWeeklyOrchestrationState("WEEK", week.weekStart, activatedWeek),
+        persistWeeklyOrchestrationState("HISTORY", "current", activatedHistory)
+      ]);
+    }
+    if (candidates.strength) await clearStrengthTrainingState("DRAFT", "current");
+    if (candidates.running) {
+      window.localStorage.removeItem(runningBlockStorageKey("draft"));
+      await deleteRunningState("PLAN", "draft");
+    }
+    nutritionBaselineDraft = null;
+    try { await attachContractHandoffReceipt(contract, null); } catch (_) {}
+    renderRecruitContract();
+    renderPerformanceSection();
+    renderNutritionCommand();
+    renderTodayCommandSurface();
+    renderDailyAssignment();
+    return receipt;
+  } catch (error) {
+    restoreAtlasActivationState(snapshot);
+    nutritionBaselineDraft = previousNutritionDraft;
+    renderContractActivation();
+    renderWeeklyOrchestrator();
+    throw new Error(`${error?.message || "Atlas could not finish activation."} Your previous active program was preserved.`);
+  }
 }
 
 function strengthStateStorageKey(stateType, stateKey = "current") {
@@ -14656,13 +14816,29 @@ if (typeof document !== "undefined") {
         const previousLabel = activationButton.textContent;
         activationButton.textContent = "Activating programâ€¦";
         try {
-          await approveAtlasProgram();
+          const receipt = await approveAtlasProgram();
           renderContractActivation();
-          setText("contract-activation-feedback", "Program active. Fuel, Strength, Core, Cardio, and the first coordinated week now share one Contract.");
+          setText("contract-activation-feedback", `${receipt.headline}. Fuel, Strength, Core, Cardio, and the coordinated week now share one Contract.`);
         } catch (error) {
           activationButton.disabled = false;
           activationButton.textContent = previousLabel;
           setText("contract-activation-feedback", error?.message || "Atlas could not activate the complete program.");
+        }
+        return;
+      }
+      if (activationAction === "REPAIR_PROGRAM") {
+        activationButton.disabled = true;
+        const previousLabel = activationButton.textContent;
+        activationButton.textContent = "Repairing program…";
+        try {
+          await stageRecruitContractPlans({ announce: false });
+          const receipt = await approveAtlasProgram();
+          renderContractActivation();
+          setText("contract-activation-feedback", `${receipt.headline}. Every active link was rebuilt from the signed Contract.`);
+        } catch (error) {
+          activationButton.disabled = false;
+          activationButton.textContent = previousLabel;
+          setText("contract-activation-feedback", error?.message || "The active program could not be repaired. The previous program remains protected.");
         }
         return;
       }

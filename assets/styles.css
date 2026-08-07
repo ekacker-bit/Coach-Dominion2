@@ -8055,3 +8055,53 @@ body[data-dominion-section="today"] #dominion-mission-rail {
     border-left: 0;
   }
 }
+
+/* Build 024D: Atlas Program Calendar. */
+.atlas-calendar-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.125rem;
+  border: 1px solid rgba(212, 175, 55, 0.44);
+  border-left: 3px solid var(--gold, #d4af37);
+  background: linear-gradient(110deg, rgba(212, 175, 55, 0.12), rgba(46, 75, 52, 0.1) 55%, rgba(10, 10, 10, 0.32));
+}
+
+.atlas-calendar-source span,
+.atlas-calendar-source small {
+  color: var(--gold, #d4af37);
+  font-family: var(--font-display, "Bebas Neue", sans-serif);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.atlas-calendar-source strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--stone, #e6e6e4);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+}
+
+.atlas-calendar-source p {
+  max-width: 62ch;
+  margin: 0.25rem 0 0;
+  color: var(--muted, #aab2bd);
+}
+
+.atlas-calendar-source small {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: rgba(0, 0, 0, 0.22);
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .atlas-calendar-source {
+    grid-template-columns: 1fr;
+  }
+
+  .atlas-calendar-source small {
+    justify-self: start;
+  }
+}

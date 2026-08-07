@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021I.1";
+  const VERSION = "024D.1";
   const DAY_LABELS = Object.freeze(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
   const HARD_RUN_TYPES = Object.freeze(["INTERVAL", "TEMPO", "LONG"]);
   const TWO_A_DAY_TARGET_MINUTES = 121;
@@ -287,6 +287,153 @@
     }));
   }
 
+  function dayIndexForDate(value, weekStart) {
+    const date = dateIso(value);
+    if (!date) return null;
+    const index = Math.round((Date.parse(`${date}T12:00:00Z`) - Date.parse(`${weekStart}T12:00:00Z`)) / 86400000);
+    return index >= 0 && index <= 6 ? index : null;
+  }
+
+  function atlasActivityPriority(item = {}) {
+    const module = String(item.module || "").toUpperCase();
+    const type = String(item.type || "").toUpperCase();
+    if (module === "RUNNING" && type === "LONG") return 0;
+    if (module === "RUNNING" && HARD_RUN_TYPES.includes(type)) return 10;
+    if (module === "STRENGTH") return 20;
+    if (module === "RUNNING") return 30;
+    if (module === "CORE") return 40;
+    return 50;
+  }
+
+  function atlasProgramActivities(input = {}, contract = {}, weekStart) {
+    const expected = {
+      strength: committedCount(contract, "STRENGTH"),
+      running: committedCount(contract, "RUNNING"),
+      core: committedCount(contract, "CORE")
+    };
+    const strengthSessions = input.strengthPlan?.status === "APPROVED"
+      ? (Array.isArray(input.strengthPlan.sessions) ? input.strengthPlan.sessions : []).slice(0, expected.strength)
+      : [];
+    const runSessions = runningSessions(input.runningBlock, weekStart).slice(0, expected.running);
+    const coreSessions = String(input.corePlan?.status || "").toUpperCase() === "APPROVED"
+      ? sessionsForWeek(input.corePlan, weekStart).slice(0, expected.core)
+      : [];
+
+    const activities = [
+      ...strengthSessions.map((session, index) => activity("STRENGTH", session, {
+        id: `strength-${index + 1}`,
+        title: `Strength session ${index + 1}`,
+        estimatedMinutes: contract.sessionMinutes,
+        planId: input.strengthPlan?.id,
+        planRevision: input.strengthPlan?.revision,
+        date: dateIso(session.date || session.scheduledDate) || null,
+        sourceId: session.id || session.sessionId || null
+      })),
+      ...runSessions.map((session, index) => activity("RUNNING", session, {
+        id: `running-${index + 1}`,
+        estimatedMinutes: session.estimatedMinutes,
+        planId: input.runningBlock?.id,
+        planRevision: input.runningBlock?.revision,
+        date: session.date,
+        sourceId: session.id || null
+      })),
+      ...coreSessions.map((session, index) => activity("CORE", session, {
+        id: `core-${index + 1}`,
+        estimatedMinutes: input.corePlan?.profile?.sessionMinutes || 15,
+        planId: input.corePlan?.id,
+        planRevision: input.corePlan?.revision,
+        date: session.date,
+        sourceId: session.id || null
+      }))
+    ].map((item, index) => ({
+      ...item,
+      atlasSequence: index + 1,
+      requestedDayIndex: dayIndexForDate(item.sourceDate, weekStart),
+      originalPlanDate: item.sourceDate
+    }));
+    return { expected, activities, counts: { strength: strengthSessions.length, running: runSessions.length, core: coreSessions.length } };
+  }
+
+  function placementHardCollision(activities = []) {
+    const hardRun = activities.some((item) => item.module === "RUNNING" && HARD_RUN_TYPES.includes(String(item.type || "").toUpperCase()));
+    const strength = activities.some((item) => item.module === "STRENGTH");
+    return hardRun && strength;
+  }
+
+  function atlasPlacementScore(contract = {}, days = [], day = {}, item = {}, occupiedDays = 0) {
+    if (day.isRecoveryDay) return Number.POSITIVE_INFINITY;
+    if ((day.activities || []).some((existing) => existing.module === item.module)) return Number.POSITIVE_INFINITY;
+    const combined = [...(day.activities || []), item];
+    if (placementHardCollision(combined)) return Number.POSITIVE_INFINITY;
+    const duration = dailyDurationPolicy(contract, combined);
+    if (duration.sessionLimitExceeded || duration.durationLimitExceeded) return Number.POSITIVE_INFINITY;
+
+    const module = String(item.module || "").toUpperCase();
+    const type = String(item.type || "").toUpperCase();
+    const preferred = day.committedActivities.includes(module);
+    const requested = Number.isInteger(item.requestedDayIndex) ? item.requestedDayIndex : null;
+    let score = preferred ? -55 : 20;
+    if (requested !== null) score += Math.abs(day.dayIndex - requested) * 8;
+    if (!day.activities.length) score += occupiedDays < Number(contract.trainingDaysPerWeek || 5) ? -18 : 75;
+    else score += module === "CORE" ? -10 : contract.twoADays ? 12 : 90;
+
+    if (module === "RUNNING" && type === "LONG") {
+      if (day.activities.some((existing) => existing.module !== "CORE")) return Number.POSITIVE_INFINITY;
+      score += day.dayIndex >= 5 ? -80 : day.dayIndex * -3;
+    }
+    if (module === "RUNNING" && HARD_RUN_TYPES.includes(type) && day.activities.some((existing) => existing.module !== "CORE")) score += 500;
+    if (module === "CORE") {
+      if (duration.corePaired) score -= 90;
+      else if (!day.activities.length) score += 140;
+    }
+    if (duration.twoADayAuthorizationRequired) score += 350;
+    if (duration.twoADay) score += contract.twoADays ? -15 : 350;
+
+    const sameModuleAdjacent = days.some((candidate) => Math.abs(candidate.dayIndex - day.dayIndex) === 1
+      && candidate.activities.some((existing) => existing.module === module));
+    if (sameModuleAdjacent) score += module === "CORE" ? 8 : 32;
+    return score;
+  }
+
+  function placeAtlasProgramActivities(contract = {}, days = [], activities = []) {
+    const decisions = [];
+    [...activities]
+      .sort((left, right) => atlasActivityPriority(left) - atlasActivityPriority(right) || left.atlasSequence - right.atlasSequence)
+      .forEach((item) => {
+        const occupiedDays = days.filter((day) => day.activities.length).length;
+        const ranked = days
+          .map((day) => ({ day, score: atlasPlacementScore(contract, days, day, item, occupiedDays) }))
+          .filter((candidate) => Number.isFinite(candidate.score))
+          .sort((left, right) => left.score - right.score || left.day.dayIndex - right.day.dayIndex);
+        const target = ranked[0]?.day || days.filter((day) => !day.isRecoveryDay).sort((left, right) => left.activities.length - right.activities.length || left.dayIndex - right.dayIndex)[0];
+        if (!target) return;
+        const preferred = target.committedActivities.includes(item.module);
+        const preserved = item.requestedDayIndex === target.dayIndex;
+        const reason = preferred
+          ? "Placed on the signed Contract pattern."
+          : preserved
+            ? "Preserved the module plan day after whole-program checks."
+            : "Placed by Atlas after checking the complete Strength, Cardio, Core, recovery, and time load.";
+        target.activities.push({
+          ...item,
+          sourceDate: target.date,
+          atlasCalendarDate: target.date,
+          placement: preferred ? "CONTRACT_PATTERN" : preserved ? "PLAN_DAY_PRESERVED" : "ATLAS_COORDINATED",
+          placementReason: reason
+        });
+        decisions.push({
+          activityId: item.id,
+          module: item.module,
+          type: item.type,
+          originalPlanDate: item.originalPlanDate || null,
+          scheduledDate: target.date,
+          placement: preferred ? "CONTRACT_PATTERN" : preserved ? "PLAN_DAY_PRESERVED" : "ATLAS_COORDINATED",
+          reason
+        });
+      });
+    return decisions;
+  }
+
   function coordinateDay(contract = {}, sourceDay = {}) {
     const day = { ...sourceDay, activities: Array.isArray(sourceDay.activities) ? sourceDay.activities : [], conflicts: [] };
     const modules = new Set(day.activities.map((item) => item.module));
@@ -378,24 +525,8 @@
 
     if (contract.status !== "APPROVED") conflicts.push(conflict("CONTRACT_REQUIRED", "BLOCKING", "Approve the Recruit Contract before committing a week."));
 
-    const runSessions = runningSessions(input.runningBlock, weekStart);
-    const coreSessions = String(input.corePlan?.status || "").toUpperCase() === "APPROVED" ? sessionsForWeek(input.corePlan, weekStart) : [];
-    const runningByDay = new Map(runSessions.map((session) => [Math.round((Date.parse(`${session.date}T12:00:00Z`) - Date.parse(`${weekStart}T12:00:00Z`)) / 86400000), session]));
-    const coreByDay = new Map(coreSessions.map((session) => [Math.round((Date.parse(`${session.date}T12:00:00Z`) - Date.parse(`${weekStart}T12:00:00Z`)) / 86400000), session]));
-
-    runSessions.forEach((session) => {
-      const dayIndex = Math.round((Date.parse(`${session.date}T12:00:00Z`) - Date.parse(`${weekStart}T12:00:00Z`)) / 86400000);
-      if (days[dayIndex]) days[dayIndex].activities.push(activity("RUNNING", session, { estimatedMinutes: session.estimatedMinutes, date: session.date, planId: input.runningBlock?.id, planRevision: input.runningBlock?.revision }));
-    });
-    coreSessions.forEach((session) => {
-      const dayIndex = Math.round((Date.parse(`${session.date}T12:00:00Z`) - Date.parse(`${weekStart}T12:00:00Z`)) / 86400000);
-      if (days[dayIndex]) days[dayIndex].activities.push(activity("CORE", session, { estimatedMinutes: input.corePlan?.profile?.sessionMinutes || 15, date: session.date, planId: input.corePlan?.id, planRevision: input.corePlan?.revision }));
-    });
-
-    const strengthActivities = buildStrengthActivities(contract, input.strengthPlan, days, runningByDay, coreByDay);
-    strengthActivities.forEach((item) => {
-      if (days[item.dayIndex]) days[item.dayIndex].activities.push({ ...item.assignment, sequence: item.sequence, requestedDayIndex: item.requestedDayIndex });
-    });
+    const programActivities = atlasProgramActivities(input, contract, weekStart);
+    const placementDecisions = placeAtlasProgramActivities(contract, days, programActivities.activities);
 
     if (expected.strength && input.strengthPlan?.status !== "APPROVED") conflicts.push(conflict("STRENGTH_PLAN_REQUIRED", "BLOCKING", "Approve a Strength program before committing this week.", null, "STRENGTH"));
     if (expected.running && input.runningBlock?.status !== "APPROVED") conflicts.push(conflict("RUNNING_PLAN_REQUIRED", "BLOCKING", "Approve a Running block before committing this week.", null, "RUNNING"));
@@ -403,9 +534,9 @@
     if (!input.nutritionBaseline) conflicts.push(conflict("NUTRITION_BASELINE_REQUIRED", "BLOCKING", "Approve a Nutrition baseline before committing this week.", null, "NUTRITION"));
 
     const actual = {
-      strength: strengthActivities.length,
-      running: runSessions.length,
-      core: coreSessions.length
+      strength: programActivities.counts.strength,
+      running: programActivities.counts.running,
+      core: programActivities.counts.core
     };
     Object.keys(expected).forEach((key) => {
       if (expected[key] > 0 && actual[key] < expected[key]) {
@@ -449,6 +580,10 @@
       weekEnd,
       contractId: contract.id || null,
       contractRevision: Number(contract.revision || 0),
+      generatedBy: "ATLAS_PROGRAM",
+      programId: options.programId || `atlas-program:${contract.id || "contract"}:r${Number(contract.revision || 0)}`,
+      programRevision: Number(contract.revision || 0),
+      placementDecisions,
       calendarPolicy: {
         twoADays: contract.twoADays === true,
         sessionMinutes: Number(contract.sessionMinutes || 60),
@@ -495,8 +630,8 @@
       message: blockingConflictCount
         ? `${blockingConflictCount} blocking item${blockingConflictCount === 1 ? "" : "s"} must be resolved before commitment.`
         : advisoryCount
-          ? `Ready to commit with ${advisoryCount} visible coaching note${advisoryCount === 1 ? "" : "s"}.`
-          : "The complete week is coordinated and ready to commit."
+          ? `Atlas built the complete week with ${advisoryCount} visible coaching note${advisoryCount === 1 ? "" : "s"}.`
+          : "Atlas built the complete program calendar from the signed Contract."
     };
   }
 
@@ -518,6 +653,7 @@
     const editedAt = new Date().toISOString();
     return {
       ...draft,
+      version: VERSION,
       id: `${fingerprint({ originalId: draft.id, days, editedAt })}:${draft.weekStart}`,
       days,
       conflicts,
@@ -650,6 +786,8 @@
     buildTrainingWindows,
     dailyDurationPolicy,
     buildSessionSequence,
+    atlasProgramActivities,
+    placeAtlasProgramActivities,
     buildUnifiedWeek,
     recalculateDraftWeek,
     moveDraftActivity,

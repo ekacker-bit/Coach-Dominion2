@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   apply-release:
@@ -23,6 +24,8 @@ jobs:
           fetch-depth: 0
 
       - name: Apply verified release delta
+        id: apply
+        continue-on-error: true
         shell: bash
         run: |
           if grep -q 'coach-dominion-024b-v1' sw.js; then
@@ -33,7 +36,19 @@ jobs:
           git apply --check /tmp/build-024b.patch
           git apply --index /tmp/build-024b.patch
 
+      - name: Report apply failure
+        if: steps.apply.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment 109 --body "Build 024B handoff stopped while applying the verified patch."
+
+      - name: Stop after apply failure
+        if: steps.apply.outcome == 'failure'
+        run: exit 1
+
       - name: Commit release
+        id: commit
+        continue-on-error: true
         shell: bash
         run: |
           if git diff --cached --quiet; then
@@ -44,3 +59,13 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git commit -m "Build 024B atomic program activation"
           git push origin HEAD:agent/build-024b-atomic-activation
+
+      - name: Report commit failure
+        if: steps.commit.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment 109 --body "Build 024B was applied, but GitHub could not commit or push the release branch."
+
+      - name: Stop after commit failure
+        if: steps.commit.outcome == 'failure'
+        run: exit 1

@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024A.1";
+  const VERSION = "024E.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -103,7 +103,7 @@
     }
     if (definition.id === "running") {
       const draft = context.runningDraft;
-      const ready = draft?.status === "DRAFT" && Array.isArray(draft.weeks) && draft.weeks.length === 4;
+      const ready = ["DRAFT", "APPROVED"].includes(draft?.status) && Array.isArray(draft.weeks) && draft.weeks.length === 4;
       const sessions = ready ? (draft.weeks[0]?.sessions || []).filter((item) => item.type !== "REST").length : 0;
       return { ...definition, included: true, ready, status: ready ? "READY" : "NEEDS_REBUILD", summary: ready ? `${sessions} cardio day${sessions === 1 ? "" : "s"} per week` : "Cardio draft unavailable." };
     }
@@ -114,7 +114,7 @@
       return { ...definition, included: true, ready, status: ready ? "READY" : "NEEDS_REBUILD", summary: ready ? `${sessions} focused session${sessions === 1 ? "" : "s"} per week` : "Core draft unavailable." };
     }
     const nutrition = context.nutrition || estimateNutrition(contract, context);
-    const ready = nutrition?.status === "READY_FOR_APPROVAL" && context.nutritionProposal?.status === "READY FOR APPROVAL";
+    const ready = nutrition?.status === "READY_FOR_APPROVAL" && ["READY FOR APPROVAL", "APPROVED"].includes(context.nutritionProposal?.status);
     return {
       ...definition,
       included: true,

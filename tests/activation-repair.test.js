@@ -13,9 +13,10 @@ const modules = [
     { state: "PLANS_REQUIRED", detail: "2 of 4 plans match Contract 3." },
     { status: "ACTION_REQUIRED", modules, next: { action: "STAGE_DRAFTS", module: "running" } }
   );
+  assert.equal(repair.VERSION, "024E.1");
   assert.equal(model.visible, true);
-  assert.equal(model.headline, "Repair the Running link");
-  assert.deepEqual(model.primary, { action: "STAGE_DRAFTS", label: "Prepare Running update", module: "running" });
+  assert.equal(model.headline, "Complete the Atlas program");
+  assert.deepEqual(model.primary, { action: "REPAIR_PROGRAM", label: "Complete my program", module: null });
   assert.equal(model.progress.complete, 2);
   assert.equal(model.progress.total, 4);
   assert.equal(model.stages.find((item) => item.id === "plans").current, true);
@@ -29,7 +30,7 @@ const modules = [
     { state: "PLANS_REQUIRED" },
     { status: "ACTION_REQUIRED", modules: draftModules, next: { action: "OPEN_MODULE", module: "running" } }
   );
-  assert.deepEqual(model.primary, { action: "OPEN_MODULE", label: "Review Running", module: "running" });
+  assert.deepEqual(model.primary, { action: "REPAIR_PROGRAM", label: "Complete my program", module: null });
 }
 
 {

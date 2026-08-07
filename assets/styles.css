@@ -8105,3 +8105,183 @@ body[data-dominion-section="today"] #dominion-mission-rail {
     justify-self: start;
   }
 }
+/* Build 024E: Atlas Program Repair and one-tap activation. */
+.atlas-program-repair-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(860px, calc(100vh - 32px));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid rgba(212, 175, 55, .55);
+  border-radius: 20px;
+  color: var(--text);
+  background: #0a0c0c;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .72), inset 0 1px rgba(255, 255, 255, .04);
+}
+
+.atlas-program-repair-dialog::backdrop {
+  background: rgba(0, 0, 0, .82);
+  backdrop-filter: blur(8px);
+}
+
+.atlas-program-repair-shell {
+  display: grid;
+  gap: 22px;
+  padding: clamp(22px, 4vw, 38px);
+}
+
+.atlas-program-repair-shell > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.atlas-program-repair-shell > header > div > span,
+.atlas-repair-week > header span,
+.atlas-repair-week > span,
+.atlas-repair-blockers > span {
+  color: var(--gold);
+  font: 700 .76rem/1.2 var(--font-body);
+  letter-spacing: .16em;
+}
+
+.atlas-program-repair-shell h2 {
+  margin: 7px 0 5px;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+}
+
+.atlas-program-repair-shell header p,
+.atlas-repair-week p,
+.atlas-repair-blockers p,
+.atlas-repair-preparing p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.atlas-repair-progress-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.atlas-repair-progress-copy > * {
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: .78rem;
+}
+
+.atlas-repair-progress-copy strong { color: var(--green); }
+
+.atlas-repair-modules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.atlas-repair-module {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 105px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .02);
+}
+
+.atlas-repair-module > div { display: grid; gap: 8px; }
+.atlas-repair-module span { color: var(--gold); font-weight: 800; letter-spacing: .08em; }
+.atlas-repair-module strong { font-size: .9rem; line-height: 1.45; }
+.atlas-repair-module small { color: var(--muted); font-weight: 800; white-space: nowrap; }
+.atlas-repair-module.keep { border-color: rgba(46, 139, 52, .5); }
+.atlas-repair-module.keep small { color: var(--green); }
+.atlas-repair-module.create,
+.atlas-repair-module.replace { border-color: rgba(212, 175, 55, .5); background: rgba(212, 175, 55, .055); }
+.atlas-repair-module.decision_required { border-color: rgba(190, 62, 62, .62); }
+
+.atlas-repair-week {
+  margin-top: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(46, 139, 52, .09), rgba(255, 255, 255, .018));
+}
+
+.atlas-repair-week > header { display: flex; justify-content: space-between; gap: 14px; }
+.atlas-repair-week > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.atlas-repair-week p { display: grid; gap: 3px; font-size: .78rem; }
+.atlas-repair-week b { color: var(--text); font-size: 1.3rem; }
+
+.atlas-repair-blockers {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 18px;
+  border: 1px solid rgba(190, 62, 62, .55);
+  border-radius: 14px;
+  background: rgba(190, 62, 62, .07);
+}
+
+.atlas-repair-blockers article { display: grid; grid-template-columns: 1fr auto; gap: 3px 16px; }
+.atlas-repair-blockers article p { grid-column: 1; }
+.atlas-repair-blockers article small { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--gold); font-weight: 800; }
+
+.atlas-repair-safeguards { margin-top: 12px; }
+.atlas-repair-safeguards summary { cursor: pointer; font-weight: 800; }
+.atlas-repair-safeguards ul { margin-bottom: 0; color: var(--muted); }
+
+.atlas-program-repair-shell > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.atlas-repair-preparing {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 42px 18px;
+  text-align: center;
+}
+
+.atlas-repair-preparing > span {
+  width: 36px;
+  aspect-ratio: 1;
+  border: 3px solid rgba(212, 175, 55, .22);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: atlas-repair-spin .85s linear infinite;
+}
+
+@keyframes atlas-repair-spin { to { transform: rotate(360deg); } }
+
+.calendar-repair-primary {
+  width: fit-content;
+  margin: 14px 0 4px;
+}
+
+@media (max-width: 720px) {
+  .atlas-program-repair-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 16px;
+  }
+  .atlas-program-repair-shell { gap: 16px; padding: 20px 16px; }
+  .atlas-program-repair-shell > header { display: grid; gap: 12px; }
+  .atlas-repair-modules { grid-template-columns: 1fr; }
+  .atlas-repair-module { min-height: 0; }
+  .atlas-repair-week > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .atlas-program-repair-shell > footer { display: grid; grid-template-columns: 1fr; }
+  .atlas-program-repair-shell > footer button { width: 100%; }
+  .atlas-program-repair-shell > footer .ghost { order: 2; }
+  .atlas-repair-blockers article { grid-template-columns: 1fr; }
+  .atlas-repair-blockers article small { grid-column: 1; grid-row: auto; }
+}

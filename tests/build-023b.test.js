@@ -39,12 +39,12 @@ test("023B sends missing calendar context to Calendar", () => {
 });
 
 test("023B rotates the mutable shell and caches both Fuel engines", () => {
-  assert.match(html, /styles\.css\?v=(?:023[bcdef]|024[abcd])/);
-  assert.match(html, /fuel-command\.js\?v=(?:023[bcdef]|024[abcd])/);
-  assert.match(html, /app\.js\?v=(?:023[bcdef]|024[abcd])/);
-  assert.match(worker, /coach-dominion-(?:023[bcdef]|024[abcd])-v1/);
+  assert.match(html, /styles\.css\?v=(?:023[bcdef]|024[abcde])/);
+  assert.match(html, /fuel-command\.js\?v=(?:023[bcdef]|024[abcde])/);
+  assert.match(html, /app\.js\?v=(?:023[bcdef]|024[abcde])/);
+  assert.match(worker, /coach-dominion-(?:023[bcdef]|024[abcde])-v1/);
   assert.match(worker, /fuel-calendar\.js\?v=023b/);
-  assert.match(worker, /fuel-command\.js\?v=(?:023[bcdef]|024[abcd])/);
+  assert.match(worker, /fuel-command\.js\?v=(?:023[bcdef]|024[abcde])/);
 });
 
 console.log("Build 023B Calendar-Aware Fueling integration verified.");

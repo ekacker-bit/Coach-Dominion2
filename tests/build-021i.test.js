@@ -13,7 +13,7 @@ let passed = 0;
 function test(name, fn) {
   fn();
   passed += 1;
-  console.log(`✓ ${passed} ${name}`);
+  console.log(`âœ“ ${passed} ${name}`);
 }
 
 test("Calendar is a first-class desktop and mobile destination", () => {
@@ -27,9 +27,9 @@ test("Calendar is a first-class desktop and mobile destination", () => {
 });
 
 test("calendar assets are cache-busted for Build 021I", () => {
-  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))/);
+  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefgh]))/);
   assert.match(html, /weekly-orchestrator\.js\?v=024d/);
-  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))/);
+  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefgh]))/);
 });
 
 test("Core pairing creates one training window through 120 minutes", () => {

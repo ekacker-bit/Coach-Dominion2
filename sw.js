@@ -1,4 +1,4 @@
-const CACHE_NAME = "coach-dominion-024k-v1";
+const CACHE_NAME = "coach-dominion-024l-v1";
 const APP_SHELL = [
   "/",
   "/app",
@@ -62,7 +62,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=024k"
+  "/assets/js/app.js?v=024l"
 ];
 
 self.addEventListener("install", (event) => {

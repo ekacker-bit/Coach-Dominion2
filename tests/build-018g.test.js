@@ -1,3 +1,4 @@
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -11,7 +12,7 @@ const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 assert.match(html, /BUILD (?:018G \/\/ CONTRACT ACTIVATION|024A \/\/ ATLAS PROGRAM)/);
 assert.match(html, /id="contract-activation"/);
 assert.match(html, /id="contract-activation-progress"/);
-assert.match(html, /src="\/assets\/js\/contract-activation\.js(?:\?v=024[abcdefgh])?"/);
+assert.match(html, /src="\/assets\/js\/contract-activation\.js(?:\?v=024[abcdefghi])?"/);
 assert.match(app, /function contractActivationInputs/);
 assert.match(app, /function renderContractActivation/);
 assert.match(app, /function applyContractActivationGuards/);

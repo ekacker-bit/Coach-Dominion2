@@ -1,3 +1,4 @@
+
 const assert = require("node:assert/strict");
 const activation = require("../assets/js/atlas-activation.js");
 
@@ -66,6 +67,22 @@ const weekDraft = {
 }
 
 {
+  const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft
+  }), true);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract: { ...contract, revision: contract.revision + 1 },
+    weekDraft
+  }), false);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft: { ...weekDraft, approvalBlocked: true }
+  }), false);
+}
+
+{
   const blockedWeek = {
     ...weekDraft,
     approvalBlocked: true,
@@ -109,4 +126,4 @@ const weekDraft = {
   assert.deepEqual(pendingReceipt.pendingSyncDomains, ["core", "calendar"]);
 }
 
-console.log("Build 024H Atlas Activation tests passed.");
+console.log("Build 024I Atlas Activation tests passed.");

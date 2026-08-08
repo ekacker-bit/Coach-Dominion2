@@ -1,4 +1,3 @@
-
 # Changelog
 
 ## Unreleased - Build 024I Verified Calendar Handoff

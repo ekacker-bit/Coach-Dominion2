@@ -1,4 +1,11 @@
+
 # Changelog
+
+## Unreleased - Build 024I Verified Calendar Handoff
+
+- Lets a complete Atlas package commit the exact calendar that already passed activation preflight, even while the legacy Contract activation panel still reflects the pre-activation plans.
+- Keeps the ordinary manual calendar gate intact; only an exact Contract, revision, week, and unblocked preflight package can use the verified handoff.
+- Adds regression coverage for mismatched Contract revisions and blocked calendar drafts, then rotates the application cache.
 
 ## Unreleased - Build 024H Resilient Program Activation
 

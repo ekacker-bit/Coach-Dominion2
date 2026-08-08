@@ -1,3 +1,4 @@
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -49,13 +50,13 @@ test("022G eliminates horizontal status scrolling and protects touch ergonomics"
 });
 
 test("022G rotates every mutable shell asset", () => {
-  assert.match(html, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefgh]))/);
+  assert.match(html, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefghi]))/);
   assert.match(html, /mobile-command\.js\?v=022g/);
-  assert.match(html, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefgh]))/);
-  assert.match(worker, /coach-dominion-(?:022g|(?:023[abcdef]|024[abcdefgh]))-v1/);
-  assert.match(worker, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefgh]))/);
+  assert.match(html, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefghi]))/);
+  assert.match(worker, /coach-dominion-(?:022g|(?:023[abcdef]|024[abcdefghi]))-v1/);
+  assert.match(worker, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefghi]))/);
   assert.match(worker, /mobile-command\.js\?v=022g/);
-  assert.match(worker, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefgh]))/);
+  assert.match(worker, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefghi]))/);
 });
 
 console.log("Build 022G Mobile Field App integration verified.");

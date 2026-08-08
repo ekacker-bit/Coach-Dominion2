@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024G.1";
+  const VERSION = "024H.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -51,6 +51,21 @@
       if ((refs[idKey] || null) !== candidate.id) return false;
       return revisionKey === null || Number(refs[revisionKey] || 0) === candidate.revision;
     });
+  }
+
+  function summarizeSyncResults(entries = []) {
+    const normalized = (Array.isArray(entries) ? entries : []).map((entry, index) => ({
+      domain: String(entry?.domain || `write-${index + 1}`),
+      saved: entry?.saved === true
+    }));
+    const pendingDomains = [...new Set(normalized.filter((entry) => !entry.saved).map((entry) => entry.domain))];
+    return {
+      status: pendingDomains.length ? "SYNC_PENDING" : "ACCOUNT_SAVED",
+      accountSaved: pendingDomains.length === 0,
+      pendingDomains,
+      savedCount: normalized.filter((entry) => entry.saved).length,
+      totalCount: normalized.length
+    };
   }
 
   function blocker(code, title, detail, action, options = {}) {
@@ -178,6 +193,7 @@
         return refs;
       }, {}),
       syncStatus: context.syncStatus || "DEVICE_SAVED",
+      pendingSyncDomains: [...new Set(context.pendingSyncDomains || [])],
       headline: `Program Active · Contract R${Number(contract.revision || 0)} · Effective ${preflight.effectiveDate || week.weekStart}`
     };
   }
@@ -203,5 +219,5 @@
     };
   }
 
-  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
+  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
 });

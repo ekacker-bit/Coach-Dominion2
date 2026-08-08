@@ -1,3 +1,4 @@
+
 let client;
 let session;
 let dailyState;
@@ -399,7 +400,8 @@ function resolveContinuityPayload(domain, stateType, stateKey, localPayload, rem
       device: localPayload,
       account: remoteRow.payload,
       accountUpdatedAt: remoteRow.updated_at || null,
-      reason: comparison.reason
+      reason: comparison.reas
+n
     });
     return { payload: localPayload, source: "CONFLICT", comparison };
   }
@@ -919,7 +921,8 @@ function deriveRankStatusFromRecord(record = {}) {
     activeCorrectivePeriod: Boolean(record.active_corrective_period || record.activeCorrectivePeriod),
     correctivePeriodReason: record.corrective_period_reason || record.correctivePeriodReason || null,
     correctivePeriodStatus: record.corrective_period_status || record.correctivePeriodStatus || null,
-    correctivePeriodStartedAt: record.corrective_period_started_at || record.correctivePeriodStartedAt || null,
+    correctivePeriodStartedAt: record.corrective_period_started_at |
+ record.correctivePeriodStartedAt || null,
     correctivePeriodReviewDate: record.corrective_period_review_date || record.correctivePeriodReviewDate || null,
     createdAt: record.created_at || record.createdAt || null,
     updatedAt: record.updated_at || record.updatedAt || null
@@ -1536,7 +1539,8 @@ function buildCurrentBaselineProfile(state = dailyState) {
 }
 
 function evaluateOperationalReadiness(state) {
-  const base = evaluateReadiness(state);
+  const base =
+evaluateReadiness(state);
   if (!state || typeof DominionReadinessBaselines === "undefined") return base;
   return DominionReadinessBaselines.evaluatePersonalizedReadiness(base, buildCurrentBaselineProfile(state));
 }
@@ -2091,7 +2095,8 @@ function buildCanonicalPromotionInput(currentRank = "RECRUIT", targetRank = "CAD
 }
 
 function selectTrendWindow(records = [], size = TREND_WINDOW_SIZE) {
-  return sortInspectionHistory(records).filter((item) => item.finalizedAt && isFiniteMetric(item.score)).slice(-size);
+  return sortInspectionHistory(records).filter((item) => item.finalizedAt && isFiniteMetric(item.score)).slice
+-size);
 }
 
 function calculateLinearTrend(points = []) {
@@ -2635,7 +2640,8 @@ function validatePerformanceEntry(input = {}) {
     if (metrics.duration_seconds !== undefined && metrics.duration_seconds !== null && (!Number.isFinite(Number(metrics.duration_seconds)) || Number(metrics.duration_seconds) <= 0)) errors.push({ field: "metrics.duration_seconds", message: "Duration must be greater than zero." });
   }
   if (entry.domain === "body_metrics") {
-    const measurementValue = Number(metrics.measurement_value);
+    const measurementValue = Number(
+etrics.measurement_value);
     const namedBodyValues = ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat"].map((key) => Number(metrics[key])).filter((value) => Number.isFinite(value) && value > 0);
     if ((!Number.isFinite(measurementValue) || measurementValue < 0) && !namedBodyValues.length) errors.push({ field: "metrics.measurement_value", message: "Enter at least one non-negative body measurement." });
   }
@@ -3119,7 +3125,8 @@ function evaluatePersonalRecord(entry = {}, existingRecords = []) {
   const normalizedEntry = normalizePerformanceEntry(entry);
   const recordCategory = determineRecordCategory(normalizedEntry);
   if (!recordCategory) return null;
-  if (normalizedEntry.evidenceStatus === "INCOMPLETE") return null;
+  if (n
+rmalizedEntry.evidenceStatus === "INCOMPLETE") return null;
   if (normalizedEntry.domain === "body_metrics") return null;
   const targetComparisonKey = buildPerformanceComparisonKey(normalizedEntry, recordCategory);
   const sameDomainActivityCategoryRecords = (existingRecords || []).map((record) => normalizeComparableRecord(record, recordCategory, targetComparisonKey)).filter((candidate) => {
@@ -3557,7 +3564,8 @@ function buildCoreWorkspaceModel(entries = [], achievements = [], options = {}) 
   });
   const nextMilestone = milestoneProgress.find((milestone) => !milestone.achieved) || null;
   return {
-    status: weeklyEntries.length ? "ACTIVE THIS WEEK" : coreEntries.length ? "HISTORY READY" : "NO CORE EVIDENCE",
+    status: weeklyEntries.length ? "ACTIVE THIS WEEK" : coreEntries.length ? "HISTORY READY" : "NO COR
+ EVIDENCE",
     weekStart: weekStartISO,
     referenceDate: referenceDateISO,
     sessionsThisWeek: weeklyEntries.length,
@@ -4114,7 +4122,8 @@ function rankEligibleBenchmarks(entries = []) {
     .sort((a, b) => {
       const aGap = Math.abs(Number(a.gapAbsolute));
       const bGap = Math.abs(Number(b.gapAbsolute));
-      if (aGap !== bGap) return aGap - bGap;
+      if (aG
+p !== bGap) return aGap - bGap;
       return String(a.milestoneCode || "").localeCompare(String(b.milestoneCode || ""));
     });
 }
@@ -4659,7 +4668,8 @@ function escapeHtml(value = "") {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/'/g, "
+#39;");
 }
 
 function buildSparkline(points = [], direction = "higher") {
@@ -5165,7 +5175,8 @@ async function clearRecruitOnboardingState() {
     window.localStorage.removeItem(recruitOnboardingStorageKey());
   } catch (_) {}
   recruitOnboardingStorageMode = "LOCAL";
-  if (!session?.user?.id) return false;
+  if (!session?
+user?.id) return false;
   try {
     const accountDelete = (async () => {
       const supabase = await getClient();
@@ -5501,13 +5512,18 @@ async function saveUnifiedWeekDraftForActivation(weekStart = unifiedWeekTargetSt
   return draft;
 }
 
-async function commitUnifiedWeekDraft() {
+async function commitUnifiedWeekDraft(options = {}) {
   const draft = readUnifiedWeekDraft();
   if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const verifiedPackageCommit = typeof DominionAtlasActivation !== "undefined"
+    && DominionAtlasActivation.canCommitCalendarFromPreflight(options.activationPreflight, {
+      contract: readApprovedRecruitContract(),
+      weekDraft: draft
+    });
   const activation = typeof DominionContractActivation === "undefined"
     ? null
     : DominionContractActivation.buildActivation(contractActivationInputs(draft.weekStart));
-  if (activation && activation.next.action !== "COMMIT_WEEK") {
+  if (!verifiedPackageCommit && activation && activation.next.action !== "COMMIT_WEEK") {
     throw new Error("Finish the Contract activation steps before committing this week.");
   }
   const history = readUnifiedWeekHistory();
@@ -5671,7 +5687,8 @@ function todaySessionExecutionRecord(item = {}) {
 }
 
 function splitDayTrainingWindows(day = {}) {
-  const sequence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
+  const se
+uence = day.sessionSequence?.length ? day.sessionSequence : day.activities || [];
   const groups = new Map();
   sequence.forEach((item, index) => {
     const key = item.trainingWindowId || `window-${item.sessionOrder || index + 1}`;
@@ -6166,7 +6183,8 @@ async function repairContractCalendarIntegrity() {
   await refreshUnifiedWeekDraftForPlans({ force: true, contractHandoff: true });
   const previous = readRecruitContractHistory()
     .filter((item) => item.id !== contract.id && Number(item.revision || 0) < Number(contract.revision || 0))
-    .sort((left, right) => Number(right.revision || 0) - Number(left.revision || 0))[0] || null;
+    .sort((left, right) => Number(right.revision ||
+0) - Number(left.revision || 0))[0] || null;
   return attachContractHandoffReceipt(contract, previous);
 }
 
@@ -6576,7 +6594,8 @@ function renderRecruitContract() {
   const oath = signedArtifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
   const commitments = signedArtifact?.commitments?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
   const ceremonyOath = currentArtifact?.oath?.map((line) => `<li>${escapeHtml(line)}</li>`).join("") || "";
-  const signatureCeremony = canSign && (!signed || amendmentPending)
+  const signatureCeremony = canSign && (!signed 
+| amendmentPending)
     ? `<section class="contract-signature-ceremony" aria-labelledby="contract-signature-heading">
         <div class="contract-ceremony-oath"><span class="kicker">${amendmentPending ? "REPLACEMENT CONTRACT" : "THE DOMINION OATH"}</span><h3 id="contract-signature-heading">${amendmentPending ? "Sign the amended standard." : "Commit with intent."}</h3><ul>${ceremonyOath}</ul></div>
         <div class="contract-signature-block">
@@ -7081,7 +7100,8 @@ function renderAtlasProgramRepair(model = buildAtlasProgramRepairModel()) {
   const blockers = (model.blockers || []).length
     ? `<section class="atlas-repair-blockers"><span>NEEDS ATTENTION</span>${model.blockers.map((item) => `<article><strong>${escapeHtml(item.title || item.code)}</strong><p>${escapeHtml(item.detail || "Review this item before activation.")}</p><small>${escapeHtml(String(item.kind || "ATLAS_REPAIR").replaceAll("_", " "))}</small></article>`).join("")}</section>`
     : "";
-  panel.innerHTML = `<div class="atlas-repair-progress-copy"><strong>${model.progress?.kept || 0} kept</strong><span>${model.progress?.changing || 0} changing</span><span>Contract R${model.contractRevision || "—"}</span></div><div class="atlas-repair-modules">${modules}</div>${week}${blockers}<details class="atlas-repair-safeguards"><summary>What Atlas protects</summary><ul>${(model.safeguards || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>`;
+  panel.innerHTML = `<div class="atlas-repair-progress-copy"><strong>${model.progress?.kept || 0} kept</strong><span>${model.progress?.changing || 0} changing</span><span>Contract R${model.contractRevision || "—"}</span></div><div class="atlas-repair-modules">${modules}</div>${week}${blockers}<details class="atlas-repair-safeguards"><summary>What 
+tlas protects</summary><ul>${(model.safeguards || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>`;
   primary.dataset.programRepairAction = model.primary?.action || "PREPARE";
   primary.textContent = model.primary?.label || "Complete my program";
   primary.disabled = false;
@@ -7244,7 +7264,7 @@ async function approveAtlasProgram() {
         pendingDomains: syncSummary.pendingDomains
       });
     }
-    const week = await commitUnifiedWeekDraft();
+    const week = await commitUnifiedWeekDraft({ activationPreflight: preflight });
     if (!week) throw new Error("The coordinated week could not be committed.");
 
     let activationReceipt = DominionAtlasActivation.buildReceipt({
@@ -7686,7 +7706,8 @@ function renderStrengthBlock(activePlan) {
   const savedDraft = readStrengthBlockDraft();
   const draft = savedDraft?.planId === activePlan.id ? savedDraft : null;
   const displayed = draft || active || ended;
-  const defaultStart = DominionStrengthBlock.addDays(DominionStrengthBlock.weekStartIso(todayISODate()), 7);
+  const defaultStart = DominionStrengthBlock.addDays
+DominionStrengthBlock.weekStartIso(todayISODate()), 7);
   const lengthWeeks = displayed?.lengthWeeks || 5;
   const startDate = displayed?.startDate || defaultStart;
   const context = active ? DominionStrengthBlock.blockWeekForDate(active, todayISODate()) : null;
@@ -8035,7 +8056,8 @@ function renderProgrammingReview() {
   const badge = document.getElementById("programming-status");
   if (badge) badge.className = `state-pill ${savedDraft || adjustment?.status === "PENDING" ? "yellow" : activePlan ? "green" : "yellow"}`;
   panel.innerHTML = `<div class="strength-programming-panel">
-    <form id="strength-profile-form" class="strength-profile-grid">
+    <form id="strength
+profile-form" class="strength-profile-grid">
       <label><span>Primary goal</span><select name="goal">
         ${optionMarkup("GENERAL_STRENGTH", "General strength", profile.goal)}
         ${optionMarkup("MUSCLE", "Build muscle", profile.goal)}
@@ -8583,7 +8605,8 @@ function renderMobileCommand() {
   }));
   modulePanel.innerHTML = commandModules.map((item) => `<article class="mobile-command-module ${item.active ? "active" : ""} ${item.complete ? "complete" : ""}">
     <span>${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail || "Today’s assignment")}</small>
-    <button type="button" class="ghost" data-mobile-action="MODULE" data-mobile-module="${escapeHtml(item.id)}">${escapeHtml(item.actionLabel)}</button>
+
+   <button type="button" class="ghost" data-mobile-action="MODULE" data-mobile-module="${escapeHtml(item.id)}">${escapeHtml(item.actionLabel)}</button>
   </article>`).join("");
   setText("mobile-roll-call-summary", command.rollCallComplete ? "Saved today" : "About 20 seconds");
   setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Today’s totals");
@@ -8961,7 +8984,8 @@ function renderDailyAssignment() {
         : terminal
           ? `${["STOPPED", "PARTIAL"].includes(execution.state) ? `<button type="button" data-assignment-action="restart">Restart as attempt ${(execution.attempt || 1) + 1}</button>` : ""}<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
           : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
-  panel.innerHTML = `${playerMarkup}<div class="daily-assignment-summary">
+  pane
+.innerHTML = `${playerMarkup}<div class="daily-assignment-summary">
       <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>${blockContext ? `<div><span>Training block</span><strong>${escapeHtml(blockContext.label)}</strong></div>` : ""}
     </div>
     ${blockContext ? `<article class="connected-notice"><strong>${escapeHtml(blockContext.phase?.label || "Block phase")}:</strong> ${escapeHtml(blockContext.phase?.detail || "")} ${escapeHtml(blockContext.loadRule || "")}</article>` : ""}
@@ -9561,7 +9585,8 @@ function readObservationVerdictHistory() {
 async function saveObservationVerdict(record) {
   if (!record?.id) return false;
   const receiptKey = record.receiptId || `${record.id}:${record.status}:${record.generatedAt || record.decidedAt || "current"}`;
-  const receipt = { ...record, receiptId: receiptKey };
+  const receipt = { ...record, receiptId: 
+eceiptKey };
   const history = [receipt, ...readObservationVerdictHistory().filter((item) => item.receiptId !== receiptKey)].slice(0, 32);
   saveClosedLoopLocal("ADAPTATION", "observation-verdict-current", receipt);
   saveClosedLoopLocal("HISTORY", "observation-verdict", history);
@@ -10130,7 +10155,8 @@ function runningProfileStorageKey() {
 
 function readRunningProfile() {
   try {
-    const stored = window.localStorage.getItem(runningProfileStorageKey());
+    const stored = window.localStorage.getItem(runningPro
+ileStorageKey());
     return stored ? DominionRunning.normalizeProfile(JSON.parse(stored)) : DominionRunning.normalizeProfile({});
   } catch (_) {
     return DominionRunning.normalizeProfile({});
@@ -10676,7 +10702,8 @@ function renderRunningCommand(entries = performanceEntries) {
   }
   const minutes = profile.benchmarkSeconds ? Math.floor(profile.benchmarkSeconds / 60) : "";
   const seconds = profile.benchmarkSeconds ? profile.benchmarkSeconds % 60 : "";
-  const benchmark = command.benchmark;
+  const
+benchmark = command.benchmark;
   const previewBlock = draftBlock || activeBlock;
   const currentBlockWeek = draftBlock
     ? draftBlock.weeks?.find((week) => todayISODate() >= week.weekStart && todayISODate() <= week.weekEnd) || draftBlock.weeks?.[0] || null
@@ -10980,7 +11007,8 @@ function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspec
   const overview = deriveCommandCenterOverview(readinessResultOrState, weeklyInspectionAggregate, trajectoryState);
   setText("overview-readiness", overview.readinessLabel || "—");
   setText("overview-weekly", overview.weeklyLabel || "NOT READY");
-  setText("overview-trend", overview.trendLabel || "INSUFFICIENT HISTORY");
+  setText("overview-trend", overview.
+rendLabel || "INSUFFICIENT HISTORY");
   setText("overview-focus", overview.focus);
   setText("overview-summary", overview.summary);
   const stateElement = document.getElementById("command-center-overview-state");
@@ -11644,7 +11672,8 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
         ...model,
         reason: model.detail,
         decision: "The next unfinished requirement comes first.",
-        facts: { readiness: options.readiness, schedule: options.schedule, evidence: model.context.evidence },
+   
+    facts: { readiness: options.readiness, schedule: options.schedule, evidence: model.context.evidence },
         after: "Atlas will reveal the next required action.",
         progressLabel: `${model.progress.complete} of ${model.progress.total} · ${model.progress.current}`,
         closeoutReady: model.secured
@@ -12263,7 +12292,8 @@ async function loadMfpNutritionFeedState() {
     const supabase = await getClient();
     const [tokensResult, eventsResult] = await Promise.all([
       supabase.from("nutrition_feed_tokens").select("id,label,token_hint,status,last_used_at,created_at,revoked_at").eq("user_id", session.user.id).order("created_at", { ascending: false }),
-      supabase.from("nutrition_feed_events").select("id,nutrition_date,outcome,sample_count,received_at").eq("user_id", session.user.id).order("received_at", { ascending: false }).limit(20)
+      supabase.from("nutrition_feed_events").select("id,nutrition_date,outcome,sample_count,received_at").eq("user_id", session.user.id).order("received_at", 
+ ascending: false }).limit(20)
     ]);
     if (tokensResult.error || eventsResult.error) throw tokensResult.error || eventsResult.error;
     mfpNutritionFeedTokens = tokensResult.data || [];
@@ -12840,7 +12870,8 @@ async function saveFuelClosedLoopLedger(value = {}) {
 
 function latestFastingRecordForDate(date = todayISODate()) {
   const ledger = readFastingExecutionLedger();
-  if (ledger.active) return ledger.active;
+  
+f (ledger.active) return ledger.active;
   return ledger.history.find((record) => String(record.endedAt || record.startedAt || "").slice(0, 10) === date || record.date === date) || null;
 }
 
@@ -13368,7 +13399,8 @@ function hydrateMealExecutionPreferences(force = false) {
   form.elements.diet.value = preferences.diet;
   form.elements.prep.value = preferences.prep;
   form.querySelectorAll('input[name="exclusions"]').forEach((input) => {
-    input.checked = preferences.exclusions.includes(input.value);
+    input.che
+ked = preferences.exclusions.includes(input.value);
   });
   form.dataset.hydrated = "true";
 }
@@ -13886,7 +13918,8 @@ async function saveManualNutrition(event) {
   const form = event.currentTarget;
   const data = new FormData(form);
   const date = String(data.get("date") || todayISODate());
-  const record = { date, updatedAt: new Date().toISOString() };
+  const record = { date, updatedAt: new Date().toISOString() 
+;
   ["calories", "protein", "carbs", "fat"].forEach((key) => {
     const value = data.get(key);
     record[key] = value === "" || value === null ? null : Number(value);
@@ -14203,7 +14236,8 @@ function renderConnectedDominion() {
       <div class="connected-actions"><button type="button" data-connected-action="apple-health-import">Choose Apple Health export.xml</button></div>
       <p class="muted">Supported: daily steps, resting heart rate, HRV, body weight, and sleep analysis. Other health categories are ignored.</p>
     </article>
-    ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODate() ? connectedStatusPill("TODAY") : ""}</header>
+    ${days.length ? `<div class="connected-card-list">${days.slice(0, 14).map((day) => `<article class="connected-detail-card"><header><div><strong>${escapeHtml(day.date)}</strong><p>${day.records} supported record(s)</p></div>${day.date === todayISODat
+() ? connectedStatusPill("TODAY") : ""}</header>
       <div class="connected-summary-grid"><div><span>Sleep</span><strong>${day.sleep ? `${day.sleep} h` : "—"}</strong></div><div><span>Steps</span><strong>${day.steps === null ? "—" : day.steps.toLocaleString()}</strong></div><div><span>Resting HR</span><strong>${day.restingHeartRate === null ? "—" : `${day.restingHeartRate} bpm`}</strong></div><div><span>HRV</span><strong>${day.heartRateVariability === null ? "—" : `${day.heartRateVariability} ms`}</strong></div><div><span>Weight</span><strong>${day.weight === null ? "—" : `${day.weight} ${escapeHtml(day.weightUnit || "")}`}</strong></div></div>
       ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
     </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
@@ -14682,7 +14716,8 @@ if (typeof document !== "undefined") {
       setText("mobile-command-feedback", result.synced
         ? "Roll Call saved. Today’s training guardrails are updated."
         : "Roll Call saved offline. It will sync automatically.");
-      prefillMobileCommandForms(true);
+   
+  prefillMobileCommandForms(true);
     } catch (error) {
       setText("mobile-command-feedback", error?.message || "Roll Call could not be saved.");
     } finally {
@@ -15266,7 +15301,8 @@ if (typeof document !== "undefined") {
         return;
       }
     }
-    const integrityButton = event.target.closest("button[data-contract-integrity-action]");
+    const integrityButton = event.target.close
+t("button[data-contract-integrity-action]");
     if (integrityButton && typeof DominionContractIntegrity !== "undefined") {
       const integrityAction = integrityButton.dataset.contractIntegrityAction;
       if (integrityAction === "open-calendar") {
@@ -15790,7 +15826,8 @@ if (typeof document !== "undefined") {
       saveCoreProgramLocal("DRAFT", "current", approved);
       await persistCoreProgramState("PLAN", "current", approved);
       await persistCoreProgramState("DRAFT", "current", approved);
-      await refreshUnifiedWeekDraftForPlans();
+      await refreshUnifiedWeekDraftForPlan
+();
       renderPerformanceSection();
       renderContractActivation();
       renderWeeklyOrchestrator();
@@ -16338,7 +16375,8 @@ if (typeof document !== "undefined") {
       setActiveSection(section);
       window.history.replaceState(null, "", `#${section}`);
       return;
-    }
+
+   }
     if (action === "refresh") {
       renderDailyCoachingLoop();
       setText("closed-loop-feedback", "Readiness, prescriptions, execution, and evidence were reconciled again.");
@@ -16910,7 +16948,8 @@ if (typeof document !== "undefined") {
         promotionAuthorized: true,
         qualificationSnapshot: buildPromotionEvidence({ ...promotionInput, nextRank: nextRank.code })
       }, true);
-      rankStatus = {
+      rankStatus = 
+
         ...rankStatus,
         currentRank: snapshot.currentRank,
         promotionState: snapshot.promotionState,
@@ -17528,7 +17567,8 @@ function renderStandardsSection() {
         <label>Due date<input type="date" data-standard-due value="${escapeHtml(item.correctiveAction?.dueDate || "")}"></label>
         <label>Success criteria<textarea rows="2" data-standard-criteria>${escapeHtml(item.correctiveAction?.successCriteria || "")}</textarea></label>
         <label>Completion evidence<textarea rows="3" data-standard-evidence placeholder="What was completed, where is the evidence, and what changed?">${escapeHtml(item.correctiveAction?.completionEvidence || "")}</textarea></label>
-        ${item.correctiveAction?.completionSubmittedAt ? `<small>Submitted ${new Date(item.correctiveAction.completionSubmittedAt).toLocaleString()} for explicit review.</small>` : ""}
+        ${item.correctiveAction?.completionSu
+mittedAt ? `<small>Submitted ${new Date(item.correctiveAction.completionSubmittedAt).toLocaleString()} for explicit review.</small>` : ""}
       </div>` : ""}
       ${actions ? `<div class="standards-controls">${actions}</div>` : ""}
     </article>`;
@@ -18084,7 +18124,8 @@ async function loadWeeklyInspection() {
 
   const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
   const outcome = resolveWeeklyInspectionLoadOutcome({
-    savedInspection: inspectionResult.data || localSaved,
+    savedInspection: inspectionResult.data || lo
+alSaved,
     inspectionReadError: inspectionResult.error,
     remoteRecords: recordsResult.data,
     recordsReadError: recordsResult.error,
@@ -18572,7 +18613,8 @@ function planCommandMarkup(command = {}, compact = false) {
   } else if (command.status === "REVIEW_DUE") {
     actions = '<div class="plan-command-actions"><button type="button" data-plan-command-route="trends">Review Atlas verdict</button></div>';
   } else if (command.status === "BLOCKED") {
-    actions = `<div class="plan-command-actions"><button type="button" data-plan-command-route="${domain === "NUTRITION" ? "nutrition" : "performance"}">Open ${escapeHtml(domain.toLowerCase())}</button></div>`;
+    actions = `<div class="plan-command-actions"><button type="button" data-plan-command-route="${domain === "NUTRITION" ? "nutrition" : "performance"}">Open 
+{escapeHtml(domain.toLowerCase())}</button></div>`;
   }
   return `<article class="plan-command-card ${tone}" data-plan-command-state="${escapeHtml(command.status)}">
     <header><div><span>ATLAS PLAN COMMAND · ${escapeHtml(domain)}</span><h3>${escapeHtml(command.headline)}</h3></div><strong>${escapeHtml(command.status.replaceAll("_", " "))}</strong></header>
@@ -19075,7 +19117,8 @@ function renderOutcomePlanRevision(outcome = buildCurrentBodyOutcomeModel()) {
     body += `<div class="outcome-plan-compare">
       <article><header><span>CURRENT</span><strong>Approved Nutrition</strong></header>${outcomePlanTargetCards(revision.currentPlan)}</article>
       <i aria-hidden="true">→</i>
-      <article class="proposed"><header><span>PROPOSED</span><strong>One lever · ${revision.proposedPlan.change.caloriePercent}% energy</strong></header>${outcomePlanTargetCards(revision.proposedPlan)}<small>Protein unchanged · Training unchanged</small></article>
+      <article class="proposed"><header><sp
+n>PROPOSED</span><strong>One lever · ${revision.proposedPlan.change.caloriePercent}% energy</strong></header>${outcomePlanTargetCards(revision.proposedPlan)}<small>Protein unchanged · Training unchanged</small></article>
     </div>
     <ul class="outcome-plan-rationale">${(revision.rationale || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
     <div class="outcome-plan-window"><div><span>Effective</span><strong>${escapeHtml(revision.effectiveDate)}</strong></div><div><span>Observe through</span><strong>${escapeHtml(revision.observationEnd)}</strong></div></div>`;
@@ -19587,7 +19630,8 @@ async function persistBodyCheckIn(form, feedbackId = "body-checkin-feedback") {
   } catch (_) {}
   performanceEntries = [saved, ...performanceEntries.filter((entry) => entry.id !== saved.id && !(entry.domain === "body_metrics" && entry.activityCode === "body_composition_checkin" && entry.performanceDate === saved.performanceDate))];
   performanceStorageMode = storage;
-  performanceSaveState = storage === "SUPABASE" ? "saved" : "locally saved";
+  performanceSaveState = storag
+ === "SUPABASE" ? "saved" : "locally saved";
   saveLocalPerformanceEntries(performanceEntries);
   renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
   if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);

@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024B.1";
+  const VERSION = "024G.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -26,6 +26,31 @@
     return Boolean(record && contract?.id
       && record.recruitContractId === contract.id
       && Number(record.recruitContractRevision || 0) === Number(contract.revision || 0));
+  }
+
+  function candidatePlanRef(moduleId = "", candidate = null) {
+    if (!candidate) return { id: null, revision: 0 };
+    if (moduleId === "nutrition") {
+      return { id: candidate.id || candidate.approvedAt || null, revision: 0 };
+    }
+    return { id: candidate.id || null, revision: Number(candidate.revision || 0) };
+  }
+
+  function calendarLinkedToCandidates(week = null, candidates = {}) {
+    if (!week || !week.sourceRefs) return false;
+    const refs = week.sourceRefs;
+    const mappings = {
+      strength: ["strengthPlanId", "strengthPlanRevision"],
+      running: ["runningBlockId", "runningBlockRevision"],
+      core: ["corePlanId", "corePlanRevision"],
+      nutrition: ["nutritionBaselineId", null]
+    };
+    return MODULES.every(({ id }) => {
+      const candidate = candidatePlanRef(id, candidates?.[id] || null);
+      const [idKey, revisionKey] = mappings[id];
+      if ((refs[idKey] || null) !== candidate.id) return false;
+      return revisionKey === null || Number(refs[revisionKey] || 0) === candidate.revision;
+    });
   }
 
   function blocker(code, title, detail, action, options = {}) {
@@ -103,6 +128,9 @@
       if (week.contractId !== contract?.id || Number(week.contractRevision || 0) !== Number(contract?.revision || 0)) {
         blockers.push(blocker("CALENDAR_CONTRACT_MISMATCH", "Calendar uses an older Contract", `The proposed week does not match Contract ${contract?.revision || "current"}.`, "Rebuild the calendar from this Contract.", { source: "CALENDAR" }));
       }
+      if (!calendarLinkedToCandidates(week, context.candidates || {})) {
+        blockers.push(blocker("CALENDAR_PLAN_MISMATCH", "Calendar uses different plans", "The proposed week is not linked to the exact Strength, Cardio, Core, and Fuel plans awaiting activation.", "Rebuild the calendar from these plans.", { source: "CALENDAR" }));
+      }
       (week.conflicts || []).filter((item) => item.severity === "BLOCKING").forEach((item) => blockers.push(calendarBlocker(item)));
     }
 
@@ -175,5 +203,5 @@
     };
   }
 
-  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
+  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
 });

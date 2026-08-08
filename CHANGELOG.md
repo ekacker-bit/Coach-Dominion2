@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased - Build 024F Contract-Linked Program Integrity
+## Unreleased - Build 024G Exact-Plan Calendar Handoff
+
+- Stops Atlas from reusing a blocked calendar draft merely because its program and Contract IDs match.
+- Preserves a recruit's calendar edits only when the draft points to the exact pending Strength, Cardio, Core, and Fuel plan revisions.
+- Adds an explicit preflight blocker for mismatched calendar plan references and a regression for the Contract 10 repair state.
+- Rotates the application and service-worker cache so the repaired handoff reaches existing devices.
+
+## Build 024F Contract-Linked Program Integrity
 
 - Separated the staged Atlas package from the active-program receipt so reviewing a replacement can no longer erase the identity of the program still in force.
 - Rebuilt stale Calendar drafts against the signed Contract instead of letting an expired prior-Contract week remain the operating preview.

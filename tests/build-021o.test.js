@@ -29,10 +29,10 @@ assert.match(css, /--dominion-page-max: 1480px/);
 assert.match(css, /\.dominion-brand-mark[\s\S]*object-fit: contain/);
 assert.match(css, /@media \(max-width: 720px\)/);
 
-assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdef]))/);
-assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdef]))/);
-assert.match(worker, /coach-dominion-(?:022[b-g]|(?:023[abcdef]|024[abcdef]))-v1/);
-assert.match(worker, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdef]))/);
-assert.match(worker, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdef]))/);
+assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))/);
+assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))/);
+assert.match(worker, /coach-dominion-(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))-v1/);
+assert.match(worker, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))/);
+assert.match(worker, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefg]))/);
 
 console.log("Build 021O word diet and release guardrail tests passed.");

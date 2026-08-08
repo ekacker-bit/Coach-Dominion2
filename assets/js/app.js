@@ -7020,6 +7020,7 @@ function buildAtlasProgramPreflight(program = buildCurrentAtlasProgramPackage(),
     && savedDraft.weekStart === weekStart
     && savedDraft.contractId === contract?.id
     && Number(savedDraft.contractRevision || 0) === Number(contract?.revision || 0)
+    && DominionAtlasActivation.calendarLinkedToCandidates(savedDraft, candidates)
     ? savedDraft
     : generatedWeekDraft;
   const preflight = DominionAtlasActivation.preflightActivation({ contract, program, candidates, weekDraft });

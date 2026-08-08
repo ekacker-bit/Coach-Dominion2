@@ -12,7 +12,13 @@ const candidates = Object.fromEntries(["strength", "running", "core", "nutrition
 const weekDraft = {
   id: "week-draft", status: "DRAFT", weekStart: "2026-08-10", weekEnd: "2026-08-16",
   contractId: contract.id, contractRevision: contract.revision, days: Array.from({ length: 7 }, () => ({})),
-  conflicts: [], approvalBlocked: false
+  conflicts: [], approvalBlocked: false,
+  sourceRefs: {
+    strengthPlanId: candidates.strength.id, strengthPlanRevision: candidates.strength.revision,
+    runningBlockId: candidates.running.id, runningBlockRevision: candidates.running.revision,
+    corePlanId: candidates.core.id, corePlanRevision: candidates.core.revision,
+    nutritionBaselineId: candidates.nutrition.id
+  }
 };
 
 {
@@ -21,6 +27,18 @@ const weekDraft = {
   assert.equal(result.blockers.length, 0);
   assert.equal(result.checks.length, 5);
   assert.match(result.message, /passed preflight/i);
+}
+
+{
+  assert.equal(activation.calendarLinkedToCandidates(weekDraft, candidates), true);
+  const staleCore = {
+    ...weekDraft,
+    sourceRefs: { ...weekDraft.sourceRefs, corePlanId: "core-old" }
+  };
+  assert.equal(activation.calendarLinkedToCandidates(staleCore, candidates), false);
+  const result = activation.preflightActivation({ contract, program, candidates, weekDraft: staleCore });
+  assert.equal(result.status, "BLOCKED");
+  assert.ok(result.blockers.some((item) => item.code === "CALENDAR_PLAN_MISMATCH"));
 }
 
 {
@@ -54,4 +72,4 @@ const weekDraft = {
   assert.ok(damaged.issues.some((item) => item.code === "CORE_MISMATCH"));
 }
 
-console.log("Build 024B Atlas Activation tests passed.");
+console.log("Build 024G Atlas Activation tests passed.");

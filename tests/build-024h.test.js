@@ -1,3 +1,4 @@
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -10,10 +11,10 @@ const activation = read("assets/js/atlas-activation.js");
 const worker = read("sw.js");
 const packageJson = read("package.json");
 
-assert.match(html, /atlas-activation\.js\?v=024h/);
-assert.match(html, /app\.js\?v=024h/);
-assert.match(worker, /coach-dominion-024h-v1/);
-assert.match(activation, /const VERSION = "024H\.1"/);
+assert.match(html, /atlas-activation\.js\?v=024[hi]/);
+assert.match(html, /app\.js\?v=024[hi]/);
+assert.match(worker, /coach-dominion-024[hi]-v1/);
+assert.match(activation, /const VERSION = "024[HI]\.1"/);
 assert.match(activation, /function summarizeSyncResults/);
 assert.match(activation, /pendingSyncDomains/);
 assert.match(app, /DominionAtlasActivation\.summarizeSyncResults\(writeResults\)/);

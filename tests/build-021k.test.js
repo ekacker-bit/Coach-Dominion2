@@ -38,6 +38,6 @@ test("Build 021K retains the Dominion responsive visual system", () => {
   assert.match(styles, /\.body-outcome-command/);
   assert.match(styles, /\.body-checkin-grid/);
   assert.match(styles, /@media \(max-width: 620px\)/);
-  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefgh]))/);
-  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefgh]))/);
+  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghi]))/);
+  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghi]))/);
 });

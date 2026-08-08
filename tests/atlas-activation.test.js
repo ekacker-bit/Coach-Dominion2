@@ -88,6 +88,8 @@ const weekDraft = {
   const receipt = activation.buildReceipt({ contract, candidates, weekDraft, week: { ...weekDraft, id: "week-active" }, preflight, activatedAt: "2026-08-06T12:00:00.000Z" });
   assert.equal(receipt.status, "ACTIVE");
   assert.equal(receipt.contractRevision, 4);
+  assert.equal(receipt.planRefs.nutrition, candidates.nutrition.id);
+  assert.equal(weekDraft.sourceRefs.nutritionBaselineId, receipt.planRefs.nutrition);
   assert.match(receipt.headline, /Program Active.*Contract R4.*2026-08-10/);
   const audit = activation.auditReceipt(receipt, { contract, activePlans: candidates, week: { ...weekDraft, id: "week-active" } });
   assert.equal(audit.status, "ACTIVE");
@@ -109,4 +111,20 @@ const weekDraft = {
   assert.deepEqual(pendingReceipt.pendingSyncDomains, ["core", "calendar"]);
 }
 
-console.log("Build 024H Atlas Activation tests passed.");
+{
+  const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft
+  }), true);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract: { ...contract, revision: contract.revision + 1 },
+    weekDraft
+  }), false);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft: { ...weekDraft, approvalBlocked: true }
+  }), false);
+}
+
+console.log("Build 024I Atlas Activation tests passed.");

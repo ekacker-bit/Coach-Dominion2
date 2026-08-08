@@ -43,11 +43,11 @@ test("023C ships clear safety and target-preservation language", () => {
 });
 
 test("023C rotates and caches the mutable shell", () => {
-  assert.match(html, /styles\.css\?v=(?:023[cdef]|024[abcdefgh])/);
+  assert.match(html, /styles\.css\?v=(?:023[cdef]|024[abcdefghi])/);
   assert.match(html, /intermittent-fasting\.js\?v=023[cd]/);
-  assert.match(html, /fuel-command\.js\?v=(?:023[cdef]|024[abcdefgh])/);
-  assert.match(html, /app\.js\?v=(?:023[cdef]|024[abcdefgh])/);
-  assert.match(worker, /coach-dominion-(?:023[cdef]|024[abcdefgh])-v1/);
+  assert.match(html, /fuel-command\.js\?v=(?:023[cdef]|024[abcdefghi])/);
+  assert.match(html, /app\.js\?v=(?:023[cdef]|024[abcdefghi])/);
+  assert.match(worker, /coach-dominion-(?:023[cdef]|024[abcdefghi])-v1/);
   assert.match(worker, /intermittent-fasting\.js\?v=023[cd]/);
 });
 

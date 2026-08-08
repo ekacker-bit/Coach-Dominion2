@@ -5501,13 +5501,18 @@ async function saveUnifiedWeekDraftForActivation(weekStart = unifiedWeekTargetSt
   return draft;
 }
 
-async function commitUnifiedWeekDraft() {
+async function commitUnifiedWeekDraft(options = {}) {
   const draft = readUnifiedWeekDraft();
   if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const verifiedPackageCommit = typeof DominionAtlasActivation !== "undefined"
+    && DominionAtlasActivation.canCommitCalendarFromPreflight(options.activationPreflight, {
+      contract: readApprovedRecruitContract(),
+      weekDraft: draft
+    });
   const activation = typeof DominionContractActivation === "undefined"
     ? null
     : DominionContractActivation.buildActivation(contractActivationInputs(draft.weekStart));
-  if (activation && activation.next.action !== "COMMIT_WEEK") {
+  if (!verifiedPackageCommit && activation && activation.next.action !== "COMMIT_WEEK") {
     throw new Error("Finish the Contract activation steps before committing this week.");
   }
   const history = readUnifiedWeekHistory();
@@ -7244,7 +7249,7 @@ async function approveAtlasProgram() {
         pendingDomains: syncSummary.pendingDomains
       });
     }
-    const week = await commitUnifiedWeekDraft();
+    const week = await commitUnifiedWeekDraft({ activationPreflight: preflight });
     if (!week) throw new Error("The coordinated week could not be committed.");
 
     let activationReceipt = DominionAtlasActivation.buildReceipt({

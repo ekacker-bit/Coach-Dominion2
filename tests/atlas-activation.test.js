@@ -66,22 +66,6 @@ const weekDraft = {
 }
 
 {
-  const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
-  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
-    contract,
-    weekDraft
-  }), true);
-  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
-    contract: { ...contract, revision: contract.revision + 1 },
-    weekDraft
-  }), false);
-  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
-    contract,
-    weekDraft: { ...weekDraft, approvalBlocked: true }
-  }), false);
-}
-
-{
   const blockedWeek = {
     ...weekDraft,
     approvalBlocked: true,
@@ -123,6 +107,22 @@ const weekDraft = {
   });
   assert.equal(pendingReceipt.syncStatus, "SYNC_PENDING");
   assert.deepEqual(pendingReceipt.pendingSyncDomains, ["core", "calendar"]);
+}
+
+{
+  const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft
+  }), true);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract: { ...contract, revision: contract.revision + 1 },
+    weekDraft
+  }), false);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft: { ...weekDraft, approvalBlocked: true }
+  }), false);
 }
 
 console.log("Build 024I Atlas Activation tests passed.");

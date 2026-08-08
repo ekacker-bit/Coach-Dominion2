@@ -1,4 +1,3 @@
-
 const CACHE_NAME = "coach-dominion-024i-v1";
 const APP_SHELL = [
   "/",

@@ -23,7 +23,7 @@ const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
   "activation-repair-feedback"
 ].forEach((id) => assert.match(html, new RegExp(`id="${id}"`), `missing 019F surface: ${id}`));
 
-assert.match(html, /src="\/assets\/js\/activation-repair\.js(?:\?v=024[ef])?"/);
+assert.match(html, /src="\/assets\/js\/activation-repair\.js(?:\?v=024[efg])?"/);
 assert.ok(html.indexOf("activation-repair.js") < html.indexOf("one-command.js"));
 assert.match(app, /function buildCurrentActivationRepair/);
 assert.match(app, /function renderActivationRepair/);

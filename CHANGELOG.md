@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased - Build 024F Contract-Linked Program Integrity
+## Unreleased - Build 024G Exact-Plan Calendar Handoff
+
+- Stops Atlas from reusing a blocked calendar draft merely because its program and Contract IDs match.
+- Preserves a recruit's calendar edits only when the draft points to the exact pending Strength, Cardio, Core, and Fuel plan revisions.
+- Adds an explicit preflight blocker for mismatched calendar plan references and a regression for the Contract 10 repair state.
+- Rotates the application and service-worker cache so the repaired handoff reaches existing devices.
+
+## Build 024F Contract-Linked Program Integrity
 
 - Separated the staged Atlas package from the active-program receipt so reviewing a replacement can no longer erase the identity of the program still in force.
 - Rebuilt stale Calendar drafts against the signed Contract instead of letting an expired prior-Contract week remain the operating preview.
@@ -164,133 +171,4 @@
 - Added Nutrition setup, verification, rotation, revocation, delivery status, and privacy controls while retaining manual CSV import as a fallback.
 - Added migration 014 with row-level security and automated-feed regression coverage. Raw food diaries and raw Apple Health records are not stored.
 
-## Unreleased â€” Build 014A Closed-Loop Coaching
-
-- Added one deterministic daily coaching loop across Observe, Decide, Authorize, Execute, Verify, and Adapt.
-- Added immutable decision fingerprints so evidence is reconciled against the exact approved prescription.
-- Added cross-domain verification for strength, running, core, fueling, recovery, and the Dominion Record.
-- Added explicit evidence confidence, completion coverage, missing-domain blockers, and pain/technique safeguards.
-- Added bounded next-adjustment proposals for protect, regress, reduce, hold, repeat, or conservative progression.
-- Required deliberate approval for both the daily decision and any future adjustment; no approved plan is mutated automatically.
-- Added user-scoped Supabase persistence with device fallback, Today and Training review surfaces, migration 013, and regression coverage.
-
-## Unreleased â€” Build 013C Core Programming & Execution
-
-- Added a deterministic four-week Abs/Core plan built from goal, experience, equipment, weekly frequency, and session length.
-- Added explicit draft and approval states so a newly generated cycle never silently replaces the active plan.
-- Balanced every cycle across anti-extension, anti-rotation, anti-lateral-flexion, trunk/hip-flexion, and carry/bracing work.
-- Added a Today core prescription with movement targets, coaching cues, substitutions, set completion, session quality, and effort capture.
-- Added readiness safeguards: Yellow may only reduce sets, while Red readiness or pain removes the session and blocks progression.
-- Added evidence-based next-cycle recommendations, automatic Performance entries, user-scoped local fallback, and RLS-protected account persistence.
-- Added deterministic engine, safety, execution, evidence, and persistence regression coverage.
-
-## Unreleased â€” Build 013B Simplified Training Workspace
-
-- Replaced the nine-item Performance navigation with five clear training destinations: Todayâ€™s Training, Log, Running, Abs/Core, and Progress.
-- Consolidated programming and recovery guidance inside Todayâ€™s Training while preserving the existing approval and evidence workflows.
-- Consolidated intelligence, fitness tests, personal records, and milestones inside one progressive-disclosure Progress workspace.
-- Added an operational Abs/Core destination with weekly session, repetition, time-under-tension, active-day, recent-history, and next-milestone views.
-- Added direct Abs/Core training and benchmark entry actions plus compatibility routing for legacy performance destinations.
-- Added keyboard-operable destination tabs and regression coverage for navigation, compatibility aliases, and core-workspace calculations.
-
-## Unreleased â€” Build 006A Connected Dominion architecture
-
-- Added a deterministic provider catalog for Strava, Garmin, Apple Health, Fitbod, and MyFitnessPal; every provider remains architecture-only or planned.
-- Added provider-neutral connected-account, permission, sync-job, imported-record, validation, deduplication, provenance, and Performance-mapping helpers.
-- Added the top-level Connected experience with explicit Overview, Providers, Accounts, Sync History, Imported Records, and Privacy states.
-- Added visibly simulated account connections and manual DEMO sync fixtures; no OAuth, credentials, tokens, live APIs, or write-back.
-- Added user-scoped local fallback and remote-first Supabase persistence with explicit remote failure handling.
-- Added migration 009 with RLS-protected connected accounts, sync jobs, and imported records.
-- Added Connected Dominion regression coverage and retained the complete Build 005D regression suite.
-- Release 0.6 is not complete.
-
-This file records verified Coach Dominion release capabilities. The repository has no release tags or authoritative release dates, so dates are intentionally omitted.
-
-## Unreleased â€” Build 005D: Performance Intelligence
-
-- Added a deterministic Performance Intelligence layer that derives comparable series, trajectory classifications, confidence states, plateau/regression watch signals, benchmark proximity, and PR-attempt readiness from existing performance history.
-- Added a new Performance INTELLIGENCE view with status strip, domain cards, watchlist, next benchmark panel, PR readiness panel, fitness-test event intelligence, Atlas intelligence brief, and explicit evidence-limitations output.
-- Added deterministic handling for insufficient data, local fallback, remote load failure, and estimated-only evidence states.
-- Added dependency-free regression coverage in [tests/performance-intelligence.test.js](tests/performance-intelligence.test.js) and UI/state coverage in [tests/performance-ux.test.js](tests/performance-ux.test.js).
-- This remains unreleased Build 005D work and does not mark Release 0.5.0 complete.
-
-## Unreleased â€” Build 005A: Performance Logging Foundation
-
-- Added an unreleased Performance Logging section to the War Room with strength, running, core, conditioning, fitness-test, and body-metrics entry support.
-- Added Build 005B extensions for fitness-test attempts, personal-record generation, milestone achievements, and Atlas review summaries.
-- Added deterministic validation, strength-volume calculations, estimated-1RM calculations, running-pace calculations, summary cards, filters, and edit/delete actions.
-- Added stable client-side performance-entry identifiers and exact-id deletion semantics so entries are removed deterministically without deleting arbitrary anonymous records.
-- Added remote Supabase persistence through [supabase/migrations/006_performance_logging.sql](supabase/migrations/006_performance_logging.sql) and browser-local fallback behavior with user-scoped storage.
-- Added regression coverage for normalization, validation, calculations, persistence payloads, summary logic, and deletion behavior.
-- This remains unreleased Build 005A work and does not mark Release 0.5.0 complete.
-
-## Unreleased â€” Build 004F: Rank & Promotion
-
-- Added a deterministic rank ladder anchored at RECRUIT and advancing one step at a time through CADET, OPERATOR, VANGUARD, DOMINION, and ASCENDANT.
-- Added promotion evaluation based on finalized inspection count, recent Discipline Score, evidence coverage, consecutive qualifying weeks, domain strength, standards/violation history, and corrective-period state.
-- Added promotion eligibility states, deterministic Atlas Promotion Review output, explicit promotion confirmation, and immutable promotion-history storage.
-- Added the Rank section to the War Room UI, local fallback persistence for rank status and promotion history, and a new Supabase migration for owner-scoped rank persistence.
-- Added a new rank-promotion regression suite and included it in the main test script.
-
-## Unreleased â€” Build 004E: Standards & Violations
-
-- Added a deterministic standards catalog and violation-candidate engine that remains supplemental to the Dominion Record and Weekly Inspection scoring logic.
-- Added protected-exception handling for excused statuses, N/A, approved modifications, readiness restrictions, illness, injury, and insufficient evidence.
-- Added a standards review lifecycle for `CANDIDATE`, `UNDER REVIEW`, `CONFIRMED`, `CORRECTED`, `RESOLVED`, `DISMISSED`, and `EXCUSED` with explicit, non-punitive corrective actions and audit-event logging.
-- Added Standards & Violations UI in the War Room with review queue, Atlas review output, and audit history.
-- Added owner-scoped standards persistence through [supabase/migrations/004_standards_violations.sql](supabase/migrations/004_standards_violations.sql) and browser-local fallback behavior with user-scoped keys.
-- Added standards-and-violations regression coverage and included the suite in the full test command.
-- This remains unreleased Build 004E work; it does not alter finalized inspection snapshots or the existing scoring formulas.
-
-## Unreleased â€” Build 004C: Dominion Record Trends & Analytics
-
-- Added deterministic four-week finalized-inspection trajectories, evidence-quality precedence, five domain directions, historical summaries, and calendar-contiguous compliance streaks.
-- Added responsive dependency-free SVG discipline and evidence charts with finalized/provisional distinctions, fixed axes, limited-evidence flags, accessible text equivalents, and empty states.
-- Added a rule-based Atlas Trend Report that distinguishes insufficient evidence from documented poor performance.
-- Added user-scoped Supabase/local history derivation without storing redundant analytics state or recalculating finalized snapshots.
-- Added dependency-free trend analytics tests and included them in the full test command.
-- This remains unreleased Build 004C work toward Release 0.4.0; it does not mark the release complete.
-
-## Unreleased â€” Build 004B: Weekly Inspection & After Action Report
-
-- Added deterministic Monday-through-Sunday aggregation of Build 004A Dominion Record observations, including five domain scores, observation/day counts, evidence coverage, tie-aware rankings, safety signals, and rule-based next-week priorities.
-- Added the Weekly Inspection War Room panel with week selection, evidence review, Atlas After Action Report, finalization controls, and read-only historical snapshots.
-- Added owner-scoped `weekly_inspections` persistence with finalized-snapshot protection and user/week-scoped browser-local fallback.
-- Added dependency-free weekly inspection tests and included them in the complete test command.
-- This remains unreleased Build 004B work toward Release 0.4.0; it does not mark the release complete.
-
-## Unreleased â€” Build 004A: Dominion Record Compliance Foundation
-
-- Added five-domain daily execution records for mission, strength, running/cardio, recovery, and nutrition compliance.
-- Added deterministic equal-weight Discipline Score calculation with transparent included/excluded evidence and an unscored state.
-- Added non-punitive excused, not-applicable, restriction, and approved-modification representation without creating violations.
-- Added an editable Dominion Record panel with Supabase persistence and isolated browser-local fallback behavior.
-- Added the owner-scoped `daily_compliance` migration and deterministic Node assertion coverage.
-- This is foundation work toward Release 0.4.0; Weekly Inspection and a full violations system remain out of scope.
-
-## Release 0.3.1 â€” Atlas Morning Brief
-
-- Added a deterministic Atlas command-voice layer driven by the existing readiness result.
-- Added the four command states: Roll Call Required, Mission Authorized, Mission Reduced, and Hard Training Denied.
-- Added a War Room Morning Brief panel with status, directive, command note, orders, restrictions, confidence, risk, and missing-evidence context.
-- Added Node assertion coverage for all command states and RED/YELLOW safety constraints.
-
-## Release 0.3.0 â€” Readiness Engine 2.0
-
-- Expanded readiness output with confidence weighting, rationale, evidence availability, primary risk, instructions, and restrictions.
-- Preserved deterministic GREEN, YELLOW, and RED readiness behavior, including the pain override.
-- Connected mission, Daily Intelligence, and command-feed behavior to the shared readiness result.
-- Added the dependency-free readiness-engine test suite.
-
-## Release 0.2.0 â€” War Room and Mission Board
-
-- Expanded the authenticated application into a War Room command-center layout.
-- Added the Mission Board, readiness intelligence, command feed, Daily Intelligence, status bar, and Daily State summary.
-- Added generated mission guidance and command events based on the user's current Daily State.
-
-## Release 0.1.0 â€” Daily State Engine
-
-- Added Morning Roll Call capture for energy, soreness, pain, optional recovery metrics, confidence, and comments.
-- Added deterministic readiness and mission foundations in the browser application.
-- Added Supabase `daily_state` and `command_feed` schema migrations with validation, row-level security, and user-scoped policies.
-- Added authenticated persistence and retrieval of each user's current daily state.
+## Unreo_7×Ûh‘éì¶»§q«^vö76WG2ö§2öF–Ç’Ö6ö6†–æræ§2"À¢"ö76WG2ö§2öF–Ç’Ö76–væÖVçBæ§2"À¢"ö76WG2ö§2÷&VF–æW72Ö&6VÆ–æW2æ§2"À¢"ö76WG2ö§2÷vVV¶Ç’×Æâæ§2"À¢"ö76WG2ö§2öçWG&—F–öâÖ6öÖÖæBæ§2"À¢"ö76WG2ö§2öFF—fRÖgVVÆ–æræ§2"À¢"ö76WG2ö§2öçWG&—F–öâÖ–çFVÆÆ–vVæ6Ræ§2"À¢"ö76WG2ö§2ö&öG’×&öw&W72æ§3÷cÓ#&""À¢"ö76WG2ö§2ö&öG’Ö6ö×÷6—F–öâæ§3÷cÓ#&""À¢"ö76WG2ö§2÷&öw&W72×&Wf–Wræ§3÷cÓ#&2"À¢"ö76WG2ö§2÷ÆâÖ6öÖÖæBæ§3÷cÓ#&B"À¢"ö76WG2ö§2öö'6W'fF–öâ×fW&F–7Bæ§3÷cÓ#&R"À¢"ö76WG2ö§2öF–Ç’Ö6Æ÷6V÷WBæ§3÷cÓ#&b"À¢"ö76WG2ö§2öçWG&—F–öâÖ&6VÆ–æRæ§2"À¢"ö76WG2ö§2öçWG&—F–öâ×&Wf–Wræ§2"À¢"ö76WG2ö§2öÖVÂÖ6ö6†–æræ§2"À¢"ö76WG2ö§2ö–çFW&Ö—GFVçBÖf7F–æræ§3÷cÓ#6B"À¢"ö76WG2ö§2öf7F–ærÖW†V7WF–öâæ§3÷cÓ#6B"À¢"ö76WG2ö§2ögVVÂÖ6ÆVæF"æ§3÷cÓ#6""À¢"ö76WG2ö§2÷FöF’ÖçWG&—F–öâæ§2"À¢"ö76WG2ö§2öÖVÂÖW†V7WF–öâæ§3÷cÓ#6b"À¢"ö76WG2ö§2ögVVÂÖ6Æ÷6VBÖÆö÷æ§3÷cÓ#6b"À¢"ö76WG2ö§2ögVVÂÖ6öÖÖæBæ§3÷cÓ#6b"À¢"ö76WG2ö§2÷'Vææ–ærÖ6öÖÖæBæ§2"À¢"ö76WG2ö§2ö6÷&R×&öw&ÖÖ–æræ§2"À¢"ö76WG2ö§2ö6Æ÷6VBÖÆö÷æ§2"À¢"ö76WG2ö§2öFF—fRÖ6ö6†–æræ§3÷cÓ#&"À¢"ö76WG2ö§2öFÆ2Ö–çFW'fVçF–öâæ§3÷cÓ#&"À¢"ö76WG2ö§2÷&V7'V—BÖ6öçG&7Bæ§3÷cÓ#F"À¢"ö76WG2ö§2ö6öçG&7BÖW‡W&–Væ6Ræ§2"À¢"ö76WG2ö§2÷vVV¶Ç’Ö÷&6†W7G&F÷"æ§3÷cÓ#FB"À¢"ö76WG2ö§2÷7Æ—BÖF’Ö6öÖÖæBæ§2"À¢"ö76WG2ö§2ö6öçG&7BÖ7F—fF–öâæ§3÷cÓ#F"À¢"ö76WG2ö§2öFÆ2×&öw&Òæ§3÷cÓ#Fb"À¢"ö76WG2ö§2öFÆ2Ö7F—fF–öâæ§3÷cÓ#Fr"À¢"ö76WG2ö§2öFÆ2×&öw&Ò×&W—"æ§3÷cÓ#Fb"À¢"ö76WG2ö§2÷&öw&ÒÖ6öÖÖæBæ§3÷cÓ#F2"À¢"ö76WG2ö§2ö6öçG&7BÖ–çFVw&—G’æ§2"À¢"ö76WG2ö§2ö6öçG&7BÖWF÷6fRæ§2"À¢"ö76WG2ö§2öÖö&–ÆRÖ6öÖÖæBæ§3÷cÓ#&r"À¢"ö76WG2ö§2öW‡W&–Væ6R×6†VÆÂæ§2"À¢"ö76WG2ö§2öF–Ç’×&—GVÂæ§3÷cÓ#&b"À¢"ö76WG2ö§2ö÷W&F–ær×G'WF‚æ§2"À¢"ö76WG2ö§2ö7F—fF–öâ×&W—"æ§3÷cÓ#Fb"À¢"ö76WG2ö§2ööæRÖ6öÖÖæBæ§2"À¢"ö76WG2ö§2öFöÖ–æ–öâÖ6öçF–çV—G’æ§2"À¢"ö76WG2ö§2öf—'7B×vVV²Ö÷&–VçFF–öâæ§2"À¢"ö76WG2ö§2öæ§3÷cÓ#Fr ¥Ó° §6VÆbæFDWfVçDÆ—7FVæW"‚&–ç7FÆÂ"Â†WfVçB’Óâ°¢WfVçBçv—EVçF–Â†66†W2æ÷Vâ„44„UôäÔR’çF†Vâ‚†66†R’Óâ66†RæFDÆÂ„õ4„TÄÂ’’“°¢6VÆbç6¶—v—F–ær‚“°§Ò“° §6VÆbæFDWfVçDÆ—7FVæW"‚&7F—fFR"Â†WfVçB’Óâ°¢WfVçBçv—EVçF–Â€¢66†W2æ¶W—2‚¢çF†Vâ‚†¶W—2’Óâ&öÖ—6RæÆÂ†¶W—2æf–ÇFW"‚†¶W’’Óâ¶W’ç7F'G5v—F‚‚&6ö6‚ÖFöÖ–æ–öâÒ"’bb¶W’ÓÒ44„UôäÔR’æÖ‚†¶W’’Óâ66†W2æFVÆWFR†¶W’’’’¢çF†Vâ‚‚’Óâ6VÆbæ6Æ–VçG2æ6Æ–Ò‚’¢“°§Ò“° §6VÆbæFDWfVçDÆ—7FVæW"‚&fWF6‚"Â†WfVçB’Óâ°¢6öç7B&WVW7BÒWfVçBç&WVW7C°¢–b‡&WVW7BæÖWF†öBÓÒ$tUB"’&WGW&ã°¢6öç7BW&ÂÒæWrU$Â‡&WVW7BçW&Â“°¢–b‡W&Âæ÷&–v–âÓÒ6VÆbæÆö6F–öâæ÷&–v–âÇÂW&ÂçF†æÖRç7F'G5v—F‚‚"ö’ò"’’&WGW&ã° ¢–b‡&WVW7BæÖöFRÓÓÒ&æf–vFR"’°¢WfVçBç&W7öæEv—F‚€¢fWF6‚‡&WVW7B¢çF†Vâ‚‡&W7öç6R’Óâ°¢6öç7B6÷’Ò&W7öç6Ræ6ÆöæR‚“°¢66†W2æ÷Vâ„44„UôäÔR’çF†Vâ‚†66†R’Óâ66†RçWB‡&WVW7BÂ6÷’’“°¢&WGW&â&W7öç6S°¢Ò¢æ6F6‚†7–æ2‚’Óâ†v—B66†W2æÖF6‚‡&WVW7B’’ÇÂ†v—B66†W2æÖF6‚‚"öæ‡FÖÂ"’’¢“°¢&WGW&ã°¢Ğ ¢WfVçBç&W7öæEv—F‚€¢66†W2æÖF6‚‡&WVW7B’çF†Vâ‚†66†VB’Óâ°¢6öç7B&Vg&W6†VBÒfWF6‚‡&WVW7B¢çF†Vâ‚‡&W7öç6R’Óâ°¢–b‡&W7öç6Ræö²’66†W2æ÷Vâ„44„UôäÔR’çF†Vâ‚†66†R’Óâ66†RçWB‡&WVW7BÂ&W7öç6Ræ6ÆöæR‚’’“°¢&WGW&â&W7öç6S°¢Ò¢æ6F6‚‚‚’Óâ66†VB“°¢&WGW&â66†VBÇÂ&Vg&W6†VC°¢Ò¢“°§Ò“°

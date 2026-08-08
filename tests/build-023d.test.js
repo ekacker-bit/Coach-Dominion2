@@ -1,3 +1,4 @@
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -48,11 +49,11 @@ test("023D adds an approval-gated Atlas protocol verdict", () => {
 test("023D is responsive and rotates every mutable production asset", () => {
   assert.match(css, /Build 023D: Fasting Execution and Adaptation/);
   assert.match(css, /fasting-countdown/);
-  assert.match(html, /styles\.css\?v=(?:023[def]|024[abcdefgh])/);
+  assert.match(html, /styles\.css\?v=(?:023[def]|024[abcdefghi])/);
   assert.match(html, /fasting-execution\.js\?v=023d/);
-  assert.match(html, /fuel-command\.js\?v=(?:023[def]|024[abcdefgh])/);
-  assert.match(html, /app\.js\?v=(?:023[def]|024[abcdefgh])/);
-  assert.match(worker, /coach-dominion-(?:023[def]|024[abcdefgh])-v1/);
+  assert.match(html, /fuel-command\.js\?v=(?:023[def]|024[abcdefghi])/);
+  assert.match(html, /app\.js\?v=(?:023[def]|024[abcdefghi])/);
+  assert.match(worker, /coach-dominion-(?:023[def]|024[abcdefghi])-v1/);
   assert.match(worker, /fasting-execution\.js\?v=023d/);
 });
 

@@ -1,4 +1,3 @@
-
 const assert = require("node:assert/strict");
 const activation = require("../assets/js/atlas-activation.js");
 

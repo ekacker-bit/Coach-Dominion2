@@ -11,8 +11,8 @@ const worker = read("sw.js");
 const packageJson = read("package.json");
 
 assert.match(html, /atlas-activation\.js\?v=024[hi]/);
-assert.match(html, /app\.js\?v=024[hij]/);
-assert.match(worker, /coach-dominion-024[hij]-v1/);
+assert.match(html, /app\.js\?v=024[hijk]/);
+assert.match(worker, /coach-dominion-024[hijk]-v1/);
 assert.match(activation, /const VERSION = "024[HI]\.1"/);
 assert.match(activation, /function summarizeSyncResults/);
 assert.match(activation, /pendingSyncDomains/);

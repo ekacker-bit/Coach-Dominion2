@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -455,8 +454,7 @@
             <li>The optional automated nutrition feed uses a revocable Coach Dominion key and transmits only daily calories, protein, carbohydrates, fat, date, timezone, and sample count.</li>
             <li>Raw Apple Health records, food names, meal names, and diary notes are not retained by the automated feed.</li>
             <li>Apple Health import reads only the export.xml file you deliberately choose. Unsupported health categories are ignored and never uploaded as raw XML.</li>
-    
-       <li>Permission selections are stored per simulated account and grant no live provider access.</li>
+            <li>Permission selections are stored per simulated account and grant no live provider access.</li>
             <li>Remote storage is user-scoped when migration 009 is applied; otherwise state uses a clearly labeled user-scoped local fallback.</li>
             <li>Disconnecting preserves account, sync, imported-record, and provenance history for auditability.</li>
             <li>Deleting a connection here does not delete information from the original provider or remove records already copied into import history.</li>
@@ -841,8 +839,7 @@
                 </div>
                 <div class="daily-closeout-primary">
                   <label>Self-reported steps
-                    <input id="daily-closeout-steps" name="selfReportedSteps" type="numbe
-" min="0" max="250000" step="1" inputmode="numeric" required placeholder="0">
+                    <input id="daily-closeout-steps" name="selfReportedSteps" type="number" min="0" max="250000" step="1" inputmode="numeric" required placeholder="0">
                   </label>
                   <div class="daily-closeout-preview" aria-live="polite">
                     <span>Discipline coverage</span>
@@ -1292,8 +1289,7 @@
       </details>
 
       <section id="record" class="card dominion-record scroll-anchor" aria-labelledby="dominion-record-heading" data-section="record">
-     
-  <div class="section-heading">
+        <div class="section-heading">
           <div>
             <div class="kicker">LONGITUDINAL EXECUTION RECORD</div>
             <h2 id="dominion-record-heading">Dominion Record</h2>
@@ -1735,8 +1731,7 @@
                   <div class="kicker">BUILD 007B // RECOVERY &amp; FUELING ADJUSTMENTS</div>
                   <h3>Atlas Recovery &amp; Fueling Review</h3>
                   <p class="muted">Training load, nutrition coverage, readiness, pain, and bodyweight evidence combined into one recovery posture.</p>
-        
-       </div>
+                </div>
                 <span id="recovery-status" class="state-pill neutral">LOADING</span>
               </div>
               <div id="recovery-review-panel"></div>

@@ -10,12 +10,12 @@ const activation = read("assets/js/atlas-activation.js");
 const worker = read("sw.js");
 const packageJson = read("package.json");
 
-assert.match(html, /atlas-activation\.js\?v=024g/);
-assert.match(html, /app\.js\?v=024g/);
-assert.match(worker, /coach-dominion-024g-v1/);
-assert.match(worker, /atlas-activation\.js\?v=024g/);
-assert.match(worker, /app\.js\?v=024g/);
-assert.match(activation, /const VERSION = "024G\.1"/);
+assert.match(html, /atlas-activation\.js\?v=024h/);
+assert.match(html, /app\.js\?v=024h/);
+assert.match(worker, /coach-dominion-024h-v1/);
+assert.match(worker, /atlas-activation\.js\?v=024h/);
+assert.match(worker, /app\.js\?v=024h/);
+assert.match(activation, /const VERSION = "024H\.1"/);
 assert.match(activation, /function calendarLinkedToCandidates/);
 assert.match(activation, /CALENDAR_PLAN_MISMATCH/);
 assert.match(app, /DominionAtlasActivation\.calendarLinkedToCandidates\(savedDraft, candidates\)/);

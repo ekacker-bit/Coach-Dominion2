@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - Build 024J Legacy Calendar History Recovery
+
+- Removes null and malformed legacy entries before Atlas evaluates or replaces the current calendar history.
+- Prevents an old empty history row from crashing an otherwise verified Strength, Cardio, Core, Fuel, and Calendar activation.
+- Adds safe activation-phase diagnostics while preserving the prior active program on any genuine commit failure.
+
 ## Unreleased - Build 024I Verified Calendar Handoff
 
 - Lets a complete Atlas package commit the exact calendar that already passed activation preflight, even while the legacy Contract activation panel still reflects the pre-activation plans.

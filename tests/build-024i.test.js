@@ -10,8 +10,8 @@ const activation = read("assets/js/atlas-activation.js");
 const worker = read("sw.js");
 
 assert.match(html, /atlas-activation\.js\?v=024i/);
-assert.match(html, /app\.js\?v=024i/);
-assert.match(worker, /coach-dominion-024i-v1/);
+assert.match(html, /app\.js\?v=024[ij]/);
+assert.match(worker, /coach-dominion-024[ij]-v1/);
 assert.match(activation, /const VERSION = "024I\.1"/);
 assert.match(activation, /function canCommitCalendarFromPreflight/);
 assert.match(app, /commitUnifiedWeekDraft\(options = \{\}\)/);

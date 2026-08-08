@@ -11,10 +11,10 @@ const worker = read("sw.js");
 const packageJson = read("package.json");
 
 assert.match(html, /atlas-activation\.js\?v=024[hi]/);
-assert.match(html, /app\.js\?v=024[hi]/);
-assert.match(worker, /coach-dominion-024[hi]-v1/);
+assert.match(html, /app\.js\?v=024[hij]/);
+assert.match(worker, /coach-dominion-024[hij]-v1/);
 assert.match(worker, /atlas-activation\.js\?v=024[hi]/);
-assert.match(worker, /app\.js\?v=024[hi]/);
+assert.match(worker, /app\.js\?v=024[hij]/);
 assert.match(activation, /const VERSION = "024[HI]\.1"/);
 assert.match(activation, /function calendarLinkedToCandidates/);
 assert.match(activation, /CALENDAR_PLAN_MISMATCH/);

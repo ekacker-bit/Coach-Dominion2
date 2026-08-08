@@ -11,7 +11,7 @@ const worker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 assert.match(html, /atlas-activation\.js\?v=024[bghi]/);
 assert.match(html, /styles\.css\?v=024[bcdefg]/);
-assert.match(html, /app\.js\?v=024[bcdefghi]/);
+assert.match(html, /app\.js\?v=024[bcdefghij]/);
 assert.match(activation, /const VERSION = "024[BGHI]\.1"/);
 assert.match(activation, /function preflightActivation/);
 assert.match(activation, /function buildReceipt/);
@@ -24,7 +24,7 @@ assert.match(app, /READY_TO_ACTIVATE/);
 assert.match(app, /REPAIR_PROGRAM/);
 assert.match(styles, /atlas-program-preflight/);
 assert.match(styles, /atlas-program-receipt/);
-assert.match(worker, /coach-dominion-024[bcdefghi]-v1/);
+assert.match(worker, /coach-dominion-024[bcdefghij]-v1/);
 assert.match(worker, /atlas-activation\.js\?v=024[bghi]/);
 
 console.log("Build 024B integration tests passed.");

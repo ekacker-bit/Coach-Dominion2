@@ -1,3 +1,4 @@
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -45,7 +46,7 @@ assert.match(css, /\.contract-lifecycle-actions/);
 assert.match(migration, /create table if not exists public\.recruit_onboarding_state/i);
 assert.match(migration, /auth\.uid\(\) = user_id/);
 assert.match(migration, /grant select, insert, update, delete/i);
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|(?:023[abcdef]|024[abcdefgh]))-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|(?:023[abcdef]|024[abcdefghi]))-v1/);
 assert.match(worker, /first-week-orientation\.js/);
 assert.match(packageJson, /node tests\/first-week-orientation\.test\.js/);
 assert.match(packageJson, /node tests\/build-021c\.test\.js/);

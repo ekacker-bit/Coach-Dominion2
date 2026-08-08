@@ -88,6 +88,8 @@ const weekDraft = {
   const receipt = activation.buildReceipt({ contract, candidates, weekDraft, week: { ...weekDraft, id: "week-active" }, preflight, activatedAt: "2026-08-06T12:00:00.000Z" });
   assert.equal(receipt.status, "ACTIVE");
   assert.equal(receipt.contractRevision, 4);
+  assert.equal(receipt.planRefs.nutrition, candidates.nutrition.id);
+  assert.equal(weekDraft.sourceRefs.nutritionBaselineId, receipt.planRefs.nutrition);
   assert.match(receipt.headline, /Program Active.*Contract R4.*2026-08-10/);
   const audit = activation.auditReceipt(receipt, { contract, activePlans: candidates, week: { ...weekDraft, id: "week-active" } });
   assert.equal(audit.status, "ACTIVE");

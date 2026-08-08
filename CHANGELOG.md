@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - Build 024L Fuel Link Idempotency
+
+- Makes the newly activated Atlas Fuel baseline authoritative for its effective window.
+- Preserves older Fuel history while marking overlapping scheduled baselines as replaced, preventing a stale future baseline from forcing the Program page back into repair.
+- Keeps subsequent program checks idempotent: an approved, Contract-linked Fuel plan remains active after reload and across future calendar weeks.
+
 ## Unreleased - Build 024K Activation Transaction Boundary
 
 - Separates the durable Atlas activation transaction from best-effort UI rendering.

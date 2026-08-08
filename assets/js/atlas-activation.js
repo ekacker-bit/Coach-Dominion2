@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024I.1";
+  const VERSION = "024I.2";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -66,6 +66,26 @@
       savedCount: normalized.filter((entry) => entry.saved).length,
       totalCount: normalized.length
     };
+  }
+
+  function reconcileNutritionHistory(candidate = null, history = [], options = {}) {
+    const previous = (Array.isArray(history) ? history : []).filter(Boolean);
+    if (!candidate?.id) return previous;
+    const effectiveDate = date(candidate.effectiveDate || options.effectiveDate);
+    const supersededAt = options.supersededAt || candidate.approvedAt || null;
+    const reconciled = previous
+      .filter((item) => item?.id !== candidate.id)
+      .map((item) => {
+        const itemDate = date(item?.effectiveDate);
+        const overlapsCandidate = item?.status === "APPROVED"
+          && effectiveDate
+          && itemDate
+          && itemDate >= effectiveDate;
+        return overlapsCandidate
+          ? { ...item, status: "REPLACED", supersededAt, supersededBy: candidate.id }
+          : item;
+      });
+    return [candidate, ...reconciled];
   }
 
   function canCommitCalendarFromPreflight(preflight = null, context = {}) {
@@ -233,5 +253,5 @@
     };
   }
 
-  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, canCommitCalendarFromPreflight, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
+  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, reconcileNutritionHistory, canCommitCalendarFromPreflight, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
 });

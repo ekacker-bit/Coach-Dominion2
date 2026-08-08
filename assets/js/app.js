@@ -7026,7 +7026,9 @@ function buildAtlasApprovalCandidates(contract = readApprovedRecruitContract(), 
     core: coreDraft?.status === "APPROVED" ? coreDraft : coreDraft ? DominionCoreProgramming.approvePlan(coreDraft, approvedAt) : null,
     nutrition: nutritionDraft?.status === "APPROVED" ? nutritionDraft : DominionNutritionBaseline.approveNutritionBaseline(nutritionDraft, approvedAt, `atlas-fuel:${contract.id}:r${contract.revision}`)
   };
-  const nutritionHistory = [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== candidates.nutrition.id)];
+  const nutritionHistory = typeof DominionAtlasActivation?.reconcileNutritionHistory === "function"
+    ? DominionAtlasActivation.reconcileNutritionHistory(candidates.nutrition, readNutritionBaselineHistory(), { supersededAt: approvedAt })
+    : [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== candidates.nutrition.id)];
   return { candidates, nutritionHistory };
 }
 
@@ -12512,7 +12514,7 @@ function renderNutritionBaseline() {
       ${current.status === "READY FOR APPROVAL" ? '<div class="weekly-plan-actions"><button type="button" data-nutrition-baseline-action="approve">Approve &amp; Activate Baseline</button><button type="button" class="ghost" data-nutrition-baseline-action="cancel">Cancel Draft</button></div>' : ""}`;
   }
   const historyRows = [...history].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.approvedAt.localeCompare(a.approvedAt))
-    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} · approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal · ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
+    .map((item) => `<div class="nutrition-baseline-history-item"><div><strong>${escapeHtml(item.goal.replace("_", " "))}</strong><small>Effective ${escapeHtml(item.effectiveDate)} · approved ${escapeHtml(item.approvedAt.slice(0, 10))}</small></div><div><strong>${Math.round(item.recoveryTargets.calories)} kcal · ${Math.round(item.recoveryTargets.protein)}g protein</strong><small>${item.status === "REPLACED" ? "REPLACED" : active?.id === item.id ? "CURRENT BASELINE" : item.effectiveDate > todayISODate() ? "SCHEDULED" : "HISTORICAL"}</small></div></div>`).join("");
   historyOutput.innerHTML = history.length ? `<details class="nutrition-baseline-history"><summary>Baseline history (${history.length})</summary><div class="nutrition-baseline-history-list">${historyRows}</div></details>` : "";
 }
 

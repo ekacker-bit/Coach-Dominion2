@@ -66,6 +66,44 @@ const weekDraft = {
 }
 
 {
+  const candidate = {
+    id: "nutrition-current",
+    status: "APPROVED",
+    effectiveDate: "2026-08-03",
+    approvedAt: "2026-08-07T12:00:00.000Z"
+  };
+  const expired = { id: "nutrition-old", status: "APPROVED", effectiveDate: "2026-07-27", approvedAt: "2026-07-27T12:00:00.000Z" };
+  const staleFuture = { id: "nutrition-stale", status: "APPROVED", effectiveDate: "2026-08-10", approvedAt: "2026-08-01T12:00:00.000Z" };
+  const history = activation.reconcileNutritionHistory(candidate, [staleFuture, expired, candidate], { supersededAt: candidate.approvedAt });
+  assert.equal(history[0].id, candidate.id);
+  assert.equal(history.filter((item) => item.id === candidate.id).length, 1);
+  assert.equal(history.find((item) => item.id === expired.id).status, "APPROVED");
+  assert.deepEqual(history.find((item) => item.id === staleFuture.id), {
+    ...staleFuture,
+    status: "REPLACED",
+    supersededAt: candidate.approvedAt,
+    supersededBy: candidate.id
+  });
+  assert.deepEqual(activation.reconcileNutritionHistory(candidate, history, { supersededAt: candidate.approvedAt }), history);
+}
+
+{
+  const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft
+  }), true);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract: { ...contract, revision: contract.revision + 1 },
+    weekDraft
+  }), false);
+  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
+    contract,
+    weekDraft: { ...weekDraft, approvalBlocked: true }
+  }), false);
+}
+
+{
   const blockedWeek = {
     ...weekDraft,
     approvalBlocked: true,
@@ -109,22 +147,6 @@ const weekDraft = {
   });
   assert.equal(pendingReceipt.syncStatus, "SYNC_PENDING");
   assert.deepEqual(pendingReceipt.pendingSyncDomains, ["core", "calendar"]);
-}
-
-{
-  const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
-  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
-    contract,
-    weekDraft
-  }), true);
-  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
-    contract: { ...contract, revision: contract.revision + 1 },
-    weekDraft
-  }), false);
-  assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
-    contract,
-    weekDraft: { ...weekDraft, approvalBlocked: true }
-  }), false);
 }
 
 console.log("Build 024I Atlas Activation tests passed.");

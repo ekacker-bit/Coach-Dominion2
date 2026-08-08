@@ -13,8 +13,8 @@ const packageJson = read("package.json");
 
 assert.match(html, /styles\.css\?v=024f/);
 assert.match(html, /atlas-program-repair\.js\?v=024f/);
-assert.match(html, /app\.js\?v=024[hij]/);
-assert.match(worker, /coach-dominion-024[hij]-v1/);
+assert.match(html, /app\.js\?v=024[hijk]/);
+assert.match(worker, /coach-dominion-024[hijk]-v1/);
 assert.match(repair, /const VERSION = "024F\.1"/);
 assert.match(repair, /function weekLinkedToContract/);
 assert.match(repair, /function calendarDisposition/);

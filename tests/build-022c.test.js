@@ -12,7 +12,7 @@ const worker = read("sw.js");
 
 test("022C loads the progress review before the application", () => {
   const engine = html.indexOf('/assets/js/progress-review.js?v=022c');
-  const application = html.search(/\/assets\/js\/app\.js\?v=(?:022[d-g]|(?:023[abcdef]|024[abcdefghij]))/);
+  const application = html.search(/\/assets\/js\/app\.js\?v=(?:022[d-g]|(?:023[abcdef]|024[abcdefghijk]))/);
   assert.ok(engine > 0);
   assert.ok(application > engine);
   assert.match(html, /id="body-four-week-review" class="progress-review-surface"/);
@@ -40,9 +40,9 @@ test("022C has responsive visual hierarchy and a rotated app shell", () => {
   assert.match(css, /\.progress-review-card/);
   assert.match(css, /\.progress-review-call/);
   assert.match(css, /@media \(max-width: 720px\)/);
-  assert.match(worker, /coach-dominion-(?:022[c-g]|(?:023[abcdef]|024[abcdefghij]))-v1/);
+  assert.match(worker, /coach-dominion-(?:022[c-g]|(?:023[abcdef]|024[abcdefghijk]))-v1/);
   assert.match(worker, /progress-review\.js\?v=022c/);
-  assert.match(worker, /app\.js\?v=(?:022[c-g]|(?:023[abcdef]|024[abcdefghij]))/);
+  assert.match(worker, /app\.js\?v=(?:022[c-g]|(?:023[abcdef]|024[abcdefghijk]))/);
 });
 
 console.log("Build 022C integration contract verified.");

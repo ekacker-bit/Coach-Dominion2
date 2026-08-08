@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - Build 024K Activation Transaction Boundary
+
+- Separates the durable Atlas activation transaction from best-effort UI rendering.
+- Prevents a legacy Train, Fuel, Core, Calendar, Contract, or Today renderer from rolling back plans, the committed week, or the activation receipt after those records are saved.
+- Keeps render failures visible in safe diagnostics and lets the affected surface recover on reload.
+
 ## Unreleased - Build 024J Legacy Calendar History Recovery
 
 - Removes null and malformed legacy entries before Atlas evaluates or replaces the current calendar history.

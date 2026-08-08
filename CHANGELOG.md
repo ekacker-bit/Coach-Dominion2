@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased - Build 024G Exact-Plan Calendar Handoff
+## Unreleased - Build 024H Resilient Program Activation
+
+- Activates the complete Strength, Cardio, Core, Fuel, and Calendar package on the recruit's device even when one account table is temporarily unavailable.
+- Records the exact domains still awaiting account sync and leaves them in the continuity retry path instead of discarding the approved program.
+- Adds safe, domain-labeled persistence warnings without logging plan payloads or account identifiers.
+- Restores the activation control after a true failure and clearly distinguishes an active device program from a fully synced account program.
+- Adds regression coverage for partial account writes and rotates the application and service-worker cache.
+
+## Build 024G Exact-Plan Calendar Handoff
 
 - Stops Atlas from reusing a blocked calendar draft merely because its program and Contract IDs match.
 - Preserves a recruit's calendar edits only when the draft points to the exact pending Strength, Cardio, Core, and Fuel plan revisions.

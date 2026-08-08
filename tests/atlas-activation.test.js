@@ -42,6 +42,30 @@ const weekDraft = {
 }
 
 {
+  const synced = activation.summarizeSyncResults([
+    { domain: "strength", saved: true },
+    { domain: "cardio", saved: true },
+    { domain: "core", saved: true },
+    { domain: "fuel", saved: true },
+    { domain: "calendar", saved: true }
+  ]);
+  assert.equal(synced.status, "ACCOUNT_SAVED");
+  assert.equal(synced.accountSaved, true);
+  assert.deepEqual(synced.pendingDomains, []);
+
+  const pending = activation.summarizeSyncResults([
+    { domain: "strength", saved: true },
+    { domain: "core", saved: false },
+    { domain: "core", saved: false },
+    { domain: "calendar", saved: true }
+  ]);
+  assert.equal(pending.status, "SYNC_PENDING");
+  assert.equal(pending.accountSaved, false);
+  assert.deepEqual(pending.pendingDomains, ["core"]);
+  assert.equal(pending.savedCount, 2);
+}
+
+{
   const blockedWeek = {
     ...weekDraft,
     approvalBlocked: true,
@@ -70,6 +94,19 @@ const weekDraft = {
   const damaged = activation.auditReceipt(receipt, { contract, activePlans: { ...candidates, core: { id: "wrong" } }, week: { ...weekDraft, id: "week-active" } });
   assert.equal(damaged.status, "REPAIR_REQUIRED");
   assert.ok(damaged.issues.some((item) => item.code === "CORE_MISMATCH"));
+
+  const pendingReceipt = activation.buildReceipt({
+    contract,
+    candidates,
+    weekDraft,
+    week: { ...weekDraft, id: "week-active" },
+    preflight,
+    activatedAt: "2026-08-06T12:00:00.000Z",
+    syncStatus: "SYNC_PENDING",
+    pendingSyncDomains: ["core", "core", "calendar"]
+  });
+  assert.equal(pendingReceipt.syncStatus, "SYNC_PENDING");
+  assert.deepEqual(pendingReceipt.pendingSyncDomains, ["core", "calendar"]);
 }
 
-console.log("Build 024G Atlas Activation tests passed.");
+console.log("Build 024H Atlas Activation tests passed.");

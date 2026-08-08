@@ -15,7 +15,7 @@ assert.match(html, /href="#program" data-section="program">PROGRAM/);
 assert.match(html, /id="program-change-form"/);
 assert.match(html, /program-command\.js\?v=024c/);
 assert.match(html, /styles\.css\?v=024[cdefg]/);
-assert.match(html, /app\.js\?v=024[cdefg]/);
+assert.match(html, /app\.js\?v=024[cdefgh]/);
 assert.match(engine, /const VERSION = "024C\.1"/);
 assert.match(engine, /function buildProgramCommand/);
 assert.match(engine, /function previewChange/);
@@ -25,7 +25,7 @@ assert.match(app, /function renderProgramChangeImpact/);
 assert.match(styles, /Build 024C: Program Command Center/);
 assert.match(styles, /\.program-command-next/);
 assert.match(styles, /\.program-change-impact/);
-assert.match(worker, /coach-dominion-024[cdefg]-v1/);
+assert.match(worker, /coach-dominion-024[cdefgh]-v1/);
 assert.match(worker, /program-command\.js\?v=024c/);
 
 console.log("Build 024C integration tests passed.");

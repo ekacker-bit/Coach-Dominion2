@@ -5290,6 +5290,16 @@ async function loadSplitDayCheckpointState(value = todayISODate()) {
   renderTodayCommittedWeek();
 }
 
+function logAccountPersistenceFailure(domain, stateType, stateKey, error) {
+  console.warn("[account:persist] Account write will retry.", {
+    domain,
+    stateType,
+    stateKey,
+    code: error?.code || null,
+    message: error?.message || "Account write failed."
+  });
+}
+
 async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
   recordContinuityWrite("calendar", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
@@ -5306,7 +5316,8 @@ async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
     markContinuityRecordSynced("calendar", stateType, stateKey, payload);
     weeklyOrchestrationStorageMode = "REMOTE";
     return true;
-  } catch (_) {
+  } catch (error) {
+    logAccountPersistenceFailure("calendar", stateType, stateKey, error);
     weeklyOrchestrationStorageMode = "LOCAL";
     return false;
   }
@@ -7128,7 +7139,7 @@ async function runAtlasProgramRepairAction(action = "PREPARE") {
   if (action !== "ACTIVATE") return null;
   const primary = document.getElementById("atlas-program-repair-primary");
   if (primary) { primary.disabled = true; primary.textContent = "Activating…"; }
-  setText("atlas-program-repair-feedback", "Activating the complete package. The previous program remains protected until every write succeeds.");
+  setText("atlas-program-repair-feedback", "Activating the complete package. This device activates first; account sync retries if needed.");
   try {
     const receipt = await approveAtlasProgram();
     renderContractActivation();
@@ -7136,10 +7147,12 @@ async function runAtlasProgramRepairAction(action = "PREPARE") {
     renderProgramCommand();
     renderDominionExperienceShell();
     renderAtlasProgramRepair(buildAtlasProgramRepairModel());
-    setText("atlas-program-repair-feedback", `${receipt.headline}. Today is ready.`);
+    setText("atlas-program-repair-feedback", receipt.syncStatus === "ACCOUNT_SAVED"
+      ? `${receipt.headline}. Today is ready and your account is synced.`
+      : `${receipt.headline}. Today is ready. Account sync will retry in the background.`);
     return receipt;
   } catch (error) {
-    if (primary) primary.disabled = false;
+    if (primary) { primary.disabled = false; primary.textContent = "Activate complete program"; }
     setText("atlas-program-repair-feedback", error?.message || "Atlas could not activate the package. The previous program remains active.");
     throw error;
   }
@@ -7216,17 +7229,20 @@ async function approveAtlasProgram() {
     saveWeeklyOrchestrationLocal("DRAFT", "current", weekDraft);
 
     const writes = [];
-    if (candidates.strength) writes.push(persistStrengthTrainingState("PLAN", "current", candidates.strength));
-    if (candidates.running) writes.push(persistRunningState("PLAN", "active", candidates.running));
+    if (candidates.strength) writes.push({ domain: "strength", promise: persistStrengthTrainingState("PLAN", "current", candidates.strength) });
+    if (candidates.running) writes.push({ domain: "cardio", promise: persistRunningState("PLAN", "active", candidates.running) });
     if (candidates.core) {
-      writes.push(persistCoreProgramState("PLAN", "current", candidates.core));
-      writes.push(persistCoreProgramState("DRAFT", "current", candidates.core));
+      writes.push({ domain: "core", promise: persistCoreProgramState("PLAN", "current", candidates.core) });
+      writes.push({ domain: "core", promise: persistCoreProgramState("DRAFT", "current", candidates.core) });
     }
-    writes.push(persistNutritionState("BASELINE_HISTORY", "current", { items: nutritionHistory }));
-    writes.push(persistWeeklyOrchestrationState("DRAFT", "current", weekDraft));
-    const syncResults = await Promise.all(writes);
-    if (session?.user?.id && !syncResults.every(Boolean)) {
-      throw new Error("Account sync did not confirm every plan. Nothing was activated");
+    writes.push({ domain: "fuel", promise: persistNutritionState("BASELINE_HISTORY", "current", { items: nutritionHistory }) });
+    writes.push({ domain: "calendar", promise: persistWeeklyOrchestrationState("DRAFT", "current", weekDraft) });
+    const writeResults = await Promise.all(writes.map(async (write) => ({ domain: write.domain, saved: await write.promise })));
+    const syncSummary = DominionAtlasActivation.summarizeSyncResults(writeResults);
+    if (!syncSummary.accountSaved) {
+      console.warn("[atlas:activation-sync] Program activated on this device; account sync will retry.", {
+        pendingDomains: syncSummary.pendingDomains
+      });
     }
     const week = await commitUnifiedWeekDraft();
     if (!week) throw new Error("The coordinated week could not be committed.");
@@ -7238,7 +7254,8 @@ async function approveAtlasProgram() {
       week,
       preflight,
       activatedAt: approvedAt,
-      syncStatus: "DEVICE_SAVED"
+      syncStatus: "SYNC_PENDING",
+      pendingSyncDomains: syncSummary.pendingDomains
     });
     let receipt = saveAtlasProgramReceipt({ ...program, ...activationReceipt });
     let activatedWeek = { ...week, atlasActivationReceipt: receipt };
@@ -7249,7 +7266,7 @@ async function approveAtlasProgram() {
       persistWeeklyOrchestrationState("WEEK", week.weekStart, activatedWeek),
       persistWeeklyOrchestrationState("HISTORY", "current", activatedHistory)
     ]);
-    if (session?.user?.id && syncResults.every(Boolean) && receiptSync.every(Boolean)) {
+    if (session?.user?.id && syncSummary.accountSaved && receiptSync.every(Boolean)) {
       activationReceipt = { ...activationReceipt, syncStatus: "ACCOUNT_SAVED" };
       receipt = saveAtlasProgramReceipt({ ...program, ...activationReceipt });
       activatedWeek = { ...activatedWeek, atlasActivationReceipt: receipt };
@@ -7260,6 +7277,17 @@ async function approveAtlasProgram() {
         persistWeeklyOrchestrationState("WEEK", week.weekStart, activatedWeek),
         persistWeeklyOrchestrationState("HISTORY", "current", activatedHistory)
       ]);
+    } else {
+      const pendingSyncDomains = [...new Set([
+        ...syncSummary.pendingDomains,
+        ...(receiptSync.every(Boolean) ? [] : ["activation receipt"])
+      ])];
+      activationReceipt = { ...activationReceipt, syncStatus: "SYNC_PENDING", pendingSyncDomains };
+      receipt = saveAtlasProgramReceipt({ ...program, ...activationReceipt });
+      activatedWeek = { ...activatedWeek, atlasActivationReceipt: receipt };
+      activatedHistory = activatedHistory.map((item) => item.id === week.id ? activatedWeek : item);
+      saveWeeklyOrchestrationLocal("WEEK", week.weekStart, activatedWeek);
+      saveWeeklyOrchestrationLocal("HISTORY", "current", activatedHistory);
     }
     if (candidates.strength) await clearStrengthTrainingState("DRAFT", "current");
     if (candidates.running) {
@@ -7400,7 +7428,8 @@ async function persistStrengthTrainingState(stateType, stateKey, payload) {
     markContinuityRecordSynced("strength", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("STRENGTH_EXECUTION", stateKey);
     return true;
-  } catch (_) {
+  } catch (error) {
+    logAccountPersistenceFailure("strength", stateType, stateKey, error);
     if (stateType === "EXECUTION") enqueueMobileWrite("STRENGTH_EXECUTION", stateKey, payload);
     setText("programming-feedback", "Saved on this device. Account sync will resume when strength storage is available.");
     setText("daily-assignment-feedback", "Workout saved on this device. Account sync is temporarily unavailable.");
@@ -10201,7 +10230,8 @@ async function persistRunningState(stateType, stateKey, payload) {
     markContinuityRecordSynced("running", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("RUNNING_EXECUTION", stateKey);
     return true;
-  } catch (_) {
+  } catch (error) {
+    logAccountPersistenceFailure("cardio", stateType, stateKey, error);
     if (stateType === "EXECUTION") enqueueMobileWrite("RUNNING_EXECUTION", stateKey, payload);
     setText("running-command-feedback", "Saved locally. Remote running storage is unavailable until migration 010 is applied.");
     return false;
@@ -10409,7 +10439,8 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
     markContinuityRecordSynced("core", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
     return true;
-  } catch (_) {
+  } catch (error) {
+    logAccountPersistenceFailure("core", stateType, stateKey, error);
     if (stateType === "EXECUTION") enqueueMobileWrite("CORE_EXECUTION", stateKey, payload);
     setText("core-programming-feedback", "Saved locally. Account sync will activate after migration 012 is applied.");
     setText("core-today-feedback", "Saved on this device. Account sync is temporarily unavailable.");
@@ -13041,7 +13072,8 @@ async function persistNutritionState(stateType, stateKey, payload) {
     markContinuityRecordSynced("nutrition", stateType, stateKey, payload);
     if (stateType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
     return true;
-  } catch (_) {
+  } catch (error) {
+    logAccountPersistenceFailure("fuel", stateType, stateKey, error);
     if (stateType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
     return false;
   }

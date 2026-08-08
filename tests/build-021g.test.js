@@ -24,7 +24,7 @@ assert.match(app, /DominionContractAutosave\.enqueue\(recruitContractAutosavePro
 assert.match(app, /function saveRecruitContractDraftForNavigation/);
 assert.doesNotMatch(app, /await recruitContractAutosavePromise/);
 assert.match(app, /Account sync is pending; Continue is available/);
-assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|(?:023[abcdef]|024[abcdefg]))-v1/);
+assert.match(worker, /coach-dominion-(?:021[a-o]|022[a-g]|(?:023[abcdef]|024[abcdefgh]))-v1/);
 assert.match(worker, /contract-autosave\.js/);
 assert.match(packageJson, /node tests\/contract-autosave\.test\.js/);
 assert.match(packageJson, /node tests\/build-021g\.test\.js/);

@@ -47,12 +47,12 @@ test("023E adds account-backed preferences and a compact meal record", () => {
 test("023E is responsive and rotates all mutable release assets", () => {
   assert.match(css, /Build 023E: Precision Meal Execution/);
   assert.match(css, /\.meal-component-grid/);
-  assert.match(html, /styles\.css\?v=(?:023[ef]|024[abcdefghij])/);
-  assert.match(html, /meal-execution\.js\?v=(?:023[ef]|024[abcdefghij])/);
-  assert.match(html, /fuel-command\.js\?v=(?:023[ef]|024[abcdefghij])/);
-  assert.match(html, /app\.js\?v=(?:023[ef]|024[abcdefghij])/);
-  assert.match(worker, /coach-dominion-(?:023[ef]|024[abcdefghij])-v1/);
-  assert.match(worker, /meal-execution\.js\?v=(?:023[ef]|024[abcdefghij])/);
+  assert.match(html, /styles\.css\?v=(?:023[ef]|024[abcdefghijk])/);
+  assert.match(html, /meal-execution\.js\?v=(?:023[ef]|024[abcdefghijk])/);
+  assert.match(html, /fuel-command\.js\?v=(?:023[ef]|024[abcdefghijk])/);
+  assert.match(html, /app\.js\?v=(?:023[ef]|024[abcdefghijk])/);
+  assert.match(worker, /coach-dominion-(?:023[ef]|024[abcdefghijk])-v1/);
+  assert.match(worker, /meal-execution\.js\?v=(?:023[ef]|024[abcdefghijk])/);
 });
 
 console.log("Build 023E Precision Meal Execution integration verified.");

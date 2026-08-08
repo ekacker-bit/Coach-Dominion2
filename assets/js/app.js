@@ -5210,7 +5210,9 @@ function readUnifiedWeekDraft() {
 
 function readUnifiedWeekHistory() {
   const history = readWeeklyOrchestrationState("HISTORY", "current", []);
-  return Array.isArray(history) ? history : [];
+  return Array.isArray(history)
+    ? history.filter((item) => item && typeof item === "object" && item.weekStart && item.weekEnd)
+    : [];
 }
 
 function readCommittedUnifiedWeek(value = todayISODate()) {
@@ -7223,6 +7225,7 @@ async function approveAtlasProgram() {
   const { candidates, nutritionHistory, weekDraft, preflight, approvedAt } = transaction;
   const snapshot = snapshotAtlasActivationState(weekDraft.weekStart);
   const previousNutritionDraft = nutritionBaselineDraft;
+  let activationPhase = "SAVE_DEVICE_PLANS";
   try {
     if (candidates.strength) saveStrengthStateLocal("PLAN", "current", candidates.strength);
     if (candidates.running) saveRunningBlockLocal("active", candidates.running);
@@ -7233,6 +7236,7 @@ async function approveAtlasProgram() {
     window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(nutritionHistory));
     saveWeeklyOrchestrationLocal("DRAFT", "current", weekDraft);
 
+    activationPhase = "SYNC_ACCOUNT_PLANS";
     const writes = [];
     if (candidates.strength) writes.push({ domain: "strength", promise: persistStrengthTrainingState("PLAN", "current", candidates.strength) });
     if (candidates.running) writes.push({ domain: "cardio", promise: persistRunningState("PLAN", "active", candidates.running) });
@@ -7249,9 +7253,11 @@ async function approveAtlasProgram() {
         pendingDomains: syncSummary.pendingDomains
       });
     }
+    activationPhase = "COMMIT_VERIFIED_CALENDAR";
     const week = await commitUnifiedWeekDraft({ activationPreflight: preflight });
     if (!week) throw new Error("The coordinated week could not be committed.");
 
+    activationPhase = "SAVE_ACTIVATION_RECEIPT";
     let activationReceipt = DominionAtlasActivation.buildReceipt({
       contract,
       candidates,
@@ -7294,6 +7300,7 @@ async function approveAtlasProgram() {
       saveWeeklyOrchestrationLocal("WEEK", week.weekStart, activatedWeek);
       saveWeeklyOrchestrationLocal("HISTORY", "current", activatedHistory);
     }
+    activationPhase = "FINALIZE_ACTIVE_PROGRAM";
     if (candidates.strength) await clearStrengthTrainingState("DRAFT", "current");
     if (candidates.running) {
       window.localStorage.removeItem(runningBlockStorageKey("draft"));
@@ -7309,6 +7316,10 @@ async function approveAtlasProgram() {
     renderDailyAssignment();
     return receipt;
   } catch (error) {
+    console.error("[atlas:activation-failed] Program activation rolled back safely.", {
+      phase: activationPhase,
+      message: error?.message || "Unknown activation error"
+    });
     restoreAtlasActivationState(snapshot);
     nutritionBaselineDraft = previousNutritionDraft;
     renderContractActivation();

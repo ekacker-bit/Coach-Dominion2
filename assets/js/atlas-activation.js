@@ -1,3 +1,4 @@
+
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -5,7 +6,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024H.1";
+  const VERSION = "024I.1";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -66,6 +67,20 @@
       savedCount: normalized.filter((entry) => entry.saved).length,
       totalCount: normalized.length
     };
+  }
+
+  function canCommitCalendarFromPreflight(preflight = null, context = {}) {
+    const contract = context.contract || null;
+    const weekDraft = context.weekDraft || null;
+    return Boolean(
+      preflight?.status === "READY_TO_ACTIVATE"
+      && contract?.id
+      && preflight.contractId === contract.id
+      && Number(preflight.contractRevision || 0) === Number(contract.revision || 0)
+      && weekDraft?.status === "DRAFT"
+      && weekDraft.approvalBlocked !== true
+      && preflight.weekStart === weekDraft.weekStart
+    );
   }
 
   function blocker(code, title, detail, action, options = {}) {
@@ -219,5 +234,5 @@
     };
   }
 
-  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
+  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, canCommitCalendarFromPreflight, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
 });

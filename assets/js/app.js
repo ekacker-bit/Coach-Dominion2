@@ -5215,6 +5215,29 @@ function readUnifiedWeekHistory() {
     : [];
 }
 
+function refreshProgramActivationSurfaces() {
+  const renderers = [
+    ["calendar", renderWeeklyOrchestrator],
+    ["Contract activation", renderContractActivation],
+    ["Contract", renderRecruitContract],
+    ["Today week", renderTodayCommittedWeek],
+    ["Today command", renderTodayCommandSurface],
+    ["daily assignment", renderDailyAssignment],
+    ["Train", renderPerformanceSection],
+    ["Core", renderCoreProgramming],
+    ["Fuel", renderNutritionCommand]
+  ];
+  renderers.forEach(([surface, renderer]) => {
+    try { renderer(); }
+    catch (error) {
+      console.error("[atlas:render] Active program saved; one surface will recover on reload.", {
+        surface,
+        message: error?.message || "Render unavailable"
+      });
+    }
+  });
+}
+
 function readCommittedUnifiedWeek(value = todayISODate()) {
   if (typeof DominionWeeklyOrchestrator === "undefined") return null;
   return DominionWeeklyOrchestrator.weekForDate(readUnifiedWeekHistory(), value);
@@ -5529,12 +5552,7 @@ async function commitUnifiedWeekDraft(options = {}) {
   await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory);
   await persistStrengthTrainingState("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
   await clearWeeklyOrchestrationDraft();
-  renderWeeklyOrchestrator();
-  renderContractActivation();
-  renderTodayCommittedWeek();
-  renderTodayCommandSurface();
-  renderDailyAssignment();
-  renderCoreProgramming();
+  if (!options.deferRender) refreshProgramActivationSurfaces();
   const message = `Week ${approved.weekStart} committed as revision ${approved.revision}${synced ? " and saved to your account" : " on this device"}. Today will activate it on schedule.`;
   setText("weekly-orchestrator-feedback", message);
   setText("contract-activation-feedback", message);
@@ -7254,7 +7272,7 @@ async function approveAtlasProgram() {
       });
     }
     activationPhase = "COMMIT_VERIFIED_CALENDAR";
-    const week = await commitUnifiedWeekDraft({ activationPreflight: preflight });
+    const week = await commitUnifiedWeekDraft({ activationPreflight: preflight, deferRender: true });
     if (!week) throw new Error("The coordinated week could not be committed.");
 
     activationPhase = "SAVE_ACTIVATION_RECEIPT";
@@ -7309,11 +7327,7 @@ async function approveAtlasProgram() {
     window.localStorage.removeItem(atlasProgramStorageKey("draft"));
     nutritionBaselineDraft = null;
     try { await attachContractHandoffReceipt(contract, null); } catch (_) {}
-    renderRecruitContract();
-    renderPerformanceSection();
-    renderNutritionCommand();
-    renderTodayCommandSurface();
-    renderDailyAssignment();
+    refreshProgramActivationSurfaces();
     return receipt;
   } catch (error) {
     console.error("[atlas:activation-failed] Program activation rolled back safely.", {

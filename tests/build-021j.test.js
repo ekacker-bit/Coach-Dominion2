@@ -1,3 +1,4 @@
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -16,8 +17,8 @@ assert.match(appHtml, /data-trend-view="body"/);
 assert.match(appHtml, /id="trend-kpi-grid"/);
 assert.match(appHtml, /id="trend-evidence-ring"/);
 assert.match(appHtml, /trends-intelligence\.js\?v=021m/);
-assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefgh]))/);
-assert.match(appHtml, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefgh]))/);
+assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghi]))/);
+assert.match(appHtml, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghi]))/);
 assert.doesNotMatch(appHtml, /Atlas Trend Report/);
 
 assert.match(appJs, /DominionTrends\.buildProgramTrendModel/);

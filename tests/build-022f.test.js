@@ -1,3 +1,4 @@
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -15,7 +16,7 @@ const worker = read("sw.js");
 test("022F loads the closeout engine before the ritual and application", () => {
   const closeout = html.indexOf('/assets/js/daily-closeout.js?v=022f');
   const ritualIndex = html.indexOf('/assets/js/daily-ritual.js?v=022f');
-  const application = html.search(/\/assets\/js\/app\.js\?v=(?:022[fg]|(?:023[abcdef]|024[abcdefgh]))/);
+  const application = html.search(/\/assets\/js\/app\.js\?v=(?:022[fg]|(?:023[abcdef]|024[abcdefghi]))/);
   assert.ok(closeout > 0 && ritualIndex > closeout && application > ritualIndex);
   assert.match(html, /id="daily-closeout-form"/);
   assert.match(html, /name="selfReportedSteps"/);
@@ -52,11 +53,11 @@ test("022F is responsive, versioned, and available offline", () => {
   assert.match(css, /\.daily-closeout-panel/);
   assert.match(css, /\.weekly-closeout-evidence/);
   assert.match(css, /@media \(max-width: 720px\)/);
-  assert.match(html, /styles\.css\?v=(?:022[fg]|(?:023[abcdef]|024[abcdefgh]))/);
-  assert.match(worker, /coach-dominion-(?:022[fg]|(?:023[abcdef]|024[abcdefgh]))-v1/);
+  assert.match(html, /styles\.css\?v=(?:022[fg]|(?:023[abcdef]|024[abcdefghi]))/);
+  assert.match(worker, /coach-dominion-(?:022[fg]|(?:023[abcdef]|024[abcdefghi]))-v1/);
   assert.match(worker, /daily-closeout\.js\?v=022f/);
   assert.match(worker, /daily-ritual\.js\?v=022f/);
-  assert.match(worker, /app\.js\?v=(?:022[fg]|(?:023[abcdef]|024[abcdefgh]))/);
+  assert.match(worker, /app\.js\?v=(?:022[fg]|(?:023[abcdef]|024[abcdefghi]))/);
 });
 
 console.log("Build 022F Daily Closeout integration verified.");

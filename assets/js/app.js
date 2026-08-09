@@ -5956,6 +5956,462 @@ function todaySessionExecution(item = {}) {
   };
 }
 
+function missionExecutionStateRecord(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    const execution = readDailyAssignmentExecution();
+    const assignment = buildCurrentDailyAssignment();
+    return assignment?.state === "RECOVERY ONLY" && !DominionMissionExecution.isTerminal(execution?.state)
+      ? { ...execution, state: "PAIN_HOLD", painReported: Boolean(dailyState?.pain) }
+      : execution;
+  }
+  if (code === "RUNNING") {
+    const execution = readRunningExecution();
+    const prescription = currentRunningPrescription();
+    if (!execution && ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(prescription?.status || "").toUpperCase())) {
+      return { state: "PAIN_HOLD", painReported: true };
+    }
+    return execution || { state: "READY" };
+  }
+  if (code === "CORE") {
+    const execution = readCurrentCoreExecution();
+    const prescription = currentCorePrescription();
+    if (!execution && ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(prescription?.status || "").toUpperCase())) {
+      return { state: "PAIN_HOLD", painReported: true };
+    }
+    return execution || { state: "READY" };
+  }
+  return { state: "READY" };
+}
+
+function readMissionExecutionReceipts(date = todayISODate()) {
+  const receipts = readClosedLoopState("EVIDENCE", `mission:${date}`, []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
+function missionExecutionSummary(module = "STRENGTH", execution = {}, prescription = null) {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH" && typeof DominionStrengthTraining !== "undefined") {
+    const snapshot = execution.sessionSnapshot || currentStrengthPrescription() || {};
+    const summary = DominionStrengthTraining.sessionSummary(execution, snapshot);
+    return {
+      setsCompleted: summary.setsCompleted,
+      setsPlanned: summary.setsPlanned,
+      exercisesCompleted: summary.exercisesCompleted,
+      exercisesPlanned: summary.exercisesPlanned,
+      repetitions: Object.values(execution.setLogs || {}).flat().filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP").reduce((total, item) => total + Number(item.reps || 0), 0),
+      volume: summary.volume,
+      durationSeconds: summary.durationMinutes === null ? null : Math.round(Number(summary.durationMinutes || 0) * 60)
+    };
+  }
+  if (code === "RUNNING") {
+    const segments = execution.segments || [];
+    return {
+      segmentsCompleted: segments.filter((item) => item.state === "COMPLETE").length,
+      segmentsPlanned: segments.length,
+      distance: Number(execution.session?.distance || prescription?.session?.distance || 0),
+      distanceUnit: execution.session?.unit || prescription?.session?.unit || "mi",
+      durationSeconds: Number(execution.durationSeconds || DominionMissionExecution.runningDurationSeconds(execution))
+    };
+  }
+  if (code === "CORE") {
+    const exercises = prescription?.exercises || [];
+    return {
+      exercisesCompleted: Object.values(execution.completedExercises || {}).filter(Boolean).length,
+      exercisesPlanned: exercises.length,
+      quality: execution.quality || null,
+      effort: execution.effort || null
+    };
+  }
+  return {};
+}
+
+async function saveMissionPerformanceEvidence(receipt, item = {}, execution = {}) {
+  if (!receipt || !["COMPLETE", "PARTIAL"].includes(receipt.state)) return false;
+  const module = receipt.module;
+  let entry = null;
+  if (module === "STRENGTH" && Number(receipt.summary?.setsCompleted || 0) > 0 && Number(receipt.summary?.repetitions || 0) > 0) {
+    const workLogs = Object.values(execution.setLogs || {}).flat().filter((log) => String(log.kind || "WORK").toUpperCase() !== "WARMUP");
+    entry = {
+      performanceDate: receipt.date,
+      domain: "strength",
+      entryType: "WORKOUT_SUMMARY",
+      activityCode: "mission_strength",
+      activityName: item.title || execution.sessionName || "Strength session",
+      sessionName: execution.sessionName || item.title || "Mission strength",
+      source: "COACH_DOMINION",
+      evidenceStatus: "SELF REPORTED",
+      metrics: {
+        sets: receipt.summary.setsCompleted,
+        repetitions: receipt.summary.repetitions,
+        weight: Math.max(0, ...workLogs.map((log) => Number(log.load || 0))),
+        weight_unit: execution.sessionSnapshot?.exercises?.[0]?.unit || "lb",
+        duration_seconds: receipt.summary.durationSeconds || undefined
+      },
+      notes: `Mission Execution receipt ${receipt.id}. ${receipt.state}.`
+    };
+  }
+  if (module === "RUNNING" && Number(receipt.summary?.distance || 0) > 0) {
+    entry = {
+      performanceDate: receipt.date,
+      domain: "running",
+      entryType: "WORKOUT_SUMMARY",
+      activityCode: String(execution.session?.type || "run").toLowerCase(),
+      activityName: item.title || execution.session?.title || "Run session",
+      sessionName: item.title || execution.session?.title || "Mission run",
+      source: "COACH_DOMINION",
+      evidenceStatus: "SELF REPORTED",
+      metrics: {
+        distance: receipt.summary.distance,
+        distance_unit: receipt.summary.distanceUnit,
+        duration_seconds: receipt.summary.durationSeconds > 0 ? receipt.summary.durationSeconds : undefined,
+        run_type: execution.session?.type || null
+      },
+      notes: `Mission Execution receipt ${receipt.id}. ${receipt.state}.`
+    };
+  }
+  if (!entry) return false;
+  const validation = validatePerformanceEntry(entry);
+  if (!validation.valid) return false;
+  const validEntry = validation.entry;
+  const payload = buildPerformancePersistencePayload(validEntry, session?.user?.id || null);
+  syncFitnessAnalyticState(validEntry, null, null);
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("performance_entries").upsert(payload, { onConflict: "id" }).select("*").single();
+    if (error) throw error;
+    const saved = hydratePerformanceEntry(data || payload);
+    performanceEntries = [saved, ...performanceEntries.filter((entryItem) => entryItem.id !== saved.id)];
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+  } catch (_) {
+    const saved = hydratePerformanceEntry(payload);
+    performanceEntries = [saved, ...performanceEntries.filter((entryItem) => entryItem.id !== saved.id)];
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+  }
+  saveLocalPerformanceEntries(performanceEntries);
+  return true;
+}
+
+async function saveMissionExecutionReceipt(module, execution, item = {}, prescription = null) {
+  if (typeof DominionMissionExecution === "undefined" || !execution) return null;
+  const receipt = DominionMissionExecution.buildEvidenceReceipt({
+    date: todayISODate(),
+    module,
+    execution,
+    windowLabel: item.windowLabel || item.sessionLabel || "TODAY",
+    summary: missionExecutionSummary(module, execution, prescription)
+  });
+  const receipts = [receipt, ...readMissionExecutionReceipts().filter((saved) => saved.id !== receipt.id)]
+    .sort((left, right) => String(right.completedAt || "").localeCompare(String(left.completedAt || "")));
+  saveClosedLoopLocal("EVIDENCE", `mission:${todayISODate()}`, receipts);
+  const synced = await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
+  await saveMissionPerformanceEvidence(receipt, item, execution);
+  setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
+  return receipt;
+}
+
+function buildCurrentMissionCockpit() {
+  if (typeof DominionMissionExecution === "undefined") return null;
+  const day = readCommittedUnifiedDay();
+  return DominionMissionExecution.buildCockpit({
+    date: todayISODate(),
+    day: day || {},
+    readinessComplete: dailyState?.date === todayISODate(),
+    splitGate: day?.twoADay ? currentSplitDayCommand(day) : { allowed: true, status: "NOT_REQUIRED", blockers: [] },
+    records: {
+      STRENGTH: missionExecutionStateRecord("STRENGTH"),
+      RUNNING: missionExecutionStateRecord("RUNNING"),
+      CORE: missionExecutionStateRecord("CORE")
+    }
+  });
+}
+
+function missionExecutionTone(state = "READY") {
+  if (state === "COMPLETE") return "green";
+  if (state === "SAFETY_HOLD") return "red";
+  if (state === "IN_PROGRESS") return "yellow";
+  return "neutral";
+}
+
+function missionSessionMetrics(sessionModel = {}) {
+  const module = sessionModel.module;
+  const execution = sessionModel.record || {};
+  if (module === "STRENGTH") {
+    const prescription = execution.sessionSnapshot || currentStrengthPrescription() || {};
+    const planned = DominionStrengthTraining.plannedSetCount(prescription);
+    const completed = DominionStrengthTraining.completedSetCount(execution);
+    const assignment = buildCurrentDailyAssignment();
+    const activeExercise = assignment?.exercises?.find((exercise) => !execution.skipped?.[exercise.id] && strengthWorkLogs(execution, exercise.id).length < exercise.sets);
+    return {
+      primary: `${completed}/${planned} sets`,
+      secondary: activeExercise ? `Next: ${activeExercise.name}` : planned ? "Review the session" : `${assignment?.exercises?.length || 0} movements`,
+      restUntil: execution.restUntil || null,
+      advanceLabel: "Log next set",
+      advanceEnabled: sessionModel.state === "IN_PROGRESS"
+    };
+  }
+  if (module === "RUNNING") {
+    const segments = execution.segments || [];
+    const active = DominionMissionExecution.activeRunningSegment(execution);
+    return {
+      primary: segments.length ? `${segments.filter((item) => item.state === "COMPLETE").length}/${segments.length} steps` : `${execution.session?.distance || currentRunningPrescription()?.session?.distance || "-"} ${execution.session?.unit || currentRunningPrescription()?.session?.unit || ""}`.trim(),
+      secondary: active?.title || (sessionModel.state === "REVIEW" ? "Review the run" : "Follow the prescribed run"),
+      restUntil: null,
+      advanceLabel: active?.kind === "RECOVER" ? "Recovery done" : "Complete step",
+      advanceEnabled: sessionModel.state === "IN_PROGRESS" && Boolean(active)
+    };
+  }
+  if (module === "CORE") {
+    const prescription = currentCorePrescription();
+    const exercises = prescription?.exercises || [];
+    const complete = Object.values(execution.completedExercises || {}).filter(Boolean).length;
+    const active = exercises.find((exercise) => !execution.completedExercises?.[exercise.id]);
+    return {
+      primary: `${complete}/${exercises.length} movements`,
+      secondary: active ? `Next: ${active.name}` : exercises.length ? "Ready to finish" : "Core prescription unavailable",
+      restUntil: null,
+      advanceLabel: "Complete movement",
+      advanceEnabled: sessionModel.state === "IN_PROGRESS" && Boolean(active)
+    };
+  }
+  return { primary: sessionModel.state, secondary: sessionModel.title, advanceEnabled: false };
+}
+
+function renderMissionExecution() {
+  const section = document.getElementById("mission-execution");
+  const panel = document.getElementById("mission-execution-panel");
+  const badge = document.getElementById("mission-execution-state");
+  if (!section || !panel || !badge || typeof DominionMissionExecution === "undefined") return;
+  const model = buildCurrentMissionCockpit();
+  if (!model) return;
+  section.dataset.missionState = model.state;
+  badge.textContent = model.state.replaceAll("_", " ");
+  badge.className = `state-pill ${missionExecutionTone(model.state)}`;
+  const receipts = readMissionExecutionReceipts();
+  const windows = model.windows.map((window) => {
+    const locked = window.sessions.some((sessionModel) => sessionModel.locked);
+    const status = window.complete ? "COMPLETE" : locked ? "LOCKED" : window.active ? "LIVE" : window.held ? "PROTECTED" : "READY";
+    return `<article class="mission-window ${status.toLowerCase()}">
+      <header><span>${escapeHtml(window.label)}</span><strong>${escapeHtml(status)}</strong></header>
+      ${window.sessions.map((sessionModel) => `<div><span>${escapeHtml(sessionModel.module === "RUNNING" ? "CARDIO" : sessionModel.module)}</span><strong>${escapeHtml(sessionModel.title)}</strong><small>${sessionModel.estimatedMinutes ? `${sessionModel.estimatedMinutes} min` : escapeHtml(sessionModel.type.replaceAll("_", " "))}</small></div>`).join("")}
+    </article>`;
+  }).join("");
+  const current = model.current;
+  const metrics = current ? missionSessionMetrics(current) : null;
+  const isReview = current?.state === "REVIEW";
+  const allCoreComplete = current?.module === "CORE" && metrics && !metrics.advanceEnabled && current.state === "IN_PROGRESS";
+  const liveControls = current?.active ? `<div class="mission-live-controls">
+    ${metrics?.advanceEnabled ? `<button type="button" data-mission-action="advance" data-mission-module="${escapeHtml(current.module)}">${escapeHtml(metrics.advanceLabel)}</button>` : ""}
+    ${["STRENGTH", "RUNNING"].includes(current.module) && current.state === "IN_PROGRESS" ? `<button type="button" class="ghost" data-mission-action="pause" data-mission-module="${escapeHtml(current.module)}">Pause</button>` : ""}
+    ${current.state !== "REVIEW" ? `<button type="button" class="ghost" data-mission-action="finish" data-mission-module="${escapeHtml(current.module)}" ${current.module === "CORE" && !allCoreComplete ? "disabled" : ""}>Finish session</button>` : ""}
+    <button type="button" class="ghost danger-action" data-mission-action="pain" data-mission-module="${escapeHtml(current.module)}">Report pain</button>
+  </div>` : "";
+  const reviewFields = isReview ? `<div class="mission-review-fields">
+    <label>Session note <input data-mission-review-notes maxlength="280" placeholder="Optional context"></label>
+  </div>` : current?.module === "CORE" && allCoreComplete ? `<div class="mission-review-fields core">
+    <label>Quality <select data-mission-core-quality><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label>
+    <label>Effort <input data-mission-core-effort type="number" min="1" max="10" value="7"></label>
+  </div>` : "";
+  const player = current ? `<article class="mission-player ${escapeHtml(current.state.toLowerCase())}">
+    <div class="mission-player-order"><span>${escapeHtml(current.windowLabel)}</span><small>${escapeHtml(current.module === "RUNNING" ? "CARDIO" : current.module)}</small></div>
+    <div class="mission-player-command"><span>${current.active ? "LIVE ORDER" : current.locked ? "WAIT" : current.held ? "SAFETY" : "NEXT ORDER"}</span><h3>${escapeHtml(current.title)}</h3><p>${escapeHtml(model.primary.detail)}</p></div>
+    <div class="mission-player-metrics"><div><span>Progress</span><strong>${escapeHtml(metrics?.primary || current.state)}</strong></div><div><span>Now</span><strong>${escapeHtml(metrics?.secondary || current.title)}</strong></div>${metrics?.restUntil ? `<div><span>Rest</span><strong data-strength-rest-until="${escapeHtml(metrics.restUntil)}">--</strong></div>` : ""}</div>
+    ${reviewFields}
+    <div class="mission-primary-actions">
+      <button type="button" data-mission-action="primary" data-mission-code="${escapeHtml(model.primary.code)}" data-mission-module="${escapeHtml(model.primary.module || current.module)}" ${model.primary.code === "COMPLETE" ? "disabled" : ""}>${escapeHtml(model.primary.label)}</button>
+      <button type="button" class="ghost" data-mission-action="open" data-mission-module="${escapeHtml(current.module)}">Open details</button>
+    </div>
+    ${liveControls}
+  </article>` : `<article class="mission-player empty"><div><span class="kicker">${model.complete ? "MISSION COMPLETE" : "CALENDAR REQUIRED"}</span><h3>${model.complete ? "Today's work is secured" : "No executable training order"}</h3><p>${escapeHtml(model.primary.detail)}</p></div><button type="button" data-mission-action="primary" data-mission-code="${escapeHtml(model.primary.code)}">${escapeHtml(model.primary.label)}</button></article>`;
+  panel.innerHTML = `<div class="mission-progress"><span style="width:${model.percent}%"></span></div>
+    <div class="mission-window-grid">${windows || `<article class="mission-window ready"><header><span>TODAY</span><strong>NO ORDER</strong></header></article>`}</div>
+    ${player}
+    <footer class="mission-evidence-strip"><div><span>Session evidence</span><strong>${model.completed}/${model.total || 0} secured</strong></div><div><span>Account receipts</span><strong>${receipts.length}</strong></div><small>Sets, intervals, substitutions, safety changes, and finish state are saved once from this cockpit.</small></footer>`;
+  startStrengthRestCountdown();
+}
+
+function openMissionSessionDetails(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    const detail = document.querySelector(".today-workout-detail");
+    if (detail) detail.open = true;
+    renderDailyAssignment();
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (code === "CORE") {
+    const detail = document.getElementById("today-core-detail");
+    if (detail) detail.open = true;
+    renderCoreToday();
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  setActiveSection("performance");
+  setPerformanceActiveView("running");
+  window.history.replaceState(null, "", "#performance");
+  renderRunningCommand();
+  document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function startMissionSession(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    const assignment = buildCurrentDailyAssignment();
+    let execution = readDailyAssignmentExecution();
+    if (!assignment?.exercises?.length || assignment.state === "RECOVERY ONLY") throw new Error("Strength is not cleared to start.");
+    execution = execution.state === "PAUSED"
+      ? DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString())
+      : DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
+    await saveDailyAssignmentExecution(execution);
+  } else if (code === "RUNNING") {
+    const prescription = currentRunningPrescription();
+    if (!prescription?.session || ["PAIN_HOLD", "REST_DAY"].includes(prescription.status)) throw new Error("Running is not cleared to start.");
+    const plan = readApprovedRunningPlan();
+    const execution = {
+      ...DominionMissionExecution.startRunningExecution(prescription, readRunningExecution(), new Date().toISOString()),
+      blockId: plan?.blockId || null,
+      blockRevision: plan?.blockRevision || null,
+      weekStart: plan?.weekStart || null
+    };
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+  } else if (code === "CORE") {
+    const prescription = currentCorePrescription();
+    const execution = DominionCoreProgramming.startExecution(prescription, new Date().toISOString());
+    if (!execution) throw new Error("Core is not cleared to start.");
+    saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+    await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+  }
+  setText("mission-execution-feedback", `${code === "RUNNING" ? "Cardio" : code.charAt(0) + code.slice(1).toLowerCase()} started. Follow the live order below.`);
+}
+
+async function resumeMissionSession(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    const execution = DominionStrengthTraining.resumeWorkout(readDailyAssignmentExecution(), new Date().toISOString());
+    await saveDailyAssignmentExecution(execution);
+  } else if (code === "RUNNING") {
+    const execution = DominionMissionExecution.resumeRunningExecution(readRunningExecution() || {}, new Date().toISOString());
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+  }
+}
+
+async function advanceMissionSession(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    openMissionSessionDetails(code);
+    return;
+  }
+  if (code === "RUNNING") {
+    const execution = DominionMissionExecution.completeRunningSegment(readRunningExecution() || {}, null, new Date().toISOString());
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+    setText("mission-execution-feedback", execution.state === "REVIEW" ? "All run steps are complete. Save the session evidence." : "Step complete. The next interval is ready.");
+  }
+  if (code === "CORE") {
+    const prescription = currentCorePrescription();
+    const current = readCurrentCoreExecution() || {};
+    const next = prescription?.exercises?.find((exercise) => !current.completedExercises?.[exercise.id]);
+    if (!next) return;
+    const execution = DominionCoreProgramming.completeExercise(current, next.id);
+    saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+    await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+    setText("mission-execution-feedback", `${next.name} complete.`);
+  }
+}
+
+async function pauseMissionSession(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    await saveDailyAssignmentExecution(DominionStrengthTraining.pauseWorkout(readDailyAssignmentExecution(), new Date().toISOString()));
+  } else if (code === "RUNNING") {
+    const execution = DominionMissionExecution.pauseRunningExecution(readRunningExecution() || {}, new Date().toISOString());
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+  }
+  setText("mission-execution-feedback", "Session paused. Inactive time is excluded.");
+}
+
+async function prepareMissionSessionFinish(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  if (code === "STRENGTH") {
+    await saveDailyAssignmentExecution(DominionStrengthTraining.prepareWorkoutReview(readDailyAssignmentExecution(), new Date().toISOString()));
+  } else if (code === "RUNNING") {
+    const execution = DominionMissionExecution.prepareRunningReview(readRunningExecution() || {}, new Date().toISOString());
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+  } else if (code === "CORE") {
+    const prescription = currentCorePrescription();
+    const quality = document.querySelector("[data-mission-core-quality]")?.value || "CONTROLLED";
+    const effort = Number(document.querySelector("[data-mission-core-effort]")?.value || 7);
+    const result = DominionCoreProgramming.completeSession(readCurrentCoreExecution() || {}, prescription, { quality, effort, completedAt: new Date().toISOString() });
+    if (!result.valid) throw new Error(result.message);
+    const history = [...readCoreHistory().filter((item) => !(item.planId === result.execution.planId && item.date === todayISODate())), result.execution];
+    saveCoreProgramLocal("EXECUTION", todayISODate(), result.execution);
+    saveCoreProgramLocal("HISTORY", "current", history);
+    await persistCoreProgramState("EXECUTION", todayISODate(), result.execution);
+    await persistCoreProgramState("HISTORY", "current", history);
+    await saveCorePerformanceEvidence(prescription, result.execution);
+    await saveMissionExecutionReceipt("CORE", result.execution, buildCurrentMissionCockpit()?.current || {}, prescription);
+  }
+  setText("mission-execution-feedback", code === "CORE" ? "Core complete. Evidence saved automatically." : "Review the completed work, then save one evidence receipt.");
+}
+
+async function finalizeMissionSession(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  const item = buildCurrentMissionCockpit()?.current || {};
+  const notes = document.querySelector("[data-mission-review-notes]")?.value || "";
+  if (code === "STRENGTH") {
+    const execution = DominionStrengthTraining.finishWorkout({ ...readDailyAssignmentExecution(), reviewNotes: notes }, { notes }, new Date().toISOString());
+    await saveDailyAssignmentExecution(execution);
+    await preserveStrengthWorkout(execution);
+    await saveMissionExecutionReceipt(code, execution, item, currentStrengthPrescription());
+  } else if (code === "RUNNING") {
+    const execution = DominionMissionExecution.finishRunningExecution(readRunningExecution() || {}, { notes }, new Date().toISOString());
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+    await saveMissionExecutionReceipt(code, execution, item, currentRunningPrescription());
+  }
+}
+
+async function reportMissionPain(module = "STRENGTH") {
+  const code = String(module || "STRENGTH").toUpperCase();
+  const item = buildCurrentMissionCockpit()?.current || {};
+  if (code === "STRENGTH") {
+    const execution = DominionStrengthTraining.reportPain(readDailyAssignmentExecution(), new Date().toISOString());
+    await saveDailyAssignmentExecution(execution);
+    await preserveStrengthWorkout(execution);
+    await saveMissionExecutionReceipt(code, execution, item, currentStrengthPrescription());
+  } else if (code === "RUNNING") {
+    const execution = DominionMissionExecution.reportRunningPain(readRunningExecution() || {}, new Date().toISOString());
+    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+    await persistRunningState("EXECUTION", todayISODate(), execution);
+    await saveMissionExecutionReceipt(code, execution, item, currentRunningPrescription());
+  } else if (code === "CORE") {
+    const current = readCurrentCoreExecution() || { planId: currentCorePrescription()?.planId, sessionId: currentCorePrescription()?.session?.id, date: todayISODate(), completedExercises: {} };
+    const execution = DominionCoreProgramming.reportPain(current, new Date().toISOString());
+    const history = [...readCoreHistory().filter((saved) => !(saved.planId === execution.planId && saved.date === todayISODate())), execution];
+    saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
+    saveCoreProgramLocal("HISTORY", "current", history);
+    await persistCoreProgramState("EXECUTION", todayISODate(), execution);
+    await persistCoreProgramState("HISTORY", "current", history);
+    await saveMissionExecutionReceipt(code, execution, item, currentCorePrescription());
+  }
+  setText("mission-execution-feedback", "Pain hold saved. Stop the session and update Roll Call before more training.");
+}
+
+function refreshMissionExecutionSurfaces() {
+  renderMissionExecution();
+  renderTodayCommittedWeek();
+  renderDailyAssignment();
+  renderCoreToday();
+  renderRunningCommand();
+  renderDailyCoachingLoop();
+}
+
 function recruitContractGoalLabel(value = "") {
   return {
     BALANCED_FITNESS: "Balanced fitness",
@@ -8731,6 +9187,7 @@ function renderMobileCommand() {
     if (isActive) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
+  renderMissionExecution();
   renderDominionExperienceShell();
 }
 
@@ -8808,13 +9265,10 @@ async function launchMobileModule(module = "strength") {
     if (prescription?.session && !["PAIN_HOLD", "REST_DAY"].includes(prescription.status) && execution?.state !== "IN_PROGRESS" && execution?.state !== "COMPLETE") {
       const plan = readApprovedRunningPlan();
       execution = {
-        state: "IN_PROGRESS",
-        date: todayISODate(),
+        ...DominionMissionExecution.startRunningExecution(prescription, execution, new Date().toISOString()),
         blockId: plan?.blockId || null,
         blockRevision: plan?.blockRevision || null,
-        weekStart: plan?.weekStart || null,
-        session: prescription.session,
-        startedAt: new Date().toISOString()
+        weekStart: plan?.weekStart || null
       };
       window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
       const synced = await persistRunningState("EXECUTION", todayISODate(), execution);
@@ -9588,7 +10042,8 @@ async function loadClosedLoopState() {
       ["ADAPTATION", "outcome-plan-current"],
       ["HISTORY", "outcome-plan"],
       ["CLOSEOUT", todayISODate()],
-      ["HISTORY", "daily-closeout"]
+      ["HISTORY", "daily-closeout"],
+      ["EVIDENCE", `mission:${todayISODate()}`]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -15033,6 +15488,42 @@ if (typeof document !== "undefined") {
       window.history.replaceState(null, "", "#today");
     }
   });
+  document.getElementById("mission-execution")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-mission-action]");
+    if (!button) return;
+    const action = button.dataset.missionAction;
+    const code = button.dataset.missionCode || action;
+    const module = button.dataset.missionModule || buildCurrentMissionCockpit()?.current?.module || "STRENGTH";
+    button.disabled = true;
+    try {
+      if (action === "open") openMissionSessionDetails(module);
+      if (action === "advance") await advanceMissionSession(module);
+      if (action === "pause") await pauseMissionSession(module);
+      if (action === "finish") await prepareMissionSessionFinish(module);
+      if (action === "pain") await reportMissionPain(module);
+      if (action === "primary") {
+        if (code === "ROLL_CALL") openMobileCommandSheet("roll-call");
+        if (code === "OPEN_CALENDAR") {
+          setActiveSection("calendar");
+          window.history.replaceState(null, "", "#calendar");
+        }
+        if (code === "CHECKPOINT") {
+          document.querySelector("[data-split-day-checkpoint]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        if (code === "SAFETY") openMobileCommandSheet("roll-call");
+        if (code === "START") await startMissionSession(module);
+        if (code === "RESUME") await resumeMissionSession(module);
+        if (code === "OPEN") openMissionSessionDetails(module);
+        if (code === "FINALIZE") await finalizeMissionSession(module);
+      }
+      refreshMissionExecutionSurfaces();
+    } catch (error) {
+      setText("mission-execution-feedback", error?.message || "The mission action could not be completed.");
+      renderMissionExecution();
+    } finally {
+      button.disabled = false;
+    }
+  });
   document.getElementById("trends")?.addEventListener("click", async (event) => {
     if (await handleObservationVerdictAction(event)) return;
     if (await handleProgressReviewAction(event)) return;
@@ -16127,6 +16618,7 @@ if (typeof document !== "undefined") {
       saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
       await persistCoreProgramState("EXECUTION", todayISODate(), execution);
       renderCoreProgramming();
+      renderMissionExecution();
       setText("core-programming-feedback", "Core session started. Complete each movement with controlled, pain-free technique.");
       setText("core-today-feedback", "Session started. Complete each movement, then close the session.");
       return;
@@ -16137,6 +16629,7 @@ if (typeof document !== "undefined") {
       saveCoreProgramLocal("EXECUTION", todayISODate(), execution);
       await persistCoreProgramState("EXECUTION", todayISODate(), execution);
       renderCoreProgramming();
+      renderMissionExecution();
       return;
     }
     if (action === "report-pain") {
@@ -16153,7 +16646,9 @@ if (typeof document !== "undefined") {
       saveCoreProgramLocal("HISTORY", "current", history);
       await persistCoreProgramState("EXECUTION", todayISODate(), execution);
       await persistCoreProgramState("HISTORY", "current", history);
+      await saveMissionExecutionReceipt("CORE", execution, buildCurrentMissionCockpit()?.current || {}, prescription);
       renderCoreProgramming();
+      renderMissionExecution();
       setText("core-programming-feedback", "Pain hold recorded. Today's session is closed and progression is blocked pending symptom resolution.");
       setText("core-today-feedback", "Stop the session. Pain hold recorded; do not train through symptoms.");
       return;
@@ -16178,10 +16673,12 @@ if (typeof document !== "undefined") {
       await persistCoreProgramState("EXECUTION", todayISODate(), result.execution);
       await persistCoreProgramState("HISTORY", "current", history);
       await saveCorePerformanceEvidence(prescription, result.execution);
+      await saveMissionExecutionReceipt("CORE", result.execution, buildCurrentMissionCockpit()?.current || {}, prescription);
       renderPerformanceSection();
       renderTodayCommittedWeek();
-      setText("core-programming-feedback", `${result.message} Performance evidence was added automatically.`);
-      setText("core-today-feedback", `${result.message} Performance evidence was added automatically.`);
+      renderMissionExecution();
+      setText("core-programming-feedback", `${result.message} Performance evidence and the Mission receipt were added automatically.`);
+      setText("core-today-feedback", `${result.message} Performance evidence and the Mission receipt were added automatically.`);
     }
   });
   document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
@@ -16295,32 +16792,40 @@ if (typeof document !== "undefined") {
       const prescription = DominionRunning.buildDailyRunPrescription(plan || {}, { today: todayISODate(), readiness: dailyState || {} });
       if (!prescription.session || prescription.status === "PAIN_HOLD") return;
       const state = {
-        state: "IN_PROGRESS",
-        date: todayISODate(),
+        ...DominionMissionExecution.startRunningExecution(prescription, readRunningExecution(), new Date().toISOString()),
         blockId: plan?.blockId || null,
         blockRevision: plan?.blockRevision || null,
-        weekStart: plan?.weekStart || null,
-        session: prescription.session,
-        startedAt: new Date().toISOString()
+        weekStart: plan?.weekStart || null
       };
       window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
       await persistRunningState("EXECUTION", todayISODate(), state);
       renderRunningCommand();
-      setText("running-command-feedback", "Run started. Follow the prescribed steps and stop if pain develops.");
+      renderMissionExecution();
+      setText("running-command-feedback", "Run started. Mission Execution is tracking each step and active time.");
     }
     if (button.dataset.runningAction === "complete-run") {
       const current = readRunningExecution() || {};
-      const state = { ...current, state: "COMPLETE", completedAt: new Date().toISOString() };
+      const reviewed = DominionMissionExecution.completeAllRunningSegments(current, new Date().toISOString());
+      const state = DominionMissionExecution.finishRunningExecution(reviewed, {}, new Date().toISOString());
       window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
       await persistRunningState("EXECUTION", todayISODate(), state);
+      await saveMissionExecutionReceipt("RUNNING", state, buildCurrentMissionCockpit()?.current || {}, currentRunningPrescription());
       renderRunningCommand();
       renderTodayCommittedWeek();
-      setText("running-command-feedback", "Run marked complete. Imported or manual evidence will reconcile separately.");
+      renderMissionExecution();
+      setText("running-command-feedback", "Run complete. A Mission Execution receipt and Performance entry were saved automatically.");
     }
     if (button.dataset.runningAction === "modify-run") setText("running-command-feedback", "Use the readiness-adjusted easy alternative. The approved weekly plan remains unchanged.");
     if (button.dataset.runningAction === "report-pain") {
-      setText("running-command-feedback", "Stop running and report pain in Morning Roll Call. Running progression is held.");
-      window.location.hash = "today";
+      const current = readRunningExecution();
+      if (current) {
+        const state = DominionMissionExecution.reportRunningPain(current, new Date().toISOString());
+        window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
+        await persistRunningState("EXECUTION", todayISODate(), state);
+        await saveMissionExecutionReceipt("RUNNING", state, buildCurrentMissionCockpit()?.current || {}, currentRunningPrescription());
+      }
+      setText("running-command-feedback", "Pain hold saved. Stop running and update Roll Call before more training.");
+      renderMissionExecution();
     }
   });
   document.getElementById("programming-review-panel")?.addEventListener("click", async (event) => {
@@ -16998,18 +17503,21 @@ if (typeof document !== "undefined") {
       execution = DominionStrengthTraining.finishWorkout({ ...execution, reviewNotes: notes }, { notes }, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
-      setText("daily-assignment-feedback", execution.state === "COMPLETE" ? "Workout complete. The session summary is saved to your account." : "Workout preserved as partial. Completed work, skipped exercises, and the remaining gap are all retained.");
+      await saveMissionExecutionReceipt("STRENGTH", execution, buildCurrentMissionCockpit()?.current || {}, currentStrengthPrescription());
+      setText("daily-assignment-feedback", execution.state === "COMPLETE" ? "Workout complete. Session evidence was saved automatically." : "Workout preserved as partial. Completed work, skipped exercises, and the remaining gap are all retained.");
     }
     if (action === "stop") {
       execution = DominionStrengthTraining.finishWorkout(execution, { forceStop: true, reason: "Workout stopped by user." }, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
+      await saveMissionExecutionReceipt("STRENGTH", execution, buildCurrentMissionCockpit()?.current || {}, currentStrengthPrescription());
       setText("daily-assignment-feedback", "Workout stopped and preserved. No additional progression was authorized.");
     }
     if (action === "pain") {
       execution = DominionStrengthTraining.reportPain(execution, new Date().toISOString());
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
+      await saveMissionExecutionReceipt("STRENGTH", execution, buildCurrentMissionCockpit()?.current || {}, currentStrengthPrescription());
       setText("daily-assignment-feedback", "Workout stopped for pain. Loaded progression is held; update Morning Roll Call before the next session.");
     }
     if (action === "restart") {
@@ -17044,6 +17552,7 @@ if (typeof document !== "undefined") {
     renderDailyCoachingLoop();
     renderProgrammingReview();
     renderTodayCommittedWeek();
+    renderMissionExecution();
   });
   document.getElementById("connected")?.addEventListener("click", async (event) => {
     const viewButton = event.target.closest("button[data-connected-view]");

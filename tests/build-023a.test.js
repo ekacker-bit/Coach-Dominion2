@@ -45,12 +45,12 @@ test("023A keeps approved targets, evidence, timing, and safeguards behind discl
 });
 
 test("023A rotates the mutable shell and caches the Fuel engine", () => {
-  assert.match(html, /styles\.css\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025a))/);
-  assert.match(html, /fuel-command\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025a))/);
-  assert.match(html, /app\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025a))/);
-  assert.match(worker, /coach-dominion-(?:023[abcdef]|(?:024[abcdefghijklmn]|025a))-v1/);
-  assert.match(worker, /fuel-command\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025a))/);
-  assert.match(worker, /app\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025a))/);
+  assert.match(html, /styles\.css\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab]))/);
+  assert.match(html, /fuel-command\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab]))/);
+  assert.match(html, /app\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab]))/);
+  assert.match(worker, /coach-dominion-(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab]))-v1/);
+  assert.match(worker, /fuel-command\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab]))/);
+  assert.match(worker, /app\.js\?v=(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab]))/);
 });
 
 console.log("Build 023A Unified Fuel Command integration verified.");

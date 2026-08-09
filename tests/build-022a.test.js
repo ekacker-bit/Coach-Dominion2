@@ -43,9 +43,9 @@ test("Build 022A is responsive, cached, and versioned", () => {
   assert.match(styles, /@media \(max-width: 720px\)/);
   assert.match(html, /atlas-intervention\.js\?v=022a/);
   assert.match(html, /adaptive-coaching\.js\?v=025a/);
-  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025a)|025a))/);
-  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025a)|025a))/);
-  assert.match(worker, /coach-dominion-(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025a)|025a))-v1/);
+  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab])|025[ab]))/);
+  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab])|025[ab]))/);
+  assert.match(worker, /coach-dominion-(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[ab])|025[ab]))-v1/);
   assert.match(worker, /atlas-intervention\.js\?v=022a/);
 });
 

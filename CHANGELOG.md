@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 025B Mission Execution Mode
+
+- Replaces scattered training launches with one Today cockpit and one dominant Start action.
+- Preserves the committed AM/PM order, keeps the second window behind the existing recovery checkpoint, and treats paired Core work inside its assigned window.
+- Shows live Strength set progress, active exercise, and rest timing without duplicating the detailed set logger.
+- Adds durable Cardio step and interval tracking with pause-safe active time, partial completion, and pain holds.
+- Lets Core movements advance from Today and keeps quality and effort confirmation at session close.
+- Creates one idempotent Mission receipt at finish and automatically writes eligible Strength, Cardio, and Core outcomes into Performance evidence.
+- Keeps substitutions, skipped work, pain changes, and partial finishes attached to the original session instead of asking the recruit to log them again.
+
 ## Unreleased - Build 025A Atlas Adaptive Week
 
 - Opens the next-week coaching review after the current week has produced enough execution and recovery evidence.

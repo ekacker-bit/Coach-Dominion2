@@ -2,6 +2,8 @@
 
 Coach Dominion is a browser-based AI coaching operating system with a disciplined command-center interface. Its current release accepts a daily state report, calculates deterministic readiness, generates a constrained training mission, and presents an Atlas Morning Brief. Readiness and Atlas output are rule-based; the application does not call an LLM.
 
+Build 025A closes the weekly coaching loop. Atlas waits until the current week has enough evidence, compares the committed prescription with execution, readiness, pain, technique, stopped sessions, and Fuel coverage, then issues one bounded next-week call. Material changes require recruit approval; the active week and base plans remain protected until the approved adaptation is committed to the next calendar.
+
 ## Release status
 
 The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Builds 004C through 005D are unreleased work and do not mark Release 0.4 or Release 0.5 complete. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).

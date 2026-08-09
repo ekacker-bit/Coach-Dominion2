@@ -67,11 +67,11 @@ check("Atlas calendar engine", size("assets/js/weekly-orchestrator.js") >= 30000
 check("Atlas calendar integration", html.includes('/assets/js/weekly-orchestrator.js?v=024d') && app.includes('"activate-program"') && app.includes("buildAtlasProgramPreflight"), "024D Atlas calendar handoff is missing");
 check("Atlas repair engine", size("assets/js/atlas-program-repair.js") >= 5000 && read("assets/js/atlas-program-repair.js").includes('const VERSION = "024F.1"'), "024F repair engine appears incomplete");
 check("Atlas repair integration", html.includes('/assets/js/atlas-program-repair.js?v=024f') && html.includes('id="atlas-program-repair-dialog"') && app.includes("openAtlasProgramRepairPreview") && app.includes("repairOnly"), "024F guided repair flow is missing");
-check("stylesheet version", html.includes('/assets/styles.css?v=024n'), "app.html is not using the 024N stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=024n'), "app.html is not using the 024N application");
-check("cache version", worker.includes('coach-dominion-024n-v1'), "service-worker cache was not rotated");
-check("cached stylesheet", worker.includes('/assets/styles.css?v=024n'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=024n'), "service worker is caching the wrong application");
+check("stylesheet version", html.includes('/assets/styles.css?v=025a'), "app.html is not using the 025A stylesheet");
+check("application version", html.includes('/assets/js/app.js?v=025a'), "app.html is not using the 025A application");
+check("cache version", worker.includes('coach-dominion-025a-v1'), "service-worker cache was not rotated");
+check("cached stylesheet", worker.includes('/assets/styles.css?v=025a'), "service worker is caching the wrong stylesheet");
+check("cached application", worker.includes('/assets/js/app.js?v=025a'), "service worker is caching the wrong application");
 check("cached Atlas calendar", worker.includes('/assets/js/weekly-orchestrator.js?v=024d'), "service worker is not caching the Atlas calendar engine");
 check("cached Atlas program", worker.includes('/assets/js/atlas-program.js?v=024f'), "service worker is not caching the Atlas program engine");
 check("cached Atlas repair", worker.includes('/assets/js/atlas-program-repair.js?v=024f'), "service worker is not caching the Atlas repair engine");
@@ -80,6 +80,11 @@ check("cached Program Command", worker.includes('/assets/js/program-command.js?v
 check("Atlas week autopilot engine", size("assets/js/atlas-week-autopilot.js") >= 5000 && read("assets/js/atlas-week-autopilot.js").includes('const VERSION = "024N.1"'), "024N week autopilot engine appears incomplete");
 check("Atlas week autopilot integration", html.includes('/assets/js/atlas-week-autopilot.js?v=024n') && app.includes("runAtlasWeekAutopilot") && app.includes("atlasWeekAutopilot"), "024N week autopilot integration is missing");
 check("cached Atlas week autopilot", worker.includes('/assets/js/atlas-week-autopilot.js?v=024n'), "service worker is not caching the week autopilot engine");
+check("Atlas adaptive week engine", size("assets/js/atlas-adaptive-week.js") >= 12000 && read("assets/js/atlas-adaptive-week.js").includes('const VERSION = "025A.1"'), "025A adaptive-week engine appears incomplete");
+check("Atlas adaptive week integration", html.includes('/assets/js/atlas-adaptive-week.js?v=025a') && app.includes("runAtlasAdaptiveWeek") && app.includes('data-atlas-week-action="approve"'), "025A adaptive-week approval flow is missing");
+check("Atlas adaptive week persistence", app.includes('"atlas-week-current"') && app.includes("saveAtlasAdaptiveWeekRecord"), "025A adaptive-week account continuity is missing");
+check("cached Atlas adaptive week", worker.includes('/assets/js/atlas-adaptive-week.js?v=025a'), "service worker is not caching the adaptive-week engine");
+check("cached adaptive coaching", worker.includes('/assets/js/adaptive-coaching.js?v=025a'), "service worker is not caching the updated adaptive engine");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");
 check("cached fasting protocol", worker.includes('/assets/js/intermittent-fasting.js?v=023d'), "service worker is not caching the fasting protocol engine");
 check("cached fasting execution", worker.includes('/assets/js/fasting-execution.js?v=023d'), "service worker is not caching the fasting execution engine");

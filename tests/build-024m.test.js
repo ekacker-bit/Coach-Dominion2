@@ -10,8 +10,8 @@ const activation = read("assets/js/atlas-activation.js");
 const worker = read("sw.js");
 
 assert.match(html, /atlas-activation\.js\?v=024m/);
-assert.match(html, /app\.js\?v=024[mn]/);
-assert.match(worker, /coach-dominion-024[mn]-v1/);
+assert.match(html, /app\.js\?v=(?:024[mn]|025a)/);
+assert.match(worker, /coach-dominion-(?:024[mn]|025a)-v1/);
 assert.match(activation, /function reconcileNutritionHistoryFromReceipt/);
 assert.match(activation, /approvedBeforeActivation/);
 assert.match(app, /function reconcileAtlasNutritionReceiptState/);

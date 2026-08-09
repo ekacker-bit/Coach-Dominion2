@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025A Atlas Adaptive Week
+
+- Opens the next-week coaching review after the current week has produced enough execution and recovery evidence.
+- Reconciles committed work, Roll Call readiness, pain, technique-limited or stopped sessions, and Fuel coverage into one bounded Atlas call.
+- Proposes protect, deload, rebalance, progress, or hold without mutating the active week or base program.
+- Requires recruit approval before material changes reach the next calendar; keeping the current prescription rolls the week forward unchanged.
+- Applies approved weekly changes to the executable Strength, Cardio, Core, Fuel, and Calendar layers with an auditable decision receipt.
+- Adds a word-light Week Review to Program and an explicit Adapted state to Calendar.
+
 ## Unreleased - Build 024N Atlas Week Autopilot
 
 - Rolls an unchanged active Strength, Cardio, Core, and Fuel program into the next executable week automatically.

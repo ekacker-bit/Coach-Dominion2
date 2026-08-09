@@ -11,10 +11,10 @@ const styles = read("assets/styles.css");
 const worker = read("sw.js");
 const packageJson = read("package.json");
 
-assert.match(html, /styles\.css\?v=024[fn]/);
+assert.match(html, /styles\.css\?v=(?:024[fn]|025a)/);
 assert.match(html, /atlas-program-repair\.js\?v=024f/);
-assert.match(html, /app\.js\?v=024[hijklmn]/);
-assert.match(worker, /coach-dominion-024[hijklmn]-v1/);
+assert.match(html, /app\.js\?v=(?:024[hijklmn]|025a)/);
+assert.match(worker, /coach-dominion-(?:024[hijklmn]|025a)-v1/);
 assert.match(repair, /const VERSION = "024F\.1"/);
 assert.match(repair, /function weekLinkedToContract/);
 assert.match(repair, /function calendarDisposition/);

@@ -8,9 +8,9 @@ const html = read("app.html");
 const app = read("assets/js/app.js");
 const worker = read("sw.js");
 
-assert.match(html, /app\.js\?v=024[jklmn]/);
-assert.match(worker, /coach-dominion-024[jklmn]-v1/);
-assert.match(worker, /app\.js\?v=024[jklmn]/);
+assert.match(html, /app\.js\?v=(?:024[jklmn]|025a)/);
+assert.match(worker, /coach-dominion-(?:024[jklmn]|025a)-v1/);
+assert.match(worker, /app\.js\?v=(?:024[jklmn]|025a)/);
 assert.match(app, /history\.filter\(\(item\) => item && typeof item === "object" && item\.weekStart && item\.weekEnd\)/);
 assert.match(app, /let activationPhase = "SAVE_DEVICE_PLANS"/);
 assert.match(app, /activationPhase = "COMMIT_VERIFIED_CALENDAR"/);

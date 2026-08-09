@@ -66,6 +66,7 @@ let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
+let currentAtlasAdaptiveWeek = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityState = { mode: "CHECKING", initialized: false, accountRevision: 0, manifest: null, accountManifest: null, manifestConflicts: [] };
@@ -5218,6 +5219,7 @@ function readUnifiedWeekHistory() {
 
 function refreshProgramActivationSurfaces() {
   const renderers = [
+    ["Program", renderProgramCommand],
     ["calendar", renderWeeklyOrchestrator],
     ["Contract activation", renderContractActivation],
     ["Contract", renderRecruitContract],
@@ -5544,7 +5546,8 @@ function atlasWeekAutopilotInput(overrides = {}) {
     plans: currentAtlasActivePlans(contract),
     activeWeek,
     futureWeek: overrides.futureWeek === undefined ? readCommittedUnifiedWeekByStart(targetWeekStart) : overrides.futureWeek,
-    draft: overrides.draft === undefined ? readUnifiedWeekDraft() : overrides.draft
+    draft: overrides.draft === undefined ? readUnifiedWeekDraft() : overrides.draft,
+    adaptation: overrides.adaptation === undefined ? buildCurrentAtlasAdaptiveWeek() : overrides.adaptation
   };
 }
 
@@ -5558,12 +5561,19 @@ async function runAtlasWeekAutopilot() {
   if (typeof DominionAtlasWeekAutopilot === "undefined" || typeof DominionWeeklyOrchestrator === "undefined") return null;
   const initialInput = atlasWeekAutopilotInput();
   let model = DominionAtlasWeekAutopilot.buildAutopilot(initialInput);
-  if (["ACTIVATION_REQUIRED", "REVIEW_REQUIRED", "COMMITTED"].includes(model.status)) {
+  if (["ACTIVATION_REQUIRED", "REVIEW_REQUIRED", "ADAPTATION_REVIEW", "MONITORING", "COMMITTED"].includes(model.status)) {
     currentAtlasWeekAutopilot = model;
     return model;
   }
 
   let draft = initialInput.draft?.weekStart === model.targetWeekStart ? initialInput.draft : null;
+  const adaptiveDecision = initialInput.adaptation;
+  if (adaptiveDecision?.status === "APPROVED"
+    && typeof DominionAtlasAdaptiveWeek !== "undefined"
+    && !DominionAtlasAdaptiveWeek.draftMatchesDecision(draft, adaptiveDecision)) {
+    draft = buildUnifiedWeekDraft(model.targetWeekStart);
+    if (draft) draft = DominionAtlasAdaptiveWeek.applyToDraft(draft, adaptiveDecision);
+  }
   if (!draft) draft = buildUnifiedWeekDraft(model.targetWeekStart);
   if (!draft) {
     currentAtlasWeekAutopilot = model;
@@ -5572,14 +5582,15 @@ async function runAtlasWeekAutopilot() {
 
   saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
   await persistWeeklyOrchestrationState("DRAFT", "current", draft);
-  model = DominionAtlasWeekAutopilot.buildAutopilot(atlasWeekAutopilotInput({ draft, futureWeek: null }));
+  model = DominionAtlasWeekAutopilot.buildAutopilot(atlasWeekAutopilotInput({ draft, futureWeek: null, adaptation: adaptiveDecision }));
   currentAtlasWeekAutopilot = model;
   if (model.status !== "READY_TO_COMMIT") return model;
 
-  const approved = await commitUnifiedWeekDraft({ autopilotModel: model, deferRender: true });
+  const approved = await commitUnifiedWeekDraft({ autopilotModel: model, adaptation: adaptiveDecision, deferRender: true });
   currentAtlasWeekAutopilot = DominionAtlasWeekAutopilot.buildAutopilot(atlasWeekAutopilotInput({
     draft: null,
-    futureWeek: approved
+    futureWeek: approved,
+    adaptation: adaptiveDecision
   }));
   return currentAtlasWeekAutopilot;
 }
@@ -5589,8 +5600,9 @@ async function commitUnifiedWeekDraft(options = {}) {
   if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
   const contract = readApprovedRecruitContract();
   const receipt = readAtlasProgramReceipt();
+  const adaptation = options.adaptation || buildCurrentAtlasAdaptiveWeek();
   const autopilotCommit = typeof DominionAtlasWeekAutopilot !== "undefined"
-    && DominionAtlasWeekAutopilot.canAutoCommit(options.autopilotModel, { contract, receipt, draft });
+    && DominionAtlasWeekAutopilot.canAutoCommit(options.autopilotModel, { contract, receipt, draft, adaptation });
   const verifiedPackageCommit = typeof DominionAtlasActivation !== "undefined"
     && DominionAtlasActivation.canCommitCalendarFromPreflight(options.activationPreflight, {
       contract,
@@ -5611,7 +5623,8 @@ async function commitUnifiedWeekDraft(options = {}) {
     atlasWeekAutopilot: DominionAtlasWeekAutopilot.buildCommitReceipt(options.autopilotModel, approvedBase, {
       committedAt: approvedAt,
       contractId: contract?.id || null,
-      contractRevision: contract?.revision || 0
+      contractRevision: contract?.revision || 0,
+      adaptation
     })
   } : approvedBase;
   const nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(history, approved);
@@ -5631,7 +5644,7 @@ async function commitUnifiedWeekDraft(options = {}) {
 }
 
 function weeklyOrchestrationTone(state = "") {
-  if (["ACTIVE", "COMMITTED", "READY", "AUTO-COMMITTED"].includes(state)) return "green";
+  if (["ACTIVE", "COMMITTED", "READY", "AUTO-COMMITTED", "ADAPTED"].includes(state)) return "green";
   if (["DRAFT", "COMPLETED", "ACTION_REQUIRED"].includes(state)) return "yellow";
   if (["BLOCKED", "REPLACED"].includes(state)) return "red";
   return "neutral";
@@ -5702,8 +5715,10 @@ function renderWeeklyOrchestrator() {
   const preview = savedDraft || future || buildUnifiedWeekDraft(targetWeekStart);
   if (!preview) return;
   const autopilot = buildCurrentAtlasWeekAutopilot({ draft: savedDraft, futureWeek: future });
-  const displayState = autopilot?.status === "COMMITTED" && preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED"
-    ? "AUTO-COMMITTED"
+  const displayState = autopilot?.status === "COMMITTED" && preview.atlasAdaptiveWeek?.status === "APPROVED"
+    ? "ADAPTED"
+    : autopilot?.status === "COMMITTED" && preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED"
+      ? "AUTO-COMMITTED"
     : preview.status === "DRAFT"
     ? savedDraft ? preview.approvalBlocked ? "BLOCKED" : "DRAFT" : preview.approvalBlocked ? "ACTION_REQUIRED" : "READY"
     : DominionWeeklyOrchestrator.weekState(preview, todayISODate());
@@ -5744,13 +5759,13 @@ function renderWeeklyOrchestrator() {
     const code = String(item.code || "");
     return code.includes("PLAN_REQUIRED") || code.includes("COVERAGE") || code.includes("CONTRACT_LINK_REQUIRED") || code.includes("NUTRITION");
   });
-  const atlasProgramDraft = preview.status === "DRAFT" && preview.generatedBy === "ATLAS_PROGRAM";
+  const atlasProgramDraft = preview.status === "DRAFT" && ["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy);
   const controls = preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
   panel.innerHTML = `
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
-    ${preview.generatedBy === "ATLAS_PROGRAM" ? `<article class="atlas-calendar-source"><div><span>ATLAS PROGRAM CALENDAR</span><strong>${preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
+    ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
     <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
@@ -9560,6 +9575,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "current"],
       ["ADAPTATION", "adaptive-current"],
       ["HISTORY", "adaptive"],
+      ["ADAPTATION", "atlas-week-current"],
+      ["HISTORY", "atlas-week"],
       ["ADAPTATION", "body-outcome-current"],
       ["HISTORY", "body-outcome"],
       ["ADAPTATION", "progress-review-current"],
@@ -9610,6 +9627,128 @@ function readAdaptiveCoachingState() {
 function readAdaptiveCoachingHistory() {
   const history = readClosedLoopState("HISTORY", "adaptive", []);
   return Array.isArray(history) ? history : [];
+}
+
+function readAtlasAdaptiveWeekState() {
+  return readClosedLoopState("ADAPTATION", "atlas-week-current", null);
+}
+
+function readAtlasAdaptiveWeekHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-week", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function saveAtlasAdaptiveWeekRecord(record) {
+  if (!record?.id) return false;
+  const history = [
+    record,
+    ...readAtlasAdaptiveWeekHistory().filter((item) => item.id !== record.id)
+  ].slice(0, 52);
+  saveClosedLoopLocal("ADAPTATION", "atlas-week-current", record);
+  saveClosedLoopLocal("HISTORY", "atlas-week", history);
+  const currentSaved = await persistClosedLoopState("ADAPTATION", "atlas-week-current", record);
+  const historySaved = await persistClosedLoopState("HISTORY", "atlas-week", history);
+  currentAtlasAdaptiveWeek = record;
+  return currentSaved && historySaved;
+}
+
+function atlasAdaptiveWeekDates(items = [], start = "", end = "") {
+  return [...new Set((Array.isArray(items) ? items : [])
+    .map(adaptiveEvidenceDate)
+    .filter((date) => date && date >= start && date <= end))];
+}
+
+function buildAtlasAdaptiveWeekEvidence(activeWeek = {}, contract = {}) {
+  const start = activeWeek.weekStart;
+  const end = activeWeek.weekEnd;
+  if (!start || !end) return {};
+  const api = connectedApi();
+  const fitbodSessions = api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : [];
+  const nutritionDays = api ? api.aggregateNutritionByDate(connectedImportedRecords) : [];
+  const strengthDates = atlasAdaptiveWeekDates([...(readStrengthHistory() || []), ...fitbodSessions], start, end);
+  const runningDates = atlasAdaptiveWeekDates(performanceEntries.filter((entry) => entry.domain === "running"), start, end);
+  const coreDates = atlasAdaptiveWeekDates(readCoreHistory(), start, end);
+  const nutritionDates = atlasAdaptiveWeekDates(nutritionDays, start, end);
+  for (let date = start; date <= end; date = addClosedLoopDays(date, 1)) {
+    if (readManualNutrition(date) && !nutritionDates.includes(date)) nutritionDates.push(date);
+  }
+  if (todayISODate() >= start && todayISODate() <= end) {
+    if (readStrengthExecution()?.state === "COMPLETE" && !strengthDates.includes(todayISODate())) strengthDates.push(todayISODate());
+    if (readRunningExecution()?.state === "COMPLETE" && !runningDates.includes(todayISODate())) runningDates.push(todayISODate());
+    if (readCurrentCoreExecution()?.state === "COMPLETE" && !coreDates.includes(todayISODate())) coreDates.push(todayISODate());
+  }
+  const planned = { STRENGTH: 0, RUNNING: 0, CORE: 0, FUELING: 0 };
+  (activeWeek.days || []).forEach((day) => {
+    (day.activities || []).forEach((activity) => {
+      const module = String(activity.module || "").toUpperCase();
+      if (Object.prototype.hasOwnProperty.call(planned, module)) planned[module] += 1;
+    });
+    if (day.nutrition) planned.FUELING += 1;
+  });
+  const completed = {
+    STRENGTH: strengthDates.length,
+    RUNNING: runningDates.length,
+    CORE: coreDates.length,
+    FUELING: nutritionDates.length
+  };
+  return Object.fromEntries(Object.keys(planned).map((domain) => [domain, {
+    planned: planned[domain],
+    completed: Math.min(planned[domain], completed[domain]),
+    sourceCount: completed[domain]
+  }]));
+}
+
+function buildAtlasAdaptiveWeekPerformance(activeWeek = {}) {
+  const start = activeWeek.weekStart || "";
+  const end = activeWeek.weekEnd || "";
+  const strength = (readStrengthHistory() || []).filter((item) => {
+    const date = adaptiveEvidenceDate(item);
+    return date && date >= start && date <= end;
+  });
+  const running = performanceEntries.filter((item) => item.domain === "running" && item.performanceDate >= start && item.performanceDate <= end);
+  const core = (readCoreHistory() || []).filter((item) => {
+    const date = adaptiveEvidenceDate(item);
+    return date && date >= start && date <= end;
+  });
+  const all = [...strength, ...running, ...core];
+  const techniqueFlags = all.filter((item) => item.techniqueLimited === true
+    || String(item.sessionQuality || item.quality || "").toUpperCase().includes("TECHNIQUE")).length;
+  const stoppedSessions = all.filter((item) => ["STOPPED", "ABORTED", "PAIN_HOLD"].includes(String(item.state || item.status || "").toUpperCase())).length;
+  return { events: all.length, techniqueFlags, stoppedSessions };
+}
+
+function buildCurrentAtlasAdaptiveWeek() {
+  if (typeof DominionAtlasAdaptiveWeek === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const activeWeek = readCommittedUnifiedWeek(todayISODate());
+  const readiness = readinessHistory.filter((item) => {
+    const date = String(item.date || "").slice(0, 10);
+    return activeWeek?.weekStart && date >= activeWeek.weekStart && date <= activeWeek.weekEnd;
+  });
+  currentAtlasAdaptiveWeek = DominionAtlasAdaptiveWeek.buildProposal({
+    today: todayISODate(),
+    contract,
+    activeWeek,
+    planCoverage: adaptivePlanCoverage(),
+    readinessHistory: readiness,
+    evidence: buildAtlasAdaptiveWeekEvidence(activeWeek || {}, contract || {}),
+    performance: buildAtlasAdaptiveWeekPerformance(activeWeek || {}),
+    priorProposal: readAtlasAdaptiveWeekState(),
+    generatedAt: new Date().toISOString()
+  });
+  return currentAtlasAdaptiveWeek;
+}
+
+async function runAtlasAdaptiveWeek() {
+  const proposal = buildCurrentAtlasAdaptiveWeek();
+  if (!proposal?.id) return proposal;
+  const prior = readAtlasAdaptiveWeekState();
+  if (prior?.id === proposal.id && prior.status === proposal.status && prior.fingerprint === proposal.fingerprint) {
+    currentAtlasAdaptiveWeek = prior;
+    return prior;
+  }
+  await saveAtlasAdaptiveWeekRecord(proposal);
+  return proposal;
 }
 
 function readBodyOutcomeReview() {
@@ -9813,7 +9952,8 @@ function buildCurrentAdaptiveCoaching() {
 
 function readActiveAdaptiveDirective(date = todayISODate()) {
   if (typeof DominionAdaptiveCoaching === "undefined") return null;
-  return DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
+  return DominionAdaptiveCoaching.directiveForDate(readAtlasAdaptiveWeekState(), date)
+    || DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
 }
 
 async function saveAdaptiveCoachingRecord(record) {
@@ -11895,12 +12035,19 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
   }
   const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
   const autopilot = model.autopilot;
-  const autopilotRoute = ["ACTIVATION_REQUIRED", "REVIEW_REQUIRED"].includes(autopilot?.status) ? "contract" : "calendar";
-  const autopilotAction = autopilot && ["BLOCKED", "REVIEW_REQUIRED", "ACTIVATION_REQUIRED"].includes(autopilot.status)
-    ? `<button type="button" class="ghost" data-program-route="${autopilotRoute}">Review</button>`
-    : autopilot?.status === "COMMITTED"
-      ? `<button type="button" class="ghost" data-program-route="calendar">Open calendar</button>`
-      : "";
+  const weeklyDecision = buildCurrentAtlasAdaptiveWeek();
+  const autopilotRoute = autopilot?.action === "OPEN_CALENDAR" ? "calendar" : ["ACTIVATION_REQUIRED", "REVIEW_REQUIRED"].includes(autopilot?.status) ? "contract" : "calendar";
+  const autopilotAction = weeklyDecision?.status === "PROPOSED"
+    ? `<div class="atlas-week-actions"><button type="button" data-atlas-week-action="approve">Approve next week</button><button type="button" class="ghost" data-atlas-week-action="hold">Repeat this week</button></div>`
+    : autopilot && ["BLOCKED", "REVIEW_REQUIRED", "ACTIVATION_REQUIRED"].includes(autopilot.status)
+      ? `<button type="button" class="ghost" data-program-route="${autopilotRoute}">Review</button>`
+      : autopilot?.status === "COMMITTED"
+        ? `<button type="button" class="ghost" data-program-route="calendar">Open calendar</button>`
+        : "";
+  const weeklyMetrics = weeklyDecision?.metrics || {};
+  const weeklyEvidence = weeklyDecision && weeklyDecision.status !== "SETUP_REQUIRED"
+    ? `<div class="atlas-week-evidence"><span><strong>${weeklyMetrics.executionPercent ?? "—"}${weeklyMetrics.executionPercent === null || weeklyMetrics.executionPercent === undefined ? "" : "%"}</strong> execution</span><span><strong>${weeklyMetrics.rollCalls || 0}</strong> Roll Calls</span><span><strong>${weeklyMetrics.fuelPercent ?? "—"}${weeklyMetrics.fuelPercent === null || weeklyMetrics.fuelPercent === undefined ? "" : "%"}</strong> Fuel</span><span><strong>${escapeHtml(String(weeklyDecision.confidence || "LOW"))}</strong> confidence</span></div>`
+    : "";
   const weekDate = model.week.start ? `${escapeHtml(model.week.start)}${model.week.end ? ` – ${escapeHtml(model.week.end)}` : ""}` : "Not committed";
   panel.innerHTML = `
     <section class="program-command-goal">
@@ -11913,7 +12060,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
         ? `<button type="button" data-program-repair-action="${escapeHtml(repair.primary.action)}">${escapeHtml(repair.primary.label)}</button>`
         : `<button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>`}
     </section>
-    ${autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>NEXT WEEK</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div></section>` : ""}
+    ${autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>WEEK REVIEW</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div>${weeklyEvidence}</section>` : ""}
     <section class="program-command-week" aria-label="Current week summary">
       <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
       <div class="program-command-metrics">
@@ -14722,6 +14869,7 @@ async function init() {
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
+    await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
     await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
@@ -14971,6 +15119,32 @@ if (typeof document !== "undefined") {
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
   document.getElementById("program")?.addEventListener("click", async (event) => {
+    const adaptiveButton = event.target.closest("button[data-atlas-week-action]");
+    if (adaptiveButton && typeof DominionAtlasAdaptiveWeek !== "undefined") {
+      adaptiveButton.disabled = true;
+      try {
+        const proposal = buildCurrentAtlasAdaptiveWeek();
+        const action = adaptiveButton.dataset.atlasWeekAction;
+        const decision = action === "approve"
+          ? DominionAtlasAdaptiveWeek.approveProposal(proposal, new Date().toISOString())
+          : DominionAtlasAdaptiveWeek.holdProposal(proposal, new Date().toISOString());
+        if (!decision) throw new Error("Atlas could not preserve that weekly decision.");
+        const synced = await saveAtlasAdaptiveWeekRecord(decision);
+        currentAtlasAdaptiveWeek = decision;
+        const result = await runAtlasWeekAutopilot();
+        refreshProgramActivationSurfaces();
+        renderProgramCommand();
+        const complete = result?.status === "COMMITTED";
+        setText("program-command-feedback", complete
+          ? `${decision.status === "APPROVED" ? decision.label : "Current prescription"} committed for ${decision.targetWeekStart}${synced ? " and saved to your account" : " on this device"}.`
+          : result?.detail || "Atlas saved the weekly decision. Review the named calendar item before commitment.");
+      } catch (error) {
+        setText("program-command-feedback", error?.message || "Atlas could not apply the weekly decision.");
+      } finally {
+        adaptiveButton.disabled = false;
+      }
+      return;
+    }
     const repairButton = event.target.closest("button[data-program-repair-action]");
     if (repairButton) {
       repairButton.disabled = true;

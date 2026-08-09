@@ -6876,6 +6876,20 @@ function currentAtlasActivePlans(contract = readApprovedRecruitContract()) {
   };
 }
 
+async function reconcileAtlasNutritionReceiptState({ persist = false } = {}) {
+  if (typeof DominionAtlasActivation?.reconcileNutritionHistoryFromReceipt !== "function") return false;
+  const history = readNutritionBaselineHistory();
+  const reconciled = DominionAtlasActivation.reconcileNutritionHistoryFromReceipt(
+    history,
+    readAtlasProgramReceipt(),
+    readApprovedRecruitContract()
+  );
+  if (JSON.stringify(reconciled) === JSON.stringify(history)) return false;
+  window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(reconciled));
+  if (persist) await persistNutritionState("BASELINE_HISTORY", "current", { items: reconciled });
+  return true;
+}
+
 function buildCurrentAtlasProgramPackage() {
   if (typeof DominionAtlasProgram === "undefined") return null;
   const contract = readApprovedRecruitContract();
@@ -14618,6 +14632,7 @@ async function init() {
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
+    await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],

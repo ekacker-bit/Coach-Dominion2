@@ -88,6 +88,33 @@ const weekDraft = {
 }
 
 {
+  const receiptBaseline = {
+    id: "nutrition-receipt",
+    status: "REPLACED",
+    effectiveDate: "2026-08-03",
+    approvedAt: "2026-08-07T12:00:00.000Z",
+    supersededAt: "2026-08-08T12:00:00.000Z",
+    supersededBy: "nutrition-stale"
+  };
+  const staleFuture = { id: "nutrition-stale", status: "APPROVED", effectiveDate: "2026-08-10", approvedAt: "2026-08-01T12:00:00.000Z" };
+  const intentionalChange = { id: "nutrition-new", status: "APPROVED", effectiveDate: "2026-08-17", approvedAt: "2026-08-09T12:00:00.000Z" };
+  const receipt = {
+    status: "ACTIVE",
+    contractId: contract.id,
+    contractRevision: contract.revision,
+    activatedAt: "2026-08-08T12:00:00.000Z",
+    planRefs: { nutrition: receiptBaseline.id }
+  };
+  const reconciled = activation.reconcileNutritionHistoryFromReceipt([staleFuture, intentionalChange, receiptBaseline], receipt, contract);
+  assert.equal(reconciled.find((item) => item.id === receiptBaseline.id).status, "APPROVED");
+  assert.equal(reconciled.find((item) => item.id === receiptBaseline.id).supersededBy, undefined);
+  assert.equal(reconciled.find((item) => item.id === staleFuture.id).status, "REPLACED");
+  assert.equal(reconciled.find((item) => item.id === staleFuture.id).supersededBy, receiptBaseline.id);
+  assert.equal(reconciled.find((item) => item.id === intentionalChange.id).status, "APPROVED");
+  assert.deepEqual(activation.reconcileNutritionHistoryFromReceipt(reconciled, receipt, contract), reconciled);
+}
+
+{
   const preflight = activation.preflightActivation({ contract, program, candidates, weekDraft });
   assert.equal(activation.canCommitCalendarFromPreflight(preflight, {
     contract,

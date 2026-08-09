@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "024I.2";
+  const VERSION = "024I.3";
   const MODULES = Object.freeze([
     { id: "strength", label: "Strength" },
     { id: "running", label: "Cardio" },
@@ -86,6 +86,36 @@
           : item;
       });
     return [candidate, ...reconciled];
+  }
+
+  function reconcileNutritionHistoryFromReceipt(history = [], receipt = null, contract = null) {
+    const previous = (Array.isArray(history) ? history : []).filter(Boolean);
+    if (receipt?.status !== "ACTIVE" || !contract?.id
+      || receipt.contractId !== contract.id
+      || Number(receipt.contractRevision || 0) !== Number(contract.revision || 0)
+      || !receipt.planRefs?.nutrition) return previous;
+    const receiptBaseline = previous.find((item) => item?.id === receipt.planRefs.nutrition) || null;
+    if (!receiptBaseline) return previous;
+    const effectiveDate = date(receiptBaseline.effectiveDate || receipt.effectiveDate);
+    const activatedAt = String(receipt.activatedAt || "");
+    return previous.map((item) => {
+      if (item.id === receiptBaseline.id) {
+        const restored = { ...item, status: "APPROVED" };
+        delete restored.supersededAt;
+        delete restored.supersededBy;
+        return restored;
+      }
+      const itemDate = date(item.effectiveDate);
+      const approvedBeforeActivation = !activatedAt || !item.approvedAt || String(item.approvedAt) <= activatedAt;
+      const supersededByReceipt = item.status === "APPROVED"
+        && effectiveDate
+        && itemDate
+        && itemDate >= effectiveDate
+        && approvedBeforeActivation;
+      return supersededByReceipt
+        ? { ...item, status: "REPLACED", supersededAt: receipt.activatedAt || null, supersededBy: receiptBaseline.id }
+        : item;
+    });
   }
 
   function canCommitCalendarFromPreflight(preflight = null, context = {}) {
@@ -253,5 +283,5 @@
     };
   }
 
-  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, reconcileNutritionHistory, canCommitCalendarFromPreflight, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
+  return Object.freeze({ VERSION, MODULES, linkedToContract, calendarLinkedToCandidates, summarizeSyncResults, reconcileNutritionHistory, reconcileNutritionHistoryFromReceipt, canCommitCalendarFromPreflight, calendarBlocker, preflightActivation, buildReceipt, auditReceipt });
 });

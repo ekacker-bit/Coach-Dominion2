@@ -23,8 +23,8 @@ const packageJson = read("package.json");
 
 assert.match(html, /atlas-program-repair\.js\?v=024f/);
 assert.ok(html.indexOf("atlas-program-repair.js") < html.indexOf("app.js"), "repair engine must load before app integration");
-assert.match(html, /styles\.css\?v=024f/);
-assert.match(html, /app\.js\?v=024[hijklm]/);
+assert.match(html, /styles\.css\?v=024[fn]/);
+assert.match(html, /app\.js\?v=024[hijklmn]/);
 assert.match(engine, /const VERSION = "024F\.1"/);
 assert.match(activation, /const VERSION = "024E\.1"/);
 assert.match(activation, /action: "REPAIR_PROGRAM", label: "Complete my program"/);
@@ -37,7 +37,7 @@ assert.match(app, /data-program-repair-action/);
 assert.match(styles, /Build 024E: Atlas Program Repair/);
 assert.match(styles, /\.atlas-program-repair-dialog/);
 assert.match(styles, /@media \(max-width: 720px\)[\s\S]*\.atlas-program-repair-dialog/);
-assert.match(worker, /coach-dominion-024[hijklm]-v1/);
+assert.match(worker, /coach-dominion-024[hijklmn]-v1/);
 assert.match(worker, /atlas-program-repair\.js\?v=024f/);
 assert.match(packageJson, /test:024e/);
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Build 024N Atlas Week Autopilot
+
+- Rolls an unchanged active Strength, Cardio, Core, and Fuel program into the next executable week automatically.
+- Stops Today from treating an unfinished future-week draft as a current-week blocker.
+- Pauses automation for real Contract or plan changes, calendar edits, and blocking conflicts while preserving the active week.
+- Adds a concise next-week state to Program and a clear auto-committed state to Calendar.
+
 ## Unreleased - Build 024M Fuel Receipt Reconciliation
 
 - Reasserts the Fuel baseline named in the active Atlas receipt after account continuity merges.

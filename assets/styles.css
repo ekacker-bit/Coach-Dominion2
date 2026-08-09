@@ -8302,3 +8302,30 @@ body[data-dominion-section="today"] #dominion-mission-rail {
     justify-items: start;
   }
 }
+
+/* Build 024N: Atlas Program-to-Week Autopilot. */
+.program-command-autopilot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: .9rem 1rem;
+  border: 1px solid rgba(230, 230, 228, .14);
+  background: rgba(5, 10, 14, .72);
+}
+
+.program-command-autopilot.green { border-color: rgba(46, 139, 87, .45); background: rgba(46, 139, 87, .08); }
+.program-command-autopilot.gold { border-color: rgba(212, 175, 55, .45); background: rgba(212, 175, 55, .07); }
+.program-command-autopilot.red { border-color: rgba(171, 65, 55, .5); background: rgba(171, 65, 55, .08); }
+.program-command-autopilot > div { display: grid; gap: .2rem; }
+.program-command-autopilot > div:last-child { justify-items: end; }
+.program-command-autopilot span { color: var(--gold, #d4af37); font-family: var(--font-command, "Bebas Neue", sans-serif); font-size: .82rem; letter-spacing: .12em; }
+.program-command-autopilot h3 { margin: 0; color: var(--stone, #e6e6e4); font-size: 1.08rem; text-transform: none; }
+.program-command-autopilot p { max-width: 720px; margin: 0; color: var(--muted, #aab2bd); font-size: .82rem; }
+.program-command-autopilot strong { color: var(--stone, #e6e6e4); font-size: .78rem; }
+.program-command-autopilot button { min-height: 36px; padding: .45rem .7rem; font-size: .74rem; }
+
+@media (max-width: 520px) {
+  .program-command-autopilot { grid-template-columns: 1fr; }
+  .program-command-autopilot > div:last-child { grid-auto-flow: column; justify-content: space-between; justify-items: start; align-items: center; }
+}

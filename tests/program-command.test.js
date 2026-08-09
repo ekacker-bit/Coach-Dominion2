@@ -45,6 +45,7 @@ const week = {
     week,
     receipt: { status: "ACTIVE", weekStart: week.weekStart },
     receiptAudit: { status: "ACTIVE" },
+    weekAutopilot: { status: "COMMITTED", tone: "green", headline: "Next week is ready", detail: "Atlas carried the active program forward.", targetWeekStart: "2026-08-17", action: "OPEN_CALENDAR" },
     truth: { title: "Complete Morning Roll Call", detail: "Readiness comes first.", action: { label: "Complete Roll Call", section: "today" }, contradictions: [] }
   });
   assert.equal(model.version, "024C.1");
@@ -55,6 +56,8 @@ const week = {
   assert.equal(model.modules.find((item) => item.id === "strength").count, 2);
   assert.equal(model.modules.find((item) => item.id === "nutrition").count, 4);
   assert.equal(model.next.label, "Complete Roll Call");
+  assert.equal(model.autopilot.status, "COMMITTED");
+  assert.equal(model.autopilot.targetWeekStart, "2026-08-17");
   assert.ok(model.rationale.some((item) => /Core is paired/i.test(item)));
 }
 

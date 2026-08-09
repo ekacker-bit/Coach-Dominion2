@@ -87,4 +87,60 @@ const input = { today: "2026-08-08", contract, plans, receipt, activeWeek };
   assert.equal(model.status, "ACTIVATION_REQUIRED");
 }
 
+{
+  const adaptation = {
+    id: "adapt-next",
+    scope: "WEEK",
+    status: "MONITORING",
+    targetWeekStart: draft.weekStart,
+    headline: "Atlas is reading the week",
+    detail: "Review opens Friday."
+  };
+  const model = autopilot.buildAutopilot({ ...input, adaptation });
+  assert.equal(model.status, "MONITORING");
+  assert.equal(model.action, "OPEN_PROGRAM");
+}
+
+{
+  const adaptation = {
+    id: "adapt-next",
+    scope: "WEEK",
+    status: "PROPOSED",
+    code: "PROGRESS",
+    targetWeekStart: draft.weekStart,
+    headline: "Stage a conservative progression",
+    detail: "Execution and recovery support a bounded increase."
+  };
+  const model = autopilot.buildAutopilot({ ...input, draft, adaptation });
+  assert.equal(model.status, "ADAPTATION_REVIEW");
+  assert.equal(model.action, "REVIEW_ADAPTATION");
+  assert.equal(autopilot.canAutoCommit(model, { contract, receipt, draft, adaptation }), false);
+}
+
+{
+  const adaptation = {
+    id: "adapt-next",
+    fingerprint: "adaptive-fingerprint",
+    scope: "WEEK",
+    status: "APPROVED",
+    code: "PROGRESS",
+    targetWeekStart: draft.weekStart
+  };
+  const adaptedDraft = {
+    ...draft,
+    atlasAdaptiveWeek: {
+      decisionId: adaptation.id,
+      fingerprint: adaptation.fingerprint,
+      status: "APPROVED"
+    }
+  };
+  const staleFuture = { ...draft, status: "COMMITTED" };
+  const rebuild = autopilot.buildAutopilot({ ...input, futureWeek: staleFuture, draft: null, adaptation });
+  assert.equal(rebuild.status, "BUILD_READY");
+  const model = autopilot.buildAutopilot({ ...input, futureWeek: null, draft: adaptedDraft, adaptation });
+  assert.equal(model.status, "READY_TO_COMMIT");
+  assert.equal(autopilot.canAutoCommit(model, { contract, receipt, draft: adaptedDraft, adaptation }), true);
+  assert.equal(autopilot.canAutoCommit(model, { contract, receipt, draft, adaptation }), false);
+}
+
 console.log("Build 024N Atlas week autopilot tests passed.");

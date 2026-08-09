@@ -151,4 +151,32 @@ function input(overrides = {}) {
   assert.equal(result.adaptiveCoaching.action, "STAGE_PROGRESS");
 }
 
+{
+  const approved = {
+    ...adaptive.approveProposal(adaptive.buildProposal(input()), "2026-08-03T13:00:00.000Z", "2026-08-04"),
+    planChangesApproved: true
+  };
+  const strength = adaptive.adaptStrengthAssignment({
+    date: "2026-08-04",
+    state: "READY",
+    exercises: [{ id: "bench", sets: 3, load: 150 }]
+  }, approved, "2026-08-04");
+  const running = adaptive.adaptRunningPrescription({
+    date: "2026-08-04",
+    status: "READY",
+    session: { distance: 5, unit: "mi", type: "EASY" }
+  }, approved, "2026-08-04");
+  const core = adaptive.adaptCorePrescription({
+    date: "2026-08-04",
+    status: "READY",
+    session: { estimatedMinutes: 20 },
+    exercises: [{ id: "plank", sets: 3 }, { id: "carry", sets: 3 }]
+  }, approved, "2026-08-04");
+  assert.equal(strength.exercises[0].sets, 3);
+  assert.ok(strength.exercises[0].load > 150);
+  assert.equal(running.session.distance, 5.3);
+  assert.equal(core.exercises[0].sets, 4);
+  assert.equal(core.exercises[1].sets, 3);
+}
+
 console.log("Build 018I Adaptive Coaching tests passed.");

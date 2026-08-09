@@ -261,7 +261,7 @@
   function adaptStrengthAssignment(assignment = null, directive = null, date = null) {
     if (!assignment || !directiveForDate(directive, date || assignment.date) || assignment.state === "COMPLETE") return assignment;
     const change = domainChange(directive, "STRENGTH");
-    if (!change || change.requiresPlanApproval) return { ...assignment, adaptiveCoaching: change || null };
+    if (!change || (change.requiresPlanApproval && directive.planChangesApproved !== true)) return { ...assignment, adaptiveCoaching: change || null };
     if (change.action === "RECOVERY_ONLY") {
       return {
         ...assignment,
@@ -287,13 +287,27 @@
         adaptiveCoaching: change
       };
     }
+    if (change.action === "STAGE_PROGRESS") {
+      const exercises = (assignment.exercises || []).map((exercise) => ({
+        ...exercise,
+        load: Number(exercise.load || 0) > 0
+          ? Math.round((Number(exercise.load) * 1.025) * 2) / 2
+          : Number(exercise.load || 0)
+      }));
+      return {
+        ...assignment,
+        exercises,
+        readinessDelta: { code: "ADAPTIVE_PROGRESS", detail: change.detail },
+        adaptiveCoaching: change
+      };
+    }
     return { ...assignment, adaptiveCoaching: change };
   }
 
   function adaptRunningPrescription(prescription = null, directive = null, date = null) {
     if (!prescription || !directiveForDate(directive, date || prescription.date) || !prescription.session) return prescription;
     const change = domainChange(directive, "RUNNING");
-    if (!change || change.requiresPlanApproval) return { ...prescription, adaptiveCoaching: change || null };
+    if (!change || (change.requiresPlanApproval && directive.planChangesApproved !== true)) return { ...prescription, adaptiveCoaching: change || null };
     if (change.action === "RECOVERY_ONLY") {
       return { ...prescription, status: "ADAPTIVE_HOLD", session: null, message: change.detail, adaptiveCoaching: change };
     }
@@ -307,13 +321,32 @@
         adaptiveCoaching: change
       };
     }
+    if (change.action === "EASY_ONLY") {
+      return {
+        ...prescription,
+        status: "ADAPTIVE_REBALANCE",
+        session: { ...prescription.session, type: "EASY" },
+        message: change.detail,
+        adaptiveCoaching: change
+      };
+    }
+    if (change.action === "STAGE_PROGRESS") {
+      const distance = Math.max(0, Math.round(Number(prescription.session.distance || 0) * 1.05 * 10) / 10);
+      return {
+        ...prescription,
+        status: "ADAPTIVE_PROGRESS",
+        session: { ...prescription.session, distance },
+        message: change.detail,
+        adaptiveCoaching: change
+      };
+    }
     return { ...prescription, adaptiveCoaching: change };
   }
 
   function adaptCorePrescription(prescription = null, directive = null, date = null) {
     if (!prescription || !directiveForDate(directive, date || prescription.date) || !prescription.session) return prescription;
     const change = domainChange(directive, "CORE");
-    if (!change || change.requiresPlanApproval) return { ...prescription, adaptiveCoaching: change || null };
+    if (!change || (change.requiresPlanApproval && directive.planChangesApproved !== true)) return { ...prescription, adaptiveCoaching: change || null };
     if (change.action === "RECOVERY_ONLY") {
       return { ...prescription, status: "SAFETY_HOLD", session: null, exercises: [], message: change.detail, adaptiveCoaching: change };
     }
@@ -334,6 +367,19 @@
         adaptiveCoaching: change
       };
     }
+    if (change.action === "STAGE_PROGRESS") {
+      const exercises = (prescription.exercises || []).map((exercise, index) => ({
+        ...exercise,
+        sets: Math.max(1, Number(exercise.sets || 1) + (index === 0 ? 1 : 0))
+      }));
+      return {
+        ...prescription,
+        status: "ADAPTIVE_PROGRESS",
+        exercises,
+        message: change.detail,
+        adaptiveCoaching: change
+      };
+    }
     return { ...prescription, adaptiveCoaching: change };
   }
 
@@ -345,6 +391,8 @@
     normalizeReadiness,
     normalizeEvidence,
     confidenceFor,
+    proposalDefinition,
+    changesFor,
     buildProposal,
     approveProposal,
     holdProposal,

@@ -8329,3 +8329,61 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .program-command-autopilot { grid-template-columns: 1fr; }
   .program-command-autopilot > div:last-child { grid-auto-flow: column; justify-content: space-between; justify-items: start; align-items: center; }
 }
+
+/* Build 025A: Atlas Adaptive Week. */
+.program-command-autopilot .atlas-week-actions {
+  display: flex;
+  grid-auto-flow: initial;
+  gap: .5rem;
+  justify-content: flex-end;
+}
+
+.program-command-autopilot .atlas-week-evidence {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .5rem;
+  padding-top: .75rem;
+  border-top: 1px solid rgba(230, 230, 228, .12);
+}
+
+.program-command-autopilot .atlas-week-evidence span {
+  display: grid;
+  gap: .05rem;
+  min-width: 0;
+  color: var(--muted, #aab2bd);
+  font-family: var(--font-body, "Raleway", sans-serif);
+  font-size: .7rem;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+.program-command-autopilot .atlas-week-evidence strong {
+  color: var(--stone, #e6e6e4);
+  font-family: var(--font-command, "Bebas Neue", sans-serif);
+  font-size: 1.05rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.atlas-calendar-source.adaptive {
+  border-color: rgba(212, 175, 55, .48);
+  background:
+    linear-gradient(110deg, rgba(212, 175, 55, .09), transparent 48%),
+    rgba(5, 10, 14, .78);
+}
+
+.atlas-calendar-source.adaptive small {
+  color: var(--dominion-black, #0a0a0a);
+  background: var(--victory-gold, #d4af37);
+}
+
+@media (max-width: 720px) {
+  .program-command-autopilot .atlas-week-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .program-command-autopilot .atlas-week-actions button { width: 100%; }
+  .program-command-autopilot .atlas-week-evidence { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

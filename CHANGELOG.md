@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - Build 024M Fuel Receipt Reconciliation
+
+- Reasserts the Fuel baseline named in the active Atlas receipt after account continuity merges.
+- Prevents older, future-dated Fuel records from reopening a completed Program link after reload.
+- Preserves intentional Fuel changes approved after activation so genuine updates still require review.
+
 ## Unreleased - Build 024L Fuel Link Idempotency
 
 - Makes the newly activated Atlas Fuel baseline authoritative for its effective window.

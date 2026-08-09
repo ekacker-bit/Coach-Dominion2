@@ -27,9 +27,9 @@ test("Calendar is a first-class desktop and mobile destination", () => {
 });
 
 test("calendar assets are cache-busted for Build 021I", () => {
-  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghijklm]))/);
+  assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghijklmn]))/);
   assert.match(html, /weekly-orchestrator\.js\?v=024d/);
-  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghijklm]))/);
+  assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|024[abcdefghijklmn]))/);
 });
 
 test("Core pairing creates one training window through 120 minutes", () => {

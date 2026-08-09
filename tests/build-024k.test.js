@@ -8,8 +8,8 @@ const html = read("app.html");
 const app = read("assets/js/app.js");
 const worker = read("sw.js");
 
-assert.match(html, /app\.js\?v=024[klm]/);
-assert.match(worker, /coach-dominion-024[klm]-v1/);
+assert.match(html, /app\.js\?v=024[klmn]/);
+assert.match(worker, /coach-dominion-024[klmn]-v1/);
 assert.match(app, /function refreshProgramActivationSurfaces/);
 assert.match(app, /Active program saved; one surface will recover on reload/);
 assert.match(app, /commitUnifiedWeekDraft\(\{ activationPreflight: preflight, deferRender: true \}\)/);

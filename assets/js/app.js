@@ -65,6 +65,7 @@ let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let currentProgramCommand = null;
+let currentAtlasWeekAutopilot = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityState = { mode: "CHECKING", initialized: false, accountRevision: 0, manifest: null, accountManifest: null, manifestConflicts: [] };
@@ -5243,6 +5244,10 @@ function readCommittedUnifiedWeek(value = todayISODate()) {
   return DominionWeeklyOrchestrator.weekForDate(readUnifiedWeekHistory(), value);
 }
 
+function readCommittedUnifiedWeekByStart(weekStart = "") {
+  return readUnifiedWeekHistory().find((item) => item?.status !== "REPLACED" && item.weekStart === weekStart) || null;
+}
+
 function readCommittedUnifiedDay(value = todayISODate()) {
   if (typeof DominionWeeklyOrchestrator === "undefined") return null;
   const week = readCommittedUnifiedWeek(value);
@@ -5526,23 +5531,89 @@ async function saveUnifiedWeekDraftForActivation(weekStart = unifiedWeekTargetSt
   return draft;
 }
 
+function atlasWeekAutopilotInput(overrides = {}) {
+  const contract = readApprovedRecruitContract();
+  const activeWeek = overrides.activeWeek === undefined ? readCommittedUnifiedWeek(todayISODate()) : overrides.activeWeek;
+  const targetWeekStart = typeof DominionAtlasWeekAutopilot !== "undefined"
+    ? DominionAtlasWeekAutopilot.targetWeekStart({ activeWeek, today: todayISODate() })
+    : unifiedWeekTargetStart();
+  return {
+    today: todayISODate(),
+    contract,
+    receipt: readAtlasProgramReceipt(),
+    plans: currentAtlasActivePlans(contract),
+    activeWeek,
+    futureWeek: overrides.futureWeek === undefined ? readCommittedUnifiedWeekByStart(targetWeekStart) : overrides.futureWeek,
+    draft: overrides.draft === undefined ? readUnifiedWeekDraft() : overrides.draft
+  };
+}
+
+function buildCurrentAtlasWeekAutopilot(overrides = {}) {
+  if (typeof DominionAtlasWeekAutopilot === "undefined") return null;
+  currentAtlasWeekAutopilot = DominionAtlasWeekAutopilot.buildAutopilot(atlasWeekAutopilotInput(overrides));
+  return currentAtlasWeekAutopilot;
+}
+
+async function runAtlasWeekAutopilot() {
+  if (typeof DominionAtlasWeekAutopilot === "undefined" || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const initialInput = atlasWeekAutopilotInput();
+  let model = DominionAtlasWeekAutopilot.buildAutopilot(initialInput);
+  if (["ACTIVATION_REQUIRED", "REVIEW_REQUIRED", "COMMITTED"].includes(model.status)) {
+    currentAtlasWeekAutopilot = model;
+    return model;
+  }
+
+  let draft = initialInput.draft?.weekStart === model.targetWeekStart ? initialInput.draft : null;
+  if (!draft) draft = buildUnifiedWeekDraft(model.targetWeekStart);
+  if (!draft) {
+    currentAtlasWeekAutopilot = model;
+    return model;
+  }
+
+  saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
+  await persistWeeklyOrchestrationState("DRAFT", "current", draft);
+  model = DominionAtlasWeekAutopilot.buildAutopilot(atlasWeekAutopilotInput({ draft, futureWeek: null }));
+  currentAtlasWeekAutopilot = model;
+  if (model.status !== "READY_TO_COMMIT") return model;
+
+  const approved = await commitUnifiedWeekDraft({ autopilotModel: model, deferRender: true });
+  currentAtlasWeekAutopilot = DominionAtlasWeekAutopilot.buildAutopilot(atlasWeekAutopilotInput({
+    draft: null,
+    futureWeek: approved
+  }));
+  return currentAtlasWeekAutopilot;
+}
+
 async function commitUnifiedWeekDraft(options = {}) {
   const draft = readUnifiedWeekDraft();
   if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const receipt = readAtlasProgramReceipt();
+  const autopilotCommit = typeof DominionAtlasWeekAutopilot !== "undefined"
+    && DominionAtlasWeekAutopilot.canAutoCommit(options.autopilotModel, { contract, receipt, draft });
   const verifiedPackageCommit = typeof DominionAtlasActivation !== "undefined"
     && DominionAtlasActivation.canCommitCalendarFromPreflight(options.activationPreflight, {
-      contract: readApprovedRecruitContract(),
+      contract,
       weekDraft: draft
     });
   const activation = typeof DominionContractActivation === "undefined"
     ? null
     : DominionContractActivation.buildActivation(contractActivationInputs(draft.weekStart));
-  if (!verifiedPackageCommit && activation && activation.next.action !== "COMMIT_WEEK") {
+  if (!verifiedPackageCommit && !autopilotCommit && activation && activation.next.action !== "COMMIT_WEEK") {
     throw new Error("Finish the Contract activation steps before committing this week.");
   }
   const history = readUnifiedWeekHistory();
   const previous = history.find((item) => item.status !== "REPLACED" && item.weekStart === draft.weekStart) || null;
-  const approved = DominionWeeklyOrchestrator.approveWeek(draft, previous, { approvedAt: new Date().toISOString() });
+  const approvedAt = new Date().toISOString();
+  const approvedBase = DominionWeeklyOrchestrator.approveWeek(draft, previous, { approvedAt });
+  const approved = autopilotCommit ? {
+    ...approvedBase,
+    atlasWeekAutopilot: DominionAtlasWeekAutopilot.buildCommitReceipt(options.autopilotModel, approvedBase, {
+      committedAt: approvedAt,
+      contractId: contract?.id || null,
+      contractRevision: contract?.revision || 0
+    })
+  } : approvedBase;
   const nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(history, approved);
   saveWeeklyOrchestrationLocal("HISTORY", "current", nextHistory);
   saveWeeklyOrchestrationLocal("WEEK", approved.weekStart, approved);
@@ -5560,7 +5631,7 @@ async function commitUnifiedWeekDraft(options = {}) {
 }
 
 function weeklyOrchestrationTone(state = "") {
-  if (["ACTIVE", "COMMITTED", "READY"].includes(state)) return "green";
+  if (["ACTIVE", "COMMITTED", "READY", "AUTO-COMMITTED"].includes(state)) return "green";
   if (["DRAFT", "COMPLETED", "ACTION_REQUIRED"].includes(state)) return "yellow";
   if (["BLOCKED", "REPLACED"].includes(state)) return "red";
   return "neutral";
@@ -5630,7 +5701,10 @@ function renderWeeklyOrchestrator() {
   }
   const preview = savedDraft || future || buildUnifiedWeekDraft(targetWeekStart);
   if (!preview) return;
-  const displayState = preview.status === "DRAFT"
+  const autopilot = buildCurrentAtlasWeekAutopilot({ draft: savedDraft, futureWeek: future });
+  const displayState = autopilot?.status === "COMMITTED" && preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED"
+    ? "AUTO-COMMITTED"
+    : preview.status === "DRAFT"
     ? savedDraft ? preview.approvalBlocked ? "BLOCKED" : "DRAFT" : preview.approvalBlocked ? "ACTION_REQUIRED" : "READY"
     : DominionWeeklyOrchestrator.weekState(preview, todayISODate());
   status.textContent = displayState;
@@ -5673,10 +5747,10 @@ function renderWeeklyOrchestrator() {
   const atlasProgramDraft = preview.status === "DRAFT" && preview.generatedBy === "ATLAS_PROGRAM";
   const controls = preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
-    : `<button type="button" data-weekly-orchestrator-action="build">Build ${active ? "next" : "this"} week</button>`;
+    : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
   panel.innerHTML = `
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
-    ${preview.generatedBy === "ATLAS_PROGRAM" ? `<article class="atlas-calendar-source"><div><span>ATLAS PROGRAM CALENDAR</span><strong>Built from the complete plan</strong><p>Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together.</p></div><small>Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}</small></article>` : ""}
+    ${preview.generatedBy === "ATLAS_PROGRAM" ? `<article class="atlas-calendar-source"><div><span>ATLAS PROGRAM CALENDAR</span><strong>${preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
     <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
@@ -11436,12 +11510,18 @@ function buildCurrentOperatingTruth() {
   const contract = readApprovedRecruitContract();
   const signed = Boolean(contract && typeof DominionContractExperience !== "undefined"
     && DominionContractExperience.signatureStatus(contract).valid);
+  const week = readCommittedUnifiedWeek(date);
   let activation = { status: contract ? "ACTION_REQUIRED" : "CONTRACT_REQUIRED", modules: [], next: {} };
   if (contract && typeof DominionContractActivation !== "undefined") {
-    try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
+    try {
+      activation = DominionContractActivation.buildActivation(contractActivationInputs(week?.weekStart || unifiedWeekTargetStart(), week ? {
+        weekDraft: null,
+        committedWeeks: [week],
+        currentWeek: week
+      } : {}));
+    }
     catch (_) {}
   }
-  const week = readCommittedUnifiedWeek(date);
   const draft = readUnifiedWeekDraft();
   const day = week && typeof DominionWeeklyOrchestrator !== "undefined"
     ? DominionWeeklyOrchestrator.dayForDate(week, date)
@@ -11778,7 +11858,8 @@ function buildCurrentProgramCommand(truth = currentOperatingTruth || buildCurren
       running: readApprovedRunningBlock(),
       core: readApprovedCorePlan(),
       nutrition: activeNutritionBaseline(todayISODate())
-    }
+    },
+    weekAutopilot: buildCurrentAtlasWeekAutopilot()
   });
   return currentProgramCommand;
 }
@@ -11813,6 +11894,13 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     status.className = `state-pill ${displayTone}`;
   }
   const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
+  const autopilot = model.autopilot;
+  const autopilotRoute = ["ACTIVATION_REQUIRED", "REVIEW_REQUIRED"].includes(autopilot?.status) ? "contract" : "calendar";
+  const autopilotAction = autopilot && ["BLOCKED", "REVIEW_REQUIRED", "ACTIVATION_REQUIRED"].includes(autopilot.status)
+    ? `<button type="button" class="ghost" data-program-route="${autopilotRoute}">Review</button>`
+    : autopilot?.status === "COMMITTED"
+      ? `<button type="button" class="ghost" data-program-route="calendar">Open calendar</button>`
+      : "";
   const weekDate = model.week.start ? `${escapeHtml(model.week.start)}${model.week.end ? ` – ${escapeHtml(model.week.end)}` : ""}` : "Not committed";
   panel.innerHTML = `
     <section class="program-command-goal">
@@ -11825,6 +11913,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
         ? `<button type="button" data-program-repair-action="${escapeHtml(repair.primary.action)}">${escapeHtml(repair.primary.label)}</button>`
         : `<button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>`}
     </section>
+    ${autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>NEXT WEEK</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div></section>` : ""}
     <section class="program-command-week" aria-label="Current week summary">
       <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
       <div class="program-command-metrics">
@@ -14633,6 +14722,7 @@ async function init() {
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
+    await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],

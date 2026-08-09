@@ -49,13 +49,13 @@ test("022G eliminates horizontal status scrolling and protects touch ergonomics"
 });
 
 test("022G rotates every mutable shell asset", () => {
-  assert.match(html, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklm]))/);
+  assert.match(html, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklmn]))/);
   assert.match(html, /mobile-command\.js\?v=022g/);
-  assert.match(html, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklm]))/);
-  assert.match(worker, /coach-dominion-(?:022g|(?:023[abcdef]|024[abcdefghijklm]))-v1/);
-  assert.match(worker, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklm]))/);
+  assert.match(html, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklmn]))/);
+  assert.match(worker, /coach-dominion-(?:022g|(?:023[abcdef]|024[abcdefghijklmn]))-v1/);
+  assert.match(worker, /styles\.css\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklmn]))/);
   assert.match(worker, /mobile-command\.js\?v=022g/);
-  assert.match(worker, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklm]))/);
+  assert.match(worker, /app\.js\?v=(?:022g|(?:023[abcdef]|024[abcdefghijklmn]))/);
 });
 
 console.log("Build 022G Mobile Field App integration verified.");

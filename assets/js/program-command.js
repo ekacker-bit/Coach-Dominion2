@@ -132,6 +132,7 @@
     const counts = moduleCounts(input.week || {});
     const plans = input.plans || {};
     const next = blockerAction(input, weekSummary);
+    const weekAutopilot = input.weekAutopilot || null;
     return {
       version: VERSION,
       status: next.status,
@@ -151,6 +152,14 @@
         status: planStatus(plans[module.id], contract),
         summary: moduleSummary(module.id, counts[module.id], contract || {}, plans[module.id])
       })),
+      autopilot: weekAutopilot ? {
+        status: weekAutopilot.status || "CHECKING",
+        tone: weekAutopilot.tone || "neutral",
+        headline: weekAutopilot.headline || "Atlas is preparing next week",
+        detail: weekAutopilot.detail || "The active program will roll forward unless something material changes.",
+        targetWeekStart: weekAutopilot.targetWeekStart || null,
+        action: weekAutopilot.action || "OPEN_CALENDAR"
+      } : null,
       rationale: rationale(input, weekSummary),
       safeguard: input.week ? "Current week stays protected until you approve a change." : "No change is applied from this page."
     };

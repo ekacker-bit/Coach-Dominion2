@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "019D.1";
+  const VERSION = "025H.1";
   const STAGES = Object.freeze([
     { id: "contract", label: "Contract" },
     { id: "plans", label: "Plans" },
@@ -162,6 +162,7 @@
     const verified = scheduled.filter((item) => item.complete);
     const needsEvidence = scheduled.filter((item) => item.status === "VERIFY");
     const inMotion = scheduled.filter((item) => ["READY", "PLANNED", "IN_PROGRESS"].includes(item.status));
+    const activeExecution = modules.find((item) => item.status === "IN_PROGRESS");
     const loopState = upper(review.loopState);
     const reviewClosed = Boolean(review.closed) || Boolean(review.adaptationApproved) || loopState === "LOOP_CLOSED";
     const adaptationApproved = Boolean(review.adaptationApproved) || loopState === "LOOP_CLOSED";
@@ -182,7 +183,14 @@
     let next;
     let completedStages = [];
 
-    if (!contract.approved) {
+    if (activeExecution && contract.approved && contract.signed) {
+      state = "EXECUTION_REQUIRED";
+      phase = "today";
+      title = `Resume ${activeExecution.detail || activeExecution.label}`;
+      detail = `${activeExecution.label} is already in progress. Preserve and finish the live session before repairing future programming.`;
+      next = action("MODULE", `Resume ${activeExecution.label}`, "today", detail, activeExecution.id);
+      completedStages = ["contract", "today"];
+    } else if (!contract.approved) {
       state = "CONTRACT_REQUIRED";
       phase = "contract";
       title = "Set the Recruit Contract";

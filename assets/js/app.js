@@ -8564,10 +8564,16 @@ function renderStrengthSession(sessionItem = {}, options = {}) {
   const launch = options.canLog && typeof DominionStrengthTraining !== "undefined"
     ? DominionStrengthTraining.sessionLaunchDecision(options.plan, sessionItem.id, options.execution || {}, options.readiness || {})
     : null;
+  const launchLabel = launch && options.previewingDraft && launch.mode === "START"
+    ? `Log approved ${sessionItem.name}`
+    : launch?.label;
+  const launchMessage = launch && options.previewingDraft
+    ? `${launch.message} The approved plan is logged; this draft remains unchanged.`
+    : launch?.message;
   return `<details class="strength-program-session">
     <summary><span>${escapeHtml(sessionItem.name)}</span><strong>${(sessionItem.exercises || []).length} exercises</strong></summary>
     <ol>${exercises}</ol>
-    ${launch ? `<div class="performance-actions"><button type="button" data-programming-action="train-session" data-session-id="${escapeHtml(sessionItem.id)}" ${launch.allowed ? "" : "disabled"}>${escapeHtml(launch.label)}</button><small>${escapeHtml(launch.message)}</small></div>` : ""}
+    ${launch ? `<div class="performance-actions"><button type="button" data-programming-action="train-session" data-session-id="${escapeHtml(sessionItem.id)}" ${launch.allowed ? "" : "disabled"}>${escapeHtml(launchLabel)}</button><small>${escapeHtml(launchMessage)}</small></div>` : ""}
   </details>`;
 }
 
@@ -9073,7 +9079,8 @@ function renderProgrammingReview() {
     </div>
     <article class="connected-notice"><strong>Coverage is program-driven.</strong> Existing evidence personalizes known loads, but missing evidence never deletes squat, hinge, push, pull, unilateral, carry, or core work.</article>
     <div class="strength-program-sessions">${displayedPlan.sessions.map((item) => renderStrengthSession(item, {
-      canLog: Boolean(activePlan && displayedPlan.id === activePlan.id && !savedDraft),
+      canLog: Boolean(activePlan && activePlan.sessions.some((sessionItem) => sessionItem.id === item.id)),
+      previewingDraft: Boolean(savedDraft),
       plan: activePlan,
       execution: readStrengthExecution(),
       readiness: strengthSessionLaunchReadiness()
@@ -9746,7 +9753,20 @@ async function requestMobileInstall() {
 
 function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  const reloadKey = "coach-dominion:service-worker-reload:025h";
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    try {
+      if (window.sessionStorage.getItem(reloadKey) === "done") return;
+      window.sessionStorage.setItem(reloadKey, "done");
+    } catch (_) {}
+    refreshing = true;
+    window.location.reload();
+  });
+  navigator.serviceWorker.register("/sw.js?v=025h", { updateViaCache: "none" })
+    .then((registration) => registration.update())
+    .catch(() => {});
 }
 
 async function saveDailyAssignmentExecution(execution) {

@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025C.1";
+  const VERSION = "025C.2";
   const TERMINAL_STATES = new Set(["COMPLETE", "COMPLETED", "PARTIAL", "STOPPED", "PAIN_HOLD"]);
   const INTERRUPTED_STATES = new Set(["PARTIAL", "STOPPED", "PAIN_HOLD"]);
 
@@ -64,6 +64,59 @@
       secured: [...expectedModules].filter((module) => receiptModules.has(module)).length,
       complete: expectedModules.size > 0 && [...expectedModules].every((module) => receiptModules.has(module)),
       interrupted
+    };
+  }
+
+  function resolveReceiptContext(input = {}) {
+    const module = moduleCode(input.module);
+    const execution = input.execution || {};
+    const preferred = input.item || input.preferred || {};
+    const sessions = (Array.isArray(input.sessions) ? input.sessions : [])
+      .filter((session) => moduleCode(session.module) === module);
+    if (!sessions.length) return preferred;
+
+    const executionIds = new Set([
+      execution.id,
+      execution.sessionId,
+      execution.session?.id,
+      execution.sessionSnapshot?.id,
+      execution.activityId
+    ].map(text).filter(Boolean));
+    const receipts = Array.isArray(input.receipts) ? input.receipts : [];
+    const receiptSecures = (session) => receipts.some((receipt) => (
+      moduleCode(receipt.module) === module
+      && text(receipt.windowId)
+      && text(receipt.windowId) === text(session.trainingWindowId || session.windowId)
+    ));
+    const exactCandidates = executionIds.size
+      ? sessions.filter((session) => [
+        session.id,
+        session.activityId,
+        session.record?.id,
+        session.record?.sessionId,
+        session.record?.session?.id,
+        session.record?.sessionSnapshot?.id
+      ].map(text).some((id) => id && executionIds.has(id)))
+      : [];
+    const exact = exactCandidates.find((session) => !receiptSecures(session)) || exactCandidates[0] || null;
+    const preferredIsCompletedSession = moduleCode(preferred.module) === module
+      && Boolean(preferred.terminal || TERMINAL_STATES.has(upper(preferred.state)));
+    const unreceiptedTerminal = sessions.find((session) => (
+      (session.terminal || TERMINAL_STATES.has(upper(session.state)))
+      && !receiptSecures(session)
+    ));
+    const resolved = exact
+      || (preferredIsCompletedSession ? preferred : null)
+      || unreceiptedTerminal
+      || sessions.find((session) => session.terminal || TERMINAL_STATES.has(upper(session.state)))
+      || (moduleCode(preferred.module) === module ? preferred : null)
+      || sessions[0];
+    return {
+      ...preferred,
+      ...resolved,
+      trainingWindowId: text(resolved.trainingWindowId || resolved.windowId) || null,
+      windowId: text(resolved.trainingWindowId || resolved.windowId) || null,
+      windowLabel: text(resolved.windowLabel || resolved.sessionLabel) || "TODAY"
     };
   }
 
@@ -219,6 +272,7 @@
     stableHash,
     windowIdentity,
     windowReceiptCoverage,
+    resolveReceiptContext,
     pendingDebrief,
     buildDebrief,
     coachingDecision,

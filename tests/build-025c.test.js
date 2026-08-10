@@ -11,8 +11,9 @@ const styles = read("assets/styles.css");
 const worker = read("sw.js");
 const changelog = read("CHANGELOG.md");
 
-assert.match(engine, /const VERSION = "025C\.1"/);
+assert.match(engine, /const VERSION = "025C\.2"/);
 assert.match(engine, /function pendingDebrief/);
+assert.match(engine, /function resolveReceiptContext/);
 assert.match(engine, /function buildDebrief/);
 assert.match(engine, /function coachingDecision/);
 assert.match(engine, /planMutationAllowed: false/);
@@ -31,6 +32,7 @@ assert.match(app, /function renderMissionHandoff/);
 assert.match(app, /"DEBRIEF", `mission:\$\{saved\.date\}`/);
 assert.match(app, /"HISTORY", "mission-debrief"/);
 assert.match(app, /DominionMissionDebrief\.attachDebrief/);
+assert.match(app, /DominionMissionDebrief\.resolveReceiptContext/);
 assert.match(app, /DominionMissionDebrief\.summarizeForAtlas/);
 assert.match(app, /data-mission-action="debrief-submit"/);
 assert.match(app, /data-mission-action="handoff"/);

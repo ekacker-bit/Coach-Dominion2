@@ -89,8 +89,9 @@ check("Mission Execution engine", size("assets/js/mission-execution.js") >= 1600
 check("Mission Execution integration", html.includes('id="mission-execution"') && html.includes('/assets/js/mission-execution.js?v=025b') && app.includes("renderMissionExecution") && app.includes("saveMissionExecutionReceipt"), "025B Mission Execution cockpit is missing");
 check("Mission Execution evidence", app.includes('"EVIDENCE", `mission:${todayISODate()}`') && app.includes("saveMissionPerformanceEvidence"), "025B automatic evidence flow is missing");
 check("cached Mission Execution", worker.includes('/assets/js/mission-execution.js?v=025b'), "service worker is not caching the Mission Execution engine");
-check("Mission Debrief engine", size("assets/js/mission-debrief.js") >= 10000 && read("assets/js/mission-debrief.js").includes('const VERSION = "025C.1"'), "025C Mission Debrief engine appears incomplete");
+check("Mission Debrief engine", size("assets/js/mission-debrief.js") >= 10000 && read("assets/js/mission-debrief.js").includes('const VERSION = "025C.2"'), "025C Mission Debrief engine appears incomplete");
 check("Mission Debrief integration", html.includes('/assets/js/mission-debrief.js?v=025c') && app.includes("submitMissionDebrief") && app.includes("renderMissionHandoff"), "025C debrief and recovery handoff are missing");
+check("Mission Debrief receipt routing", app.includes("resolveReceiptContext") && read("assets/js/mission-debrief.js").includes("function resolveReceiptContext"), "025C receipt-to-window routing is missing");
 check("Mission Debrief persistence", app.includes('"DEBRIEF", `mission:${saved.date}`') && app.includes('"HISTORY", "mission-debrief"'), "025C account continuity is missing");
 check("cached Mission Debrief", worker.includes('/assets/js/mission-debrief.js?v=025c'), "service worker is not caching the Mission Debrief engine");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

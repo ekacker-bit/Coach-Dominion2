@@ -8,6 +8,7 @@
 - Attaches the debrief and coaching order to the original Mission receipts with idempotent account continuity.
 - Makes Mission debriefs the authoritative weekly technique and stopped-session evidence so Atlas does not double count Performance history.
 - Preserves the active plan and routes material adjustments into the existing recruit-approved weekly review.
+- Keeps a completed receipt attached to the AM or PM window that actually ended, even after Today advances to the next order.
 
 ## Unreleased - Build 025B Mission Execution Mode
 

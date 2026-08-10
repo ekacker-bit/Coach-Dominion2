@@ -6147,19 +6147,30 @@ async function saveMissionPerformanceEvidence(receipt, item = {}, execution = {}
 
 async function saveMissionExecutionReceipt(module, execution, item = {}, prescription = null) {
   if (typeof DominionMissionExecution === "undefined" || !execution) return null;
+  const existingReceipts = readMissionExecutionReceipts();
+  const cockpit = buildCurrentMissionCockpit();
+  const receiptItem = typeof DominionMissionDebrief !== "undefined"
+    ? DominionMissionDebrief.resolveReceiptContext({
+      module,
+      execution,
+      item,
+      sessions: cockpit?.sessions || [],
+      receipts: existingReceipts
+    })
+    : item;
   const receipt = DominionMissionExecution.buildEvidenceReceipt({
     date: todayISODate(),
     module,
     execution,
-    windowId: item.trainingWindowId || item.windowId || null,
-    windowLabel: item.windowLabel || item.sessionLabel || "TODAY",
+    windowId: receiptItem.trainingWindowId || receiptItem.windowId || null,
+    windowLabel: receiptItem.windowLabel || receiptItem.sessionLabel || "TODAY",
     summary: missionExecutionSummary(module, execution, prescription)
   });
-  const receipts = [receipt, ...readMissionExecutionReceipts().filter((saved) => saved.id !== receipt.id)]
+  const receipts = [receipt, ...existingReceipts.filter((saved) => saved.id !== receipt.id)]
     .sort((left, right) => String(right.completedAt || "").localeCompare(String(left.completedAt || "")));
   saveClosedLoopLocal("EVIDENCE", `mission:${todayISODate()}`, receipts);
   const synced = await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
-  await saveMissionPerformanceEvidence(receipt, item, execution);
+  await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
   setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
   return receipt;
 }

@@ -20,8 +20,8 @@ assert.match(app, /previewingDraft: Boolean\(savedDraft\)/);
 assert.match(app, /Log approved \$\{sessionItem\.name\}/);
 assert.match(app, /this draft remains unchanged/);
 
-assert.match(app, /service-worker-reload:025(?:h|i)/);
-assert.match(app, /register\("\/sw\.js\?v=025(?:h|i)", \{ updateViaCache: "none" \}\)/);
+assert.match(app, /service-worker-reload:025(?:h|i|j)/);
+assert.match(app, /register\("\/sw\.js\?v=025(?:h|i|j)", \{ updateViaCache: "none" \}\)/);
 assert.match(app, /controllerchange/);
 assert.match(app, /window\.location\.reload\(\)/);
 assert.match(worker, /coach-dominion-025c-v1-025h/);

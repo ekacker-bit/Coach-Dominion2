@@ -11,7 +11,7 @@ const html = read("app.html");
 const worker = read("sw.js");
 const changelog = read("CHANGELOG.md");
 
-assert.match(engine, /const VERSION = "025I\.1"/);
+assert.match(engine, /const VERSION = "025(?:I|J)\.1"/);
 assert.match(engine, /function buildProgressionMemory/);
 assert.match(engine, /function recordsForExercise/);
 assert.match(engine, /function buildCompletionReport/);
@@ -26,17 +26,17 @@ assert.match(app, /data-memory-mode="COACHED"/);
 assert.match(app, /function attachStrengthCompletionReport/);
 assert.match(app, /progressionReport/);
 assert.match(app, /strengthCompletionReportMarkup/);
-assert.match(app, /service-worker-reload:025i/);
+assert.match(app, /service-worker-reload:025(?:i|j)/);
 
 assert.match(css, /\.strength-progression-memory/);
 assert.match(css, /\.strength-progression-result/);
 assert.match(css, /\.strength-performance-mark/);
-assert.match(html, /styles\.css\?v=025c3-025i/);
-assert.match(html, /strength-training\.js\?v=025g-025i/);
-assert.match(html, /app\.js\?v=025c7-025h-025i/);
-assert.match(worker, /coach-dominion-025c-v1-025h-025i/);
-assert.match(worker, /strength-training\.js\?v=025g-025i/);
-assert.match(worker, /app\.js\?v=025c7-025h-025i/);
+assert.match(html, /styles\.css\?v=025c3-025i(?:-025j)?/);
+assert.match(html, /strength-training\.js\?v=025g-025i(?:-025j)?/);
+assert.match(html, /app\.js\?v=025c7-025h-025i(?:-025j)?/);
+assert.match(worker, /coach-dominion-025c-v1-025h-025i(?:-025j)?/);
+assert.match(worker, /strength-training\.js\?v=025g-025i(?:-025j)?/);
+assert.match(worker, /app\.js\?v=025c7-025h-025i(?:-025j)?/);
 assert.match(changelog, /Build 025I Progression Memory/);
 
 console.log("Build 025I progression memory integration tests passed.");

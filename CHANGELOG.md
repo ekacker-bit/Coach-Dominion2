@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025J Earned Progression Activation
+
+- Converts earned load recommendations into an explicit Approve, Review Each, or Keep Current Plan decision after the workout.
+- Allows exercise-by-exercise activation so one earned target can advance while another remains held.
+- Creates an immutable plan revision and account-synced activation receipt before the next matching workout consumes new targets.
+- Keeps the just-completed workout snapshot unchanged while Today exposes the active plan revision and earned-target state.
+- Blocks pain, stopped work, partial evidence, stale plan revisions, and unselected recommendations from changing the program.
+- Supports a safe undo that restores prior targets in a newer revision without deleting the original approval audit.
+
 ## Unreleased - Build 025I Progression Memory
 
 - Places the last verified sets, load, repetitions, RPE, and date beside every exercise in the live workout.

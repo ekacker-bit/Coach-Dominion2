@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025G.1";
+  const VERSION = "025I.1";
   const TERMINAL_STATES = Object.freeze(["COMPLETE", "PARTIAL", "STOPPED"]);
   const ACTIVE_STATES = Object.freeze(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const PATTERN_LABELS = Object.freeze({
@@ -715,6 +715,233 @@
     };
   }
 
+  function workSetsForExercise(execution = {}, exerciseCode) {
+    return (execution.setLogs?.[exerciseCode] || [])
+      .filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP");
+  }
+
+  function exerciseHistory(history = [], exerciseCode, excludeExecutionId = null) {
+    return history
+      .filter((execution) => execution
+        && execution.id !== excludeExecutionId
+        && isTerminal(execution.state)
+        && exerciseFromExecution(execution, exerciseCode)
+        && workSetsForExercise(execution, exerciseCode).length)
+      .sort((a, b) => String(b.completedAt || b.updatedAt || "").localeCompare(String(a.completedAt || a.updatedAt || "")));
+  }
+
+  function strongestWorkSet(logs = []) {
+    return [...logs].sort((a, b) => {
+      const aLoad = Number(a.load || 0);
+      const bLoad = Number(b.load || 0);
+      const aReps = Number(a.reps || 0);
+      const bReps = Number(b.reps || 0);
+      const aScore = aLoad > 0 ? aLoad * (1 + aReps / 30) : aReps;
+      const bScore = bLoad > 0 ? bLoad * (1 + bReps / 30) : bReps;
+      return bScore - aScore || bLoad - aLoad || bReps - aReps;
+    })[0] || null;
+  }
+
+  function buildProgressionMemory(planExercise = {}, history = [], options = {}) {
+    const exerciseCode = planExercise.exerciseCode || planExercise.id;
+    const prior = exerciseHistory(history, exerciseCode, options.excludeExecutionId || null);
+    const latestExecution = prior[0] || null;
+    const latestExercise = latestExecution ? exerciseFromExecution(latestExecution, exerciseCode) : null;
+    const latestExposure = latestExecution && latestExercise ? exerciseExposure(latestExecution, latestExercise) : null;
+    const latestSet = latestExecution ? strongestWorkSet(workSetsForExercise(latestExecution, exerciseCode)) : null;
+    const currentLoad = Number(planExercise.recommendedLoad ?? planExercise.load ?? 0);
+    const targetReps = Number(planExercise.targetReps ?? planExercise.reps ?? 0);
+    const unit = planExercise.unit || latestSet?.unit || "lb";
+    const repUnit = planExercise.repUnit || "reps";
+    const qualityExposures = qualityExposureCount(prior, exerciseCode);
+    const safetyCode = String(options.readinessState || options.policyCode || "").toUpperCase();
+    const safetyHold = Boolean(options.pain)
+      || ["RED", "SAFETY_HOLD", "RECOVERY ONLY"].includes(safetyCode)
+      || latestExecution?.painReported
+      || latestExecution?.state === "STOPPED";
+    const repeatLoad = Number(latestSet?.load ?? latestExposure?.workingLoad ?? currentLoad ?? 0);
+    const repeatReps = Number(latestSet?.reps ?? targetReps ?? 0);
+    let action = "ESTABLISH_BASELINE";
+    let label = "Establish baseline";
+    let reason = "No completed exposure exists. Use the approved target and leave clean repetitions available.";
+    let coachedLoad = currentLoad;
+    let coachedReps = targetReps;
+
+    if (latestExposure) {
+      action = "REPEAT";
+      label = "Repeat last";
+      reason = "Repeat the last controlled target before adding difficulty.";
+      coachedLoad = repeatLoad;
+      coachedReps = targetReps || repeatReps;
+      if (safetyHold) {
+        action = "SAFETY_HOLD";
+        label = "Hold progression";
+        reason = "Pain, a stopped session, or RED readiness blocks a harder target.";
+      } else if (latestExecution.state !== "COMPLETE" || latestExposure.skipped || latestExposure.substituted || !latestExposure.targetMet) {
+        reason = "The previous exposure was incomplete or modified, so the last supported target repeats.";
+      } else if (latestExposure.averageRpe === null) {
+        reason = "RPE was not recorded, so Atlas will not infer progression.";
+      } else if (latestExposure.averageRpe > 8) {
+        reason = "The previous work was near the limit. Repeat before adding load or repetitions.";
+      } else if (qualityExposures >= 2 && repeatLoad > 0) {
+        action = "ADD_LOAD";
+        label = String(unit).toLowerCase() === "kg" ? "+2.5 kg" : "+5 lb";
+        coachedLoad = roundLoad(Math.max(currentLoad, repeatLoad) + (String(unit).toLowerCase() === "kg" ? 2.5 : 5), unit);
+        coachedReps = targetReps || repeatReps;
+        reason = "Two consecutive complete, pain-free exposures at RPE 8 or below earned the smallest load step.";
+      } else if (repUnit === "reps") {
+        action = "ADD_REP";
+        label = "+1 rep";
+        coachedLoad = repeatLoad;
+        coachedReps = Math.max(targetReps, repeatReps + 1);
+        reason = "One controlled exposure supports a repetition target while load stays fixed.";
+      }
+    }
+
+    return {
+      version: VERSION,
+      exerciseCode,
+      exerciseName: planExercise.exerciseName || planExercise.name || exerciseCode,
+      qualityExposures,
+      latest: latestExposure ? {
+        date: String(latestExecution.completedAt || latestExecution.date || "").slice(0, 10),
+        state: latestExecution.state,
+        sets: latestExposure.completedSets,
+        load: repeatLoad,
+        reps: repeatReps,
+        averageRpe: latestExposure.averageRpe,
+        unit
+      } : null,
+      coachedTarget: {
+        action,
+        label,
+        reason,
+        reps: coachedReps,
+        load: coachedLoad,
+        unit,
+        requiresConfirmation: ["ADD_LOAD", "ADD_REP"].includes(action),
+        blocked: action === "SAFETY_HOLD"
+      }
+    };
+  }
+
+  function recordsForExercise(execution = {}, history = [], exerciseItem = {}) {
+    const exerciseCode = exerciseItem.exerciseCode || exerciseItem.id;
+    const currentSets = workSetsForExercise(execution, exerciseCode);
+    const prior = exerciseHistory(history, exerciseCode, execution.id);
+    const priorSets = prior.flatMap((item) => workSetsForExercise(item, exerciseCode));
+    const currentBest = strongestWorkSet(currentSets);
+    const priorMaxLoad = Math.max(0, ...priorSets.map((item) => Number(item.load || 0)));
+    const currentMaxLoad = Math.max(0, ...currentSets.map((item) => Number(item.load || 0)));
+    const currentVolume = currentSets.reduce((sum, item) => sum + Number(item.load || 0) * Number(item.reps || 0), 0);
+    const priorMaxVolume = Math.max(0, ...prior.map((item) => workSetsForExercise(item, exerciseCode)
+      .reduce((sum, setItem) => sum + Number(setItem.load || 0) * Number(setItem.reps || 0), 0)));
+    const records = [];
+
+    if (priorSets.length && currentMaxLoad > priorMaxLoad) {
+      records.push({ code: "LOAD_PR", label: "Load PR", value: currentMaxLoad, unit: currentBest?.unit || exerciseItem.unit || "lb" });
+    }
+    if (priorSets.length) {
+      const repRecord = currentSets
+        .map((item) => {
+          const sameLoad = priorSets.filter((priorSet) => Number(priorSet.load || 0) === Number(item.load || 0));
+          const previous = Math.max(0, ...sameLoad.map((priorSet) => Number(priorSet.reps || 0)));
+          return sameLoad.length && Number(item.reps || 0) > previous
+            ? { current: Number(item.reps || 0), previous, load: Number(item.load || 0), unit: item.unit || exerciseItem.unit || "lb" }
+            : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.current - a.current)[0];
+      if (repRecord) records.push({ code: "REP_PR", label: "Rep PR", value: repRecord.current, unit: "reps", load: repRecord.load, loadUnit: repRecord.unit });
+    }
+    if (prior.length && currentVolume > priorMaxVolume) {
+      records.push({ code: "VOLUME_PR", label: "Volume PR", value: Math.round(currentVolume), unit: `${exerciseItem.unit || currentBest?.unit || "lb"}-reps` });
+    }
+
+    return {
+      exerciseCode,
+      exerciseName: exerciseItem.exerciseName || exerciseItem.name || exerciseCode,
+      baselineEstablished: Boolean(currentSets.length && !priorSets.length),
+      strongestSet: currentBest ? {
+        exerciseCode,
+        exerciseName: exerciseItem.exerciseName || exerciseItem.name || exerciseCode,
+        load: Number(currentBest.load || 0),
+        reps: Number(currentBest.reps || 0),
+        rpe: currentBest.rpe ?? null,
+        unit: currentBest.unit || exerciseItem.unit || "lb"
+      } : null,
+      records
+    };
+  }
+
+  function buildCompletionReport(execution = {}, history = [], plan = {}, options = {}) {
+    if (!isTerminal(execution.state)) return null;
+    const priorHistory = history.filter((item) => item?.id !== execution.id);
+    const exerciseResults = (execution.sessionSnapshot?.exercises || [])
+      .map((item) => recordsForExercise(execution, priorHistory, item));
+    const records = exerciseResults.flatMap((item) => item.records.map((record) => ({
+      ...record,
+      exerciseCode: item.exerciseCode,
+      exerciseName: item.exerciseName
+    })));
+    const strongestSet = exerciseResults.map((item) => item.strongestSet).filter(Boolean)
+      .sort((a, b) => {
+        const aScore = a.load > 0 ? a.load * (1 + a.reps / 30) : a.reps;
+        const bScore = b.load > 0 ? b.load * (1 + b.reps / 30) : b.reps;
+        return bScore - aScore;
+      })[0] || null;
+    const proposal = plan?.status === "APPROVED"
+      ? buildAdjustmentProposal(plan, [execution, ...priorHistory], { createdAt: options.createdAt || execution.completedAt || new Date().toISOString() })
+      : null;
+    const decisions = proposal?.decisions || [];
+    const earned = decisions.filter((item) => item.action === "PROGRESS_LOAD");
+    const reduced = decisions.filter((item) => item.action === "REDUCE_LOAD");
+    const baselines = exerciseResults.filter((item) => item.baselineEstablished).length;
+    const headline = execution.painReported || execution.state === "STOPPED"
+      ? "Recovery protection engaged"
+      : earned.length
+        ? `Progression earned on ${earned.length} exercise${earned.length === 1 ? "" : "s"}`
+        : records.length
+          ? `${records.length} performance mark${records.length === 1 ? "" : "s"} secured`
+          : baselines
+            ? `${baselines} baseline${baselines === 1 ? "" : "s"} established`
+            : execution.state === "COMPLETE" ? "Session secured" : "Completed work preserved";
+    const detail = execution.painReported || execution.state === "STOPPED"
+      ? "No progression is authorized until readiness is reviewed."
+      : earned.length
+        ? "Review the earned load steps before they change the approved plan."
+        : reduced.length
+          ? "Atlas recommends a smaller next exposure before load returns."
+          : "The next exposure repeats until the evidence supports a controlled increase.";
+    return {
+      version: VERSION,
+      id: `strength-progression:${execution.id}`,
+      sourceExecutionId: execution.id,
+      createdAt: options.createdAt || execution.completedAt || new Date().toISOString(),
+      headline,
+      detail,
+      recordCount: records.length,
+      records,
+      strongestSet,
+      baselinesEstablished: baselines,
+      progression: {
+        earnedCount: earned.length,
+        reducedCount: reduced.length,
+        repeatCount: decisions.filter((item) => ["REPEAT", "HOLD_FOR_REVIEW", "SAFETY_HOLD"].includes(item.action)).length,
+        decisions: decisions.map((item) => ({
+          exerciseCode: item.exerciseCode,
+          exerciseName: item.exerciseName,
+          action: item.action,
+          label: item.label,
+          currentLoad: item.currentLoad,
+          proposedLoad: item.proposedLoad,
+          unit: item.unit,
+          reason: item.reason
+        }))
+      }
+    };
+  }
+
   function qualityExposureCount(history = [], exerciseCode) {
     let count = 0;
     let anchorLoad = null;
@@ -940,6 +1167,9 @@
     restartWorkout,
     averageRpe,
     exerciseExposure,
+    buildProgressionMemory,
+    recordsForExercise,
+    buildCompletionReport,
     qualityExposureCount,
     buildAdjustmentProposal,
     applyAdjustmentProposal,

@@ -6702,7 +6702,8 @@ async function finalizeMissionSession(module = "STRENGTH") {
   const item = buildCurrentMissionCockpit()?.current || {};
   const notes = document.querySelector("[data-mission-review-notes]")?.value || "";
   if (code === "STRENGTH") {
-    const execution = DominionStrengthTraining.finishWorkout({ ...readDailyAssignmentExecution(), reviewNotes: notes }, { notes }, new Date().toISOString());
+    let execution = DominionStrengthTraining.finishWorkout({ ...readDailyAssignmentExecution(), reviewNotes: notes }, { notes }, new Date().toISOString());
+    execution = attachStrengthCompletionReport(execution);
     await saveDailyAssignmentExecution(execution);
     await preserveStrengthWorkout(execution);
     await saveMissionExecutionReceipt(code, execution, item, currentStrengthPrescription());
@@ -6718,7 +6719,8 @@ async function reportMissionPain(module = "STRENGTH") {
   const code = String(module || "STRENGTH").toUpperCase();
   const item = buildCurrentMissionCockpit()?.current || {};
   if (code === "STRENGTH") {
-    const execution = DominionStrengthTraining.reportPain(readDailyAssignmentExecution(), new Date().toISOString());
+    let execution = DominionStrengthTraining.reportPain(readDailyAssignmentExecution(), new Date().toISOString());
+    execution = attachStrengthCompletionReport(execution);
     await saveDailyAssignmentExecution(execution);
     await preserveStrengthWorkout(execution);
     await saveMissionExecutionReceipt(code, execution, item, currentStrengthPrescription());
@@ -9753,7 +9755,7 @@ async function requestMobileInstall() {
 
 function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  const reloadKey = "coach-dominion:service-worker-reload:025h";
+  const reloadKey = "coach-dominion:service-worker-reload:025i";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -9764,9 +9766,18 @@ function registerMobileServiceWorker() {
     refreshing = true;
     window.location.reload();
   });
-  navigator.serviceWorker.register("/sw.js?v=025h", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025i", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
+}
+
+function attachStrengthCompletionReport(execution) {
+  if (!execution || typeof DominionStrengthTraining === "undefined" || !DominionStrengthTraining.isTerminal(execution.state)) return execution;
+  const history = readStrengthHistory().filter((item) => item.id !== execution.id);
+  const progressionReport = DominionStrengthTraining.buildCompletionReport(execution, history, readApprovedStrengthPlan(), {
+    createdAt: execution.completedAt || new Date().toISOString()
+  });
+  return progressionReport ? { ...execution, progressionReport } : execution;
 }
 
 async function saveDailyAssignmentExecution(execution) {
@@ -9866,6 +9877,51 @@ function strengthWorkLogs(execution, exerciseId) {
   return (execution.setLogs?.[exerciseId] || []).filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP");
 }
 
+function strengthProgressionMemory(exercise, execution, history = readStrengthHistory(), assignment = null) {
+  if (typeof DominionStrengthTraining === "undefined" || typeof DominionStrengthTraining.buildProgressionMemory !== "function") return null;
+  return DominionStrengthTraining.buildProgressionMemory(exercise, history, {
+    excludeExecutionId: execution?.id || null,
+    pain: Boolean(dailyState?.pain || execution?.painReported),
+    readinessState: dailyState ? evaluateOperationalReadiness(dailyState)?.state : null,
+    policyCode: assignment?.readinessDelta?.code || null
+  });
+}
+
+function strengthProgressionMemoryMarkup(memory, exerciseId, disabled = false) {
+  if (!memory) return "";
+  const latest = memory.latest;
+  const target = memory.coachedTarget;
+  const latestText = latest
+    ? `${latest.sets} set${latest.sets === 1 ? "" : "s"} &middot; ${latest.load > 0 ? `${latest.load} ${escapeHtml(latest.unit)} &times; ` : ""}${latest.reps}${latest.averageRpe === null ? "" : ` &middot; RPE ${latest.averageRpe}`}`
+    : "No prior workout";
+  const targetText = target.blocked
+    ? "Progression held"
+    : `${target.load > 0 ? `${target.load} ${escapeHtml(target.unit)} &times; ` : ""}${target.reps}`;
+  return `<section class="strength-progression-memory ${target.blocked ? "safety-hold" : ""}">
+    <div><span>LAST</span><strong>${latestText}</strong><small>${latest?.date || "Establish the first controlled baseline"}</small></div>
+    <div><span>ATLAS TARGET</span><strong>${escapeHtml(target.label)} &middot; ${targetText}</strong><small>${escapeHtml(target.reason)}</small></div>
+    <div class="strength-memory-actions">
+      <button type="button" class="ghost" data-assignment-action="prefill-memory" data-memory-mode="LAST" data-exercise-id="${escapeHtml(exerciseId)}" ${disabled || !latest ? "disabled" : ""}>Use last workout</button>
+      <button type="button" data-assignment-action="prefill-memory" data-memory-mode="COACHED" data-exercise-id="${escapeHtml(exerciseId)}" ${disabled || target.blocked ? "disabled" : ""}>Use ${escapeHtml(target.label)}</button>
+    </div>
+  </section>`;
+}
+
+function strengthCompletionReportMarkup(report) {
+  if (!report) return "";
+  const records = (report.records || []).map((item) => `<span class="strength-performance-mark"><strong>${escapeHtml(item.label)}</strong>${escapeHtml(item.exerciseName)} &middot; ${item.value} ${escapeHtml(item.unit || "")}</span>`).join("");
+  const strongest = report.strongestSet
+    ? `${escapeHtml(report.strongestSet.exerciseName)} &middot; ${report.strongestSet.load > 0 ? `${report.strongestSet.load} ${escapeHtml(report.strongestSet.unit)} &times; ` : ""}${report.strongestSet.reps}${report.strongestSet.rpe === null ? "" : ` &middot; RPE ${report.strongestSet.rpe}`}`
+    : "No completed work set";
+  const earned = (report.progression?.decisions || []).filter((item) => item.action === "PROGRESS_LOAD").map((item) => `<li><strong>${escapeHtml(item.exerciseName)}</strong><span>${item.currentLoad || "Technique"} &rarr; ${item.proposedLoad} ${escapeHtml(item.unit || "")}</span></li>`).join("");
+  return `<section class="strength-progression-result">
+    <header><div><span class="kicker">PROGRESSION MEMORY</span><h3>${escapeHtml(report.headline)}</h3><p>${escapeHtml(report.detail)}</p></div><span class="state-pill ${report.progression?.earnedCount ? "green" : report.recordCount ? "yellow" : "neutral"}">${report.progression?.earnedCount || 0} EARNED</span></header>
+    <div class="strength-progression-result-grid"><div><span>Strongest set</span><strong>${strongest}</strong></div><div><span>Performance marks</span><strong>${report.recordCount || 0}</strong></div><div><span>Baselines</span><strong>${report.baselinesEstablished || 0}</strong></div></div>
+    ${records ? `<div class="strength-performance-marks">${records}</div>` : ""}
+    ${earned ? `<div class="strength-earned-targets"><span>NEXT PRESCRIPTION &middot; APPROVAL REQUIRED</span><ul>${earned}</ul></div>` : ""}
+  </section>`;
+}
+
 function updateStrengthRestCountdown() {
   document.querySelectorAll("[data-strength-rest-until]").forEach((item) => {
     const remaining = Math.max(0, Math.ceil((Date.parse(item.dataset.strengthRestUntil || "") - Date.now()) / 1000));
@@ -9889,6 +9945,7 @@ function renderDailyAssignment() {
     return;
   }
   const execution = readDailyAssignmentExecution();
+  const strengthHistory = readStrengthHistory();
   const fitbodComplete = assignment.fitbod.state === "COMPLETE";
   const terminal = typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(execution.state);
   const liveState = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
@@ -9900,7 +9957,7 @@ function renderDailyAssignment() {
   const completedSets = DominionStrengthTraining.completedSetCount(execution);
   const progressPercent = plannedSets ? Math.min(100, Math.round(completedSets / plannedSets * 100)) : 0;
   const activeExercise = assignment.exercises.find((item) => !execution.skipped?.[item.id] && strengthWorkLogs(execution, item.id).length < item.sets) || null;
-  const priorExecution = activeExercise ? readStrengthHistory().find((item) => strengthWorkLogs(item, activeExercise.id).length) : null;
+  const priorExecution = activeExercise ? strengthHistory.find((item) => item.id !== execution.id && strengthWorkLogs(item, activeExercise.id).length) : null;
   const priorExercise = priorExecution?.sessionSnapshot?.exercises?.find((item) => (item.exerciseCode || item.id) === activeExercise?.id);
   const priorExposure = priorExecution && priorExercise ? DominionStrengthTraining.exerciseExposure(priorExecution, priorExercise) : null;
   const activeMinutes = liveState ? DominionStrengthTraining.activeDurationMinutes(execution, new Date().toISOString()) : null;
@@ -9927,6 +9984,8 @@ function renderDailyAssignment() {
     const controlsDisabled = execution.state !== "IN_PROGRESS" || completed >= item.sets || skipped || fitbodComplete;
     const editable = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state);
     const lastWorkSet = workLogs[workLogs.length - 1] || null;
+    const progressionMemory = strengthProgressionMemory(item, execution, strengthHistory, assignment);
+    const progressionMemoryMarkup = strengthProgressionMemoryMarkup(progressionMemory, item.id, controlsDisabled);
     const logRows = logs.map((log) => `<li class="strength-set-log-row">
       <span>${String(log.kind || "WORK").toUpperCase() === "WARMUP" ? "Warm-up" : `Set ${log.setNumber}`}</span>
       <label><small>Reps</small><input type="number" data-log-field="reps" value="${log.reps}" min="0" max="1000" ${editable ? "" : "disabled"}></label>
@@ -9937,6 +9996,7 @@ function renderDailyAssignment() {
     return `<article id="strength-exercise-${escapeHtml(item.id)}" class="daily-exercise-card ${activeExercise?.id === item.id ? "active-exercise" : ""}">
       <header><div><span class="kicker">${escapeHtml(item.action.replaceAll("_", " "))}</span><h3>${escapeHtml(substitution || item.name)}</h3>${substitution ? `<p class="muted">Substituted for ${escapeHtml(item.name)}</p>` : ""}</div><span class="state-pill ${completed === item.sets ? "green" : skipped ? "yellow" : "neutral"}">${skipped ? "SKIPPED" : `${completed}/${item.sets} SETS`}</span></header>
       <div class="daily-prescription-grid"><div><span>Sets × reps</span><strong>${item.sets} × ${item.reps}</strong></div><div><span>Starting load</span><strong>${item.load > 0 ? `${item.load} ${escapeHtml(item.unit)}` : "Technique first"}</strong></div><div><span>Rest</span><strong>${Math.round(item.restSeconds / 60 * 10) / 10} min</strong></div><div><span>Tempo</span><strong>${escapeHtml(item.tempo)}</strong></div></div>
+      ${progressionMemoryMarkup}
       <p>${escapeHtml(item.rationale)}</p>
       ${logRows ? `<ol class="strength-set-log">${logRows}</ol>` : ""}
       <div class="strength-set-entry">
@@ -9961,6 +10021,10 @@ function renderDailyAssignment() {
     </article>`;
   }).join("");
   const summary = terminal ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
+  const progressionReport = terminal
+    ? execution.progressionReport || DominionStrengthTraining.buildCompletionReport(execution, strengthHistory.filter((item) => item.id !== execution.id), readApprovedStrengthPlan(), { createdAt: execution.completedAt || execution.updatedAt })
+    : null;
+  const progressionResultMarkup = strengthCompletionReportMarkup(progressionReport);
   const reviewSummary = execution.state === "REVIEW" ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
   const adjustment = readStrengthAdjustment();
   const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id;
@@ -9970,6 +10034,7 @@ function renderDailyAssignment() {
     <div class="connected-summary-grid"><div><span>Sets</span><strong>${summary.setsCompleted}/${summary.setsPlanned}</strong></div><div><span>Exercises</span><strong>${summary.exercisesCompleted}/${summary.exercisesPlanned}</strong></div><div><span>Volume</span><strong>${summary.volume.toLocaleString()} lb</strong></div><div><span>Active duration</span><strong>${durationText}</strong></div></div>
     ${summary.durationStatus === "UNRELIABLE_LEGACY" ? `<p class="muted">This older attempt had no activity segments, so the inflated wall-clock duration was intentionally discarded.</p>` : ""}
     ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
+    ${progressionResultMarkup}
     ${adjustmentReady ? `<div class="strength-next-review"><div><strong>Post-session review ready</strong><p>See what stays, what changes, and why. Nothing applies without approval.</p></div><button type="button" data-assignment-action="review-adjustment">Review next session</button></div>` : ""}
   </article>` : "";
   const reviewMarkup = reviewSummary ? `<section class="strength-final-review">
@@ -18120,6 +18185,23 @@ if (typeof document !== "undefined") {
       await saveDailyAssignmentExecution(execution);
       setText("daily-assignment-feedback", "Workout started. Record actual reps, load, and effort for every work set, then finish the session explicitly.");
     }
+    if (action === "prefill-memory") {
+      const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
+      if (!exercise) return;
+      const memory = strengthProgressionMemory(exercise, execution, readStrengthHistory(), assignment);
+      const source = button.dataset.memoryMode === "LAST" ? memory?.latest : memory?.coachedTarget;
+      if (!source || source.blocked) {
+        setText("daily-assignment-feedback", "Atlas is holding progression until the current safety evidence is resolved.");
+        return;
+      }
+      const card = button.closest(".daily-exercise-card");
+      const repsInput = card?.querySelector('[data-set-field="reps"]');
+      const loadInput = card?.querySelector('[data-set-field="load"]');
+      if (repsInput) repsInput.value = Number(source.reps || exercise.reps || 0);
+      if (loadInput) loadInput.value = Number(source.load ?? exercise.load ?? 0);
+      setText("daily-assignment-feedback", `${exercise.name}: ${button.dataset.memoryMode === "LAST" ? "last workout" : "Atlas target"} loaded. Record the set to confirm actual work.`);
+      return;
+    }
     if (action === "record-set") {
       const exercise = assignment?.exercises.find((item) => item.id === button.dataset.exerciseId);
       if (!exercise) return;
@@ -18207,6 +18289,7 @@ if (typeof document !== "undefined") {
     if (action === "finalize") {
       const notes = document.querySelector("[data-strength-review-notes]")?.value || "";
       execution = DominionStrengthTraining.finishWorkout({ ...execution, reviewNotes: notes }, { notes }, new Date().toISOString());
+      execution = attachStrengthCompletionReport(execution);
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
       await saveMissionExecutionReceipt("STRENGTH", execution, buildCurrentMissionCockpit()?.current || {}, currentStrengthPrescription());
@@ -18214,6 +18297,7 @@ if (typeof document !== "undefined") {
     }
     if (action === "stop") {
       execution = DominionStrengthTraining.finishWorkout(execution, { forceStop: true, reason: "Workout stopped by user." }, new Date().toISOString());
+      execution = attachStrengthCompletionReport(execution);
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
       await saveMissionExecutionReceipt("STRENGTH", execution, buildCurrentMissionCockpit()?.current || {}, currentStrengthPrescription());
@@ -18221,6 +18305,7 @@ if (typeof document !== "undefined") {
     }
     if (action === "pain") {
       execution = DominionStrengthTraining.reportPain(execution, new Date().toISOString());
+      execution = attachStrengthCompletionReport(execution);
       await saveDailyAssignmentExecution(execution);
       await preserveStrengthWorkout(execution);
       await saveMissionExecutionReceipt("STRENGTH", execution, buildCurrentMissionCockpit()?.current || {}, currentStrengthPrescription());

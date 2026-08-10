@@ -164,6 +164,229 @@
   .strength-adaptation-decision>div:last-child{justify-items:start;text-align:left}
 }
 
+/* Build 025E — one authoritative morning clearance */
+.morning-verification {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(212, 175, 55, 0.28);
+  background:
+    linear-gradient(135deg, rgba(212, 175, 55, 0.07), transparent 42%),
+    var(--panel, #101419);
+}
+
+.morning-verification::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--gold, #d4af37);
+}
+
+.morning-verification[data-verification-state="PROCEED"]::before { background: #42d493; }
+.morning-verification[data-verification-state="RECOVERY_ONLY"]::before { background: #f06b67; }
+
+.morning-verification-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.morning-verification-header h2 {
+  margin: 4px 0 2px;
+}
+
+.morning-verification-header p {
+  margin: 0;
+  color: var(--muted, #9ca5af);
+}
+
+.morning-verification-decision {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 0.9fr) minmax(360px, 1.6fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 22px;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  background: rgba(5, 8, 10, 0.62);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+}
+
+.morning-verification-decision.green { border-color: rgba(66, 212, 147, 0.34); }
+.morning-verification-decision.red { border-color: rgba(240, 107, 103, 0.42); }
+
+.morning-verification-mark {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(212, 175, 55, 0.62);
+  color: var(--gold, #d4af37);
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.morning-verification-copy > span,
+.morning-verification-signals span,
+.morning-verification-action small {
+  display: block;
+  color: var(--muted, #9ca5af);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.morning-verification-copy h3 {
+  margin: 4px 0;
+  font-size: clamp(1.6rem, 3vw, 2.35rem);
+}
+
+.morning-verification-copy p {
+  margin: 0;
+  color: #c6cbd0;
+  line-height: 1.45;
+}
+
+.morning-verification-signals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.morning-verification-signals > div {
+  min-height: 108px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.morning-verification-signals > div.green { border-color: rgba(66, 212, 147, 0.25); }
+.morning-verification-signals > div.yellow { border-color: rgba(212, 175, 55, 0.32); }
+.morning-verification-signals > div.red { border-color: rgba(240, 107, 103, 0.35); }
+
+.morning-verification-signals strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 1.05rem;
+}
+
+.morning-verification-signals small {
+  display: block;
+  color: var(--muted, #9ca5af);
+  line-height: 1.35;
+}
+
+.morning-verification-action {
+  min-width: 170px;
+  text-align: right;
+}
+
+.morning-verification-action button,
+.morning-verification-empty button {
+  white-space: nowrap;
+}
+
+.morning-verification-action small {
+  margin-top: 9px;
+  letter-spacing: 0.06em;
+}
+
+.morning-verification-empty {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(5, 8, 10, 0.55);
+}
+
+.morning-verification-empty p {
+  flex: 1;
+  margin: 0;
+  color: var(--muted, #9ca5af);
+}
+
+@media (max-width: 980px) {
+  .morning-verification-decision {
+    grid-template-columns: auto 1fr;
+  }
+
+  .morning-verification-signals,
+  .morning-verification-action {
+    grid-column: 1 / -1;
+  }
+
+  .morning-verification-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+  }
+}
+
+@media (max-width: 720px) {
+  .morning-verification {
+    padding: 18px;
+  }
+
+  .morning-verification-header {
+    display: grid;
+    gap: 9px;
+    margin-bottom: 14px;
+  }
+
+  .morning-verification-decision {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .morning-verification-mark {
+    display: none;
+  }
+
+  .morning-verification-signals {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .morning-verification-signals > div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: 3px 10px;
+    min-height: 0;
+    padding: 10px 12px;
+  }
+
+  .morning-verification-signals strong {
+    margin: 0;
+  }
+
+  .morning-verification-signals small {
+    grid-column: 1 / -1;
+  }
+
+  .morning-verification-action {
+    display: grid;
+    gap: 4px;
+  }
+
+  .morning-verification-action button {
+    width: 100%;
+  }
+
+  .morning-verification-empty {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 /* Build 025C: Mission Debrief and Recovery Handoff */
 .mission-player.mission-debrief-form,
 .mission-player.mission-handoff {

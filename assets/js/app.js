@@ -6009,6 +6009,102 @@ function readMissionRecoveryHistory() {
   return Array.isArray(records) ? records : [];
 }
 
+function readMorningVerification(date = todayISODate()) {
+  return readClosedLoopState("MORNING_VERIFICATION", date, null);
+}
+
+function readMorningVerificationHistory() {
+  const records = readClosedLoopState("HISTORY", "morning-verification", []);
+  return Array.isArray(records) ? records : [];
+}
+
+function buildCurrentMorningVerificationInput(previous = readMorningVerification()) {
+  if (typeof DominionMorningVerification === "undefined") return null;
+  const date = todayISODate();
+  const rollCall = dailyState?.date === date ? dailyState : null;
+  return {
+    date,
+    rollCall,
+    readiness: rollCall ? evaluateOperationalReadiness(rollCall) : null,
+    baselineProfile: rollCall ? buildCurrentBaselineProfile(rollCall) : null,
+    debriefHistory: readMissionDebriefHistory(),
+    recoveryHistory: readMissionRecoveryHistory(),
+    previous,
+    now: new Date().toISOString()
+  };
+}
+
+function currentMorningVerification() {
+  const stored = readMorningVerification();
+  if (stored || typeof DominionMorningVerification === "undefined" || dailyState?.date !== todayISODate()) return stored;
+  return DominionMorningVerification.buildReceipt(buildCurrentMorningVerificationInput(null));
+}
+
+async function ensureMorningVerification(options = {}) {
+  if (typeof DominionMorningVerification === "undefined") return null;
+  const previous = readMorningVerification();
+  const receipt = DominionMorningVerification.buildReceipt(buildCurrentMorningVerificationInput(previous));
+  if (!receipt) {
+    renderMorningVerification();
+    return null;
+  }
+  const history = DominionMorningVerification.upsert(readMorningVerificationHistory(), receipt, 90);
+  saveClosedLoopLocal("MORNING_VERIFICATION", receipt.date, receipt);
+  saveClosedLoopLocal("HISTORY", "morning-verification", history);
+  if (options.persist === true) {
+    await Promise.all([
+      persistClosedLoopState("MORNING_VERIFICATION", receipt.date, receipt),
+      persistClosedLoopState("HISTORY", "morning-verification", history)
+    ]);
+  }
+  renderMorningVerification();
+  return receipt;
+}
+
+function morningVerificationReadiness(readiness = {}) {
+  if (typeof DominionMorningVerification === "undefined") return readiness;
+  return DominionMorningVerification.applyToReadiness(currentMorningVerification(), readiness);
+}
+
+function renderMorningVerification() {
+  const section = document.getElementById("morning-verification");
+  const panel = document.getElementById("morning-verification-panel");
+  const badge = document.getElementById("morning-verification-state");
+  if (!section || !panel || !badge) return;
+  const receipt = currentMorningVerification();
+  if (!receipt) {
+    section.dataset.verificationState = "ROLL_CALL_REQUIRED";
+    badge.textContent = "ROLL CALL NEEDED";
+    badge.className = "state-pill neutral";
+    panel.innerHTML = `<div class="morning-verification-empty"><strong>Clear today before training</strong><p>Roll Call turns current readiness and the latest recovery evidence into one decision.</p><button type="button" data-morning-verification-action="ROLL_CALL">Complete Roll Call</button></div>`;
+    return;
+  }
+  section.dataset.verificationState = receipt.code;
+  badge.textContent = receipt.code.replaceAll("_", " ");
+  badge.className = `state-pill ${escapeHtml(receipt.tone || "neutral")}`;
+  const signals = (receipt.signals || []).slice(0, 3).map((item) => `<div class="${escapeHtml(item.tone || "neutral")}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong><small>${escapeHtml(item.reason)}</small></div>`).join("");
+  panel.innerHTML = `<article class="morning-verification-decision ${escapeHtml(receipt.tone || "neutral")}">
+    <div class="morning-verification-mark" aria-hidden="true">CD</div>
+    <div class="morning-verification-copy"><span>ATLAS MORNING ORDER</span><h3>${escapeHtml(receipt.headline)}</h3><p>${escapeHtml(receipt.detail)}</p></div>
+    <div class="morning-verification-signals">${signals}</div>
+    <div class="morning-verification-action"><button type="button" data-morning-verification-action="${escapeHtml(receipt.action)}">${escapeHtml(receipt.actionLabel)}</button><small>Today only · approved plans unchanged</small></div>
+  </article>`;
+}
+
+function routeMorningVerification(action = "MISSION") {
+  const code = String(action || "MISSION").toUpperCase();
+  if (code === "ROLL_CALL") {
+    const card = document.getElementById("roll-call-card");
+    if (card && !card.hidden) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    else openMobileCommandSheet("roll-call");
+    return;
+  }
+  const target = code === "RECOVERY" && currentMissionRecoveryOrder()
+    ? document.getElementById("mission-execution")
+    : document.getElementById("mission-execution");
+  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function currentMissionRecoveryOrder(date = todayISODate()) {
   if (typeof DominionMissionRecovery === "undefined") return null;
   const daily = readMissionRecoveryOrders(date);
@@ -6271,7 +6367,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
 function buildCurrentMissionCockpit() {
   if (typeof DominionMissionExecution === "undefined") return null;
   const day = readCommittedUnifiedDay();
-  return DominionMissionExecution.buildCockpit({
+  const cockpit = DominionMissionExecution.buildCockpit({
     date: todayISODate(),
     day: day || {},
     readinessComplete: dailyState?.date === todayISODate(),
@@ -6282,6 +6378,12 @@ function buildCurrentMissionCockpit() {
       CORE: missionExecutionStateRecord("CORE")
     }
   });
+  const verification = currentMorningVerification();
+  if (!verification) return cockpit;
+  const primary = verification.code === "REDUCE_TODAY" && cockpit.primary?.code === "START"
+    ? { ...cockpit.primary, detail: "Today’s bounded reduction is already applied. The approved plan remains intact." }
+    : cockpit.primary;
+  return { ...cockpit, morningVerification: verification, primary };
 }
 
 function missionExecutionTone(state = "READY") {
@@ -6483,6 +6585,8 @@ function openMissionSessionDetails(module = "STRENGTH") {
 
 async function startMissionSession(module = "STRENGTH") {
   const code = String(module || "STRENGTH").toUpperCase();
+  const verification = currentMorningVerification();
+  if (verification?.dailyOverride?.trainingAllowed === false) throw new Error("Today is recovery only. Complete the recovery order before loaded training.");
   if (code === "STRENGTH") {
     const assignment = buildCurrentDailyAssignment();
     let execution = readDailyAssignmentExecution();
@@ -8344,7 +8448,7 @@ function currentStrengthPrescription() {
     return existing.sessionSnapshot;
   }
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
-  const readiness = { state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) };
+  const readiness = morningVerificationReadiness({ ...dailyState, state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) });
   const schedule = readApprovedStrengthSchedule();
   if (schedule?.planId === plan.id && typeof DominionStrengthSchedule !== "undefined") {
     if (todayISODate() < schedule.weekStart || todayISODate() > schedule.weekEnd) {
@@ -9277,11 +9381,12 @@ function renderReviewHub() {
 function buildCurrentDailyAssignment() {
   if (typeof DominionDailyAssignment === "undefined") return null;
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  const effectiveReadiness = morningVerificationReadiness({ ...dailyState, state: readinessResult.state, pain: Boolean(dailyState?.pain) });
   const api = connectedApi();
   const prescription = currentStrengthPrescription();
   const assignment = DominionDailyAssignment.buildDailyAssignment({
     date: todayISODate(),
-    readiness: { state: readinessResult.state, pain: Boolean(dailyState?.pain) },
+    readiness: { state: effectiveReadiness.state, pain: Boolean(effectiveReadiness.pain) },
     programming: buildCurrentProgrammingRecommendation() || {},
     fitbodSessions: api ? api.groupFitbodWorkoutSessions(connectedImportedRecords) : []
   });
@@ -9944,6 +10049,7 @@ function renderDailyRitual(queue = buildCurrentDailyExecutionQueue()) {
 }
 
 function renderDailyCoachingLoop() {
+  renderMorningVerification();
   renderCoreToday();
   renderTodayRecoveryExecution();
   const panel = document.getElementById("daily-orders-panel");
@@ -10276,7 +10382,9 @@ async function loadClosedLoopState() {
       ["DEBRIEF", `mission:${todayISODate()}`],
       ["HISTORY", "mission-debrief"],
       ["RECOVERY_ORDER", `mission:${todayISODate()}`],
-      ["HISTORY", "mission-recovery"]
+      ["HISTORY", "mission-recovery"],
+      ["MORNING_VERIFICATION", todayISODate()],
+      ["HISTORY", "morning-verification"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -10295,6 +10403,7 @@ async function loadClosedLoopState() {
         saveClosedLoopLocal(stateType, stateKey, row.payload);
       }
     }
+    await ensureMorningVerification({ persist: true });
     renderDailyCoachingLoop();
     renderWeeklyCloseoutEvidence();
   } catch (_) {
@@ -10742,9 +10851,10 @@ function renderAdaptiveCoaching() {
 function currentRunningPrescription() {
   if (typeof DominionRunning === "undefined") return null;
   const plan = readApprovedRunningPlan();
+  const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
   const prescription = DominionRunning.buildDailyRunPrescription(plan || {}, {
     today: todayISODate(),
-    readiness: dailyState || {}
+    readiness: morningVerificationReadiness({ ...(dailyState || {}), state: readinessResult?.state || null })
   });
   return typeof DominionAdaptiveCoaching === "undefined"
     ? prescription
@@ -11485,8 +11595,8 @@ async function loadCoreProgramState() {
 
 function coreReadinessState() {
   if (!dailyState) return { state: "UNKNOWN", pain: false };
-  const evaluated = evaluateReadiness(dailyState);
-  return { state: evaluated?.state || "UNKNOWN", pain: Boolean(dailyState.pain) };
+  const evaluated = evaluateOperationalReadiness(dailyState);
+  return morningVerificationReadiness({ ...dailyState, state: evaluated?.state || "UNKNOWN", pain: Boolean(dailyState.pain) });
 }
 
 function currentCorePrescription() {
@@ -12245,6 +12355,7 @@ async function loadDailyState() {
     readinessHistory = local ? [local] : [];
     dailyState = local;
   }
+  await ensureMorningVerification({ persist: false });
   renderWarRoom(dailyState);
 }
 
@@ -12326,6 +12437,7 @@ async function saveMorningRollCallPayload(payload = {}, options = {}) {
   enqueueMobileWrite("DAILY_STATE", normalized.date, normalized);
   dailyState = normalized;
   readinessHistory = [...readinessHistory.filter((item) => item.date !== normalized.date), normalized];
+  await ensureMorningVerification({ persist: false });
   renderWarRoom(dailyState);
   setStatus("Roll Call saved on this device. Syncing…");
 
@@ -12341,6 +12453,7 @@ async function saveMorningRollCallPayload(payload = {}, options = {}) {
     saveMobileDailyState(data);
     dailyState = data;
     readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+    await ensureMorningVerification({ persist: true });
     renderWarRoom(dailyState);
     try {
       await writeCommandEvents(data, previousState);
@@ -15542,6 +15655,7 @@ async function applyAppleHealthReadiness() {
   }
   dailyState = data;
   readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
+  await ensureMorningVerification({ persist: true });
   renderWarRoom(dailyState);
   renderConnectedDominion();
   setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
@@ -15812,6 +15926,10 @@ if (typeof document !== "undefined") {
     } finally {
       button.disabled = false;
     }
+  });
+  document.getElementById("morning-verification")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-morning-verification-action]");
+    if (button) routeMorningVerification(button.dataset.morningVerificationAction || "MISSION");
   });
   document.getElementById("trends")?.addEventListener("click", async (event) => {
     if (await handleObservationVerdictAction(event)) return;

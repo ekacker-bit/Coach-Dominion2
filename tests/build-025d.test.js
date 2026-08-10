@@ -22,8 +22,8 @@ assert.match(engine, /function summarizeForAtlas/);
 assert.match(html, /mission-recovery\.js\?v=025d/);
 assert.ok(html.indexOf("mission-debrief.js") < html.indexOf("mission-recovery.js"));
 assert.ok(html.indexOf("mission-recovery.js") < html.indexOf("app.js"));
-assert.match(html, /styles\.css\?v=025c2/);
-assert.match(html, /app\.js\?v=025c4/);
+assert.match(html, /styles\.css\?v=025c3/);
+assert.match(html, /app\.js\?v=025c5/);
 
 assert.match(app, /function currentMissionRecoveryOrder/);
 assert.match(app, /function saveMissionRecoveryOrderState/);
@@ -42,7 +42,7 @@ assert.match(styles, /Build 025D: Executable Recovery Orders/);
 assert.match(styles, /\.mission-recovery-progress/);
 assert.match(styles, /\.today-recovery-checklist li\.current/);
 assert.match(worker, /mission-recovery\.js\?v=025d/);
-assert.match(worker, /app\.js\?v=025c4/);
+assert.match(worker, /app\.js\?v=025c5/);
 assert.match(changelog, /Build 025D Executable Recovery Orders/);
 
 console.log("Build 025D integration tests passed.");

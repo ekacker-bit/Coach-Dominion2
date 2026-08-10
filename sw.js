@@ -4,7 +4,7 @@ const APP_SHELL = [
   "/app",
   "/app.html",
   "/manifest.webmanifest",
-  "/assets/styles.css?v=025c2",
+  "/assets/styles.css?v=025c3",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",
@@ -57,6 +57,7 @@ const APP_SHELL = [
   "/assets/js/mission-execution.js?v=025b",
   "/assets/js/mission-debrief.js?v=025c",
   "/assets/js/mission-recovery.js?v=025d",
+  "/assets/js/morning-verification.js?v=025e",
   "/assets/js/contract-integrity.js",
   "/assets/js/contract-autosave.js",
   "/assets/js/mobile-command.js?v=022g",
@@ -67,7 +68,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c4"
+  "/assets/js/app.js?v=025c5"
 ];
 
 self.addEventListener("install", (event) => {

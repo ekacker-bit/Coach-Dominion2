@@ -9,7 +9,7 @@ const APP_SHELL = [
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",
   "/assets/js/programming.js",
-  "/assets/js/strength-training.js",
+  "/assets/js/strength-training.js?v=025g",
   "/assets/js/strength-schedule.js",
   "/assets/js/strength-week-review.js",
   "/assets/js/strength-intelligence.js",
@@ -68,7 +68,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js?v=025f",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c6"
+  "/assets/js/app.js?v=025c7"
 ];
 
 self.addEventListener("install", (event) => {

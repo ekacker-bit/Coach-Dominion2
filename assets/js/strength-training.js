@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "017E.1";
+  const VERSION = "025G.1";
   const TERMINAL_STATES = Object.freeze(["COMPLETE", "PARTIAL", "STOPPED"]);
   const ACTIVE_STATES = Object.freeze(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const PATTERN_LABELS = Object.freeze({
@@ -367,6 +367,33 @@
   function buildDailyPrescription(plan = {}, history = [], options = {}) {
     if (plan.status !== "APPROVED") return planRequiredPrescription(options);
     return prescriptionFromSession(plan, selectSession(plan, history), options);
+  }
+
+  function sessionLaunchDecision(plan = {}, sessionId, execution = {}, readiness = {}) {
+    if (plan.status !== "APPROVED") {
+      return { allowed: false, mode: "BLOCKED", label: "Approve plan first", message: "Approve the Strength plan before logging a workout." };
+    }
+    const selected = (plan.sessions || []).find((item) => item.id === sessionId);
+    if (!selected) {
+      return { allowed: false, mode: "BLOCKED", label: "Session unavailable", message: "This session is not part of the approved Strength plan." };
+    }
+    if (readiness.pain === true || readiness.state === "RED") {
+      return { allowed: false, mode: "SAFETY_HOLD", label: "Safety hold", message: "Pain or RED readiness blocks loaded Strength logging today." };
+    }
+    const state = String(execution?.state || "");
+    const sameSession = execution?.planId === plan.id && execution?.sessionId === sessionId;
+    if (ACTIVE_STATES.includes(state)) {
+      if (!sameSession) {
+        return { allowed: false, mode: "ACTIVE_OTHER", label: "Finish active workout", message: `Finish or stop ${execution.sessionName || "the active workout"} before opening another session.` };
+      }
+      const mode = state === "PAUSED" ? "RESUME" : state === "REVIEW" ? "REVIEW" : "CONTINUE";
+      const label = state === "PAUSED" ? "Resume workout" : state === "REVIEW" ? "Review workout" : "Continue logging";
+      return { allowed: true, mode, label, message: `${selected.name} is already open.` };
+    }
+    if (isTerminal(state)) {
+      return { allowed: false, mode: "COMPLETE_TODAY", label: "Workout logged", message: "Today already has preserved Strength evidence." };
+    }
+    return { allowed: true, mode: "START", label: "Log this workout", message: `Start ${selected.name} and open the set logger.` };
   }
 
   function executionForPrescription(prescription = {}, options = {}) {
@@ -892,6 +919,7 @@
     readinessPolicy,
     buildDailyPrescription,
     buildSessionPrescription,
+    sessionLaunchDecision,
     executionForPrescription,
     startWorkout,
     pauseWorkout,

@@ -9,6 +9,7 @@
 - Makes Mission debriefs the authoritative weekly technique and stopped-session evidence so Atlas does not double count Performance history.
 - Preserves the active plan and routes material adjustments into the existing recruit-approved weekly review.
 - Keeps a completed receipt attached to the AM or PM window that actually ended, even after Today advances to the next order.
+- Repairs Core continuity by retrying newer device state to the recruit account, assigning contract-scoped plan revisions, and refreshing the cached Core engine.
 
 ## Unreleased - Build 025B Mission Execution Mode
 

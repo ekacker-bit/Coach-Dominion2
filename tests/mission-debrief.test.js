@@ -16,7 +16,36 @@ const pairedCockpit = {
   splitGate: { status: "AWAITING_SESSION_1", allowed: false, blockers: ["Finish the AM window"] }
 };
 
-assert.equal(debrief.VERSION, "025C.1");
+assert.equal(debrief.VERSION, "025C.2");
+
+const completedStrengthExecution = { id: "strength-attempt-1", sessionId: "upper-1", state: "COMPLETE" };
+const advancedCurrent = { id: "running-2", module: "RUNNING", state: "READY", trainingWindowId: "pm", windowLabel: "PM" };
+const splitSessions = [
+  { id: "strength-1", module: "STRENGTH", state: "COMPLETE", terminal: true, trainingWindowId: "am", windowLabel: "AM", record: completedStrengthExecution },
+  advancedCurrent
+];
+const resolvedStrength = debrief.resolveReceiptContext({
+  module: "STRENGTH",
+  execution: completedStrengthExecution,
+  item: advancedCurrent,
+  sessions: splitSessions,
+  receipts: []
+});
+assert.equal(resolvedStrength.trainingWindowId, "am", "a completed receipt must stay with its finished AM session after the cockpit advances");
+assert.equal(resolvedStrength.windowLabel, "AM");
+
+const repeatedModuleSessions = [
+  { id: "strength-1", module: "STRENGTH", state: "COMPLETE", terminal: true, trainingWindowId: "am", windowLabel: "AM", record: completedStrengthExecution },
+  { id: "strength-2", module: "STRENGTH", state: "COMPLETE", terminal: true, trainingWindowId: "pm", windowLabel: "PM", record: completedStrengthExecution }
+];
+const resolvedSecondStrength = debrief.resolveReceiptContext({
+  module: "STRENGTH",
+  execution: completedStrengthExecution,
+  item: { module: "STRENGTH", state: "READY", trainingWindowId: "pm", windowLabel: "PM" },
+  sessions: repeatedModuleSessions,
+  receipts: [{ module: "STRENGTH", windowId: "am" }]
+});
+assert.equal(resolvedSecondStrength.trainingWindowId, "pm", "a second same-module session must use the remaining unreceipted window");
 assert.equal(debrief.pendingDebrief({ cockpit: pairedCockpit, receipts: [strengthReceipt], debriefs: [] }), null, "paired Core work must finish before a normal debrief");
 
 const completedCockpit = JSON.parse(JSON.stringify(pairedCockpit));

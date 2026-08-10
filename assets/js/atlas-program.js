@@ -38,8 +38,8 @@
 
   function estimateNutrition(contract = {}, context = {}) {
     const weightKg = recruitWeightKg(contract, context);
-    const heightCm = number(contract.heightCm ?? contract.athleteProfile?.heightCm);
-    const age = number(contract.age ?? contract.athleteProfile?.age);
+    const heightCm = number(contract.heightCm ?? contract.athleteProfile?.heightCm ?? context.heightCm ?? context.athleteProfile?.heightCm);
+    const age = number(contract.age ?? contract.athleteProfile?.age ?? context.age ?? context.athleteProfile?.age);
     if (!weightKg || !heightCm || !age) {
       return {
         status: "PROFILE_REQUIRED",

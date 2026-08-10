@@ -8,6 +8,7 @@ const size = (file) => fs.statSync(path.join(root, file)).size;
 const html = read("app.html");
 const css = read("assets/styles.css");
 const app = read("assets/js/app.js");
+const continuity = read("assets/js/dominion-continuity.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -57,7 +58,7 @@ check("fuel closed loop UI", html.includes('id="fuel-closed-loop-panel"') && htm
 check("fuel closed loop persistence", app.includes('persistNutritionState("FUEL_CLOSED_LOOP"') && app.includes("writeFuelClosedLoopLedger"), "023F Fuel closeout persistence is missing");
 check("fuel closed loop review", html.includes('id="fuel-loop-review-output"') && app.includes("renderFuelLoopReview"), "023F Fuel feedback review is missing");
 check("Atlas program engine", size("assets/js/atlas-program.js") >= 5000 && read("assets/js/atlas-program.js").includes('const VERSION = "024E.1"'), "024E program engine appears incomplete");
-check("Atlas program integration", html.includes('/assets/js/atlas-program.js?v=024f') && app.includes("approveAtlasProgram") && app.includes("APPROVE_PROGRAM"), "024F one-approval program flow is missing");
+check("Atlas program integration", html.includes('/assets/js/atlas-program.js?v=024f2') && app.includes("approveAtlasProgram") && app.includes("APPROVE_PROGRAM"), "025F one-approval program flow is missing");
 check("Atlas recruit profile", html.includes('name="weightValue"') && read("assets/js/recruit-contract.js").includes('const VERSION = "024A.1"'), "024A recruit inputs are incomplete");
 check("Atlas activation engine", size("assets/js/atlas-activation.js") >= 9000 && read("assets/js/atlas-activation.js").includes('const VERSION = "024I.3"'), "024M activation engine appears incomplete");
 check("Atlas activation integration", html.includes('/assets/js/atlas-activation.js?v=024m') && app.includes("buildAtlasProgramPreflight") && app.includes("snapshotAtlasActivationState") && app.includes("reconcileAtlasNutritionReceiptState"), "024M verified Fuel reconciliation is missing");
@@ -68,13 +69,13 @@ check("Atlas calendar integration", html.includes('/assets/js/weekly-orchestrato
 check("Atlas repair engine", size("assets/js/atlas-program-repair.js") >= 5000 && read("assets/js/atlas-program-repair.js").includes('const VERSION = "024F.1"'), "024F repair engine appears incomplete");
 check("Atlas repair integration", html.includes('/assets/js/atlas-program-repair.js?v=024f') && html.includes('id="atlas-program-repair-dialog"') && app.includes("openAtlasProgramRepairPreview") && app.includes("repairOnly"), "024F guided repair flow is missing");
 check("stylesheet version", html.includes('/assets/styles.css?v=025c3'), "app.html is not using the 025E stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=025c5'), "app.html is not using the 025E application");
+check("application version", html.includes('/assets/js/app.js?v=025c6'), "app.html is not using the 025F application");
 check("cache version", worker.includes('coach-dominion-025c-v1'), "service-worker cache was not rotated");
 check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=025c5'), "service worker is caching the wrong application");
+check("cached application", worker.includes('/assets/js/app.js?v=025c6'), "service worker is caching the wrong application");
 check("Core continuity engine", html.includes('/assets/js/core-programming.js?v=013c2') && worker.includes('/assets/js/core-programming.js?v=013c2') && read("assets/js/core-programming.js").includes('const VERSION = "013C.2"'), "Core persistence repair is missing or stale");
 check("cached Atlas calendar", worker.includes('/assets/js/weekly-orchestrator.js?v=024d'), "service worker is not caching the Atlas calendar engine");
-check("cached Atlas program", worker.includes('/assets/js/atlas-program.js?v=024f'), "service worker is not caching the Atlas program engine");
+check("cached Atlas program", worker.includes('/assets/js/atlas-program.js?v=024f2'), "service worker is not caching the Atlas program engine");
 check("cached Atlas repair", worker.includes('/assets/js/atlas-program-repair.js?v=024f'), "service worker is not caching the Atlas repair engine");
 check("cached Atlas activation", worker.includes('/assets/js/atlas-activation.js?v=024m'), "service worker is not caching the Atlas activation engine");
 check("cached Program Command", worker.includes('/assets/js/program-command.js?v=024c'), "service worker is not caching the Program Command engine");
@@ -104,6 +105,10 @@ check("Morning Verification engine", size("assets/js/morning-verification.js") >
 check("Morning Verification integration", html.includes('id="morning-verification"') && html.includes('/assets/js/morning-verification.js?v=025e') && app.includes("ensureMorningVerification") && app.includes("morningVerificationReadiness"), "025E Morning Verification loop is missing");
 check("Morning Verification persistence", app.includes('"MORNING_VERIFICATION", receipt.date') && app.includes('"HISTORY", "morning-verification"'), "025E account continuity is missing");
 check("cached Morning Verification", worker.includes('/assets/js/morning-verification.js?v=025e'), "service worker is not caching the Morning Verification engine");
+check("025F Core continuity snapshot", continuity.includes('const VERSION = "025F.1"') && continuity.includes("function withSnapshot") && app.includes("buildCoreContinuitySnapshot") && app.includes("persistCoreContinuityFallback"), "025F Core account fallback is incomplete");
+check("025F continuity asset", html.includes('/assets/js/dominion-continuity.js?v=025f') && worker.includes('/assets/js/dominion-continuity.js?v=025f'), "025F continuity engine is stale or uncached");
+check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
+check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");
 check("cached fasting protocol", worker.includes('/assets/js/intermittent-fasting.js?v=023d'), "service worker is not caching the fasting protocol engine");
 check("cached fasting execution", worker.includes('/assets/js/fasting-execution.js?v=023d'), "service worker is not caching the fasting execution engine");

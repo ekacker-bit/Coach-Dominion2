@@ -48,7 +48,7 @@ const APP_SHELL = [
   "/assets/js/weekly-orchestrator.js?v=024d",
   "/assets/js/split-day-command.js",
   "/assets/js/contract-activation.js?v=024a",
-  "/assets/js/atlas-program.js?v=024f",
+  "/assets/js/atlas-program.js?v=024f2",
   "/assets/js/atlas-activation.js?v=024m",
   "/assets/js/atlas-program-repair.js?v=024f",
   "/assets/js/program-command.js?v=024c",
@@ -66,9 +66,9 @@ const APP_SHELL = [
   "/assets/js/operating-truth.js",
   "/assets/js/activation-repair.js?v=024f",
   "/assets/js/one-command.js",
-  "/assets/js/dominion-continuity.js",
+  "/assets/js/dominion-continuity.js?v=025f",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c5"
+  "/assets/js/app.js?v=025c6"
 ];
 
 self.addEventListener("install", (event) => {

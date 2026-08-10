@@ -23,7 +23,7 @@ assert.match(html, /morning-verification\.js\?v=025e/);
 assert.ok(html.indexOf("mission-recovery.js") < html.indexOf("morning-verification.js"));
 assert.ok(html.indexOf("morning-verification.js") < html.indexOf("app.js"));
 assert.match(html, /styles\.css\?v=025c3/);
-assert.match(html, /app\.js\?v=025c5/);
+assert.match(html, /app\.js\?v=025c6/);
 
 assert.match(app, /function ensureMorningVerification/);
 assert.match(app, /function renderMorningVerification/);
@@ -39,7 +39,7 @@ assert.match(styles, /\.morning-verification-decision/);
 assert.match(styles, /@media \(max-width: 720px\)/);
 assert.match(worker, /morning-verification\.js\?v=025e/);
 assert.match(worker, /styles\.css\?v=025c3/);
-assert.match(worker, /app\.js\?v=025c5/);
+assert.match(worker, /app\.js\?v=025c6/);
 assert.match(changelog, /Build 025E Morning Verification Loop/);
 
 console.log("Build 025E integration tests passed.");

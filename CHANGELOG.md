@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025I Progression Memory
+
+- Places the last verified sets, load, repetitions, RPE, and date beside every exercise in the live workout.
+- Gives each exercise one evidence-governed Atlas target: establish, repeat, add one repetition, add the smallest load step, or hold for safety.
+- Lets the recruit load the last workout or the coached target into the set form with one tap while preserving deliberate set confirmation.
+- Detects load, repetition, and session-volume records against prior completed workouts without calling a first exposure a personal record.
+- Preserves the strongest set, baselines, performance marks, and earned next-load decisions inside the completed workout receipt and account history.
+- Keeps pain, stopped work, incomplete sets, missing RPE, substitutions, and RED readiness as hard progression constraints.
+
 ## Unreleased - Build 025H Training Integrity
 
 - Repairs stale app-shell delivery so a newly activated service worker reloads the application once and future navigations bypass cached HTML.

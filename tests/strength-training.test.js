@@ -32,6 +32,25 @@ function prescription(plan = approved(), history = [], readiness = { state: "GRE
   return strength.buildDailyPrescription(plan, history, { today: "2026-07-30", readiness });
 }
 
+function completedExposure(plan, date, load, reps = 5, rpe = 7, options = {}) {
+  const session = plan.sessions[0];
+  const source = session.exercises[0];
+  const exercise = {
+    ...source,
+    recommendedSets: 1,
+    targetReps: reps,
+    recommendedLoad: load
+  };
+  const Rx = {
+    ...strength.buildSessionPrescription(plan, session.id, { today: date, readiness: { state: "GREEN", pain: false } }),
+    date,
+    exercises: [exercise]
+  };
+  let execution = strength.startWorkout(strength.executionForPrescription(Rx), Rx, `${date}T13:00:00.000Z`);
+  execution = strength.recordSet(execution, exercise.exerciseCode, { reps, load, rpe }, `${date}T13:05:00.000Z`);
+  return strength.finishWorkout(execution, options, `${date}T13:10:00.000Z`);
+}
+
 test("profile defaults are bounded and conservative", () => {
   const profile = strength.normalizeProfile({ daysPerWeek: 9, sessionMinutes: 20, equipment: "UNKNOWN" });
   assert.equal(profile.daysPerWeek, 6);
@@ -261,6 +280,56 @@ test("pain and preserved evidence remain hard launch boundaries", () => {
   assert.equal(terminal.mode, "COMPLETE_TODAY");
 });
 
+test("progression memory turns the last workout into one safe set target", () => {
+  const plan = approved();
+  const exercise = { ...plan.sessions[0].exercises[0], recommendedLoad: 135 };
+  const prior = completedExposure(plan, "2026-08-01", 135, exercise.targetReps, 7);
+  const memory = strength.buildProgressionMemory(exercise, [prior]);
+  assert.equal(memory.latest.load, 135);
+  assert.equal(memory.latest.averageRpe, 7);
+  assert.equal(memory.coachedTarget.action, "ADD_REP");
+  assert.equal(memory.coachedTarget.reps, exercise.targetReps + 1);
+  assert.equal(memory.coachedTarget.load, 135);
+});
+
+test("two controlled exposures earn the smallest load step while safety evidence blocks it", () => {
+  const plan = approved();
+  const exercise = { ...plan.sessions[0].exercises[0], recommendedLoad: 135 };
+  const first = completedExposure(plan, "2026-08-01", 135, exercise.targetReps, 7.5);
+  const second = completedExposure(plan, "2026-08-05", 135, exercise.targetReps, 8);
+  const earned = strength.buildProgressionMemory(exercise, [second, first]);
+  assert.equal(earned.qualityExposures, 2);
+  assert.equal(earned.coachedTarget.action, "ADD_LOAD");
+  assert.equal(earned.coachedTarget.load, 140);
+  const held = strength.buildProgressionMemory(exercise, [second, first], { readinessState: "RED" });
+  assert.equal(held.coachedTarget.action, "SAFETY_HOLD");
+  assert.equal(held.coachedTarget.blocked, true);
+});
+
+test("completion report recognizes verified marks without inventing a first-session PR", () => {
+  const plan = approved();
+  const prior = completedExposure(plan, "2026-08-01", 135, 5, 7);
+  const current = completedExposure(plan, "2026-08-05", 140, 6, 7.5);
+  const firstReport = strength.buildCompletionReport(prior, [], plan);
+  const report = strength.buildCompletionReport(current, [prior], plan);
+  assert.equal(firstReport.recordCount, 0);
+  assert.equal(firstReport.baselinesEstablished, 1);
+  assert.ok(report.records.some((item) => item.code === "LOAD_PR"));
+  assert.ok(report.records.some((item) => item.code === "VOLUME_PR"));
+  assert.equal(report.strongestSet.load, 140);
+  assert.equal(report.sourceExecutionId, current.id);
+});
+
+test("completion report carries earned progression into the preserved workout receipt", () => {
+  const plan = approved();
+  const first = completedExposure(plan, "2026-08-01", 135, 5, 7);
+  const second = completedExposure(plan, "2026-08-05", 135, 5, 7.5);
+  const report = strength.buildCompletionReport(second, [first], plan);
+  assert.equal(report.progression.earnedCount, 1);
+  assert.match(report.headline, /Progression earned/);
+  assert.ok(report.progression.decisions.some((item) => item.action === "PROGRESS_LOAD" && item.proposedLoad === 140));
+});
+
 test("app integration includes account persistence and full lifecycle controls", () => {
   const root = path.join(__dirname, "..");
   const app = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
@@ -276,6 +345,8 @@ test("app integration includes account persistence and full lifecycle controls",
   assert.match(app, /data-strength-rest-until/);
   assert.match(app, /data-programming-action="train-session"/);
   assert.match(app, /function launchApprovedStrengthSession/);
+  assert.match(app, /buildProgressionMemory/);
+  assert.match(app, /buildCompletionReport/);
   assert.match(app, /loadStrengthTrainingState/);
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /auth\.uid\(\) = user_id/);

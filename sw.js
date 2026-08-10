@@ -1,4 +1,4 @@
-const CACHE_NAME = "coach-dominion-025c-v1";
+const CACHE_NAME = "coach-dominion-025c-v1-025h";
 const APP_SHELL = [
   "/",
   "/app",
@@ -63,12 +63,12 @@ const APP_SHELL = [
   "/assets/js/mobile-command.js?v=022g",
   "/assets/js/experience-shell.js",
   "/assets/js/daily-ritual.js?v=022f",
-  "/assets/js/operating-truth.js",
+  "/assets/js/operating-truth.js?v=025h",
   "/assets/js/activation-repair.js?v=024f",
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js?v=025f",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c7"
+  "/assets/js/app.js?v=025c7-025h"
 ];
 
 self.addEventListener("install", (event) => {
@@ -92,7 +92,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then((response) => {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));

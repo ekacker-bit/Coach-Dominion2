@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const truth = require("../assets/js/operating-truth.js");
 
-assert.equal(truth.VERSION, "019D.1");
+assert.equal(truth.VERSION, "025H.1");
 
 const linkedModules = ["strength", "running", "core", "nutrition"].map((id) => ({
   id,
@@ -48,6 +48,21 @@ assert.equal(model.state, "PLANS_REQUIRED");
 assert.equal(model.plans.complete, 3);
 assert.equal(model.plans.total, 4);
 assert.equal(model.action.module, "running");
+
+model = truth.buildOperatingTruth(base({
+  activation: { status: "ACTION_REQUIRED", modules: pendingModules },
+  week: { contractRevision: 2 },
+  modules: [
+    { id: "strength", label: "Strength", detail: "Lower A", scheduled: true, executionState: "IN_PROGRESS", evidenceCount: 0 },
+    { id: "nutrition", label: "Fuel", scheduled: true, executionState: "READY", evidenceCount: 0 }
+  ]
+}));
+assert.equal(model.state, "EXECUTION_REQUIRED");
+assert.equal(model.title, "Resume Lower A");
+assert.equal(model.action.action, "MODULE");
+assert.equal(model.action.module, "strength");
+assert.equal(model.action.section, "today");
+assert.equal(model.contradictions.some((item) => item.code === "WEEK_CONTRACT_MISMATCH"), true);
 
 model = truth.buildOperatingTruth(base({ activation: { status: "READY_TO_BUILD" }, week: { committed: false } }));
 assert.equal(model.state, "WEEK_REQUIRED");

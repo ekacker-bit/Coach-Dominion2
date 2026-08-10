@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 025H Training Integrity
+
+- Repairs stale app-shell delivery so a newly activated service worker reloads the application once and future navigations bypass cached HTML.
+- Keeps approved Strength sessions directly loggable while an unapproved revision draft remains open, with explicit copy that the approved workout is being recorded.
+- Makes an active workout the dominant Today action even when the Contract, plan links, or coordinated week still require repair.
+- Preserves those programming conflicts for after the live session instead of interrupting or hiding an in-progress Lower A workout.
+- Rotates the application, operating-truth, and service-worker cache versions so existing devices receive the repaired training path.
+
 ## Unreleased - Build 025G Direct Workout Logging
 
 - Makes every session in the approved Strength plan directly executable instead of leaving Lower A and its peers as read-only previews.

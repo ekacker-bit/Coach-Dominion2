@@ -39,7 +39,7 @@ const APP_SHELL = [
   "/assets/js/fuel-closed-loop.js?v=023f",
   "/assets/js/fuel-command.js?v=023f",
   "/assets/js/running-command.js",
-  "/assets/js/core-programming.js",
+  "/assets/js/core-programming.js?v=013c2",
   "/assets/js/closed-loop.js",
   "/assets/js/adaptive-coaching.js?v=025a",
   "/assets/js/atlas-intervention.js?v=022a",
@@ -66,7 +66,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c"
+  "/assets/js/app.js?v=025c3"
 ];
 
 self.addEventListener("install", (event) => {

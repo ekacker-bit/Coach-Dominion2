@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "013C.1";
+  const VERSION = "013C.2";
   const GOALS = ["GENERAL_STRENGTH", "RUNNING_SUPPORT", "LIFTING_STABILITY", "CORE_ENDURANCE", "ABDOMINAL_DEVELOPMENT"];
   const EXPERIENCE_LEVELS = ["FOUNDATION", "INTERMEDIATE", "ADVANCED"];
   const EQUIPMENT_LEVELS = ["BODYWEIGHT", "MINIMAL", "FULL_GYM"];
@@ -169,6 +169,23 @@
         "Technique quality overrides repetitions, time, and progression.",
         "The approved four-week plan never changes silently."
       ]
+    };
+  }
+
+  function linkPlanToContract(plan = {}, contract = {}) {
+    const contractId = String(contract.id || "").trim();
+    if (!plan.id || !contractId) return plan;
+    const contractRevision = Math.max(1, Number(contract.revision || 1));
+    const basePlanId = String(plan.basePlanId || plan.id)
+      .replace(/:contract-[a-z0-9-]+:r\d+$/i, "");
+    const contractToken = contractId.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    return {
+      ...plan,
+      id: `${basePlanId}:contract-${contractToken}:r${contractRevision}`,
+      basePlanId,
+      planRevision: contractRevision,
+      recruitContractId: contractId,
+      recruitContractRevision: contractRevision
     };
   }
 
@@ -365,6 +382,7 @@
     addDays,
     sessionDayIndexes,
     buildFourWeekPlan,
+    linkPlanToContract,
     approvePlan,
     planSessions,
     deriveProgressionRecommendation,

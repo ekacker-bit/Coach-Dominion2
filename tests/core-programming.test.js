@@ -46,6 +46,20 @@ test("four-week plan remains a draft until explicitly approved", () => {
   assert.equal(core.approvePlan(plan).status, "APPROVED");
 });
 
+test("contract-linked plans carry a durable revision and unique identity", () => {
+  const plan = draft();
+  const contract7 = { id: "contract-alpha", revision: 7 };
+  const linked7 = core.linkPlanToContract(plan, contract7);
+  const relinked7 = core.linkPlanToContract(linked7, contract7);
+  const linked8 = core.linkPlanToContract(plan, { ...contract7, revision: 8 });
+  assert.equal(linked7.planRevision, 7);
+  assert.equal(linked7.recruitContractId, contract7.id);
+  assert.equal(linked7.recruitContractRevision, 7);
+  assert.equal(relinked7.id, linked7.id, "linking the same contract revision must be idempotent");
+  assert.notEqual(linked8.id, linked7.id, "a contract amendment must create a distinct Core plan identity");
+  assert.equal(linked8.basePlanId, linked7.basePlanId);
+});
+
 test("approved cycle covers every core movement category", () => {
   const coverage = core.movementCoverage(approved());
   assert.equal(coverage.length, 5);

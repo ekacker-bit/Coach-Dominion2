@@ -7602,9 +7602,12 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
 
   if (inputs.core && typeof DominionCoreProgramming !== "undefined" && !keep("core")) {
     const profile = DominionCoreProgramming.normalizeProfile({ ...inputs.core, updatedAt: now });
-    const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: programStart, generatedAt: now });
+    const draft = DominionCoreProgramming.linkPlanToContract(
+      DominionCoreProgramming.buildFourWeekPlan(profile, { today: programStart, generatedAt: now }),
+      contract
+    );
     saveCoreProgramLocal("PROFILE", "current", profile);
-    saveCoreProgramLocal("DRAFT", "current", { ...draft, recruitContractId: contract.id, recruitContractRevision: contract.revision });
+    saveCoreProgramLocal("DRAFT", "current", draft);
     await persistCoreProgramState("PROFILE", "current", profile);
     await persistCoreProgramState("DRAFT", "current", readCoreDraftPlan());
     staged.push("Core");
@@ -11259,11 +11262,10 @@ async function reconcileCoreProgramWithContract() {
   if (!inputs) return { changed: false, state: "INPUTS_REQUIRED" };
   const now = new Date().toISOString();
   const profile = DominionCoreProgramming.normalizeProfile({ ...inputs, updatedAt: now });
-  const staged = {
-    ...DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now }),
-    recruitContractId: contract.id,
-    recruitContractRevision: contract.revision
-  };
+  const staged = DominionCoreProgramming.linkPlanToContract(
+    DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now }),
+    contract
+  );
   saveCoreProgramLocal("PROFILE", "current", profile);
   saveCoreProgramLocal("DRAFT", "current", staged);
   await persistCoreProgramState("PROFILE", "current", profile);
@@ -11322,11 +11324,14 @@ async function loadCoreProgramState() {
       if (selected.payload && (stateType !== "HISTORY" || selected.payload.length)) {
         saveCoreProgramLocal(stateType, stateKey, selected.payload);
       }
-      if (selected.source === "LOCAL" && selected.payload) {
+      if (selected.source === "DEVICE" && selected.payload) {
         await persistCoreProgramState(stateType, stateKey, selected.payload);
       }
     }
-  } catch (_) {
+  } catch (error) {
+    console.error("[core:persistence-load-failed] Core will continue from device state.", {
+      message: error?.message || "Unknown Core restore error"
+    });
     // Local state remains the explicit offline fallback.
   }
   await reconcileCoreProgramWithContract();
@@ -16705,7 +16710,9 @@ if (typeof document !== "undefined") {
       sessionMinutes: document.getElementById("core-minutes")?.value,
       updatedAt: now
     });
-    const draft = DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now });
+    const contract = readApprovedRecruitContract();
+    const generated = DominionCoreProgramming.buildFourWeekPlan(profile, { today: todayISODate(), generatedAt: now });
+    const draft = contract ? DominionCoreProgramming.linkPlanToContract(generated, contract) : generated;
     saveCoreProgramLocal("PROFILE", "current", profile);
     saveCoreProgramLocal("DRAFT", "current", draft);
     await persistCoreProgramState("PROFILE", "current", profile);
@@ -16721,7 +16728,9 @@ if (typeof document !== "undefined") {
     const prescription = currentCorePrescription();
     if (action === "approve-plan") {
       const draft = readCoreDraftPlan();
-      const approved = DominionCoreProgramming.approvePlan(draft, new Date().toISOString());
+      const contract = readApprovedRecruitContract();
+      const linkedDraft = contract ? DominionCoreProgramming.linkPlanToContract(draft, contract) : draft;
+      const approved = DominionCoreProgramming.approvePlan(linkedDraft, new Date().toISOString());
       if (!approved) return;
       saveCoreProgramLocal("PLAN", "current", approved);
       saveCoreProgramLocal("DRAFT", "current", approved);

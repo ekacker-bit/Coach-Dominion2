@@ -24,8 +24,8 @@ assert.match(html, /id="mission-execution"/);
 assert.match(html, /mission-execution\.js\?v=025b/);
 assert.ok(html.indexOf("atlas-week-autopilot.js") < html.indexOf("mission-execution.js"));
 assert.ok(html.indexOf("mission-execution.js") < html.indexOf("app.js"));
-assert.match(html, /styles\.css\?v=025b/);
-assert.match(html, /app\.js\?v=025b/);
+assert.match(html, /styles\.css\?v=025[bc]/);
+assert.match(html, /app\.js\?v=025[bc]/);
 
 assert.match(app, /function buildCurrentMissionCockpit/);
 assert.match(app, /function renderMissionExecution/);
@@ -46,10 +46,10 @@ assert.match(styles, /\.mission-player/);
 assert.match(styles, /\.mission-window-grid/);
 assert.match(styles, /@media \(max-width: 720px\)/);
 
-assert.match(worker, /coach-dominion-025b-v1/);
+assert.match(worker, /coach-dominion-025[bc]-v1/);
 assert.match(worker, /mission-execution\.js\?v=025b/);
-assert.match(worker, /styles\.css\?v=025b/);
-assert.match(worker, /app\.js\?v=025b/);
+assert.match(worker, /styles\.css\?v=025[bc]/);
+assert.match(worker, /app\.js\?v=025[bc]/);
 assert.match(changelog, /Build 025B Mission Execution Mode/);
 
 console.log("Build 025B integration tests passed.");

@@ -4,6 +4,8 @@ Coach Dominion is a browser-based AI coaching operating system with a discipline
 
 Build 025A closes the weekly coaching loop. Atlas waits until the current week has enough evidence, compares the committed prescription with execution, readiness, pain, technique, stopped sessions, and Fuel coverage, then issues one bounded next-week call. Material changes require recruit approval; the active week and base plans remain protected until the approved adaptation is committed to the next calendar.
 
+Build 025K closes the handoff between an earned Strength progression and the operating week. A load-only approval creates a new Calendar revision for future matching assignments while dates, training windows, completed work, and active workout snapshots remain fixed. Structural program changes still require explicit Calendar review. The same revision receipt appears on My Program, Calendar, Today, and Train.
+
 ## Release status
 
 The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Builds 004C through 005D are unreleased work and do not mark Release 0.4 or Release 0.5 complete. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).
@@ -14,6 +16,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `app.html` contains the authenticated War Room interface.
 - `assets/js/app.js` contains Supabase client operations, the Daily State/readiness engine, mission generation, Atlas brief generation, and UI rendering.
 - `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
+- `assets/js/strength-calendar-handoff.js` classifies Strength plan revisions and safely reconciles load-only changes into future Calendar assignments, active schedules, and blocks.
 - `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
 - `assets/js/contract-experience.js` contains the revision-bound Dominion oath, signature validation, signed artifact, and post-sign progression model.
 - `assets/js/experience-shell.js` derives the global current order and Contract-to-Today operating journey from existing canonical state.

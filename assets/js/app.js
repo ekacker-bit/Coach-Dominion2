@@ -5743,6 +5743,7 @@ function renderWeeklyOrchestrator() {
       ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()} ${item.tertiary ? "tertiary" : ""}">
         ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
         <span>${escapeHtml(item.module)}${item.calendarEdited ? " · MOVED" : ""}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small>
+        ${item.module === "STRENGTH" && item.planRevision ? `<small class="calendar-plan-revision">Plan R${item.planRevision}${item.revisionSource === "EARNED_PROGRESSION" ? " · synced" : ""}</small>` : ""}
         ${canEditCalendar ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
       </div>`).join("")
       : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
@@ -5767,11 +5768,16 @@ function renderWeeklyOrchestrator() {
     return code.includes("PLAN_REQUIRED") || code.includes("COVERAGE") || code.includes("CONTRACT_LINK_REQUIRED") || code.includes("NUTRITION");
   });
   const atlasProgramDraft = preview.status === "DRAFT" && ["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy);
+  const latestHandoff = currentStrengthCalendarHandoff();
+  const calendarHandoff = preview.calendarReconciliation
+    || active?.calendarReconciliation
+    || (latestHandoff?.weekStarts?.some((weekStart) => [preview.weekStart, active?.weekStart].includes(weekStart)) ? latestHandoff : null);
   const controls = preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
   panel.innerHTML = `
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
+    ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
     ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
@@ -5934,6 +5940,8 @@ function renderTodayCommittedWeek() {
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
   const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+  const todayHandoff = strengthCalendarHandoffMarkup(week.calendarReconciliation, "today");
+  if (todayHandoff) panel.insertAdjacentHTML("afterbegin", todayHandoff);
 }
 
 function todaySessionExecution(item = {}) {
@@ -8639,6 +8647,95 @@ function selectedStrengthAdjustmentCodes() {
   return [...document.querySelectorAll("[data-adjustment-selection]:checked")].map((item) => item.dataset.adjustmentSelection);
 }
 
+function currentStrengthCalendarHandoff() {
+  return readStrengthAdjustment()?.calendarHandoff || readApprovedStrengthPlan()?.lastCalendarHandoff || null;
+}
+
+function strengthCalendarHandoffMarkup(receipt = null, context = "train") {
+  if (!receipt || receipt.type !== "STRENGTH_CALENDAR_HANDOFF") return "";
+  const review = receipt.status === "REVIEW_REQUIRED";
+  const rebound = receipt.status === "REBOUND";
+  const headline = review
+    ? "Calendar review required"
+    : rebound
+      ? `Calendar linked to Plan R${receipt.planRevision || "—"}`
+      : `Plan R${receipt.planRevision || "—"} ready for the next week`;
+  const detail = review
+    ? receipt.detail || "Session structure changed. Review the calendar before it takes effect."
+    : rebound
+      ? `${receipt.changedAssignmentCount || 0} future assignment${receipt.changedAssignmentCount === 1 ? "" : "s"} updated. Dates unchanged${receipt.protectedAssignmentCount ? ` · ${receipt.protectedAssignmentCount} past or active assignment${receipt.protectedAssignmentCount === 1 ? "" : "s"} protected` : ""}.`
+      : receipt.detail || "The next calendar will use the active plan.";
+  return `<article class="strength-calendar-handoff ${review ? "review" : "synced"}" data-strength-calendar-handoff="${escapeHtml(context)}">
+    <div><span class="kicker">PLAN R${escapeHtml(String(receipt.planRevision || "—"))} // ${review ? "REVIEW" : rebound ? "CALENDAR SYNCED" : "READY"}</span><strong>${escapeHtml(headline)}</strong><p>${escapeHtml(detail)}</p></div>
+    <span class="state-pill ${review ? "yellow" : "green"}">${review ? "REVIEW" : receipt.syncStatus === "ACCOUNT_SAVED" ? "ACCOUNT SAVED" : "DATES HELD"}</span>
+  </article>`;
+}
+
+async function reconcileStrengthPlanRevision(previousPlan, nextPlan, adjustment = {}, options = {}) {
+  if (typeof DominionStrengthCalendarHandoff === "undefined") {
+    return {
+      type: "STRENGTH_CALENDAR_HANDOFF",
+      status: "REVIEW_REQUIRED",
+      planId: nextPlan?.id || null,
+      priorPlanRevision: previousPlan?.revision || 0,
+      planRevision: nextPlan?.revision || 0,
+      detail: "Calendar reconciliation is temporarily unavailable. The plan is saved, but the week needs review."
+    };
+  }
+  const reconciledAt = options.reconciledAt || new Date().toISOString();
+  const today = todayISODate();
+  const protectedDates = DominionStrengthCalendarHandoff.protectedDatesForExecution(readStrengthExecution(), today);
+  const calendarResult = DominionStrengthCalendarHandoff.reconcileCommittedWeeks(
+    readUnifiedWeekHistory(),
+    previousPlan,
+    nextPlan,
+    { today, protectedDates, reconciledAt }
+  );
+  const syncResults = [];
+
+  if (calendarResult.replacements.length && typeof DominionWeeklyOrchestrator !== "undefined") {
+    let nextHistory = readUnifiedWeekHistory();
+    calendarResult.replacements.forEach((week) => {
+      nextHistory = DominionWeeklyOrchestrator.mergeCommittedWeek(nextHistory, week);
+      saveWeeklyOrchestrationLocal("WEEK", week.weekStart, week);
+      const schedule = DominionWeeklyOrchestrator.strengthScheduleFromWeek(week);
+      saveStrengthStateLocal("SCHEDULE", `unified-${week.weekStart}`, schedule);
+    });
+    saveWeeklyOrchestrationLocal("HISTORY", "current", nextHistory);
+    syncResults.push(await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory));
+    for (const week of calendarResult.replacements) {
+      syncResults.push(await persistWeeklyOrchestrationState("WEEK", week.weekStart, week));
+      syncResults.push(await persistStrengthTrainingState("SCHEDULE", `unified-${week.weekStart}`, DominionWeeklyOrchestrator.strengthScheduleFromWeek(week)));
+    }
+  }
+
+  const storedSchedule = readStrengthSchedule();
+  const scheduleResult = DominionStrengthCalendarHandoff.rebindApprovedSchedule(storedSchedule, previousPlan, nextPlan, {
+    today, protectedDates, reconciledAt
+  });
+  if (scheduleResult.status === "REBOUND") {
+    saveStrengthStateLocal("SCHEDULE", "current", scheduleResult.schedule);
+    syncResults.push(await persistStrengthTrainingState("SCHEDULE", "current", scheduleResult.schedule));
+  }
+
+  const blockResult = DominionStrengthCalendarHandoff.rebindActiveBlock(readActiveStrengthBlock(), previousPlan, nextPlan, { reconciledAt });
+  if (blockResult.status === "REBOUND") {
+    saveStrengthStateLocal("BLOCK", "current", blockResult.block);
+    syncResults.push(await persistStrengthTrainingState("BLOCK", "current", blockResult.block));
+  }
+
+  const receipt = {
+    ...calendarResult.receipt,
+    adjustmentId: adjustment.id || null,
+    blockRebound: blockResult.status === "REBOUND",
+    scheduleRebound: scheduleResult.status === "REBOUND" || calendarResult.replacements.length > 0,
+    syncStatus: syncResults.length && syncResults.every(Boolean) ? "ACCOUNT_SAVED" : "DEVICE_SAVED"
+  };
+  saveStrengthStateLocal("ADJUSTMENT", `calendar-handoff:${adjustment.id || nextPlan.id}`, receipt);
+  await persistStrengthTrainingState("ADJUSTMENT", `calendar-handoff:${adjustment.id || nextPlan.id}`, receipt);
+  return receipt;
+}
+
 async function approveStrengthAdjustment(selectedExerciseCodes = null) {
   const plan = readApprovedStrengthPlan();
   const adjustment = readStrengthAdjustment();
@@ -8663,6 +8760,9 @@ async function approveStrengthAdjustment(selectedExerciseCodes = null) {
   };
   approved.plan = { ...approved.plan, lastAdjustmentActivation: activation };
   approved.adjustment = { ...approved.adjustment, activation };
+  const calendarHandoff = await reconcileStrengthPlanRevision(plan, approved.plan, approved.adjustment);
+  approved.plan = { ...approved.plan, lastCalendarHandoff: calendarHandoff };
+  approved.adjustment = { ...approved.adjustment, calendarHandoff };
   const revisionReceipt = {
     type: "PLAN_REVISION_ACTIVATION",
     recordedAt: approved.adjustment.approvedAt,
@@ -8688,7 +8788,11 @@ async function holdStrengthAdjustment() {
 }
 
 async function rollbackStrengthAdjustment() {
-  const result = DominionStrengthTraining.rollbackAdjustment(readApprovedStrengthPlan(), readStrengthAdjustment(), new Date().toISOString());
+  const previousPlan = readApprovedStrengthPlan();
+  const result = DominionStrengthTraining.rollbackAdjustment(previousPlan, readStrengthAdjustment(), new Date().toISOString());
+  const calendarHandoff = await reconcileStrengthPlanRevision(previousPlan, result.plan, result.adjustment);
+  result.plan = { ...result.plan, lastCalendarHandoff: calendarHandoff };
+  result.adjustment = { ...result.adjustment, calendarHandoff };
   const rollbackReceipt = {
     type: "PLAN_REVISION_ROLLBACK",
     recordedAt: result.adjustment.rolledBackAt,
@@ -8734,9 +8838,9 @@ function renderStrengthAdjustment(adjustment, activePlan) {
     && activePlan.lastAdjustmentId === adjustment.id
     && Number(activePlan.revision || 1) === Number(adjustment.appliedRevision || 0);
   const terminalReceipt = adjustment.status === "APPROVED"
-    ? `<div class="strength-activation-receipt"><div><span class="kicker">ACTIVATION RECEIPT</span><strong>${adjustment.summary?.appliedCount || 0} change${adjustment.summary?.appliedCount === 1 ? "" : "s"} active in plan R${adjustment.appliedRevision}</strong><p>${activationDate ? `First scheduled use: ${escapeHtml(activationDate)}.` : "Effective the next time this session appears on Today."} ${adjustment.summary?.heldCount ? `${adjustment.summary.heldCount} change held.` : ""}</p></div>${canRollback ? `<button type="button" class="ghost" data-programming-action="rollback-adjustment">Undo activation</button>` : ""}</div>`
+    ? `<div class="strength-activation-receipt"><div><span class="kicker">ACTIVATION RECEIPT</span><strong>${adjustment.summary?.appliedCount || 0} change${adjustment.summary?.appliedCount === 1 ? "" : "s"} active in plan R${adjustment.appliedRevision}</strong><p>${activationDate ? `First scheduled use: ${escapeHtml(activationDate)}.` : "Effective the next time this session appears on Today."} ${adjustment.summary?.heldCount ? `${adjustment.summary.heldCount} change held.` : ""}</p></div>${canRollback ? `<button type="button" class="ghost" data-programming-action="rollback-adjustment">Undo activation</button>` : ""}</div>${strengthCalendarHandoffMarkup(adjustment.calendarHandoff, "train")}`
     : adjustment.status === "ROLLED_BACK"
-      ? `<div class="strength-activation-receipt"><div><span class="kicker">ROLLBACK RECEIPT</span><strong>Previous targets restored in plan R${adjustment.rollbackRevision}</strong><p>The approved change remains in the audit trail and no longer governs future sessions.</p></div></div>`
+      ? `<div class="strength-activation-receipt"><div><span class="kicker">ROLLBACK RECEIPT</span><strong>Previous targets restored in plan R${adjustment.rollbackRevision}</strong><p>The approved change remains in the audit trail and no longer governs future sessions.</p></div></div>${strengthCalendarHandoffMarkup(adjustment.calendarHandoff, "train")}`
       : `<p class="muted">The recommendation was held. The active plan remains unchanged.</p>`;
   return `<section class="strength-adaptation-panel">
     <header><div><span class="kicker">BUILD 025J // POST-SESSION DECISION</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Evidence from plan R${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
@@ -9848,7 +9952,8 @@ async function requestMobileInstall() {
 
 function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  const reloadKey = "coach-dominion:service-worker-reload:025j";
+  // Supersedes coach-dominion:service-worker-reload:025j after the calendar handoff ships.
+  const reloadKey = "coach-dominion:service-worker-reload:025k";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -9859,7 +9964,8 @@ function registerMobileServiceWorker() {
     refreshing = true;
     window.location.reload();
   });
-  navigator.serviceWorker.register("/sw.js?v=025j", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=025j", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025k", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -13321,6 +13427,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
         ? `<button type="button" class="ghost" data-program-route="calendar">Open calendar</button>`
         : "";
   const weeklyMetrics = weeklyDecision?.metrics || {};
+  const programHandoff = currentStrengthCalendarHandoff();
   const weeklyEvidence = weeklyDecision && weeklyDecision.status !== "SETUP_REQUIRED"
     ? `<div class="atlas-week-evidence"><span><strong>${weeklyMetrics.executionPercent ?? "—"}${weeklyMetrics.executionPercent === null || weeklyMetrics.executionPercent === undefined ? "" : "%"}</strong> execution</span><span><strong>${weeklyMetrics.rollCalls || 0}</strong> Roll Calls</span><span><strong>${weeklyMetrics.fuelPercent ?? "—"}${weeklyMetrics.fuelPercent === null || weeklyMetrics.fuelPercent === undefined ? "" : "%"}</strong> Fuel</span><span><strong>${escapeHtml(String(weeklyDecision.confidence || "LOW"))}</strong> confidence</span></div>`
     : "";
@@ -13336,6 +13443,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
         ? `<button type="button" data-program-repair-action="${escapeHtml(repair.primary.action)}">${escapeHtml(repair.primary.label)}</button>`
         : `<button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>`}
     </section>
+    ${strengthCalendarHandoffMarkup(programHandoff, "program")}
     ${autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>WEEK REVIEW</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div>${weeklyEvidence}</section>` : ""}
     <section class="program-command-week" aria-label="Current week summary">
       <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
@@ -17961,6 +18069,9 @@ if (typeof document !== "undefined") {
         renderProgrammingReview();
         renderDailyAssignment();
         renderDailyCoachingLoop();
+        renderWeeklyOrchestrator();
+        renderTodayCommittedWeek();
+        renderProgramCommand();
         setText("programming-feedback", `${approved.adjustment.summary.appliedCount} earned change${approved.adjustment.summary.appliedCount === 1 ? "" : "s"} activated. Plan R${approved.plan.revision} will govern the next matching session.`);
       } catch (error) {
         setText("programming-feedback", error?.message || "The adjustment could not be approved.");
@@ -17979,6 +18090,9 @@ if (typeof document !== "undefined") {
         renderProgrammingReview();
         renderDailyAssignment();
         renderDailyCoachingLoop();
+        renderWeeklyOrchestrator();
+        renderTodayCommittedWeek();
+        renderProgramCommand();
         setText("programming-feedback", `Activation undone. Prior targets are restored in plan R${rolledBack.plan.revision}.`);
       } catch (error) {
         setText("programming-feedback", error?.message || "The activation could not be undone safely.");

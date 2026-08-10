@@ -5,8 +5,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021B.1";
-  const SCHEMA_VERSION = 1;
+  const VERSION = "025F.1";
+  const SCHEMA_VERSION = 2;
   const CANONICAL_DOMAINS = Object.freeze(["contract", "strength", "running", "core", "nutrition", "calendar"]);
 
   function stableSerialize(value) {
@@ -72,6 +72,36 @@
     };
   }
 
+  function snapshotDescriptor(domain, value = null) {
+    if (!value || typeof value !== "object") return null;
+    const payload = Object.prototype.hasOwnProperty.call(value, "payload") ? value.payload : value;
+    if (!payload || typeof payload !== "object") return null;
+    const updatedAt = value.updatedAt || (timestamp(payload) ? new Date(timestamp(payload)).toISOString() : null);
+    return {
+      domain,
+      updatedAt,
+      fingerprint: fingerprint(payload),
+      payload
+    };
+  }
+
+  function normalizeSnapshots(value = {}) {
+    return Object.fromEntries(Object.entries(value || {})
+      .map(([domain, snapshot]) => [domain, snapshotDescriptor(domain, snapshot)])
+      .filter(([, snapshot]) => Boolean(snapshot)));
+  }
+
+  function compareSnapshots(deviceSnapshot, accountSnapshot) {
+    if (!deviceSnapshot && !accountSnapshot) return { state: "EMPTY", winner: null };
+    if (!accountSnapshot) return { state: "DEVICE_NEWER", winner: "DEVICE" };
+    if (!deviceSnapshot) return { state: "ACCOUNT_NEWER", winner: "ACCOUNT" };
+    if (deviceSnapshot.fingerprint === accountSnapshot.fingerprint) return { state: "MATCHED", winner: "MATCHED" };
+    const deviceTime = Date.parse(deviceSnapshot.updatedAt || "") || 0;
+    const accountTime = Date.parse(accountSnapshot.updatedAt || "") || 0;
+    if (accountTime > deviceTime) return { state: "ACCOUNT_NEWER", winner: "ACCOUNT" };
+    return { state: "DEVICE_NEWER", winner: "DEVICE" };
+  }
+
   function compareRecords(localRecord, remoteRecord, options = {}) {
     if (!localRecord && !remoteRecord) return { state: "EMPTY", winner: null };
     if (!remoteRecord) return { state: "DEVICE_NEWER", winner: "DEVICE" };
@@ -111,6 +141,7 @@
     });
     const executions = (input.executions || []).filter(Boolean).map((item) => item.fingerprint ? { ...item } : recordDescriptor(item.domain, item.payload, item.options));
     const checkpoints = (input.checkpoints || []).filter(Boolean).map((item) => item.fingerprint ? { ...item } : recordDescriptor(item.domain, item.payload, item.options));
+    const snapshots = normalizeSnapshots(input.snapshots || {});
     const body = {
       schemaVersion: SCHEMA_VERSION,
       userId: options.userId || null,
@@ -118,7 +149,8 @@
       savedAt,
       modules,
       executions,
-      checkpoints
+      checkpoints,
+      snapshots
     };
     return {
       ...body,
@@ -127,7 +159,8 @@
         userId: body.userId,
         modules: body.modules,
         executions: body.executions,
-        checkpoints: body.checkpoints
+        checkpoints: body.checkpoints,
+        snapshots: body.snapshots
       })
     };
   }
@@ -136,7 +169,8 @@
     return buildManifest({
       ...value.modules,
       executions: value.executions || [],
-      checkpoints: value.checkpoints || []
+      checkpoints: value.checkpoints || [],
+      snapshots: value.snapshots || {}
     }, {
       userId: value.userId || null,
       deviceId: value.deviceId || null,
@@ -148,6 +182,7 @@
     const device = normalizeManifest(deviceValue);
     const account = normalizeManifest(accountValue);
     const modules = {};
+    const snapshots = {};
     const conflicts = [];
     let deviceWins = 0;
     let accountWins = 0;
@@ -164,7 +199,18 @@
         modules[domain] = device.modules[domain] || account.modules[domain];
       }
     });
-    const merged = buildManifest({ ...modules, executions: device.executions, checkpoints: device.checkpoints }, {
+    const snapshotDomains = new Set([...Object.keys(device.snapshots || {}), ...Object.keys(account.snapshots || {})]);
+    snapshotDomains.forEach((domain) => {
+      const comparison = compareSnapshots(device.snapshots?.[domain], account.snapshots?.[domain]);
+      if (comparison.winner === "ACCOUNT") {
+        accountWins += 1;
+        snapshots[domain] = account.snapshots[domain];
+      } else {
+        if (comparison.winner === "DEVICE") deviceWins += 1;
+        snapshots[domain] = device.snapshots?.[domain] || account.snapshots?.[domain];
+      }
+    });
+    const merged = buildManifest({ ...modules, executions: device.executions, checkpoints: device.checkpoints, snapshots }, {
       userId: device.userId || account.userId,
       deviceId: device.deviceId,
       savedAt: new Date(Math.max(Date.parse(device.savedAt) || 0, Date.parse(account.savedAt) || 0)).toISOString()
@@ -176,6 +222,24 @@
       deviceWins,
       accountWins
     };
+  }
+
+  function withSnapshot(manifest = {}, domain, payload, options = {}) {
+    const normalized = normalizeManifest(manifest);
+    return buildManifest({
+      ...normalized.modules,
+      executions: normalized.executions,
+      checkpoints: normalized.checkpoints,
+      snapshots: { ...normalized.snapshots, [domain]: payload }
+    }, {
+      userId: options.userId ?? normalized.userId,
+      deviceId: options.deviceId ?? normalized.deviceId,
+      savedAt: options.savedAt || normalized.savedAt || new Date().toISOString()
+    });
+  }
+
+  function snapshotPayload(manifest = {}, domain) {
+    return normalizeManifest(manifest).snapshots?.[domain]?.payload || null;
   }
 
   function syncPresentation(state = "CHECKING", options = {}) {
@@ -198,10 +262,15 @@
     identity,
     revision,
     recordDescriptor,
+    snapshotDescriptor,
+    normalizeSnapshots,
+    compareSnapshots,
     compareRecords,
     buildManifest,
     normalizeManifest,
     reconcileManifests,
+    withSnapshot,
+    snapshotPayload,
     syncPresentation
   });
 });

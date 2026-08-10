@@ -440,7 +440,10 @@ function buildCurrentContinuityManifest() {
     ],
     checkpoints: [
       { domain: "calendar", payload: readSplitDayCheckpoint(date), options: { stateType: "CHECKPOINT", stateKey: date } }
-    ]
+    ],
+    snapshots: {
+      core: buildCoreContinuitySnapshot()
+    }
   }, { userId: session?.user?.id || null, deviceId: continuityDeviceId(), savedAt: new Date().toISOString() });
 }
 
@@ -539,21 +542,25 @@ async function syncDominionContinuity(options = {}) {
     }
     if (options.prefer === "ACCOUNT" && accountManifest) {
       saveContinuityManifestLocal(accountManifest);
+      applyContinuitySnapshotPayloads(accountManifest);
       setContinuityMode("SYNCED", { initialized: true, accountRevision, accountManifest, manifestConflicts: [] });
       return true;
     }
     if (!accountManifest || options.prefer === "DEVICE" || ["DEVICE_NEWER", "MERGED"].includes(reconciliation?.state)) {
-      const saved = await saveContinuityLedger(current, accountRevision);
-      saveContinuityManifestLocal(saved?.manifest || current);
+      const nextManifest = reconciliation?.state === "MERGED" ? reconciliation.manifest : current;
+      applyContinuitySnapshotPayloads(nextManifest);
+      const saved = await saveContinuityLedger(nextManifest, accountRevision);
+      saveContinuityManifestLocal(saved?.manifest || nextManifest);
       setContinuityMode("SYNCED", {
         initialized: true,
         accountRevision: Number(saved?.revision || accountRevision + 1),
-        accountManifest: saved?.manifest || current,
+        accountManifest: saved?.manifest || nextManifest,
         manifestConflicts: []
       });
       return true;
     }
     saveContinuityManifestLocal(accountManifest);
+    applyContinuitySnapshotPayloads(accountManifest);
     setContinuityMode("SYNCED", { initialized: true, accountRevision, accountManifest, manifestConflicts: [] });
     return true;
   } catch (error) {
@@ -7720,10 +7727,7 @@ function atlasProgramWeekStart(contract = readApprovedRecruitContract()) {
 
 function buildAtlasNutritionDraft(contract = readApprovedRecruitContract()) {
   if (!contract || typeof DominionAtlasProgram === "undefined" || typeof DominionNutritionBaseline === "undefined") return null;
-  const estimate = DominionAtlasProgram.estimateNutrition(contract, {
-    weightValue: dailyState?.weight,
-    weightUnit: "lb"
-  });
+  const estimate = DominionAtlasProgram.estimateNutrition(contract, atlasNutritionProfileContext(contract));
   if (estimate.status !== "READY_FOR_APPROVAL") return null;
   const proposal = DominionNutritionBaseline.buildNutritionBaselineProposal(estimate.input);
   return {
@@ -7731,6 +7735,19 @@ function buildAtlasNutritionDraft(contract = readApprovedRecruitContract()) {
     recruitContractId: contract.id,
     recruitContractRevision: contract.revision,
     atlasEstimate: estimate
+  };
+}
+
+function atlasNutritionProfileContext(contract = readApprovedRecruitContract()) {
+  const signedProfile = contract?.athleteProfile || contract || {};
+  const orientationProfile = recruitProfileForAtlas() || {};
+  const currentWeight = Number(dailyState?.weight || 0);
+  return {
+    age: signedProfile.age ?? orientationProfile.age ?? null,
+    heightCm: signedProfile.heightCm ?? orientationProfile.heightCm ?? null,
+    weightKg: signedProfile.weightKg ?? null,
+    weightValue: currentWeight > 0 ? currentWeight : signedProfile.weightValue ?? null,
+    weightUnit: currentWeight > 0 ? "lb" : signedProfile.weightUnit || "lb"
   };
 }
 
@@ -7769,7 +7786,7 @@ function buildCurrentAtlasProgramPackage() {
   if (typeof DominionAtlasProgram === "undefined") return null;
   const contract = readApprovedRecruitContract();
   const active = currentAtlasActivePlans(contract);
-  const nutrition = contract ? DominionAtlasProgram.estimateNutrition(contract, { weightValue: dailyState?.weight, weightUnit: "lb" }) : null;
+  const nutrition = contract ? DominionAtlasProgram.estimateNutrition(contract, atlasNutritionProfileContext(contract)) : null;
   const proposal = atlasPlanMatchesContract(active.nutrition, contract)
     ? active.nutrition
     : nutritionBaselineDraft?.recruitContractId === contract?.id
@@ -7910,7 +7927,9 @@ function buildAtlasApprovalCandidates(contract = readApprovedRecruitContract(), 
   if (contract.planningInputs?.strength && !strengthDraft) throw new Error("Atlas could not prepare Strength. Generate the program again.");
   if (contract.planningInputs?.running && !runningDraft) throw new Error("Atlas could not prepare Cardio. Generate the program again.");
   if (contract.planningInputs?.core && !coreDraft) throw new Error("Atlas could not prepare Core. Generate the program again.");
-  if (!nutritionDraft || nutritionDraft.status !== "READY FOR APPROVAL") throw new Error("Atlas needs a valid weight and profile before Fuel can be approved.");
+  if (!nutritionDraft || !["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)) {
+    throw new Error("Atlas needs a valid weight and profile before Fuel can be approved.");
+  }
 
   const candidates = {
     strength: strengthDraft?.status === "APPROVED" ? strengthDraft : strengthDraft ? DominionStrengthTraining.approvePlan(strengthDraft, approvedAt) : null,
@@ -11400,6 +11419,10 @@ function coreProgramStorageKey(stateType, stateKey = "current") {
   return `coach-dominion:core-program:${session?.user?.id || "local"}:${String(stateType || "").toLowerCase()}:${stateKey}`;
 }
 
+let coreProgramRemoteMode = "UNKNOWN";
+let coreContinuitySyncPromise = null;
+let coreContinuitySyncPending = false;
+
 function readCoreProgramState(stateType, stateKey = "current", fallback = null) {
   try {
     const stored = window.localStorage.getItem(coreProgramStorageKey(stateType, stateKey));
@@ -11440,6 +11463,132 @@ function readCurrentCoreExecution() {
 function readCoreHistory() {
   const history = readCoreProgramState("HISTORY", "current", []);
   return Array.isArray(history) ? history : [];
+}
+
+function coreContinuityStateRows() {
+  return [
+    ["PROFILE", "current", readCoreProgramState("PROFILE", "current", null)],
+    ["DRAFT", "current", readCoreDraftPlan()],
+    ["PLAN", "current", readApprovedCorePlan()],
+    ["HISTORY", "current", readCoreHistory().slice(-365)],
+    ["EXECUTION", todayISODate(), readCoreExecution()]
+  ];
+}
+
+function buildCoreContinuitySnapshot() {
+  const states = {};
+  coreContinuityStateRows().forEach(([stateType, stateKey, payload]) => {
+    if (payload === null || payload === undefined) return;
+    const timestampValue = coreProgramStateTimestamp(payload);
+    states[`${stateType}:${stateKey}`] = {
+      stateType,
+      stateKey,
+      updatedAt: timestampValue ? new Date(timestampValue).toISOString() : null,
+      payload
+    };
+  });
+  if (!Object.keys(states).length) return null;
+  const latest = Math.max(0, ...Object.values(states).map((item) => Date.parse(item.updatedAt || "") || 0));
+  return {
+    version: "025F.1",
+    updatedAt: latest ? new Date(latest).toISOString() : null,
+    states
+  };
+}
+
+function applyCoreContinuitySnapshot(snapshot = null, fallbackUpdatedAt = null) {
+  if (!snapshot?.states || typeof snapshot.states !== "object") return { restored: 0, deviceNewer: false };
+  let restored = 0;
+  let deviceNewer = false;
+  Object.values(snapshot.states).forEach((entry) => {
+    if (!entry?.stateType || !entry?.stateKey || entry.payload === null || entry.payload === undefined) return;
+    const localPayload = readCoreProgramState(entry.stateType, entry.stateKey, null);
+    const selected = selectCoreProgramState(localPayload, {
+      payload: entry.payload,
+      updated_at: entry.updatedAt || snapshot.updatedAt || fallbackUpdatedAt
+    });
+    if (selected.payload !== null && selected.payload !== undefined) {
+      saveCoreProgramLocal(entry.stateType, entry.stateKey, selected.payload);
+      restored += selected.source === "REMOTE" ? 1 : 0;
+    }
+    if (selected.source === "LOCAL" && localPayload !== null && localPayload !== undefined) deviceNewer = true;
+  });
+  return { restored, deviceNewer };
+}
+
+function applyContinuitySnapshotPayloads(manifest = null) {
+  if (!manifest || typeof DominionContinuity === "undefined") return false;
+  const snapshot = DominionContinuity.snapshotPayload(manifest, "core");
+  if (!snapshot) return false;
+  applyCoreContinuitySnapshot(snapshot, manifest.savedAt);
+  return true;
+}
+
+async function loadCoreContinuitySnapshot() {
+  if (!session?.user?.id || typeof DominionContinuity === "undefined") return false;
+  const supabase = await getClient();
+  const { data, error } = await supabase.from("dominion_continuity_state")
+    .select("revision,manifest,updated_at")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+  if (error) throw error;
+  const snapshot = DominionContinuity.snapshotPayload(data?.manifest || {}, "core");
+  if (!snapshot) return false;
+  const result = applyCoreContinuitySnapshot(snapshot, data?.updated_at);
+  continuityState.accountRevision = Number(data?.revision || continuityState.accountRevision || 0);
+  continuityState.accountManifest = data?.manifest || continuityState.accountManifest;
+  if (result.deviceNewer) await persistCoreContinuityFallback();
+  return true;
+}
+
+async function persistCoreContinuitySnapshotAttempt() {
+  const snapshot = buildCoreContinuitySnapshot();
+  if (!snapshot || !session?.user?.id || typeof DominionContinuity === "undefined") return false;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("dominion_continuity_state")
+      .select("revision,manifest,updated_at")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (error) throw error;
+    const baseManifest = data?.manifest || buildCurrentContinuityManifest();
+    const nextManifest = DominionContinuity.withSnapshot(baseManifest, "core", snapshot, {
+      userId: session.user.id,
+      deviceId: continuityDeviceId(),
+      savedAt: new Date().toISOString()
+    });
+    try {
+      const saved = await saveContinuityLedger(nextManifest, Number(data?.revision || 0));
+      saveContinuityManifestLocal(saved?.manifest || nextManifest);
+      continuityState.accountRevision = Number(saved?.revision || Number(data?.revision || 0) + 1);
+      continuityState.accountManifest = saved?.manifest || nextManifest;
+      return true;
+    } catch (errorValue) {
+      lastError = errorValue;
+      if (errorValue?.code !== "40001" && !/REVISION_CONFLICT/i.test(errorValue?.message || "")) break;
+    }
+  }
+  if (lastError) throw lastError;
+  return false;
+}
+
+async function persistCoreContinuityFallback() {
+  coreContinuitySyncPending = true;
+  if (coreContinuitySyncPromise) return coreContinuitySyncPromise;
+  coreContinuitySyncPromise = (async () => {
+    let saved = false;
+    while (coreContinuitySyncPending) {
+      coreContinuitySyncPending = false;
+      saved = await persistCoreContinuitySnapshotAttempt();
+    }
+    return saved;
+  })();
+  try {
+    return await coreContinuitySyncPromise;
+  } finally {
+    coreContinuitySyncPromise = null;
+  }
 }
 
 function coreProgramStateTimestamp(value, fallback = null) {
@@ -11532,6 +11681,16 @@ async function reconcileCoreProgramWithContract() {
 async function persistCoreProgramState(stateType, stateKey, payload) {
   recordContinuityWrite("core", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
+  if (coreProgramRemoteMode === "CONTINUITY") {
+    try {
+      const saved = await persistCoreContinuityFallback();
+      if (saved) markContinuityRecordSynced("core", stateType, stateKey, payload);
+      return saved;
+    } catch (error) {
+      logAccountPersistenceFailure("core", stateType, stateKey, error);
+      return false;
+    }
+  }
   try {
     const supabase = await getClient();
     const { error } = await supabase.from("core_program_state").upsert({
@@ -11542,13 +11701,27 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
+    coreProgramRemoteMode = "PRIMARY";
     markContinuityRecordSynced("core", stateType, stateKey, payload);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
     return true;
   } catch (error) {
-    logAccountPersistenceFailure("core", stateType, stateKey, error);
+    try {
+      coreProgramRemoteMode = "CONTINUITY";
+      const saved = await persistCoreContinuityFallback();
+      if (saved) {
+        markContinuityRecordSynced("core", stateType, stateKey, payload);
+        if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
+        setText("core-programming-feedback", "Saved to your Dominion account.");
+        setText("core-today-feedback", "Core progress saved to your Dominion account.");
+        return true;
+      }
+    } catch (fallbackError) {
+      logAccountPersistenceFailure("core", stateType, stateKey, fallbackError);
+    }
+    coreProgramRemoteMode = "LOCAL";
     if (stateType === "EXECUTION") enqueueMobileWrite("CORE_EXECUTION", stateKey, payload);
-    setText("core-programming-feedback", "Saved locally. Account sync will activate after migration 012 is applied.");
+    setText("core-programming-feedback", "Saved on this device. Account sync will retry automatically.");
     setText("core-today-feedback", "Saved on this device. Account sync is temporarily unavailable.");
     return false;
   }
@@ -11564,6 +11737,7 @@ async function loadCoreProgramState() {
       .eq("user_id", session.user.id)
       .order("updated_at", { ascending: false });
     if (error) throw error;
+    coreProgramRemoteMode = "PRIMARY";
     const rows = data || [];
     const localStates = [
       ["PROFILE", "current", readCoreProgramState("PROFILE", "current", null)],
@@ -11585,12 +11759,21 @@ async function loadCoreProgramState() {
       }
     }
   } catch (error) {
-    console.error("[core:persistence-load-failed] Core will continue from device state.", {
-      message: error?.message || "Unknown Core restore error"
-    });
-    // Local state remains the explicit offline fallback.
+    try {
+      const restored = await loadCoreContinuitySnapshot();
+      coreProgramRemoteMode = restored ? "CONTINUITY" : "LOCAL";
+      if (!restored) throw error;
+    } catch (fallbackError) {
+      coreProgramRemoteMode = "LOCAL";
+      console.error("[core:persistence-load-failed] Core will continue from device state.", {
+        message: fallbackError?.message || error?.message || "Unknown Core restore error"
+      });
+    }
   }
   await reconcileCoreProgramWithContract();
+  if (coreProgramRemoteMode === "CONTINUITY") {
+    try { await persistCoreContinuityFallback(); } catch (_) {}
+  }
 }
 
 function coreReadinessState() {
@@ -15741,7 +15924,13 @@ async function init() {
     }
     document.body.dataset.mobileHydration = "ready";
     document.body.dataset.startupRecovery = startupIssues.length ? "recovered" : "clean";
-    setStatus(startupIssues.length ? "Command center loaded. One saved item needs reconciliation; your work is protected." : "");
+    document.body.dataset.startupRecoveryCount = String(startupIssues.length);
+    if (startupIssues.length) {
+      console.warn("[startup:summary] Optional surfaces recovered with their saved local evidence.", {
+        surfaces: startupIssues.map((issue) => issue.label)
+      });
+    }
+    setStatus("");
   } catch (error) {
     setStatus(error.message);
   } finally {

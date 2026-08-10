@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 025F State Repair
+
+- Removed the misleading login reconciliation sentence; recoverable optional surfaces now stay out of the recruit-facing command status.
+- Fixed Atlas activation so an existing approved Fuel plan is accepted instead of being rejected as an invalid profile.
+- Uses the signed profile plus current Roll Call weight when Atlas needs to rebuild Fuel, preventing stale profile-shape blockers.
+- Added a durable Core snapshot to the existing Dominion account continuity ledger so Core plans, drafts, history, and todayâ€™s execution survive sessions even when the legacy Core table is unavailable.
+- Restores the newest Core state automatically and retries account writes through the continuity ledger without requiring a new database migration.
+
 ## Unreleased - Build 025E Morning Verification Loop
 
 - Reconciles today’s Roll Call with the latest Mission debrief, recovery order, and personal readiness baseline.

@@ -43,6 +43,17 @@ const coreDraft = { id: "core-draft", profile: { sessionsPerWeek: 3 }, weeks: [{
 }
 
 {
+  const estimate = atlas.estimateNutrition(contract({ age: null, heightCm: null, weightKg: null, athleteProfile: {} }), {
+    age: 40,
+    heightCm: 177.8,
+    weightValue: 147.7,
+    weightUnit: "lb"
+  });
+  assert.equal(estimate.status, "READY_FOR_APPROVAL");
+  assert.ok(estimate.input.calories > 0);
+}
+
+{
   const recruitContract = contract();
   const nutrition = atlas.estimateNutrition(recruitContract);
   const nutritionProposal = {

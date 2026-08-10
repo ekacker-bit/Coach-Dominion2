@@ -44,6 +44,43 @@ test("manifest fingerprint represents program truth, not device or save time", (
   assert.equal(desktop.fingerprint, phone.fingerprint);
 });
 
+test("account continuity carries a durable Core payload snapshot", () => {
+  const coreSnapshot = {
+    version: "025F.1",
+    updatedAt: "2026-08-10T08:00:00.000Z",
+    states: {
+      "PLAN:current": {
+        stateType: "PLAN",
+        stateKey: "current",
+        updatedAt: "2026-08-10T08:00:00.000Z",
+        payload: { id: "core-plan-12", status: "APPROVED", recruitContractRevision: 12 }
+      }
+    }
+  };
+  const manifest = continuity.buildManifest({ snapshots: { core: coreSnapshot } }, { userId: "user-1" });
+  assert.equal(continuity.SCHEMA_VERSION, 2);
+  assert.deepEqual(continuity.snapshotPayload(manifest, "core"), coreSnapshot);
+});
+
+test("newer Core snapshot wins automatically without creating a plan conflict", () => {
+  const device = continuity.buildManifest({
+    snapshots: { core: { updatedAt: "2026-08-10T09:00:00.000Z", states: { "PLAN:current": { payload: { id: "new" } } } } }
+  }, { userId: "user-1", deviceId: "desktop" });
+  const account = continuity.buildManifest({
+    snapshots: { core: { updatedAt: "2026-08-10T08:00:00.000Z", states: { "PLAN:current": { payload: { id: "old" } } } } }
+  }, { userId: "user-1", deviceId: "phone" });
+  const result = continuity.reconcileManifests(device, account);
+  assert.equal(result.manifest.snapshots.core.payload.states["PLAN:current"].payload.id, "new");
+  assert.equal(result.conflicts.length, 0);
+});
+
+test("withSnapshot preserves the rest of the account manifest", () => {
+  const manifest = continuity.buildManifest({ contract: plan("contract", 4, "2026-08-10T07:00:00.000Z") }, { userId: "user-1" });
+  const next = continuity.withSnapshot(manifest, "core", { updatedAt: "2026-08-10T08:00:00.000Z", states: {} });
+  assert.equal(next.modules.contract.revision, 4);
+  assert.ok(next.snapshots.core);
+});
+
 test("cross-device reconciliation selects each genuinely newer domain", () => {
   const device = continuity.buildManifest({
     contract: plan("contract", 3, "2026-08-01T10:00:00.000Z"),

@@ -112,6 +112,24 @@ function draft() {
 
 {
   const proposal = adaptiveWeek.buildProposal(input({
+    performance: {
+      events: 9,
+      stoppedSessions: 0,
+      techniqueFlags: 0,
+      recoveryOrders: 3,
+      recoveryCompleted: 1,
+      recoveryUnresolved: 2,
+      recoveryPercent: 33,
+      recoverySafetyHolds: 0
+    }
+  }));
+  assert.equal(proposal.code, "REBALANCE");
+  assert.equal(proposal.metrics.recoveryPercent, 33);
+  assert.match(proposal.reason, /recovery orders/i);
+}
+
+{
+  const proposal = adaptiveWeek.buildProposal(input({
     evidence: {
       STRENGTH: { planned: 0, completed: 0, sourceCount: 0 },
       RUNNING: { planned: 0, completed: 0, sourceCount: 0 },

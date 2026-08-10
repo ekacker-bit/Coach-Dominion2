@@ -4,7 +4,7 @@ const APP_SHELL = [
   "/app",
   "/app.html",
   "/manifest.webmanifest",
-  "/assets/styles.css?v=025c",
+  "/assets/styles.css?v=025c2",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",
@@ -52,10 +52,11 @@ const APP_SHELL = [
   "/assets/js/atlas-activation.js?v=024m",
   "/assets/js/atlas-program-repair.js?v=024f",
   "/assets/js/program-command.js?v=024c",
-  "/assets/js/atlas-adaptive-week.js?v=025a",
+  "/assets/js/atlas-adaptive-week.js?v=025a2",
   "/assets/js/atlas-week-autopilot.js?v=024n",
   "/assets/js/mission-execution.js?v=025b",
   "/assets/js/mission-debrief.js?v=025c",
+  "/assets/js/mission-recovery.js?v=025d",
   "/assets/js/contract-integrity.js",
   "/assets/js/contract-autosave.js",
   "/assets/js/mobile-command.js?v=022g",
@@ -66,7 +67,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/dominion-continuity.js",
   "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c3"
+  "/assets/js/app.js?v=025c4"
 ];
 
 self.addEventListener("install", (event) => {

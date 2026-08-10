@@ -30,10 +30,10 @@ assert.doesNotMatch(app, /Account sync will activate after migration 012/);
 
 assert.match(html, /atlas-program\.js\?v=024f2/);
 assert.match(html, /dominion-continuity\.js\?v=025f/);
-assert.match(html, /app\.js\?v=025c6/);
+assert.match(html, /app\.js\?v=025c7/);
 assert.match(worker, /atlas-program\.js\?v=024f2/);
 assert.match(worker, /dominion-continuity\.js\?v=025f/);
-assert.match(worker, /app\.js\?v=025c6/);
+assert.match(worker, /app\.js\?v=025c7/);
 assert.match(changelog, /Build 025F State Repair/);
 
 console.log("Build 025F state repair integration tests passed.");

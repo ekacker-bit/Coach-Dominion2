@@ -8551,15 +8551,73 @@ function strengthProfileFromForm() {
   });
 }
 
-function renderStrengthSession(sessionItem = {}) {
+function strengthSessionLaunchReadiness() {
+  const evaluated = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
+  return morningVerificationReadiness({ ...dailyState, state: evaluated?.state || null, pain: Boolean(dailyState?.pain) });
+}
+
+function renderStrengthSession(sessionItem = {}, options = {}) {
   const exercises = (sessionItem.exercises || []).map((item) => `<li>
     <div><strong>${escapeHtml(item.exerciseName)}</strong><span>${escapeHtml(item.patternLabel || item.pattern)}</span></div>
     <div><strong>${item.recommendedSets} × ${item.targetReps}</strong><span>${item.recommendedLoad > 0 ? `${item.recommendedLoad} ${escapeHtml(item.unit)}` : "Technique load"}</span></div>
   </li>`).join("");
+  const launch = options.canLog && typeof DominionStrengthTraining !== "undefined"
+    ? DominionStrengthTraining.sessionLaunchDecision(options.plan, sessionItem.id, options.execution || {}, options.readiness || {})
+    : null;
   return `<details class="strength-program-session">
     <summary><span>${escapeHtml(sessionItem.name)}</span><strong>${(sessionItem.exercises || []).length} exercises</strong></summary>
     <ol>${exercises}</ol>
+    ${launch ? `<div class="performance-actions"><button type="button" data-programming-action="train-session" data-session-id="${escapeHtml(sessionItem.id)}" ${launch.allowed ? "" : "disabled"}>${escapeHtml(launch.label)}</button><small>${escapeHtml(launch.message)}</small></div>` : ""}
   </details>`;
+}
+
+async function launchApprovedStrengthSession(sessionId) {
+  if (typeof DominionStrengthTraining === "undefined") return false;
+  const plan = readApprovedStrengthPlan();
+  const existing = readStrengthExecution() || {};
+  const readiness = strengthSessionLaunchReadiness();
+  const decision = DominionStrengthTraining.sessionLaunchDecision(plan || {}, sessionId, existing, readiness);
+  if (!decision.allowed) {
+    setText("programming-feedback", decision.message);
+    return false;
+  }
+  let execution = existing;
+  const now = new Date().toISOString();
+  if (decision.mode === "RESUME") {
+    execution = DominionStrengthTraining.resumeWorkout(existing, now);
+    await saveDailyAssignmentExecution(execution);
+  } else if (decision.mode === "START") {
+    let prescription = existing.sessionId === sessionId && existing.sessionSnapshot
+      ? existing.sessionSnapshot
+      : DominionStrengthTraining.buildSessionPrescription(plan, sessionId, { today: todayISODate(), readiness });
+    prescription = applyCurrentStrengthBlock({
+      ...prescription,
+      launchSource: "APPROVED_PLAN",
+      scheduleOverride: { type: "RECRUIT_SELECTED_SESSION", selectedAt: now, calendarChanged: false }
+    });
+    if (!prescription?.exercises?.length || prescription.state === "RECOVERY ONLY") {
+      setText("programming-feedback", prescription?.adjustment?.detail || "This workout cannot be started under today’s safety posture.");
+      return false;
+    }
+    execution = DominionStrengthTraining.startWorkout(
+      existing.sessionId === sessionId ? existing : DominionStrengthTraining.executionForPrescription(prescription),
+      prescription,
+      now
+    );
+    await saveDailyAssignmentExecution(execution);
+  }
+  setActiveSection("today");
+  window.history.replaceState(null, "", "#today");
+  const detail = document.querySelector(".today-workout-detail");
+  if (detail) detail.open = true;
+  renderDailyAssignment();
+  renderDailyCoachingLoop();
+  renderMissionExecution();
+  setText("daily-assignment-feedback", decision.mode === "START"
+    ? `${execution.sessionName} started from your approved plan. Record each set below; Calendar was not changed.`
+    : `${execution.sessionName} reopened with every recorded set intact.`);
+  document.getElementById("daily-assignment-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
 }
 
 function renderStrengthAdjustment(adjustment, activePlan) {
@@ -9014,7 +9072,12 @@ function renderProgrammingReview() {
       <div><span>Evidence anchored</span><strong>${anchored}/${total}</strong></div>
     </div>
     <article class="connected-notice"><strong>Coverage is program-driven.</strong> Existing evidence personalizes known loads, but missing evidence never deletes squat, hinge, push, pull, unilateral, carry, or core work.</article>
-    <div class="strength-program-sessions">${displayedPlan.sessions.map(renderStrengthSession).join("")}</div>
+    <div class="strength-program-sessions">${displayedPlan.sessions.map((item) => renderStrengthSession(item, {
+      canLog: Boolean(activePlan && displayedPlan.id === activePlan.id && !savedDraft),
+      plan: activePlan,
+      execution: readStrengthExecution(),
+      readiness: strengthSessionLaunchReadiness()
+    })).join("")}</div>
     <div class="performance-actions">
       <button type="button" data-programming-action="build-plan">${activePlan ? "Build revised draft" : "Generate draft"}</button>
       <button type="button" data-programming-action="approve" ${savedDraft || !activePlan ? "" : "disabled"}>${activePlan ? "Approve revised program" : "Approve strength program"}</button>
@@ -17648,6 +17711,10 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-programming-action]");
     if (!button) return;
     const action = button.dataset.programmingAction;
+    if (action === "train-session") {
+      await launchApprovedStrengthSession(button.dataset.sessionId);
+      return;
+    }
     if (action === "view-intelligence") {
       setPerformanceActiveView("progress");
       renderStrengthIntelligence(readApprovedStrengthPlan());

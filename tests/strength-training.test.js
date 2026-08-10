@@ -227,6 +227,40 @@ test("session rotation advances only from terminal history", () => {
   assert.equal(strength.selectSession(plan, [{ planId: plan.id, state: "PARTIAL" }]).id, plan.sessions[1].id);
 });
 
+test("an approved plan session can launch the set logger directly", () => {
+  const plan = approved({ daysPerWeek: 4 });
+  const selected = plan.sessions.find((item) => item.id === "LOWER_A");
+  const decision = strength.sessionLaunchDecision(plan, selected.id, {}, { state: "GREEN", pain: false });
+  assert.equal(decision.allowed, true);
+  assert.equal(decision.mode, "START");
+  assert.equal(decision.label, "Log this workout");
+});
+
+test("the direct launcher resumes only the matching active session", () => {
+  const plan = approved({ daysPerWeek: 4 });
+  const lower = plan.sessions.find((item) => item.id === "LOWER_A");
+  const upper = plan.sessions.find((item) => item.id !== lower.id);
+  const lowerExecution = strength.startWorkout(
+    strength.executionForPrescription(strength.buildSessionPrescription(plan, lower.id, { today: "2026-08-10" })),
+    strength.buildSessionPrescription(plan, lower.id, { today: "2026-08-10" })
+  );
+  const same = strength.sessionLaunchDecision(plan, lower.id, lowerExecution, { state: "GREEN" });
+  const different = strength.sessionLaunchDecision(plan, upper.id, lowerExecution, { state: "GREEN" });
+  assert.equal(same.allowed, true);
+  assert.equal(same.mode, "CONTINUE");
+  assert.equal(different.allowed, false);
+  assert.equal(different.mode, "ACTIVE_OTHER");
+});
+
+test("pain and preserved evidence remain hard launch boundaries", () => {
+  const plan = approved({ daysPerWeek: 4 });
+  const selected = plan.sessions.find((item) => item.id === "LOWER_A");
+  const safety = strength.sessionLaunchDecision(plan, selected.id, {}, { state: "RED", pain: true });
+  const terminal = strength.sessionLaunchDecision(plan, selected.id, { state: "COMPLETE", planId: plan.id, sessionId: selected.id }, { state: "GREEN" });
+  assert.equal(safety.mode, "SAFETY_HOLD");
+  assert.equal(terminal.mode, "COMPLETE_TODAY");
+});
+
 test("app integration includes account persistence and full lifecycle controls", () => {
   const root = path.join(__dirname, "..");
   const app = fs.readFileSync(path.join(root, "assets/js/app.js"), "utf8");
@@ -240,6 +274,8 @@ test("app integration includes account persistence and full lifecycle controls",
   assert.match(app, /data-assignment-action="restart"/);
   assert.match(app, /data-assignment-action="pause"/);
   assert.match(app, /data-strength-rest-until/);
+  assert.match(app, /data-programming-action="train-session"/);
+  assert.match(app, /function launchApprovedStrengthSession/);
   assert.match(app, /loadStrengthTrainingState/);
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /auth\.uid\(\) = user_id/);

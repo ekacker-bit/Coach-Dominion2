@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 025G Direct Workout Logging
+
+- Makes every session in the approved Strength plan directly executable instead of leaving Lower A and its peers as read-only previews.
+- Adds one `Log this workout` action that starts a dated execution snapshot and opens the existing exercise-by-exercise set logger on Today.
+- Preserves logged sets when the recruit reopens or resumes the same workout and blocks accidental replacement by a second active session.
+- Keeps pain and RED readiness as hard safety stops, and records that a plan session was selected without rewriting the approved Calendar.
+- Rotates the Strength engine and application asset URLs so the logging controls appear after refresh.
+
 ## Unreleased - Build 025F State Repair
 
 - Removed the misleading login reconciliation sentence; recoverable optional surfaces now stay out of the recruit-facing command status.

@@ -69,10 +69,13 @@ check("Atlas calendar integration", html.includes('/assets/js/weekly-orchestrato
 check("Atlas repair engine", size("assets/js/atlas-program-repair.js") >= 5000 && read("assets/js/atlas-program-repair.js").includes('const VERSION = "024F.1"'), "024F repair engine appears incomplete");
 check("Atlas repair integration", html.includes('/assets/js/atlas-program-repair.js?v=024f') && html.includes('id="atlas-program-repair-dialog"') && app.includes("openAtlasProgramRepairPreview") && app.includes("repairOnly"), "024F guided repair flow is missing");
 check("stylesheet version", html.includes('/assets/styles.css?v=025c3'), "app.html is not using the 025E stylesheet");
-check("application version", html.includes('/assets/js/app.js?v=025c6'), "app.html is not using the 025F application");
-check("cache version", worker.includes('coach-dominion-025c-v1'), "service-worker cache was not rotated");
+check("application version", html.includes('/assets/js/app.js?v=025c7'), "app.html is not using the 025G application");
+check("strength logger version", html.includes('/assets/js/strength-training.js?v=025g'), "app.html is not using the 025G Strength engine");
+check("cache version", worker.includes('coach-dominion-025c-v1'), "service-worker cache namespace changed unexpectedly");
 check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3'), "service worker is caching the wrong stylesheet");
-check("cached application", worker.includes('/assets/js/app.js?v=025c6'), "service worker is caching the wrong application");
+check("cached application", worker.includes('/assets/js/app.js?v=025c7'), "service worker is caching the wrong application");
+check("cached Strength logger", worker.includes('/assets/js/strength-training.js?v=025g'), "service worker is caching the wrong Strength engine");
+check("approved-session logger", app.includes('data-programming-action="train-session"') && app.includes('launchApprovedStrengthSession'), "approved Strength sessions are not directly loggable");
 check("Core continuity engine", html.includes('/assets/js/core-programming.js?v=013c2') && worker.includes('/assets/js/core-programming.js?v=013c2') && read("assets/js/core-programming.js").includes('const VERSION = "013C.2"'), "Core persistence repair is missing or stale");
 check("cached Atlas calendar", worker.includes('/assets/js/weekly-orchestrator.js?v=024d'), "service worker is not caching the Atlas calendar engine");
 check("cached Atlas program", worker.includes('/assets/js/atlas-program.js?v=024f2'), "service worker is not caching the Atlas program engine");

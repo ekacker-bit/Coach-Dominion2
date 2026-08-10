@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025K Adaptive Calendar Handoff
+
+- Reconciles an approved load-only Strength revision into future committed Calendar assignments without moving dates or training windows.
+- Creates a new committed Calendar revision and receipt while preserving past assignments and any workout already started, reviewed, or completed.
+- Keeps Today, Calendar, Train, and My Program on one visible plan revision with a concise synced-state receipt.
+- Advances active Strength block and standalone schedule audit stamps without changing phases, exercise selection, sets, or session structure.
+- Routes structural program changes to explicit Calendar review instead of applying them silently.
+- Makes reconciliation idempotent and account-synced while retaining device-safe fallback state.
+
 ## Unreleased - Build 025J Earned Progression Activation
 
 - Converts earned load recommendations into an explicit Approve, Review Each, or Keep Current Plan decision after the workout.

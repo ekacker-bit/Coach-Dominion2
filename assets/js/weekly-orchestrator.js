@@ -761,7 +761,7 @@
       id: `unified-strength:${week.id}`,
       status: "APPROVED",
       planId: first.planId || week.sourceRefs?.strengthPlanId || null,
-      planRevision: first.planRevision || week.sourceRefs?.strengthPlanRevision || 1,
+      planRevision: week.sourceRefs?.strengthPlanRevision || first.planRevision || 1,
       revision: week.revision || 1,
       weekStart: week.weekStart,
       weekEnd: week.weekEnd,

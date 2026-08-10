@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025E Morning Verification Loop
+
+- Reconciles today’s Roll Call with the latest Mission debrief, recovery order, and personal readiness baseline.
+- Issues one authoritative daily clearance: Proceed, Reduce Today, or Recovery Only.
+- Applies bounded same-day guardrails across Strength, Cardio, Core, and Mission Execution without mutating approved plans.
+- Carries unresolved recovery and safety evidence into the next morning instead of silently resetting it.
+- Stores one idempotent decision receipt on the device and signed-in account, including the three strongest supporting signals.
+- Adds a word-light Today surface that makes the decision, evidence, and next action immediately clear on desktop and mobile.
+
 ## Unreleased - Build 025D Executable Recovery Orders
 
 - Replaces the passive Mission recovery recommendation and the separate one-click Today flag with one authoritative recovery order.

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c2">
+  <link rel="stylesheet" href="/assets/styles.css?v=025c3">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -897,6 +897,20 @@
             </div>
             <p id="daily-ritual-feedback" class="daily-ritual-feedback" aria-live="polite"></p>
           </section>
+        </section>
+
+        <section id="morning-verification" class="card morning-verification" aria-labelledby="morning-verification-heading" data-verification-state="ROLL_CALL_REQUIRED">
+          <header class="morning-verification-header">
+            <div>
+              <div class="kicker">BUILD 025E // MORNING VERIFICATION</div>
+              <h2 id="morning-verification-heading">Today’s clearance</h2>
+              <p>Yesterday reconciled. Today decided.</p>
+            </div>
+            <span id="morning-verification-state" class="state-pill neutral">CHECKING</span>
+          </header>
+          <div id="morning-verification-panel" aria-live="polite">
+            <div class="performance-empty">Atlas is checking today’s readiness and the latest recovery evidence.</div>
+          </div>
         </section>
 
         <section id="adaptive-coaching" class="card adaptive-coaching atlas-intervention" aria-labelledby="adaptive-coaching-heading" data-intervention-state="CHECKING">
@@ -2111,6 +2125,7 @@
 <script src="/assets/js/mission-execution.js?v=025b"></script>
 <script src="/assets/js/mission-debrief.js?v=025c"></script>
 <script src="/assets/js/mission-recovery.js?v=025d"></script>
+<script src="/assets/js/morning-verification.js?v=025e"></script>
 <script src="/assets/js/contract-integrity.js"></script>
 <script src="/assets/js/contract-autosave.js?v=021h"></script>
 <script src="/assets/js/mobile-command.js?v=022g"></script>
@@ -2121,6 +2136,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=025c4"></script>
+  <script src="/assets/js/app.js?v=025c5"></script>
 </body>
 </html>

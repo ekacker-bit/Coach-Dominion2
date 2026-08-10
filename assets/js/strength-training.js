@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025I.1";
+  const VERSION = "025J.1";
   const TERMINAL_STATES = Object.freeze(["COMPLETE", "PARTIAL", "STOPPED"]);
   const ACTIVE_STATES = Object.freeze(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const PATTERN_LABELS = Object.freeze({
@@ -327,6 +327,9 @@
     return {
       version: VERSION,
       planId: plan.id,
+      planRevision: Number(plan.revision || 1),
+      lastAdjustmentId: plan.lastAdjustmentId || null,
+      adjustmentActivation: plan.lastAdjustmentActivation || null,
       sessionId: selected?.id || null,
       sessionName: selected?.name || "Strength Session",
       date: options.today || new Date().toISOString().slice(0, 10),
@@ -1089,17 +1092,38 @@
     };
   }
 
-  function applyAdjustmentProposal(plan = {}, proposal = {}, approvedAt = new Date().toISOString()) {
+  function applyAdjustmentProposal(plan = {}, proposal = {}, approvedAt = new Date().toISOString(), options = {}) {
     if (plan.status !== "APPROVED" || proposal.status !== "PENDING" || proposal.planId !== plan.id) {
       throw new Error("A pending adjustment for the active plan is required.");
     }
+    if (Number(proposal.planRevision || 1) !== Number(plan.revision || 1)) {
+      throw new Error("This recommendation belongs to an older plan revision. Finish a workout on the active plan before approving another change.");
+    }
     if (proposal.safetyHold) throw new Error("Resolve the pain hold before approving loaded changes.");
-    const decisions = new Map((proposal.decisions || []).map((item) => [item.exerciseCode, item]));
+    const supportedActions = new Set(["PROGRESS_LOAD", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"]);
+    const eligible = (proposal.decisions || []).filter((item) => item.changed && supportedActions.has(item.action));
+    const requested = Array.isArray(options.selectedExerciseCodes) ? new Set(options.selectedExerciseCodes) : null;
+    const selected = eligible.filter((item) => !requested || requested.has(item.exerciseCode));
+    if (!selected.length) throw new Error("Select at least one earned change before approving.");
+    const decisions = new Map(selected.map((item) => [item.exerciseCode, item]));
+    const appliedChanges = [];
     const sessions = (plan.sessions || []).map((sessionItem) => ({
       ...sessionItem,
       exercises: (sessionItem.exercises || []).map((exerciseItem) => {
         const decision = decisions.get(exerciseItem.exerciseCode || exerciseItem.id);
-        if (!decision || !decision.changed || !["PROGRESS_LOAD", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"].includes(decision.action)) return { ...exerciseItem };
+        if (!decision) return { ...exerciseItem };
+        appliedChanges.push({
+          sessionId: sessionItem.id,
+          exerciseCode: exerciseItem.exerciseCode || exerciseItem.id,
+          exerciseName: exerciseItem.exerciseName,
+          previousLoad: exerciseItem.recommendedLoad,
+          previousUnit: exerciseItem.unit,
+          previousAction: exerciseItem.action,
+          previousRationale: exerciseItem.rationale,
+          appliedLoad: decision.proposedLoad,
+          appliedUnit: decision.unit || exerciseItem.unit,
+          decision: decision.action
+        });
         return {
           ...exerciseItem,
           recommendedLoad: decision.proposedLoad,
@@ -1123,7 +1147,60 @@
         ...proposal,
         status: "APPROVED",
         approvedAt,
-        appliedRevision: nextPlan.revision
+        appliedRevision: nextPlan.revision,
+        appliedDecisionCodes: selected.map((item) => item.exerciseCode),
+        heldDecisionCodes: eligible.filter((item) => !selected.includes(item)).map((item) => item.exerciseCode),
+        appliedChanges,
+        summary: {
+          ...(proposal.summary || {}),
+          appliedCount: selected.length,
+          heldCount: eligible.length - selected.length
+        }
+      }
+    };
+  }
+
+  function rollbackAdjustment(plan = {}, adjustment = {}, rolledBackAt = new Date().toISOString()) {
+    if (plan.status !== "APPROVED" || adjustment.status !== "APPROVED" || adjustment.planId !== plan.id) {
+      throw new Error("An approved adjustment for the active plan is required.");
+    }
+    if (plan.lastAdjustmentId !== adjustment.id || Number(plan.revision || 1) !== Number(adjustment.appliedRevision || 0)) {
+      throw new Error("This activation is no longer the latest plan revision and cannot be undone safely.");
+    }
+    const changes = new Map((adjustment.appliedChanges || []).map((item) => [`${item.sessionId}:${item.exerciseCode}`, item]));
+    if (!changes.size) throw new Error("This activation does not contain a reversible change receipt.");
+    const sessions = (plan.sessions || []).map((sessionItem) => ({
+      ...sessionItem,
+      exercises: (sessionItem.exercises || []).map((exerciseItem) => {
+        const exerciseCode = exerciseItem.exerciseCode || exerciseItem.id;
+        const change = changes.get(`${sessionItem.id}:${exerciseCode}`);
+        if (!change) return { ...exerciseItem };
+        return {
+          ...exerciseItem,
+          recommendedLoad: change.previousLoad,
+          unit: change.previousUnit || exerciseItem.unit,
+          action: change.previousAction,
+          rationale: change.previousRationale
+        };
+      })
+    }));
+    const nextPlan = JSON.parse(JSON.stringify({
+      ...plan,
+      version: VERSION,
+      revision: Number(plan.revision || 1) + 1,
+      sessions,
+      adjustedAt: rolledBackAt,
+      lastAdjustmentId: null,
+      lastAdjustmentActivation: null,
+      rolledBackAdjustmentId: adjustment.id
+    }));
+    return {
+      plan: nextPlan,
+      adjustment: {
+        ...adjustment,
+        status: "ROLLED_BACK",
+        rolledBackAt,
+        rollbackRevision: nextPlan.revision
       }
     };
   }
@@ -1173,6 +1250,7 @@
     qualityExposureCount,
     buildAdjustmentProposal,
     applyAdjustmentProposal,
+    rollbackAdjustment,
     holdAdjustment,
     isTerminal
   });

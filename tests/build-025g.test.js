@@ -10,7 +10,7 @@ const strength = read("assets/js/strength-training.js");
 const worker = read("sw.js");
 const changelog = read("CHANGELOG.md");
 
-assert.match(strength, /const VERSION = "025(?:G|I)\.1"/);
+assert.match(strength, /const VERSION = "025(?:G|I|J)\.1"/);
 assert.match(strength, /function sessionLaunchDecision/);
 assert.match(strength, /ACTIVE_OTHER/);
 assert.match(strength, /SAFETY_HOLD/);

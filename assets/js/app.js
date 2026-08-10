@@ -8628,40 +8628,131 @@ async function launchApprovedStrengthSession(sessionId) {
   return true;
 }
 
+function nextStrengthAssignmentForSession(sessionId, afterDate = todayISODate()) {
+  const schedule = readApprovedStrengthSchedule();
+  return (schedule?.assignments || [])
+    .filter((item) => item.sessionId === sessionId && item.date > afterDate)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0] || null;
+}
+
+function selectedStrengthAdjustmentCodes() {
+  return [...document.querySelectorAll("[data-adjustment-selection]:checked")].map((item) => item.dataset.adjustmentSelection);
+}
+
+async function approveStrengthAdjustment(selectedExerciseCodes = null) {
+  const plan = readApprovedStrengthPlan();
+  const adjustment = readStrengthAdjustment();
+  const selectionInputs = [...document.querySelectorAll("[data-adjustment-selection]")];
+  const selected = Array.isArray(selectedExerciseCodes)
+    ? selectedExerciseCodes
+    : selectionInputs.length
+      ? selectedStrengthAdjustmentCodes()
+      : (adjustment?.decisions || []).filter((item) => item.changed).map((item) => item.exerciseCode);
+  const approved = DominionStrengthTraining.applyAdjustmentProposal(plan, adjustment, new Date().toISOString(), {
+    selectedExerciseCodes: selected
+  });
+  const nextAssignment = nextStrengthAssignmentForSession(adjustment.sessionId);
+  const activation = {
+    adjustmentId: approved.adjustment.id,
+    activatedAt: approved.adjustment.approvedAt,
+    appliedRevision: approved.plan.revision,
+    sessionId: adjustment.sessionId,
+    sessionName: adjustment.sessionName,
+    scheduledDate: nextAssignment?.date || null,
+    effectiveMode: "NEXT_MATCHING_SESSION"
+  };
+  approved.plan = { ...approved.plan, lastAdjustmentActivation: activation };
+  approved.adjustment = { ...approved.adjustment, activation };
+  const revisionReceipt = {
+    type: "PLAN_REVISION_ACTIVATION",
+    recordedAt: approved.adjustment.approvedAt,
+    planId: approved.plan.id,
+    planRevision: approved.plan.revision,
+    adjustment: approved.adjustment,
+    planSnapshot: approved.plan
+  };
+  saveStrengthStateLocal("PLAN", "current", approved.plan);
+  saveStrengthStateLocal("ADJUSTMENT", "current", approved.adjustment);
+  saveStrengthStateLocal("ADJUSTMENT", `receipt:${approved.adjustment.id}`, revisionReceipt);
+  await persistStrengthTrainingState("PLAN", "current", approved.plan);
+  await persistStrengthTrainingState("ADJUSTMENT", "current", approved.adjustment);
+  await persistStrengthTrainingState("ADJUSTMENT", `receipt:${approved.adjustment.id}`, revisionReceipt);
+  return approved;
+}
+
+async function holdStrengthAdjustment() {
+  const held = DominionStrengthTraining.holdAdjustment(readStrengthAdjustment(), new Date().toISOString());
+  saveStrengthStateLocal("ADJUSTMENT", "current", held);
+  await persistStrengthTrainingState("ADJUSTMENT", "current", held);
+  return held;
+}
+
+async function rollbackStrengthAdjustment() {
+  const result = DominionStrengthTraining.rollbackAdjustment(readApprovedStrengthPlan(), readStrengthAdjustment(), new Date().toISOString());
+  const rollbackReceipt = {
+    type: "PLAN_REVISION_ROLLBACK",
+    recordedAt: result.adjustment.rolledBackAt,
+    planId: result.plan.id,
+    planRevision: result.plan.revision,
+    adjustment: result.adjustment,
+    planSnapshot: result.plan
+  };
+  saveStrengthStateLocal("PLAN", "current", result.plan);
+  saveStrengthStateLocal("ADJUSTMENT", "current", result.adjustment);
+  saveStrengthStateLocal("ADJUSTMENT", `rollback:${result.adjustment.id}:r${result.plan.revision}`, rollbackReceipt);
+  await persistStrengthTrainingState("PLAN", "current", result.plan);
+  await persistStrengthTrainingState("ADJUSTMENT", "current", result.adjustment);
+  await persistStrengthTrainingState("ADJUSTMENT", `rollback:${result.adjustment.id}:r${result.plan.revision}`, rollbackReceipt);
+  return result;
+}
+
 function renderStrengthAdjustment(adjustment, activePlan) {
   if (!activePlan) {
-    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 017B // ADAPTIVE STRENGTH</span><h4>Closed-loop progression</h4><p>Approve a strength program first. Every finished workout will then create a reviewable next-session recommendation.</p></div></section>`;
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 025J // EARNED PROGRESSION</span><h4>Approve a plan to open progression</h4><p>Finished workouts can change the next matching prescription only after your approval.</p></div></section>`;
   }
   if (!adjustment) {
-    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 017B // ADAPTIVE STRENGTH</span><h4>Finish a workout to open the coaching loop</h4><p>Coach Dominion will compare completed sets, reps, load, RPE, substitutions, skips, and pain against the approved plan. No progression is inferred before then.</p></div><div class="strength-adaptation-guardrails"><span>2 successful exposures</span><span>Smallest load step</span><span>Approval required</span></div></section>`;
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 025J // EARNED PROGRESSION</span><h4>Finish a workout to earn the next decision</h4><p>Atlas uses completed sets, load, RPE, skips, substitutions, and pain. No evidence means no change.</p></div><div class="strength-adaptation-guardrails"><span>2 controlled exposures</span><span>Smallest load step</span><span>You approve every change</span></div></section>`;
   }
   const pending = adjustment.status === "PENDING";
+  const eligibleActions = new Set(["PROGRESS_LOAD", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"]);
+  const selectableCount = (adjustment.decisions || []).filter((item) => item.changed && eligibleActions.has(item.action)).length;
   const decisions = (adjustment.decisions || []).map((item) => {
+    const selectable = pending && item.changed && eligibleActions.has(item.action) && !adjustment.safetyHold;
     const loadText = item.currentLoad === item.proposedLoad
       ? `${item.currentLoad || "Technique"} ${item.currentLoad ? escapeHtml(item.unit) : ""}`
-      : `${item.currentLoad || "Technique"} -> ${item.proposedLoad || "Technique"} ${escapeHtml(item.unit)}`;
+      : `${item.currentLoad || "Technique"} → ${item.proposedLoad || "Technique"} ${escapeHtml(item.unit)}`;
     const tone = item.action === "PROGRESS_LOAD" ? "green" : ["REDUCE_LOAD", "SAFETY_HOLD"].includes(item.action) ? "red" : "yellow";
-    return `<article class="strength-adaptation-decision">
+    return `<article class="strength-adaptation-decision ${selectable ? "selectable" : ""}">
+      ${selectable ? `<label class="strength-adjustment-choice"><input type="checkbox" data-adjustment-selection="${escapeHtml(item.exerciseCode)}" checked><span>Apply</span></label>` : ""}
       <div><strong>${escapeHtml(item.exerciseName)}</strong><p>${escapeHtml(item.reason)}</p></div>
       <div><span class="state-pill ${tone}">${escapeHtml(item.label)}</span><strong>${escapeHtml(loadText.trim())}</strong><small>${item.completedSets}/${item.plannedSets} sets${item.averageRpe === null ? " · RPE missing" : ` · RPE ${item.averageRpe}`}</small></div>
     </article>`;
   }).join("");
-  const statusTone = adjustment.status === "APPROVED" ? "green" : adjustment.status === "HELD" || adjustment.safetyHold ? "red" : "yellow";
+  const statusTone = ["APPROVED"].includes(adjustment.status) ? "green" : ["HELD", "ROLLED_BACK"].includes(adjustment.status) || adjustment.safetyHold ? "red" : "yellow";
+  const activationDate = adjustment.activation?.scheduledDate;
+  const canRollback = adjustment.status === "APPROVED"
+    && activePlan.lastAdjustmentId === adjustment.id
+    && Number(activePlan.revision || 1) === Number(adjustment.appliedRevision || 0);
+  const terminalReceipt = adjustment.status === "APPROVED"
+    ? `<div class="strength-activation-receipt"><div><span class="kicker">ACTIVATION RECEIPT</span><strong>${adjustment.summary?.appliedCount || 0} change${adjustment.summary?.appliedCount === 1 ? "" : "s"} active in plan R${adjustment.appliedRevision}</strong><p>${activationDate ? `First scheduled use: ${escapeHtml(activationDate)}.` : "Effective the next time this session appears on Today."} ${adjustment.summary?.heldCount ? `${adjustment.summary.heldCount} change held.` : ""}</p></div>${canRollback ? `<button type="button" class="ghost" data-programming-action="rollback-adjustment">Undo activation</button>` : ""}</div>`
+    : adjustment.status === "ROLLED_BACK"
+      ? `<div class="strength-activation-receipt"><div><span class="kicker">ROLLBACK RECEIPT</span><strong>Previous targets restored in plan R${adjustment.rollbackRevision}</strong><p>The approved change remains in the audit trail and no longer governs future sessions.</p></div></div>`
+      : `<p class="muted">The recommendation was held. The active plan remains unchanged.</p>`;
   return `<section class="strength-adaptation-panel">
-    <header><div><span class="kicker">BUILD 017B // POST-SESSION REVIEW</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Plan revision ${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
+    <header><div><span class="kicker">BUILD 025J // POST-SESSION DECISION</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Evidence from plan R${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
     <div class="connected-summary-grid">
       <div><span>Load progressions</span><strong>${adjustment.summary?.progressedCount || 0}</strong></div>
       <div><span>Load reductions</span><strong>${adjustment.summary?.reducedCount || 0}</strong></div>
       <div><span>Repeats / holds</span><strong>${adjustment.summary?.repeatedCount || 0}</strong></div>
-      <div><span>Plan revision</span><strong>${activePlan.revision || 1}</strong></div>
+      <div><span>Active plan</span><strong>R${activePlan.revision || 1}</strong></div>
     </div>
-    ${adjustment.safetyHold ? `<div class="connected-notice warning"><strong>Safety hold.</strong> Pain or a stopped session prevents approval of loaded changes. Keep the current plan and review readiness first.</div>` : ""}
+    ${adjustment.safetyHold ? `<div class="connected-notice warning"><strong>Safety hold.</strong> Pain or a stopped session blocks loaded changes. Review readiness first.</div>` : ""}
     <div class="strength-adaptation-decisions">${decisions}</div>
     ${pending ? `<div class="performance-actions">
-      <button type="button" data-programming-action="approve-adjustment" ${adjustment.safetyHold ? "disabled" : ""}>Approve for next rotation</button>
+      <button type="button" data-programming-action="approve-adjustment" ${adjustment.safetyHold || !selectableCount ? "disabled" : ""}>Approve selected changes</button>
       <button type="button" class="ghost" data-programming-action="hold-adjustment">Keep current plan</button>
-    </div>` : `<p class="muted">${adjustment.status === "APPROVED" ? `Approved ${escapeHtml(adjustment.approvedAt || "")}. The active plan was advanced to revision ${adjustment.appliedRevision || activePlan.revision || 1}.` : "The recommendation was held. The active plan remains unchanged."}</p>`}
-    <p class="muted">Coach Dominion never increases load and sets together. Two complete, pain-free exposures at RPE 8 or below are required before a load increase is proposed.</p>
+    </div>` : terminalReceipt}
+    <p class="muted">Approval creates a new plan revision. The workout already in progress never changes; the next matching session does.</p>
   </section>`;
 }
 
@@ -9484,6 +9575,8 @@ function buildCurrentDailyAssignment() {
   const adaptiveAssignment = {
     ...assignment,
     planId: prescription?.planId || null,
+    planRevision: prescription?.planRevision || null,
+    adjustmentActivation: prescription?.adjustmentActivation || null,
     sessionId: prescription?.sessionId || null,
     sessionName: prescription?.sessionName || null,
     block: prescription?.block || null,
@@ -9755,7 +9848,7 @@ async function requestMobileInstall() {
 
 function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  const reloadKey = "coach-dominion:service-worker-reload:025i";
+  const reloadKey = "coach-dominion:service-worker-reload:025j";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -9766,7 +9859,7 @@ function registerMobileServiceWorker() {
     refreshing = true;
     window.location.reload();
   });
-  navigator.serviceWorker.register("/sw.js?v=025i", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025j", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -10027,7 +10120,7 @@ function renderDailyAssignment() {
   const progressionResultMarkup = strengthCompletionReportMarkup(progressionReport);
   const reviewSummary = execution.state === "REVIEW" ? DominionStrengthTraining.sessionSummary(execution, execution.sessionSnapshot) : null;
   const adjustment = readStrengthAdjustment();
-  const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id;
+  const adjustmentReady = terminal && adjustment?.status === "PENDING" && adjustment.sourceExecutionId === execution.id && Number(adjustment.summary?.changedCount || 0) > 0;
   const durationText = summary?.durationMinutes === null || summary?.durationMinutes === undefined ? "Unavailable" : `${summary.durationMinutes} min`;
   const resultMarkup = summary ? `<article class="strength-workout-result">
     <div><span class="kicker">SESSION PRESERVED · ATTEMPT ${execution.attempt || 1}</span><h3>${escapeHtml(execution.state)}</h3><p>${escapeHtml(execution.reason || "")}</p></div>
@@ -10035,7 +10128,7 @@ function renderDailyAssignment() {
     ${summary.durationStatus === "UNRELIABLE_LEGACY" ? `<p class="muted">This older attempt had no activity segments, so the inflated wall-clock duration was intentionally discarded.</p>` : ""}
     ${execution.painReported ? `<div class="connected-notice warning"><strong>Pain hold active.</strong> Loaded progression is blocked until readiness is reviewed.</div>` : ""}
     ${progressionResultMarkup}
-    ${adjustmentReady ? `<div class="strength-next-review"><div><strong>Post-session review ready</strong><p>See what stays, what changes, and why. Nothing applies without approval.</p></div><button type="button" data-assignment-action="review-adjustment">Review next session</button></div>` : ""}
+    ${adjustmentReady ? `<div class="strength-next-review"><div><strong>Atlas has a next-session decision</strong><p>Activate all earned changes now, review each exercise, or hold the current plan.</p></div><div class="strength-next-review-actions"><button type="button" data-assignment-action="activate-adjustment">Approve earned changes</button><button type="button" class="ghost" data-assignment-action="review-adjustment">Review each</button><button type="button" class="ghost" data-assignment-action="hold-adjustment">Keep current plan</button></div></div>` : ""}
   </article>` : "";
   const reviewMarkup = reviewSummary ? `<section class="strength-final-review">
     <div><span class="kicker">FINAL CHECK</span><h3>Review before preserving</h3><p>Confirm the work below. You can return to the workout or finalize this attempt.</p></div>
@@ -10052,7 +10145,7 @@ function renderDailyAssignment() {
           ? `${["STOPPED", "PARTIAL"].includes(execution.state) ? `<button type="button" data-assignment-action="restart">Restart as attempt ${(execution.attempt || 1) + 1}</button>` : ""}<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
           : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
   panel.innerHTML = `${playerMarkup}<div class="daily-assignment-summary">
-      <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>${blockContext ? `<div><span>Training block</span><strong>${escapeHtml(blockContext.label)}</strong></div>` : ""}
+      <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Plan</span><strong>${assignment.planRevision ? `R${assignment.planRevision}` : "—"}</strong>${assignment.adjustmentActivation ? `<small>Earned targets active</small>` : ""}</div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>${blockContext ? `<div><span>Training block</span><strong>${escapeHtml(blockContext.label)}</strong></div>` : ""}
     </div>
     ${blockContext ? `<article class="connected-notice"><strong>${escapeHtml(blockContext.phase?.label || "Block phase")}:</strong> ${escapeHtml(blockContext.phase?.detail || "")} ${escapeHtml(blockContext.loadRule || "")}</article>` : ""}
     <article class="connected-notice"><strong>Readiness adjustment:</strong> ${escapeHtml(assignment.readinessDelta.detail)}</article>
@@ -17863,29 +17956,33 @@ if (typeof document !== "undefined") {
       setText("programming-feedback", "Strength program approved and activated on Today. It now persists with your account.");
     }
     if (action === "approve-adjustment") {
-      const plan = readApprovedStrengthPlan();
-      const adjustment = readStrengthAdjustment();
       try {
-        const approved = DominionStrengthTraining.applyAdjustmentProposal(plan, adjustment, new Date().toISOString());
-        saveStrengthStateLocal("PLAN", "current", approved.plan);
-        saveStrengthStateLocal("ADJUSTMENT", "current", approved.adjustment);
-        await persistStrengthTrainingState("PLAN", "current", approved.plan);
-        await persistStrengthTrainingState("ADJUSTMENT", "current", approved.adjustment);
+        const approved = await approveStrengthAdjustment();
         renderProgrammingReview();
         renderDailyAssignment();
         renderDailyCoachingLoop();
-        setText("programming-feedback", `Strength adjustment approved. Plan revision ${approved.plan.revision} will govern the next matching session.`);
+        setText("programming-feedback", `${approved.adjustment.summary.appliedCount} earned change${approved.adjustment.summary.appliedCount === 1 ? "" : "s"} activated. Plan R${approved.plan.revision} will govern the next matching session.`);
       } catch (error) {
         setText("programming-feedback", error?.message || "The adjustment could not be approved.");
       }
     }
     if (action === "hold-adjustment") {
-      const held = DominionStrengthTraining.holdAdjustment(readStrengthAdjustment(), new Date().toISOString());
-      saveStrengthStateLocal("ADJUSTMENT", "current", held);
-      await persistStrengthTrainingState("ADJUSTMENT", "current", held);
+      await holdStrengthAdjustment();
       renderProgrammingReview();
       renderDailyAssignment();
       setText("programming-feedback", "Recommendation held. The active strength plan remains unchanged.");
+    }
+    if (action === "rollback-adjustment") {
+      if (!window.confirm("Undo this activation and restore the prior targets in a new plan revision?")) return;
+      try {
+        const rolledBack = await rollbackStrengthAdjustment();
+        renderProgrammingReview();
+        renderDailyAssignment();
+        renderDailyCoachingLoop();
+        setText("programming-feedback", `Activation undone. Prior targets are restored in plan R${rolledBack.plan.revision}.`);
+      } catch (error) {
+        setText("programming-feedback", error?.message || "The activation could not be undone safely.");
+      }
     }
   });
   document.getElementById("recovery-review-panel")?.addEventListener("click", (event) => {
@@ -18328,6 +18425,18 @@ if (typeof document !== "undefined") {
       const detail = document.getElementById("training-programming-detail");
       if (detail) detail.open = true;
       renderProgrammingReview();
+    }
+    if (action === "activate-adjustment") {
+      try {
+        const approved = await approveStrengthAdjustment();
+        setText("daily-assignment-feedback", `${approved.adjustment.summary.appliedCount} earned change${approved.adjustment.summary.appliedCount === 1 ? "" : "s"} activated in plan R${approved.plan.revision}. The next matching workout will use the new targets.`);
+      } catch (error) {
+        setText("daily-assignment-feedback", error?.message || "The earned changes could not be activated.");
+      }
+    }
+    if (action === "hold-adjustment") {
+      await holdStrengthAdjustment();
+      setText("daily-assignment-feedback", "Current targets held. The completed workout remains saved and the active plan did not change.");
     }
     if (action === "review-adjustment") {
       setActiveSection("performance");

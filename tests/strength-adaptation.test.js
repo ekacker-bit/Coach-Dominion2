@@ -152,6 +152,70 @@ test("approval revises the same plan without silently adding volume", () => {
   assert.equal(result.adjustment.status, "APPROVED");
 });
 
+test("recruit can activate one earned exercise while holding another", () => {
+  const plan = planWithBenchEvidence();
+  const first = completedExecution(plan, "2026-07-23", 7, { BENCH_PRESS: 185, BACK_SQUAT: 135 });
+  const second = completedExecution(plan, "2026-07-30", 7, { BENCH_PRESS: 185, BACK_SQUAT: 135 });
+  const proposal = strength.buildAdjustmentProposal(plan, [second, first]);
+  const result = strength.applyAdjustmentProposal(plan, proposal, "2026-07-30T14:05:00.000Z", {
+    selectedExerciseCodes: ["BENCH_PRESS"]
+  });
+  const oldSession = plan.sessions.find((item) => item.id === proposal.sessionId);
+  const newSession = result.plan.sessions.find((item) => item.id === proposal.sessionId);
+  assert.equal(newSession.exercises.find((item) => item.exerciseCode === "BENCH_PRESS").recommendedLoad, 190);
+  assert.equal(
+    newSession.exercises.find((item) => item.exerciseCode === "BACK_SQUAT").recommendedLoad,
+    oldSession.exercises.find((item) => item.exerciseCode === "BACK_SQUAT").recommendedLoad
+  );
+  assert.deepEqual(result.adjustment.appliedDecisionCodes, ["BENCH_PRESS"]);
+  assert.ok(result.adjustment.heldDecisionCodes.includes("BACK_SQUAT"));
+  assert.equal(result.adjustment.summary.appliedCount, 1);
+});
+
+test("activated targets govern the next prescription without mutating the completed snapshot", () => {
+  const plan = planWithBenchEvidence();
+  const completedSnapshot = strength.buildSessionPrescription(plan, plan.sessions[0].id, { today: "2026-07-30" });
+  const first = completedExecution(plan, "2026-07-23", 7, { BENCH_PRESS: 185 });
+  const second = completedExecution(plan, "2026-07-30", 7, { BENCH_PRESS: 185 });
+  const proposal = strength.buildAdjustmentProposal(plan, [second, first]);
+  const result = strength.applyAdjustmentProposal(plan, proposal, "2026-07-30T14:05:00.000Z", { selectedExerciseCodes: ["BENCH_PRESS"] });
+  const nextPrescription = strength.buildSessionPrescription(result.plan, plan.sessions[0].id, { today: "2026-08-06" });
+  assert.equal(completedSnapshot.exercises.find((item) => item.exerciseCode === "BENCH_PRESS").recommendedLoad, 185);
+  assert.equal(nextPrescription.exercises.find((item) => item.exerciseCode === "BENCH_PRESS").recommendedLoad, 190);
+  assert.equal(nextPrescription.planRevision, 2);
+  assert.equal(nextPrescription.lastAdjustmentId, proposal.id);
+});
+
+test("latest activation can be undone only by creating a newer audit revision", () => {
+  const plan = planWithBenchEvidence();
+  const first = completedExecution(plan, "2026-07-23", 7, { BENCH_PRESS: 185 });
+  const second = completedExecution(plan, "2026-07-30", 7, { BENCH_PRESS: 185 });
+  const proposal = strength.buildAdjustmentProposal(plan, [second, first]);
+  const approved = strength.applyAdjustmentProposal(plan, proposal, "2026-07-30T14:05:00.000Z", { selectedExerciseCodes: ["BENCH_PRESS"] });
+  const rolledBack = strength.rollbackAdjustment(approved.plan, approved.adjustment, "2026-07-30T14:10:00.000Z");
+  const restored = rolledBack.plan.sessions[0].exercises.find((item) => item.exerciseCode === "BENCH_PRESS");
+  assert.equal(restored.recommendedLoad, 185);
+  assert.equal(rolledBack.plan.revision, 3);
+  assert.equal(rolledBack.plan.rolledBackAdjustmentId, proposal.id);
+  assert.equal(rolledBack.adjustment.status, "ROLLED_BACK");
+  assert.equal(rolledBack.adjustment.rollbackRevision, 3);
+  assert.throws(
+    () => strength.rollbackAdjustment({ ...approved.plan, revision: 3 }, approved.adjustment),
+    /latest plan revision/i
+  );
+});
+
+test("a recommendation cannot overwrite a newer plan revision", () => {
+  const plan = planWithBenchEvidence();
+  const first = completedExecution(plan, "2026-07-23", 7, { BENCH_PRESS: 185 });
+  const second = completedExecution(plan, "2026-07-30", 7, { BENCH_PRESS: 185 });
+  const proposal = strength.buildAdjustmentProposal(plan, [second, first]);
+  assert.throws(
+    () => strength.applyAdjustmentProposal({ ...plan, revision: 2 }, proposal, "2026-07-30T14:05:00.000Z"),
+    /older plan revision/i
+  );
+});
+
 test("holding a recommendation leaves an auditable terminal state", () => {
   const plan = planWithBenchEvidence();
   const execution = completedExecution(plan, "2026-07-30", 7, { BENCH_PRESS: 185 });

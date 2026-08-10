@@ -173,6 +173,49 @@
     #090b0b;
 }
 
+/* Build 025D: Executable Recovery Orders */
+.mission-recovery-progress {
+  grid-column: 2 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mission-recovery-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold, #d4af37), #47b976);
+  transition: width 180ms ease;
+}
+
+.mission-handoff-requirements > div {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.mission-handoff-requirements > div.current {
+  border-color: rgba(212, 175, 55, 0.58);
+  box-shadow: inset 3px 0 0 var(--gold, #d4af37);
+}
+
+.mission-handoff-requirements > div.complete {
+  border-color: rgba(71, 185, 118, 0.34);
+  background: rgba(71, 185, 118, 0.07);
+}
+
+.mission-handoff-requirements > div.complete span,
+.mission-handoff-requirements > div.complete small {
+  color: #71d49a;
+}
+
+.mission-handoff-requirements small {
+  color: #77818b;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
 .mission-debrief-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(110px, 1fr));
@@ -265,6 +308,10 @@
 @media (max-width: 900px) {
   .mission-debrief-grid,
   .mission-handoff-requirements {
+    grid-column: 1 / -1;
+  }
+
+  .mission-recovery-progress {
     grid-column: 1 / -1;
   }
 
@@ -5207,6 +5254,12 @@ button.danger{border-color:rgba(255,85,85,.55);color:#ffaaaa}
 .today-recovery-checklist li{position:relative;padding:11px 12px 11px 39px;border:1px solid var(--line);border-radius:9px;color:#dce3ea;background:rgba(255,255,255,.02)}
 .today-recovery-checklist li::before{content:"";position:absolute;left:13px;top:13px;width:12px;height:12px;border:2px solid var(--dominion-gold);border-radius:50%;box-shadow:0 0 0 3px rgba(240,180,41,.08)}
 .today-recovery-card.is-complete .today-recovery-checklist li::before{border-color:var(--green);background:var(--green);box-shadow:inset 0 0 0 3px #0c1915}
+.today-recovery-checklist li.current,.today-recovery-checklist li.complete{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 12px}
+.today-recovery-checklist li.current::before,.today-recovery-checklist li.complete::before{display:none}
+.today-recovery-checklist li.current{border-color:rgba(240,180,41,.54);box-shadow:inset 3px 0 0 var(--dominion-gold)}
+.today-recovery-checklist li.complete{border-color:rgba(56,212,141,.32);color:#b8c3c0;background:rgba(56,212,141,.055)}
+.today-recovery-checklist li>span{color:var(--dominion-gold);font-family:"Bebas Neue",sans-serif;font-size:16px}.today-recovery-checklist li.complete>span{color:var(--green)}
+.today-recovery-checklist li>small{color:var(--dim);font-size:8px;font-weight:1000;letter-spacing:.1em}.today-recovery-checklist li.current>small{color:var(--dominion-gold)}.today-recovery-checklist li.complete>small{color:var(--green)}
 .today-recovery-controls{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.today-recovery-controls button{min-height:44px}.today-recovery-controls .ghost{background:var(--panel2);border:1px solid var(--line)}
 .today-recovery-safeguard{margin:13px 0 0;color:var(--dim);font-size:11px}
 @media(max-width:720px){.today-recovery-card{grid-column:auto}.today-recovery-meta{grid-template-columns:1fr}.today-recovery-controls{display:grid}.today-recovery-controls button{width:100%}}

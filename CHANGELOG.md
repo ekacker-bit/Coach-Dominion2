@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025D Executable Recovery Orders
+
+- Replaces the passive Mission recovery recommendation and the separate one-click Today flag with one authoritative recovery order.
+- Sequences hydration, fueling, checkpoint, safety, and closeout actions so only the current action can be secured.
+- Persists each recovery task and its recruit-confirmed evidence to the device and signed-in account without clearing pain safeguards.
+- Carries an unfinished order into the next day instead of silently resetting it at midnight.
+- Uses the same order in Mission Execution and the Today Recovery card, preventing duplicate or contradictory completion states.
+- Adds weekly recovery adherence to Atlas evidence and blocks automatic progression when multiple recovery orders remain unresolved.
+
 ## Unreleased - Build 025C Mission Debrief and Recovery Handoff
 
 - Closes every completed training window with one four-signal debrief instead of another full log.

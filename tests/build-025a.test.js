@@ -13,7 +13,7 @@ const styles = read("assets/styles.css");
 const worker = read("sw.js");
 const changelog = read("CHANGELOG.md");
 
-assert.match(engine, /const VERSION = "025A\.1"/);
+assert.match(engine, /const VERSION = "025A\.2"/);
 assert.match(engine, /function reviewWindow/);
 assert.match(engine, /function buildProposal/);
 assert.match(engine, /function approveProposal/);

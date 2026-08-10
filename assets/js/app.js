@@ -5999,6 +5999,96 @@ function readMissionDebriefHistory() {
   return Array.isArray(records) ? records : [];
 }
 
+function readMissionRecoveryOrders(date = todayISODate()) {
+  const records = readClosedLoopState("RECOVERY_ORDER", `mission:${date}`, []);
+  return Array.isArray(records) ? records : [];
+}
+
+function readMissionRecoveryHistory() {
+  const records = readClosedLoopState("HISTORY", "mission-recovery", []);
+  return Array.isArray(records) ? records : [];
+}
+
+function currentMissionRecoveryOrder(date = todayISODate()) {
+  if (typeof DominionMissionRecovery === "undefined") return null;
+  const daily = readMissionRecoveryOrders(date);
+  if (daily.length) return DominionMissionRecovery.latestRelevant(daily, date);
+  return DominionMissionRecovery.latestRelevant(readMissionRecoveryHistory(), date);
+}
+
+function ensureMissionRecoveryOrder(debrief = null, decision = null) {
+  if (!debrief?.id || !decision || typeof DominionMissionRecovery === "undefined") return null;
+  const history = readMissionRecoveryHistory();
+  const previous = history.find((order) => order.debriefId === debrief.id) || null;
+  const order = DominionMissionRecovery.buildOrder({ debrief, decision, previous, now: new Date().toISOString() });
+  if (order === previous) return order;
+  saveClosedLoopLocal("RECOVERY_ORDER", `mission:${order.date}`, DominionMissionRecovery.upsert(readMissionRecoveryOrders(order.date), order, 12));
+  saveClosedLoopLocal("HISTORY", "mission-recovery", DominionMissionRecovery.upsert(history, order, 180));
+  return order;
+}
+
+async function saveMissionRecoveryOrderState(order = null) {
+  if (!order?.id || typeof DominionMissionRecovery === "undefined") return false;
+  const daily = DominionMissionRecovery.upsert(readMissionRecoveryOrders(order.date), order, 12);
+  const history = DominionMissionRecovery.upsert(readMissionRecoveryHistory(), order, 180);
+  saveClosedLoopLocal("RECOVERY_ORDER", `mission:${order.date}`, daily);
+  saveClosedLoopLocal("HISTORY", "mission-recovery", history);
+  if (order.date === todayISODate()) {
+    const recoveryProgress = DominionMissionRecovery.progress(order);
+    saveDailyExecutionQueueState({
+      recoveryComplete: recoveryProgress.complete,
+      recoveryCompletedAt: recoveryProgress.complete ? order.completedAt : null,
+      recoveryOrderId: order.id
+    });
+  }
+  const results = await Promise.all([
+    persistClosedLoopState("RECOVERY_ORDER", `mission:${order.date}`, daily),
+    persistClosedLoopState("HISTORY", "mission-recovery", history)
+  ]);
+  await runAtlasAdaptiveWeek();
+  return results.every(Boolean);
+}
+
+async function completeMissionRecoveryTask(taskId = "") {
+  if (typeof DominionMissionRecovery === "undefined") throw new Error("Recovery execution is unavailable.");
+  const current = currentMissionRecoveryOrder();
+  const task = DominionMissionRecovery.nextTask(current || {});
+  if (!current || !task) return current;
+  const saved = DominionMissionRecovery.completeTask(current, taskId || task.id, {
+    type: "RECRUIT_CONFIRMED",
+    source: "COACH_DOMINION"
+  }, new Date().toISOString());
+  const synced = await saveMissionRecoveryOrderState(saved);
+  const remaining = DominionMissionRecovery.nextTask(saved);
+  setText("mission-execution-feedback", remaining
+    ? `${task.label} secured${synced ? " to your account" : " on this device; sync will retry"}. Next: ${remaining.label}.`
+    : `Recovery order secured${synced ? " to your account" : " on this device; sync will retry"}.`);
+  return saved;
+}
+
+async function reopenMissionRecoveryOrder() {
+  if (typeof DominionMissionRecovery === "undefined") return null;
+  const current = currentMissionRecoveryOrder();
+  const completed = (current?.tasks || []).filter((task) => task.status === "COMPLETE");
+  const task = completed[completed.length - 1];
+  if (!current || !task) return current;
+  const reopened = DominionMissionRecovery.reopenTask(current, task.id, new Date().toISOString());
+  await saveMissionRecoveryOrderState(reopened);
+  return reopened;
+}
+
+function missionRecoveryRouteLabel(route = "NONE") {
+  const labels = { ROLL_CALL: "Open Roll Call", CHECKPOINT: "Open checkpoint", FUEL: "Open Fuel", CLOSEOUT: "Open Closeout", NEXT: "Open next order" };
+  return labels[String(route || "NONE").toUpperCase()] || null;
+}
+
+function routeMissionRecoveryTask(taskId = "") {
+  const order = currentMissionRecoveryOrder();
+  const task = (order?.tasks || []).find((item) => item.id === taskId) || DominionMissionRecovery?.nextTask(order || {});
+  if (!task || task.routeAction === "NONE") return;
+  handleMissionHandoffAction(task.routeAction);
+}
+
 async function saveMissionDebriefState(record, decision) {
   if (!record?.id || typeof DominionMissionDebrief === "undefined") return false;
   const saved = { ...record, coachingDecision: decision };
@@ -6035,9 +6125,12 @@ async function submitMissionDebrief() {
     notes: document.querySelector("[data-mission-debrief-notes]")?.value || ""
   }, { date: cockpit.date, window: pending.window, receipts: pending.receipts, previous, submittedAt: new Date().toISOString() });
   const decision = DominionMissionDebrief.coachingDecision(record, { cockpit, splitGate: cockpit.splitGate, now: new Date().toISOString() });
-  const synced = await saveMissionDebriefState(record, decision);
-  setText("mission-execution-feedback", `Debrief secured${synced ? " to your account" : " on this device; sync will retry"}. ${decision.headline}.`);
-  return { record, decision };
+  const debriefSynced = await saveMissionDebriefState(record, decision);
+  const order = ensureMissionRecoveryOrder(record, decision);
+  const recoverySynced = await saveMissionRecoveryOrderState(order);
+  const synced = debriefSynced && recoverySynced;
+  setText("mission-execution-feedback", `Debrief and recovery order secured${synced ? " to your account" : " on this device; sync will retry"}. ${decision.headline}.`);
+  return { record, decision, order };
 }
 
 function missionExecutionSummary(module = "STRENGTH", execution = {}, prescription = null) {
@@ -6215,13 +6308,21 @@ function renderMissionDebriefForm(pending = {}) {
   </form>`;
 }
 
-function renderMissionHandoff(decision = {}) {
-  const requirements = (decision.requirements || []).slice(0, 3);
+function renderMissionHandoff(decision = {}, order = null) {
+  const recoveryProgress = typeof DominionMissionRecovery === "undefined" || !order
+    ? { completed: 0, total: (decision.requirements || []).length, percent: 0, complete: false }
+    : DominionMissionRecovery.progress(order);
+  const next = typeof DominionMissionRecovery === "undefined" || !order ? null : DominionMissionRecovery.nextTask(order);
+  const tasks = order?.tasks || (decision.requirements || []).slice(0, 3).map((label, index) => ({ id: `requirement-${index + 1}`, label, status: "PENDING", order: index + 1, routeAction: "NONE" }));
+  const routeLabel = missionRecoveryRouteLabel(next?.routeAction);
   return `<article class="mission-player mission-handoff ${escapeHtml(decision.tone || "neutral")}">
     <div class="mission-handoff-mark" aria-hidden="true">CD</div>
-    <div class="mission-player-command"><span>ATLAS RECOVERY ORDER</span><h3>${escapeHtml(decision.headline || "Mission reconciled")}</h3><p>${escapeHtml(decision.detail || "Evidence is secured.")}</p></div>
-    <div class="mission-handoff-requirements">${requirements.map((item, index) => `<div><span>0${index + 1}</span><strong>${escapeHtml(item)}</strong></div>`).join("")}</div>
-    <div class="mission-primary-actions"><button type="button" data-mission-action="handoff" data-mission-code="${escapeHtml(decision.action || "NEXT")}">${escapeHtml(decision.actionLabel || "Continue")}</button>${decision.atlasReviewRequired ? "<small>Atlas review queued. Active plans remain unchanged.</small>" : ""}</div>
+    <div class="mission-player-command"><span>ATLAS RECOVERY ORDER · ${recoveryProgress.completed}/${recoveryProgress.total}</span><h3>${escapeHtml(recoveryProgress.complete ? "Recovery secured" : next?.label || decision.headline || "Mission reconciled")}</h3><p>${escapeHtml(recoveryProgress.complete ? "The recovery receipt is secured. Continue when the active safeguard permits it." : decision.detail || "Complete the current recovery action.")}</p></div>
+    <div class="mission-recovery-progress" aria-label="Recovery order progress"><span style="width:${recoveryProgress.percent}%"></span></div>
+    <div class="mission-handoff-requirements">${tasks.map((task, index) => `<div class="${task.status === "COMPLETE" ? "complete" : task.id === next?.id ? "current" : "pending"}"><span>${task.status === "COMPLETE" ? "✓" : `0${index + 1}`}</span><strong>${escapeHtml(task.label)}</strong><small>${task.status === "COMPLETE" ? "SECURED" : task.id === next?.id ? "NOW" : "NEXT"}</small></div>`).join("")}</div>
+    <div class="mission-primary-actions">${recoveryProgress.complete
+      ? `<button type="button" data-mission-action="handoff" data-mission-code="${escapeHtml(decision.action || "NEXT")}">${escapeHtml(decision.actionLabel || "Continue")}</button><button type="button" class="ghost" data-mission-action="recovery-reopen">Reopen last action</button>`
+      : `<button type="button" data-mission-action="recovery-complete" data-recovery-task-id="${escapeHtml(next?.id || "")}">Mark done</button>${routeLabel ? `<button type="button" class="ghost" data-mission-action="recovery-route" data-recovery-task-id="${escapeHtml(next?.id || "")}">${escapeHtml(routeLabel)}</button>` : ""}`}${decision.atlasReviewRequired ? "<small>Atlas review queued. Active plans remain unchanged.</small>" : ""}</div>
   </article>`;
 }
 
@@ -6304,10 +6405,13 @@ function renderMissionExecution() {
   const pendingDebrief = typeof DominionMissionDebrief === "undefined" ? null : DominionMissionDebrief.pendingDebrief({ cockpit: model, receipts, debriefs });
   const latestDebrief = debriefs[0] || null;
   const handoff = latestDebrief?.coachingDecision || null;
+  const recoveryOrder = latestDebrief && handoff ? ensureMissionRecoveryOrder(latestDebrief, handoff) : null;
+  const recoveryProgress = recoveryOrder && typeof DominionMissionRecovery !== "undefined" ? DominionMissionRecovery.progress(recoveryOrder) : null;
   const handoffBlocksCurrent = ["SAFETY_HOLD", "RECOVER_AND_REVIEW"].includes(handoff?.code)
     || (model.current?.locked && handoff?.code === "RECOVER_BETWEEN_SESSIONS");
-  const showHandoff = !pendingDebrief && handoff && (model.complete || model.protected || handoffBlocksCurrent);
-  const displayState = pendingDebrief ? "DEBRIEF" : showHandoff && handoff.code === "RECOVER_BETWEEN_SESSIONS" ? "RECOVERING" : model.state;
+  const recoveryBlocksCurrent = recoveryProgress && !recoveryProgress.complete;
+  const showHandoff = !pendingDebrief && handoff && (model.complete || model.protected || handoffBlocksCurrent || recoveryBlocksCurrent);
+  const displayState = pendingDebrief ? "DEBRIEF" : showHandoff && recoveryBlocksCurrent ? "RECOVERING" : model.state;
   section.dataset.missionState = displayState;
   badge.textContent = displayState.replaceAll("_", " ");
   badge.className = `state-pill ${missionExecutionTone(displayState)}`;
@@ -6346,7 +6450,7 @@ function renderMissionExecution() {
     </div>
     ${liveControls}
   </article>` : `<article class="mission-player empty"><div><span class="kicker">${model.complete ? "MISSION COMPLETE" : "CALENDAR REQUIRED"}</span><h3>${model.complete ? "Today's work is secured" : "No executable training order"}</h3><p>${escapeHtml(model.primary.detail)}</p></div><button type="button" data-mission-action="primary" data-mission-code="${escapeHtml(model.primary.code)}">${escapeHtml(model.primary.label)}</button></article>`;
-  const player = pendingDebrief ? renderMissionDebriefForm(pendingDebrief) : showHandoff ? renderMissionHandoff(handoff) : standardPlayer;
+  const player = pendingDebrief ? renderMissionDebriefForm(pendingDebrief) : showHandoff ? renderMissionHandoff(handoff, recoveryOrder) : standardPlayer;
   panel.innerHTML = `<div class="mission-progress"><span style="width:${model.percent}%"></span></div>
     <div class="mission-window-grid">${windows || `<article class="mission-window ready"><header><span>TODAY</span><strong>NO ORDER</strong></header></article>`}</div>
     ${player}
@@ -10170,7 +10274,9 @@ async function loadClosedLoopState() {
       ["HISTORY", "daily-closeout"],
       ["EVIDENCE", `mission:${todayISODate()}`],
       ["DEBRIEF", `mission:${todayISODate()}`],
-      ["HISTORY", "mission-debrief"]
+      ["HISTORY", "mission-debrief"],
+      ["RECOVERY_ORDER", `mission:${todayISODate()}`],
+      ["HISTORY", "mission-recovery"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -10298,13 +10404,21 @@ function buildAtlasAdaptiveWeekPerformance(activeWeek = {}) {
   const debriefSummary = typeof DominionMissionDebrief === "undefined"
     ? { events: 0, techniqueFlags: 0, stoppedSessions: 0 }
     : DominionMissionDebrief.summarizeForAtlas(debriefHistory, start, end);
+  const recoverySummary = typeof DominionMissionRecovery === "undefined"
+    ? { orders: 0, completed: 0, unresolved: 0, adherencePercent: null, safetyHolds: 0 }
+    : DominionMissionRecovery.summarizeForAtlas(readMissionRecoveryHistory(), start, end);
   const techniqueFlags = all.filter((item) => item.techniqueLimited === true
     || String(item.sessionQuality || item.quality || "").toUpperCase().includes("TECHNIQUE")).length;
   const stoppedSessions = all.filter((item) => ["STOPPED", "ABORTED", "PAIN_HOLD"].includes(String(item.state || item.status || "").toUpperCase())).length;
   return {
     events: all.length + debriefSummary.events,
     techniqueFlags: techniqueFlags + debriefSummary.techniqueFlags,
-    stoppedSessions: stoppedSessions + debriefSummary.stoppedSessions
+    stoppedSessions: stoppedSessions + debriefSummary.stoppedSessions,
+    recoveryOrders: recoverySummary.orders,
+    recoveryCompleted: recoverySummary.completed,
+    recoveryUnresolved: recoverySummary.unresolved,
+    recoveryPercent: recoverySummary.adherencePercent,
+    recoverySafetyHolds: recoverySummary.safetyHolds
   };
 }
 
@@ -10907,6 +11021,34 @@ function buildTodayRecoveryOrder() {
   const queueState = readDailyExecutionQueueState();
   const completed = Boolean(queueState.recoveryComplete);
   const recommendation = buildCurrentRecoveryRecommendation();
+  const missionOrder = currentMissionRecoveryOrder(date);
+  if (missionOrder && typeof DominionMissionRecovery !== "undefined") {
+    const missionProgress = DominionMissionRecovery.progress(missionOrder);
+    const currentTask = DominionMissionRecovery.nextTask(missionOrder);
+    const carried = missionOrder.date && missionOrder.date !== date;
+    return {
+      state: missionProgress.complete ? "COMPLETE" : carried ? "CARRYOVER" : missionOrder.status,
+      tone: missionProgress.complete ? "green" : missionOrder.safetyHold ? "red" : "yellow",
+      title: missionProgress.complete ? "Recovery order secured" : currentTask?.label || missionOrder.headline,
+      detail: missionProgress.complete
+        ? `All ${missionProgress.total} recovery actions are secured.`
+        : carried
+          ? `${missionOrder.windowLabel || "Prior"} recovery remains open from ${missionOrder.date}. Complete it before more demand.`
+          : `${missionProgress.completed}/${missionProgress.total} actions secured. Complete the current action only.`,
+      actions: (missionOrder.tasks || []).map((task) => task.label),
+      taskStates: missionOrder.tasks || [],
+      priority: missionOrder.safetyHold ? "CRITICAL" : missionOrder.atlasReviewRequired ? "REVIEW" : "ORDERED",
+      confidence: "MISSION EVIDENCE",
+      progression: missionOrder.safetyHold ? "HOLD" : missionProgress.complete ? "PERMITTED" : "RECOVER",
+      completed: missionProgress.complete,
+      primaryAction: missionProgress.complete ? "mission-undo" : "mission-complete",
+      primaryLabel: missionProgress.complete ? "Reopen last action" : "Mark current action complete",
+      currentTaskId: currentTask?.id || "",
+      routeAction: currentTask?.routeAction || "NONE",
+      routeLabel: missionRecoveryRouteLabel(currentTask?.routeAction),
+      missionOrderId: missionOrder.id
+    };
+  }
   if (!readinessComplete) {
     return {
       state: "ROLL CALL REQUIRED",
@@ -10957,6 +11099,9 @@ function renderTodayRecoveryExecution() {
   card.classList.toggle("is-complete", order.completed);
   status.textContent = order.state;
   status.className = `state-pill ${order.tone}`;
+  const checklist = order.taskStates
+    ? order.taskStates.map((task) => `<li class="${task.status === "COMPLETE" ? "complete" : task.id === order.currentTaskId ? "current" : "pending"}"><span>${task.status === "COMPLETE" ? "✓" : task.order}</span><strong>${escapeHtml(task.label)}</strong><small>${task.status === "COMPLETE" ? "SECURED" : task.id === order.currentTaskId ? "NOW" : "NEXT"}</small></li>`).join("")
+    : order.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("");
   output.innerHTML = `<section class="today-recovery-order">
       <span class="kicker">TODAY'S PRESCRIPTION</span>
       <h3>${escapeHtml(order.title)}</h3>
@@ -10967,9 +11112,10 @@ function renderTodayRecoveryExecution() {
       <div><span>Confidence</span><strong>${escapeHtml(order.confidence)}</strong></div>
       <div><span>Progression</span><strong>${escapeHtml(order.progression)}</strong></div>
     </div>
-    <ul class="today-recovery-checklist">${order.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>
+    <ul class="today-recovery-checklist">${checklist}</ul>
     <div class="today-recovery-controls">
-      <button type="button" data-today-recovery-action="${escapeHtml(order.primaryAction)}">${escapeHtml(order.primaryLabel)}</button>
+      <button type="button" data-today-recovery-action="${escapeHtml(order.primaryAction)}" data-recovery-task-id="${escapeHtml(order.currentTaskId || "")}">${escapeHtml(order.primaryLabel)}</button>
+      ${order.routeLabel ? `<button type="button" class="ghost" data-today-recovery-action="mission-route" data-recovery-task-id="${escapeHtml(order.currentTaskId || "")}">${escapeHtml(order.routeLabel)}</button>` : ""}
       <button type="button" class="ghost" data-today-recovery-action="review">Review evidence</button>
     </div>
     <p class="today-recovery-safeguard">Completing this order records the action only. It never clears a pain safeguard or changes an approved training plan.</p>`;
@@ -15640,6 +15786,9 @@ if (typeof document !== "undefined") {
       if (action === "finish") await prepareMissionSessionFinish(module);
       if (action === "pain") await reportMissionPain(module);
       if (action === "debrief-submit") await submitMissionDebrief();
+      if (action === "recovery-complete") await completeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
+      if (action === "recovery-reopen") await reopenMissionRecoveryOrder();
+      if (action === "recovery-route") routeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
       if (action === "handoff") handleMissionHandoffAction(code);
       if (action === "primary") {
         if (code === "ROLL_CALL") openMobileCommandSheet("roll-call");
@@ -16556,10 +16705,26 @@ if (typeof document !== "undefined") {
     setNutritionActiveView("today");
     document.querySelector('[data-nutrition-view-panel="today"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  document.getElementById("today-recovery-card")?.addEventListener("click", (event) => {
+  document.getElementById("today-recovery-card")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-today-recovery-action]");
     if (!button) return;
     const action = button.dataset.todayRecoveryAction;
+    if (action === "mission-complete") {
+      await completeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
+      renderDailyCoachingLoop();
+      setText("today-recovery-feedback", "Current recovery action secured. The order advanced once.");
+      return;
+    }
+    if (action === "mission-undo") {
+      await reopenMissionRecoveryOrder();
+      renderDailyCoachingLoop();
+      setText("today-recovery-feedback", "The last recovery action is open again.");
+      return;
+    }
+    if (action === "mission-route") {
+      routeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
+      return;
+    }
     if (action === "complete") {
       saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
       renderDailyCoachingLoop();
@@ -17533,7 +17698,10 @@ if (typeof document !== "undefined") {
       window.history.replaceState(null, "", "#nutrition");
     }
     if (action === "complete_recovery") {
-      saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
+      const missionOrder = currentMissionRecoveryOrder();
+      const currentTask = typeof DominionMissionRecovery === "undefined" ? null : DominionMissionRecovery.nextTask(missionOrder || {});
+      if (missionOrder && currentTask) await completeMissionRecoveryTask(currentTask.id);
+      else saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
       renderDailyCoachingLoop();
       setText("daily-orders-feedback", "Recovery action recorded. The queue advanced to the next incomplete step.");
     }

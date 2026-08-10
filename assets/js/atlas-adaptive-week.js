@@ -11,7 +11,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (adaptive, orchestrator) {
   "use strict";
 
-  const VERSION = "025A.1";
+  const VERSION = "025A.2";
   const REVIEW_OPEN_DAY_OFFSET = 4;
   const ACTIONABLE_CODES = new Set(["PROTECT", "DELOAD", "REBALANCE", "PROGRESS"]);
 
@@ -76,7 +76,14 @@
       corePercent: domains.CORE?.percent ?? null,
       performanceEvents: Math.max(0, Number(performance.events || 0)),
       techniqueFlags: Math.max(0, Number(performance.techniqueFlags || 0)),
-      stoppedSessions: Math.max(0, Number(performance.stoppedSessions || 0))
+      stoppedSessions: Math.max(0, Number(performance.stoppedSessions || 0)),
+      recoveryOrders: Math.max(0, Number(performance.recoveryOrders || 0)),
+      recoveryCompleted: Math.max(0, Number(performance.recoveryCompleted || 0)),
+      recoveryUnresolved: Math.max(0, Number(performance.recoveryUnresolved || 0)),
+      recoveryPercent: performance.recoveryPercent === null || performance.recoveryPercent === undefined
+        ? null
+        : clamp(performance.recoveryPercent, 0, 100),
+      recoverySafetyHolds: Math.max(0, Number(performance.recoverySafetyHolds || 0))
     };
   }
 
@@ -103,6 +110,12 @@
       status = "PROPOSED";
       [label, reason] = adaptive.proposalDefinition(code);
       reason = "A stopped session blocks progression. Atlas will reduce friction before adding demand.";
+      changes = adaptive.changesFor(code);
+    } else if (code === "PROGRESS" && Number(performance.recoveryOrders || 0) >= 2 && Number(performance.recoveryPercent) < 50) {
+      code = "REBALANCE";
+      status = "PROPOSED";
+      [label, reason] = adaptive.proposalDefinition(code);
+      reason = "Recovery orders are not yet closing consistently. Atlas will reduce friction before adding demand.";
       changes = adaptive.changesFor(code);
     }
 
@@ -140,7 +153,12 @@
       performance: {
         events: metrics.performanceEvents,
         techniqueFlags: metrics.techniqueFlags,
-        stoppedSessions: metrics.stoppedSessions
+        stoppedSessions: metrics.stoppedSessions,
+        recoveryOrders: metrics.recoveryOrders,
+        recoveryCompleted: metrics.recoveryCompleted,
+        recoveryUnresolved: metrics.recoveryUnresolved,
+        recoveryPercent: metrics.recoveryPercent,
+        recoverySafetyHolds: metrics.recoverySafetyHolds
       },
       planChangesApproved: false,
       headline: label,

@@ -164,6 +164,159 @@
   .strength-adaptation-decision>div:last-child{justify-items:start;text-align:left}
 }
 
+/* Build 025C: Mission Debrief and Recovery Handoff */
+.mission-player.mission-debrief-form,
+.mission-player.mission-handoff {
+  border-color: rgba(212, 175, 55, 0.56);
+  background:
+    linear-gradient(120deg, rgba(42, 34, 13, 0.92), rgba(10, 14, 13, 0.97) 58%),
+    #090b0b;
+}
+
+.mission-debrief-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 9px;
+  grid-column: 2 / -1;
+}
+
+.mission-debrief-grid label {
+  color: #9da5ae;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mission-debrief-grid select,
+.mission-debrief-grid input {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 5px;
+}
+
+.mission-debrief-grid .mission-debrief-notes {
+  grid-column: 1 / -1;
+}
+
+.mission-debrief-notes > span {
+  color: #68727c;
+  font-size: 0.6rem;
+}
+
+.mission-handoff-mark {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  min-height: 78px;
+  border: 1px solid rgba(212, 175, 55, 0.66);
+  color: var(--gold, #d4af37);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.7rem;
+  letter-spacing: 0.1em;
+}
+
+.mission-handoff-requirements {
+  display: grid;
+  gap: 7px;
+}
+
+.mission-handoff-requirements > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.mission-handoff-requirements span {
+  color: var(--gold, #d4af37);
+  font: 1.05rem "Bebas Neue", sans-serif;
+}
+
+.mission-handoff-requirements strong {
+  color: #e8e7e1;
+  font-size: 0.78rem;
+}
+
+.mission-player.mission-handoff.red {
+  border-color: rgba(204, 107, 82, 0.72);
+  background: linear-gradient(120deg, rgba(67, 21, 17, 0.82), rgba(10, 13, 13, 0.98) 58%);
+}
+
+.mission-player.mission-handoff.green {
+  border-color: rgba(71, 185, 118, 0.56);
+  background: linear-gradient(120deg, rgba(17, 53, 31, 0.7), rgba(10, 14, 13, 0.98) 58%);
+}
+
+.mission-handoff .mission-primary-actions small {
+  align-self: center;
+  color: #929ba5;
+  font-size: 0.72rem;
+}
+
+.mission-execution[data-mission-state="DEBRIEF"],
+.mission-execution[data-mission-state="RECOVERING"] {
+  border-color: rgba(212, 175, 55, 0.68);
+}
+
+@media (max-width: 900px) {
+  .mission-debrief-grid,
+  .mission-handoff-requirements {
+    grid-column: 1 / -1;
+  }
+
+  .mission-debrief-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .mission-debrief-grid {
+    display: contents;
+  }
+
+  .mission-debrief-form .mission-primary-actions {
+    position: static;
+    order: 2;
+    grid-column: 1 / -1;
+  }
+
+  .mission-debrief-form .mission-primary-actions button {
+    width: 100%;
+  }
+
+  .mission-player.mission-debrief-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mission-debrief-grid > label {
+    order: 1;
+    grid-column: auto;
+  }
+
+  .mission-debrief-grid .mission-debrief-notes {
+    order: 3;
+    grid-column: 1 / -1;
+  }
+
+  .mission-handoff {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .mission-handoff-mark {
+    width: 58px;
+    min-height: 64px;
+    font-size: 1.35rem;
+  }
+
+  .mission-handoff .mission-primary-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Build 025B: Mission Execution Mode */
 .mission-execution {
   position: relative;

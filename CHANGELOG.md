@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025C Mission Debrief and Recovery Handoff
+
+- Closes every completed training window with one four-signal debrief instead of another full log.
+- Issues an immediate Atlas recovery order for normal completion, split-day recovery, technique limits, partial work, and pain.
+- Waits for paired Core work before opening a normal debrief while allowing stopped or pain-held sessions to report immediately.
+- Attaches the debrief and coaching order to the original Mission receipts with idempotent account continuity.
+- Makes Mission debriefs the authoritative weekly technique and stopped-session evidence so Atlas does not double count Performance history.
+- Preserves the active plan and routes material adjustments into the existing recruit-approved weekly review.
+
 ## Unreleased - Build 025B Mission Execution Mode
 
 - Replaces scattered training launches with one Today cockpit and one dominant Start action.

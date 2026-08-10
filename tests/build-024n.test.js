@@ -13,12 +13,12 @@ const worker = read("sw.js");
 
 assert.match(html, /atlas-week-autopilot\.js\?v=024n/);
 assert.ok(html.indexOf("atlas-week-autopilot.js") < html.indexOf("app.js"), "autopilot engine must load before app integration");
-assert.match(html, /styles\.css\?v=025[ab]/);
-assert.match(html, /app\.js\?v=025[ab]/);
-assert.match(worker, /coach-dominion-025[ab]-v1/);
+assert.match(html, /styles\.css\?v=025[abc]/);
+assert.match(html, /app\.js\?v=025[abc]/);
+assert.match(worker, /coach-dominion-025[abc]-v1/);
 assert.match(worker, /atlas-week-autopilot\.js\?v=024n/);
-assert.match(worker, /styles\.css\?v=025[ab]/);
-assert.match(worker, /app\.js\?v=025[ab]/);
+assert.match(worker, /styles\.css\?v=025[abc]/);
+assert.match(worker, /app\.js\?v=025[abc]/);
 
 assert.match(engine, /const VERSION = "024N\.1"/);
 assert.match(engine, /function buildAutopilot/);

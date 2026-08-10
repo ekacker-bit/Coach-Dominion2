@@ -338,6 +338,7 @@
       state: recordState(execution),
       source: "COACH_DOMINION_EXECUTION",
       sourceRecordId: execution.id || null,
+      windowId: text(input.windowId) || null,
       windowLabel: text(input.windowLabel) || "TODAY",
       summary: input.summary || {},
       painReported: Boolean(execution.painReported),

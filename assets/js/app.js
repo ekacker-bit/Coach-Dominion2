@@ -5989,6 +5989,57 @@ function readMissionExecutionReceipts(date = todayISODate()) {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readMissionDebriefs(date = todayISODate()) {
+  const records = readClosedLoopState("DEBRIEF", `mission:${date}`, []);
+  return Array.isArray(records) ? records : [];
+}
+
+function readMissionDebriefHistory() {
+  const records = readClosedLoopState("HISTORY", "mission-debrief", []);
+  return Array.isArray(records) ? records : [];
+}
+
+async function saveMissionDebriefState(record, decision) {
+  if (!record?.id || typeof DominionMissionDebrief === "undefined") return false;
+  const saved = { ...record, coachingDecision: decision };
+  const daily = DominionMissionDebrief.upsertDebrief(readMissionDebriefs(saved.date), saved, 12);
+  const history = DominionMissionDebrief.upsertDebrief(readMissionDebriefHistory(), saved, 180);
+  const receipts = DominionMissionDebrief.attachDebrief(readMissionExecutionReceipts(saved.date), saved, decision);
+  saveClosedLoopLocal("DEBRIEF", `mission:${saved.date}`, daily);
+  saveClosedLoopLocal("HISTORY", "mission-debrief", history);
+  saveClosedLoopLocal("EVIDENCE", `mission:${saved.date}`, receipts);
+  const results = await Promise.all([
+    persistClosedLoopState("DEBRIEF", `mission:${saved.date}`, daily),
+    persistClosedLoopState("HISTORY", "mission-debrief", history),
+    persistClosedLoopState("EVIDENCE", `mission:${saved.date}`, receipts)
+  ]);
+  await runAtlasAdaptiveWeek();
+  return results.every(Boolean);
+}
+
+async function submitMissionDebrief() {
+  if (typeof DominionMissionDebrief === "undefined") throw new Error("Mission debrief is unavailable.");
+  const cockpit = buildCurrentMissionCockpit();
+  const pending = DominionMissionDebrief.pendingDebrief({
+    cockpit,
+    receipts: readMissionExecutionReceipts(),
+    debriefs: readMissionDebriefs()
+  });
+  if (!pending) return null;
+  const previous = readMissionDebriefs().find((record) => record.id === pending.id) || null;
+  const record = DominionMissionDebrief.buildDebrief({
+    effort: document.querySelector("[data-mission-debrief-effort]")?.value,
+    pain: document.querySelector("[data-mission-debrief-pain]")?.value,
+    executionQuality: document.querySelector("[data-mission-debrief-quality]")?.value,
+    recoveryConfidence: document.querySelector("[data-mission-debrief-recovery]")?.value,
+    notes: document.querySelector("[data-mission-debrief-notes]")?.value || ""
+  }, { date: cockpit.date, window: pending.window, receipts: pending.receipts, previous, submittedAt: new Date().toISOString() });
+  const decision = DominionMissionDebrief.coachingDecision(record, { cockpit, splitGate: cockpit.splitGate, now: new Date().toISOString() });
+  const synced = await saveMissionDebriefState(record, decision);
+  setText("mission-execution-feedback", `Debrief secured${synced ? " to your account" : " on this device; sync will retry"}. ${decision.headline}.`);
+  return { record, decision };
+}
+
 function missionExecutionSummary(module = "STRENGTH", execution = {}, prescription = null) {
   const code = String(module || "STRENGTH").toUpperCase();
   if (code === "STRENGTH" && typeof DominionStrengthTraining !== "undefined") {
@@ -6100,6 +6151,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
     date: todayISODate(),
     module,
     execution,
+    windowId: item.trainingWindowId || item.windowId || null,
     windowLabel: item.windowLabel || item.sessionLabel || "TODAY",
     summary: missionExecutionSummary(module, execution, prescription)
   });
@@ -6131,8 +6183,58 @@ function buildCurrentMissionCockpit() {
 function missionExecutionTone(state = "READY") {
   if (state === "COMPLETE") return "green";
   if (state === "SAFETY_HOLD") return "red";
-  if (state === "IN_PROGRESS") return "yellow";
+  if (["IN_PROGRESS", "DEBRIEF", "RECOVERING"].includes(state)) return "yellow";
   return "neutral";
+}
+
+function renderMissionDebriefForm(pending = {}) {
+  const label = pending.window?.label || "TODAY";
+  const forcedPain = pending.receipts?.some((receipt) => receipt.painReported === true || String(receipt.state || "").toUpperCase() === "PAIN_HOLD");
+  return `<form class="mission-player mission-debrief-form" data-mission-debrief-form>
+    <div class="mission-player-order"><span>${escapeHtml(label)}</span><small>DEBRIEF</small></div>
+    <div class="mission-player-command"><span>MISSION DEBRIEF</span><h3>${escapeHtml(label)} window secured</h3><p>Four signals. Then Atlas issues the recovery order.</p></div>
+    <div class="mission-debrief-grid">
+      <label>Effort<select data-mission-debrief-effort required><option value="">1–10</option>${Array.from({ length: 10 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${value === 7 ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+      <label>Pain<select data-mission-debrief-pain required><option value="NO" ${forcedPain ? "" : "selected"}>No</option><option value="YES" ${forcedPain ? "selected" : ""}>Yes</option></select></label>
+      <label>Execution<select data-mission-debrief-quality required><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label>
+      <label>Recovery confidence<select data-mission-debrief-recovery required><option value="">1–10</option>${Array.from({ length: 10 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${value === 7 ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+      <label class="mission-debrief-notes">Note <span>optional</span><input data-mission-debrief-notes maxlength="280" placeholder="Only what Atlas should know"></label>
+    </div>
+    <div class="mission-primary-actions"><button type="button" data-mission-action="debrief-submit">Get recovery order</button></div>
+  </form>`;
+}
+
+function renderMissionHandoff(decision = {}) {
+  const requirements = (decision.requirements || []).slice(0, 3);
+  return `<article class="mission-player mission-handoff ${escapeHtml(decision.tone || "neutral")}">
+    <div class="mission-handoff-mark" aria-hidden="true">CD</div>
+    <div class="mission-player-command"><span>ATLAS RECOVERY ORDER</span><h3>${escapeHtml(decision.headline || "Mission reconciled")}</h3><p>${escapeHtml(decision.detail || "Evidence is secured.")}</p></div>
+    <div class="mission-handoff-requirements">${requirements.map((item, index) => `<div><span>0${index + 1}</span><strong>${escapeHtml(item)}</strong></div>`).join("")}</div>
+    <div class="mission-primary-actions"><button type="button" data-mission-action="handoff" data-mission-code="${escapeHtml(decision.action || "NEXT")}">${escapeHtml(decision.actionLabel || "Continue")}</button>${decision.atlasReviewRequired ? "<small>Atlas review queued. Active plans remain unchanged.</small>" : ""}</div>
+  </article>`;
+}
+
+function handleMissionHandoffAction(action = "NEXT") {
+  const code = String(action || "NEXT").toUpperCase();
+  if (code === "ROLL_CALL") {
+    openMobileCommandSheet("roll-call");
+    return;
+  }
+  if (code === "CHECKPOINT") {
+    document.querySelector("[data-split-day-checkpoint]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (code === "FUEL") {
+    setActiveSection("nutrition");
+    window.history.replaceState(null, "", "#nutrition");
+    document.getElementById("nutrition")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (code === "CLOSEOUT") {
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    document.getElementById("daily-closeout-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 function missionSessionMetrics(sessionModel = {}) {
@@ -6186,10 +6288,18 @@ function renderMissionExecution() {
   if (!section || !panel || !badge || typeof DominionMissionExecution === "undefined") return;
   const model = buildCurrentMissionCockpit();
   if (!model) return;
-  section.dataset.missionState = model.state;
-  badge.textContent = model.state.replaceAll("_", " ");
-  badge.className = `state-pill ${missionExecutionTone(model.state)}`;
   const receipts = readMissionExecutionReceipts();
+  const debriefs = readMissionDebriefs();
+  const pendingDebrief = typeof DominionMissionDebrief === "undefined" ? null : DominionMissionDebrief.pendingDebrief({ cockpit: model, receipts, debriefs });
+  const latestDebrief = debriefs[0] || null;
+  const handoff = latestDebrief?.coachingDecision || null;
+  const handoffBlocksCurrent = ["SAFETY_HOLD", "RECOVER_AND_REVIEW"].includes(handoff?.code)
+    || (model.current?.locked && handoff?.code === "RECOVER_BETWEEN_SESSIONS");
+  const showHandoff = !pendingDebrief && handoff && (model.complete || model.protected || handoffBlocksCurrent);
+  const displayState = pendingDebrief ? "DEBRIEF" : showHandoff && handoff.code === "RECOVER_BETWEEN_SESSIONS" ? "RECOVERING" : model.state;
+  section.dataset.missionState = displayState;
+  badge.textContent = displayState.replaceAll("_", " ");
+  badge.className = `state-pill ${missionExecutionTone(displayState)}`;
   const windows = model.windows.map((window) => {
     const locked = window.sessions.some((sessionModel) => sessionModel.locked);
     const status = window.complete ? "COMPLETE" : locked ? "LOCKED" : window.active ? "LIVE" : window.held ? "PROTECTED" : "READY";
@@ -6214,7 +6324,7 @@ function renderMissionExecution() {
     <label>Quality <select data-mission-core-quality><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label>
     <label>Effort <input data-mission-core-effort type="number" min="1" max="10" value="7"></label>
   </div>` : "";
-  const player = current ? `<article class="mission-player ${escapeHtml(current.state.toLowerCase())}">
+  const standardPlayer = current ? `<article class="mission-player ${escapeHtml(current.state.toLowerCase())}">
     <div class="mission-player-order"><span>${escapeHtml(current.windowLabel)}</span><small>${escapeHtml(current.module === "RUNNING" ? "CARDIO" : current.module)}</small></div>
     <div class="mission-player-command"><span>${current.active ? "LIVE ORDER" : current.locked ? "WAIT" : current.held ? "SAFETY" : "NEXT ORDER"}</span><h3>${escapeHtml(current.title)}</h3><p>${escapeHtml(model.primary.detail)}</p></div>
     <div class="mission-player-metrics"><div><span>Progress</span><strong>${escapeHtml(metrics?.primary || current.state)}</strong></div><div><span>Now</span><strong>${escapeHtml(metrics?.secondary || current.title)}</strong></div>${metrics?.restUntil ? `<div><span>Rest</span><strong data-strength-rest-until="${escapeHtml(metrics.restUntil)}">--</strong></div>` : ""}</div>
@@ -6225,10 +6335,11 @@ function renderMissionExecution() {
     </div>
     ${liveControls}
   </article>` : `<article class="mission-player empty"><div><span class="kicker">${model.complete ? "MISSION COMPLETE" : "CALENDAR REQUIRED"}</span><h3>${model.complete ? "Today's work is secured" : "No executable training order"}</h3><p>${escapeHtml(model.primary.detail)}</p></div><button type="button" data-mission-action="primary" data-mission-code="${escapeHtml(model.primary.code)}">${escapeHtml(model.primary.label)}</button></article>`;
+  const player = pendingDebrief ? renderMissionDebriefForm(pendingDebrief) : showHandoff ? renderMissionHandoff(handoff) : standardPlayer;
   panel.innerHTML = `<div class="mission-progress"><span style="width:${model.percent}%"></span></div>
     <div class="mission-window-grid">${windows || `<article class="mission-window ready"><header><span>TODAY</span><strong>NO ORDER</strong></header></article>`}</div>
     ${player}
-    <footer class="mission-evidence-strip"><div><span>Session evidence</span><strong>${model.completed}/${model.total || 0} secured</strong></div><div><span>Account receipts</span><strong>${receipts.length}</strong></div><small>Sets, intervals, substitutions, safety changes, and finish state are saved once from this cockpit.</small></footer>`;
+    <footer class="mission-evidence-strip"><div><span>Session evidence</span><strong>${model.completed}/${model.total || 0} secured</strong></div><div><span>Debriefs</span><strong>${debriefs.length}</strong></div><small>Execution, recovery, safety, and Atlas evidence reconcile here once.</small></footer>`;
   startStrengthRestCountdown();
 }
 
@@ -10043,7 +10154,9 @@ async function loadClosedLoopState() {
       ["HISTORY", "outcome-plan"],
       ["CLOSEOUT", todayISODate()],
       ["HISTORY", "daily-closeout"],
-      ["EVIDENCE", `mission:${todayISODate()}`]
+      ["EVIDENCE", `mission:${todayISODate()}`],
+      ["DEBRIEF", `mission:${todayISODate()}`],
+      ["HISTORY", "mission-debrief"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -10156,20 +10269,29 @@ function buildAtlasAdaptiveWeekEvidence(activeWeek = {}, contract = {}) {
 function buildAtlasAdaptiveWeekPerformance(activeWeek = {}) {
   const start = activeWeek.weekStart || "";
   const end = activeWeek.weekEnd || "";
+  const debriefHistory = readMissionDebriefHistory().filter((item) => item.date && item.date >= start && item.date <= end);
+  const debriefKeys = new Set(debriefHistory.flatMap((item) => (item.modules || []).map((module) => `${String(module).toUpperCase()}:${item.date}`)));
   const strength = (readStrengthHistory() || []).filter((item) => {
     const date = adaptiveEvidenceDate(item);
-    return date && date >= start && date <= end;
+    return date && date >= start && date <= end && !debriefKeys.has(`STRENGTH:${date}`);
   });
-  const running = performanceEntries.filter((item) => item.domain === "running" && item.performanceDate >= start && item.performanceDate <= end);
+  const running = performanceEntries.filter((item) => item.domain === "running" && item.performanceDate >= start && item.performanceDate <= end && !debriefKeys.has(`RUNNING:${item.performanceDate}`));
   const core = (readCoreHistory() || []).filter((item) => {
     const date = adaptiveEvidenceDate(item);
-    return date && date >= start && date <= end;
+    return date && date >= start && date <= end && !debriefKeys.has(`CORE:${date}`);
   });
   const all = [...strength, ...running, ...core];
+  const debriefSummary = typeof DominionMissionDebrief === "undefined"
+    ? { events: 0, techniqueFlags: 0, stoppedSessions: 0 }
+    : DominionMissionDebrief.summarizeForAtlas(debriefHistory, start, end);
   const techniqueFlags = all.filter((item) => item.techniqueLimited === true
     || String(item.sessionQuality || item.quality || "").toUpperCase().includes("TECHNIQUE")).length;
   const stoppedSessions = all.filter((item) => ["STOPPED", "ABORTED", "PAIN_HOLD"].includes(String(item.state || item.status || "").toUpperCase())).length;
-  return { events: all.length, techniqueFlags, stoppedSessions };
+  return {
+    events: all.length + debriefSummary.events,
+    techniqueFlags: techniqueFlags + debriefSummary.techniqueFlags,
+    stoppedSessions: stoppedSessions + debriefSummary.stoppedSessions
+  };
 }
 
 function buildCurrentAtlasAdaptiveWeek() {
@@ -15501,6 +15623,8 @@ if (typeof document !== "undefined") {
       if (action === "pause") await pauseMissionSession(module);
       if (action === "finish") await prepareMissionSessionFinish(module);
       if (action === "pain") await reportMissionPain(module);
+      if (action === "debrief-submit") await submitMissionDebrief();
+      if (action === "handoff") handleMissionHandoffAction(code);
       if (action === "primary") {
         if (code === "ROLL_CALL") openMobileCommandSheet("roll-call");
         if (code === "OPEN_CALENDAR") {

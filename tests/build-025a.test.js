@@ -27,8 +27,8 @@ assert.match(html, /atlas-adaptive-week\.js\?v=025a/);
 assert.ok(html.indexOf("adaptive-coaching.js") < html.indexOf("atlas-adaptive-week.js"));
 assert.ok(html.indexOf("atlas-adaptive-week.js") < html.indexOf("atlas-week-autopilot.js"));
 assert.ok(html.indexOf("atlas-adaptive-week.js") < html.indexOf("app.js"));
-assert.match(html, /styles\.css\?v=025[ab]/);
-assert.match(html, /app\.js\?v=025[ab]/);
+assert.match(html, /styles\.css\?v=025[abc]/);
+assert.match(html, /app\.js\?v=025[abc]/);
 
 assert.match(app, /function buildCurrentAtlasAdaptiveWeek/);
 assert.match(app, /function buildAtlasAdaptiveWeekEvidence/);
@@ -50,11 +50,11 @@ assert.match(styles, /Build 025A: Atlas Adaptive Week/);
 assert.match(styles, /\.atlas-week-evidence/);
 assert.match(styles, /\.atlas-calendar-source\.adaptive/);
 
-assert.match(worker, /coach-dominion-025[ab]-v1/);
+assert.match(worker, /coach-dominion-025[abc]-v1/);
 assert.match(worker, /atlas-adaptive-week\.js\?v=025a/);
 assert.match(worker, /adaptive-coaching\.js\?v=025a/);
-assert.match(worker, /styles\.css\?v=025[ab]/);
-assert.match(worker, /app\.js\?v=025[ab]/);
+assert.match(worker, /styles\.css\?v=025[abc]/);
+assert.match(worker, /app\.js\?v=025[abc]/);
 assert.match(changelog, /Build 025A Atlas Adaptive Week/);
 
 console.log("Build 025A integration tests passed.");

@@ -69,7 +69,19 @@ let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
-let continuityState = { mode: "CHECKING", initialized: false, accountRevision: 0, manifest: null, accountManifest: null, manifestConflicts: [] };
+let continuityRetryFlushPromise = null;
+let continuityState = {
+  mode: "CHECKING",
+  initialized: false,
+  accountRevision: 0,
+  manifest: null,
+  accountManifest: null,
+  manifestConflicts: [],
+  lineage: null,
+  pendingWrites: 0,
+  lastSyncedAt: null,
+  lastError: null
+};
 const continuityRecordConflicts = new Map();
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
@@ -321,6 +333,95 @@ function continuityMetaStorageKey(domain, stateType, stateKey) {
   return `coach-dominion:continuity:${session?.user?.id || "local"}:record:${domain}:${String(stateType).toLowerCase()}:${stateKey}`;
 }
 
+function continuityRetryStorageKey() {
+  return `coach-dominion:continuity:${session?.user?.id || "local"}:pending-writes`;
+}
+
+function readContinuityRetryQueue() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(continuityRetryStorageKey()) || "[]");
+    return Array.isArray(value) ? value.filter((item) => item?.domain && item?.stateType && item?.stateKey && item.payload !== undefined) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveContinuityRetryQueue(items = []) {
+  const queue = Array.isArray(items) ? items.slice(-50) : [];
+  window.localStorage.setItem(continuityRetryStorageKey(), JSON.stringify(queue));
+  continuityState.pendingWrites = queue.length;
+  return queue;
+}
+
+function continuityRetryKey(domain, stateType, stateKey) {
+  return `${domain}:${stateType}:${stateKey}`;
+}
+
+function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = null) {
+  if (payload === undefined || payload === null) return null;
+  const queue = readContinuityRetryQueue();
+  const key = continuityRetryKey(domain, stateType, stateKey);
+  const existing = queue.find((item) => item.key === key);
+  const now = new Date().toISOString();
+  const item = {
+    key,
+    domain,
+    stateType,
+    stateKey,
+    payload,
+    fingerprint: typeof DominionContinuity === "undefined" ? null : DominionContinuity.semanticFingerprint(payload, { sortRootArray: stateType === "HISTORY" }),
+    queuedAt: existing?.queuedAt || now,
+    lastAttemptAt: now,
+    attempts: Number(existing?.attempts || 0) + 1,
+    errorCode: error?.code || null
+  };
+  saveContinuityRetryQueue([...queue.filter((entry) => entry.key !== key), item]);
+  if (continuityState.initialized && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: readContinuityRetryQueue().length });
+  return item;
+}
+
+function acknowledgeContinuityRetry(domain, stateType, stateKey) {
+  const key = continuityRetryKey(domain, stateType, stateKey);
+  return saveContinuityRetryQueue(readContinuityRetryQueue().filter((item) => item.key !== key));
+}
+
+async function persistContinuityRetryItem(item = {}) {
+  if (item.domain === "contract") return persistRecruitContractState(item.stateType, item.payload);
+  if (item.domain === "orientation") return persistRecruitOnboardingState(item.payload);
+  if (item.domain === "strength") return persistStrengthTrainingState(item.stateType, item.stateKey, item.payload);
+  if (item.domain === "running") return persistRunningState(item.stateType, item.stateKey, item.payload);
+  if (item.domain === "core") return persistCoreProgramState(item.stateType, item.stateKey, item.payload);
+  if (item.domain === "nutrition") return persistNutritionState(item.stateType, item.stateKey, item.payload);
+  if (item.domain === "calendar") return persistWeeklyOrchestrationState(item.stateType, item.stateKey, item.payload);
+  return false;
+}
+
+async function flushContinuityPendingWrites() {
+  if (continuityRetryFlushPromise) return continuityRetryFlushPromise;
+  continuityRetryFlushPromise = (async () => {
+    const queue = readContinuityRetryQueue();
+    continuityState.pendingWrites = queue.length;
+    if (!queue.length) return true;
+    if (!session?.user?.id || navigator.onLine === false) {
+      setContinuityMode("PENDING", { pendingWrites: queue.length });
+      return false;
+    }
+    for (const item of queue) {
+      try { await persistContinuityRetryItem(item); }
+      catch (_) {}
+    }
+    const remaining = readContinuityRetryQueue();
+    continuityState.pendingWrites = remaining.length;
+    if (remaining.length && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: remaining.length });
+    return remaining.length === 0;
+  })();
+  try {
+    return await continuityRetryFlushPromise;
+  } finally {
+    continuityRetryFlushPromise = null;
+  }
+}
+
 function readContinuityRecordMeta(domain, stateType, stateKey) {
   try {
     return JSON.parse(window.localStorage.getItem(continuityMetaStorageKey(domain, stateType, stateKey)) || "null");
@@ -457,7 +558,7 @@ function continuityDomainLabel(domain) {
   return ({ contract: "Contract", strength: "Strength", running: "Running", core: "Core", nutrition: "Nutrition", calendar: "Calendar" })[domain] || domain;
 }
 
-function renderDominionContinuity() {
+function renderDominionContinuityLegacy() {
   if (typeof DominionContinuity === "undefined") return;
   const presentation = DominionContinuity.syncPresentation(continuityState.mode, {
     conflictCount: continuityRecordConflicts.size + (continuityState.manifestConflicts?.length || 0)
@@ -488,6 +589,113 @@ function renderDominionContinuity() {
   setText("continuity-device-label", `Device ${continuityDeviceId().slice(0, 8)} · Ledger revision ${continuityState.accountRevision || "local"}`);
 }
 
+function currentContinuityConflicts() {
+  const records = [...continuityRecordConflicts.values()].map((item) => ({ ...item, origin: "RECORD", choiceKey: item.key }));
+  const recordDomains = new Set(records.map((item) => item.domain));
+  const manifest = (continuityState.manifestConflicts || [])
+    .filter((item) => !recordDomains.has(item.domain))
+    .map((item) => ({ ...item, origin: "MANIFEST", choiceKey: `manifest:${item.domain}:${item.stateType || "ACTIVE"}:${item.stateKey || "current"}` }));
+  return [...records, ...manifest];
+}
+
+function continuityConflictPayload(conflict = {}, preference = "DEVICE") {
+  const value = preference === "ACCOUNT" ? conflict.account : conflict.device;
+  return conflict.origin === "MANIFEST" ? value?.payload || null : value || null;
+}
+
+function applyContinuityModulePayload(domain, payload, descriptor = {}, options = {}) {
+  if (!payload) return false;
+  if (domain === "contract") saveRecruitContractLocal("APPROVED", payload);
+  if (domain === "strength") saveStrengthStateLocal("PLAN", "current", payload);
+  if (domain === "running") saveRunningBlockLocal("active", payload);
+  if (domain === "core") saveCoreProgramLocal("PLAN", "current", payload);
+  if (domain === "nutrition") {
+    const history = readNutritionBaselineHistory();
+    const id = payload.id || payload.approvedAt || payload.effectiveDate;
+    const next = [...history.filter((item) => (item.id || item.approvedAt || item.effectiveDate) !== id), payload];
+    window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(next));
+  }
+  if (domain === "calendar" && payload.weekStart) {
+    const history = typeof DominionWeeklyOrchestrator === "undefined"
+      ? [...readUnifiedWeekHistory().filter((item) => item.weekStart !== payload.weekStart), payload]
+      : DominionWeeklyOrchestrator.mergeCommittedWeek(readUnifiedWeekHistory(), payload);
+    saveWeeklyOrchestrationLocal("HISTORY", "current", history);
+    saveWeeklyOrchestrationLocal("WEEK", payload.weekStart, payload);
+  }
+  const stateType = descriptor.stateType || (domain === "calendar" ? "WEEK" : domain === "nutrition" ? "BASELINE" : domain === "contract" ? "APPROVED" : "PLAN");
+  const stateKey = descriptor.stateKey || (domain === "running" ? "active" : payload.weekStart || "current");
+  if (options.markSynced !== false) markContinuityRecordSynced(domain, stateType, stateKey, payload, descriptor.updatedAt || null);
+  return true;
+}
+
+function applyContinuityManifestModules(manifest = null, options = {}) {
+  if (!manifest?.modules) return 0;
+  return Object.entries(manifest.modules).reduce((count, [domain, descriptor]) => {
+    return count + (applyContinuityModulePayload(domain, descriptor?.payload, descriptor || {}, options) ? 1 : 0);
+  }, 0);
+}
+
+function continuityLineageStateLabel(domain, state = {}, contractRevision = 0) {
+  if (state.state === "CURRENT") return domain === "contract" ? `R${contractRevision} · CURRENT` : `LINKED TO R${contractRevision}`;
+  if (state.state === "PROTECTED_CURRENT_WEEK") return `CURRENT WEEK · R${state.contractRevision || "-"}`;
+  if (state.state === "NOT_REQUIRED") return "NOT IN CONTRACT";
+  if (state.state === "STALE") return `UPDATE TO R${contractRevision}`;
+  return "NOT ACTIVE";
+}
+
+function renderDominionContinuity() {
+  if (typeof DominionContinuity === "undefined") return;
+  const manifest = continuityState.manifest || buildCurrentContinuityManifest();
+  const lineage = DominionContinuity.canonicalLineage(manifest || {}, { today: todayISODate() });
+  const conflicts = currentContinuityConflicts();
+  const pendingWrites = readContinuityRetryQueue().length;
+  continuityState.lineage = lineage;
+  continuityState.pendingWrites = pendingWrites;
+  const displayMode = conflicts.length ? "CONFLICT" : pendingWrites ? "PENDING" : continuityState.mode;
+  const presentation = DominionContinuity.syncPresentation(displayMode, {
+    conflictCount: conflicts.length,
+    pendingCount: pendingWrites,
+    lineage
+  });
+  const button = document.getElementById("continuity-status");
+  if (button) button.className = `continuity-status ${presentation.tone}`;
+  setText("continuity-status-label", presentation.label);
+  setText("continuity-status-detail", presentation.detail);
+  setText("continuity-repair-summary", presentation.detail);
+  setText("continuity-lineage-summary", lineage.headline);
+  const grid = document.getElementById("continuity-canonical-grid");
+  if (grid && manifest) {
+    grid.innerHTML = DominionContinuity.CANONICAL_DOMAINS.map((domain) => {
+      const state = lineage.modules?.[domain] || { state: "MISSING", required: true };
+      const active = ["CURRENT", "PROTECTED_CURRENT_WEEK", "NOT_REQUIRED"].includes(state.state);
+      const detail = state.state === "PROTECTED_CURRENT_WEEK"
+        ? `Next week moves to Contract R${lineage.contractRevision}`
+        : state.state === "CURRENT" ? "Canonical account payload available"
+          : state.state === "NOT_REQUIRED" ? "No plan required"
+            : state.state === "STALE" ? "Rebuild from the current Contract"
+              : "Create or approve this plan";
+      return `<article class="continuity-domain ${active ? "active" : "missing"} ${state.state.toLowerCase().replaceAll("_", "-")}"><span>${escapeHtml(continuityDomainLabel(domain))}</span><strong>${escapeHtml(continuityLineageStateLabel(domain, state, lineage.contractRevision))}</strong><small>${escapeHtml(detail)}</small></article>`;
+    }).join("");
+  }
+  const panel = document.getElementById("continuity-conflict-panel");
+  if (panel) panel.hidden = conflicts.length === 0;
+  setText("continuity-conflict-detail", conflicts.length
+    ? `${conflicts.length} approved revision${conflicts.length === 1 ? " differs" : "s differ"}. Choose only the copy that reflects your intent.`
+    : "No same-revision conflicts detected.");
+  const conflictList = document.getElementById("continuity-conflict-list");
+  if (conflictList) conflictList.innerHTML = conflicts.map((conflict) => `<article>
+    <div><span>${escapeHtml(continuityDomainLabel(conflict.domain))}</span><strong>${escapeHtml(conflict.reason || "The same approved revision has different contents.")}</strong><small>Nothing changes until you choose.</small></div>
+    <div><button type="button" data-continuity-action="resolve-device" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Keep this device</button><button type="button" class="ghost" data-continuity-action="resolve-account" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Use account copy</button></div>
+  </article>`).join("");
+  const pendingPanel = document.getElementById("continuity-pending-panel");
+  if (pendingPanel) pendingPanel.hidden = pendingWrites === 0;
+  setText("continuity-pending-detail", pendingWrites
+    ? `${pendingWrites} save${pendingWrites === 1 ? " is" : "s are"} protected on this device and will retry automatically.`
+    : "Every program save reached your account.");
+  const syncTime = continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
+  setText("continuity-device-label", syncTime ? `Account verified ${syncTime}` : continuityState.accountRevision ? "Account ledger verified" : "Checking account continuity");
+}
+
 function setContinuityMode(mode, options = {}) {
   continuityState = { ...continuityState, ...options, mode };
   renderDominionContinuity();
@@ -512,7 +720,7 @@ async function saveContinuityLedger(manifest, expectedRevision) {
   return Array.isArray(data) ? data[0] : data;
 }
 
-async function syncDominionContinuity(options = {}) {
+async function syncDominionContinuityLegacy(options = {}) {
   if (!session?.user?.id || typeof DominionContinuity === "undefined") return false;
   const current = buildCurrentContinuityManifest();
   saveContinuityManifestLocal(current);
@@ -571,17 +779,144 @@ async function syncDominionContinuity(options = {}) {
   }
 }
 
+function continuityRevisionConflict(error) {
+  return error?.code === "40001" || /DOMINION_CONTINUITY_REVISION_CONFLICT|REVISION_CONFLICT/i.test(error?.message || "");
+}
+
+function refreshContinuityConsumers() {
+  try { refreshProgramActivationSurfaces(); } catch (_) {}
+  try { renderProgramTrends(); } catch (_) {}
+  try { scheduleOperatingTruthReconciliation(0); } catch (_) {}
+}
+
+async function syncDominionContinuity(options = {}) {
+  if (!session?.user?.id || typeof DominionContinuity === "undefined") return false;
+  if (navigator.onLine === false) {
+    saveContinuityManifestLocal(buildCurrentContinuityManifest());
+    setContinuityMode(readContinuityRetryQueue().length ? "PENDING" : "OFFLINE", { initialized: true });
+    return false;
+  }
+  setContinuityMode("SYNCING");
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const current = buildCurrentContinuityManifest();
+    saveContinuityManifestLocal(current);
+    try {
+      const supabase = await getClient();
+      const { data, error } = await supabase.from("dominion_continuity_state")
+        .select("revision,schema_version,device_id,manifest,client_updated_at,updated_at")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      const accountRevision = Number(data?.revision || 0);
+      const accountManifest = data?.manifest || null;
+      const reconciliation = accountManifest ? DominionContinuity.reconcileManifests(current, accountManifest) : null;
+      const manifestConflicts = reconciliation?.conflicts || [];
+      const recordDomains = new Set([...continuityRecordConflicts.values()].map((item) => item.domain));
+      const unresolvedManifest = manifestConflicts.filter((item) => !recordDomains.has(item.domain));
+      if (!options.prefer && (continuityRecordConflicts.size || unresolvedManifest.length)) {
+        setContinuityMode("CONFLICT", {
+          initialized: true,
+          accountRevision,
+          accountManifest,
+          manifestConflicts: unresolvedManifest,
+          lineage: DominionContinuity.canonicalLineage(current, { today: todayISODate() })
+        });
+        return false;
+      }
+
+      if (options.prefer === "ACCOUNT" && accountManifest) {
+        const restored = applyContinuityManifestModules(accountManifest);
+        applyContinuitySnapshotPayloads(accountManifest);
+        saveContinuityManifestLocal(accountManifest);
+        setContinuityMode("SYNCED", {
+          initialized: true,
+          accountRevision,
+          accountManifest,
+          manifestConflicts: [],
+          lastSyncedAt: data?.updated_at || new Date().toISOString(),
+          lastError: null
+        });
+        if (restored) refreshContinuityConsumers();
+        return true;
+      }
+
+      if (!accountManifest || options.prefer === "DEVICE" || ["DEVICE_NEWER", "MERGED"].includes(reconciliation?.state)) {
+        const nextManifest = reconciliation?.state === "MERGED" ? reconciliation.manifest : current;
+        const restored = applyContinuityManifestModules(nextManifest, { markSynced: false });
+        applyContinuitySnapshotPayloads(nextManifest);
+        try {
+          const saved = await saveContinuityLedger(nextManifest, accountRevision);
+          const savedManifest = saved?.manifest || nextManifest;
+          applyContinuityManifestModules(savedManifest);
+          saveContinuityManifestLocal(savedManifest);
+          setContinuityMode("SYNCED", {
+            initialized: true,
+            accountRevision: Number(saved?.revision || accountRevision + 1),
+            accountManifest: savedManifest,
+            manifestConflicts: [],
+            lastSyncedAt: saved?.updated_at || new Date().toISOString(),
+            lastError: null
+          });
+          if (restored) refreshContinuityConsumers();
+          return true;
+        } catch (saveError) {
+          if (continuityRevisionConflict(saveError) && attempt === 0) {
+            lastError = saveError;
+            continue;
+          }
+          throw saveError;
+        }
+      }
+
+      const restored = applyContinuityManifestModules(accountManifest);
+      applyContinuitySnapshotPayloads(accountManifest);
+      saveContinuityManifestLocal(accountManifest);
+      setContinuityMode("SYNCED", {
+        initialized: true,
+        accountRevision,
+        accountManifest,
+        manifestConflicts: [],
+        lastSyncedAt: data?.updated_at || new Date().toISOString(),
+        lastError: null
+      });
+      if (restored) refreshContinuityConsumers();
+      return true;
+    } catch (error) {
+      lastError = error;
+      if (continuityRevisionConflict(error) && attempt === 0) continue;
+      break;
+    }
+  }
+  const missingStorage = ["42P01", "42883", "PGRST202", "PGRST205"].includes(lastError?.code)
+    || /dominion_continuity_state|sync_dominion_continuity_state/i.test(lastError?.message || "");
+  const pendingWrites = readContinuityRetryQueue().length;
+  setContinuityMode(pendingWrites ? "PENDING" : missingStorage ? "LOCAL_ONLY" : "OFFLINE", {
+    initialized: true,
+    pendingWrites,
+    lastError: lastError?.message || "Continuity sync unavailable"
+  });
+  return false;
+}
+
 async function persistContinuityConflictRecord(conflict) {
-  if (conflict.domain === "contract") return persistRecruitContractState(conflict.stateType, conflict.device);
-  if (conflict.domain === "strength") return persistStrengthTrainingState(conflict.stateType, conflict.stateKey, conflict.device);
-  if (conflict.domain === "running") return persistRunningState(conflict.stateType, conflict.stateKey, conflict.device);
-  if (conflict.domain === "core") return persistCoreProgramState(conflict.stateType, conflict.stateKey, conflict.device);
-  if (conflict.domain === "nutrition") return persistNutritionState(conflict.stateType, conflict.stateKey, conflict.device);
-  if (conflict.domain === "calendar") return persistWeeklyOrchestrationState(conflict.stateType, conflict.stateKey, conflict.device);
+  const payload = continuityConflictPayload(conflict, "DEVICE");
+  const stateType = conflict.stateType || conflict.device?.stateType || "PLAN";
+  const stateKey = conflict.stateKey || conflict.device?.stateKey || "current";
+  if (!payload) return false;
+  if (conflict.domain === "contract") return persistRecruitContractState(stateType, payload);
+  if (conflict.domain === "strength") return persistStrengthTrainingState(stateType, stateKey, payload);
+  if (conflict.domain === "running") return persistRunningState(stateType, stateKey, payload);
+  if (conflict.domain === "core") return persistCoreProgramState(stateType, stateKey, payload);
+  if (conflict.domain === "nutrition") return persistNutritionState(stateType, stateKey, payload);
+  if (conflict.domain === "calendar") return persistWeeklyOrchestrationState(stateType, stateKey, payload);
   return false;
 }
 
 function applyContinuityAccountRecord(conflict) {
+  if (conflict.origin === "MANIFEST") {
+    return applyContinuityModulePayload(conflict.domain, continuityConflictPayload(conflict, "ACCOUNT"), conflict.account || {});
+  }
   if (conflict.domain === "contract") saveRecruitContractLocal(conflict.stateType, conflict.account);
   if (conflict.domain === "strength") saveStrengthStateLocal(conflict.stateType, conflict.stateKey, conflict.account);
   if (conflict.domain === "running") {
@@ -593,18 +928,32 @@ function applyContinuityAccountRecord(conflict) {
   if (conflict.domain === "nutrition") applyNutritionStateRow({ state_type: conflict.stateType, state_key: conflict.stateKey, payload: conflict.account });
   if (conflict.domain === "calendar") saveWeeklyOrchestrationLocal(conflict.stateType, conflict.stateKey, conflict.account);
   markContinuityRecordSynced(conflict.domain, conflict.stateType, conflict.stateKey, conflict.account, conflict.accountUpdatedAt);
+  return true;
 }
 
-async function repairDominionContinuity(preference) {
-  const conflicts = [...continuityRecordConflicts.values()];
-  if (preference === "ACCOUNT") conflicts.forEach(applyContinuityAccountRecord);
+async function repairDominionContinuity(preference, choiceKey = null) {
+  const conflicts = currentContinuityConflicts();
+  const selected = choiceKey ? conflicts.filter((conflict) => conflict.choiceKey === choiceKey) : conflicts;
+  if (!selected.length) return false;
+  setContinuityMode("REPAIRING");
+  if (preference === "ACCOUNT") selected.forEach(applyContinuityAccountRecord);
   if (preference === "DEVICE") {
-    for (const conflict of conflicts) await persistContinuityConflictRecord(conflict);
+    for (const conflict of selected) await persistContinuityConflictRecord(conflict);
   }
-  continuityRecordConflicts.clear();
-  continuityState.manifestConflicts = [];
+  selected.forEach((conflict) => {
+    if (conflict.origin === "RECORD") continuityRecordConflicts.delete(conflict.key);
+  });
+  const selectedKeys = new Set(selected.map((conflict) => conflict.choiceKey));
+  continuityState.manifestConflicts = (continuityState.manifestConflicts || []).filter((conflict) => {
+    const key = `manifest:${conflict.domain}:${conflict.stateType || "ACTIVE"}:${conflict.stateKey || "current"}`;
+    return !selectedKeys.has(key);
+  });
+  if (currentContinuityConflicts().length) {
+    setContinuityMode("CONFLICT");
+    return true;
+  }
   const synced = await syncDominionContinuity({ prefer: preference });
-  if (synced) window.location.reload();
+  if (synced) refreshContinuityConsumers();
   return synced;
 }
 
@@ -4931,6 +5280,11 @@ function readApprovedRecruitContract() {
   return contract?.status === "APPROVED" ? contract : null;
 }
 
+function readRecruitContractTombstone() {
+  const contract = readRecruitContractState("APPROVED", null);
+  return contract?.status === "DELETED" ? contract : null;
+}
+
 function readRecruitContractHistory() {
   const history = readRecruitContractState("HISTORY", []);
   return Array.isArray(history) ? history : [];
@@ -4963,6 +5317,7 @@ async function persistRecruitContractState(stateType, payload) {
       : await accountWrite;
     if (error) throw error;
     markContinuityRecordSynced("contract", stateType, "current", payload);
+    acknowledgeContinuityRetry("contract", stateType, "current");
     recruitContractStorageMode = "REMOTE";
     return true;
   } catch (error) {
@@ -4971,6 +5326,7 @@ async function persistRecruitContractState(stateType, payload) {
       code: error?.code || null,
       message: error?.message || "Unknown persistence error"
     });
+    logAccountPersistenceFailure("contract", stateType, "current", payload, error);
     recruitContractStorageMode = "LOCAL";
     return false;
   }
@@ -5120,6 +5476,7 @@ async function persistRecruitOnboardingState(payload) {
       ? await DominionContractAutosave.withTimeout(accountWrite, RECRUIT_CONTRACT_ACCOUNT_SYNC_TIMEOUT_MS)
       : await accountWrite;
     if (error) throw error;
+    acknowledgeContinuityRetry("orientation", "STATE", "current");
     recruitOnboardingStorageMode = "REMOTE";
     return true;
   } catch (error) {
@@ -5127,6 +5484,7 @@ async function persistRecruitOnboardingState(payload) {
       code: error?.code || null,
       message: error?.message || "Unknown persistence error"
     });
+    logAccountPersistenceFailure("orientation", "STATE", "current", payload, error);
     recruitOnboardingStorageMode = "LOCAL";
     return false;
   }
@@ -5164,6 +5522,7 @@ async function loadRecruitOnboardingState() {
       code: error?.code || null,
       message: error?.message || "Unknown load error"
     });
+    if (local) enqueueContinuityRetry("orientation", "STATE", "current", local, error);
     recruitOnboardingStorageMode = "LOCAL";
     return local;
   }
@@ -5329,7 +5688,8 @@ async function loadSplitDayCheckpointState(value = todayISODate()) {
   renderTodayCommittedWeek();
 }
 
-function logAccountPersistenceFailure(domain, stateType, stateKey, error) {
+function logAccountPersistenceFailure(domain, stateType, stateKey, payload, error) {
+  enqueueContinuityRetry(domain, stateType, stateKey, payload, error);
   console.warn("[account:persist] Account write will retry.", {
     domain,
     stateType,
@@ -5353,10 +5713,11 @@ async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
     markContinuityRecordSynced("calendar", stateType, stateKey, payload);
+    acknowledgeContinuityRetry("calendar", stateType, stateKey);
     weeklyOrchestrationStorageMode = "REMOTE";
     return true;
   } catch (error) {
-    logAccountPersistenceFailure("calendar", stateType, stateKey, error);
+    logAccountPersistenceFailure("calendar", stateType, stateKey, payload, error);
     weeklyOrchestrationStorageMode = "LOCAL";
     return false;
   }
@@ -8387,10 +8748,11 @@ async function persistStrengthTrainingState(stateType, stateKey, payload) {
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
     markContinuityRecordSynced("strength", stateType, stateKey, payload);
+    acknowledgeContinuityRetry("strength", stateType, stateKey);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("STRENGTH_EXECUTION", stateKey);
     return true;
   } catch (error) {
-    logAccountPersistenceFailure("strength", stateType, stateKey, error);
+    logAccountPersistenceFailure("strength", stateType, stateKey, payload, error);
     if (stateType === "EXECUTION") enqueueMobileWrite("STRENGTH_EXECUTION", stateKey, payload);
     setText("programming-feedback", "Saved on this device. Account sync will resume when strength storage is available.");
     setText("daily-assignment-feedback", "Workout saved on this device. Account sync is temporarily unavailable.");
@@ -10075,7 +10437,7 @@ function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   // Build 025H training-integrity sentinel: coach-dominion:service-worker-reload:025j
   // Supersedes coach-dominion:service-worker-reload:025k after progression trials ship.
-  const reloadKey = "coach-dominion:service-worker-reload:025m";
+  const reloadKey = "coach-dominion:service-worker-reload:025n";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10088,7 +10450,7 @@ function registerMobileServiceWorker() {
   });
   // Prior shell signature retained for release audit: register("/sw.js?v=025j", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=025m", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025n", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11833,10 +12195,11 @@ async function persistRunningState(stateType, stateKey, payload) {
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
     markContinuityRecordSynced("running", stateType, stateKey, payload);
+    acknowledgeContinuityRetry("running", stateType, stateKey);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("RUNNING_EXECUTION", stateKey);
     return true;
   } catch (error) {
-    logAccountPersistenceFailure("cardio", stateType, stateKey, error);
+    logAccountPersistenceFailure("running", stateType, stateKey, payload, error);
     if (stateType === "EXECUTION") enqueueMobileWrite("RUNNING_EXECUTION", stateKey, payload);
     setText("running-command-feedback", "Saved locally. Remote running storage is unavailable until migration 010 is applied.");
     return false;
@@ -12163,10 +12526,13 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
   if (coreProgramRemoteMode === "CONTINUITY") {
     try {
       const saved = await persistCoreContinuityFallback();
-      if (saved) markContinuityRecordSynced("core", stateType, stateKey, payload);
+      if (saved) {
+        markContinuityRecordSynced("core", stateType, stateKey, payload);
+        acknowledgeContinuityRetry("core", stateType, stateKey);
+      }
       return saved;
     } catch (error) {
-      logAccountPersistenceFailure("core", stateType, stateKey, error);
+      logAccountPersistenceFailure("core", stateType, stateKey, payload, error);
       return false;
     }
   }
@@ -12182,6 +12548,7 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
     if (error) throw error;
     coreProgramRemoteMode = "PRIMARY";
     markContinuityRecordSynced("core", stateType, stateKey, payload);
+    acknowledgeContinuityRetry("core", stateType, stateKey);
     if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
     return true;
   } catch (error) {
@@ -12190,13 +12557,14 @@ async function persistCoreProgramState(stateType, stateKey, payload) {
       const saved = await persistCoreContinuityFallback();
       if (saved) {
         markContinuityRecordSynced("core", stateType, stateKey, payload);
+        acknowledgeContinuityRetry("core", stateType, stateKey);
         if (stateType === "EXECUTION") acknowledgeMobileWrite("CORE_EXECUTION", stateKey);
         setText("core-programming-feedback", "Saved to your Dominion account.");
         setText("core-today-feedback", "Core progress saved to your Dominion account.");
         return true;
       }
     } catch (fallbackError) {
-      logAccountPersistenceFailure("core", stateType, stateKey, fallbackError);
+      logAccountPersistenceFailure("core", stateType, stateKey, payload, fallbackError);
     }
     coreProgramRemoteMode = "LOCAL";
     if (stateType === "EXECUTION") enqueueMobileWrite("CORE_EXECUTION", stateKey, payload);
@@ -14869,10 +15237,11 @@ async function persistNutritionState(stateType, stateKey, payload) {
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
     markContinuityRecordSynced("nutrition", stateType, stateKey, payload);
+    acknowledgeContinuityRetry("nutrition", stateType, stateKey);
     if (stateType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
     return true;
   } catch (error) {
-    logAccountPersistenceFailure("fuel", stateType, stateKey, error);
+    logAccountPersistenceFailure("nutrition", stateType, stateKey, payload, error);
     if (stateType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
     return false;
   }
@@ -16385,6 +16754,7 @@ async function init() {
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
+    await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
     await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
@@ -16450,10 +16820,17 @@ if (typeof document !== "undefined") {
     if (action === "sync") await syncDominionContinuity();
     if (action === "keep-device") await repairDominionContinuity("DEVICE");
     if (action === "keep-account") await repairDominionContinuity("ACCOUNT");
+    if (action === "resolve-device") await repairDominionContinuity("DEVICE", button.dataset.continuityKey);
+    if (action === "resolve-account") await repairDominionContinuity("ACCOUNT", button.dataset.continuityKey);
+    if (action === "retry-pending") {
+      await flushContinuityPendingWrites();
+      await syncDominionContinuity();
+    }
   });
   window.addEventListener("online", async () => {
     renderMobileCommand();
     const synced = await flushMobilePendingWrites();
+    await flushContinuityPendingWrites();
     await syncDominionContinuity();
     setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
   });

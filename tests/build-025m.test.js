@@ -52,7 +52,7 @@ test("Build 025M ships responsive styles and a fresh offline shell", () => {
   assert.match(html, /app\.js\?v=[^"\s]*025m/);
   assert.match(worker, /coach-dominion-[^"\s]*025m/);
   assert.match(worker, /trends-intelligence\.js\?v=025m/);
-  assert.match(app, /service-worker-reload:025m/);
-  assert.match(app, /sw\.js\?v=025m/);
+  assert.match(app, /service-worker-reload:025n/);
+  assert.match(app, /sw\.js\?v=025n/);
   assert.ok(pkg.scripts["test:025m"]);
 });

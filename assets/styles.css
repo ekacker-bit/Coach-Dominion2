@@ -3985,6 +3985,7 @@ textarea { max-width: 100%; }
 .continuity-repair-shell > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .continuity-repair-shell h2 { margin-top: 7px; font-size: clamp(35px, 6vw, 52px); }
 .continuity-repair-shell > p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.continuity-lineage-summary { padding: 12px 14px; border-left: 3px solid var(--victory-gold); color: var(--stone); background: rgba(212, 175, 55, 0.07); font-size: 12px; line-height: 1.5; }
 .continuity-dialog-close { flex: 0 0 auto; }
 .continuity-canonical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .continuity-domain { display: grid; min-width: 0; gap: 7px; padding: 14px; border: 1px solid var(--line); background: #141516; }
@@ -3992,10 +3993,23 @@ textarea { max-width: 100%; }
 .continuity-domain > strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .continuity-domain > small { overflow: hidden; color: var(--dim); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .continuity-domain.missing { opacity: 0.63; border-style: dashed; }
+.continuity-domain.stale { opacity: 1; border-color: rgba(185, 68, 68, 0.72); background: rgba(143, 47, 53, 0.12); }
+.continuity-domain.protected-current-week { opacity: 1; border-color: rgba(212, 175, 55, 0.48); background: rgba(212, 175, 55, 0.07); }
 .continuity-conflict-panel { padding: 18px; border: 1px solid rgba(185, 68, 68, 0.65); background: rgba(143, 47, 53, 0.13); }
 .continuity-conflict-panel > div:first-child { display: grid; gap: 6px; }
 .continuity-conflict-panel p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .continuity-conflict-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.continuity-conflict-list { display: grid; gap: 8px; margin-top: 14px; }
+.continuity-conflict-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px; border: 1px solid rgba(185, 68, 68, 0.38); background: rgba(8, 9, 9, 0.58); }
+.continuity-conflict-list article > div:first-child { display: grid; gap: 4px; }
+.continuity-conflict-list article span { color: #f08a8a; font-family: var(--font-command); letter-spacing: 0.08em; text-transform: uppercase; }
+.continuity-conflict-list article small { color: var(--dim); font-size: 9px; }
+.continuity-conflict-list article > div:last-child { display: flex; flex-wrap: wrap; gap: 7px; }
+.continuity-conflict-list button { padding: 8px 10px; font-size: 9px; }
+.continuity-pending-panel { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 17px; border: 1px solid rgba(212, 175, 55, 0.48); background: rgba(212, 175, 55, 0.07); }
+.continuity-pending-panel[hidden] { display: none; }
+.continuity-pending-panel > div { display: grid; gap: 5px; }
+.continuity-pending-panel p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .continuity-repair-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 
 @media (max-width: 1080px) {
@@ -4008,6 +4022,10 @@ textarea { max-width: 100%; }
   .continuity-status strong { font-size: 12px; }
   .continuity-status-dot { width: 6px; height: 6px; }
   .continuity-canonical-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .continuity-conflict-list article { grid-template-columns: 1fr; }
+  .continuity-conflict-list article > div:last-child { display: grid; grid-template-columns: 1fr; }
+  .continuity-pending-panel { align-items: stretch; flex-direction: column; }
+  .continuity-pending-panel button { width: 100%; }
   .continuity-repair-shell > footer { align-items: stretch; flex-direction: column; }
   .continuity-repair-shell > footer button { width: 100%; }
 }

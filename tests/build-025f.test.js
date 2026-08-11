@@ -18,8 +18,8 @@ assert.match(app, /function atlasNutritionProfileContext/);
 assert.match(atlas, /context\.heightCm/);
 assert.match(atlas, /context\.age/);
 
-assert.match(continuity, /const VERSION = "025F\.1"/);
-assert.match(continuity, /const SCHEMA_VERSION = 2/);
+assert.match(continuity, /const VERSION = "025N\.1"/);
+assert.match(continuity, /const SCHEMA_VERSION = 3/);
 assert.match(continuity, /function withSnapshot/);
 assert.match(continuity, /function snapshotPayload/);
 assert.match(app, /function buildCoreContinuitySnapshot/);
@@ -29,10 +29,10 @@ assert.match(app, /coreProgramRemoteMode === "CONTINUITY"/);
 assert.doesNotMatch(app, /Account sync will activate after migration 012/);
 
 assert.match(html, /atlas-program\.js\?v=024f2/);
-assert.match(html, /dominion-continuity\.js\?v=025f/);
+assert.match(html, /dominion-continuity\.js\?v=025n/);
 assert.match(html, /app\.js\?v=025c7/);
 assert.match(worker, /atlas-program\.js\?v=024f2/);
-assert.match(worker, /dominion-continuity\.js\?v=025f/);
+assert.match(worker, /dominion-continuity\.js\?v=025n/);
 assert.match(worker, /app\.js\?v=025c7/);
 assert.match(changelog, /Build 025F State Repair/);
 

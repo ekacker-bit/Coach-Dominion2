@@ -9287,3 +9287,114 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .program-command-autopilot .atlas-week-actions button { width: 100%; }
   .program-command-autopilot .atlas-week-evidence { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Build 025O: Atlas Daily Command */
+.today-mission-actions:has(#atlas-command-adjust:not([hidden])) {
+  grid-template-columns: minmax(220px, 1fr) auto minmax(180px, 0.72fr);
+}
+
+#atlas-command-adjust {
+  min-width: 148px;
+  border-color: rgba(212, 175, 55, 0.42);
+  color: var(--victory-gold);
+}
+
+.atlas-command-adjustment-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 17px;
+  border: 1px solid rgba(212, 175, 55, 0.44);
+  border-left: 3px solid var(--victory-gold);
+  background: linear-gradient(110deg, rgba(212, 175, 55, 0.12), rgba(46, 75, 52, 0.13));
+}
+
+.atlas-command-adjustment-status[hidden] { display: none; }
+.atlas-command-adjustment-status > div { display: grid; gap: 3px; }
+.atlas-command-adjustment-status span,
+.atlas-calendar-override span {
+  color: var(--victory-gold);
+  font: 12px/1 var(--font-command);
+  letter-spacing: 0.1em;
+}
+.atlas-command-adjustment-status strong { color: var(--stone); font-size: 14px; }
+.atlas-command-adjustment-status p { margin: 0; color: var(--muted); font-size: 12px; }
+.atlas-command-adjustment-status button { flex: 0 0 auto; min-height: 38px; }
+
+.atlas-command-adjustment-dialog {
+  width: min(680px, calc(100vw - 28px));
+  max-height: min(780px, calc(100vh - 28px));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  border-radius: 3px;
+  background: #0b0d0c;
+  color: var(--stone);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+}
+
+.atlas-command-adjustment-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.atlas-command-adjustment-shell { display: grid; gap: 20px; padding: 24px; }
+.atlas-command-adjustment-shell > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.atlas-command-adjustment-shell > header > div { display: grid; gap: 6px; }
+.atlas-command-adjustment-shell > header span { color: var(--victory-gold); font: 13px/1 var(--font-command); letter-spacing: 0.1em; }
+.atlas-command-adjustment-shell > header h2 { margin: 0; font: 42px/0.95 var(--font-command); letter-spacing: 0.025em; }
+.atlas-command-adjustment-shell > header p { margin: 0; color: var(--muted); font-size: 13px; }
+.atlas-command-adjustment-shell > label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+
+.atlas-command-adjustment-choices { display: grid; gap: 10px; }
+.atlas-command-adjustment-choice {
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--stone);
+  text-align: left;
+}
+.atlas-command-adjustment-choice:hover,
+.atlas-command-adjustment-choice.selected { border-color: var(--victory-gold); background: rgba(212, 175, 55, 0.09); }
+.atlas-command-adjustment-choice strong { color: var(--stone); font: 19px/1 var(--font-command); letter-spacing: 0.04em; }
+.atlas-command-adjustment-choice span { color: var(--muted); font: 12px/1.45 var(--font-body); letter-spacing: 0; text-transform: none; }
+.atlas-command-adjustment-guardrail { margin: 0; padding: 12px 14px; border-left: 2px solid var(--green); background: rgba(46, 75, 52, 0.16); color: var(--muted); font-size: 11px; }
+.atlas-command-adjustment-guardrail strong { color: var(--stone); }
+
+.weekly-orchestrator-day.atlas-adjusted { border-color: rgba(212, 175, 55, 0.58); box-shadow: inset 0 2px 0 rgba(212, 175, 55, 0.22); }
+.atlas-calendar-override {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 12px;
+  padding: 10px 11px;
+  border-left: 2px solid var(--victory-gold);
+  background: rgba(212, 175, 55, 0.09);
+}
+.atlas-calendar-override strong { color: var(--stone); font-size: 12px; }
+.atlas-calendar-override small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.atlas-calendar-override.today { margin: 0 0 14px; padding: 13px 15px; }
+
+@media (max-width: 760px) {
+  .today-mission-actions:has(#atlas-command-adjust:not([hidden])) { grid-template-columns: 1fr; }
+  #atlas-command-adjust { width: 100%; }
+  .atlas-command-adjustment-status { align-items: stretch; flex-direction: column; }
+  .atlas-command-adjustment-status button { width: 100%; }
+  .atlas-command-adjustment-shell { padding: 18px 15px; }
+  .atlas-command-adjustment-shell > header { flex-direction: column; }
+  .atlas-command-adjustment-shell > header h2 { font-size: 36px; }
+  .atlas-command-adjustment-choice { grid-template-columns: 1fr; gap: 7px; }
+}

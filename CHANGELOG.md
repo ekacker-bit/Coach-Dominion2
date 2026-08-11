@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 025N Program Continuity
+
+- Makes the account continuity ledger recoverable by storing the canonical Contract, Strength, Running, Core, Fuel, and Calendar payloads instead of fingerprints alone.
+- Proves that every active plan and committed week belongs to one approved Contract revision, while protecting an already-started week on the prior Contract as a deliberate transition.
+- Removes false conflicts caused only by save timestamps and automatically upgrades older continuity records that lack recoverable payloads.
+- Reserves manual choices for genuine same-revision divergence and lets the recruit resolve each affected program independently.
+- Queues failed account writes durably on the device and retries them at startup, on reconnection, or on demand across every canonical program domain.
+- Restores account-authoritative payloads into their actual program stores and refreshes Today, Program, Calendar, and Trends without forcing a page reload.
+- Ships a word-light continuity view with explicit current, stale, protected-week, queued-save, and account-verified states on desktop and mobile.
+
 ## Unreleased - Build 025M Outcome Intelligence
 
 - Rebuilds Trends as a five-domain outcome board for Execution, Training, Recovery, Fuel, and Body instead of a disconnected KPI sampler.

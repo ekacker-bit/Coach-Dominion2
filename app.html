@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m">
+  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -102,17 +102,23 @@
     <dialog id="continuity-repair-dialog" class="continuity-repair-dialog" aria-labelledby="continuity-repair-heading">
       <form method="dialog" class="continuity-repair-shell">
         <header>
-          <div><div class="kicker">BUILD 021B // DOMINION CONTINUITY</div><h2 id="continuity-repair-heading">Keep your program in sync</h2></div>
+          <div><div class="kicker">BUILD 025N // PROGRAM CONTINUITY</div><h2 id="continuity-repair-heading">One program. Everywhere.</h2></div>
           <button type="submit" class="ghost continuity-dialog-close" aria-label="Close continuity details">Close</button>
         </header>
         <p id="continuity-repair-summary">Checking your commitment, plans, schedule, and today.</p>
+        <strong id="continuity-lineage-summary" class="continuity-lineage-summary">Verifying one Contract-to-program lineage.</strong>
         <div id="continuity-canonical-grid" class="continuity-canonical-grid" aria-live="polite"></div>
         <aside id="continuity-conflict-panel" class="continuity-conflict-panel" hidden>
           <div><strong>Choose which saved version to keep</strong><p id="continuity-conflict-detail">Nothing changes until you choose.</p></div>
+          <div id="continuity-conflict-list" class="continuity-conflict-list" aria-live="polite"></div>
           <div class="continuity-conflict-actions">
-            <button type="button" data-continuity-action="keep-device">Keep this device</button>
-            <button type="button" class="ghost" data-continuity-action="keep-account">Use account copy</button>
+            <button type="button" data-continuity-action="keep-device">Keep all from this device</button>
+            <button type="button" class="ghost" data-continuity-action="keep-account">Use all account copies</button>
           </div>
+        </aside>
+        <aside id="continuity-pending-panel" class="continuity-pending-panel" hidden>
+          <div><strong>Account save queued</strong><p id="continuity-pending-detail">Your change is protected on this device.</p></div>
+          <button type="button" class="ghost" data-continuity-action="retry-pending">Retry now</button>
         </aside>
         <footer><span id="continuity-device-label">Checking this device</span><button type="button" class="ghost" data-continuity-action="sync">Check sync</button></footer>
       </form>
@@ -2152,8 +2158,8 @@
 <script src="/assets/js/operating-truth.js?v=025h"></script>
 <script src="/assets/js/activation-repair.js?v=024f"></script>
 <script src="/assets/js/one-command.js?v=021n"></script>
-<script src="/assets/js/dominion-continuity.js?v=025f"></script>
+<script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n"></script>
 </body>
 </html>

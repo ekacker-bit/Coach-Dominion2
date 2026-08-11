@@ -4,7 +4,7 @@ Coach Dominion is a browser-based AI coaching operating system with a discipline
 
 Build 025A closes the weekly coaching loop. Atlas waits until the current week has enough evidence, compares the committed prescription with execution, readiness, pain, technique, stopped sessions, and Fuel coverage, then issues one bounded next-week call. Material changes require recruit approval; the active week and base plans remain protected until the approved adaptation is committed to the next calendar.
 
-Build 025K closes the handoff between an earned Strength progression and the operating week. A load-only approval creates a new Calendar revision for future matching assignments while dates, training windows, completed work, and active workout snapshots remain fixed. Structural program changes still require explicit Calendar review. The same revision receipt appears on My Program, Calendar, Today, and Train.
+Build 025L closes the progression trial. An approved load increase must be attempted in the next matching Strength workout on the exact plan revision; Atlas then uses recorded load, repetitions, sets, RPE, modifications, and pain to recommend retain, repeat, or rollback. The recruit resolves the verdict explicitly, and rollback restores the prior target in a newer plan and Calendar audit revision without deleting workout evidence.
 
 ## Release status
 
@@ -17,6 +17,7 @@ The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Build
 - `assets/js/app.js` contains Supabase client operations, the Daily State/readiness engine, mission generation, Atlas brief generation, and UI rendering.
 - `assets/js/core-programming.js` contains the deterministic four-week Abs/Core planner, daily prescription safeguards, execution state, and progression evidence rules.
 - `assets/js/strength-calendar-handoff.js` classifies Strength plan revisions and safely reconciles load-only changes into future Calendar assignments, active schedules, and blocks.
+- `assets/js/strength-progression-trial.js` binds approved load increases to their next matching workout and produces explicit retain, repeat, or rollback verdicts.
 - `assets/js/closed-loop.js` contains the Observe-to-Adapt coaching state machine, decision fingerprints, cross-domain reconciliation, and bounded next-adjustment rules.
 - `assets/js/contract-experience.js` contains the revision-bound Dominion oath, signature validation, signed artifact, and post-sign progression model.
 - `assets/js/experience-shell.js` derives the global current order and Contract-to-Today operating journey from existing canonical state.

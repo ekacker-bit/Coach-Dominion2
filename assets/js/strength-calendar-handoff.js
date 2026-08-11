@@ -18,7 +18,7 @@
     const structure = clone(plan || {});
     [
       "version", "revision", "adjustedAt", "lastAdjustmentId", "lastAdjustmentActivation",
-      "lastCalendarHandoff", "rolledBackAdjustmentId"
+      "lastCalendarHandoff", "rolledBackAdjustmentId", "lastProgressionTrialId", "rolledBackTrialId"
     ].forEach((key) => delete structure[key]);
     (structure.sessions || []).forEach((session) => {
       (session.exercises || []).forEach((exercise) => {

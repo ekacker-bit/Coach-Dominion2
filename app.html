@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n">
+  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -752,10 +752,10 @@
 
            <p id="today-mission-reason" class="today-mission-reason"><span>WHY</span><strong>Based on your readiness, schedule, and progress.</strong></p>
 
-          <div class="today-mission-facts" aria-label="Mission facts">
-            <div><span>Readiness</span><strong id="today-mission-readiness">ROLL CALL NEEDED</strong></div>
-            <div><span>Schedule</span><strong id="today-mission-schedule">CHECKING</strong></div>
-            <div><span>Proof</span><strong id="today-mission-evidence">CHECKING</strong></div>
+          <div class="today-mission-facts" aria-label="Current order facts">
+            <div><span>Duration</span><strong id="today-mission-readiness">CHECKING</strong></div>
+            <div><span>Window</span><strong id="today-mission-schedule">NOW</strong></div>
+            <div><span>Confidence</span><strong id="today-mission-evidence">CHECKING</strong></div>
           </div>
 
           <div class="today-mission-progress-row">
@@ -766,8 +766,23 @@
 
           <div class="one-command-actions today-mission-actions">
             <button id="one-command-primary" type="button" data-one-command-action="REFRESH">Refresh</button>
+            <button id="atlas-command-adjust" type="button" class="ghost" aria-haspopup="dialog" aria-controls="atlas-command-adjustment-dialog" hidden>This doesn&rsquo;t fit</button>
              <p id="today-mission-after"><span>THEN</span><strong>Your next action will appear here.</strong></p>
           </div>
+
+          <aside id="atlas-command-adjustment-status" class="atlas-command-adjustment-status" hidden aria-live="polite">
+            <div><span>DAY ADJUSTED</span><strong id="atlas-command-adjustment-label">Today&rsquo;s order changed</strong><p id="atlas-command-adjustment-result"></p></div>
+            <button id="atlas-command-adjustment-undo" type="button" class="ghost">Restore original order</button>
+          </aside>
+
+          <dialog id="atlas-command-adjustment-dialog" class="atlas-command-adjustment-dialog" aria-labelledby="atlas-command-adjustment-heading">
+            <form method="dialog" class="atlas-command-adjustment-shell">
+              <header><div><span>ATLAS // BOUNDED CHANGE</span><h2 id="atlas-command-adjustment-heading">What doesn&rsquo;t fit?</h2><p>Change today without silently rewriting the approved program.</p></div><button type="submit" class="ghost" value="cancel" aria-label="Close adjustment dialog">Close</button></header>
+              <div id="atlas-command-adjustment-choices" class="atlas-command-adjustment-choices"></div>
+              <label>Optional context<input id="atlas-command-adjustment-note" maxlength="180" placeholder="Time, equipment, recovery, or another constraint"></label>
+              <p class="atlas-command-adjustment-guardrail"><strong>Guardrail:</strong> the adjustment expires tonight. Pain must still be reported in Roll Call.</p>
+            </form>
+          </dialog>
 
           <details id="one-command-context" class="one-command-context today-mission-why">
              <summary><span>Why this action?</span><small>Why this comes next</small></summary>
@@ -2158,8 +2173,9 @@
 <script src="/assets/js/operating-truth.js?v=025h"></script>
 <script src="/assets/js/activation-repair.js?v=024f"></script>
 <script src="/assets/js/one-command.js?v=021n"></script>
+<script src="/assets/js/atlas-daily-command.js?v=025o"></script>
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o"></script>
 </body>
 </html>

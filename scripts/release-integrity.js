@@ -11,6 +11,7 @@ const app = read("assets/js/app.js");
 const strength = read("assets/js/strength-training.js");
 const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
+const dailyCommand = read("assets/js/atlas-daily-command.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -128,6 +129,10 @@ check("025N continuity asset", html.includes('/assets/js/dominion-continuity.js?
 check("025N recoverable payloads", continuity.includes("descriptor.payload = payload") && app.includes("applyContinuityManifestModules"), "025N cannot restore canonical account payloads");
 check("025N retry queue", app.includes("function enqueueContinuityRetry") && app.includes("function flushContinuityPendingWrites") && app.includes('logAccountPersistenceFailure("core"') && app.includes('logAccountPersistenceFailure("nutrition"'), "025N account retry queue is incomplete");
 check("025N repair UI", html.includes('id="continuity-lineage-summary"') && html.includes('id="continuity-conflict-list"') && html.includes('data-continuity-action="retry-pending"'), "025N continuity repair controls are incomplete");
+check("025O Daily Command engine", dailyCommand.includes('const VERSION = "025O.1"') && dailyCommand.includes("function buildDailyCommand") && dailyCommand.includes("function createResponse"), "025O Daily Command engine is incomplete");
+check("025O Daily Command integration", html.includes('/assets/js/atlas-daily-command.js?v=025o') && html.includes('id="atlas-command-adjustment-dialog"') && app.includes("buildCurrentAtlasDailyCommand") && app.includes("applyAtlasDailyCommandAdjustment"), "025O Daily Command is not connected end to end");
+check("025O Daily Command persistence", app.includes('atlasDailyCommandStateKey') && app.includes('"HISTORY", "atlas-daily-command"') && app.includes("responseDirective"), "025O command response or event persistence is missing");
+check("025O Daily Command cache", worker.includes('/assets/js/atlas-daily-command.js?v=025o') && worker.includes("025n-025o"), "025O assets are stale or uncached");
 check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
 check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 025O Atlas Daily Command
+
+- Turns Today into one ranked Atlas order with an explicit verb, expected duration, execution window, and decision confidence.
+- Makes program-integrity repairs, readiness, execution, evidence, and closeout compete in one deterministic priority ladder while preserving an already-started session.
+- Adds a bounded “This doesn’t fit” response for shortening today, moving the execution window, or selecting recovery without silently rewriting the approved program.
+- Applies a recruit-approved day-only dose adjustment to Strength, Running, and Core prescriptions while preserving Fuel targets and expiring the override that night.
+- Reconciles every active day adjustment across Today and Calendar, with one-click restoration to the original approved order.
+- Records command activation and adjustment events to the account-safe coaching ledger without copying free-form recruit context into telemetry.
+- Ships a word-light responsive decision dialog and a fresh offline application shell.
+
 ## Unreleased - Build 025N Program Continuity
 
 - Makes the account continuity ledger recoverable by storing the canonical Contract, Strength, Running, Core, Fuel, and Calendar payloads instead of fingerprints alone.

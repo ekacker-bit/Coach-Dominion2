@@ -64,6 +64,7 @@ let splitDayRefreshTimer = null;
 let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
+let currentAtlasDailyCommand = null;
 let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
@@ -6099,7 +6100,11 @@ function renderWeeklyOrchestrator() {
   </article>`).join("");
   const canEditCalendar = preview.status === "DRAFT" && Boolean(savedDraft);
   const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
+  const dailyCommandResponse = readAtlasDailyCommandResponse();
   const days = (preview.days || []).map((day) => {
+    const dayOverride = dailyCommandResponse?.status === "ACTIVE" && dailyCommandResponse.date === day.date
+      ? dailyCommandResponse.calendarOverride
+      : null;
     const activities = day.activities.length
       ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()} ${item.tertiary ? "tertiary" : ""}">
         ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
@@ -6108,8 +6113,9 @@ function renderWeeklyOrchestrator() {
         ${canEditCalendar ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
       </div>`).join("")
       : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
-    return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()}">
+    return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()} ${dayOverride ? "atlas-adjusted" : ""}">
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
+      ${dayOverride ? `<aside class="atlas-calendar-override"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>` : ""}
       ${day.activities.length ? `<div class="calendar-window-count"><strong>${day.sessionCount || day.activities.length}</strong> training window${(day.sessionCount || day.activities.length) === 1 ? "" : "s"}${day.corePaired ? " · Core paired" : ""}</div>` : ""}
       <div>${activities}</div>
       ${day.activities.length ? `<small class="weekly-orchestrator-capacity">${day.longRunUncapped ? `${day.twoADay ? "AM/PM · " : ""}long-run time uncapped${day.twoADay ? " · companion window protected" : ""}` : day.twoADay ? `${day.estimatedMinutes} / 240 min · AM/PM Two-a-Day` : day.corePaired ? `${day.estimatedMinutes} / 120 min · one primary + Core window` : day.twoADayAuthorizationRequired ? `${day.estimatedMinutes} min · Two-a-Days OFF` : day.twoADayCandidate ? `${day.estimatedMinutes} min · two windows; Two-a-Day starts at 121` : `${day.estimatedMinutes} / ${day.durationLimitMinutes || contract.sessionMinutes} min`}</small>` : ""}
@@ -6300,8 +6306,13 @@ function renderTodayCommittedWeek() {
     }).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
+  const dailyCommandResponse = readAtlasDailyCommandResponse();
+  const dayOverride = dailyCommandResponse?.status === "ACTIVE" && dailyCommandResponse.date === todayISODate()
+    ? dailyCommandResponse.calendarOverride
+    : null;
   const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+  if (dayOverride) panel.insertAdjacentHTML("afterbegin", `<aside class="atlas-calendar-override today"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>`);
   const todayHandoff = strengthCalendarHandoffMarkup(week.calendarReconciliation, "today");
   if (todayHandoff) panel.insertAdjacentHTML("afterbegin", todayHandoff);
 }
@@ -10437,7 +10448,8 @@ function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   // Build 025H training-integrity sentinel: coach-dominion:service-worker-reload:025j
   // Supersedes coach-dominion:service-worker-reload:025k after progression trials ship.
-  const reloadKey = "coach-dominion:service-worker-reload:025n";
+  // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
+  const reloadKey = "coach-dominion:service-worker-reload:025o";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10450,7 +10462,8 @@ function registerMobileServiceWorker() {
   });
   // Prior shell signature retained for release audit: register("/sw.js?v=025j", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=025n", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=025n", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025o", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11219,6 +11232,7 @@ async function loadClosedLoopState() {
     const rows = data || [];
     const keys = [
       ["DECISION", todayISODate()],
+      ["DECISION", `atlas-daily-command:${todayISODate()}`],
       ["REVIEW", todayISODate()],
       ["ADAPTATION", "current"],
       ["HISTORY", "current"],
@@ -11244,7 +11258,8 @@ async function loadClosedLoopState() {
       ["RECOVERY_ORDER", `mission:${todayISODate()}`],
       ["HISTORY", "mission-recovery"],
       ["MORNING_VERIFICATION", todayISODate()],
-      ["HISTORY", "morning-verification"]
+      ["HISTORY", "morning-verification"],
+      ["HISTORY", "atlas-daily-command"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -11624,9 +11639,80 @@ function buildCurrentAdaptiveCoaching() {
   return { ...proposal, recruitContext };
 }
 
+function atlasDailyCommandStateKey(date = todayISODate()) {
+  return `atlas-daily-command:${date}`;
+}
+
+function readAtlasDailyCommandResponse(date = todayISODate()) {
+  return readClosedLoopState("DECISION", atlasDailyCommandStateKey(date), null);
+}
+
+function readAtlasDailyCommandEvents() {
+  const events = readClosedLoopState("HISTORY", "atlas-daily-command", []);
+  return Array.isArray(events) ? events : [];
+}
+
+function atlasDailyCommandContext(date = todayISODate()) {
+  const contract = readApprovedRecruitContract();
+  const week = readCommittedUnifiedWeek(date);
+  return {
+    date,
+    contractId: contract?.id || null,
+    contractRevision: Number(contract?.revision || 0),
+    weekId: week?.id || null,
+    weekRevision: Number(week?.revision || 0)
+  };
+}
+
+async function saveAtlasDailyCommandResponse(response) {
+  if (!response?.id) return false;
+  saveClosedLoopLocal("DECISION", atlasDailyCommandStateKey(response.date), response);
+  return persistClosedLoopState("DECISION", atlasDailyCommandStateKey(response.date), response);
+}
+
+async function clearAtlasDailyCommandResponse(date = todayISODate()) {
+  const response = readAtlasDailyCommandResponse(date);
+  if (!response) return false;
+  const cleared = { ...response, status: "RESTORED", restoredAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  saveClosedLoopLocal("DECISION", atlasDailyCommandStateKey(date), cleared);
+  await persistClosedLoopState("DECISION", atlasDailyCommandStateKey(date), cleared);
+  return true;
+}
+
+async function recordAtlasDailyCommandEvent(command = {}, eventType, context = {}) {
+  if (typeof DominionAtlasDailyCommand === "undefined") return false;
+  const eventRecord = DominionAtlasDailyCommand.createEvent(command, eventType, {
+    date: todayISODate(),
+    ...context
+  });
+  const events = [eventRecord, ...readAtlasDailyCommandEvents().filter((item) => item.id !== eventRecord.id)].slice(0, 180);
+  saveClosedLoopLocal("HISTORY", "atlas-daily-command", events);
+  return persistClosedLoopState("HISTORY", "atlas-daily-command", events);
+}
+
+function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth(), model = null) {
+  if (!truth || !model || typeof DominionAtlasDailyCommand === "undefined") return model;
+  const context = atlasDailyCommandContext(truth.date || todayISODate());
+  return DominionAtlasDailyCommand.buildDailyCommand({
+    truth,
+    model,
+    day: readCommittedUnifiedDay(),
+    queue: buildCurrentDailyExecutionQueue(),
+    response: readAtlasDailyCommandResponse(context.date),
+    readinessComplete: dailyState?.date === context.date,
+    continuityCurrent: !currentContinuityConflicts().length && readContinuityRetryQueue().length === 0,
+    ...context
+  });
+}
+
 function readActiveAdaptiveDirective(date = todayISODate()) {
   if (typeof DominionAdaptiveCoaching === "undefined") return null;
-  return DominionAdaptiveCoaching.directiveForDate(readAtlasAdaptiveWeekState(), date)
+  const context = atlasDailyCommandContext(date);
+  const commandDirective = typeof DominionAtlasDailyCommand === "undefined"
+    ? null
+    : DominionAtlasDailyCommand.responseDirective(readAtlasDailyCommandResponse(date), context);
+  return commandDirective
+    || DominionAdaptiveCoaching.directiveForDate(readAtlasAdaptiveWeekState(), date)
     || DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
 }
 
@@ -13771,6 +13857,21 @@ function scheduleOperatingTruthReconciliation(timeoutMs = 1200) {
   }, timeoutMs);
 }
 
+function renderAtlasDailyCommandAdjustment(model = currentAtlasDailyCommand) {
+  const trigger = document.getElementById("atlas-command-adjust");
+  const status = document.getElementById("atlas-command-adjustment-status");
+  const choices = document.getElementById("atlas-command-adjustment-choices");
+  if (!trigger || !status || !choices || !model) return;
+  const available = Boolean(model.adjustment?.available);
+  const active = Boolean(model.adjustment?.active && model.response?.status === "ACTIVE");
+  trigger.hidden = !available;
+  trigger.textContent = active ? "Change today’s adjustment" : "This doesn’t fit";
+  status.hidden = !active;
+  setText("atlas-command-adjustment-label", model.adjustment?.label || "Today’s order changed");
+  setText("atlas-command-adjustment-result", model.adjustment?.result || "");
+  choices.innerHTML = (model.adjustment?.choices || []).map((choice) => `<button type="button" class="atlas-command-adjustment-choice ${model.response?.choiceId === choice.id ? "selected" : ""}" data-atlas-command-choice="${escapeHtml(choice.id)}"><strong>${escapeHtml(choice.label)}</strong><span>${escapeHtml(choice.detail)}</span></button>`).join("");
+}
+
 function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   const section = document.getElementById("one-command");
   if (!section || !truth) {
@@ -13798,9 +13899,11 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
         closeoutReady: model.secured
       };
     }
+    model = buildCurrentAtlasDailyCommand(truth, model) || model;
   } catch (_) {
     model = fallbackOneCommandModel(truth);
   }
+  currentAtlasDailyCommand = model;
   section.dataset.commandMode = model.mode;
   section.classList.toggle("is-secured", model.secured);
   setText("one-command-eyebrow", model.eyebrow);
@@ -13808,9 +13911,9 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   setText("one-command-detail", model.detail);
   const reason = document.getElementById("today-mission-reason");
   if (reason) reason.querySelector("strong").textContent = model.reason || model.detail;
-  setText("today-mission-readiness", model.facts?.readiness || todayMissionReadinessLabel());
-  setText("today-mission-schedule", model.facts?.schedule || todayMissionScheduleLabel());
-  setText("today-mission-evidence", todayMissionEvidenceLabel(model));
+  setText("today-mission-readiness", model.facts?.duration || model.facts?.readiness || todayMissionReadinessLabel());
+  setText("today-mission-schedule", model.facts?.window || model.facts?.schedule || todayMissionScheduleLabel());
+  setText("today-mission-evidence", model.facts?.confidence || todayMissionEvidenceLabel(model));
   setText("today-mission-progress-label", model.progressLabel || `${model.progress.complete} of ${model.progress.total}`);
   setText("today-mission-decision", model.decision || "The next unfinished requirement comes first.");
   const after = document.getElementById("today-mission-after");
@@ -13857,6 +13960,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     if (ritualAction) ritualAction.hidden = !model.closeoutReady;
   }
   section.dataset.reconciledAt = new Date().toISOString();
+  renderAtlasDailyCommandAdjustment(model);
   renderActivationRepair(truth);
 }
 
@@ -14053,10 +14157,48 @@ async function runActivationRepairAction(action = "RETRY", moduleId = "") {
   scheduleOperatingTruthReconciliation(800);
 }
 
+function openAtlasDailyCommandAdjustment() {
+  const dialog = document.getElementById("atlas-command-adjustment-dialog");
+  if (!dialog || !currentAtlasDailyCommand?.adjustment?.available) return;
+  renderAtlasDailyCommandAdjustment(currentAtlasDailyCommand);
+  recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "ADJUSTMENT_OPENED").catch(() => {});
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
+async function applyAtlasDailyCommandAdjustment(choiceId) {
+  if (typeof DominionAtlasDailyCommand === "undefined" || !currentAtlasDailyCommand) return;
+  const context = atlasDailyCommandContext();
+  const response = DominionAtlasDailyCommand.createResponse(currentAtlasDailyCommand, choiceId, {
+    ...context,
+    note: document.getElementById("atlas-command-adjustment-note")?.value || "",
+    createdAt: new Date().toISOString()
+  });
+  await saveAtlasDailyCommandResponse(response);
+  await recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "ADJUSTMENT_APPLIED", { choiceId });
+  const dialog = document.getElementById("atlas-command-adjustment-dialog");
+  if (dialog?.open && typeof dialog.close === "function") dialog.close();
+  renderDailyCoachingLoop();
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  scheduleOperatingTruthReconciliation(100);
+}
+
+async function restoreAtlasDailyCommandOrder() {
+  if (!currentAtlasDailyCommand) return;
+  await clearAtlasDailyCommandResponse();
+  await recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "ADJUSTMENT_RESTORED");
+  renderDailyCoachingLoop();
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  scheduleOperatingTruthReconciliation(100);
+}
+
 async function runOneCommandAction(button) {
   const action = button?.dataset.oneCommandAction || "REFRESH";
   const section = button?.dataset.oneCommandSection || "today";
   const moduleId = button?.dataset.oneCommandModule || "";
+  recordAtlasDailyCommandEvent(currentAtlasDailyCommand || {}, "PRIMARY_ACTIVATED", { action }).catch(() => {});
   if (action === "REFRESH") {
     renderDailyCoachingLoop();
     renderDominionExperienceShell();
@@ -17065,6 +17207,20 @@ if (typeof document !== "undefined") {
     context.open = !context.open;
     button.setAttribute("aria-expanded", context.open ? "true" : "false");
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  document.getElementById("atlas-command-adjust")?.addEventListener("click", openAtlasDailyCommandAdjustment);
+  document.getElementById("atlas-command-adjustment-choices")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-atlas-command-choice]");
+    if (!button) return;
+    button.disabled = true;
+    try { await applyAtlasDailyCommandAdjustment(button.dataset.atlasCommandChoice); }
+    catch (error) { setText("atlas-command-adjustment-result", error?.message || "Atlas could not apply that adjustment."); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("atlas-command-adjustment-undo")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    try { await restoreAtlasDailyCommandOrder(); }
+    finally { event.currentTarget.disabled = false; }
   });
   document.getElementById("program")?.addEventListener("click", async (event) => {
     const adaptiveButton = event.target.closest("button[data-atlas-week-action]");

@@ -9,6 +9,7 @@ const html = read("app.html");
 const css = read("assets/styles.css");
 const app = read("assets/js/app.js");
 const strength = read("assets/js/strength-training.js");
+const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
 const worker = read("sw.js");
 const failures = [];
@@ -78,6 +79,9 @@ check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3-025i-025j
 check("cached application", worker.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "service worker is caching the wrong application");
 check("cached operating truth", worker.includes('/assets/js/operating-truth.js?v=025h'), "service worker is caching the wrong operating truth engine");
 check("cached Strength logger", worker.includes('/assets/js/strength-training.js?v=025g-025i-025j'), "service worker is caching the wrong Strength engine");
+check("025M Trends engine", trends.includes('const VERSION = "025M.1"') && trends.includes("function summarizeStrengthWorkload") && trends.includes("scorecards"), "025M outcome intelligence engine is incomplete");
+check("025M Trends integration", html.includes('data-trend-view="fuel"') && html.includes('/assets/js/trends-intelligence.js?v=025m') && app.includes("trend-training-command") && app.includes("trend-fuel-chart"), "025M Trends workspace is incomplete");
+check("025M Trends cache", worker.includes('/assets/js/trends-intelligence.js?v=025m') && worker.includes("025l-025m"), "025M Trends assets are stale or uncached");
 check("approved-session logger", app.includes('data-programming-action="train-session"') && app.includes('launchApprovedStrengthSession'), "approved Strength sessions are not directly loggable");
 check("training integrity", app.includes('previewingDraft: Boolean(savedDraft)') && app.includes('service-worker-reload:025j'), "025H training integrity repair is incomplete");
 check("progression memory engine", strength.includes('const VERSION = "025J.1"') && strength.includes('function buildProgressionMemory') && strength.includes('function buildCompletionReport'), "025I progression memory engine is incomplete");

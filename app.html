@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l">
+  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -1449,7 +1449,7 @@
       <section id="trends" class="card trends-analytics trend-command scroll-anchor" aria-labelledby="trends-heading" data-section="trends">
         <header class="trend-command-header">
           <div>
-            <div class="kicker">BUILD 021K // OUTCOME LOOP</div>
+            <div class="kicker">BUILD 025M // OUTCOME INTELLIGENCE</div>
             <h2 id="trends-heading">Trends</h2>
             <p>See what changed. Act on what matters.</p>
           </div>
@@ -1477,6 +1477,7 @@
           <button type="button" data-trend-view="overview" aria-selected="true">Overview</button>
           <button type="button" data-trend-view="training" aria-selected="false">Training</button>
           <button type="button" data-trend-view="recovery" aria-selected="false">Recovery</button>
+          <button type="button" data-trend-view="fuel" aria-selected="false">Fuel</button>
           <button type="button" data-trend-view="body" aria-selected="false">Body</button>
         </nav>
 
@@ -1487,11 +1488,14 @@
               <div><span>TRAJECTORY</span><h3 id="trend-focus-title">Discipline</h3></div>
               <div id="trend-metric-control" class="trend-metric-control" role="group" aria-label="Chart metric">
                 <button type="button" data-trend-metric="discipline" aria-pressed="true">Discipline</button>
+                <button type="button" data-trend-metric="strength" aria-pressed="false">Strength</button>
                 <button type="button" data-trend-metric="readiness" aria-pressed="false">Readiness</button>
+                <button type="button" data-trend-metric="fuel" aria-pressed="false">Fuel</button>
                 <button type="button" data-trend-metric="weight" aria-pressed="false">Weight</button>
               </div>
             </header>
             <div id="trend-primary-chart" class="trend-bar-chart" aria-live="polite"></div>
+            <div id="trend-focus-summary" class="trend-focus-summary" aria-live="polite"></div>
           </section>
           <div class="trend-coaching-grid">
             <article><span>WIN</span><strong id="trend-win">—</strong></article>
@@ -1501,13 +1505,25 @@
         </div>
 
         <div data-trend-pane="training" hidden>
-          <div id="trend-training-grid" class="trend-detail-grid"></div>
+          <article id="trend-training-command" class="trend-pane-command" aria-live="polite"></article>
+          <div id="trend-training-grid" class="trend-detail-grid trend-detail-grid-wide"></div>
           <div class="trend-empty-action"><strong>Need a deeper performance read?</strong><a href="#performance" data-section="performance">Open Train</a></div>
         </div>
 
         <div data-trend-pane="recovery" hidden>
+          <article id="trend-recovery-command" class="trend-pane-command" aria-live="polite"></article>
           <div id="trend-recovery-grid" class="trend-detail-grid"></div>
           <div class="trend-empty-action"><strong>Today’s readiness sets the guardrails.</strong><a href="#today" data-section="today">Open Today</a></div>
+        </div>
+
+        <div data-trend-pane="fuel" hidden>
+          <article id="trend-fuel-command" class="trend-pane-command" aria-live="polite"></article>
+          <div id="trend-fuel-grid" class="trend-detail-grid"></div>
+          <section class="trend-focus-panel trend-fuel-focus" aria-labelledby="trend-fuel-title">
+            <header><div><span>DAILY ADHERENCE</span><h3 id="trend-fuel-title">Approved range</h3></div></header>
+            <div id="trend-fuel-chart" class="trend-bar-chart" aria-live="polite"></div>
+          </section>
+          <div class="trend-empty-action"><strong>Fuel evidence only counts complete days.</strong><a href="#nutrition" data-section="nutrition">Open Fuel</a></div>
         </div>
 
         <div data-trend-pane="body" hidden>
@@ -2097,7 +2113,7 @@
 <script src="/assets/js/observation-verdict.js?v=022e"></script>
 <script src="/assets/js/daily-closeout.js?v=022f"></script>
 <script src="/assets/js/outcome-plan-revision.js?v=021m"></script>
-<script src="/assets/js/trends-intelligence.js?v=021m"></script>
+<script src="/assets/js/trends-intelligence.js?v=025m"></script>
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
@@ -2138,6 +2154,6 @@
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/dominion-continuity.js?v=025f"></script>
 <script src="/assets/js/first-week-orientation.js?v=021h"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m"></script>
 </body>
 </html>

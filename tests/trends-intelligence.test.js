@@ -17,6 +17,19 @@ const inspection = (date, score, evidence = 80, finalized = true) => ({
 });
 const daily = (date, values = {}) => ({ date, energy: 7, weight: 180, ...values });
 const performance = (date, domain, metrics = {}) => ({ performanceDate: date, domain, metrics });
+const strengthExecution = (date, load, options = {}) => ({
+  id: `strength:${date}:${load}`,
+  date,
+  state: options.state || "COMPLETE",
+  painReported: Boolean(options.painReported),
+  setLogs: {
+    SQUAT: [
+      { kind: "WARMUP", load: 45, reps: 10, rpe: 3 },
+      { kind: "WORK", load, reps: 5, rpe: options.rpe || 7.5 },
+      { kind: "WORK", load, reps: 5, rpe: options.rpe || 8 }
+    ]
+  }
+});
 
 test("supported ranges normalize and invalid values fall back to four weeks", () => {
   assert.equal(trends.normalizeRangeDays(56), 56);
@@ -59,6 +72,17 @@ test("readiness compares the latest seven days with the prior seven", () => {
   assert.equal(result.tone, "positive");
 });
 
+test("recovery state protects the plan when RHR rises or HRV drops", () => {
+  const rows = [];
+  for (let day = 20; day <= 26; day += 1) rows.push(daily(`2026-07-${day}`, { energy: 7, restingHeartRate: 50, heartRateVariability: 60 }));
+  for (let day = 27; day <= 31; day += 1) rows.push(daily(`2026-07-${day}`, { energy: 6, restingHeartRate: 56, heartRateVariability: 48 }));
+  rows.push(daily("2026-08-01", { energy: 6, restingHeartRate: 56, heartRateVariability: 48 }), daily("2026-08-02", { energy: 6, restingHeartRate: 56, heartRateVariability: 48 }));
+  const result = trends.summarizeReadiness(rows, today, 28);
+  assert.equal(result.state, "PROTECT");
+  assert.equal(result.rhrDelta, 6);
+  assert.equal(result.hrvPercentDelta, -20);
+});
+
 test("training counts unique session days and converts kilometers to miles", () => {
   const result = trends.summarizeTraining([
     performance("2026-07-20", "strength", { sets: 3 }),
@@ -73,6 +97,30 @@ test("training counts unique session days and converts kilometers to miles", () 
   assert.equal(result.totalSessionDays, 4);
 });
 
+test("Strength workload compares equal windows and excludes warm-up sets", () => {
+  const result = trends.summarizeStrengthWorkload([
+    strengthExecution("2026-06-20", 100),
+    strengthExecution("2026-06-27", 100),
+    strengthExecution("2026-07-20", 110),
+    strengthExecution("2026-07-27", 110)
+  ], today, 28);
+  assert.equal(result.workSets, 4);
+  assert.equal(result.volume, 2200);
+  assert.equal(result.volumeDelta, 10);
+  assert.equal(result.averageRpe, 7.8);
+  assert.equal(result.trajectory, "STEADY");
+});
+
+test("training exposes running pace and recorded Core minutes", () => {
+  const result = trends.summarizeTraining([
+    performance("2026-07-24", "running", { distance: 6, distance_unit: "mi", duration_seconds: 3600 }),
+    performance("2026-07-25", "core", { duration_seconds: 900 })
+  ], [], [], today, 28);
+  assert.equal(result.runPaceSeconds, 600);
+  assert.equal(result.coreMinutes, 15);
+  assert.deepEqual(result.runSeries, [{ date: "2026-07-20", value: 6 }]);
+});
+
 test("nutrition adherence requires both approved targets and complete days", () => {
   const rows = [
     { date: "2026-07-29", calories: 2000, protein: 160 },
@@ -82,6 +130,7 @@ test("nutrition adherence requires both approved targets and complete days", () 
   const result = trends.summarizeNutrition(rows, { calories: 2000, protein: 150 }, today, 28);
   assert.equal(result.value, 67);
   assert.equal(result.evidenceDays, 3);
+  assert.equal(result.deltaLabel, "3 complete days - comparison building");
   assert.equal(trends.summarizeNutrition(rows, null, today, 28).value, null);
 });
 
@@ -122,8 +171,9 @@ test("full model returns six primary KPIs, coaching readout, and source confiden
     ],
     nutritionTargets: { calories: 2000, protein: 150 }
   });
-  assert.equal(model.version, "021M.1");
+  assert.equal(model.version, "025M.1");
   assert.deepEqual(model.kpis.map((item) => item.id), ["discipline", "readiness", "strength", "running", "nutrition", "weight"]);
+  assert.deepEqual(model.scorecards.map((item) => item.id), ["execution", "training", "recovery", "fuel", "body"]);
   assert.equal(model.coaching.signal, "The standard is rising");
   assert.ok(model.evidence.score >= 80);
 });

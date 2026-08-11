@@ -10,7 +10,7 @@ const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
 const trends = fs.readFileSync(path.join(root, "assets/js/trends-intelligence.js"), "utf8");
 
 test("Build 021K adds an operational Body outcome surface", () => {
-  assert.match(html, /BUILD 021K \/\/ OUTCOME LOOP/);
+  assert.match(html, /BUILD (?:021K \/\/ OUTCOME LOOP|025M \/\/ OUTCOME INTELLIGENCE)/);
   assert.match(html, /id="body-checkin-form"/);
   assert.match(html, /id="body-measurement-chart"/);
   assert.match(html, /id="body-outcome-decision"/);

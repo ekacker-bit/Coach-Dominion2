@@ -10075,7 +10075,7 @@ function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   // Build 025H training-integrity sentinel: coach-dominion:service-worker-reload:025j
   // Supersedes coach-dominion:service-worker-reload:025k after progression trials ship.
-  const reloadKey = "coach-dominion:service-worker-reload:025l";
+  const reloadKey = "coach-dominion:service-worker-reload:025m";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10088,7 +10088,7 @@ function registerMobileServiceWorker() {
   });
   // Prior shell signature retained for release audit: register("/sw.js?v=025j", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=025l", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025m", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -16608,6 +16608,8 @@ if (typeof document !== "undefined") {
     if (await handlePlanCommandAction(event)) return;
     if (await handleOutcomePlanAction(event)) return;
     if (await handleBodyOutcomeAction(event)) return;
+    const targetView = event.target.closest("[data-trend-target-view]")?.dataset.trendTargetView;
+    if (targetView) setTrendView(targetView);
     const rangeButton = event.target.closest("button[data-trend-range]");
     if (rangeButton && typeof DominionTrends !== "undefined") {
       trendRangeDays = DominionTrends.normalizeRangeDays(rangeButton.dataset.trendRange);
@@ -20228,8 +20230,8 @@ function loadTrendPreferences() {
   try {
     const stored = JSON.parse(window.localStorage.getItem(trendPreferenceKey()) || "null");
     if (typeof DominionTrends !== "undefined") trendRangeDays = DominionTrends.normalizeRangeDays(stored?.rangeDays);
-    trendActiveView = ["overview", "training", "recovery", "body"].includes(stored?.view) ? stored.view : "overview";
-    trendActiveMetric = ["discipline", "readiness", "weight"].includes(stored?.metric) ? stored.metric : "discipline";
+    trendActiveView = ["overview", "training", "recovery", "fuel", "body"].includes(stored?.view) ? stored.view : "overview";
+    trendActiveMetric = ["discipline", "strength", "readiness", "fuel", "weight"].includes(stored?.metric) ? stored.metric : "discipline";
     trendBodyMetric = ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat"].includes(stored?.bodyMetric) ? stored.bodyMetric : "waist";
   } catch (_) {
     trendRangeDays = 28;
@@ -20267,6 +20269,28 @@ function trendNutritionHistory(rangeDays = 84) {
 function trendMetricValue(value, suffix = "") {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
   return `${value}${suffix}`;
+}
+
+function trendCompactNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "-";
+  if (Math.abs(numeric) >= 1000000) return `${(numeric / 1000000).toFixed(1)}M`;
+  if (Math.abs(numeric) >= 1000) return `${(numeric / 1000).toFixed(1)}K`;
+  return String(Math.round(numeric));
+}
+
+function trendSignedValue(value, suffix = "") {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "Comparison building";
+  return `${numeric > 0 ? "+" : ""}${Number.isInteger(numeric) ? numeric : numeric.toFixed(1)}${suffix}`;
+}
+
+function trendPace(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "-";
+  const totalSeconds = Math.round(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${minutes}:${String(totalSeconds % 60).padStart(2, "0")}`;
 }
 
 function trendSeriesBars(series = [], options = {}) {
@@ -20307,18 +20331,37 @@ function renderTrendPrimaryChart(model = trendDashboardModel) {
   const title = document.getElementById("trend-focus-title");
   if (!element || !title || !model) return;
   const configs = {
-    discipline: { title: "Discipline", series: model.discipline.series, unit: "%", min: 0, max: 100 },
-    readiness: { title: "Readiness", series: model.readiness.series, unit: "", min: 1, max: 10 },
-    weight: { title: "Weight", series: model.weight.series, unit: "", min: null, max: null }
+    discipline: {
+      title: "Discipline", series: model.discipline.series, unit: "%", min: 0, max: 100,
+      summary: [["Current", trendMetricValue(model.discipline.value, "%")], ["Change", model.discipline.deltaLabel], ["Evidence", `${model.discipline.observations} finalized weeks`]]
+    },
+    strength: {
+      title: "Strength workload", series: model.training.strength.series, unit: "", min: null, max: null,
+      summary: [["Work volume", trendCompactNumber(model.training.strength.volume)], ["Vs prior", trendSignedValue(model.training.strength.volumeDelta, "%")], ["Evidence", `${model.training.strength.workSets} work sets`]]
+    },
+    readiness: {
+      title: "Recovery energy", series: model.readiness.series, unit: "", min: 1, max: 10,
+      summary: [["Latest 7d", trendMetricValue(model.readiness.value, "/10")], ["Vs prior", trendSignedValue(model.readiness.delta)], ["State", model.readiness.state]]
+    },
+    fuel: {
+      title: "Fuel adherence", series: model.nutrition.series, unit: "%", min: 0, max: 100,
+      summary: [["In range", trendMetricValue(model.nutrition.value, "%")], ["Coverage", trendMetricValue(model.nutrition.coverage, "%")], ["Evidence", `${model.nutrition.evidenceDays} complete days`]]
+    },
+    weight: {
+      title: "Weight", series: model.weight.series, unit: "", min: null, max: null,
+      summary: [["Latest", trendMetricValue(model.weight.value, " lb")], ["7d average", trendMetricValue(model.weight.average, " lb")], ["Weekly rate", trendSignedValue(model.weight.weeklyRate, " lb")]]
+    }
   };
   const config = configs[trendActiveMetric] || configs.discipline;
   title.textContent = config.title;
   element.innerHTML = trendSeriesBars(config.series, { ...config, label: `${config.title} trajectory` });
+  const summary = document.getElementById("trend-focus-summary");
+  if (summary) summary.innerHTML = config.summary.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
   document.querySelectorAll("[data-trend-metric]").forEach((button) => button.setAttribute("aria-pressed", button.dataset.trendMetric === trendActiveMetric ? "true" : "false"));
 }
 
 function setTrendView(view = "overview") {
-  trendActiveView = ["overview", "training", "recovery", "body"].includes(view) ? view : "overview";
+  trendActiveView = ["overview", "training", "recovery", "fuel", "body"].includes(view) ? view : "overview";
   document.querySelectorAll("[data-trend-pane]").forEach((pane) => { pane.hidden = pane.dataset.trendPane !== trendActiveView; });
   document.querySelectorAll("[data-trend-view]").forEach((button) => button.setAttribute("aria-selected", button.dataset.trendView === trendActiveView ? "true" : "false"));
   saveTrendPreferences();
@@ -21695,7 +21738,7 @@ async function handleBodyOutcomeAction(event) {
   return false;
 }
 
-function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
+function renderProgramTrendsLegacy(model, domainTrends, trajectory, storageMode) {
   trendDashboardModel = model;
   setText("trend-command-signal", model.coaching.signal);
   setText("trend-command-detail", model.coaching.detail);
@@ -21742,6 +21785,80 @@ function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
   renderTodayBodyCheckpoint(bodyOutcome);
   const windowDates = trajectory.window.map((item) => item.weekStartDate);
   setText("trend-window", windowDates.length ? `${windowDates[0]} — ${windowDates.at(-1)} · ${windowDates.length} finalized week${windowDates.length === 1 ? "" : "s"}` : "No finalized scored window yet.");
+  setText("analytics-storage", storageMode === "SUPABASE" ? "ACCOUNT EVIDENCE" : "DEVICE EVIDENCE");
+  setText("trend-method-version", model.version);
+  document.getElementById("trend-domain-grid").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div class="trend-domain-card ${domainTrends[key].direction.toLowerCase().replaceAll(" ", "-")}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${domainTrends[key].direction}</strong><small>${domainTrends[key].slope === null ? "Learning" : `${domainTrends[key].slope.toFixed(1)} pts/wk`}</small></div>`).join("");
+  setTrendView(trendActiveView);
+}
+
+function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
+  trendDashboardModel = model;
+  setText("trend-command-signal", model.coaching.signal);
+  setText("trend-command-detail", model.coaching.detail);
+  const action = document.getElementById("trend-command-action");
+  action.textContent = model.coaching.action.label;
+  action.href = `#${model.coaching.action.section}`;
+  action.dataset.section = model.coaching.action.section;
+  action.dataset.trendTargetView = model.coaching.action.view || "";
+  setText("trend-evidence-score", `${model.evidence.score}%`);
+  setText("trend-evidence-label", model.evidence.label);
+  setText("trend-evidence-sources", `${model.evidence.sourceCount} of ${model.evidence.possibleSources} signals`);
+  document.getElementById("trend-evidence-ring").style.setProperty("--trend-evidence", model.evidence.score);
+  document.querySelectorAll("[data-trend-range]").forEach((button) => button.setAttribute("aria-pressed", Number(button.dataset.trendRange) === model.rangeDays ? "true" : "false"));
+
+  document.getElementById("trend-kpi-grid").innerHTML = model.scorecards.map((item) => `<article class="trend-kpi trend-scorecard ${escapeHtml(item.tone)}" data-outcome="${escapeHtml(item.id)}">
+    <header><span>${escapeHtml(item.label)}</span><em>${escapeHtml(item.status)}</em></header>
+    <strong>${escapeHtml(item.value)}</strong>
+    <small>${escapeHtml(item.detail || "Signal not established")}</small>
+    <footer>${escapeHtml(item.evidence || "No evidence")}</footer>
+  </article>`).join("");
+
+  setText("trend-win", model.coaching.win);
+  setText("trend-watch", model.coaching.watch);
+  setText("trend-next", model.coaching.next);
+  renderTrendPrimaryChart(model);
+
+  const training = model.training;
+  const strength = training.strength;
+  const trainingCommand = document.getElementById("trend-training-command");
+  trainingCommand.innerHTML = `<span>TRAINING READ</span><strong>${escapeHtml(strength.trajectory)}</strong><h3>${escapeHtml(strength.trajectory === "PROTECT" ? "Protect the next exposure" : strength.trajectory === "BUILDING" ? "Workload is building" : strength.trajectory === "STEADY" ? "Workload is holding" : "Establish the workload")}</h3><p>${escapeHtml(strength.workSets ? `${strength.workSets} verified work sets across ${training.strengthSessions} Strength day${training.strengthSessions === 1 ? "" : "s"}.` : "Log working sets to establish load and effort trends.")}</p>`;
+  document.getElementById("trend-training-grid").innerHTML = [
+    ["Strength", training.strengthSessions, "sessions", `${trendSignedValue(training.strengthDelta)} vs prior`],
+    ["Work sets", strength.workSets, "verified sets", strength.completionRate === null ? "Completion building" : `${strength.completionRate}% completion`],
+    ["Work volume", trendCompactNumber(strength.volume), "load x reps", strength.volumeDelta === null ? "Comparison building" : `${trendSignedValue(strength.volumeDelta, "%")} vs prior`],
+    ["Average RPE", trendMetricValue(strength.averageRpe), "recorded effort", strength.painOrStops ? `${strength.painOrStops} pain or stop flag` : "No pain or stop flag"],
+    ["Running", training.runMiles, "miles", `${training.runSessions} run days`],
+    ["Run pace", trendPace(training.runPaceSeconds), "per mile", training.runPaceDeltaSeconds === null ? "Comparison building" : `${Math.abs(training.runPaceDeltaSeconds)} sec ${training.runPaceDeltaSeconds < 0 ? "faster" : "slower"}`],
+    ["Core", training.coreSessions, "sessions", `${training.coreMinutes} recorded minutes`],
+    ["Active", training.totalSessionDays, "days", model.rangeLabel]
+  ].map(([label, value, unit, note]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(unit)}</small><em>${escapeHtml(note)}</em></article>`).join("");
+
+  const readiness = model.readiness;
+  const recoveryCommand = document.getElementById("trend-recovery-command");
+  recoveryCommand.innerHTML = `<span>RECOVERY READ</span><strong>${escapeHtml(readiness.state)}</strong><h3>${escapeHtml(readiness.state === "PROTECT" ? "Recovery crossed a guardrail" : readiness.state === "READY" ? "Recovery supports the plan" : readiness.state === "WATCH" ? "Hold the current guardrails" : "Build the recovery baseline")}</h3><p>${escapeHtml(readiness.delta === null ? "A second seven-day window is required for a reliable comparison." : `Energy moved ${trendSignedValue(readiness.delta)} versus the prior seven days.`)}</p>`;
+  document.getElementById("trend-recovery-grid").innerHTML = [
+    ["Energy", trendMetricValue(readiness.value, "/10"), "latest 7d", trendSignedValue(readiness.delta)],
+    ["Sleep", trendMetricValue(readiness.sleepAverage, " hr"), "latest 7d", trendSignedValue(readiness.sleepDelta, " hr")],
+    ["Resting HR", trendMetricValue(readiness.rhrAverage, " bpm"), "latest 7d", trendSignedValue(readiness.rhrDelta, " bpm")],
+    ["HRV", trendMetricValue(readiness.hrvAverage, " ms"), "latest 7d", trendSignedValue(readiness.hrvDelta, " ms")]
+  ].map(([label, value, note, delta]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small><em>${escapeHtml(delta)} vs prior 7d</em></article>`).join("");
+
+  const fuel = model.nutrition;
+  const fuelCommand = document.getElementById("trend-fuel-command");
+  fuelCommand.innerHTML = `<span>FUEL READ</span><strong>${escapeHtml(fuel.state)}</strong><h3>${escapeHtml(fuel.state === "ON TARGET" ? "Fuel supports the program" : fuel.state === "CONSTRAINT" ? "Fuel is limiting the signal" : fuel.state === "WATCH" ? "Close the adherence gap" : "Build complete Fuel days")}</h3><p>${escapeHtml(fuel.deltaLabel)}</p>`;
+  document.getElementById("trend-fuel-grid").innerHTML = [
+    ["In range", trendMetricValue(fuel.value, "%"), "calories + protein", fuel.delta === null ? "Comparison building" : `${trendSignedValue(fuel.delta)} pts vs prior`],
+    ["Coverage", trendMetricValue(fuel.coverage, "%"), "days with complete data", `${fuel.evidenceDays} complete days`],
+    ["Calories", trendMetricValue(fuel.averageCalories), "daily average", fuel.targetsReady ? "Approved targets linked" : "Targets required"],
+    ["Protein", trendMetricValue(fuel.averageProtein, " g"), "daily average", fuel.targetsReady ? "Approved targets linked" : "Targets required"]
+  ].map(([label, value, note, evidence]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small><em>${escapeHtml(evidence)}</em></article>`).join("");
+  document.getElementById("trend-fuel-chart").innerHTML = trendSeriesBars(fuel.series, { title: "Fuel adherence", unit: "%", min: 0, max: 100, label: "Daily Fuel adherence" });
+
+  const bodyOutcome = model.bodyComposition || buildCurrentBodyOutcomeModel(model);
+  renderBodyOutcome(bodyOutcome);
+  renderTodayBodyCheckpoint(bodyOutcome);
+  const windowDates = trajectory.window.map((item) => item.weekStartDate);
+  setText("trend-window", windowDates.length ? `${windowDates[0]} - ${windowDates.at(-1)} - ${windowDates.length} finalized week${windowDates.length === 1 ? "" : "s"}` : "No finalized scored window yet.");
   setText("analytics-storage", storageMode === "SUPABASE" ? "ACCOUNT EVIDENCE" : "DEVICE EVIDENCE");
   setText("trend-method-version", model.version);
   document.getElementById("trend-domain-grid").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div class="trend-domain-card ${domainTrends[key].direction.toLowerCase().replaceAll(" ", "-")}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${domainTrends[key].direction}</strong><small>${domainTrends[key].slope === null ? "Learning" : `${domainTrends[key].slope.toFixed(1)} pts/wk`}</small></div>`).join("");

@@ -54,6 +54,6 @@ test("Build 021M ships a responsive, word-light Dominion comparison surface", ()
   assert.match(styles, /@media \(max-width: 700px\)/);
   assert.match(html, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[abc])))/);
   assert.match(html, /outcome-plan-revision\.js\?v=021m/);
-  assert.match(html, /trends-intelligence\.js\?v=021m/);
+  assert.match(html, /trends-intelligence\.js\?v=(?:021m|025m)/);
   assert.match(html, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[abc])))/);
 });

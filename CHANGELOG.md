@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025P Unified Blocker Resolution
+
+- Makes a genuine same-revision saved-program conflict the single highest-priority Atlas command across Today, My Program, Calendar, the header, and mobile.
+- Opens the existing side-by-side saved-copy comparison directly from every affected surface instead of sending the recruit through unrelated activation or week-commit actions.
+- Protects an explicit account-copy choice from stale queued device writes before continuity retry and reconciliation.
+- Advances automatically to Today after the final required choice and reveals the next valid command without a page reload.
+- Keeps unresolved choices blocking while allowing protected background saves to retry without interrupting an otherwise valid training day.
+- Adds a concise resolution receipt plus responsive red blocker treatment and ships a fresh offline application shell.
+
 ## Unreleased - Build 025O Atlas Daily Command
 
 - Turns Today into one ranked Atlas order with an explicit verb, expected duration, execution window, and decision confidence.

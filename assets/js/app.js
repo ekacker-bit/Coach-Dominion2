@@ -81,7 +81,8 @@ let continuityState = {
   lineage: null,
   pendingWrites: 0,
   lastSyncedAt: null,
-  lastError: null
+  lastError: null,
+  lastResolution: null
 };
 const continuityRecordConflicts = new Map();
 
@@ -599,6 +600,24 @@ function currentContinuityConflicts() {
   return [...records, ...manifest];
 }
 
+function buildCurrentUnifiedBlocker() {
+  if (typeof DominionUnifiedBlockerResolution === "undefined") return null;
+  return DominionUnifiedBlockerResolution.buildBlocker({
+    conflicts: currentContinuityConflicts(),
+    pendingWrites: readContinuityRetryQueue().length,
+    lineage: continuityState.lineage,
+    accountRevision: continuityState.accountRevision
+  });
+}
+
+function unifiedBlockerBannerMarkup(blocker = buildCurrentUnifiedBlocker(), surface = "program") {
+  if (!blocker) return "";
+  return `<aside class="unified-blocker-banner ${escapeHtml(blocker.tone || "red")}" data-blocker-surface="${escapeHtml(surface)}">
+    <div><span>ATLAS // FIRST BLOCKER</span><strong>${escapeHtml(blocker.title)}</strong><p>${escapeHtml(blocker.detail)}</p></div>
+    <button type="button" data-unified-blocker-action="${escapeHtml(blocker.primary.action)}">${escapeHtml(blocker.primary.label)}</button>
+  </aside>`;
+}
+
 function continuityConflictPayload(conflict = {}, preference = "DEVICE") {
   const value = preference === "ACCOUNT" ? conflict.account : conflict.device;
   return conflict.origin === "MANIFEST" ? value?.payload || null : value || null;
@@ -786,6 +805,9 @@ function continuityRevisionConflict(error) {
 
 function refreshContinuityConsumers() {
   try { refreshProgramActivationSurfaces(); } catch (_) {}
+  try { renderProgramCommand(); } catch (_) {}
+  try { renderWeeklyOrchestrator(); } catch (_) {}
+  try { renderTodayCommittedWeek(); } catch (_) {}
   try { renderProgramTrends(); } catch (_) {}
   try { scheduleOperatingTruthReconciliation(0); } catch (_) {}
 }
@@ -932,12 +954,50 @@ function applyContinuityAccountRecord(conflict) {
   return true;
 }
 
+async function completeContinuityResolution(preference) {
+  const preferredSynced = await syncDominionContinuity({ prefer: preference });
+  const flushed = await flushContinuityPendingWrites();
+  const synced = preferredSynced && flushed ? true : await syncDominionContinuity();
+  const remainingConflicts = currentContinuityConflicts().length;
+  const nextTruth = buildCurrentOperatingTruth();
+  const outcome = typeof DominionUnifiedBlockerResolution === "undefined"
+    ? { advance: remainingConflicts === 0, keepDialogOpen: remainingConflicts > 0, route: "today", message: "Saved program reconciled." }
+    : DominionUnifiedBlockerResolution.resolutionOutcome({
+        remainingConflicts,
+        pendingWrites: readContinuityRetryQueue().length,
+        synced,
+        nextTitle: nextTruth?.title
+      });
+  continuityState.lastResolution = { ...outcome, resolvedAt: new Date().toISOString() };
+  if (!outcome.advance) {
+    setContinuityMode("CONFLICT", { lastResolution: continuityState.lastResolution });
+    return false;
+  }
+  const dialog = document.getElementById("continuity-repair-dialog");
+  if (dialog?.open && typeof dialog.close === "function") dialog.close();
+  refreshContinuityConsumers();
+  renderDominionContinuity();
+  renderDominionExperienceShell();
+  setActiveSection(outcome.route || "today");
+  window.history.replaceState(null, "", `#${outcome.route || "today"}`);
+  scheduleOperatingTruthReconciliation(100);
+  return true;
+}
+
 async function repairDominionContinuity(preference, choiceKey = null) {
   const conflicts = currentContinuityConflicts();
   const selected = choiceKey ? conflicts.filter((conflict) => conflict.choiceKey === choiceKey) : conflicts;
   if (!selected.length) return false;
   setContinuityMode("REPAIRING");
-  if (preference === "ACCOUNT") selected.forEach(applyContinuityAccountRecord);
+  if (preference === "ACCOUNT") {
+    const selectedRetryKeys = new Set(selected.map((conflict) => continuityRetryKey(
+      conflict.domain,
+      conflict.stateType || conflict.account?.stateType || conflict.device?.stateType || "PLAN",
+      conflict.stateKey || conflict.account?.stateKey || conflict.device?.stateKey || "current"
+    )));
+    saveContinuityRetryQueue(readContinuityRetryQueue().filter((item) => !selectedRetryKeys.has(item.key)));
+    selected.forEach(applyContinuityAccountRecord);
+  }
   if (preference === "DEVICE") {
     for (const conflict of selected) await persistContinuityConflictRecord(conflict);
   }
@@ -950,12 +1010,13 @@ async function repairDominionContinuity(preference, choiceKey = null) {
     return !selectedKeys.has(key);
   });
   if (currentContinuityConflicts().length) {
-    setContinuityMode("CONFLICT");
+    const outcome = typeof DominionUnifiedBlockerResolution === "undefined"
+      ? null
+      : DominionUnifiedBlockerResolution.resolutionOutcome({ remainingConflicts: currentContinuityConflicts().length });
+    setContinuityMode("CONFLICT", { lastResolution: outcome ? { ...outcome, resolvedAt: new Date().toISOString() } : null });
     return true;
   }
-  const synced = await syncDominionContinuity({ prefer: preference });
-  if (synced) refreshContinuityConsumers();
-  return synced;
+  return completeContinuityResolution(preference);
 }
 
 function normalizeSectionKey(section = "today") {
@@ -6091,8 +6152,10 @@ function renderWeeklyOrchestrator() {
     : preview.status === "DRAFT"
     ? savedDraft ? preview.approvalBlocked ? "BLOCKED" : "DRAFT" : preview.approvalBlocked ? "ACTION_REQUIRED" : "READY"
     : DominionWeeklyOrchestrator.weekState(preview, todayISODate());
-  status.textContent = displayState;
-  status.className = `state-pill ${weeklyOrchestrationTone(displayState)}`;
+  const unifiedBlocker = buildCurrentUnifiedBlocker();
+  const calendarDisplayState = unifiedBlocker?.stateLabel || displayState;
+  status.textContent = calendarDisplayState;
+  status.className = `state-pill ${unifiedBlocker?.tone || weeklyOrchestrationTone(displayState)}`;
   const modules = Object.entries(preview.moduleStatus || {}).map(([key, moduleState]) => `<article>
     <span>${escapeHtml(weeklyOrchestrationModuleLabel(key))}</span>
     <strong>${escapeHtml(moduleState.replaceAll("_", " "))}</strong>
@@ -6143,6 +6206,7 @@ function renderWeeklyOrchestrator() {
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
   panel.innerHTML = `
+    ${unifiedBlockerBannerMarkup(unifiedBlocker, "calendar")}
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
     ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
     ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "calendar")}
@@ -10228,6 +10292,19 @@ function buildCurrentMobileCommand() {
     + scheduledMobileModules.filter((item) => item.complete).length
     + Number(Boolean(fuelTruth?.scheduled && fuelTruth.complete));
   command.progress.percent = Math.round((command.progress.completed / Math.max(1, command.progress.total)) * 100);
+  const unifiedBlocker = buildCurrentUnifiedBlocker();
+  if (unifiedBlocker) {
+    command.blocker = unifiedBlocker;
+    command.next = {
+      action: "UNIFIED_BLOCKER",
+      module: "continuity",
+      label: unifiedBlocker.primary.label,
+      detail: unifiedBlocker.detail,
+      section: "today"
+    };
+    command.sync.label = `${unifiedBlocker.stateLabel} · ${command.sync.label}`;
+    return command;
+  }
   if (truth.state !== "SECURED") {
     command.next = {
       action: "TRUTH",
@@ -10449,7 +10526,8 @@ function registerMobileServiceWorker() {
   // Build 025H training-integrity sentinel: coach-dominion:service-worker-reload:025j
   // Supersedes coach-dominion:service-worker-reload:025k after progression trials ship.
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
-  const reloadKey = "coach-dominion:service-worker-reload:025o";
+  // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
+  const reloadKey = "coach-dominion:service-worker-reload:025p";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10463,7 +10541,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025j", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025n", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=025o", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025p", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11693,7 +11772,7 @@ async function recordAtlasDailyCommandEvent(command = {}, eventType, context = {
 function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth(), model = null) {
   if (!truth || !model || typeof DominionAtlasDailyCommand === "undefined") return model;
   const context = atlasDailyCommandContext(truth.date || todayISODate());
-  return DominionAtlasDailyCommand.buildDailyCommand({
+  const command = DominionAtlasDailyCommand.buildDailyCommand({
     truth,
     model,
     day: readCommittedUnifiedDay(),
@@ -11703,6 +11782,10 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     continuityCurrent: !currentContinuityConflicts().length && readContinuityRetryQueue().length === 0,
     ...context
   });
+  const blocker = buildCurrentUnifiedBlocker();
+  return typeof DominionUnifiedBlockerResolution === "undefined"
+    ? command
+    : DominionUnifiedBlockerResolution.applyToDailyCommand(command, blocker);
 }
 
 function readActiveAdaptiveDirective(date = todayISODate()) {
@@ -13904,7 +13987,18 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     model = fallbackOneCommandModel(truth);
   }
   currentAtlasDailyCommand = model;
+  const resolutionReceipt = document.getElementById("unified-blocker-resolution-receipt");
+  const lastResolution = continuityState.lastResolution;
+  const resolutionAge = lastResolution?.resolvedAt ? Date.now() - new Date(lastResolution.resolvedAt).getTime() : Infinity;
+  const showResolutionReceipt = Boolean(lastResolution?.advance && !model.blocker && resolutionAge >= 0 && resolutionAge < 10 * 60 * 1000);
+  if (resolutionReceipt) resolutionReceipt.hidden = !showResolutionReceipt;
+  if (showResolutionReceipt) {
+    setText("unified-blocker-resolution-title", lastResolution.status === "ADVANCED" ? "Saved program reconciled" : "Choice applied on this device");
+    setText("unified-blocker-resolution-detail", lastResolution.message);
+  }
   section.dataset.commandMode = model.mode;
+  section.dataset.commandPriority = String(model.priority || 0);
+  section.dataset.unifiedBlocker = model.blocker?.code || "NONE";
   section.classList.toggle("is-secured", model.secured);
   setText("one-command-eyebrow", model.eyebrow);
   setText("one-command-heading", model.title);
@@ -14010,10 +14104,14 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     setText("program-command-status", "CHECK AGAIN");
     return;
   }
+  const unifiedBlocker = buildCurrentUnifiedBlocker();
+  const unifiedProgram = typeof DominionUnifiedBlockerResolution === "undefined"
+    ? null
+    : DominionUnifiedBlockerResolution.programView(unifiedBlocker);
   const repair = buildAtlasProgramRepairModel();
-  const repairVisible = Boolean(repair?.visible && readApprovedRecruitContract());
-  const displayStatus = repairVisible ? repair.status : model.status;
-  const displayTone = repairVisible ? atlasRepairStateTone(repair.status) : model.tone;
+  const repairVisible = Boolean(!unifiedProgram && repair?.visible && readApprovedRecruitContract());
+  const displayStatus = unifiedProgram?.status || (repairVisible ? repair.status : model.status);
+  const displayTone = unifiedProgram?.tone || (repairVisible ? atlasRepairStateTone(repair.status) : model.tone);
   const status = document.getElementById("program-command-status");
   if (status) {
     status.textContent = displayStatus.replaceAll("_", " ");
@@ -14042,8 +14140,10 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
       <div class="program-command-goal-meta"><strong>Contract ${model.goal.revision || "—"}</strong>${targetDate}</div>
     </section>
     <section class="program-command-next ${escapeHtml(displayTone)}">
-      <div><span>${!repairVisible && model.status === "ACTIVE" ? "NEXT ORDER" : "PROGRAM BLOCKER"}</span><h3>${escapeHtml(repairVisible ? repair.headline : model.next.title)}</h3><p>${escapeHtml(repairVisible ? repair.detail : model.next.detail)}</p></div>
-      ${repairVisible
+      <div><span>${unifiedProgram?.eyebrow || (!repairVisible && model.status === "ACTIVE" ? "NEXT ORDER" : "PROGRAM BLOCKER")}</span><h3>${escapeHtml(unifiedProgram?.title || (repairVisible ? repair.headline : model.next.title))}</h3><p>${escapeHtml(unifiedProgram?.detail || (repairVisible ? repair.detail : model.next.detail))}</p></div>
+      ${unifiedProgram
+        ? `<button type="button" data-unified-blocker-action="${escapeHtml(unifiedProgram.primary.action)}">${escapeHtml(unifiedProgram.primary.label)}</button>`
+        : repairVisible
         ? `<button type="button" data-program-repair-action="${escapeHtml(repair.primary.action)}">${escapeHtml(repair.primary.label)}</button>`
         : `<button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>`}
     </section>
@@ -14194,11 +14294,34 @@ async function restoreAtlasDailyCommandOrder() {
   scheduleOperatingTruthReconciliation(100);
 }
 
+async function runUnifiedBlockerAction(action = "RESOLVE_CONTINUITY") {
+  if (action === "RESOLVE_CONTINUITY") {
+    renderDominionContinuity();
+    const dialog = document.getElementById("continuity-repair-dialog");
+    if (dialog?.showModal && !dialog.open) dialog.showModal();
+    window.requestAnimationFrame(() => document.querySelector("#continuity-conflict-list button")?.focus());
+    return true;
+  }
+  if (action === "RETRY_CONTINUITY") {
+    await flushContinuityPendingWrites();
+    await syncDominionContinuity();
+    refreshContinuityConsumers();
+    renderDominionExperienceShell();
+    scheduleOperatingTruthReconciliation(100);
+    return true;
+  }
+  return false;
+}
+
 async function runOneCommandAction(button) {
   const action = button?.dataset.oneCommandAction || "REFRESH";
   const section = button?.dataset.oneCommandSection || "today";
   const moduleId = button?.dataset.oneCommandModule || "";
   recordAtlasDailyCommandEvent(currentAtlasDailyCommand || {}, "PRIMARY_ACTIVATED", { action }).catch(() => {});
+  if (["RESOLVE_CONTINUITY", "RETRY_CONTINUITY"].includes(action)) {
+    await runUnifiedBlockerAction(action);
+    return;
+  }
   if (action === "REFRESH") {
     renderDailyCoachingLoop();
     renderDominionExperienceShell();
@@ -16950,6 +17073,13 @@ if (typeof document !== "undefined") {
     renderMobileInstallExperience();
   });
   document.addEventListener("click", async (event) => {
+    const unifiedButton = event.target.closest("[data-unified-blocker-action]");
+    if (unifiedButton) {
+      unifiedButton.disabled = true;
+      try { await runUnifiedBlockerAction(unifiedButton.dataset.unifiedBlockerAction); }
+      finally { unifiedButton.disabled = false; }
+      return;
+    }
     const button = event.target.closest("[data-continuity-action]");
     if (!button) return;
     const action = button.dataset.continuityAction;
@@ -17061,6 +17191,7 @@ if (typeof document !== "undefined") {
     const action = button.dataset.mobileAction;
     if (action === "ROLL_CALL") openMobileCommandSheet("roll-call");
     if (action === "NUTRITION") openMobileCommandSheet("nutrition");
+    if (action === "UNIFIED_BLOCKER") await runUnifiedBlockerAction("RESOLVE_CONTINUITY");
     if (action === "MODULE") await launchMobileModule(button.dataset.mobileModule || "strength");
     if (action === "TRUTH") {
       const truth = buildCurrentOperatingTruth();

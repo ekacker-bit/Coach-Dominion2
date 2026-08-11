@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 025L Progression Trial
+
+- Turns every recruit-approved load increase into a visible trial on the next matching Strength workout and exact plan revision.
+- Judges the trial from recorded sets, repetitions, load, RPE, substitutions, skips, completion state, and pain without changing the plan automatically.
+- Gives the recruit three explicit outcomes: retain the progression, repeat the trial, or restore the prior target in a newer audit revision.
+- Blocks overlapping Strength revisions until the open trial is resolved and preserves every workout and verdict receipt with account-safe fallback storage.
+- Reconciles a rollback into future Calendar assignments while protecting past work and the workout that generated the verdict.
+- Shows one concise trial state across Today, Train, My Program, and Calendar with mobile-first controls.
+
 ## Unreleased - Build 025K Adaptive Calendar Handoff
 
 - Reconciles an approved load-only Strength revision into future committed Calendar assignments without moving dates or training windows.

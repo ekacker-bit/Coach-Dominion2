@@ -5778,6 +5778,7 @@ function renderWeeklyOrchestrator() {
   panel.innerHTML = `
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
     ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
+    ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "calendar")}
     ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
     <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
@@ -8309,6 +8310,10 @@ function readStrengthAdjustment() {
   return readStrengthState("ADJUSTMENT", "current", null);
 }
 
+function readStrengthProgressionTrial() {
+  return readStrengthState("TRIAL", "current", null);
+}
+
 function readStrengthSchedule() {
   return readStrengthState("SCHEDULE", "current", null);
 }
@@ -8360,6 +8365,9 @@ function readProgrammingDraft() {
 function strengthRemoteStateCoordinates(stateType, stateKey = "current") {
   if (stateType === "BLOCK") {
     return { stateType: "SCHEDULE", stateKey: `block-${stateKey}` };
+  }
+  if (stateType === "TRIAL") {
+    return { stateType: "ADJUSTMENT", stateKey: `trial-${stateKey}` };
   }
   return { stateType, stateKey };
 }
@@ -8425,6 +8433,7 @@ async function loadStrengthTrainingState() {
       ["PLAN", "current", readApprovedStrengthPlan()],
       ["HISTORY", "current", readStrengthHistory()],
       ["ADJUSTMENT", "current", readStrengthAdjustment()],
+      ["TRIAL", "current", readStrengthProgressionTrial()],
       ["SCHEDULE", "current", readStrengthSchedule()],
       ["SCHEDULE", "draft", readStrengthScheduleDraft()],
       ["WEEK_REVIEW", "current", readStrengthWeekReview()],
@@ -8648,7 +8657,7 @@ function selectedStrengthAdjustmentCodes() {
 }
 
 function currentStrengthCalendarHandoff() {
-  return readStrengthAdjustment()?.calendarHandoff || readApprovedStrengthPlan()?.lastCalendarHandoff || null;
+  return readStrengthProgressionTrial()?.calendarHandoff || readStrengthAdjustment()?.calendarHandoff || readApprovedStrengthPlan()?.lastCalendarHandoff || null;
 }
 
 function strengthCalendarHandoffMarkup(receipt = null, context = "train") {
@@ -8669,6 +8678,105 @@ function strengthCalendarHandoffMarkup(receipt = null, context = "train") {
     <div><span class="kicker">PLAN R${escapeHtml(String(receipt.planRevision || "—"))} // ${review ? "REVIEW" : rebound ? "CALENDAR SYNCED" : "READY"}</span><strong>${escapeHtml(headline)}</strong><p>${escapeHtml(detail)}</p></div>
     <span class="state-pill ${review ? "yellow" : "green"}">${review ? "REVIEW" : receipt.syncStatus === "ACCOUNT_SAVED" ? "ACCOUNT SAVED" : "DATES HELD"}</span>
   </article>`;
+}
+
+function strengthProgressionTrialTone(trial = {}) {
+  if (["RETAINED"].includes(trial.status) || trial.verdict === "RETAIN") return "green";
+  if (["ROLLED_BACK"].includes(trial.status) || trial.verdict === "ROLLBACK_RECOMMENDED") return "red";
+  return "yellow";
+}
+
+function strengthProgressionTrialMarkup(trial = null, context = "train") {
+  if (!trial || trial.type !== "STRENGTH_PROGRESSION_TRIAL") return "";
+  const tone = strengthProgressionTrialTone(trial);
+  const scheduled = ["SCHEDULED", "REPEAT_SCHEDULED"].includes(trial.status);
+  const ready = trial.status === "VERDICT_READY";
+  const headline = scheduled
+    ? `${trial.sessionName || "Strength"} progression trial`
+    : ready
+      ? trial.verdictLabel || "Trial verdict ready"
+      : trial.status === "RETAINED"
+        ? "Progression retained"
+        : "Previous targets restored";
+  const detail = scheduled
+    ? `${trial.scheduledDate ? `Scheduled ${trial.scheduledDate}. ` : "Next matching workout. "}Attempt ${trial.attempt || 1} must verify the increased target.`
+    : ready
+      ? trial.verdict === "RETAIN"
+        ? "The increased target was completed with controlled effort. Retain it or choose a more conservative outcome."
+        : trial.verdict === "REPEAT_TRIAL"
+          ? "The target was not fully verified. Repeat it, retain deliberately, or restore the prior target."
+          : "The evidence favors restoring the prior target. The final decision remains yours."
+      : trial.status === "RETAINED"
+        ? `Plan R${trial.planRevision} keeps the increased target.`
+        : `Plan R${trial.rollbackRevision || "-"} restored the pre-trial target without deleting evidence.`;
+  const rows = (ready ? trial.evidence?.decisions || [] : trial.changes || []).map((item) => {
+    const verdict = ready ? item.label : `${item.previousLoad || "Technique"} -> ${item.trialLoad || "Technique"} ${item.unit || item.trialUnit || ""}`;
+    const evidence = ready
+      ? `${item.completedSets}/${item.plannedSets} sets${item.averageRpe === null ? " · RPE missing" : ` · RPE ${item.averageRpe}`}`
+      : "Next matching exposure";
+    return `<li><div><strong>${escapeHtml(item.exerciseName || item.exerciseCode)}</strong><span>${escapeHtml(evidence)}</span></div><mark class="${escapeHtml(ready ? strengthProgressionTrialTone({ verdict: item.verdict }) : "yellow")}">${escapeHtml(verdict)}</mark></li>`;
+  }).join("");
+  const actions = ready && ["today", "train"].includes(context)
+    ? context === "today"
+      ? `<div class="strength-trial-actions"><button type="button" data-assignment-action="retain-trial">Retain</button><button type="button" class="ghost" data-assignment-action="repeat-trial">Repeat trial</button><button type="button" class="ghost danger-action" data-assignment-action="rollback-trial">Roll back</button></div>`
+      : `<div class="strength-trial-actions"><button type="button" data-programming-action="retain-trial">Retain</button><button type="button" class="ghost" data-programming-action="repeat-trial">Repeat trial</button><button type="button" class="ghost danger-action" data-programming-action="rollback-trial">Roll back</button></div>`
+    : "";
+  return `<section class="strength-progression-trial ${escapeHtml(tone)}" data-strength-progression-trial="${escapeHtml(context)}">
+    <header><div><span>BUILD 025L // PROGRESSION TRIAL</span><h3>${escapeHtml(headline)}</h3><p>${escapeHtml(detail)}</p></div><span class="state-pill ${escapeHtml(tone)}">${escapeHtml(String(trial.status || "SCHEDULED").replaceAll("_", " "))}</span></header>
+    <ul>${rows}</ul>
+    ${actions}
+  </section>`;
+}
+
+async function saveStrengthProgressionTrial(trial, receiptLabel = null) {
+  saveStrengthStateLocal("TRIAL", "current", trial);
+  const sync = await persistStrengthTrainingState("TRIAL", "current", trial);
+  if (receiptLabel) {
+    const receipt = { type: "STRENGTH_PROGRESSION_TRIAL_RECEIPT", recordedAt: new Date().toISOString(), label: receiptLabel, trial };
+    const key = `receipt-${trial.id}-${String(trial.status || receiptLabel).toLowerCase()}`;
+    saveStrengthStateLocal("TRIAL", key, receipt);
+    await persistStrengthTrainingState("TRIAL", key, receipt);
+  }
+  return sync;
+}
+
+function refreshStrengthProgressionSurfaces() {
+  renderProgrammingReview();
+  renderDailyAssignment();
+  renderDailyCoachingLoop();
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  renderProgramCommand();
+}
+
+async function resolveStrengthProgressionTrial(action) {
+  if (typeof DominionStrengthProgressionTrial === "undefined") throw new Error("Progression trial controls are temporarily unavailable.");
+  const trial = readStrengthProgressionTrial();
+  if (!trial || trial.status !== "VERDICT_READY") throw new Error("Finish the matching trial workout before resolving the progression.");
+  const resolvedAt = new Date().toISOString();
+  if (action === "retain") {
+    const retained = DominionStrengthProgressionTrial.retainTrial(trial, resolvedAt);
+    await saveStrengthProgressionTrial(retained, "RETAINED");
+    refreshStrengthProgressionSurfaces();
+    return { trial: retained, message: `Progression retained in Plan R${retained.planRevision}.` };
+  }
+  if (action === "repeat") {
+    const nextAssignment = nextStrengthAssignmentForSession(trial.sessionId, todayISODate());
+    const repeated = DominionStrengthProgressionTrial.repeatTrial(trial, nextAssignment?.date || null, resolvedAt);
+    await saveStrengthProgressionTrial(repeated, "REPEAT_SCHEDULED");
+    refreshStrengthProgressionSurfaces();
+    return { trial: repeated, message: `Trial ${repeated.attempt} scheduled${repeated.scheduledDate ? ` for ${repeated.scheduledDate}` : " for the next matching workout"}.` };
+  }
+  const previousPlan = readApprovedStrengthPlan();
+  const result = DominionStrengthProgressionTrial.rollbackTrial(previousPlan, trial, resolvedAt);
+  const calendarHandoff = await reconcileStrengthPlanRevision(previousPlan, result.plan, { id: trial.id });
+  result.plan = { ...result.plan, lastCalendarHandoff: calendarHandoff };
+  result.trial = { ...result.trial, calendarHandoff };
+  saveStrengthStateLocal("PLAN", "current", result.plan);
+  await persistStrengthTrainingState("PLAN", "current", result.plan);
+  await saveStrengthProgressionTrial(result.trial, "ROLLED_BACK");
+  refreshStrengthProgressionSurfaces();
+  return { ...result, message: `Prior targets restored in Plan R${result.plan.revision}; future calendar assignments were reconciled.` };
 }
 
 async function reconcileStrengthPlanRevision(previousPlan, nextPlan, adjustment = {}, options = {}) {
@@ -8739,6 +8847,10 @@ async function reconcileStrengthPlanRevision(previousPlan, nextPlan, adjustment 
 async function approveStrengthAdjustment(selectedExerciseCodes = null) {
   const plan = readApprovedStrengthPlan();
   const adjustment = readStrengthAdjustment();
+  const openTrial = readStrengthProgressionTrial();
+  if (typeof DominionStrengthProgressionTrial !== "undefined" && DominionStrengthProgressionTrial.isOpen(openTrial || {})) {
+    throw new Error("Resolve the active progression trial before approving another strength revision.");
+  }
   const selectionInputs = [...document.querySelectorAll("[data-adjustment-selection]")];
   const selected = Array.isArray(selectedExerciseCodes)
     ? selectedExerciseCodes
@@ -8763,6 +8875,11 @@ async function approveStrengthAdjustment(selectedExerciseCodes = null) {
   const calendarHandoff = await reconcileStrengthPlanRevision(plan, approved.plan, approved.adjustment);
   approved.plan = { ...approved.plan, lastCalendarHandoff: calendarHandoff };
   approved.adjustment = { ...approved.adjustment, calendarHandoff };
+  const trial = typeof DominionStrengthProgressionTrial === "undefined" ? null : DominionStrengthProgressionTrial.createTrial(approved.plan, approved.adjustment, {
+    createdAt: approved.adjustment.approvedAt,
+    scheduledDate: activation.scheduledDate
+  });
+  if (trial) approved.plan = { ...approved.plan, lastProgressionTrialId: trial.id };
   const revisionReceipt = {
     type: "PLAN_REVISION_ACTIVATION",
     recordedAt: approved.adjustment.approvedAt,
@@ -8777,7 +8894,8 @@ async function approveStrengthAdjustment(selectedExerciseCodes = null) {
   await persistStrengthTrainingState("PLAN", "current", approved.plan);
   await persistStrengthTrainingState("ADJUSTMENT", "current", approved.adjustment);
   await persistStrengthTrainingState("ADJUSTMENT", `receipt:${approved.adjustment.id}`, revisionReceipt);
-  return approved;
+  if (trial) await saveStrengthProgressionTrial(trial, "SCHEDULED");
+  return { ...approved, trial };
 }
 
 async function holdStrengthAdjustment() {
@@ -8836,7 +8954,8 @@ function renderStrengthAdjustment(adjustment, activePlan) {
   const activationDate = adjustment.activation?.scheduledDate;
   const canRollback = adjustment.status === "APPROVED"
     && activePlan.lastAdjustmentId === adjustment.id
-    && Number(activePlan.revision || 1) === Number(adjustment.appliedRevision || 0);
+    && Number(activePlan.revision || 1) === Number(adjustment.appliedRevision || 0)
+    && !(typeof DominionStrengthProgressionTrial !== "undefined" && DominionStrengthProgressionTrial.isOpen(readStrengthProgressionTrial() || {}));
   const terminalReceipt = adjustment.status === "APPROVED"
     ? `<div class="strength-activation-receipt"><div><span class="kicker">ACTIVATION RECEIPT</span><strong>${adjustment.summary?.appliedCount || 0} change${adjustment.summary?.appliedCount === 1 ? "" : "s"} active in plan R${adjustment.appliedRevision}</strong><p>${activationDate ? `First scheduled use: ${escapeHtml(activationDate)}.` : "Effective the next time this session appears on Today."} ${adjustment.summary?.heldCount ? `${adjustment.summary.heldCount} change held.` : ""}</p></div>${canRollback ? `<button type="button" class="ghost" data-programming-action="rollback-adjustment">Undo activation</button>` : ""}</div>${strengthCalendarHandoffMarkup(adjustment.calendarHandoff, "train")}`
     : adjustment.status === "ROLLED_BACK"
@@ -9226,6 +9345,7 @@ function renderProgrammingReview() {
   const profile = readStrengthProfile();
   const activePlan = readApprovedStrengthPlan();
   const adjustment = readStrengthAdjustment();
+  const progressionTrial = readStrengthProgressionTrial();
   const savedDraft = readStrengthDraft();
   const preview = savedDraft || DominionStrengthTraining.buildStrengthProgram(profile, performanceEntries, {
     startDate: todayISODate(),
@@ -9235,7 +9355,7 @@ function renderProgrammingReview() {
   const history = readStrengthHistory().slice(0, 3);
   const anchored = displayedPlan.sessions.flatMap((item) => item.exercises).filter((item) => item.evidenceCount > 0).length;
   const total = displayedPlan.sessions.reduce((sum, item) => sum + item.exercises.length, 0);
-  setText("programming-status", savedDraft ? "DRAFT REVIEW" : adjustment?.status === "PENDING" ? "REVIEW READY" : activePlan ? "ACTIVE" : "APPROVAL NEEDED");
+  setText("programming-status", savedDraft ? "DRAFT REVIEW" : progressionTrial?.status === "VERDICT_READY" ? "TRIAL VERDICT" : adjustment?.status === "PENDING" ? "REVIEW READY" : activePlan ? "ACTIVE" : "APPROVAL NEEDED");
   const badge = document.getElementById("programming-status");
   if (badge) badge.className = `state-pill ${savedDraft || adjustment?.status === "PENDING" ? "yellow" : activePlan ? "green" : "yellow"}`;
   panel.innerHTML = `<div class="strength-programming-panel">
@@ -9293,6 +9413,7 @@ function renderProgrammingReview() {
     ${renderStrengthBlock(activePlan)}
     ${renderStrengthSchedule(activePlan)}
     ${renderStrengthWeekReview(activePlan)}
+    ${strengthProgressionTrialMarkup(progressionTrial, "train")}
     ${renderStrengthAdjustment(adjustment, activePlan)}
     ${history.length ? `<div class="strength-history"><h4>Recent strength sessions</h4>${history.map((item) => `<article><strong>${escapeHtml(item.sessionName || "Strength session")}</strong><span class="state-pill ${item.state === "COMPLETE" ? "green" : item.state === "STOPPED" ? "red" : "yellow"}">${escapeHtml(item.state)}</span><p>${item.summary?.setsCompleted || 0}/${item.summary?.setsPlanned || 0} sets · ${escapeHtml(item.date || "")}</p></article>`).join("")}</div>` : ""}
   </div>`;
@@ -9952,8 +10073,9 @@ async function requestMobileInstall() {
 
 function registerMobileServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  // Supersedes coach-dominion:service-worker-reload:025j after the calendar handoff ships.
-  const reloadKey = "coach-dominion:service-worker-reload:025k";
+  // Build 025H training-integrity sentinel: coach-dominion:service-worker-reload:025j
+  // Supersedes coach-dominion:service-worker-reload:025k after progression trials ship.
+  const reloadKey = "coach-dominion:service-worker-reload:025l";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -9965,7 +10087,8 @@ function registerMobileServiceWorker() {
     window.location.reload();
   });
   // Prior shell signature retained for release audit: register("/sw.js?v=025j", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=025k", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=025l", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -9996,9 +10119,18 @@ async function preserveStrengthWorkout(execution) {
     .slice(0, 52);
   saveStrengthStateLocal("HISTORY", "current", history);
   await persistStrengthTrainingState("HISTORY", "current", history);
+  let trial = readStrengthProgressionTrial();
+  if (trial && typeof DominionStrengthProgressionTrial !== "undefined") {
+    const evaluated = DominionStrengthProgressionTrial.evaluateTrial(trial, execution, { evaluatedAt: execution.completedAt || new Date().toISOString() });
+    if (evaluated.status === "VERDICT_READY" && trial.status !== "VERDICT_READY") {
+      trial = evaluated;
+      await saveStrengthProgressionTrial(trial, "VERDICT_READY");
+    }
+  }
   const plan = readApprovedStrengthPlan();
   const existing = readStrengthAdjustment();
-  if (plan && existing?.sourceExecutionId !== execution.id) {
+  const trialOpen = typeof DominionStrengthProgressionTrial !== "undefined" && DominionStrengthProgressionTrial.isOpen(trial || {});
+  if (plan && !trialOpen && existing?.sourceExecutionId !== execution.id) {
     const adjustment = DominionStrengthTraining.buildAdjustmentProposal(plan, history, { createdAt: new Date().toISOString() });
     if (adjustment) {
       saveStrengthStateLocal("ADJUSTMENT", "current", adjustment);
@@ -10250,7 +10382,7 @@ function renderDailyAssignment() {
         : terminal
           ? `${["STOPPED", "PARTIAL"].includes(execution.state) ? `<button type="button" data-assignment-action="restart">Restart as attempt ${(execution.attempt || 1) + 1}</button>` : ""}<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
           : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
-  panel.innerHTML = `${playerMarkup}<div class="daily-assignment-summary">
+  panel.innerHTML = `${playerMarkup}${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "today")}<div class="daily-assignment-summary">
       <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Plan</span><strong>${assignment.planRevision ? `R${assignment.planRevision}` : "—"}</strong>${assignment.adjustmentActivation ? `<small>Earned targets active</small>` : ""}</div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>${blockContext ? `<div><span>Training block</span><strong>${escapeHtml(blockContext.label)}</strong></div>` : ""}
     </div>
     ${blockContext ? `<article class="connected-notice"><strong>${escapeHtml(blockContext.phase?.label || "Block phase")}:</strong> ${escapeHtml(blockContext.phase?.detail || "")} ${escapeHtml(blockContext.loadRule || "")}</article>` : ""}
@@ -13444,6 +13576,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
         : `<button type="button" data-program-route="${escapeHtml(model.next.section)}" data-program-module="${escapeHtml(model.next.module || "")}">${escapeHtml(model.next.label)}</button>`}
     </section>
     ${strengthCalendarHandoffMarkup(programHandoff, "program")}
+    ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "program")}
     ${autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>WEEK REVIEW</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div>${weeklyEvidence}</section>` : ""}
     <section class="program-command-week" aria-label="Current week summary">
       <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
@@ -17997,6 +18130,16 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-programming-action]");
     if (!button) return;
     const action = button.dataset.programmingAction;
+    if (["retain-trial", "repeat-trial", "rollback-trial"].includes(action)) {
+      if (action === "rollback-trial" && !window.confirm("Restore the pre-trial targets in a new plan revision? The workout evidence will remain intact.")) return;
+      try {
+        const result = await resolveStrengthProgressionTrial(action.replace("-trial", ""));
+        setText("programming-feedback", result.message);
+      } catch (error) {
+        setText("programming-feedback", error?.message || "The progression trial could not be resolved.");
+      }
+      return;
+    }
     if (action === "train-session") {
       await launchApprovedStrengthSession(button.dataset.sessionId);
       return;
@@ -18050,6 +18193,7 @@ if (typeof document !== "undefined") {
       await persistStrengthTrainingState("PLAN", "current", approved);
       await clearStrengthTrainingState("DRAFT", "current");
       await clearStrengthTrainingState("ADJUSTMENT", "current");
+      await clearStrengthTrainingState("TRIAL", "current");
       await clearStrengthTrainingState("SCHEDULE", "current");
       await clearStrengthTrainingState("SCHEDULE", "draft");
       await clearStrengthTrainingState("WEEK_REVIEW", "current");
@@ -18391,6 +18535,16 @@ if (typeof document !== "undefined") {
     const action = button.dataset.assignmentAction;
     const assignment = buildCurrentDailyAssignment();
     let execution = readDailyAssignmentExecution();
+    if (["retain-trial", "repeat-trial", "rollback-trial"].includes(action)) {
+      if (action === "rollback-trial" && !window.confirm("Restore the pre-trial targets in a new plan revision? The workout evidence will remain intact.")) return;
+      try {
+        const result = await resolveStrengthProgressionTrial(action.replace("-trial", ""));
+        setText("daily-assignment-feedback", result.message);
+      } catch (error) {
+        setText("daily-assignment-feedback", error?.message || "The progression trial could not be resolved.");
+      }
+      return;
+    }
     if (action === "start" && assignment?.exercises.length) {
       execution = DominionStrengthTraining.startWorkout(execution, currentStrengthPrescription(), new Date().toISOString());
       await saveDailyAssignmentExecution(execution);

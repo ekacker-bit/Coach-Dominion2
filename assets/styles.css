@@ -9398,3 +9398,47 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .atlas-command-adjustment-shell > header h2 { font-size: 36px; }
   .atlas-command-adjustment-choice { grid-template-columns: 1fr; gap: 7px; }
 }
+
+/* Build 025P: unified blocker resolution */
+.one-command[data-unified-blocker="CONTINUITY_CHOICE"] {
+  border-color: rgba(185, 68, 68, 0.7);
+  box-shadow: inset 4px 0 0 var(--red), 0 20px 60px rgba(0, 0, 0, 0.22);
+}
+
+.unified-blocker-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(185, 68, 68, 0.62);
+  background: linear-gradient(135deg, rgba(185, 68, 68, 0.14), rgba(10, 10, 10, 0.92));
+}
+
+.unified-blocker-banner > div { display: grid; gap: 7px; }
+.unified-blocker-banner span,
+.unified-blocker-resolution-receipt > span {
+  color: var(--victory-gold);
+  font-family: var(--font-command);
+  font-size: 13px;
+  letter-spacing: 0.13em;
+}
+.unified-blocker-banner strong { font-size: clamp(24px, 4vw, 35px); line-height: 1; }
+.unified-blocker-banner p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.55; }
+
+.unified-blocker-resolution-receipt {
+  display: grid;
+  gap: 5px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(114, 169, 127, 0.5);
+  background: rgba(114, 169, 127, 0.08);
+}
+.unified-blocker-resolution-receipt[hidden] { display: none; }
+.unified-blocker-resolution-receipt strong { font-size: 18px; }
+.unified-blocker-resolution-receipt p { margin: 0; color: var(--muted); line-height: 1.5; }
+
+@media (max-width: 760px) {
+  .unified-blocker-banner { grid-template-columns: 1fr; }
+  .unified-blocker-banner button { width: 100%; }
+}

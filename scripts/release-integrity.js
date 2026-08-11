@@ -12,6 +12,7 @@ const strength = read("assets/js/strength-training.js");
 const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
+const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -133,6 +134,12 @@ check("025O Daily Command engine", dailyCommand.includes('const VERSION = "025O.
 check("025O Daily Command integration", html.includes('/assets/js/atlas-daily-command.js?v=025o') && html.includes('id="atlas-command-adjustment-dialog"') && app.includes("buildCurrentAtlasDailyCommand") && app.includes("applyAtlasDailyCommandAdjustment"), "025O Daily Command is not connected end to end");
 check("025O Daily Command persistence", app.includes('atlasDailyCommandStateKey') && app.includes('"HISTORY", "atlas-daily-command"') && app.includes("responseDirective"), "025O command response or event persistence is missing");
 check("025O Daily Command cache", worker.includes('/assets/js/atlas-daily-command.js?v=025o') && worker.includes("025n-025o"), "025O assets are stale or uncached");
+check("025P unified blocker engine", unifiedBlocker.includes('const VERSION = "025P.1"') && unifiedBlocker.includes("function buildBlocker") && unifiedBlocker.includes("function applyToDailyCommand") && unifiedBlocker.includes("function resolutionOutcome"), "025P unified blocker engine is incomplete");
+check("025P canonical command", app.includes("buildCurrentUnifiedBlocker") && app.includes("DominionUnifiedBlockerResolution.applyToDailyCommand") && unifiedBlocker.includes('action: "RESOLVE_CONTINUITY"'), "025P blocker is not the canonical Today command");
+check("025P cross-surface blocker", app.includes("unifiedBlockerBannerMarkup") && app.includes("DominionUnifiedBlockerResolution.programView") && app.includes('action: "UNIFIED_BLOCKER"'), "025P blocker is not shared by Program, Calendar, and mobile");
+check("025P automatic advancement", app.includes("completeContinuityResolution") && app.includes("lastResolution") && html.includes('id="unified-blocker-resolution-receipt"'), "025P does not advance after a saved-program choice");
+check("025P responsive shell", html.includes('/assets/js/unified-blocker-resolution.js?v=025p') && html.includes('styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p') && css.includes(".unified-blocker-banner"), "025P responsive command shell is incomplete");
+check("025P cache", worker.includes('/assets/js/unified-blocker-resolution.js?v=025p') && worker.includes("025o-025p"), "025P assets are stale or uncached");
 check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
 check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

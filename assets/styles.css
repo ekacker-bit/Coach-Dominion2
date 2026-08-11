@@ -3620,6 +3620,84 @@ textarea { max-width: 100%; }
   .trend-empty-action { align-items: flex-start; flex-direction: column; }
 }
 
+/* Build 025M: outcome intelligence and comparable program statistics. */
+.trend-command .trend-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.trend-scorecard { min-height: 178px; }
+.trend-scorecard header em {
+  color: var(--stone);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-align: right;
+}
+.trend-scorecard > small { overflow: visible; line-height: 1.4; text-overflow: initial; white-space: normal; }
+.trend-scorecard > footer {
+  align-self: end;
+  margin-top: 13px;
+  color: var(--dim);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.trend-focus-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+.trend-focus-summary div { display: grid; gap: 5px; padding: 14px 16px; background: rgba(10, 10, 10, 0.88); }
+.trend-focus-summary span,
+.trend-pane-command > span {
+  color: var(--victory-gold);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.trend-focus-summary strong { font-size: 11px; line-height: 1.35; }
+.trend-pane-command {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 22px 24px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 10px;
+  background: linear-gradient(110deg, rgba(212, 175, 55, 0.09), rgba(46, 75, 52, 0.12) 58%, rgba(10, 10, 10, 0.88));
+}
+.trend-pane-command::before { position: absolute; inset: 0 auto 0 0; width: 3px; content: ""; background: var(--victory-gold); }
+.trend-pane-command > strong { position: absolute; top: 20px; right: 22px; color: var(--victory-gold); font: 24px/1 var(--font-command); letter-spacing: 0.04em; }
+.trend-pane-command h3 { max-width: 72%; margin: 4px 0 0; font-size: clamp(28px, 4vw, 43px); line-height: 0.98; }
+.trend-pane-command p { max-width: 720px; margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.trend-detail-grid.trend-detail-grid-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.trend-detail-grid article { gap: 7px; }
+.trend-detail-grid article > em { align-self: end; color: var(--dim); font-size: 8px; font-style: normal; line-height: 1.35; text-transform: uppercase; }
+.trend-fuel-focus { margin-top: 10px; }
+
+@media (max-width: 1120px) {
+  .trend-command .trend-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .trend-command .trend-kpi-grid,
+  .trend-detail-grid.trend-detail-grid-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trend-pane-command > strong { position: static; }
+  .trend-pane-command h3 { max-width: 100%; }
+}
+
+@media (max-width: 460px) {
+  .trend-command .trend-kpi-grid,
+  .trend-detail-grid.trend-detail-grid-wide,
+  .trend-focus-summary { grid-template-columns: 1fr; }
+  .trend-scorecard { min-height: 152px; }
+}
+
 /* Build 021K: body-composition outcome loop. */
 .body-outcome-command,
 .body-measurement-panel,

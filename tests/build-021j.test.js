@@ -15,7 +15,7 @@ assert.match(appHtml, /data-trend-view="recovery"/);
 assert.match(appHtml, /data-trend-view="body"/);
 assert.match(appHtml, /id="trend-kpi-grid"/);
 assert.match(appHtml, /id="trend-evidence-ring"/);
-assert.match(appHtml, /trends-intelligence\.js\?v=021m/);
+assert.match(appHtml, /trends-intelligence\.js\?v=(?:021m|025m)/);
 assert.match(appHtml, /styles\.css\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[abc])))/);
 assert.match(appHtml, /app\.js\?v=(?:022[b-g]|(?:023[abcdef]|(?:024[abcdefghijklmn]|025[abc])))/);
 assert.doesNotMatch(appHtml, /Atlas Trend Report/);
@@ -30,7 +30,7 @@ assert.ok(appJs.indexOf('runStartupTask("Connected Dominion", loadConnectedDomin
 assert.match(styles, /Build 021J: operational, word-light program trends/);
 assert.match(styles, /\.trend-kpi-grid/);
 assert.match(styles, /\.trend-body-focus/);
-assert.match(moduleSource, /const VERSION = "021M\.1"/);
+assert.match(moduleSource, /const VERSION = "(?:021M|025M)\.1"/);
 assert.doesNotMatch(moduleSource, /<svg/i);
 
 console.log("Build 021J integration tests passed");

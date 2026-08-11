@@ -6,6 +6,8 @@ Build 025A closes the weekly coaching loop. Atlas waits until the current week h
 
 Build 025L closes the progression trial. An approved load increase must be attempted in the next matching Strength workout on the exact plan revision; Atlas then uses recorded load, repetitions, sets, RPE, modifications, and pain to recommend retain, repeat, or rollback. The recruit resolves the verdict explicitly, and rollback restores the prior target in a newer plan and Calendar audit revision without deleting workout evidence.
 
+Build 025M turns Trends into outcome intelligence. Execution, Training, Recovery, Fuel, and Body now use equal-window comparisons, visible evidence thresholds, and domain-specific statistics. Atlas highlights one win, one constraint, and one next action without treating correlation as proof or incomplete logging as failure.
+
 ## Release status
 
 The latest completed release is **Release 0.3.1 — Atlas Morning Brief**. Builds 004C through 005D are unreleased work and do not mark Release 0.4 or Release 0.5 complete. Release history is recorded in [CHANGELOG.md](CHANGELOG.md).

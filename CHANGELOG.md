@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 025M Outcome Intelligence
+
+- Rebuilds Trends as a five-domain outcome board for Execution, Training, Recovery, Fuel, and Body instead of a disconnected KPI sampler.
+- Compares every selected 4-, 8-, or 12-week window with an equal prior window while keeping incomplete evidence explicit.
+- Adds verified Strength work sets, workload, completion, effort, and safety flags plus Running distance and pace and Core session minutes.
+- Adds seven-day Energy, Sleep, Resting HR, and HRV comparisons with bounded recovery guardrails.
+- Separates Fuel adherence from logging coverage and removes contradictory target and prior-evidence messages.
+- Adds smoothed weight context, dedicated domain views, stronger visual hierarchy, and one Atlas win, watch item, and next action.
+- Ships a fresh offline shell and responsive phone layout for the upgraded Trends workspace.
+
 ## Unreleased - Build 025L Progression Trial
 
 - Turns every recruit-approved load increase into a visible trial on the next matching Strength workout and exact plan revision.

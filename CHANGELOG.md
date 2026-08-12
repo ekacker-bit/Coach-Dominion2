@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 025R Running Verdict
+
+- Replaces one-tap run completion that copied the prescription into evidence with a required actual-distance and elapsed-time review.
+- Captures optional effort, average heart rate, elevation, and context from both Today and the Running workspace.
+- Preserves the approved run prescription while storing the observed result separately in the execution receipt.
+- Gives Atlas a bounded completed, partial, exceeded, effort-review, or pain verdict without silently changing the running plan.
+- Writes one canonical Performance record from actual run metrics so Running, Trends, weekly evidence, and Today reconcile to the same truth.
+- Applies the same verdict to manual runs counted toward today and avoids duplicate Performance evidence.
+- Ships a responsive result form, verdict card, and refreshed offline application shell.
+
 ## Unreleased - Build 025Q Earn Entry
 
 - Rebuilds sign-in as a branded Dominion entry ritual centered on discipline, evidence, difficulty, and the next order while preserving password and secure-link access.

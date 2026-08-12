@@ -3,39 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Coach Dominion — Login</title>
-  <link rel="stylesheet" href="/assets/styles.css">
+  <meta name="theme-color" content="#080a08">
+  <title>Coach Dominion — Earn Entry</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=025q">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-  <div class="auth">
-    <section class="card auth-card">
-      <div class="kicker">COACH DOMINION</div>
-      <h1>Enter the War Room</h1>
-      <p class="muted">Use your password for immediate access. Magic link remains available as a fallback.</p>
+<body class="auth-page">
+  <main class="entry-shell">
+    <section class="entry-manifesto" aria-labelledby="entry-title">
+      <div class="entry-brand-lockup">
+        <span class="entry-brand-mark"><img src="/assets/icons/dominion-mark.svg" alt=""></span>
+        <div><span>DOMINION // CLOSED ALPHA</span><strong>COACH DOMINION</strong></div>
+      </div>
 
-      <form id="password-form">
-        <label>Email
-          <input id="password-email" type="email" autocomplete="email" required placeholder="you@example.com">
-        </label>
-        <label>Password
-          <input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Your password">
-        </label>
-        <button id="password-submit" type="submit">Sign in with Password</button>
-      </form>
+      <div class="entry-hero-copy">
+        <span class="entry-sequence">DISCIPLINE  /  EVIDENCE  /  ASCENSION</span>
+        <h1 id="entry-title">THE STANDARD<br><em>IS EARNED.</em></h1>
+        <p>Coach Dominion does not reward intention. It records the work, exposes the gap, and issues the next order.</p>
+      </div>
 
-      <p class="muted" style="margin-top:18px">—or—</p>
+      <ol class="entry-code" aria-label="The Dominion code">
+        <li><span>01</span><strong>Report honestly.</strong><small>The coach can only command from evidence.</small></li>
+        <li><span>02</span><strong>Finish what you start.</strong><small>Every session closes with proof.</small></li>
+        <li><span>03</span><strong>Recover with intent.</strong><small>Restraint protects the next advance.</small></li>
+        <li><span>04</span><strong>Return tomorrow.</strong><small>Consistency is the price of ascension.</small></li>
+      </ol>
 
-      <form id="magic-link-form">
-        <label>Email
-          <input id="magic-email" type="email" autocomplete="email" required placeholder="you@example.com">
-        </label>
-        <button id="magic-submit" class="ghost" type="submit">Send Magic Link</button>
-      </form>
-
-      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <blockquote>Difficulty is not a defect.<br><strong>It is the method.</strong></blockquote>
     </section>
-  </div>
+
+    <section class="entry-access" aria-labelledby="access-title">
+      <div class="entry-access-header">
+        <span class="kicker">AUTHORIZED RECRUITS</span>
+        <h2 id="access-title">Resume the mission.</h2>
+        <p>Your Contract, program, evidence, and next order are waiting.</p>
+      </div>
+
+      <form id="password-form" class="entry-form">
+        <label for="password-email">Email
+          <input id="password-email" type="email" inputmode="email" autocomplete="email" required placeholder="recruit@example.com">
+        </label>
+        <label for="password">Password
+          <span class="entry-password-control">
+            <input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Your password">
+            <button id="password-visibility" class="entry-password-toggle" type="button" aria-pressed="false">Show</button>
+          </span>
+        </label>
+        <button id="password-submit" class="entry-submit" type="submit"><span>Enter the command center</span><b aria-hidden="true">→</b></button>
+      </form>
+
+      <p id="status" class="entry-status" role="status" aria-live="polite"></p>
+
+      <details class="entry-recovery">
+        <summary>Cannot access your password?</summary>
+        <form id="magic-link-form">
+          <p>We will send one secure entry link. No password required.</p>
+          <label for="magic-email">Email
+            <input id="magic-email" type="email" inputmode="email" autocomplete="email" required placeholder="recruit@example.com">
+          </label>
+          <button id="magic-submit" class="ghost" type="submit">Send secure link</button>
+        </form>
+      </details>
+
+      <footer class="entry-access-footer"><span>COACH DOMINION</span><small>Build discipline. Earn the standard. Ascend.</small></footer>
+    </section>
+  </main>
 
 <script>
 let client;
@@ -44,70 +76,98 @@ async function getClient() {
   if (client) return client;
   const response = await fetch("/api/config");
   const config = await response.json();
-  if (!config.ok) throw new Error(config.error || "Configuration unavailable.");
+  if (!config.ok) throw new Error(config.error || "The command center is temporarily unavailable.");
   client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
   return client;
 }
 
-function setStatus(message) {
-  document.getElementById("status").textContent = message || "";
+function entryError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  if (message.includes("invalid login")) return "That email and password did not match. Check both and try again.";
+  if (message.includes("email not confirmed")) return "Confirm your email before entering the command center.";
+  if (message.includes("rate") || message.includes("too many")) return "Too many attempts. Hold position for a moment, then try again.";
+  if (message.includes("fetch") || message.includes("network")) return "The command center could not be reached. Check your connection and try again.";
+  return error?.message || "Entry failed. Try again or request a secure link.";
+}
+
+function setStatus(message, tone = "neutral") {
+  const status = document.getElementById("status");
+  status.textContent = message || "";
+  status.dataset.tone = message ? tone : "neutral";
 }
 
 function setButtonState(button, isLoading, loadingText, idleText) {
   button.disabled = isLoading;
-  button.textContent = isLoading ? loadingText : idleText;
+  button.classList.toggle("is-loading", isLoading);
+  button.querySelector("span") ? button.querySelector("span").textContent = isLoading ? loadingText : idleText : button.textContent = isLoading ? loadingText : idleText;
 }
 
 (async () => {
   try {
+    setStatus("Checking your authorization…", "working");
     const supabase = await getClient();
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
-    if (data.session) window.location.replace("/app");
+    if (data.session) {
+      setStatus("Authorization confirmed. Restoring your command center…", "success");
+      window.location.replace("/app#today");
+      return;
+    }
+    setStatus("");
   } catch (error) {
-    setStatus(error.message);
+    setStatus(entryError(error), "error");
   }
 })();
+
+document.getElementById("password-visibility").addEventListener("click", (event) => {
+  const password = document.getElementById("password");
+  const reveal = password.type === "password";
+  password.type = reveal ? "text" : "password";
+  event.currentTarget.textContent = reveal ? "Hide" : "Show";
+  event.currentTarget.setAttribute("aria-pressed", reveal ? "true" : "false");
+});
+
+document.querySelector(".entry-recovery").addEventListener("toggle", (event) => {
+  if (!event.currentTarget.open) return;
+  const primaryEmail = document.getElementById("password-email").value.trim();
+  const magicEmail = document.getElementById("magic-email");
+  if (primaryEmail && !magicEmail.value) magicEmail.value = primaryEmail;
+});
 
 document.getElementById("password-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = document.getElementById("password-submit");
-  setButtonState(button, true, "Signing in…", "Sign in with Password");
-  setStatus("");
-
+  setButtonState(button, true, "Verifying recruit", "Enter the command center");
+  setStatus("Verifying authorization…", "working");
   try {
     const supabase = await getClient();
     const email = document.getElementById("password-email").value.trim();
     const password = document.getElementById("password").value;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    window.location.replace("/app");
+    setStatus("Authorization confirmed. Your next order is loading…", "success");
+    window.location.replace("/app#today");
   } catch (error) {
-    setStatus(error.message);
-  } finally {
-    setButtonState(button, false, "Signing in…", "Sign in with Password");
+    setStatus(entryError(error), "error");
+    setButtonState(button, false, "Verifying recruit", "Enter the command center");
   }
 });
 
 document.getElementById("magic-link-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = document.getElementById("magic-submit");
-  setButtonState(button, true, "Sending…", "Send Magic Link");
-  setStatus("");
-
+  setButtonState(button, true, "Sending secure link…", "Send secure link");
+  setStatus("Preparing secure entry…", "working");
   try {
     const supabase = await getClient();
     const email = document.getElementById("magic-email").value.trim();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + "/app" }
-    });
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + "/app#today" } });
     if (error) throw error;
-    setStatus("Magic link sent. Check your email.");
+    setStatus("Secure link sent. Check your email to resume the mission.", "success");
   } catch (error) {
-    setStatus(error.message);
+    setStatus(entryError(error), "error");
   } finally {
-    setButtonState(button, false, "Sending…", "Send Magic Link");
+    setButtonState(button, false, "Sending secure link…", "Send secure link");
   }
 });
 </script>

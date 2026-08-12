@@ -71,6 +71,27 @@ test("a signed amendment carries First Week Orientation forward", () => {
   assert.equal(rebased.completedAt, complete.completedAt);
 });
 
+test("completed orientation survives a new Contract identity without replaying Week One", () => {
+  const original = contract();
+  const rhythm = orientation.transition(orientation.createOrientation(original), "ACKNOWLEDGE_RHYTHM", {}, { now: "2026-08-01T10:00:00.000Z" });
+  const baseline = orientation.transition(rhythm, "ACKNOWLEDGE_BASELINE", {}, { now: "2026-08-01T10:01:00.000Z" });
+  const complete = orientation.transition(baseline, "COMPLETE", {}, { now: "2026-08-01T10:02:00.000Z" });
+  const replacement = contract({ id: "contract-25q-r9", revision: 9, trainingYears: 12 });
+  const restored = orientation.normalizeOrientation(complete, replacement, { today: "2026-08-11", updatedAt: "2026-08-11T12:00:00.000Z" });
+  assert.equal(restored.status, "COMPLETE");
+  assert.equal(restored.contractId, replacement.id);
+  assert.equal(restored.contractRevision, 9);
+  assert.equal(restored.completedAt, complete.completedAt);
+  assert.equal(restored.completionReceipt.originalContractId, original.id);
+});
+
+test("a completed receipt outranks a newer incomplete device or account copy", () => {
+  const completed = { status: "COMPLETE", currentStep: 3, completedAt: "2026-08-01T10:02:00.000Z", updatedAt: "2026-08-01T10:02:00.000Z" };
+  const newerIncomplete = { status: "IN_PROGRESS", currentStep: 1, completedAt: null, updatedAt: "2026-08-11T10:02:00.000Z" };
+  assert.equal(orientation.selectCanonicalOrientation(completed, newerIncomplete), completed);
+  assert.equal(orientation.selectCanonicalOrientation(newerIncomplete, completed), completed);
+});
+
 test("Atlas receives a baseline hold and age-aware guardrail", () => {
   const state = orientation.createOrientation(contract({ age: 57 }), { today: "2026-08-01" });
   const context = orientation.atlasProfileContext(state.profile, state);

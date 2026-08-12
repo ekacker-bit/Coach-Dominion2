@@ -9442,3 +9442,200 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .unified-blocker-banner { grid-template-columns: 1fr; }
   .unified-blocker-banner button { width: 100%; }
 }
+/* Build 025Q // Earn Entry, durable orientation, and manual running evidence. */
+.auth-page {
+  --entry-black: #080a08;
+  --entry-ink: #0e120f;
+  --entry-gold: #d4af37;
+  --entry-stone: #e6e6e4;
+  --entry-green: #2e4b34;
+  min-height: 100vh;
+  background: var(--entry-black);
+  color: var(--entry-stone);
+}
+
+.entry-shell {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(390px, 0.65fr);
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, transparent 0 66%, rgba(212, 175, 55, 0.08) 66% 66.1%, transparent 66.1%),
+    radial-gradient(circle at 20% 18%, rgba(212, 175, 55, 0.08), transparent 28%),
+    #080a08;
+}
+
+.entry-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.18;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(118deg, transparent 0 28px, rgba(255, 255, 255, 0.025) 29px 30px), repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, 0.45) 4px);
+  mix-blend-mode: screen;
+}
+
+.entry-manifesto {
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  gap: clamp(30px, 5vh, 64px);
+  min-height: 100vh;
+  padding: clamp(28px, 5vw, 76px) clamp(28px, 7vw, 106px);
+  border-right: 1px solid rgba(212, 175, 55, 0.28);
+  background:
+    linear-gradient(145deg, rgba(46, 75, 52, 0.28), transparent 48%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.52));
+}
+
+.entry-manifesto::after {
+  content: "CD";
+  position: absolute;
+  right: -0.08em;
+  bottom: -0.23em;
+  z-index: -1;
+  color: rgba(212, 175, 55, 0.035);
+  font: 34vw/0.8 var(--font-command, "Bebas Neue", Impact, sans-serif);
+  letter-spacing: -0.08em;
+}
+
+.entry-brand-lockup { display: flex; align-items: center; gap: 16px; }
+.entry-brand-mark { display: grid; place-items: center; width: 66px; height: 54px; border: 1px solid rgba(212, 175, 55, 0.54); background: rgba(0, 0, 0, 0.45); }
+.entry-brand-mark img { display: block; width: 56px; height: 45px; object-fit: contain; }
+.entry-brand-lockup > div { display: grid; gap: 2px; padding-left: 16px; border-left: 1px solid rgba(230, 230, 228, 0.2); }
+.entry-brand-lockup span,.entry-sequence { color: var(--entry-gold); font: 16px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.14em; }
+.entry-brand-lockup strong { color: var(--entry-stone); font: 29px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.055em; }
+
+.entry-hero-copy { max-width: 780px; }
+.entry-hero-copy h1 { margin: 16px 0 24px; color: var(--entry-stone); font: clamp(72px, 9.2vw, 152px)/0.78 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.015em; text-transform: uppercase; text-wrap: balance; }
+.entry-hero-copy h1 em { color: var(--entry-gold); font-style: normal; }
+.entry-hero-copy p { max-width: 660px; margin: 0; color: #b9bdb9; font-size: clamp(16px, 1.25vw, 20px); line-height: 1.62; }
+
+.entry-code { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 1px; list-style: none; background: rgba(230, 230, 228, 0.14); }
+.entry-code li { display: grid; align-content: start; min-height: 130px; padding: 18px; background: rgba(8, 10, 8, 0.92); }
+.entry-code span { color: var(--entry-gold); font: 18px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.08em; }
+.entry-code strong { margin-top: 18px; color: var(--entry-stone); font-size: 14px; }
+.entry-code small { margin-top: 5px; color: #8e948f; font-size: 11px; line-height: 1.45; }
+.entry-manifesto blockquote { margin: 0; padding: 0 0 0 18px; border-left: 3px solid var(--entry-gold); color: #9fa49f; font: 18px/1.35 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.08em; text-transform: uppercase; }
+.entry-manifesto blockquote strong { color: var(--entry-stone); font-weight: 400; }
+
+.entry-access {
+  position: relative;
+  display: grid;
+  align-content: center;
+  width: min(100%, 560px);
+  min-height: 100vh;
+  padding: clamp(30px, 5vw, 76px);
+  background: linear-gradient(180deg, rgba(18, 20, 18, 0.96), rgba(8, 10, 8, 0.98));
+  box-shadow: -30px 0 80px rgba(0, 0, 0, 0.38);
+}
+.entry-access::before { content: "SECURE ENTRY"; position: absolute; top: 20px; right: 20px; color: rgba(212, 175, 55, 0.38); font: 12px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.17em; }
+.entry-access-header .kicker { color: var(--entry-gold); }
+.entry-access-header h2 { margin: 12px 0 8px; color: var(--entry-stone); font: clamp(44px, 5vw, 68px)/0.9 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.025em; text-transform: uppercase; }
+.entry-access-header p { max-width: 400px; margin: 0; color: #929992; line-height: 1.55; }
+.entry-form { gap: 18px; margin-top: 34px; }
+.entry-form label,.entry-recovery label { gap: 8px; color: #b5bab5; font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.entry-form input,.entry-recovery input { width: 100%; min-height: 54px; border: 1px solid rgba(230, 230, 228, 0.18); border-radius: 2px; background: rgba(0, 0, 0, 0.32); color: var(--entry-stone); font-size: 16px; }
+.entry-form input:focus,.entry-recovery input:focus { border-color: var(--entry-gold); box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1); outline: none; }
+.entry-password-control { position: relative; display: block; }
+.entry-password-control input { padding-right: 70px; }
+.entry-password-toggle { position: absolute; top: 50%; right: 7px; min-height: 38px; padding: 8px 11px; transform: translateY(-50%); border: 0; background: transparent; color: var(--entry-gold); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.entry-password-toggle:hover { transform: translateY(-50%); box-shadow: none; }
+.entry-submit { display: flex; align-items: center; justify-content: space-between; min-height: 58px; margin-top: 4px; padding: 14px 18px; border: 1px solid #f0ce55; border-radius: 1px; background: linear-gradient(110deg, #b78e1d, #e5c449); color: #090a08; font: 19px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.08em; text-transform: uppercase; box-shadow: 0 14px 34px rgba(212, 175, 55, 0.12); }
+.entry-submit b { font: 28px/1 sans-serif; }
+.entry-submit.is-loading { background: linear-gradient(110deg, #725e27, #a8903f); }
+.entry-status { min-height: 24px; margin: 16px 0 0; color: #9aa09a; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.entry-status[data-tone="error"] { color: #ef8383; }
+.entry-status[data-tone="success"] { color: #79c990; }
+.entry-status[data-tone="working"] { color: var(--entry-gold); }
+.entry-recovery { margin-top: 22px; border-top: 1px solid rgba(230, 230, 228, 0.12); border-bottom: 1px solid rgba(230, 230, 228, 0.12); }
+.entry-recovery summary { padding: 15px 0; color: #a4aaa4; cursor: pointer; font-size: 12px; font-weight: 800; }
+.entry-recovery summary::marker { color: var(--entry-gold); }
+.entry-recovery form { margin: 0; padding: 0 0 18px; }
+.entry-recovery p { margin: 0; color: #858b85; font-size: 12px; }
+.entry-recovery .ghost { justify-self: start; border-radius: 2px; background: rgba(230, 230, 228, 0.06); color: var(--entry-stone); }
+.entry-access-footer { display: grid; gap: 3px; margin-top: 34px; color: #6f756f; }
+.entry-access-footer span { color: #929892; font: 16px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.13em; }
+.entry-access-footer small { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.first-week-orientation.is-complete { padding-block: 16px; border-color: rgba(114, 169, 127, 0.34); }
+.first-week-orientation.is-complete .section-heading { align-items: center; }
+.first-week-orientation.is-complete .section-heading h2 { font-size: clamp(23px, 3vw, 34px); }
+.first-week-orientation.is-complete .section-heading p { margin: 4px 0 0; }
+.orientation-complete { grid-template-columns: auto minmax(0, 1fr) minmax(220px, auto); align-items: center; gap: 16px; padding: 15px 17px; }
+.orientation-complete-mark { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgba(114, 169, 127, 0.62); border-radius: 50%; color: var(--green); font-size: 21px; }
+.orientation-complete h4 { margin: 3px 0 5px; font-size: 22px; }
+.orientation-complete p { margin: 0; color: var(--muted); font-size: 12px; }
+.orientation-complete-proof { display: grid; gap: 3px; padding-left: 16px; border-left: 1px solid rgba(230, 230, 228, 0.14); }
+.orientation-complete-proof span { color: var(--gold); font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
+.orientation-complete-proof strong { color: var(--stone); font-size: 13px; }
+.orientation-complete-proof small { max-width: 240px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+
+.manual-run-card { grid-column: 1 / -1; padding: clamp(18px, 2.6vw, 28px); border: 1px solid rgba(212, 175, 55, 0.46); border-left: 4px solid var(--victory-gold, #d4af37); border-radius: 12px; background: linear-gradient(120deg, rgba(212, 175, 55, 0.1), rgba(8, 13, 11, 0.94) 52%, rgba(46, 75, 52, 0.15)); }
+.manual-run-card > header { display: flex; justify-content: space-between; gap: 22px; align-items: flex-start; }
+.manual-run-card h3 { margin: 5px 0 4px; color: var(--stone); font: clamp(30px, 3.5vw, 45px)/0.95 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: 0.025em; text-transform: uppercase; }
+.manual-run-card header p { max-width: 680px; margin: 0; color: var(--muted); }
+.manual-run-last { display: grid; gap: 3px; min-width: 210px; padding: 11px 13px; border: 1px solid rgba(230, 230, 228, 0.14); background: rgba(0, 0, 0, 0.22); }
+.manual-run-last span { color: var(--gold); font-size: 9px; font-weight: 900; letter-spacing: 0.12em; }
+.manual-run-last strong { color: var(--stone); font-size: 13px; }
+.manual-run-last small { color: var(--muted); font-size: 10px; }
+.manual-run-form { grid-template-columns: minmax(140px, 0.8fr) minmax(160px, 1fr) minmax(170px, 1fr) minmax(270px, 1.4fr); gap: 12px; align-items: end; margin-top: 20px; }
+.manual-run-form > label,.manual-run-duration label,.manual-run-details label { font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; }
+.manual-run-form input,.manual-run-form select,.manual-run-form textarea { min-height: 46px; border-radius: 6px; }
+.manual-run-paired { display: grid; grid-template-columns: minmax(0, 1fr) 66px; gap: 6px; }
+.manual-run-duration { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; min-width: 0; padding: 7px 9px 9px; }
+.manual-run-duration legend { font-size: 10px; font-weight: 900; letter-spacing: 0.09em; text-transform: uppercase; }
+.manual-run-duration label { gap: 4px; color: var(--dim); }
+.manual-run-duration input { width: 100%; min-width: 0; }
+.manual-run-details { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, 0.18); }
+.manual-run-details > summary { padding: 11px 13px; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 800; }
+.manual-run-details > summary::marker { color: var(--gold); }
+.manual-run-details > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 2px 12px 12px; }
+.manual-run-notes { grid-column: 1 / -1; }
+.manual-run-today { grid-column: 1 / -1; display: flex; align-items: center; gap: 11px; min-height: 58px; padding: 10px 13px; border: 1px solid rgba(114, 169, 127, 0.3); border-radius: 8px; background: rgba(46, 75, 52, 0.14); text-transform: none; letter-spacing: 0; }
+.manual-run-today.unavailable { border-color: var(--line); background: rgba(255, 255, 255, 0.02); opacity: 0.72; }
+.manual-run-today input { flex: 0 0 auto; width: 20px; min-height: 20px; accent-color: var(--green); }
+.manual-run-today span { display: grid; gap: 2px; }
+.manual-run-today strong { color: var(--stone); font-size: 13px; }
+.manual-run-today small { color: var(--muted); font-size: 11px; }
+.manual-run-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 13px; }
+.manual-run-actions button { min-width: 150px; min-height: 48px; background: var(--victory-gold, #d4af37); color: var(--dominion-black, #0a0a0a); }
+.manual-run-actions span { color: var(--muted); font-size: 11px; }
+
+@media (max-width: 1050px) {
+  .entry-shell { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.78fr); }
+  .entry-manifesto { padding-inline: 38px; }
+  .entry-code { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .entry-code li { min-height: 108px; }
+  .manual-run-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .entry-shell { display: block; min-height: 100vh; overflow: visible; }
+  .entry-manifesto { min-height: auto; padding: 22px 20px 34px; border-right: 0; border-bottom: 1px solid rgba(212, 175, 55, 0.26); }
+  .entry-brand-mark { width: 50px; height: 44px; }
+  .entry-brand-mark img { width: 43px; height: 36px; }
+  .entry-brand-lockup span { font-size: 13px; }
+  .entry-brand-lockup strong { font-size: 22px; }
+  .entry-hero-copy { margin-top: 44px; }
+  .entry-hero-copy h1 { margin-block: 12px 18px; font-size: clamp(62px, 21vw, 92px); }
+  .entry-hero-copy p { font-size: 15px; }
+  .entry-code { display: none; }
+  .entry-manifesto blockquote { margin-top: 34px; font-size: 15px; }
+  .entry-access { width: 100%; min-height: auto; padding: 38px 20px 46px; box-shadow: none; }
+  .entry-access::before { display: none; }
+  .entry-access-header h2 { font-size: 48px; }
+  .entry-form { margin-top: 28px; }
+  .orientation-complete { grid-template-columns: auto minmax(0, 1fr); }
+  .orientation-complete-proof { grid-column: 1 / -1; padding: 12px 0 0; border-top: 1px solid rgba(230, 230, 228, 0.14); border-left: 0; }
+  .manual-run-card > header { display: grid; }
+  .manual-run-last { min-width: 0; }
+  .manual-run-form,.manual-run-details > div { grid-template-columns: 1fr; }
+  .manual-run-duration { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .manual-run-notes { grid-column: auto; }
+  .manual-run-actions { align-items: stretch; flex-direction: column; }
+  .manual-run-actions button { width: 100%; }
+}

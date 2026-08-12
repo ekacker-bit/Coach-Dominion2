@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 025Q Earn Entry
+
+- Rebuilds sign-in as a branded Dominion entry ritual centered on discipline, evidence, difficulty, and the next order while preserving password and secure-link access.
+- Makes completed First Week Orientation durable across sign-ins, devices, and Contract amendments; a completion receipt can reset only after an intentional Contract deletion.
+- Prevents a newer incomplete device or account copy from overwriting a completed Orientation receipt.
+- Adds a focused manual run form for date, type, distance, duration, effort, heart rate, elevation, and notes inside the Running workspace.
+- Saves manual runs to the canonical Performance evidence ledger so Running, Trends, and weekly reconciliation use the same record.
+- Allows today’s manual run to close the active Running assignment and create its Mission receipt without duplicating Performance evidence.
+- Ships responsive desktop and phone treatments plus a fresh offline application shell.
+
 ## Unreleased - Build 025P Unified Blocker Resolution
 
 - Makes a genuine same-revision saved-program conflict the single highest-priority Atlas command across Today, My Program, Calendar, the header, and mobile.

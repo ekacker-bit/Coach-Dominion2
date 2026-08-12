@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "021D.1";
+  const VERSION = "025Q.1";
   const ATHLETE_TYPES = Object.freeze([
     { code: "FOUNDATION", label: "Foundation athlete", minimumYears: 0, maximumYears: 1 },
     { code: "DEVELOPING", label: "Developing athlete", minimumYears: 2, maximumYears: 3 },
@@ -109,19 +109,55 @@
       cadenceAcknowledgedAt: null,
       baselineAcknowledgedAt: null,
       completedAt: null,
+      completionReceipt: null,
       updatedAt: options.updatedAt || new Date().toISOString()
     };
   }
 
+  function isComplete(value = {}) {
+    return Boolean(value?.completedAt || String(value?.status || "").toUpperCase() === "COMPLETE");
+  }
+
+  function orientationProgress(value = {}) {
+    if (!value) return -1;
+    if (isComplete(value)) return 4;
+    return Math.max(0, Math.min(3, Number(value.currentStep || 0)));
+  }
+
+  function completionReceipt(value = {}, contract = {}) {
+    if (!isComplete(value)) return null;
+    const completedAt = value.completedAt || value.completionReceipt?.completedAt || value.updatedAt || new Date().toISOString();
+    return {
+      id: value.completionReceipt?.id || `orientation:${value.contractId || contract.id || "contract"}:${completedAt}`,
+      completedAt,
+      originalContractId: value.completionReceipt?.originalContractId || value.contractId || contract.id || null,
+      originalContractRevision: Number(value.completionReceipt?.originalContractRevision ?? value.contractRevision ?? contract.revision ?? 0)
+    };
+  }
+
+  function selectCanonicalOrientation(left = null, right = null) {
+    if (!left) return right;
+    if (!right) return left;
+    const leftProgress = orientationProgress(left);
+    const rightProgress = orientationProgress(right);
+    if (leftProgress !== rightProgress) return leftProgress > rightProgress ? left : right;
+    const leftUpdatedAt = Date.parse(left.updatedAt || left.completedAt || "") || 0;
+    const rightUpdatedAt = Date.parse(right.updatedAt || right.completedAt || "") || 0;
+    return leftUpdatedAt >= rightUpdatedAt ? left : right;
+  }
+
   function normalizeOrientation(value = {}, contract = {}, options = {}) {
-    if (!value || value.contractId !== contract.id || Number(value.contractRevision || 0) !== Number(contract.revision || 0)) {
+    const contractChanged = Boolean(value) && (value.contractId !== contract.id || Number(value.contractRevision || 0) !== Number(contract.revision || 0));
+    if (!value || (contractChanged && !isComplete(value))) {
       return createOrientation(contract, options);
     }
-    const profile = normalizeProfile(value.profile || profileFromContract(contract));
+    const contractProfile = profileFromContract(contract);
+    const profile = normalizeProfile(validateProfile(contractProfile).valid ? contractProfile : (value.profile || contractProfile));
     const profileValid = validateProfile(profile).valid;
     const cadenceComplete = Boolean(value.cadenceAcknowledgedAt);
     const baselineComplete = Boolean(value.baselineAcknowledgedAt);
-    const completed = Boolean(value.completedAt);
+    const completed = isComplete(value);
+    const receipt = completionReceipt(value, contract);
     const currentStep = !profileValid ? 0 : !cadenceComplete ? 1 : !baselineComplete ? 2 : 3;
     return {
       ...value,
@@ -133,7 +169,9 @@
       profile,
       weekStart: dateIso(value.weekStart) || dateIso(contract.effectiveDate) || dateIso(options.today) || new Date().toISOString().slice(0, 10),
       weekEnd: dateIso(value.weekEnd) || addDays(value.weekStart || contract.effectiveDate || options.today, 6),
-      updatedAt: value.updatedAt || options.updatedAt || new Date().toISOString()
+      completedAt: completed ? receipt.completedAt : null,
+      completionReceipt: receipt,
+      updatedAt: contractChanged ? (options.updatedAt || new Date().toISOString()) : (value.updatedAt || options.updatedAt || new Date().toISOString())
     };
   }
 
@@ -168,7 +206,8 @@
     }
     if (action === "COMPLETE") {
       if (!state.baselineAcknowledgedAt) throw new Error("Protect the baseline-week protocol before launch.");
-      return { ...state, status: "COMPLETE", currentStep: 3, completedAt: now };
+      const completed = { ...state, status: "COMPLETE", currentStep: 3, completedAt: now };
+      return { ...completed, completionReceipt: completionReceipt(completed) };
     }
     throw new Error("Unknown Week One orientation action.");
   }
@@ -244,6 +283,9 @@
     validateProfile,
     profileFromContract,
     createOrientation,
+    isComplete,
+    orientationProgress,
+    selectCanonicalOrientation,
     normalizeOrientation,
     rebaseOrientation,
     transition,

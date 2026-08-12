@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u">
+  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -39,7 +39,7 @@
         </button>
       <div class="header-actions">
         <nav class="top-nav" aria-label="Primary">
-          <a class="nav-link active" href="#today" data-section="today">TODAY</a>
+          <a class="nav-link active" href="#today" data-section="today">TODAY <span id="atlas-decision-nav-count" class="atlas-decision-nav-count" hidden>0</span></a>
           <a class="nav-link" href="#performance" data-section="performance">TRAIN</a>
           <a class="nav-link" href="#calendar" data-section="calendar">CALENDAR</a>
           <a class="nav-link" href="#nutrition" data-section="nutrition">FUEL</a>
@@ -923,6 +923,20 @@
             </div>
             <p id="daily-ritual-feedback" class="daily-ritual-feedback" aria-live="polite"></p>
           </section>
+        </section>
+
+        <section id="atlas-decision-center" class="card atlas-decision-center" aria-labelledby="atlas-decision-center-heading" data-decision-state="CLEAR" hidden>
+          <header class="atlas-decision-center-header">
+            <div><div class="kicker">BUILD 025V // ATLAS DECISION CENTER</div><h2 id="atlas-decision-center-heading">No decisions waiting</h2><p id="atlas-decision-center-detail">The program can continue without another approval right now.</p></div>
+            <span id="atlas-decision-center-state" class="state-pill green">CLEAR</span>
+          </header>
+          <div id="atlas-decision-center-primary" class="atlas-decision-center-primary" aria-live="polite"></div>
+          <details id="atlas-decision-center-queue" class="atlas-decision-center-queue">
+            <summary><span>Decision queue</span><small id="atlas-decision-center-summary">Nothing waiting</small></summary>
+            <ol id="atlas-decision-center-list"></ol>
+          </details>
+          <p class="atlas-decision-center-safeguard">Every choice stays in its canonical module. The Decision Center never changes a plan silently.</p>
+          <p id="atlas-decision-center-feedback" class="muted" aria-live="polite"></p>
         </section>
 
         <section id="morning-verification" class="card morning-verification" aria-labelledby="morning-verification-heading" data-verification-state="ROLL_CALL_REQUIRED">
@@ -2108,7 +2122,7 @@
     </div>
   </dialog>
   <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
-    <a data-mobile-nav="today" href="#today">Today</a>
+    <a data-mobile-nav="today" href="#today" data-decision-count="0">Today</a>
     <a data-mobile-nav="train" href="#performance">Train</a>
     <a data-mobile-nav="fuel" href="#nutrition">Fuel</a>
     <a data-mobile-nav="review" href="#inspection">Review</a>
@@ -2173,6 +2187,7 @@
 <script src="/assets/js/running-progression.js?v=025s"></script>
 <script src="/assets/js/fuel-execution.js?v=025t"></script>
 <script src="/assets/js/atlas-weekly-command.js?v=025u"></script>
+<script src="/assets/js/atlas-decision-center.js?v=025v"></script>
 <script src="/assets/js/mission-debrief.js?v=025c"></script>
 <script src="/assets/js/mission-recovery.js?v=025d"></script>
 <script src="/assets/js/morning-verification.js?v=025e"></script>
@@ -2189,6 +2204,6 @@
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v"></script>
 </body>
 </html>

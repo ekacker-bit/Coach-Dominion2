@@ -2894,7 +2894,7 @@ function normalizePerformanceMetricValue(domain, key, value) {
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "running") {
-    const allowedKeys = new Set(["distance", "distance_unit", "duration_seconds", "pace_seconds_per_unit", "elevation_gain", "route_type", "run_type", "race_name", "rpe", "average_heart_rate", "capture_method", "count_toward_today"]);
+    const allowedKeys = new Set(["distance", "distance_unit", "duration_seconds", "pace_seconds_per_unit", "elevation_gain", "route_type", "run_type", "race_name", "rpe", "average_heart_rate", "capture_method", "count_toward_today", "planned_distance", "planned_distance_unit", "verdict_code", "completion_percent"]);
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "core" || normalizedDomain === "conditioning") {
@@ -6704,12 +6704,20 @@ function missionExecutionSummary(module = "STRENGTH", execution = {}, prescripti
   }
   if (code === "RUNNING") {
     const segments = execution.segments || [];
+    const actual = execution.actual || {};
     return {
       segmentsCompleted: segments.filter((item) => item.state === "COMPLETE").length,
       segmentsPlanned: segments.length,
-      distance: Number(execution.session?.distance || prescription?.session?.distance || 0),
-      distanceUnit: execution.session?.unit || prescription?.session?.unit || "mi",
-      durationSeconds: Number(execution.durationSeconds || DominionMissionExecution.runningDurationSeconds(execution))
+      distance: Number(actual.distance || execution.session?.distance || prescription?.session?.distance || 0),
+      distanceUnit: actual.unit || execution.session?.unit || prescription?.session?.unit || "mi",
+      durationSeconds: Number(actual.durationSeconds || execution.durationSeconds || DominionMissionExecution.runningDurationSeconds(execution)),
+      rpe: actual.rpe ?? null,
+      averageHeartRate: actual.averageHeartRate ?? null,
+      elevationGain: actual.elevationGain ?? null,
+      plannedDistance: Number(execution.session?.distance || prescription?.session?.distance || 0),
+      plannedDistanceUnit: execution.session?.unit || prescription?.session?.unit || "mi",
+      verdictCode: execution.verdict?.code || null,
+      completionPercent: execution.verdict?.completionPercent ?? null
     };
   }
   if (code === "CORE") {
@@ -6722,6 +6730,59 @@ function missionExecutionSummary(module = "STRENGTH", execution = {}, prescripti
     };
   }
   return {};
+}
+
+function runningActualReviewMarkup(context = "mission", execution = {}, prescription = null) {
+  if (typeof DominionRunningVerdict === "undefined") return "";
+  const actual = execution.actual || {};
+  const tracked = Number(actual.durationSeconds || DominionMissionExecution.runningDurationSeconds(execution) || 0);
+  const hours = Math.floor(tracked / 3600);
+  const minutes = Math.floor((tracked % 3600) / 60);
+  const seconds = tracked % 60;
+  const unit = actual.unit || execution.session?.unit || prescription?.session?.unit || "mi";
+  return `<form class="running-actual-review" data-running-actual-review="${escapeHtml(context)}">
+    <header><div><span>RECORDED RESULT</span><strong>What did you actually complete?</strong><p>Actual work becomes the evidence. The prescription remains unchanged.</p></div><small>REQUIRED</small></header>
+    <div class="running-actual-grid">
+      <label>Distance completed<span class="manual-run-paired"><input data-running-actual-distance type="number" min="0.01" step="0.01" inputmode="decimal" required value="${actual.distance ?? ""}" placeholder="0.00"><select data-running-actual-unit aria-label="Actual distance unit"><option value="mi" ${unit !== "km" ? "selected" : ""}>mi</option><option value="km" ${unit === "km" ? "selected" : ""}>km</option></select></span></label>
+      <fieldset><legend>Elapsed time</legend><label>Hr<input data-running-actual-hours type="number" min="0" max="24" step="1" inputmode="numeric" value="${hours}"></label><label>Min<input data-running-actual-minutes type="number" min="0" max="59" step="1" inputmode="numeric" value="${minutes}"></label><label>Sec<input data-running-actual-seconds type="number" min="0" max="59" step="1" inputmode="numeric" value="${seconds}"></label></fieldset>
+      <label>Effort (1–10)<input data-running-actual-rpe type="number" min="1" max="10" step="0.5" inputmode="decimal" value="${actual.rpe ?? ""}" placeholder="Optional"></label>
+      <label>Average HR<input data-running-actual-heart-rate type="number" min="30" max="240" step="1" inputmode="numeric" value="${actual.averageHeartRate ?? ""}" placeholder="Optional"></label>
+      <label>Elevation gain<input data-running-actual-elevation type="number" min="0" step="1" inputmode="decimal" value="${actual.elevationGain ?? ""}" placeholder="Optional"></label>
+      <label class="running-actual-notes">Run note<input data-running-actual-notes maxlength="500" value="${escapeHtml(actual.notes || execution.notes || "")}" placeholder="Terrain, weather, or how the work felt"></label>
+    </div>
+    <p data-running-actual-feedback role="status" aria-live="polite">Distance and elapsed time are required.</p>
+    ${context === "performance" ? '<button type="submit" data-running-action="save-actual-run">Secure run evidence</button>' : ""}
+  </form>`;
+}
+
+function readRunningActualReview(context = "mission") {
+  if (typeof DominionRunningVerdict === "undefined") return { valid: false, errors: [{ message: "Run evidence review is unavailable." }] };
+  const form = document.querySelector(`[data-running-actual-review="${context}"]`);
+  if (!form) return { valid: false, errors: [{ message: "Enter the recorded run result." }] };
+  return DominionRunningVerdict.validateActual({
+    distance: form.querySelector("[data-running-actual-distance]")?.value,
+    unit: form.querySelector("[data-running-actual-unit]")?.value,
+    hours: form.querySelector("[data-running-actual-hours]")?.value,
+    minutes: form.querySelector("[data-running-actual-minutes]")?.value,
+    seconds: form.querySelector("[data-running-actual-seconds]")?.value,
+    rpe: form.querySelector("[data-running-actual-rpe]")?.value,
+    averageHeartRate: form.querySelector("[data-running-actual-heart-rate]")?.value,
+    elevationGain: form.querySelector("[data-running-actual-elevation]")?.value,
+    notes: form.querySelector("[data-running-actual-notes]")?.value,
+    captureMethod: "RUN_EXECUTION"
+  });
+}
+
+function runningVerdictMarkup(execution = {}) {
+  const verdict = execution.verdict;
+  const actual = execution.actual;
+  if (!verdict || !actual || typeof DominionRunningVerdict === "undefined") return "";
+  const pace = actual.paceSecondsPerUnit ? DominionRunning.formatPace(actual.paceSecondsPerUnit, actual.unit) : "—";
+  return `<article class="running-verdict ${escapeHtml(verdict.tone || "neutral")}">
+    <header><div><span>ATLAS VERDICT</span><h4>${escapeHtml(verdict.headline)}</h4></div><strong>${escapeHtml(verdict.code.replaceAll("_", " "))}</strong></header>
+    <p>${escapeHtml(verdict.detail)}</p>
+    <dl><div><dt>Recorded</dt><dd>${actual.distance} ${escapeHtml(actual.unit)}</dd></div><div><dt>Time</dt><dd>${escapeHtml(DominionRunningVerdict.formatDuration(actual.durationSeconds))}</dd></div><div><dt>Pace</dt><dd>${escapeHtml(pace)}</dd></div><div><dt>Assignment</dt><dd>${verdict.completionPercent ?? "—"}%</dd></div></dl>
+  </article>`;
 }
 
 async function saveMissionPerformanceEvidence(receipt, item = {}, execution = {}) {
@@ -6763,9 +6824,18 @@ async function saveMissionPerformanceEvidence(receipt, item = {}, execution = {}
         distance: receipt.summary.distance,
         distance_unit: receipt.summary.distanceUnit,
         duration_seconds: receipt.summary.durationSeconds > 0 ? receipt.summary.durationSeconds : undefined,
-        run_type: execution.session?.type || null
+        pace_seconds_per_unit: receipt.summary.durationSeconds > 0 && receipt.summary.distance > 0 ? Number((receipt.summary.durationSeconds / receipt.summary.distance).toFixed(2)) : undefined,
+        run_type: execution.session?.type || null,
+        rpe: receipt.summary.rpe ?? undefined,
+        average_heart_rate: receipt.summary.averageHeartRate ?? undefined,
+        elevation_gain: receipt.summary.elevationGain ?? undefined,
+        planned_distance: receipt.summary.plannedDistance || undefined,
+        planned_distance_unit: receipt.summary.plannedDistanceUnit || undefined,
+        verdict_code: receipt.summary.verdictCode || undefined,
+        completion_percent: receipt.summary.completionPercent ?? undefined,
+        capture_method: execution.actual?.captureMethod || "RUN_EXECUTION"
       },
-      notes: `Mission Execution receipt ${receipt.id}. ${receipt.state}.`
+      notes: `Mission Execution receipt ${receipt.id}. ${execution.verdict?.headline || receipt.state}. ${execution.actual?.notes || ""}`.trim()
     };
   }
   if (!entry) return false;
@@ -7019,7 +7089,9 @@ function renderMissionExecution() {
     ${current.state !== "REVIEW" ? `<button type="button" class="ghost" data-mission-action="finish" data-mission-module="${escapeHtml(current.module)}" ${current.module === "CORE" && !allCoreComplete ? "disabled" : ""}>Finish session</button>` : ""}
     <button type="button" class="ghost danger-action" data-mission-action="pain" data-mission-module="${escapeHtml(current.module)}">Report pain</button>
   </div>` : "";
-  const reviewFields = isReview ? `<div class="mission-review-fields">
+  const reviewFields = isReview && current?.module === "RUNNING"
+    ? runningActualReviewMarkup("mission", readRunningExecution() || {}, currentRunningPrescription())
+    : isReview ? `<div class="mission-review-fields">
     <label>Session note <input data-mission-review-notes maxlength="280" placeholder="Optional context"></label>
   </div>` : current?.module === "CORE" && allCoreComplete ? `<div class="mission-review-fields core">
     <label>Quality <select data-mission-core-quality><option value="CONTROLLED">Controlled</option><option value="TECHNIQUE_LIMITED">Technique limited</option></select></label>
@@ -7174,6 +7246,36 @@ async function prepareMissionSessionFinish(module = "STRENGTH") {
   setText("mission-execution-feedback", code === "CORE" ? "Core complete. Evidence saved automatically." : "Review the completed work, then save one evidence receipt.");
 }
 
+async function finalizeRunningSession(context = "mission") {
+  const validation = readRunningActualReview(context);
+  const feedback = document.querySelector(`[data-running-actual-review="${context}"] [data-running-actual-feedback]`);
+  if (!validation.valid) {
+    const message = validation.errors[0]?.message || "Enter the actual run result.";
+    if (feedback) feedback.textContent = message;
+    const error = new Error(message);
+    error.preserveSurface = true;
+    throw error;
+  }
+  const prescription = currentRunningPrescription();
+  const current = readRunningExecution() || {};
+  const completedAt = new Date().toISOString();
+  const reviewed = ["IN_PROGRESS", "PAUSED"].includes(current.state)
+    ? DominionMissionExecution.prepareRunningReview(current, completedAt)
+    : current;
+  const base = DominionMissionExecution.finishRunningExecution(reviewed, { notes: validation.actual.notes }, completedAt);
+  const verdict = DominionRunningVerdict.buildVerdict(prescription || { session: current.session }, validation.actual, reviewed);
+  const execution = DominionRunningVerdict.applyActual(base, validation.actual, verdict, completedAt);
+  window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+  await persistRunningState("EXECUTION", todayISODate(), execution);
+  await saveMissionExecutionReceipt("RUNNING", execution, buildCurrentMissionCockpit()?.current || {}, prescription);
+  setText("running-command-feedback", `${verdict.headline}. Actual distance and time are now the canonical run evidence.`);
+  setText("mission-execution-feedback", `${verdict.headline}. Actual distance and time are secured.`);
+  renderRunningCommand();
+  renderTodayCommittedWeek();
+  renderMissionExecution();
+  return execution;
+}
+
 async function finalizeMissionSession(module = "STRENGTH") {
   const code = String(module || "STRENGTH").toUpperCase();
   const item = buildCurrentMissionCockpit()?.current || {};
@@ -7184,12 +7286,7 @@ async function finalizeMissionSession(module = "STRENGTH") {
     await saveDailyAssignmentExecution(execution);
     await preserveStrengthWorkout(execution);
     await saveMissionExecutionReceipt(code, execution, item, currentStrengthPrescription());
-  } else if (code === "RUNNING") {
-    const execution = DominionMissionExecution.finishRunningExecution(readRunningExecution() || {}, { notes }, new Date().toISOString());
-    window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
-    await persistRunningState("EXECUTION", todayISODate(), execution);
-    await saveMissionExecutionReceipt(code, execution, item, currentRunningPrescription());
-  }
+  } else if (code === "RUNNING") await finalizeRunningSession("mission");
 }
 
 async function reportMissionPain(module = "STRENGTH") {
@@ -13121,7 +13218,8 @@ function renderRunningCommand(entries = performanceEntries) {
       ${dailyRun.adjustment?.factor < 1 ? `<div class="running-adjustment"><strong>READINESS ADJUSTMENT</strong><p>${escapeHtml(dailyRun.adjustment.reason)} Distance delta: ${dailyRun.adjustment.distanceDelta} ${dailyRun.session.unit}.</p></div>` : ""}
       <div class="running-execution-steps">${dailyRun.steps.map((step, index) => `<article><span>${index + 1}</span><div><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.instruction)}</p></div></article>`).join("")}</div>
       ${dailyRun.session.paceFast ? `<p><strong>Target pace:</strong> ${DominionRunning.formatPace(dailyRun.session.paceFast, dailyRun.session.unit)} to ${DominionRunning.formatPace(dailyRun.session.paceSlow, dailyRun.session.unit)}</p>` : ""}
-      <div class="performance-actions"><button type="button" data-running-action="start-run" ${["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${execution?.state !== "IN_PROGRESS" ? "disabled" : ""}>Complete run</button><button type="button" class="ghost" data-running-action="modify-run">Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
+      ${execution?.state === "REVIEW" ? runningActualReviewMarkup("performance", execution, dailyRun) : runningVerdictMarkup(execution)}
+      <div class="performance-actions"><button type="button" data-running-action="start-run" ${["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) || ["IN_PROGRESS", "PAUSED", "REVIEW", "COMPLETE", "PARTIAL", "PAIN_HOLD"].includes(execution?.state) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${!["IN_PROGRESS", "PAUSED"].includes(execution?.state) ? "disabled" : ""}>Finish &amp; log</button><button type="button" class="ghost" data-running-action="modify-run">Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
     </section>
     <section class="running-reconciliation-panel">
       <div class="section-heading compact"><div><span class="kicker">BUILD 010D // RUN IMPORT &amp; RECONCILIATION</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
@@ -13152,10 +13250,14 @@ async function applyManualRunToToday(run = {}, entry = {}) {
   let execution = DominionMissionExecution.startRunningExecution(prescription, null, startedAt);
   execution = DominionMissionExecution.completeAllRunningSegments(execution, completedAt);
   execution = DominionMissionExecution.finishRunningExecution(execution, { notes: run.notes }, completedAt);
+  const actual = typeof DominionRunningVerdict === "undefined" ? {
+    distance: run.distance, unit: run.unit, durationSeconds: run.durationSeconds, rpe: run.rpe,
+    averageHeartRate: run.averageHeartRate, elevationGain: run.elevationGain, notes: run.notes,
+    paceSecondsPerUnit: run.durationSeconds / run.distance, captureMethod: "MANUAL_RUN_FORM"
+  } : DominionRunningVerdict.validateActual({ ...run, captureMethod: "MANUAL_RUN_FORM" }).actual;
+  const verdict = typeof DominionRunningVerdict === "undefined" ? null : DominionRunningVerdict.buildVerdict(prescription, actual, execution);
   execution = {
-    ...execution,
-    session: { ...execution.session, type: run.runType, title: run.runTypeLabel, distance: run.distance, unit: run.unit },
-    durationSeconds: run.durationSeconds,
+    ...(verdict ? DominionRunningVerdict.applyActual(execution, actual, verdict, completedAt) : execution),
     manualEntryId: entry.id,
     evidenceSource: "MANUAL_RUN_FORM",
     updatedAt: completedAt
@@ -17325,7 +17427,7 @@ if (typeof document !== "undefined") {
       refreshMissionExecutionSurfaces();
     } catch (error) {
       setText("mission-execution-feedback", error?.message || "The mission action could not be completed.");
-      renderMissionExecution();
+      if (!error?.preserveSurface) renderMissionExecution();
     } finally {
       button.disabled = false;
     }
@@ -18528,6 +18630,25 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
+    if (event.target.matches('[data-running-actual-review="performance"]')) {
+      event.preventDefault();
+      const button = event.target.querySelector('[data-running-action="save-actual-run"]');
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Securing evidence…";
+      }
+      try {
+        await finalizeRunningSession("performance");
+      } catch (error) {
+        const feedback = event.target.querySelector("[data-running-actual-feedback]");
+        if (feedback) feedback.textContent = error?.message || "Run evidence could not be secured.";
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Secure run evidence";
+        }
+      }
+      return;
+    }
     if (event.target.id === "manual-run-form") {
       event.preventDefault();
       const button = document.getElementById("manual-run-submit");
@@ -18696,15 +18817,12 @@ if (typeof document !== "undefined") {
     }
     if (button.dataset.runningAction === "complete-run") {
       const current = readRunningExecution() || {};
-      const reviewed = DominionMissionExecution.completeAllRunningSegments(current, new Date().toISOString());
-      const state = DominionMissionExecution.finishRunningExecution(reviewed, {}, new Date().toISOString());
-      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(state));
-      await persistRunningState("EXECUTION", todayISODate(), state);
-      await saveMissionExecutionReceipt("RUNNING", state, buildCurrentMissionCockpit()?.current || {}, currentRunningPrescription());
+      const reviewed = DominionMissionExecution.prepareRunningReview(current, new Date().toISOString());
+      window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(reviewed));
+      await persistRunningState("EXECUTION", todayISODate(), reviewed);
       renderRunningCommand();
-      renderTodayCommittedWeek();
       renderMissionExecution();
-      setText("running-command-feedback", "Run complete. A Mission Execution receipt and Performance entry were saved automatically.");
+      setText("running-command-feedback", "Enter actual distance and elapsed time to secure the run. The prescription will not be copied as the result.");
     }
     if (button.dataset.runningAction === "modify-run") setText("running-command-feedback", "Use the readiness-adjusted easy alternative. The approved weekly plan remains unchanged.");
     if (button.dataset.runningAction === "report-pain") {

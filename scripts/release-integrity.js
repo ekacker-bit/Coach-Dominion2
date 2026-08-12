@@ -16,6 +16,7 @@ const dailyCommand = read("assets/js/atlas-daily-command.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
 const orientation = read("assets/js/first-week-orientation.js");
 const manualRun = read("assets/js/manual-run.js");
+const runningVerdict = read("assets/js/running-verdict.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -148,6 +149,10 @@ check("025Q durable orientation", orientation.includes('const VERSION = "025Q.1"
 check("025Q manual run engine", size("assets/js/manual-run.js") >= 6000 && manualRun.includes('capture_method: "MANUAL_RUN_FORM"'), "025Q manual run engine is incomplete");
 check("025Q manual run integration", html.includes('/assets/js/manual-run.js?v=025q') && app.includes('id="manual-run-form"') && app.includes("applyManualRunToToday") && app.includes("persistPerformanceEvidenceEntry"), "025Q manual run capture is not connected end to end");
 check("025Q offline shell", worker.includes('/assets/js/manual-run.js?v=025q') && worker.includes('/assets/js/first-week-orientation.js?v=025q') && worker.includes("025p-025q"), "025Q assets are stale or uncached");
+check("025R running verdict engine", runningVerdict.includes('const VERSION = "025R.1"') && runningVerdict.includes("function validateActual") && runningVerdict.includes("function buildVerdict"), "025R running verdict engine is incomplete");
+check("025R recorded run integration", html.includes('/assets/js/running-verdict.js?v=025r') && app.includes("runningActualReviewMarkup") && app.includes("finalizeRunningSession") && app.includes("Actual distance and time"), "025R recorded results are not connected end to end");
+check("025R canonical actual evidence", app.includes("receipt.summary.plannedDistance") && app.includes("execution.actual?.captureMethod") && app.includes("verdict_code"), "025R does not preserve prescription and actual evidence separately");
+check("025R responsive shell", css.includes(".running-actual-review") && css.includes(".running-verdict") && worker.includes('/assets/js/running-verdict.js?v=025r') && worker.includes("025q-025r"), "025R assets are stale or not responsive");
 check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
 check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

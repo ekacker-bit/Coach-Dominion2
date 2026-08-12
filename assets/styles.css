@@ -9639,3 +9639,48 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .manual-run-actions { align-items: stretch; flex-direction: column; }
   .manual-run-actions button { width: 100%; }
 }
+
+/* Build 025R // Recorded run evidence and bounded Atlas verdict. */
+.running-actual-review { display: grid; gap: 15px; margin: 18px 0; padding: clamp(16px, 2.2vw, 23px); border: 1px solid rgba(212, 175, 55, 0.42); border-left: 4px solid var(--gold); border-radius: 10px; background: linear-gradient(130deg, rgba(212, 175, 55, 0.09), rgba(4, 7, 6, 0.78) 58%); }
+.running-actual-review > header { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
+.running-actual-review > header span { color: var(--gold); font-size: 9px; font-weight: 900; letter-spacing: 0.14em; }
+.running-actual-review > header strong { display: block; margin-top: 4px; color: var(--stone); font: 27px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); letter-spacing: .035em; text-transform: uppercase; }
+.running-actual-review > header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.running-actual-review > header small { color: var(--gold); font-size: 9px; font-weight: 900; letter-spacing: .1em; }
+.running-actual-grid { display: grid; grid-template-columns: minmax(190px, 1.15fr) minmax(230px, 1.35fr) repeat(3, minmax(130px, .8fr)); gap: 10px; align-items: end; }
+.running-actual-grid label { gap: 5px; color: var(--dim); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.running-actual-grid input,.running-actual-grid select { min-width: 0; min-height: 44px; border-radius: 5px; }
+.running-actual-grid fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; min-width: 0; padding: 6px 8px 8px; }
+.running-actual-grid fieldset legend { color: var(--dim); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.running-actual-grid fieldset label { gap: 2px; }
+.running-actual-notes { grid-column: 1 / -1; }
+.running-actual-review > p { margin: 0; color: var(--muted); font-size: 11px; }
+.running-actual-review > button { justify-self: start; min-height: 47px; background: var(--gold); color: var(--dominion-black); }
+.mission-review-fields + .running-actual-review,.mission-player .running-actual-review { margin-inline: 18px; }
+.mission-player .running-actual-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mission-player .running-actual-notes { grid-column: 1 / -1; }
+.running-verdict { margin: 18px 0; padding: 18px 20px; border: 1px solid var(--line); border-left: 4px solid var(--green); background: rgba(46, 75, 52, .13); }
+.running-verdict.yellow { border-left-color: var(--gold); background: rgba(212, 175, 55, .08); }
+.running-verdict.red { border-left-color: var(--red); background: rgba(179, 64, 64, .08); }
+.running-verdict header { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+.running-verdict header span,.running-verdict header > strong { color: var(--gold); font-size: 9px; font-weight: 900; letter-spacing: .12em; }
+.running-verdict h4 { margin: 4px 0 0; color: var(--stone); font: 29px/1 var(--font-command, "Bebas Neue", Impact, sans-serif); text-transform: uppercase; }
+.running-verdict > p { max-width: 760px; margin: 10px 0 14px; color: var(--muted); }
+.running-verdict dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--line); }
+.running-verdict dl div { display: grid; gap: 3px; padding: 11px 13px; background: var(--panel); }
+.running-verdict dt { color: var(--dim); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.running-verdict dd { margin: 0; color: var(--stone); font-size: 14px; font-weight: 800; }
+
+@media (max-width: 1100px) {
+  .running-actual-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .running-actual-notes { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .running-actual-review > header { display: grid; }
+  .running-actual-grid,.mission-player .running-actual-grid { grid-template-columns: 1fr; }
+  .running-actual-notes,.mission-player .running-actual-notes { grid-column: auto; }
+  .running-actual-review > button { width: 100%; }
+  .mission-player .running-actual-review { margin-inline: 12px; }
+  .running-verdict dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

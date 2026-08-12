@@ -2894,7 +2894,7 @@ function normalizePerformanceMetricValue(domain, key, value) {
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "running") {
-    const allowedKeys = new Set(["distance", "distance_unit", "duration_seconds", "pace_seconds_per_unit", "elevation_gain", "route_type", "run_type", "race_name"]);
+    const allowedKeys = new Set(["distance", "distance_unit", "duration_seconds", "pace_seconds_per_unit", "elevation_gain", "route_type", "run_type", "race_name", "rpe", "average_heart_rate", "capture_method", "count_toward_today"]);
     if (!allowedKeys.has(key)) return undefined;
   }
   if (normalizedDomain === "core" || normalizedDomain === "conditioning") {
@@ -2909,7 +2909,7 @@ function normalizePerformanceMetricValue(domain, key, value) {
     const allowedKeys = new Set(["measurement_value", "measurement_unit", "measurement_location", "waist", "neck", "chest", "hips", "arm", "thigh", "body_fat", "body_fat_method", "body_fat_estimated", "body_fat_range_low", "body_fat_range_high", "circumference_unit", "protocol"]);
     if (!allowedKeys.has(key)) return undefined;
   }
-  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "measurement_value" || key === "overall_score" || ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat", "body_fat_range_low", "body_fat_range_high"].includes(key)) {
+  if (key === "sets" || key === "repetitions" || key === "weight" || key === "distance" || key === "duration_seconds" || key === "rpe" || key === "average_heart_rate" || key === "measurement_value" || key === "overall_score" || ["waist", "neck", "chest", "hips", "arm", "thigh", "body_fat", "body_fat_range_low", "body_fat_range_high"].includes(key)) {
     return parsePerformanceNumber(value);
   }
   return value;
@@ -5511,11 +5511,17 @@ function recruitOnboardingFromRow(row) {
 }
 
 function selectRecruitOnboardingState(local, account) {
+  if (typeof DominionFirstWeekOrientation !== "undefined" && typeof DominionFirstWeekOrientation.selectCanonicalOrientation === "function") {
+    return DominionFirstWeekOrientation.selectCanonicalOrientation(local, account);
+  }
   if (!local) return account;
   if (!account) return local;
+  const localComplete = Boolean(local.completedAt || local.status === "COMPLETE");
+  const accountComplete = Boolean(account.completedAt || account.status === "COMPLETE");
+  if (localComplete !== accountComplete) return localComplete ? local : account;
   const localUpdatedAt = Date.parse(local.updatedAt || "") || 0;
   const accountUpdatedAt = Date.parse(account.updatedAt || "") || 0;
-  return localUpdatedAt > accountUpdatedAt ? local : account;
+  return localUpdatedAt >= accountUpdatedAt ? local : account;
 }
 
 async function persistRecruitOnboardingState(payload) {
@@ -5575,7 +5581,7 @@ async function loadRecruitOnboardingState() {
     const selected = selectRecruitOnboardingState(local, account);
     if (selected) saveRecruitOnboardingLocal(selected);
     recruitOnboardingStorageMode = data ? "REMOTE" : "LOCAL";
-    if (selected === local && (!account || Date.parse(local?.updatedAt || "") > Date.parse(account?.updatedAt || ""))) {
+    if (selected === local && (!account || JSON.stringify(local) !== JSON.stringify(account))) {
       await persistRecruitOnboardingState(local);
     }
     return selected;
@@ -6786,7 +6792,33 @@ async function saveMissionPerformanceEvidence(receipt, item = {}, execution = {}
   return true;
 }
 
-async function saveMissionExecutionReceipt(module, execution, item = {}, prescription = null) {
+async function persistPerformanceEvidenceEntry(entry = {}) {
+  const validation = validatePerformanceEntry(entry);
+  if (!validation.valid) throw new Error(validation.errors[0]?.message || "Performance evidence is incomplete.");
+  const validEntry = validation.entry;
+  const payload = buildPerformancePersistencePayload(validEntry, session?.user?.id || null);
+  syncFitnessAnalyticState(validEntry, null, null);
+  let remote = false;
+  let saved;
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("performance_entries").upsert(payload, { onConflict: "id" }).select("*").single();
+    if (error) throw error;
+    saved = hydratePerformanceEntry(data || payload);
+    performanceStorageMode = "SUPABASE";
+    performanceSaveState = "saved";
+    remote = true;
+  } catch (_) {
+    saved = hydratePerformanceEntry(payload);
+    performanceStorageMode = "LOCAL";
+    performanceSaveState = "locally saved";
+  }
+  performanceEntries = [saved, ...performanceEntries.filter((item) => item.id !== saved.id)];
+  saveLocalPerformanceEntries(performanceEntries);
+  return { entry: saved, remote };
+}
+
+async function saveMissionExecutionReceipt(module, execution, item = {}, prescription = null, options = {}) {
   if (typeof DominionMissionExecution === "undefined" || !execution) return null;
   const existingReceipts = readMissionExecutionReceipts();
   const cockpit = buildCurrentMissionCockpit();
@@ -6811,7 +6843,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
     .sort((left, right) => String(right.completedAt || "").localeCompare(String(left.completedAt || "")));
   saveClosedLoopLocal("EVIDENCE", `mission:${todayISODate()}`, receipts);
   const synced = await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
-  await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
+  if (!options.skipPerformanceEvidence) await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
   setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
   return receipt;
 }
@@ -7688,8 +7720,11 @@ function recruitProfileHeight(profile = {}) {
 
 function currentRecruitOrientation(contract = readApprovedRecruitContract()) {
   if (!contract || typeof DominionFirstWeekOrientation === "undefined") return null;
-  const normalized = DominionFirstWeekOrientation.normalizeOrientation(readRecruitOnboardingState(), contract, { today: todayISODate() });
+  const stored = readRecruitOnboardingState();
+  const normalized = DominionFirstWeekOrientation.normalizeOrientation(stored, contract, { today: todayISODate() });
   saveRecruitOnboardingLocal(normalized);
+  const rebased = stored && (stored.contractId !== normalized.contractId || Number(stored.contractRevision || 0) !== Number(normalized.contractRevision || 0));
+  if (rebased && normalized.status === "COMPLETE") void persistRecruitOnboardingState(normalized);
   return normalized;
 }
 
@@ -7710,23 +7745,22 @@ function renderFirstWeekOrientation() {
   section.hidden = false;
   const orientation = currentRecruitOrientation(contract);
   const view = DominionFirstWeekOrientation.presentation(orientation, contract);
+  section.classList.toggle("is-complete", view.status === "COMPLETE");
+  section.dataset.orientationState = view.status;
   status.textContent = view.status === "COMPLETE" ? "WEEK ONE READY" : view.status.replaceAll("_", " ");
   status.className = `state-pill ${view.status === "COMPLETE" ? "green" : view.status === "PROFILE_REQUIRED" ? "red" : "yellow"}`;
   if (progress) progress.style.width = `${view.percent}%`;
+  if (progress?.parentElement) progress.parentElement.hidden = view.status === "COMPLETE";
+  steps.hidden = view.status === "COMPLETE";
   steps.innerHTML = view.steps.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><strong>${escapeHtml(item.label)}</strong></li>`).join("");
   const profile = view.profile || {};
   const athleteLabel = view.atlas.athleteTypeLabel || "Athlete type pending";
   const atlasOrder = view.atlas.guardrails?.[0] || "Week One establishes the evidence Atlas needs before progression.";
   if (view.status === "COMPLETE") {
     panel.innerHTML = `<article class="orientation-stage orientation-complete">
-      <div><span class="kicker">ORIENTATION COMPLETE</span><h4>Week One is cleared to build.</h4></div>
-      <p>Atlas will treat ${escapeHtml(view.weekStart)} through ${escapeHtml(view.weekEnd)} as the baseline window. Execution quality and recovery evidence govern every adjustment.</p>
-      <div class="orientation-launch-grid">
-        <article><span>ATHLETE TYPE</span><strong>${escapeHtml(athleteLabel)}</strong><p>${escapeHtml(String(profile.trainingYears ?? "—"))} years structured training</p></article>
-        <article><span>PROFILE</span><strong>Age ${escapeHtml(String(profile.age || "—"))} · ${escapeHtml(recruitProfileHeight(profile))}</strong><p>${escapeHtml(String(profile.gender || "PREFER_NOT_TO_SAY").replaceAll("_", " "))}</p></article>
-        <article><span>BASELINE WINDOW</span><strong>${escapeHtml(view.weekStart)} → ${escapeHtml(view.weekEnd)}</strong><p>No automatic progression during calibration.</p></article>
-      </div>
-      <div class="orientation-atlas-order"><strong>ATLAS ORDER:</strong> ${escapeHtml(atlasOrder)}</div>
+      <span class="orientation-complete-mark" aria-hidden="true">✓</span>
+      <div><span class="kicker">ORIENTATION SECURED</span><h4>Week One will not be repeated.</h4><p>Completed ${escapeHtml(String(view.completedAt || "").slice(0, 10) || view.weekEnd)}. Atlas retains your ${escapeHtml(athleteLabel.toLowerCase())} context across sign-ins and Contract amendments.</p></div>
+      <div class="orientation-complete-proof"><span>BASELINE</span><strong>${escapeHtml(view.weekStart)} → ${escapeHtml(view.weekEnd)}</strong><small>Reset only when you delete the Contract and deliberately start over.</small></div>
     </article>`;
     return view;
   }
@@ -12991,8 +13025,30 @@ function renderRunningCommand(entries = performanceEntries) {
     : activePlan || activeBlock?.weeks?.[0] || null;
   const blockStatus = activeBlock ? "APPROVED" : draftBlock ? "DRAFT" : blockCandidate.status === "DRAFT" ? "READY_TO_BUILD" : blockCandidate.status;
   const blockMessage = draftBlock?.message || activeBlock?.message || blockCandidate.message;
+  const latestManualRun = entries.find((entry) => entry.domain === "running" && entry.metrics?.capture_method === "MANUAL_RUN_FORM") || null;
+  const latestManualPace = latestManualRun && typeof DominionManualRun !== "undefined"
+    ? DominionManualRun.formatPace(latestManualRun.metrics?.pace_seconds_per_unit || (Number(latestManualRun.metrics?.duration_seconds || 0) / Number(latestManualRun.metrics?.distance || 1)), latestManualRun.metrics?.distance_unit)
+    : null;
+  const canCountManualTowardToday = Boolean(dailyRun.session && !["REST_DAY", "PAIN_HOLD"].includes(dailyRun.status) && !["COMPLETE", "PARTIAL", "STOPPED", "PAIN_HOLD"].includes(execution?.state));
   panel.innerHTML = `
     <div class="running-command-grid">
+      <article class="manual-run-card">
+        <header><div><span class="kicker">RUN EVIDENCE</span><h3>Log a completed run</h3><p>Enter the work once. It updates Running, Trends, weekly evidence, and—when selected—today&apos;s assigned run.</p></div>${latestManualRun ? `<div class="manual-run-last"><span>LAST MANUAL RUN</span><strong>${latestManualRun.metrics.distance} ${escapeHtml(latestManualRun.metrics.distance_unit || "mi")} · ${escapeHtml(latestManualPace || "pace saved")}</strong><small>${escapeHtml(latestManualRun.performanceDate)}</small></div>` : ""}</header>
+        <form id="manual-run-form" class="manual-run-form">
+          <label>Date<input id="manual-run-date" name="date" type="date" max="${todayISODate()}" required value="${todayISODate()}"></label>
+          <label>Run type<select id="manual-run-type" name="runType">${typeof DominionManualRun !== "undefined" ? DominionManualRun.RUN_TYPES.map((type) => `<option value="${type.code}">${escapeHtml(type.label)}</option>`).join("") : '<option value="EASY">Easy run</option>'}</select></label>
+          <label>Distance<span class="manual-run-paired"><input id="manual-run-distance" name="distance" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="5.00"><select id="manual-run-unit" name="unit" aria-label="Distance unit"><option value="mi" ${profile.preferredUnit !== "km" ? "selected" : ""}>mi</option><option value="km" ${profile.preferredUnit === "km" ? "selected" : ""}>km</option></select></span></label>
+          <fieldset class="manual-run-duration"><legend>Total time</legend><label>Hours<input id="manual-run-hours" name="hours" type="number" min="0" max="24" step="1" inputmode="numeric" value="0"></label><label>Minutes<input id="manual-run-minutes" name="minutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="42"></label><label>Seconds<input id="manual-run-seconds" name="seconds" type="number" min="0" max="59" step="1" inputmode="numeric" value="0"></label></fieldset>
+          <details class="manual-run-details"><summary>Add effort, heart rate, elevation, or notes</summary><div>
+            <label>Effort (1–10)<input id="manual-run-rpe" name="rpe" type="number" min="1" max="10" step="0.5" inputmode="decimal" placeholder="6"></label>
+            <label>Average HR<input id="manual-run-heart-rate" name="averageHeartRate" type="number" min="30" max="240" step="1" inputmode="numeric" placeholder="bpm"></label>
+            <label>Elevation gain<input id="manual-run-elevation" name="elevationGain" type="number" min="0" step="1" inputmode="decimal" placeholder="optional"></label>
+            <label class="manual-run-notes">Notes<textarea id="manual-run-notes" name="notes" rows="2" maxlength="500" placeholder="Route, terrain, weather, or how the run felt"></textarea></label>
+          </div></details>
+          <label class="manual-run-today ${canCountManualTowardToday ? "available" : "unavailable"}"><input id="manual-run-count-today" name="countTowardToday" type="checkbox" ${canCountManualTowardToday ? "checked" : "disabled"}><span><strong>Count this as today&apos;s assigned run</strong><small>${canCountManualTowardToday ? `${escapeHtml(dailyRun.session.title || dailyRun.session.type || "Today’s run")} is waiting for evidence.` : "No runnable assignment is scheduled today."}</small></span></label>
+          <div class="manual-run-actions"><button id="manual-run-submit" type="submit">Save run</button><span id="manual-run-feedback" role="status" aria-live="polite">Manual entries are labeled self-reported.</span></div>
+        </form>
+      </article>
       <article class="running-contract-bridge ${contractState === "CONTRACT_UPDATE_AVAILABLE" ? "update" : ""}">
         <div><span class="kicker">BUILD 018C // CONTRACT TO PLAN</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} · ${contract.declaredWeeklyDistance || "—"} ${escapeHtml(contract.preferredUnit)} baseline · contract revision ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
         <div class="running-contract-bridge-actions"><span class="state-pill ${contractState === "ALIGNED" ? "green" : contractState === "CONTRACT_UPDATE_AVAILABLE" ? "yellow" : "neutral"}">${escapeHtml(contractState.replaceAll("_", " "))}</span><button type="button" class="ghost" data-running-action="open-contract">${contract ? "Review contract" : "Create contract"}</button></div>
@@ -13082,6 +13138,32 @@ function renderRunningCommand(entries = performanceEntries) {
         ${approvedReconciliation?.planApprovedAt === activePlan.approvedAt ? `<div class="running-evidence"><strong>EVIDENCE REVIEW APPROVED</strong><p>Approved ${escapeHtml(approvedReconciliation.approvedAt || "")}. The source entries remain unchanged and auditable.</p></div>` : ""}
       ` : `<div class="performance-empty">No active approved plan. Weekly evidence remains in Performance and is not discarded.</div>`}
     </section>`;
+}
+
+async function applyManualRunToToday(run = {}, entry = {}) {
+  if (run.performanceDate !== todayISODate() || !run.countTowardToday) return { applied: false, reason: "EVIDENCE_ONLY" };
+  if (typeof DominionMissionExecution === "undefined") return { applied: false, reason: "EXECUTION_UNAVAILABLE" };
+  const prescription = currentRunningPrescription();
+  if (!prescription?.session || ["REST_DAY", "PAIN_HOLD"].includes(prescription.status)) return { applied: false, reason: "NO_ASSIGNMENT" };
+  const existing = readRunningExecution();
+  if (["COMPLETE", "PARTIAL", "STOPPED", "PAIN_HOLD"].includes(existing?.state)) return { applied: false, reason: "ALREADY_CLOSED" };
+  const completedAt = new Date().toISOString();
+  const startedAt = new Date(Date.parse(completedAt) - (Number(run.durationSeconds || 0) * 1000)).toISOString();
+  let execution = DominionMissionExecution.startRunningExecution(prescription, null, startedAt);
+  execution = DominionMissionExecution.completeAllRunningSegments(execution, completedAt);
+  execution = DominionMissionExecution.finishRunningExecution(execution, { notes: run.notes }, completedAt);
+  execution = {
+    ...execution,
+    session: { ...execution.session, type: run.runType, title: run.runTypeLabel, distance: run.distance, unit: run.unit },
+    durationSeconds: run.durationSeconds,
+    manualEntryId: entry.id,
+    evidenceSource: "MANUAL_RUN_FORM",
+    updatedAt: completedAt
+  };
+  window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
+  const remote = await persistRunningState("EXECUTION", todayISODate(), execution);
+  await saveMissionExecutionReceipt("RUNNING", execution, buildCurrentMissionCockpit()?.current || {}, prescription, { skipPerformanceEvidence: true });
+  return { applied: true, remote, execution };
 }
 
 function renderPerformanceSection(entries = performanceEntries, storageMode = performanceStorageMode, saveState = performanceSaveState) {
@@ -18446,6 +18528,51 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
+    if (event.target.id === "manual-run-form") {
+      event.preventDefault();
+      const button = document.getElementById("manual-run-submit");
+      const formData = new FormData(event.target);
+      const input = { ...Object.fromEntries(formData.entries()), countTowardToday: formData.has("countTowardToday") };
+      const validation = typeof DominionManualRun !== "undefined"
+        ? DominionManualRun.validate(input, { today: todayISODate() })
+        : { valid: false, errors: [{ message: "Manual run capture is temporarily unavailable." }] };
+      if (!validation.valid) {
+        setText("manual-run-feedback", validation.errors[0]?.message || "Complete the required run details.");
+        return;
+      }
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Saving run…";
+      }
+      setText("manual-run-feedback", "Saving run evidence…");
+      try {
+        const createdAt = new Date().toISOString();
+        const entry = DominionManualRun.buildPerformanceEntry(input, { today: todayISODate(), userId: session?.user?.id || null, createdAt });
+        const saved = await persistPerformanceEvidenceEntry(entry);
+        const application = await applyManualRunToToday(validation.run, saved.entry);
+        renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+        renderTodayCommittedWeek();
+        renderMissionExecution();
+        renderTodayCommandSurface();
+        if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+        const storageMessage = saved.remote ? "saved to your account" : "saved on this device; account sync will retry";
+        const assignmentMessage = application.applied
+          ? " Today’s assigned run is complete."
+          : application.reason === "ALREADY_CLOSED"
+            ? " Today’s assignment was already closed, so its receipt was not replaced."
+            : validation.run.countTowardToday
+              ? " Run evidence is saved, but no active assignment could be closed."
+              : "";
+        setText("manual-run-feedback", `${validation.run.distance} ${validation.run.unit} ${storageMessage}.${assignmentMessage}`);
+      } catch (error) {
+        setText("manual-run-feedback", error?.message || "The run could not be saved. Your existing evidence was not changed.");
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Save run";
+        }
+      }
+      return;
+    }
     if (event.target.id !== "running-profile-form") return;
     event.preventDefault();
     const distance = document.getElementById("running-benchmark-distance")?.value || "";

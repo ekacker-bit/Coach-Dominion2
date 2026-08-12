@@ -6,6 +6,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const size = (file) => fs.statSync(path.join(root, file)).size;
 
 const html = read("app.html");
+const index = read("index.html");
 const css = read("assets/styles.css");
 const app = read("assets/js/app.js");
 const strength = read("assets/js/strength-training.js");
@@ -13,6 +14,8 @@ const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
+const orientation = read("assets/js/first-week-orientation.js");
+const manualRun = read("assets/js/manual-run.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -140,6 +143,11 @@ check("025P cross-surface blocker", app.includes("unifiedBlockerBannerMarkup") &
 check("025P automatic advancement", app.includes("completeContinuityResolution") && app.includes("lastResolution") && html.includes('id="unified-blocker-resolution-receipt"'), "025P does not advance after a saved-program choice");
 check("025P responsive shell", html.includes('/assets/js/unified-blocker-resolution.js?v=025p') && html.includes('styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p') && css.includes(".unified-blocker-banner"), "025P responsive command shell is incomplete");
 check("025P cache", worker.includes('/assets/js/unified-blocker-resolution.js?v=025p') && worker.includes("025o-025p"), "025P assets are stale or uncached");
+check("025Q motivational entry", index.includes("THE STANDARD") && index.includes("Difficulty is not a defect") && index.includes('id="password-visibility"') && css.includes(".entry-manifesto"), "025Q branded sign-in experience is incomplete");
+check("025Q durable orientation", orientation.includes('const VERSION = "025Q.1"') && orientation.includes("function selectCanonicalOrientation") && orientation.includes("function completionReceipt") && app.includes("Week One will not be repeated"), "025Q orientation receipt is not durable");
+check("025Q manual run engine", size("assets/js/manual-run.js") >= 6000 && manualRun.includes('capture_method: "MANUAL_RUN_FORM"'), "025Q manual run engine is incomplete");
+check("025Q manual run integration", html.includes('/assets/js/manual-run.js?v=025q') && app.includes('id="manual-run-form"') && app.includes("applyManualRunToToday") && app.includes("persistPerformanceEvidenceEntry"), "025Q manual run capture is not connected end to end");
+check("025Q offline shell", worker.includes('/assets/js/manual-run.js?v=025q') && worker.includes('/assets/js/first-week-orientation.js?v=025q') && worker.includes("025p-025q"), "025Q assets are stale or uncached");
 check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
 check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

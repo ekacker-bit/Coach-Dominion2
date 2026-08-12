@@ -1,10 +1,11 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p";
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q";
 const APP_SHELL = [
   "/",
   "/app",
   "/app.html",
   "/manifest.webmanifest",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p",
+  "/assets/styles.css?v=025q",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",
@@ -58,6 +59,7 @@ const APP_SHELL = [
   "/assets/js/atlas-adaptive-week.js?v=025a2",
   "/assets/js/atlas-week-autopilot.js?v=024n",
   "/assets/js/mission-execution.js?v=025b",
+  "/assets/js/manual-run.js?v=025q",
   "/assets/js/mission-debrief.js?v=025c",
   "/assets/js/mission-recovery.js?v=025d",
   "/assets/js/morning-verification.js?v=025e",
@@ -72,8 +74,8 @@ const APP_SHELL = [
   "/assets/js/atlas-daily-command.js?v=025o",
   "/assets/js/unified-blocker-resolution.js?v=025p",
   "/assets/js/dominion-continuity.js?v=025n",
-  "/assets/js/first-week-orientation.js",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p"
+  "/assets/js/first-week-orientation.js?v=025q",
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q"
 ];
 
 self.addEventListener("install", (event) => {

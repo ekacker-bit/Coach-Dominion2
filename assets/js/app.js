@@ -11638,6 +11638,68 @@ function buildCurrentAtlasAdaptiveWeek() {
   return currentAtlasAdaptiveWeek;
 }
 
+function buildCurrentAtlasWeeklyCommand() {
+  if (typeof DominionAtlasWeeklyCommand === "undefined") return null;
+  const proposal = buildCurrentAtlasAdaptiveWeek();
+  if (!proposal) return null;
+  const activeWeek = readCommittedUnifiedWeek(todayISODate());
+  const fuelSummary = typeof DominionFuelClosedLoop === "undefined"
+    ? null
+    : DominionFuelClosedLoop.summarizeWeek(readFuelClosedLoopLedger(), { start: activeWeek?.weekStart, end: activeWeek?.weekEnd });
+  return DominionAtlasWeeklyCommand.buildCommand({
+    proposal,
+    runningProgression: buildCurrentRunningProgression(),
+    fuelSummary
+  });
+}
+
+function atlasWeeklyCommandMarkup(command = buildCurrentAtlasWeeklyCommand(), context = "review") {
+  if (!command) return "";
+  const domains = (command.domains || []).map((domain) => `<div class="${escapeHtml(domain.state.toLowerCase())}"><span>${escapeHtml(domain.label)}</span><strong>${domain.percent === null ? "—" : `${domain.percent}%`}</strong><small>${escapeHtml(domain.state)}</small></div>`).join("");
+  const changes = (command.proposedChanges || []).map((change) => `<li><strong>${escapeHtml(change.label)}</strong><span>${escapeHtml(change.detail)}</span></li>`).join("");
+  const actions = command.status === "PROPOSED"
+    ? '<button type="button" data-atlas-week-action="approve">Approve coordinated week</button><button type="button" class="ghost" data-atlas-week-action="hold">Repeat current week</button>'
+    : command.status === "APPROVED"
+      ? '<span class="atlas-weekly-command-receipt">APPROVED · NEXT WEEK STAGED</span>'
+      : command.status === "HELD"
+        ? '<span class="atlas-weekly-command-receipt">CURRENT WEEK RETAINED</span>'
+        : "";
+  return `<article class="atlas-weekly-command ${escapeHtml(command.tone || "neutral")}" data-atlas-weekly-command="${escapeHtml(context)}">
+    <header><div><span>BUILD 025U · WEEKLY COMMAND</span><h3>${escapeHtml(command.headline)}</h3><p>${escapeHtml(command.detail)}</p></div><strong>${escapeHtml(String(command.status || "MONITORING").replaceAll("_", " "))}</strong></header>
+    <div class="atlas-weekly-command-read"><article><span>WIN</span><strong>${escapeHtml(command.win.label)}</strong><p>${escapeHtml(command.win.detail)}</p></article><article><span>WATCH</span><strong>${escapeHtml(command.watch.label)}</strong><p>${escapeHtml(command.watch.detail)}</p></article><article><span>PRIORITY</span><strong>${escapeHtml(command.priority)}</strong></article></div>
+    <div class="atlas-weekly-command-domains">${domains}</div>
+    ${changes ? `<details><summary>Proposed changes · ${command.proposedChanges.length}</summary><ul>${changes}</ul></details>` : ""}
+    <div class="atlas-weekly-command-actions">${actions}</div><small>${escapeHtml(command.safeguard)}</small>
+  </article>`;
+}
+
+function renderAtlasWeeklyCommand() {
+  const panel = document.getElementById("atlas-weekly-command-panel");
+  if (panel) panel.innerHTML = atlasWeeklyCommandMarkup(buildCurrentAtlasWeeklyCommand(), "review");
+}
+
+async function applyAtlasWeeklyCommandAction(action = "approve") {
+  if (typeof DominionAtlasAdaptiveWeek === "undefined" || typeof DominionAtlasWeeklyCommand === "undefined") return null;
+  const proposal = buildCurrentAtlasAdaptiveWeek();
+  const command = buildCurrentAtlasWeeklyCommand();
+  if (!proposal || !command || command.status !== "PROPOSED") throw new Error("The weekly command is not awaiting approval.");
+  const commandDecision = action === "approve"
+    ? DominionAtlasWeeklyCommand.approveCommand(command, new Date().toISOString())
+    : DominionAtlasWeeklyCommand.holdCommand(command, new Date().toISOString());
+  const adaptiveDecision = action === "approve"
+    ? DominionAtlasAdaptiveWeek.approveProposal(proposal, commandDecision.approvedAt)
+    : DominionAtlasAdaptiveWeek.holdProposal(proposal, commandDecision.heldAt);
+  if (!adaptiveDecision) throw new Error("Atlas could not preserve that weekly decision.");
+  const decision = DominionAtlasWeeklyCommand.attachToDecision(adaptiveDecision, commandDecision);
+  const synced = await saveAtlasAdaptiveWeekRecord(decision);
+  currentAtlasAdaptiveWeek = decision;
+  const result = await runAtlasWeekAutopilot();
+  refreshProgramActivationSurfaces();
+  renderProgramCommand();
+  renderAtlasWeeklyCommand();
+  return { decision, command: commandDecision, result, synced };
+}
+
 async function runAtlasAdaptiveWeek() {
   const proposal = buildCurrentAtlasAdaptiveWeek();
   if (!proposal?.id) return proposal;
@@ -12484,6 +12546,54 @@ function readRunningExecution() {
   try { return JSON.parse(window.localStorage.getItem(runningExecutionStorageKey()) || "null"); } catch (_) { return null; }
 }
 
+function runningProgressionStorageKey() {
+  return `coach-dominion:running-progression:${session?.user?.id || "local"}:current`;
+}
+
+function readRunningProgression() {
+  try { return JSON.parse(window.localStorage.getItem(runningProgressionStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function saveRunningProgressionLocal(payload = null) {
+  if (payload) window.localStorage.setItem(runningProgressionStorageKey(), JSON.stringify(payload));
+  else window.localStorage.removeItem(runningProgressionStorageKey());
+  return payload;
+}
+
+async function saveRunningProgression(payload = null) {
+  saveRunningProgressionLocal(payload);
+  if (!payload) return false;
+  return persistRunningState("PROGRESSION", "current", payload);
+}
+
+function buildCurrentRunningProgression(entries = performanceEntries) {
+  if (typeof DominionRunningProgression === "undefined") return null;
+  return DominionRunningProgression.buildProposal({
+    block: readApprovedRunningBlock(),
+    entries,
+    today: todayISODate(),
+    priorProposal: readRunningProgression()
+  });
+}
+
+function runningProgressionMarkup(proposal = buildCurrentRunningProgression()) {
+  if (!proposal) return "";
+  const metrics = proposal.evidence || {};
+  const actions = proposal.status === "PROPOSED"
+    ? '<button type="button" data-running-action="approve-progression">Approve change</button><button type="button" class="ghost" data-running-action="hold-progression">Keep current plan</button>'
+    : proposal.status === "APPROVED"
+      ? '<span class="running-progression-receipt">APPROVED · FUTURE RUNS UPDATED</span>'
+      : proposal.status === "HELD"
+        ? '<span class="running-progression-receipt">CURRENT DOSE RETAINED</span>'
+        : "";
+  return `<section class="running-progression ${escapeHtml(proposal.tone || "neutral")}">
+    <header><div><span>BUILD 025S · ATLAS RUNNING CALL</span><h3>${escapeHtml(proposal.headline)}</h3><p>${escapeHtml(proposal.detail)}</p></div><strong>${escapeHtml(String(proposal.code || "COLLECT").replaceAll("_", " "))}</strong></header>
+    <div class="running-progression-evidence"><div><span>Judged runs</span><strong>${metrics.judgedRuns || 0}</strong></div><div><span>On target</span><strong>${metrics.onTarget || 0}</strong></div><div><span>Average completion</span><strong>${metrics.averageCompletion ?? "—"}${metrics.averageCompletion === null || metrics.averageCompletion === undefined ? "" : "%"}</strong></div><div><span>Change</span><strong>${proposal.distanceDeltaPercent > 0 ? "+" : ""}${proposal.distanceDeltaPercent || 0}%</strong></div></div>
+    <div class="running-progression-actions">${actions}</div><small>${escapeHtml(proposal.safeguard || "No silent plan changes.")}</small>
+  </section>`;
+}
+
 async function persistRunningState(stateType, stateKey, payload) {
   recordContinuityWrite("running", stateType, stateKey, payload);
   if (!session?.user?.id) return false;
@@ -12536,13 +12646,15 @@ async function loadRunningState() {
     const activeBlock = rows.find((row) => row.state_type === "PLAN" && row.state_key === "active");
     const reconciliation = rows.find((row) => row.state_type === "RECONCILIATION" && row.state_key === week);
     const execution = rows.find((row) => row.state_type === "EXECUTION" && row.state_key === todayISODate());
+    const progression = rows.find((row) => row.state_type === "PROGRESSION" && row.state_key === "current");
     const states = [
       ["PROFILE", "current", readRunningProfile(), profile, (payload) => saveRunningProfile(payload)],
       ["PLAN", week, readLegacyApprovedRunningPlan(), plan, (payload) => window.localStorage.setItem(runningPlanStorageKey(), JSON.stringify(payload))],
       ["PLAN", "draft", readRunningBlockDraft(), blockDraft, (payload) => saveRunningBlockLocal("draft", payload)],
       ["PLAN", "active", readApprovedRunningBlock(), activeBlock, (payload) => saveRunningBlockLocal("active", payload)],
       ["RECONCILIATION", week, readApprovedRunningReconciliation(), reconciliation, (payload) => window.localStorage.setItem(runningReconciliationStorageKey(), JSON.stringify(payload))],
-      ["EXECUTION", todayISODate(), readRunningExecution(), execution, (payload) => window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(payload))]
+      ["EXECUTION", todayISODate(), readRunningExecution(), execution, (payload) => window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(payload))],
+      ["PROGRESSION", "current", readRunningProgression(), progression, (payload) => saveRunningProgressionLocal(payload)]
     ];
     for (const [stateType, stateKey, localPayload, row, saveLocal] of states) {
       const meaningfulLocal = stateType !== "PROFILE" || localPayload?.approvedAt || localPayload?.updatedAt;
@@ -13221,6 +13333,7 @@ function renderRunningCommand(entries = performanceEntries) {
       ${execution?.state === "REVIEW" ? runningActualReviewMarkup("performance", execution, dailyRun) : runningVerdictMarkup(execution)}
       <div class="performance-actions"><button type="button" data-running-action="start-run" ${["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) || ["IN_PROGRESS", "PAUSED", "REVIEW", "COMPLETE", "PARTIAL", "PAIN_HOLD"].includes(execution?.state) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${!["IN_PROGRESS", "PAUSED"].includes(execution?.state) ? "disabled" : ""}>Finish &amp; log</button><button type="button" class="ghost" data-running-action="modify-run">Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
     </section>
+    ${runningProgressionMarkup(buildCurrentRunningProgression(entries))}
     <section class="running-reconciliation-panel">
       <div class="section-heading compact"><div><span class="kicker">BUILD 010D // RUN IMPORT &amp; RECONCILIATION</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
       ${reconciliation ? `
@@ -14304,6 +14417,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
   const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
   const autopilot = model.autopilot;
   const weeklyDecision = buildCurrentAtlasAdaptiveWeek();
+  const weeklyCommand = buildCurrentAtlasWeeklyCommand();
   const autopilotRoute = autopilot?.action === "OPEN_CALENDAR" ? "calendar" : ["ACTIVATION_REQUIRED", "REVIEW_REQUIRED"].includes(autopilot?.status) ? "contract" : "calendar";
   const autopilotAction = weeklyDecision?.status === "PROPOSED"
     ? `<div class="atlas-week-actions"><button type="button" data-atlas-week-action="approve">Approve next week</button><button type="button" class="ghost" data-atlas-week-action="hold">Repeat this week</button></div>`
@@ -14333,7 +14447,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     </section>
     ${strengthCalendarHandoffMarkup(programHandoff, "program")}
     ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "program")}
-    ${autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>WEEK REVIEW</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div>${weeklyEvidence}</section>` : ""}
+    ${weeklyCommand ? atlasWeeklyCommandMarkup(weeklyCommand, "program") : autopilot ? `<section class="program-command-autopilot ${escapeHtml(autopilot.tone)}"><div><span>WEEK REVIEW</span><h3>${escapeHtml(autopilot.headline)}</h3><p>${escapeHtml(autopilot.detail)}</p></div><div><strong>${escapeHtml(autopilot.targetWeekStart || "")}</strong>${autopilotAction}</div>${weeklyEvidence}</section>` : ""}
     <section class="program-command-week" aria-label="Current week summary">
       <header><div><span>THIS WEEK</span><strong>${weekDate}</strong></div><small>${escapeHtml(model.safeguard)}</small></header>
       <div class="program-command-metrics">
@@ -15978,6 +16092,34 @@ function buildCurrentFuelCommand() {
   return DominionFuelCommand.buildFuelCommand({ execution, mealPlan, closedLoop, calendarContext: execution?.calendarContext, fastingContext: execution?.fastingContext, now: new Date() });
 }
 
+function buildCurrentFuelExecutionOrder() {
+  if (typeof DominionFuelExecution === "undefined") return null;
+  const execution = buildCurrentTodayNutritionExecution();
+  const loop = execution ? buildCurrentFuelClosedLoop(todayISODate(), execution) : null;
+  if (!execution || !loop) return null;
+  return DominionFuelExecution.buildOrder({
+    execution,
+    loop,
+    calendarContext: execution.calendarContext,
+    fastingContext: execution.fastingContext
+  });
+}
+
+function fuelExecutionMarkup(order = buildCurrentFuelExecutionOrder()) {
+  if (!order) return "";
+  const remaining = order.remaining || {};
+  const metric = (label, value, unit) => `<div><span>${label}</span><strong>${value === null || value === undefined ? "—" : `${Math.max(0, Math.round(value))}${unit}`}</strong></div>`;
+  const verdict = order.status === "CLOSED"
+    ? `<article class="fuel-execution-verdict ${escapeHtml(order.verdict?.tone || "neutral")}"><span>ATLAS FUEL VERDICT</span><strong>${escapeHtml(order.verdict?.headline || "Fuel day closed")}</strong><p>${escapeHtml(order.verdict?.detail || "The day is secured.")}</p><small>${escapeHtml(order.verdict?.safeguard || order.safeguard || "Approved targets remain unchanged.")}</small></article>`
+    : "";
+  return `<section class="fuel-execution-order ${order.splitDay ? "split" : ""}">
+    <header><div><span>BUILD 025T · TODAY'S FUEL ORDER</span><h3>${escapeHtml(order.headline)}</h3><p>${escapeHtml(order.detail)}</p></div><strong>${order.hydrationLiters}L<small> hydration</small></strong></header>
+    <div class="fuel-execution-metrics">${metric("Calories left", remaining.calories, "")}${metric("Protein left", remaining.protein, "g")}${metric("Carbs left", remaining.carbs, "g")}${metric("Fat left", remaining.fat, "g")}</div>
+    <div class="fuel-execution-timing"><span>${order.splitDay ? "AM / PM FUEL BRIDGE" : order.longRun ? "LONG-RUN FUEL" : "TIMING"}</span><strong>${escapeHtml(order.timing)}</strong></div>
+    ${verdict}
+  </section>`;
+}
+
 function hydrateMealExecutionPreferences(force = false) {
   const form = document.getElementById("meal-execution-preferences-form");
   if (!form || form.dataset.hydrated === "true" && !force || typeof DominionMealExecution === "undefined") return;
@@ -16211,7 +16353,7 @@ function renderFuelClosedLoop() {
     ? `<small>${escapeHtml(loop.closeout.evidenceConfidence)} · revision ${Number(loop.closeout.revision || 1)}</small>`
     : `<small>${loop.reconciliation.meals.length} confirmed meal${loop.reconciliation.meals.length === 1 ? "" : "s"} · ${loop.feedback.length} check-in${loop.feedback.length === 1 ? "" : "s"}</small>`;
   output.className = "fuel-loop-card";
-  output.innerHTML = `<div class="fuel-loop-progress" aria-label="Fuel loop progress">${fuelLoopStepMarkup(loop)}</div>
+  output.innerHTML = `${fuelExecutionMarkup()}<div class="fuel-loop-progress" aria-label="Fuel loop progress">${fuelLoopStepMarkup(loop)}</div>
     <div class="fuel-loop-summary">
       <div><span>${escapeHtml(loop.reconciliation.label)}</span><strong>${escapeHtml(loop.reconciliation.detail)}</strong><small>${escapeHtml(loop.reconciliation.doubleCountPolicy)}</small></div>
       <div><span>Tomorrow</span><strong>${escapeHtml(recommendation.headline)}</strong><small>${escapeHtml(recommendation.detail)}</small></div>
@@ -16294,12 +16436,14 @@ async function sealFuelDay(event) {
     const ledger = readFuelClosedLoopLedger();
     const previous = ledger.closeouts.find((item) => item.date === loop?.date) || null;
     const data = new FormData(event.currentTarget);
-    const record = DominionFuelClosedLoop.closeFuelDay(loop, { note: data.get("note") }, { previous });
+    const baseRecord = DominionFuelClosedLoop.closeFuelDay(loop, { note: data.get("note") }, { previous });
+    const order = typeof DominionFuelExecution === "undefined" ? null : DominionFuelExecution.buildOrder({ execution: buildCurrentTodayNutritionExecution(), loop, calendarContext: buildCurrentFuelCalendarContext(), fastingContext: buildCurrentFastingContext() });
+    const record = order ? DominionFuelExecution.attachVerdict(baseRecord, order) : baseRecord;
     const result = await saveFuelClosedLoopLedger({ ...ledger, closeouts: DominionFuelClosedLoop.mergeById(ledger.closeouts, record, 120) });
     event.currentTarget.reset();
     event.currentTarget.hidden = true;
     renderNutritionCommand();
-    setText("fuel-closed-loop-feedback", `Fuel day sealed${result.synced ? " to your account" : " locally"}. Tomorrow's action is ready.`);
+    setText("fuel-closed-loop-feedback", `Fuel day sealed${result.synced ? " to your account" : " locally"}. ${record.verdict?.headline || "Tomorrow's action is ready"}.`);
   } catch (error) {
     setText("fuel-closed-loop-feedback", error.message);
   }
@@ -17542,17 +17686,8 @@ if (typeof document !== "undefined") {
     if (adaptiveButton && typeof DominionAtlasAdaptiveWeek !== "undefined") {
       adaptiveButton.disabled = true;
       try {
-        const proposal = buildCurrentAtlasAdaptiveWeek();
         const action = adaptiveButton.dataset.atlasWeekAction;
-        const decision = action === "approve"
-          ? DominionAtlasAdaptiveWeek.approveProposal(proposal, new Date().toISOString())
-          : DominionAtlasAdaptiveWeek.holdProposal(proposal, new Date().toISOString());
-        if (!decision) throw new Error("Atlas could not preserve that weekly decision.");
-        const synced = await saveAtlasAdaptiveWeekRecord(decision);
-        currentAtlasAdaptiveWeek = decision;
-        const result = await runAtlasWeekAutopilot();
-        refreshProgramActivationSurfaces();
-        renderProgramCommand();
+        const { decision, result, synced } = await applyAtlasWeeklyCommandAction(action);
         const complete = result?.status === "COMMITTED";
         setText("program-command-feedback", complete
           ? `${decision.status === "APPROVED" ? decision.label : "Current prescription"} committed for ${decision.targetWeekStart}${synced ? " and saved to your account" : " on this device"}.`
@@ -18629,6 +18764,22 @@ if (typeof document !== "undefined") {
       setText("core-today-feedback", `${result.message} Performance evidence and the Mission receipt were added automatically.`);
     }
   });
+  document.getElementById("inspection")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-atlas-week-action]");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      const { decision, result, synced } = await applyAtlasWeeklyCommandAction(button.dataset.atlasWeekAction || "approve");
+      const message = result?.status === "COMMITTED"
+        ? `${decision.status === "APPROVED" ? decision.label : "Current prescription"} committed for ${decision.targetWeekStart}${synced ? " and saved to your account" : " on this device"}.`
+        : result?.detail || "Atlas saved the weekly command. Review the named calendar item before commitment.";
+      setText("weekly-warning", message);
+    } catch (error) {
+      setText("weekly-warning", error?.message || "Atlas could not apply the weekly command.");
+    } finally {
+      button.disabled = false;
+    }
+  });
   document.getElementById("running-command-panel")?.addEventListener("submit", async (event) => {
     if (event.target.matches('[data-running-actual-review="performance"]')) {
       event.preventDefault();
@@ -18728,6 +18879,38 @@ if (typeof document !== "undefined") {
     if (!button) return;
     if (button.dataset.runningAction === "open-contract") {
       window.location.hash = "contract";
+      return;
+    }
+    if (["approve-progression", "hold-progression"].includes(button.dataset.runningAction)) {
+      button.disabled = true;
+      try {
+        const proposal = buildCurrentRunningProgression();
+        if (!proposal || proposal.status !== "PROPOSED") throw new Error("No Running progression is awaiting a decision.");
+        if (button.dataset.runningAction === "hold-progression") {
+          const held = DominionRunningProgression.holdProposal(proposal, new Date().toISOString());
+          const synced = await saveRunningProgression(held);
+          renderRunningCommand();
+          setText("running-command-feedback", `Current Running dose retained${synced ? " and saved to your account" : " on this device"}. Atlas will review the next verified runs.`);
+          return;
+        }
+        const current = readApprovedRunningBlock();
+        const decision = DominionRunningProgression.approveProposal(proposal, new Date().toISOString());
+        const revised = DominionRunningProgression.applyToBlock(current, decision, { appliedAt: new Date().toISOString() });
+        await persistRunningState("PLAN", `archive:${current.id}`, current);
+        saveRunningBlockLocal("active", revised);
+        await persistRunningState("PLAN", "active", revised);
+        const receipt = { ...decision, appliedBlockId: revised.id, appliedBlockRevision: revised.revision, appliedAt: revised.approvedAt };
+        const synced = await saveRunningProgression(receipt);
+        await refreshUnifiedWeekDraftForPlans({ force: true });
+        renderRunningCommand();
+        renderWeeklyOrchestrator();
+        renderProgramCommand();
+        setText("running-command-feedback", `${decision.headline} applied to future runs${synced ? " and saved to your account" : " on this device"}. Completed work is unchanged; Calendar is staged from revision ${revised.revision}.`);
+      } catch (error) {
+        setText("running-command-feedback", error?.message || "The Running progression could not be applied.");
+      } finally {
+        button.disabled = false;
+      }
       return;
     }
     if (button.dataset.runningAction === "generate-block" || button.dataset.runningAction === "approve-plan") {
@@ -20926,6 +21109,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   renderStandardsSection();
   renderActivationGuide();
   renderReviewHub();
+  renderAtlasWeeklyCommand();
 }
 
 async function loadWeeklyInspectionLegacy() {

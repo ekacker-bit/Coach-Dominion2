@@ -1,0 +1,15 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const root = require("node:path").join(__dirname, "..");
+const read = (file) => fs.readFileSync(require("node:path").join(root, file), "utf8");
+const html = read("app.html"), app = read("assets/js/app.js"), styles = read("assets/styles.css"), worker = read("sw.js"), engine = read("assets/js/atlas-weekly-command.js");
+assert.match(engine, /const VERSION = "025U\.1"/);
+assert.match(engine, /function buildCommand/);
+assert.match(engine, /function attachToDecision/);
+assert.match(html, /id="atlas-weekly-command-panel"/);
+assert.match(html, /atlas-weekly-command\.js\?v=025u/);
+assert.match(app, /function applyAtlasWeeklyCommandAction/);
+assert.match(app, /DominionAtlasWeeklyCommand\.attachToDecision/);
+assert.match(styles, /\.atlas-weekly-command/);
+assert.match(worker, /atlas-weekly-command\.js\?v=025u/);
+console.log("Build 025U Atlas weekly command integration checks passed.");

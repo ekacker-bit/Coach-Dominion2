@@ -1,0 +1,16 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const root = require("node:path").join(__dirname, "..");
+const read = (file) => fs.readFileSync(require("node:path").join(root, file), "utf8");
+const html = read("app.html"), app = read("assets/js/app.js"), styles = read("assets/styles.css"), worker = read("sw.js"), engine = read("assets/js/running-progression.js");
+assert.match(engine, /const VERSION = "025S\.1"/);
+assert.match(engine, /function buildProposal/);
+assert.match(engine, /function applyToBlock/);
+assert.match(engine, /UNCAPPED_BY_TIME/);
+assert.match(html, /running-progression\.js\?v=025s/);
+assert.match(app, /function buildCurrentRunningProgression/);
+assert.match(app, /data-running-action="approve-progression"/);
+assert.match(app, /refreshUnifiedWeekDraftForPlans\(\{ force: true \}\)/);
+assert.match(styles, /\.running-progression/);
+assert.match(worker, /running-progression\.js\?v=025s/);
+console.log("Build 025S Running progression integration checks passed.");

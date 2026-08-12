@@ -1,11 +1,11 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r";
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u";
 const APP_SHELL = [
   "/",
   "/app",
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js",
   "/assets/js/nutrition-feed.js",
@@ -61,6 +61,9 @@ const APP_SHELL = [
   "/assets/js/mission-execution.js?v=025b",
   "/assets/js/manual-run.js?v=025q",
   "/assets/js/running-verdict.js?v=025r",
+  "/assets/js/running-progression.js?v=025s",
+  "/assets/js/fuel-execution.js?v=025t",
+  "/assets/js/atlas-weekly-command.js?v=025u",
   "/assets/js/mission-debrief.js?v=025c",
   "/assets/js/mission-recovery.js?v=025d",
   "/assets/js/morning-verification.js?v=025e",
@@ -76,7 +79,7 @@ const APP_SHELL = [
   "/assets/js/unified-blocker-resolution.js?v=025p",
   "/assets/js/dominion-continuity.js?v=025n",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u"
 ];
 
 self.addEventListener("install", (event) => {

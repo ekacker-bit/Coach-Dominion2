@@ -809,6 +809,7 @@ function refreshContinuityConsumers() {
   try { renderWeeklyOrchestrator(); } catch (_) {}
   try { renderTodayCommittedWeek(); } catch (_) {}
   try { renderProgramTrends(); } catch (_) {}
+  try { renderAtlasDecisionCenter(); } catch (_) {}
   try { scheduleOperatingTruthReconciliation(0); } catch (_) {}
 }
 
@@ -10762,6 +10763,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const state = document.getElementById("today-completion-state");
   renderTodayCommittedWeek();
   renderTodayBodyCheckpoint();
+  renderAtlasDecisionCenter();
   if (!state || !assignment) return;
   const execution = readDailyAssignmentExecution();
   const recovery = buildCurrentRecoveryRecommendation() || {};
@@ -11469,7 +11471,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "mission-recovery"],
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
-      ["HISTORY", "atlas-daily-command"]
+      ["HISTORY", "atlas-daily-command"],
+      ["HISTORY", "atlas-decision-center"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -11676,6 +11679,232 @@ function atlasWeeklyCommandMarkup(command = buildCurrentAtlasWeeklyCommand(), co
 function renderAtlasWeeklyCommand() {
   const panel = document.getElementById("atlas-weekly-command-panel");
   if (panel) panel.innerHTML = atlasWeeklyCommandMarkup(buildCurrentAtlasWeeklyCommand(), "review");
+  renderAtlasDecisionCenter();
+}
+
+function atlasDecisionCandidateSources() {
+  const candidates = [];
+  const safely = (builder) => {
+    try { return builder(); } catch (_) { return null; }
+  };
+  const conflicts = currentContinuityConflicts();
+  if (conflicts.length) {
+    const conflictKey = conflicts.map((item) => item.choiceKey || item.domain || "program").sort().join("|");
+    candidates.push({
+      id: `continuity:${conflictKey}`,
+      category: "INTEGRITY",
+      domain: "PROGRAM",
+      title: "Choose the saved program",
+      detail: `${conflicts.length} approved revision${conflicts.length === 1 ? " differs" : "s differ"}. Choose the copy that reflects your intent before Atlas advances the program.`,
+      consequence: "Nothing will be replaced until you choose this device or the account copy.",
+      actionLabel: "Resolve saved program",
+      sourceStatus: "CONFLICT",
+      sourceRevision: continuityState.accountRevision || null,
+      route: { action: "RESOLVE_CONTINUITY", section: "today", anchor: "continuity-conflict-panel" }
+    });
+  }
+
+  const adjustment = readStrengthAdjustment();
+  if (adjustment?.status === "PENDING" && adjustment.safetyHold) {
+    candidates.push({
+      id: `strength-safety:${adjustment.id}`,
+      category: "SAFETY",
+      urgency: 5,
+      domain: "STRENGTH",
+      title: "Review the Strength safety hold",
+      detail: "Pain or a stopped session is blocking loaded changes. Review the evidence and keep the active prescription conservative.",
+      consequence: "Strength progression stays held until this review is resolved.",
+      actionLabel: "Review safety hold",
+      sourceStatus: adjustment.status,
+      sourceRevision: adjustment.planRevision || null,
+      route: { section: "performance", view: "today_training", anchor: "programming-review-panel" }
+    });
+  } else if (adjustment?.status === "PENDING" && Number(adjustment.summary?.changedCount || 0) > 0) {
+    candidates.push({
+      id: `strength-adjustment:${adjustment.id}`,
+      category: "PROGRESSION",
+      domain: "STRENGTH",
+      title: "Approve earned Strength changes",
+      detail: `${adjustment.summary.changedCount} evidence-backed change${adjustment.summary.changedCount === 1 ? " is" : "s are"} ready for ${adjustment.sessionName || "the active Strength plan"}.`,
+      consequence: "The active plan remains unchanged until you approve or hold the recommendation.",
+      actionLabel: "Review Strength changes",
+      sourceStatus: adjustment.status,
+      sourceRevision: adjustment.planRevision || null,
+      route: { section: "performance", view: "today_training", anchor: "programming-review-panel" }
+    });
+  }
+
+  const trial = readStrengthProgressionTrial();
+  if (trial?.status === "VERDICT_READY") {
+    candidates.push({
+      id: `strength-trial:${trial.id}`,
+      category: "PROGRESSION",
+      urgency: trial.verdict === "ROLLBACK_RECOMMENDED" ? 4 : 2,
+      domain: "STRENGTH",
+      title: trial.verdictLabel || "Resolve the Strength progression trial",
+      detail: trial.verdict === "ROLLBACK_RECOMMENDED"
+        ? "The trial evidence favors restoring the prior target. Confirm the outcome before another matching exposure."
+        : "The trial is complete. Retain, repeat, or restore the prior target from the workout decision controls.",
+      consequence: "The trial target remains provisional until you record a deliberate verdict.",
+      actionLabel: "Resolve progression trial",
+      sourceStatus: trial.status,
+      sourceRevision: trial.planRevision || null,
+      route: { section: "today", anchor: "daily-assignment-panel" }
+    });
+  }
+
+  const calendarHandoff = currentStrengthCalendarHandoff();
+  if (calendarHandoff?.status === "REVIEW_REQUIRED") {
+    candidates.push({
+      id: `strength-calendar:${calendarHandoff.id || calendarHandoff.adjustmentId || calendarHandoff.planRevision}`,
+      category: "CALENDAR",
+      domain: "CALENDAR",
+      title: "Review the Strength calendar handoff",
+      detail: calendarHandoff.detail || "The Strength session structure changed. Review the future calendar before the revision takes effect.",
+      consequence: "The plan is saved, but future dates stay protected until Calendar is reviewed.",
+      actionLabel: "Review Calendar",
+      sourceStatus: calendarHandoff.status,
+      sourceRevision: calendarHandoff.planRevision || null,
+      route: { section: "calendar", anchor: "weekly-orchestrator-panel" }
+    });
+  }
+
+  const running = safely(() => buildCurrentRunningProgression());
+  if (running?.status === "PROPOSED") {
+    candidates.push({
+      id: `running-progression:${running.id}`,
+      category: "PROGRESSION",
+      domain: "RUNNING",
+      title: running.headline || "Review Running progression",
+      detail: running.detail || "Verified runs support a deliberate review of the next Running dose.",
+      consequence: "Only future runs can change. Completed evidence remains untouched.",
+      actionLabel: "Review Running call",
+      sourceStatus: running.status,
+      sourceRevision: running.blockRevision || running.revision || null,
+      route: { section: "performance", view: "running", anchor: "running-command-panel" }
+    });
+  }
+
+  const fuel = safely(() => buildCurrentFuelExecutionOrder());
+  if (fuel?.status === "CLOSED" && fuel.verdict?.code === "REVIEW_EVIDENCE") {
+    candidates.push({
+      id: `fuel-evidence:${fuel.date || todayISODate()}`,
+      category: "EVIDENCE",
+      domain: "FUEL",
+      title: fuel.verdict.headline || "Reconcile Fuel evidence",
+      detail: fuel.verdict.detail || "The meal record and daily total disagree. Refresh the source before Atlas judges execution.",
+      consequence: "No target or plan changes. Resolve the source once so intake is not counted twice.",
+      actionLabel: "Review Fuel evidence",
+      sourceStatus: fuel.verdict.code,
+      sourceRevision: fuel.date || null,
+      route: { section: "nutrition", view: "today", anchor: "nutrition-command-output" }
+    });
+  }
+
+  const weekly = safely(() => buildCurrentAtlasWeeklyCommand());
+  if (weekly?.status === "PROPOSED") {
+    candidates.push({
+      id: `weekly-command:${weekly.id}`,
+      category: "WEEK",
+      domain: "PROGRAM",
+      title: weekly.headline || "Approve the coordinated week",
+      detail: weekly.detail || "Atlas has prepared one coordinated next-week decision across the active program.",
+      consequence: "The current week stays protected. Approval applies only to the coordinated next week.",
+      actionLabel: "Review weekly command",
+      sourceStatus: weekly.status,
+      sourceRevision: weekly.targetWeekStart || null,
+      route: { section: "program", anchor: "program-command-panel" }
+    });
+  }
+  return candidates;
+}
+
+function buildCurrentAtlasDecisionCenter() {
+  if (typeof DominionAtlasDecisionCenter === "undefined") return null;
+  return DominionAtlasDecisionCenter.buildCenter({
+    candidates: atlasDecisionCandidateSources(),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function atlasDecisionQueueMarkup(decision = {}) {
+  return `<li class="atlas-decision-item ${escapeHtml(String(decision.category || "coaching").toLowerCase())}">
+    <span class="atlas-decision-order">${escapeHtml(String(decision.order || ""))}</span>
+    <div><span>${escapeHtml(decision.domain)} // ${escapeHtml(decision.category)}</span><strong>${escapeHtml(decision.title)}</strong><p>${escapeHtml(decision.detail)}</p><small>${escapeHtml(decision.consequence)}</small></div>
+    <button type="button" class="ghost" data-atlas-decision-action="OPEN" data-atlas-decision-id="${escapeHtml(decision.id)}">${escapeHtml(decision.actionLabel)}</button>
+  </li>`;
+}
+
+function renderAtlasDecisionCenter() {
+  const section = document.getElementById("atlas-decision-center");
+  if (!section || typeof DominionAtlasDecisionCenter === "undefined") return;
+  const center = buildCurrentAtlasDecisionCenter();
+  if (!center) return;
+  section.hidden = center.count === 0;
+  section.dataset.decisionState = center.status;
+  section.classList.toggle("safety", center.tone === "red");
+  setText("atlas-decision-center-heading", center.headline);
+  setText("atlas-decision-center-detail", center.detail);
+  setText("atlas-decision-center-state", center.status.replaceAll("_", " "));
+  const state = document.getElementById("atlas-decision-center-state");
+  if (state) state.className = `state-pill ${center.tone}`;
+  const primary = document.getElementById("atlas-decision-center-primary");
+  if (primary) primary.innerHTML = center.primary ? `<article class="atlas-decision-primary ${escapeHtml(center.primary.category.toLowerCase())}">
+    <div><span>${escapeHtml(center.primary.domain)} // ${escapeHtml(center.primary.category)}</span><h3>${escapeHtml(center.primary.title)}</h3><p>${escapeHtml(center.primary.detail)}</p><small>${escapeHtml(center.primary.consequence)}</small></div>
+    <button type="button" data-atlas-decision-action="OPEN" data-atlas-decision-id="${escapeHtml(center.primary.id)}">${escapeHtml(center.primary.actionLabel)}</button>
+  </article>` : "";
+  const list = document.getElementById("atlas-decision-center-list");
+  if (list) list.innerHTML = center.decisions.map(atlasDecisionQueueMarkup).join("");
+  setText("atlas-decision-center-summary", center.count ? `${center.count} waiting` : "Nothing waiting");
+  const queue = document.getElementById("atlas-decision-center-queue");
+  if (queue) queue.hidden = center.count < 2;
+  const badge = document.getElementById("atlas-decision-nav-count");
+  if (badge) {
+    badge.hidden = center.count === 0;
+    badge.textContent = String(center.count);
+    badge.setAttribute("aria-label", `${center.count} Atlas decision${center.count === 1 ? "" : "s"} waiting`);
+  }
+  const mobileToday = document.querySelector('#mobile-command-dock [data-mobile-nav="today"]');
+  if (mobileToday) {
+    mobileToday.dataset.decisionCount = String(center.count);
+    mobileToday.classList.toggle("has-decisions", center.count > 0);
+  }
+}
+
+function readAtlasDecisionHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-decision-center", []);
+  return Array.isArray(history) ? history : [];
+}
+
+async function recordAtlasDecisionEvent(decision, type = "OPENED") {
+  if (typeof DominionAtlasDecisionCenter === "undefined" || !decision?.id) return false;
+  const event = DominionAtlasDecisionCenter.buildEvent(decision, type, { userId: session?.user?.id || null });
+  const history = [event, ...readAtlasDecisionHistory().filter((item) => item.id !== event.id)].slice(0, 120);
+  saveClosedLoopLocal("HISTORY", "atlas-decision-center", history);
+  return persistClosedLoopState("HISTORY", "atlas-decision-center", history);
+}
+
+async function openAtlasDecision(decision = {}) {
+  if (!decision?.id) return false;
+  await recordAtlasDecisionEvent(decision, "OPENED");
+  const route = decision.route || {};
+  if (route.action === "RESOLVE_CONTINUITY") {
+    await runUnifiedBlockerAction("RESOLVE_CONTINUITY");
+    setText("atlas-decision-center-feedback", "Saved-program reconciliation opened. Nothing changes until you choose.");
+    return true;
+  }
+  const section = normalizeSectionKey(route.section || "today");
+  if (section === "performance" && route.view) setPerformanceActiveView(route.view);
+  if (section === "nutrition") setNutritionActiveView(route.view || "today");
+  setActiveSection(section);
+  window.history.replaceState(null, "", `#${section}`);
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    const target = document.getElementById(route.anchor || "") || document.getElementById(section);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    target?.querySelector("button:not([disabled]), a[href], input:not([disabled]), summary")?.focus();
+  }));
+  setText("atlas-decision-center-feedback", `${decision.title} opened in ${decision.domain.toLowerCase()}.`);
+  return true;
 }
 
 async function applyAtlasWeeklyCommandAction(action = "approve") {
@@ -11697,6 +11926,7 @@ async function applyAtlasWeeklyCommandAction(action = "approve") {
   refreshProgramActivationSurfaces();
   renderProgramCommand();
   renderAtlasWeeklyCommand();
+  renderAtlasDecisionCenter();
   return { decision, command: commandDecision, result, synced };
 }
 
@@ -16603,6 +16833,7 @@ function renderNutritionCommand() {
   renderNutritionNextAction(fuel);
   renderTodayNutritionExecution();
   renderMobileCommand();
+  renderAtlasDecisionCenter();
 }
 
 function nutritionViewStorageKey() {
@@ -17360,6 +17591,7 @@ async function init() {
       ["standards duty", renderTodayStandardsDuty],
       ["rank", renderRankSection],
       ["adaptive coaching", renderAdaptiveCoaching],
+      ["Atlas decisions", renderAtlasDecisionCenter],
       ["mobile command", renderMobileCommand],
       ["performance form", resetPerformanceForm],
       ["performance workspace", () => setPerformanceActiveView("overview")]
@@ -17666,6 +17898,21 @@ if (typeof document !== "undefined") {
     context.open = !context.open;
     button.setAttribute("aria-expanded", context.open ? "true" : "false");
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  document.getElementById("atlas-decision-center")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-atlas-decision-action]");
+    if (!button) return;
+    const center = buildCurrentAtlasDecisionCenter();
+    const decision = center?.decisions.find((item) => item.id === button.dataset.atlasDecisionId);
+    if (!decision) {
+      renderAtlasDecisionCenter();
+      setText("atlas-decision-center-feedback", "That decision is already clear. Atlas refreshed the queue.");
+      return;
+    }
+    button.disabled = true;
+    try { await openAtlasDecision(decision); }
+    catch (error) { setText("atlas-decision-center-feedback", error?.message || "Atlas could not open that decision."); }
+    finally { button.disabled = false; }
   });
   document.getElementById("atlas-command-adjust")?.addEventListener("click", openAtlasDailyCommandAdjustment);
   document.getElementById("atlas-command-adjustment-choices")?.addEventListener("click", async (event) => {
@@ -18890,6 +19137,7 @@ if (typeof document !== "undefined") {
           const held = DominionRunningProgression.holdProposal(proposal, new Date().toISOString());
           const synced = await saveRunningProgression(held);
           renderRunningCommand();
+          renderAtlasDecisionCenter();
           setText("running-command-feedback", `Current Running dose retained${synced ? " and saved to your account" : " on this device"}. Atlas will review the next verified runs.`);
           return;
         }
@@ -18905,6 +19153,7 @@ if (typeof document !== "undefined") {
         renderRunningCommand();
         renderWeeklyOrchestrator();
         renderProgramCommand();
+        renderAtlasDecisionCenter();
         setText("running-command-feedback", `${decision.headline} applied to future runs${synced ? " and saved to your account" : " on this device"}. Completed work is unchanged; Calendar is staged from revision ${revised.revision}.`);
       } catch (error) {
         setText("running-command-feedback", error?.message || "The Running progression could not be applied.");

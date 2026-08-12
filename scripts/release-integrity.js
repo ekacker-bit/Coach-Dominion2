@@ -17,6 +17,7 @@ const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
 const orientation = read("assets/js/first-week-orientation.js");
 const manualRun = read("assets/js/manual-run.js");
 const runningVerdict = read("assets/js/running-verdict.js");
+const atlasDecisionCenter = read("assets/js/atlas-decision-center.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -157,6 +158,10 @@ check("025S Running progression", html.includes('/assets/js/running-progression.
 check("025T Fuel execution", html.includes('/assets/js/fuel-execution.js?v=025t') && app.includes("buildCurrentFuelExecutionOrder") && app.includes("fuelExecutionMarkup") && read("assets/js/fuel-execution.js").includes('const VERSION = "025T.1"'), "025T Fuel execution is incomplete");
 check("025U weekly command", html.includes('/assets/js/atlas-weekly-command.js?v=025u') && html.includes('id="atlas-weekly-command-panel"') && app.includes("applyAtlasWeeklyCommandAction") && read("assets/js/atlas-weekly-command.js").includes('const VERSION = "025U.1"'), "025U Atlas weekly command is incomplete");
 check("025S-U responsive shell", css.includes(".running-progression") && css.includes(".fuel-execution-order") && css.includes(".atlas-weekly-command") && worker.includes("025s-025t-025u"), "025S-U assets are stale or not responsive");
+check("025V decision engine", atlasDecisionCenter.includes('const VERSION = "025V.1"') && atlasDecisionCenter.includes("function buildCenter") && atlasDecisionCenter.includes("CATEGORY_PRIORITY"), "025V decision ranking engine is incomplete");
+check("025V canonical routing", html.includes('id="atlas-decision-center"') && html.includes('/assets/js/atlas-decision-center.js?v=025v') && app.includes("atlasDecisionCandidateSources") && app.includes("openAtlasDecision"), "025V canonical decision routing is incomplete");
+check("025V decision receipts", app.includes('"HISTORY", "atlas-decision-center"') && app.includes("recordAtlasDecisionEvent") && atlasDecisionCenter.includes("function buildEvent"), "025V decision receipts are not durable");
+check("025V responsive shell", css.includes(".atlas-decision-center") && css.includes(".atlas-decision-nav-count") && worker.includes('/assets/js/atlas-decision-center.js?v=025v') && worker.includes("025u-025v"), "025V responsive or offline assets are stale");
 check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
 check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

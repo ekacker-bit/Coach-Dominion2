@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Build 025V Atlas Decision Center
+
+- Consolidates pending Safety, saved-program integrity, Calendar, Fuel evidence, Strength, Running, and weekly calls into one ranked queue on Today.
+- Shows one dominant decision, its consequence, and a count in desktop and mobile navigation without duplicating the canonical controls.
+- Opens the exact source module where the recruit can approve, hold, reconcile, or resolve the item.
+- Preserves immutable source plans and records a durable open-event receipt; Atlas never changes a plan from the queue.
+
 ## Unreleased - Build 025U Atlas Weekly Command
 
 - Replaces scattered weekly calls with one word-light command across Strength, Running, Core, Fuel, and Recovery.

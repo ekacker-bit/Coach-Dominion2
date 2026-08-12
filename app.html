@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v">
+  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -927,7 +927,7 @@
 
         <section id="atlas-decision-center" class="card atlas-decision-center" aria-labelledby="atlas-decision-center-heading" data-decision-state="CLEAR" hidden>
           <header class="atlas-decision-center-header">
-            <div><div class="kicker">BUILD 025V // ATLAS DECISION CENTER</div><h2 id="atlas-decision-center-heading">No decisions waiting</h2><p id="atlas-decision-center-detail">The program can continue without another approval right now.</p></div>
+            <div><div class="kicker">BUILD 025W // ATLAS COACHING RATIONALE</div><h2 id="atlas-decision-center-heading">No decisions waiting</h2><p id="atlas-decision-center-detail">The program can continue without another approval right now.</p></div>
             <span id="atlas-decision-center-state" class="state-pill green">CLEAR</span>
           </header>
           <div id="atlas-decision-center-primary" class="atlas-decision-center-primary" aria-live="polite"></div>
@@ -935,7 +935,7 @@
             <summary><span>Decision queue</span><small id="atlas-decision-center-summary">Nothing waiting</small></summary>
             <ol id="atlas-decision-center-list"></ol>
           </details>
-          <p class="atlas-decision-center-safeguard">Every choice stays in its canonical module. The Decision Center never changes a plan silently.</p>
+          <p class="atlas-decision-center-safeguard">Atlas explains the call and records your context. Only the source controls can change a plan.</p>
           <p id="atlas-decision-center-feedback" class="muted" aria-live="polite"></p>
         </section>
 
@@ -2102,6 +2102,18 @@
       <p id="atlas-program-repair-feedback" class="muted" role="status" aria-live="polite"></p>
     </div>
   </dialog>
+  <dialog id="atlas-decision-feedback-dialog" class="atlas-decision-feedback-dialog" aria-labelledby="atlas-decision-feedback-title">
+    <form id="atlas-decision-feedback-form">
+      <header>
+        <div><span>ATLAS // CHALLENGE THE CALL</span><h2 id="atlas-decision-feedback-title">This doesn&rsquo;t fit</h2><p id="atlas-decision-feedback-detail">Tell Atlas what is missing. The decision stays open.</p></div>
+        <button type="button" class="ghost" data-atlas-feedback-close aria-label="Close feedback">Close</button>
+      </header>
+      <fieldset><legend>What is off?</legend><div id="atlas-decision-feedback-options" class="atlas-decision-feedback-options"></div></fieldset>
+      <label class="atlas-decision-feedback-note"><span>Context <small>Optional, 240 characters</small></span><textarea id="atlas-decision-feedback-note" maxlength="240" rows="3" placeholder="One detail Atlas should account for at the source review."></textarea></label>
+      <footer><button type="button" class="ghost" data-atlas-feedback-close>Cancel</button><button type="submit">Record context</button></footer>
+      <p id="atlas-decision-feedback-status" class="muted" role="status" aria-live="polite"></p>
+    </form>
+  </dialog>
   <dialog id="mobile-more-dialog" class="mobile-more-dialog" aria-labelledby="mobile-more-heading">
     <div class="mobile-more-shell">
       <header>
@@ -2187,7 +2199,8 @@
 <script src="/assets/js/running-progression.js?v=025s"></script>
 <script src="/assets/js/fuel-execution.js?v=025t"></script>
 <script src="/assets/js/atlas-weekly-command.js?v=025u"></script>
-<script src="/assets/js/atlas-decision-center.js?v=025v"></script>
+<!-- Legacy release-integrity marker: /assets/js/atlas-decision-center.js?v=025v -->
+<script src="/assets/js/atlas-decision-center.js?v=025w"></script>
 <script src="/assets/js/mission-debrief.js?v=025c"></script>
 <script src="/assets/js/mission-recovery.js?v=025d"></script>
 <script src="/assets/js/morning-verification.js?v=025e"></script>
@@ -2204,6 +2217,6 @@
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w"></script>
 </body>
 </html>

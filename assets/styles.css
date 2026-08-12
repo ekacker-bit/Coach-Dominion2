@@ -9957,3 +9957,96 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .atlas-decision-item p { display: none; }
   .atlas-decision-center-safeguard { line-height: 1.45; }
 }
+
+/* Build 025W: evidence-backed calls and bounded recruit feedback. */
+.atlas-decision-primary-actions,
+.atlas-decision-item-actions { display: grid; gap: 8px; align-content: center; }
+.atlas-decision-primary-actions > button { min-width: 190px; min-height: 48px; }
+.atlas-decision-item-actions > button { min-width: 160px; }
+.atlas-decision-item-actions .text-button {
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: .72rem;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.atlas-decision-item-actions .text-button:hover { color: var(--stone); background: rgba(255, 255, 255, .04); }
+.atlas-decision-why {
+  max-width: 760px;
+  margin-top: 14px;
+  border-top: 1px solid rgba(166, 177, 186, .16);
+}
+.atlas-decision-why > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0 4px;
+  cursor: pointer;
+  color: var(--stone);
+  font-size: .78rem;
+  font-weight: 800;
+  list-style: none;
+}
+.atlas-decision-why > summary::-webkit-details-marker { display: none; }
+.atlas-decision-why > summary::before { content: "+"; margin-right: 7px; color: var(--gold); }
+.atlas-decision-why[open] > summary::before { content: "−"; }
+.atlas-decision-why > summary span { margin-right: auto; }
+.atlas-decision-why > summary small { margin: 0; color: var(--gold); font-size: .64rem; letter-spacing: .09em; }
+.atlas-decision-rationale { display: grid; gap: 11px; padding: 8px 0 4px; }
+.atlas-decision-rationale > p { margin: 0; color: #c7c9c8; font-size: .82rem; }
+.atlas-decision-rationale dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.atlas-decision-rationale dl > div { padding: 10px; border: 1px solid rgba(166, 177, 186, .15); background: rgba(0, 0, 0, .2); }
+.atlas-decision-rationale dt { color: var(--dim); font-size: .63rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.atlas-decision-rationale dd { margin: 4px 0 2px; color: var(--stone); font-weight: 800; }
+.atlas-decision-rationale dl small { margin: 0; color: var(--dim); font-size: .62rem; }
+.atlas-decision-feedback-receipt { display: flex; gap: 8px; align-items: center; margin: 10px 0 0 !important; color: var(--muted) !important; font-size: .74rem !important; }
+.atlas-decision-feedback-receipt strong { color: var(--ascent-green, #2e4b34); }
+.atlas-decision-feedback-dialog {
+  width: min(680px, calc(100vw - 30px));
+  max-height: min(760px, calc(100vh - 30px));
+  padding: 0;
+  overflow: auto;
+  border: 1px solid rgba(212, 175, 55, .54);
+  border-radius: 16px;
+  background: #0b1113;
+  color: var(--stone);
+  box-shadow: 0 28px 100px rgba(0, 0, 0, .72), inset 4px 0 0 var(--gold);
+}
+.atlas-decision-feedback-dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(7px); }
+.atlas-decision-feedback-dialog form { display: grid; gap: 20px; padding: clamp(20px, 4vw, 34px); }
+.atlas-decision-feedback-dialog header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
+.atlas-decision-feedback-dialog header span { color: var(--gold); font-size: .69rem; font-weight: 900; letter-spacing: .14em; }
+.atlas-decision-feedback-dialog h2 { margin: 7px 0 4px; }
+.atlas-decision-feedback-dialog header p { margin: 0; color: var(--muted); }
+.atlas-decision-feedback-dialog fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.atlas-decision-feedback-dialog legend { margin-bottom: 10px; color: var(--stone); font-weight: 900; }
+.atlas-decision-feedback-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.atlas-decision-feedback-options label { display: flex; gap: 10px; align-items: flex-start; padding: 13px; border: 1px solid rgba(166, 177, 186, .2); border-radius: 10px; background: rgba(0, 0, 0, .22); cursor: pointer; }
+.atlas-decision-feedback-options label:has(input:checked) { border-color: var(--gold); background: rgba(212, 175, 55, .08); }
+.atlas-decision-feedback-options input { margin-top: 3px; accent-color: var(--gold); }
+.atlas-decision-feedback-options span { display: grid; gap: 3px; }
+.atlas-decision-feedback-options strong { color: var(--stone); }
+.atlas-decision-feedback-options small { color: var(--muted); line-height: 1.35; }
+.atlas-decision-feedback-note { display: grid; gap: 8px; color: var(--stone); font-weight: 800; }
+.atlas-decision-feedback-note span { display: flex; justify-content: space-between; gap: 12px; }
+.atlas-decision-feedback-note small { color: var(--dim); font-weight: 500; }
+.atlas-decision-feedback-note textarea { width: 100%; min-height: 86px; resize: vertical; }
+.atlas-decision-feedback-dialog footer { display: flex; justify-content: flex-end; gap: 10px; }
+.atlas-decision-feedback-dialog #atlas-decision-feedback-status:empty { display: none; }
+
+@media (max-width: 760px) {
+  .atlas-decision-primary-actions { width: 100%; }
+  .atlas-decision-primary-actions > button { width: 100%; min-width: 0; }
+  .atlas-decision-item-actions { grid-column: 1 / -1; width: 100%; }
+  .atlas-decision-item-actions > button { width: 100%; min-width: 0; }
+  .atlas-decision-rationale dl,
+  .atlas-decision-feedback-options { grid-template-columns: 1fr; }
+  .atlas-decision-feedback-dialog { width: calc(100vw - 18px); max-height: calc(100vh - 18px); }
+  .atlas-decision-feedback-dialog header { display: grid; grid-template-columns: 1fr auto; }
+  .atlas-decision-feedback-dialog header p { grid-column: 1 / -1; }
+  .atlas-decision-feedback-dialog footer { display: grid; grid-template-columns: 1fr 1fr; }
+  .atlas-decision-feedback-dialog footer button { width: 100%; }
+}

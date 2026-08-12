@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased - Build 025U Atlas Weekly Command
+
+- Replaces scattered weekly calls with one word-light command across Strength, Running, Core, Fuel, and Recovery.
+- Names one win, one limiting signal, and one next-week priority from the canonical program evidence.
+- Shows every proposed domain change before approval and preserves a single decision receipt.
+- Commits the coordinated next week only after recruit approval; holding repeats the current prescription unchanged.
+
+## Unreleased - Build 025T Fuel Execution Mode
+
+- Turns Fuel into a live daily order for remaining calories, protein, carbohydrate, fat, hydration, and training-window timing.
+- Protects AM/PM and long-run fueling while allowing training and recovery to override a fasting window.
+- Closes each day with an on-target, partial, under-fueled, exceeded, reconciliation, or incomplete-evidence verdict.
+- Keeps missing intake non-punitive and forbids compensatory restriction or silent target changes.
+
+## Unreleased - Build 025S Running Progression Engine
+
+- Converts verified Running results into a bounded progress, repeat, reduce, recover, or collect-evidence proposal.
+- Requires recruit approval before revising future distance and protects all completed runs and weeks.
+- Rebuilds the coordinated Calendar from the approved Running revision.
+- Keeps every long run uncapped by time while retaining distance, effort, pain, and recovery safeguards.
+
 ## Unreleased - Build 025R Running Verdict
 
 - Replaces one-tap run completion that copied the prescription into evidence with a required actual-distance and elapsed-time review.

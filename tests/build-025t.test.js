@@ -1,0 +1,14 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const root = require("node:path").join(__dirname, "..");
+const read = (file) => fs.readFileSync(require("node:path").join(root, file), "utf8");
+const html = read("app.html"), app = read("assets/js/app.js"), styles = read("assets/styles.css"), worker = read("sw.js"), engine = read("assets/js/fuel-execution.js");
+assert.match(engine, /const VERSION = "025T\.1"/);
+assert.match(engine, /No compensatory restriction/);
+assert.match(engine, /function buildOrder/);
+assert.match(html, /fuel-execution\.js\?v=025t/);
+assert.match(app, /function buildCurrentFuelExecutionOrder/);
+assert.match(app, /DominionFuelExecution\.attachVerdict/);
+assert.match(styles, /\.fuel-execution-order/);
+assert.match(worker, /fuel-execution\.js\?v=025t/);
+console.log("Build 025T Fuel execution integration checks passed.");

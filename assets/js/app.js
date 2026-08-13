@@ -6170,11 +6170,8 @@ function renderWeeklyOrchestrator() {
   </article>`).join("");
   const canEditCalendar = preview.status === "DRAFT" && Boolean(savedDraft);
   const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
-  const dailyCommandResponse = readAtlasDailyCommandResponse();
   const days = (preview.days || []).map((day) => {
-    const dayOverride = dailyCommandResponse?.status === "ACTIVE" && dailyCommandResponse.date === day.date
-      ? dailyCommandResponse.calendarOverride
-      : null;
+    const dayOverride = currentDailyCalendarOverride(day.date);
     const activities = day.activities.length
       ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()} ${item.tertiary ? "tertiary" : ""}">
         ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
@@ -6377,10 +6374,7 @@ function renderTodayCommittedWeek() {
     }).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
-  const dailyCommandResponse = readAtlasDailyCommandResponse();
-  const dayOverride = dailyCommandResponse?.status === "ACTIVE" && dailyCommandResponse.date === todayISODate()
-    ? dailyCommandResponse.calendarOverride
-    : null;
+  const dayOverride = currentDailyCalendarOverride(todayISODate());
   const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
   if (dayOverride) panel.insertAdjacentHTML("afterbegin", `<aside class="atlas-calendar-override today"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>`);
@@ -6446,6 +6440,142 @@ function missionExecutionStateRecord(module = "STRENGTH") {
 function readMissionExecutionReceipts(date = todayISODate()) {
   const receipts = readClosedLoopState("EVIDENCE", `mission:${date}`, []);
   return Array.isArray(receipts) ? receipts : [];
+}
+
+function missionExecutionSpineStateKey(date = todayISODate()) {
+  return `mission-spine:${date}`;
+}
+
+function readMissionExecutionSpineCheckpoint(date = todayISODate()) {
+  return readClosedLoopState("EXECUTION_SPINE", missionExecutionSpineStateKey(date), null);
+}
+
+function missionExecutionSpineAssignments() {
+  if (typeof DominionMissionExecutionSpine === "undefined") return [];
+  const cockpit = buildCurrentMissionCockpit();
+  const queue = buildCurrentDailyExecutionQueue();
+  const training = (cockpit?.sessions || []).map((item, index) => ({
+    id: item.id,
+    module: item.module,
+    kind: "TRAINING",
+    title: item.title,
+    detail: item.locked ? cockpit?.splitGate?.blockers?.[0] || "Complete the prior training window first." : `${item.windowLabel || "TODAY"} training order`,
+    windowLabel: item.windowLabel,
+    estimatedMinutes: item.estimatedMinutes,
+    order: Number(item.windowOrder || item.sessionOrder || index + 1) * 10 + index,
+    state: item.state,
+    blocked: Boolean(item.locked),
+    blockedBy: item.locked ? cockpit?.splitGate?.blockers?.[0] || "Complete the prior training window first." : null,
+    record: item.record
+  }));
+  const support = [
+    ["fueling", "FUEL", 100],
+    ["recovery", "RECOVERY", 110]
+  ].map(([id, module, order]) => {
+    const step = queue?.steps?.find((item) => item.id === id);
+    if (!step) return null;
+    return {
+      id,
+      module,
+      kind: "SUPPORT",
+      title: step.label,
+      detail: step.detail,
+      action: step.action,
+      actionLabel: step.actionLabel,
+      order,
+      state: step.complete ? "SECURED" : step.status === "BLOCKED" ? "BLOCKED" : "READY",
+      blocked: step.status === "BLOCKED",
+      blockedBy: step.blockedBy,
+      record: { state: step.complete ? "SECURED" : step.status === "BLOCKED" ? "BLOCKED" : "READY" }
+    };
+  }).filter(Boolean);
+  return [...training, ...support];
+}
+
+function buildCurrentMissionExecutionSpine() {
+  if (typeof DominionMissionExecutionSpine === "undefined") return null;
+  return DominionMissionExecutionSpine.buildSpine({
+    date: todayISODate(),
+    assignments: missionExecutionSpineAssignments(),
+    saved: readMissionExecutionSpineCheckpoint()
+  });
+}
+
+async function saveCurrentMissionExecutionSpine() {
+  if (typeof DominionMissionExecutionSpine === "undefined") return false;
+  const previous = readMissionExecutionSpineCheckpoint();
+  const spine = buildCurrentMissionExecutionSpine();
+  if (!spine) return false;
+  const checkpoint = DominionMissionExecutionSpine.buildCheckpoint(spine, previous, new Date().toISOString());
+  saveClosedLoopLocal("EXECUTION_SPINE", missionExecutionSpineStateKey(spine.date), checkpoint);
+  const synced = await persistClosedLoopState("EXECUTION_SPINE", missionExecutionSpineStateKey(spine.date), checkpoint);
+  renderMissionExecutionSpine();
+  return synced;
+}
+
+async function transitionMissionExecutionSpine(assignment = {}, action = "OPEN") {
+  if (typeof DominionMissionExecutionSpine === "undefined" || !assignment?.id) return false;
+  const checkpoint = DominionMissionExecutionSpine.transition(
+    readMissionExecutionSpineCheckpoint() || { date: todayISODate(), entries: [] },
+    { ...assignment, date: todayISODate() },
+    action,
+    new Date().toISOString()
+  );
+  saveClosedLoopLocal("EXECUTION_SPINE", missionExecutionSpineStateKey(), checkpoint);
+  return persistClosedLoopState("EXECUTION_SPINE", missionExecutionSpineStateKey(), checkpoint);
+}
+
+function renderMissionExecutionSpine() {
+  const section = document.getElementById("mission-execution-spine");
+  const currentPanel = document.getElementById("mission-spine-current");
+  const sequence = document.getElementById("mission-spine-sequence");
+  if (!section || !currentPanel || !sequence) return;
+  const spine = buildCurrentMissionExecutionSpine();
+  const hiddenBySetup = ["ASSEMBLING", "CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT", "ROLL_CALL_REQUIRED", "AUTHORIZATION_REQUIRED"].includes(String(currentAtlasDailyCommand?.state || "").toUpperCase());
+  section.hidden = !spine?.total || hiddenBySetup;
+  if (section.hidden) return;
+  const current = spine.current;
+  setText("mission-spine-status", spine.complete ? "Mission secured" : current?.state === "PAUSED" ? "Resume protected" : current?.state === "IN_PROGRESS" ? "Work in progress" : "Next order ready");
+  currentPanel.innerHTML = current
+    ? `<span>${escapeHtml(current.windowLabel)} · ${escapeHtml(current.module === "RUNNING" ? "CARDIO" : current.module)}</span><strong>${escapeHtml(current.title)}</strong><small>${escapeHtml(spine.primary.detail)}</small>`
+    : `<span>COMPLETE</span><strong>Every mission action is secured</strong><small>Close the day when the evidence review is ready.</small>`;
+  sequence.innerHTML = spine.assignments.map((item) => `<span class="${item.secured ? "secured" : item.held ? "held" : item.active ? "active" : item.blocked ? "blocked" : "ready"}" title="${escapeHtml(item.title)}"><i aria-hidden="true"></i>${escapeHtml(item.module === "RUNNING" ? "CARDIO" : item.module)}</span>`).join("");
+  setText("mission-spine-progress", `${spine.secured} of ${spine.total} secured`);
+  setText("mission-spine-sync", spine.lastSavedAt ? `Resume point protected · ${new Date(spine.lastSavedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Progress saves with every mission action.");
+}
+
+async function runMissionExecutionSpinePrimary() {
+  const spine = buildCurrentMissionExecutionSpine();
+  const current = spine?.current;
+  if (!current) return;
+  if (["STRENGTH", "RUNNING", "CORE"].includes(current.module)) {
+    if (current.state === "PAUSED") {
+      await resumeMissionSession(current.module);
+      await transitionMissionExecutionSpine(current, "RESUME");
+    } else if (current.state === "EVIDENCE_REQUIRED") {
+      if (current.module === "CORE") await prepareMissionSessionFinish(current.module);
+      else openMissionSessionDetails(current.module);
+    } else if (current.state === "IN_PROGRESS") {
+      openMissionSessionDetails(current.module);
+    } else {
+      await startMissionSession(current.module);
+      await transitionMissionExecutionSpine(current, "START");
+      openMissionSessionDetails(current.module);
+    }
+  } else if (current.module === "FUEL") {
+    await transitionMissionExecutionSpine(current, "START");
+    setActiveSection("nutrition");
+    window.history.replaceState(null, "", "#nutrition");
+  } else if (current.module === "RECOVERY") {
+    const order = currentMissionRecoveryOrder();
+    const task = typeof DominionMissionRecovery === "undefined" ? null : DominionMissionRecovery.nextTask(order || {});
+    if (order && task) await completeMissionRecoveryTask(task.id);
+    else saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: new Date().toISOString() });
+    await transitionMissionExecutionSpine(current, "SECURE");
+  }
+  await saveCurrentMissionExecutionSpine();
+  refreshMissionExecutionSurfaces();
+  scheduleOperatingTruthReconciliation(100);
 }
 
 function readMissionDebriefs(date = todayISODate()) {
@@ -6915,6 +7045,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
   saveClosedLoopLocal("EVIDENCE", `mission:${todayISODate()}`, receipts);
   const synced = await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
   if (!options.skipPerformanceEvidence) await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
+  await saveCurrentMissionExecutionSpine();
   setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
   return receipt;
 }
@@ -7321,6 +7452,7 @@ async function reportMissionPain(module = "STRENGTH") {
 
 function refreshMissionExecutionSurfaces() {
   renderMissionExecution();
+  renderMissionExecutionSpine();
   renderTodayCommittedWeek();
   renderDailyAssignment();
   renderCoreToday();
@@ -10673,7 +10805,8 @@ function registerMobileServiceWorker() {
   // Supersedes coach-dominion:service-worker-reload:025k after progression trials ship.
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
-  const reloadKey = "coach-dominion:service-worker-reload:025p";
+  // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
+  const reloadKey = "coach-dominion:service-worker-reload:026bc";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10689,7 +10822,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025n", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=026a", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=026bc", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11485,6 +11619,9 @@ async function loadClosedLoopState() {
       ["HISTORY", "mission-debrief"],
       ["RECOVERY_ORDER", `mission:${todayISODate()}`],
       ["HISTORY", "mission-recovery"],
+      ["EXECUTION_SPINE", `mission-spine:${todayISODate()}`],
+      ["LIVE_ADAPTATION", `atlas-live-adaptation:${todayISODate()}`],
+      ["HISTORY", "atlas-live-adaptation"],
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "atlas-daily-command"],
@@ -12360,6 +12497,127 @@ function atlasDailyCommandContext(date = todayISODate()) {
   };
 }
 
+function atlasLiveAdaptationStateKey(date = todayISODate()) {
+  return `atlas-live-adaptation:${date}`;
+}
+
+function readAtlasLiveAdaptation(date = todayISODate()) {
+  return readClosedLoopState("LIVE_ADAPTATION", atlasLiveAdaptationStateKey(date), null);
+}
+
+function readAtlasLiveAdaptationHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-live-adaptation", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function buildCurrentAtlasLiveAdaptation(spine = buildCurrentMissionExecutionSpine()) {
+  if (typeof DominionAtlasLiveAdaptation === "undefined" || dailyState?.date !== todayISODate()) return null;
+  const context = atlasDailyCommandContext();
+  let readiness = null;
+  try { readiness = evaluateOperationalReadiness(dailyState); }
+  catch (_) {}
+  const receipts = readMissionExecutionReceipts();
+  const training = (spine?.assignments || []).filter((item) => item.kind === "TRAINING");
+  const latestOutcome = receipts[0]?.state || training.find((item) => ["PARTIAL", "HELD"].includes(item.state))?.state || spine?.current?.state || "READY";
+  const candidate = DominionAtlasLiveAdaptation.buildProposal({
+    ...context,
+    readinessComplete: true,
+    readinessState: readiness?.state || "",
+    energy: dailyState?.energy,
+    soreness: dailyState?.soreness,
+    pain: Boolean(dailyState?.pain),
+    protected: training.some((item) => item.held),
+    partialEvidence: receipts.some((item) => ["PARTIAL", "STOPPED"].includes(String(item.state || "").toUpperCase())),
+    executionOutcome: latestOutcome,
+    missionComplete: training.length > 0 && training.every((item) => item.terminal),
+    manualAdjustmentActive: readAtlasDailyCommandResponse()?.status === "ACTIVE",
+    generatedAt: new Date().toISOString()
+  });
+  const stored = readAtlasLiveAdaptation();
+  if (!stored) return candidate;
+  const storedApplies = DominionAtlasLiveAdaptation.proposalApplies(stored, context);
+  if (!storedApplies) return candidate;
+  if (candidate?.safetyOverride && candidate.fingerprint !== stored.fingerprint && !stored.safetyOverride) return candidate;
+  if (!candidate) return stored.status === "APPROVED" ? stored : null;
+  return stored.fingerprint === candidate.fingerprint ? stored : candidate;
+}
+
+async function saveAtlasLiveAdaptation(record = null) {
+  if (!record?.id) return false;
+  const history = [record, ...readAtlasLiveAdaptationHistory().filter((item) => item.id !== record.id)].slice(0, 90);
+  saveClosedLoopLocal("LIVE_ADAPTATION", atlasLiveAdaptationStateKey(record.date), record);
+  saveClosedLoopLocal("HISTORY", "atlas-live-adaptation", history);
+  const [currentSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("LIVE_ADAPTATION", atlasLiveAdaptationStateKey(record.date), record),
+    persistClosedLoopState("HISTORY", "atlas-live-adaptation", history)
+  ]);
+  return currentSaved && historySaved;
+}
+
+async function resolveAtlasLiveAdaptation(decision = "HOLD", context = {}) {
+  if (typeof DominionAtlasLiveAdaptation === "undefined") return null;
+  const proposal = buildCurrentAtlasLiveAdaptation();
+  if (!proposal) return null;
+  const resolved = DominionAtlasLiveAdaptation.resolveProposal(proposal, decision, {
+    ...context,
+    resolvedAt: new Date().toISOString()
+  });
+  const synced = await saveAtlasLiveAdaptation(resolved);
+  setText("atlas-live-adaptation-feedback-text", resolved.status === "APPROVED"
+    ? `Approved for today${synced ? " and synced" : "; account sync will retry"}. Future programming is unchanged.`
+    : resolved.status === "HELD"
+      ? `Current mission held${synced ? " and synced" : " on this device"}.`
+      : resolved.status === "RESTORED"
+        ? `Original mission restored${synced ? " and synced" : " on this device"}.`
+        : `Context recorded${synced ? " and synced" : " on this device"}. Atlas did not change the mission.`);
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  renderDailyCoachingLoop();
+  scheduleOperatingTruthReconciliation(100);
+  return resolved;
+}
+
+function currentDailyCalendarOverride(date = todayISODate()) {
+  const context = atlasDailyCommandContext(date);
+  const live = typeof DominionAtlasLiveAdaptation === "undefined"
+    ? null
+    : DominionAtlasLiveAdaptation.activeCalendarOverride(readAtlasLiveAdaptation(date), context);
+  if (live) return live;
+  const response = readAtlasDailyCommandResponse(date);
+  return response?.status === "ACTIVE" && response.date === date ? response.calendarOverride : null;
+}
+
+function renderAtlasLiveAdaptation() {
+  const section = document.getElementById("atlas-live-adaptation");
+  const actions = document.getElementById("atlas-live-adaptation-actions");
+  const form = document.getElementById("atlas-live-adaptation-feedback");
+  if (!section || !actions || !form) return;
+  const proposal = buildCurrentAtlasLiveAdaptation();
+  const visible = Boolean(proposal && !["HELD", "RESTORED"].includes(proposal.status));
+  section.hidden = !visible;
+  if (!visible) return;
+  section.dataset.adaptationStatus = proposal.status;
+  section.dataset.adaptationTone = proposal.tone || "yellow";
+  setText("atlas-live-adaptation-title", proposal.headline);
+  setText("atlas-live-adaptation-state", proposal.status.replaceAll("_", " "));
+  setText("atlas-live-adaptation-reason", proposal.reason);
+  setText("atlas-live-adaptation-impact", proposal.impact);
+  const approved = proposal.status === "APPROVED";
+  const needsContext = proposal.status === "NEEDS_CONTEXT";
+  actions.innerHTML = approved
+    ? `<button type="button" class="ghost" data-live-adaptation-action="RESTORE">Restore original mission</button>`
+    : needsContext
+      ? `<button type="button" class="ghost" data-live-adaptation-action="REOPEN_CONTEXT">Update context</button><button type="button" data-live-adaptation-action="ACCEPT">Accept adjustment</button>`
+      : `<button type="button" data-live-adaptation-action="ACCEPT">Accept for today</button>${proposal.safetyOverride ? `<button type="button" class="ghost" data-live-adaptation-action="ROLL_CALL">Review Roll Call</button>` : `<button type="button" class="ghost" data-live-adaptation-action="HOLD">Hold current mission</button>`}<button type="button" class="ghost" data-live-adaptation-action="NOT_FIT">This doesn\'t fit</button>`;
+  if (needsContext) {
+    setText("atlas-live-adaptation-feedback-text", "Your context is recorded. The approved mission remains unchanged until you accept a bounded adjustment.");
+  }
+  if (approved) {
+    setText("atlas-live-adaptation-feedback-text", "Approved for today only. Future programming and Fuel targets remain intact.");
+    form.hidden = true;
+  }
+}
+
 async function saveAtlasDailyCommandResponse(response) {
   if (!response?.id) return false;
   saveClosedLoopLocal("DECISION", atlasDailyCommandStateKey(response.date), response);
@@ -12400,20 +12658,34 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     ...context
   });
   const blocker = buildCurrentUnifiedBlocker();
-  return typeof DominionUnifiedBlockerResolution === "undefined"
+  const resolved = typeof DominionUnifiedBlockerResolution === "undefined"
     ? command
     : DominionUnifiedBlockerResolution.applyToDailyCommand(command, blocker);
+  const spine = buildCurrentMissionExecutionSpine();
+  const executable = typeof DominionMissionExecutionSpine === "undefined"
+    ? resolved
+    : DominionMissionExecutionSpine.applyToCommand(resolved, spine);
+  const proposal = buildCurrentAtlasLiveAdaptation(spine);
+  return typeof DominionAtlasLiveAdaptation === "undefined"
+    ? executable
+    : DominionAtlasLiveAdaptation.applyToCommand(executable, proposal, context);
 }
 
 function readActiveAdaptiveDirective(date = todayISODate()) {
-  if (typeof DominionAdaptiveCoaching === "undefined") return null;
   const context = atlasDailyCommandContext(date);
+  const liveDirective = typeof DominionAtlasLiveAdaptation === "undefined"
+    ? null
+    : DominionAtlasLiveAdaptation.activeDirective(readAtlasLiveAdaptation(date), context);
   const commandDirective = typeof DominionAtlasDailyCommand === "undefined"
     ? null
     : DominionAtlasDailyCommand.responseDirective(readAtlasDailyCommandResponse(date), context);
-  return commandDirective
-    || DominionAdaptiveCoaching.directiveForDate(readAtlasAdaptiveWeekState(), date)
-    || DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
+  const weeklyDirective = typeof DominionAdaptiveCoaching === "undefined"
+    ? null
+    : DominionAdaptiveCoaching.directiveForDate(readAtlasAdaptiveWeekState(), date)
+      || DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
+  return liveDirective
+    || commandDirective
+    || weeklyDirective;
 }
 
 async function saveAdaptiveCoachingRecord(record) {
@@ -14819,6 +15091,8 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   }
   section.dataset.reconciledAt = new Date().toISOString();
   renderAtlasDailyCommandAdjustment(model);
+  renderMissionExecutionSpine();
+  renderAtlasLiveAdaptation();
   renderActivationRepair(truth);
   renderTodayFlow(model);
 }
@@ -15137,6 +15411,14 @@ async function runOneCommandAction(button) {
   }
   if (action === "ADAPT") {
     relayClosedLoopAction("approve_adaptation");
+    return;
+  }
+  if (action === "LIVE_ADAPTATION") {
+    document.getElementById("atlas-live-adaptation")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (action === "MISSION_SPINE") {
+    await runMissionExecutionSpinePrimary();
     return;
   }
   if (["MODULE", "VERIFY"].includes(action) && ["strength", "running", "core"].includes(moduleId)) {
@@ -18064,6 +18346,7 @@ if (typeof document !== "undefined") {
         if (code === "OPEN") openMissionSessionDetails(module);
         if (code === "FINALIZE") await finalizeMissionSession(module);
       }
+      await saveCurrentMissionExecutionSpine();
       refreshMissionExecutionSurfaces();
     } catch (error) {
       setText("mission-execution-feedback", error?.message || "The mission action could not be completed.");
@@ -18162,6 +18445,44 @@ if (typeof document !== "undefined") {
     context.open = !context.open;
     button.setAttribute("aria-expanded", context.open ? "true" : "false");
     if (context.open) context.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  document.getElementById("atlas-live-adaptation")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-live-adaptation-action]");
+    if (!button) return;
+    const action = button.dataset.liveAdaptationAction;
+    const form = document.getElementById("atlas-live-adaptation-feedback");
+    if (action === "NOT_FIT" || action === "REOPEN_CONTEXT") {
+      if (form) form.hidden = false;
+      form?.querySelector("select")?.focus();
+      return;
+    }
+    if (action === "CANCEL_CONTEXT") {
+      if (form) form.hidden = true;
+      return;
+    }
+    if (action === "ROLL_CALL") {
+      openMobileCommandSheet("roll-call");
+      return;
+    }
+    button.disabled = true;
+    try { await resolveAtlasLiveAdaptation(action); }
+    catch (error) { setText("atlas-live-adaptation-feedback-text", error?.message || "Atlas could not apply that choice."); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("atlas-live-adaptation-feedback")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
+    const values = new FormData(form);
+    if (submit) submit.disabled = true;
+    try {
+      await resolveAtlasLiveAdaptation("NOT_FIT", { reason: values.get("reason"), note: values.get("note") });
+      form.hidden = true;
+    } catch (error) {
+      setText("atlas-live-adaptation-feedback-text", error?.message || "Atlas could not record that context.");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
   });
   document.getElementById("atlas-decision-center")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-atlas-decision-action]");

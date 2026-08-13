@@ -116,6 +116,9 @@
     const feedback = (Array.isArray(input.feedback) ? input.feedback : [])
       .filter((item) => item?.type === "RECRUIT_FEEDBACK" && item.decisionFingerprint)
       .sort((left, right) => String(right.recordedAt || "").localeCompare(String(left.recordedAt || "")));
+    const resolutions = (Array.isArray(input.feedback) ? input.feedback : [])
+      .filter((item) => item?.type === "ATLAS_RESOLUTION" && item.decisionFingerprint)
+      .sort((left, right) => String(right.recordedAt || "").localeCompare(String(left.recordedAt || "")));
     const decisions = [...unique.values()].sort((left, right) =>
       right.priority - left.priority
       || String(left.domain).localeCompare(String(right.domain))
@@ -124,7 +127,8 @@
       ...decision,
       order: index + 1,
       primary: index === 0,
-      recruitFeedback: feedback.find((item) => item.decisionFingerprint === decision.fingerprint) || null
+      recruitFeedback: feedback.find((item) => item.decisionFingerprint === decision.fingerprint) || null,
+      recruitResolution: resolutions.find((item) => item.decisionFingerprint === decision.fingerprint) || null
     }));
     const count = decisions.length;
     const primary = decisions[0] || null;

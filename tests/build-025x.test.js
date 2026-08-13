@@ -1,0 +1,16 @@
+const assert = require("assert");
+const fs = require("fs");
+const read = (path) => fs.readFileSync(path, "utf8");
+const html = read("app.html");
+const app = read("assets/js/app.js");
+const css = read("assets/styles.css");
+const worker = read("sw.js");
+const engine = read("assets/js/atlas-resolution-loop.js");
+assert.match(engine, /const VERSION = "025X\.1"/);
+assert.match(html, /atlas-resolution-loop\.js\?v=025x/);
+assert.match(app, /activeAtlasResolutionPrompt/);
+assert.match(app, /recordAtlasResolution/);
+assert.match(app, /Continue to source/);
+assert.match(css, /atlas-decision-resolution-receipt/);
+assert.match(worker, /atlas-resolution-loop\.js\?v=025x/);
+console.log("Build 025X integration tests passed.");

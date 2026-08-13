@@ -50,6 +50,9 @@ const challenged = center.buildCenter({ candidates, feedback: [feedback] });
 assert.equal(challenged.count, 4);
 assert.equal(challenged.primary.id, "safety");
 assert.equal(challenged.primary.recruitFeedback.reasonCode, "EVIDENCE_DISPUTED");
+const resolution = { type: "ATLAS_RESOLUTION", decisionFingerprint: built.primary.fingerprint, answerLabel: "Workout or result", recordedAt: "2026-08-12T12:07:00.000Z" };
+const resolvedContext = center.buildCenter({ candidates, feedback: [feedback, resolution] });
+assert.equal(resolvedContext.primary.recruitResolution.answerLabel, "Workout or result");
 assert.throws(() => center.buildFeedback(built.primary, "OTHER"), /Choose one reason/);
 
 console.log("Atlas Decision Center tests passed.");

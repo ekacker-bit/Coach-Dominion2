@@ -1,0 +1,17 @@
+const assert = require("assert");
+const fs = require("fs");
+const read = (path) => fs.readFileSync(path, "utf8");
+const html = read("app.html");
+const app = read("assets/js/app.js");
+const css = read("assets/styles.css");
+const worker = read("sw.js");
+const engine = read("assets/js/recruit-constraint-memory.js");
+assert.match(engine, /const VERSION = "025Y\.1"/);
+assert.match(html, /id="recruit-constraint-memory"/);
+assert.match(html, /recruit-constraint-memory\.js\?v=025y/);
+assert.match(app, /"CONTEXT", "recruit-constraints"/);
+assert.match(app, /saveRecruitConstraintMemory/);
+assert.match(app, /relevantForDecision/);
+assert.match(css, /\.recruit-constraint-memory/);
+assert.match(worker, /recruit-constraint-memory\.js\?v=025y/);
+console.log("Build 025Y integration tests passed.");

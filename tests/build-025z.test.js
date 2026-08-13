@@ -1,0 +1,17 @@
+const assert = require("assert");
+const fs = require("fs");
+const read = (path) => fs.readFileSync(path, "utf8");
+const html = read("app.html");
+const app = read("assets/js/app.js");
+const css = read("assets/styles.css");
+const worker = read("sw.js");
+const engine = read("assets/js/program-recovery.js");
+assert.match(engine, /const VERSION = "025Z\.1"/);
+assert.match(html, /id="program-recovery"/);
+assert.match(html, /program-recovery\.js\?v=025z/);
+assert.match(app, /buildCurrentProgramRecovery/);
+assert.match(app, /data-program-recovery-action/);
+assert.match(css, /\.program-recovery/);
+assert.match(worker, /program-recovery\.js\?v=025z/);
+assert.match(worker, /025x-025y-025z/);
+console.log("Build 025Z integration tests passed.");

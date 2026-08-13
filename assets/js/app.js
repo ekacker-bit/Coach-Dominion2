@@ -11472,7 +11472,8 @@ async function loadClosedLoopState() {
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "atlas-daily-command"],
-      ["HISTORY", "atlas-decision-center"]
+      ["HISTORY", "atlas-decision-center"],
+      ["CONTEXT", "recruit-constraints"]
     ];
     for (const [stateType, stateKey] of keys) {
       const local = readClosedLoopState(stateType, stateKey, stateType === "HISTORY" ? [] : null);
@@ -11494,6 +11495,8 @@ async function loadClosedLoopState() {
     await ensureMorningVerification({ persist: true });
     renderDailyCoachingLoop();
     renderWeeklyCloseoutEvidence();
+    renderRecruitConstraintMemory();
+    renderAtlasDecisionCenter();
   } catch (_) {
     // Device state remains the explicit fallback.
   }
@@ -11838,6 +11841,27 @@ function atlasDecisionCandidateSources() {
     });
   }
 
+  const recovery = safely(() => buildCurrentProgramRecovery());
+  if (recovery && recovery.status !== "ACTIVE") {
+    candidates.push({
+      id: `program-recovery:${recovery.currentStep?.id || recovery.status}`,
+      category: "INTEGRITY",
+      domain: "PROGRAM",
+      title: recovery.headline,
+      detail: recovery.detail,
+      consequence: "Today cannot inherit a complete prescription until this program step is resolved.",
+      actionLabel: recovery.primary.label,
+      sourceStatus: recovery.status,
+      sourceRevision: readApprovedRecruitContract()?.revision || null,
+      confidence: "HIGH",
+      evidence: [
+        { label: "Program recovery", value: `${recovery.progress}% complete`, source: "Contract and active plan links" },
+        { label: "Current step", value: recovery.currentStep?.label || "Activation", source: "Canonical program recovery path" }
+      ],
+      route: { section: "program", anchor: "program-recovery" }
+    });
+  }
+
   const weekly = safely(() => buildCurrentAtlasWeeklyCommand());
   if (weekly?.status === "PROPOSED") {
     candidates.push({
@@ -11864,8 +11888,22 @@ function atlasDecisionCandidateSources() {
 
 function buildCurrentAtlasDecisionCenter() {
   if (typeof DominionAtlasDecisionCenter === "undefined") return null;
+  const memory = readRecruitConstraintMemory();
+  const candidates = atlasDecisionCandidateSources().map((candidate) => {
+    if (typeof DominionRecruitConstraintMemory === "undefined") return candidate;
+    const relevant = DominionRecruitConstraintMemory.relevantForDecision(memory, candidate);
+    if (!relevant.length) return candidate;
+    return {
+      ...candidate,
+      knownConstraints: relevant,
+      evidence: [
+        ...(candidate.evidence || []),
+        ...relevant.slice(0, 2).map((item) => ({ label: "Known constraint", value: item.note, source: `Recruit memory · ${item.label}` }))
+      ].slice(0, 4)
+    };
+  });
   return DominionAtlasDecisionCenter.buildCenter({
-    candidates: atlasDecisionCandidateSources(),
+    candidates,
     feedback: readAtlasDecisionHistory(),
     generatedAt: new Date().toISOString()
   });
@@ -11874,6 +11912,7 @@ function buildCurrentAtlasDecisionCenter() {
 function atlasDecisionEvidenceMarkup(decision = {}) {
   const evidence = Array.isArray(decision.evidence) ? decision.evidence : [];
   const feedback = decision.recruitFeedback;
+  const resolution = decision.recruitResolution;
   return `<details class="atlas-decision-why">
     <summary><span>Why this call</span><small>${escapeHtml(decision.confidence || "LOW")} CONFIDENCE</small></summary>
     <div class="atlas-decision-rationale">
@@ -11881,7 +11920,8 @@ function atlasDecisionEvidenceMarkup(decision = {}) {
       ${evidence.length ? `<dl>${evidence.map((item) => `<div><dt>${escapeHtml(item.label)}</dt><dd>${escapeHtml(item.value)}</dd><small>${escapeHtml(item.source)}</small></div>`).join("")}</dl>` : `<p class="muted">Atlas has limited evidence. Open the source before accepting the call.</p>`}
     </div>
   </details>
-  ${feedback ? `<p class="atlas-decision-feedback-receipt"><strong>Context recorded</strong><span>${escapeHtml(feedback.reasonLabel || feedback.reasonCode)}</span></p>` : ""}`;
+  ${feedback ? `<p class="atlas-decision-feedback-receipt"><strong>Context recorded</strong><span>${escapeHtml(feedback.reasonLabel || feedback.reasonCode)}</span></p>` : ""}
+  ${resolution ? `<p class="atlas-decision-resolution-receipt"><strong>Next source</strong><span>${escapeHtml(resolution.answerLabel || resolution.detail)}</span></p>` : ""}`;
 }
 
 function atlasDecisionQueueMarkup(decision = {}) {
@@ -11942,11 +11982,23 @@ async function recordAtlasDecisionEvent(decision, type = "OPENED") {
 }
 
 let activeAtlasDecisionFeedbackId = null;
+let activeAtlasResolutionPrompt = null;
 
 function openAtlasDecisionFeedback(decision = {}) {
   const dialog = document.getElementById("atlas-decision-feedback-dialog");
   if (!dialog || !decision?.id || typeof DominionAtlasDecisionCenter === "undefined") return false;
   activeAtlasDecisionFeedbackId = decision.id;
+  activeAtlasResolutionPrompt = null;
+  const form = document.getElementById("atlas-decision-feedback-form");
+  if (form) {
+    form.dataset.stage = "FEEDBACK";
+    const legend = form.querySelector("fieldset legend");
+    if (legend) legend.textContent = "What is off?";
+    const noteLabel = form.querySelector(".atlas-decision-feedback-note");
+    if (noteLabel) noteLabel.hidden = false;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = "Record context";
+  }
   setText("atlas-decision-feedback-title", decision.title);
   setText("atlas-decision-feedback-detail", "Tell Atlas what is missing. The decision stays open and the approved program stays unchanged.");
   const options = document.getElementById("atlas-decision-feedback-options");
@@ -11967,6 +12019,47 @@ async function recordAtlasDecisionFeedback(decision = {}, reasonCode = "", note 
   const synced = await persistClosedLoopState("HISTORY", "atlas-decision-center", history);
   renderAtlasDecisionCenter();
   return { receipt, synced };
+}
+
+function readRecruitConstraintMemory() {
+  if (typeof DominionRecruitConstraintMemory === "undefined") return { active: [], retired: [], count: 0, status: "CLEAR" };
+  const saved = readClosedLoopState("CONTEXT", "recruit-constraints", null);
+  if (saved?.active || saved?.retired) return DominionRecruitConstraintMemory.buildMemory([...(saved.active || []), ...(saved.retired || [])]);
+  return DominionRecruitConstraintMemory.buildMemory(Array.isArray(saved) ? saved : []);
+}
+
+async function saveRecruitConstraintMemory(memory) {
+  saveClosedLoopLocal("CONTEXT", "recruit-constraints", memory);
+  const synced = await persistClosedLoopState("CONTEXT", "recruit-constraints", memory);
+  renderRecruitConstraintMemory(memory);
+  renderAtlasDecisionCenter();
+  return synced;
+}
+
+function renderRecruitConstraintMemory(memory = readRecruitConstraintMemory()) {
+  const root = document.getElementById("recruit-constraint-memory");
+  const list = document.getElementById("recruit-constraint-list");
+  if (!root || !list) return;
+  setText("recruit-constraint-count", memory.count ? `${memory.count} active` : "None active");
+  list.innerHTML = memory.active.length
+    ? memory.active.map((item) => `<article><div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.note)}</strong><small>${escapeHtml(item.domains.join(" · "))}</small></div><button type="button" class="text-button" data-constraint-retire="${escapeHtml(item.id)}">Resolved</button></article>`).join("")
+    : `<p class="muted">No active constraints. Add only what Atlas should remember across decisions.</p>`;
+}
+
+async function recordAtlasResolution(decision, prompt, answerCode) {
+  if (typeof DominionAtlasResolutionLoop === "undefined") throw new Error("Atlas resolution is not available.");
+  const resolution = DominionAtlasResolutionLoop.resolvePrompt(prompt, answerCode, { userId: session?.user?.id || null });
+  const history = [resolution, ...readAtlasDecisionHistory().filter((item) => item.id !== resolution.id)].slice(0, 120);
+  saveClosedLoopLocal("HISTORY", "atlas-decision-center", history);
+  const historySynced = await persistClosedLoopState("HISTORY", "atlas-decision-center", history);
+  let constraintSynced = true;
+  if (resolution.constraintDraft && typeof DominionRecruitConstraintMemory !== "undefined") {
+    const constraint = DominionRecruitConstraintMemory.fromResolution(resolution);
+    const memory = DominionRecruitConstraintMemory.addConstraint(readRecruitConstraintMemory(), constraint, { recordedAt: resolution.recordedAt });
+    constraintSynced = await saveRecruitConstraintMemory(memory);
+  }
+  renderAtlasDecisionCenter();
+  return { resolution, synced: historySynced && constraintSynced };
 }
 
 async function openAtlasDecision(decision = {}) {
@@ -14705,6 +14798,28 @@ function programModuleRoute(module = {}) {
   return { section: "performance", module: module.id || "strength" };
 }
 
+function buildCurrentProgramRecovery() {
+  if (typeof DominionProgramRecovery === "undefined") return null;
+  let receiptAudit = null;
+  try { receiptAudit = currentAtlasActivationAudit(); } catch (_) {}
+  return DominionProgramRecovery.buildRecovery({
+    repair: buildAtlasProgramRepairModel(),
+    contract: readApprovedRecruitContract(),
+    receiptAudit
+  });
+}
+
+function renderProgramRecovery(model = buildCurrentProgramRecovery()) {
+  const root = document.getElementById("program-recovery");
+  if (!root || !model) return;
+  root.hidden = model.status === "ACTIVE";
+  if (root.hidden) { root.innerHTML = ""; return; }
+  root.innerHTML = `<header><div><span>PROGRAM RECOVERY</span><h3 id="program-recovery-heading">${escapeHtml(model.headline)}</h3><p>${escapeHtml(model.detail)}</p></div><strong>${model.progress}%</strong></header>
+    <div class="program-recovery-progress" role="progressbar" aria-label="Program recovery" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.progress}"><span style="width:${model.progress}%"></span></div>
+    <ol>${model.steps.map((step) => `<li class="${escapeHtml(step.state.toLowerCase())}"><span aria-hidden="true">${step.state === "READY" ? "✓" : step.state === "BLOCKED" ? "·" : "→"}</span><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(step.detail)}</small></li>`).join("")}</ol>
+    <footer><small>${escapeHtml(model.safeguard)}</small><button type="button" data-program-recovery-action="${escapeHtml(model.primary.action)}">${escapeHtml(model.primary.label)}</button></footer>`;
+}
+
 function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
   const panel = document.getElementById("program-command-panel");
   if (!panel || typeof DominionProgramCommand === "undefined") return;
@@ -14779,6 +14894,8 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
       <summary>Why Atlas built it this way</summary>
       <ul>${model.rationale.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
     </details>`;
+  renderProgramRecovery();
+  renderRecruitConstraintMemory();
 }
 
 function renderProgramChangeImpact(form) {
@@ -18007,6 +18124,7 @@ if (typeof document !== "undefined") {
     const close = event.target.closest("[data-atlas-feedback-close]");
     if (!close) return;
     activeAtlasDecisionFeedbackId = null;
+    activeAtlasResolutionPrompt = null;
     event.currentTarget.close?.();
   });
   document.getElementById("atlas-decision-feedback-form")?.addEventListener("submit", async (event) => {
@@ -18015,6 +18133,29 @@ if (typeof document !== "undefined") {
     const submit = form.querySelector('button[type="submit"]');
     const center = buildCurrentAtlasDecisionCenter();
     const decision = center?.decisions.find((item) => item.id === activeAtlasDecisionFeedbackId);
+    const stage = form.dataset.stage || "FEEDBACK";
+    if (stage === "RESOLUTION") {
+      const answer = form.querySelector('input[name="atlas-resolution-answer"]:checked')?.value || "";
+      if (!decision || !activeAtlasResolutionPrompt) {
+        setText("atlas-decision-feedback-status", "That call has already cleared. Atlas refreshed the queue.");
+        renderAtlasDecisionCenter();
+        return;
+      }
+      if (submit) submit.disabled = true;
+      try {
+        const { resolution, synced } = await recordAtlasResolution(decision, activeAtlasResolutionPrompt, answer);
+        document.getElementById("atlas-decision-feedback-dialog")?.close?.();
+        activeAtlasDecisionFeedbackId = null;
+        activeAtlasResolutionPrompt = null;
+        setText("atlas-decision-center-feedback", `${resolution.answerLabel} recorded${synced ? " to your account" : " on this device"}. Opening the source; the approved program is unchanged.`);
+        await openAtlasDecision(decision);
+      } catch (error) {
+        setText("atlas-decision-feedback-status", error?.message || "Atlas could not record that response.");
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+      return;
+    }
     const reason = form.querySelector('input[name="atlas-decision-feedback-reason"]:checked')?.value || "";
     const note = document.getElementById("atlas-decision-feedback-note")?.value || "";
     if (!decision) {
@@ -18025,9 +18166,18 @@ if (typeof document !== "undefined") {
     if (submit) submit.disabled = true;
     try {
       const { receipt, synced } = await recordAtlasDecisionFeedback(decision, reason, note);
-      document.getElementById("atlas-decision-feedback-dialog")?.close?.();
-      activeAtlasDecisionFeedbackId = null;
-      setText("atlas-decision-center-feedback", `${receipt.reasonLabel} recorded${synced ? " to your account" : " on this device"}. The decision remains open.`);
+      if (typeof DominionAtlasResolutionLoop === "undefined") throw new Error("Atlas could not open the resolution step.");
+      activeAtlasResolutionPrompt = DominionAtlasResolutionLoop.buildPrompt(receipt, decision);
+      form.dataset.stage = "RESOLUTION";
+      setText("atlas-decision-feedback-detail", "One answer helps Atlas route the source review. The approved program stays unchanged.");
+      const options = document.getElementById("atlas-decision-feedback-options");
+      if (options) options.innerHTML = activeAtlasResolutionPrompt.options.map((item, index) => `<label><input type="radio" name="atlas-resolution-answer" value="${escapeHtml(item.code)}" ${index === 0 ? "checked" : ""}><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></span></label>`).join("");
+      const legend = form.querySelector("fieldset legend");
+      if (legend) legend.textContent = activeAtlasResolutionPrompt.question;
+      const noteLabel = form.querySelector(".atlas-decision-feedback-note");
+      if (noteLabel) noteLabel.hidden = true;
+      if (submit) submit.textContent = "Continue to source";
+      setText("atlas-decision-feedback-status", `${receipt.reasonLabel} recorded${synced ? " to your account" : " on this device"}. Choose the best next step.`);
     } catch (error) {
       setText("atlas-decision-feedback-status", error?.message || "Atlas could not record that context.");
     } finally {
@@ -18049,6 +18199,24 @@ if (typeof document !== "undefined") {
     finally { event.currentTarget.disabled = false; }
   });
   document.getElementById("program")?.addEventListener("click", async (event) => {
+    const recoveryButton = event.target.closest("button[data-program-recovery-action]");
+    if (recoveryButton) {
+      recoveryButton.disabled = true;
+      try { await runAtlasProgramRepairAction(recoveryButton.dataset.programRecoveryAction || "PREPARE"); }
+      catch (error) { setText("program-command-feedback", error?.message || "Atlas could not continue program recovery."); }
+      finally { recoveryButton.disabled = false; }
+      return;
+    }
+    const retireConstraint = event.target.closest("button[data-constraint-retire]");
+    if (retireConstraint && typeof DominionRecruitConstraintMemory !== "undefined") {
+      retireConstraint.disabled = true;
+      try {
+        const memory = DominionRecruitConstraintMemory.retireConstraint(readRecruitConstraintMemory(), retireConstraint.dataset.constraintRetire);
+        const synced = await saveRecruitConstraintMemory(memory);
+        setText("recruit-constraint-feedback", `Constraint resolved${synced ? " and saved to your account" : " on this device"}.`);
+      } finally { retireConstraint.disabled = false; }
+      return;
+    }
     const adaptiveButton = event.target.closest("button[data-atlas-week-action]");
     if (adaptiveButton && typeof DominionAtlasAdaptiveWeek !== "undefined") {
       adaptiveButton.disabled = true;
@@ -19130,6 +19298,21 @@ if (typeof document !== "undefined") {
       setText("core-programming-feedback", `${result.message} Performance evidence and the Mission receipt were added automatically.`);
       setText("core-today-feedback", `${result.message} Performance evidence and the Mission receipt were added automatically.`);
     }
+  });
+  document.getElementById("recruit-constraint-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (typeof DominionRecruitConstraintMemory === "undefined") return;
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      const values = Object.fromEntries(new FormData(form).entries());
+      const memory = DominionRecruitConstraintMemory.addConstraint(readRecruitConstraintMemory(), { type: values.type, domain: values.domain, note: values.note });
+      const synced = await saveRecruitConstraintMemory(memory);
+      form.reset();
+      setText("recruit-constraint-feedback", `Constraint remembered${synced ? " on your account" : " on this device"}.`);
+    } catch (error) { setText("recruit-constraint-feedback", error?.message || "Atlas could not remember that constraint."); }
+    finally { if (submit) submit.disabled = false; }
   });
   document.getElementById("inspection")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-atlas-week-action]");

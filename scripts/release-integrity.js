@@ -18,6 +18,9 @@ const orientation = read("assets/js/first-week-orientation.js");
 const manualRun = read("assets/js/manual-run.js");
 const runningVerdict = read("assets/js/running-verdict.js");
 const atlasDecisionCenter = read("assets/js/atlas-decision-center.js");
+const atlasResolutionLoop = read("assets/js/atlas-resolution-loop.js");
+const recruitConstraintMemory = read("assets/js/recruit-constraint-memory.js");
+const programRecovery = read("assets/js/program-recovery.js");
 const worker = read("sw.js");
 const failures = [];
 
@@ -166,6 +169,14 @@ check("025W coaching rationale", atlasDecisionCenter.includes('const VERSION = "
 check("025W bounded feedback", html.includes('id="atlas-decision-feedback-dialog"') && app.includes("openAtlasDecisionFeedback") && app.includes("recordAtlasDecisionFeedback") && atlasDecisionCenter.includes("function buildFeedback") && atlasDecisionCenter.includes("FEEDBACK_REASONS"), "025W recruit feedback is incomplete");
 check("025W durable safeguards", app.includes('persistClosedLoopState("HISTORY", "atlas-decision-center"') && atlasDecisionCenter.includes("Feedback preserves the open decision") && atlasDecisionCenter.includes("cannot modify the approved program"), "025W feedback does not preserve the decision contract");
 check("025W responsive shell", css.includes(".atlas-decision-why") && css.includes(".atlas-decision-feedback-dialog") && worker.includes('/assets/js/atlas-decision-center.js?v=025w') && worker.includes("025v-025w"), "025W responsive or offline assets are stale");
+check("025X resolution engine", atlasResolutionLoop.includes('const VERSION = "025X.1"') && atlasResolutionLoop.includes("function buildPrompt") && atlasResolutionLoop.includes("function resolvePrompt"), "025X Atlas resolution engine is incomplete");
+check("025X source loop", html.includes('/assets/js/atlas-resolution-loop.js?v=025x') && app.includes("activeAtlasResolutionPrompt") && app.includes("recordAtlasResolution") && app.includes("Continue to source"), "025X feedback does not resolve to a canonical source");
+check("025X safeguards", atlasResolutionLoop.includes("No approved plan was changed") && atlasResolutionLoop.includes("approved program remain unchanged"), "025X must record context without mutating approved plans");
+check("025Y constraint memory", recruitConstraintMemory.includes('const VERSION = "025Y.1"') && recruitConstraintMemory.includes("function retireConstraint") && recruitConstraintMemory.includes("function relevantForDecision"), "025Y constraint engine is incomplete");
+check("025Y durable integration", html.includes('id="recruit-constraint-memory"') && app.includes('["CONTEXT", "recruit-constraints"]') && app.includes("saveRecruitConstraintMemory"), "025Y constraint memory is not durable");
+check("025Z recovery engine", programRecovery.includes('const VERSION = "025Z.1"') && programRecovery.includes("function buildRecovery") && programRecovery.includes('id: "calendar"'), "025Z recovery engine is incomplete");
+check("025Z guided recovery", html.includes('id="program-recovery"') && app.includes("renderProgramRecovery") && app.includes("data-program-recovery-action"), "025Z recovery path is not connected");
+check("025X-Z responsive shell", css.includes(".atlas-decision-resolution-receipt") && css.includes(".recruit-constraint-memory") && css.includes(".program-recovery") && worker.includes("025x-025y-025z"), "025X-Z responsive or offline assets are stale");
 check("025F Fuel approval", app.includes('["READY FOR APPROVAL", "APPROVED"].includes(nutritionDraft.status)') && app.includes("atlasNutritionProfileContext"), "025F Fuel activation repair is missing");
 check("025F clean login status", !app.includes("Command center loaded. One saved item needs reconciliation") && app.includes('setStatus("")'), "025F still exposes the misleading startup reconciliation message");
 check("cached fuel calendar", worker.includes('/assets/js/fuel-calendar.js?v=023b'), "service worker is not caching the calendar context engine");

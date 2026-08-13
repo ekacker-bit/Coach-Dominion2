@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -144,6 +144,18 @@
         <div id="program-command-panel" aria-live="polite">
           <div class="performance-empty">Atlas is reconciling your Contract, plans, and calendar.</div>
         </div>
+        <section id="program-recovery" class="program-recovery" aria-labelledby="program-recovery-heading" aria-live="polite"></section>
+        <details id="recruit-constraint-memory" class="recruit-constraint-memory">
+          <summary><span>Known constraints</span><small id="recruit-constraint-count">None active</small></summary>
+          <div id="recruit-constraint-list" class="recruit-constraint-list"></div>
+          <form id="recruit-constraint-form" class="recruit-constraint-form">
+            <label>Type<select name="type"><option value="SCHEDULE">Schedule</option><option value="EQUIPMENT">Equipment</option><option value="RECOVERY">Recovery</option><option value="INJURY">Injury or pain</option><option value="FOOD">Food or fueling</option><option value="OTHER">Other</option></select></label>
+            <label>Applies to<select name="domain"><option value="PROGRAM">Whole program</option><option value="CALENDAR">Calendar</option><option value="STRENGTH">Strength</option><option value="RUNNING">Cardio</option><option value="CORE">Core</option><option value="FUEL">Fuel</option></select></label>
+            <label class="constraint-detail">What should Atlas remember?<input name="note" maxlength="240" required placeholder="One durable constraint"></label>
+            <button type="submit" class="ghost">Remember</button>
+          </form>
+          <p id="recruit-constraint-feedback" class="muted" aria-live="polite"></p>
+        </details>
         <details class="program-change-request">
           <summary>Request a change</summary>
           <form id="program-change-form">
@@ -2201,6 +2213,9 @@
 <script src="/assets/js/atlas-weekly-command.js?v=025u"></script>
 <!-- Legacy release-integrity marker: /assets/js/atlas-decision-center.js?v=025v -->
 <script src="/assets/js/atlas-decision-center.js?v=025w"></script>
+<script src="/assets/js/atlas-resolution-loop.js?v=025x"></script>
+<script src="/assets/js/recruit-constraint-memory.js?v=025y"></script>
+<script src="/assets/js/program-recovery.js?v=025z"></script>
 <script src="/assets/js/mission-debrief.js?v=025c"></script>
 <script src="/assets/js/mission-recovery.js?v=025d"></script>
 <script src="/assets/js/morning-verification.js?v=025e"></script>
@@ -2217,6 +2232,6 @@
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z"></script>
 </body>
 </html>

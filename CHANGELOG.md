@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased - Build 025Z Guided Program Recovery
+
+- Turns incomplete activation into one six-step Contract, Strength, Cardio, Core, Fuel, and Calendar recovery path.
+- Names the current blocker, shows completion progress, and exposes one canonical next action.
+- Preserves every Contract-matched approved plan and reuses the established safe repair and activation workflow.
+
+## Unreleased - Build 025Y Recruit Constraint Memory
+
+- Gives recruits one durable place to record schedule, equipment, recovery, injury, and fueling constraints.
+- Applies relevant active constraints to Atlas decision evidence without silently rewriting prescriptions.
+- Saves constraint memory across devices and allows explicit retirement when a constraint is resolved.
+
+## Unreleased - Build 025X Atlas Resolution Loop
+
+- Converts "This doesn't fit" from passive feedback into one bounded follow-up and an exact source review.
+- Records a durable resolution receipt while keeping the challenged decision open.
+- Protects approved plans: the resolution loop can add context and route the recruit, but cannot mutate a program.
+
 ## Unreleased - Build 025W Atlas Coaching Rationale
 
 - Explains every ranked Atlas call with its governing rule, confidence, and up to four canonical evidence signals.

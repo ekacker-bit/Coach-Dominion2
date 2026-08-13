@@ -10688,6 +10688,7 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025n", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   navigator.serviceWorker.register("/sw.js?v=026a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});

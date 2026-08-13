@@ -4,6 +4,7 @@ let dailyState;
 let readinessHistory = [];
 let dailyCompliance;
 let weeklyInspection;
+let weeklyInspectionStorageMode = "LOCAL";
 let weeklyDailyRecords = [];
 let inspectionHistory = [];
 let trendRangeDays = 28;
@@ -295,7 +296,7 @@ const RANK_CATALOG = [
   { code: "ASCENDANT", displayName: "Ascendant", sequenceOrder: 6, description: "Elite progression and operational confidence", minimumFinalizedInspections: 16, requiredLookbackWindow: 12, minimumAverageDisciplineScore: 92, minimumAverageEvidenceCoverage: 85, minimumMissionDomainScore: 82, maximumUnresolvedConfirmedViolations: 0, maximumLevelTwoOrLevelThreeViolations: 0, requiredConsecutiveQualifyingWeeks: 6, correctivePeriodBlocksEligibility: true, promotionCommandNote: "Demonstrate sustained quality and strong evidence across all five domains.", privilegesPlaceholder: "premium command templates" }
 ];
 
-const SECTION_ORDER = ["today", "program", "contract", "calendar", "nutrition", "performance", "record", "inspection", "trends", "standards", "rank", "connected"];
+const SECTION_ORDER = ["today", "program", "contract", "calendar", "nutrition", "performance", "record", "inspection", "trends", "standards", "connected"];
 const SECTION_LABELS = {
   today: "Today",
   program: "Program",
@@ -1033,6 +1034,7 @@ function normalizeSectionKey(section = "today") {
   if (normalized === "nutrition" || normalized === "fuel") return "nutrition";
   if (normalized === "connected" || normalized === "integrations" || normalized === "more" || normalized === "settings") return "connected";
   if (normalized === "review") return "inspection";
+  if (normalized === "rank" || normalized === "promotion" || normalized === "advancement") return "inspection";
   return "today";
 }
 
@@ -2492,6 +2494,8 @@ function buildInspectionIntegritySummary(records = [], recentSize = TREND_WINDOW
 function buildCanonicalPromotionInput(currentRank = "RECRUIT", targetRank = "CADET") {
   const integrity = buildInspectionIntegritySummary(inspectionHistory);
   const target = getCurrentRankDefinition(targetRank);
+  const openStandards = (standardsReviewState || []).filter((item) => !["RESOLVED", "DISMISSED", "EXCUSED"].includes(String(item?.status || "CANDIDATE").toUpperCase()));
+  const confirmedStandards = openStandards.filter((item) => ["CONFIRMED", "ACTIVE", "CORRECTIVE ACTION"].includes(String(item?.status || "").toUpperCase()));
   return {
     currentRank,
     finalizedInspections: integrity.finalizedCount,
@@ -2501,9 +2505,9 @@ function buildCanonicalPromotionInput(currentRank = "RECRUIT", targetRank = "CAD
       minimumDisciplineScore: target.minimumAverageDisciplineScore,
       minimumEvidenceCoverage: target.minimumAverageEvidenceCoverage
     }),
-    unresolvedConfirmedViolations: 0,
-    unresolvedLevelTwoViolations: 0,
-    unresolvedLevelThreeViolations: 0,
+    unresolvedConfirmedViolations: confirmedStandards.length,
+    unresolvedLevelTwoViolations: confirmedStandards.filter((item) => String(item?.severity?.level || item?.severity || "").toUpperCase().replaceAll("_", " ") === "LEVEL II").length,
+    unresolvedLevelThreeViolations: confirmedStandards.filter((item) => String(item?.severity?.level || item?.severity || "").toUpperCase().replaceAll("_", " ") === "LEVEL III").length,
     activeCorrectivePeriod: Boolean(rankStatus.activeCorrectivePeriod),
     domainScores: { mission: integrity.missionDomainScore },
     standardsHistory: standardsReviewState || [],
@@ -10806,7 +10810,7 @@ function registerMobileServiceWorker() {
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
   // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
-  const reloadKey = "coach-dominion:service-worker-reload:026bc";
+  const reloadKey = "coach-dominion:service-worker-reload:026d";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10823,7 +10827,7 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=026bc", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=026d", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15523,7 +15527,7 @@ function setActiveSection(section = "today") {
   });
   const more = document.querySelector(".nav-more");
   if (more) {
-    more.classList.toggle("active", ["contract", "trends", "standards", "rank", "record", "connected"].includes(normalized));
+    more.classList.toggle("active", ["contract", "trends", "standards", "record", "connected"].includes(normalized));
     if (more.open) more.removeAttribute("open");
   }
   document.querySelectorAll(".scroll-anchor").forEach((element) => {
@@ -15552,7 +15556,7 @@ function organizeWorkspaceSections() {
   const app = document.getElementById("app-content");
   const today = document.getElementById("today");
   if (!app || !today) return;
-  ["record", "inspection", "trends", "standards", "rank", "performance"].forEach((id) => {
+  ["record", "inspection", "trends", "standards", "performance"].forEach((id) => {
     const section = document.getElementById(id);
     if (section && section.parentElement !== app) app.appendChild(section);
   });
@@ -18165,6 +18169,7 @@ async function init() {
 }
 
 if (typeof document !== "undefined") {
+  if (typeof DominionWeeklyAdvancement !== "undefined") DominionWeeklyAdvancement.installExperience(document);
   applyProductPolish();
   startProductPolishObserver();
   registerMobileServiceWorker();
@@ -20919,6 +20924,13 @@ if (typeof document !== "undefined") {
       const nextRank = getNextRankDefinition(rankStatus.currentRank || "RECRUIT");
       if (!nextRank) return;
       const promotionInput = buildCanonicalPromotionInput(rankStatus.currentRank || "RECRUIT", nextRank.code);
+      const eligibility = evaluatePromotionEligibility(promotionInput, nextRank.code);
+      if (eligibility.status !== "ELIGIBLE") {
+        setText("rank-promotion-feedback", "Promotion is locked until every advancement gate is secured.");
+        renderRankSection();
+        return;
+      }
+      if (!window.confirm(`Authorize promotion from ${rankStatus.currentRank || "RECRUIT"} to ${nextRank.displayName}?`)) return;
       const snapshot = finalizePromotionSnapshot({
         currentRank: rankStatus.currentRank || "RECRUIT",
         nextRank: nextRank.code,
@@ -20935,7 +20947,9 @@ if (typeof document !== "undefined") {
       };
       promotionHistory = [{ ...snapshot, createdAt: new Date().toISOString() }, ...promotionHistory];
       saveRankStatus();
-      renderRankSection();
+      savePromotionHistory(promotionHistory);
+      setText("rank-promotion-feedback", `${snapshot.currentRank} earned. The next rank now requires a new body of work.`);
+      renderWeeklyJudgment(weeklyInspection || {}, weeklyInspectionStorageMode);
     });
   }
   document.getElementById("standards")?.addEventListener("click", async (event) => {
@@ -21431,8 +21445,8 @@ function savePromotionHistory(items = []) {
 }
 
 function renderRankSection() {
-  if (typeof document === "undefined") return;
-  const container = document.getElementById("rank");
+  if (typeof document === "undefined" || typeof DominionWeeklyAdvancement === "undefined") return;
+  const container = document.getElementById("inspection");
   if (!container) return;
   const currentRank = rankStatus.currentRank || "RECRUIT";
   const nextRank = getNextRankDefinition(currentRank);
@@ -21445,6 +21459,27 @@ function renderRankSection() {
     unresolvedConfirmedViolations: 0,
     consecutiveQualifyingWeeksRequired: 0
   };
+  const judgment = DominionWeeklyAdvancement.buildWeeklyJudgment({ inspection: weeklyInspection || {}, eligibility, standards: standardsReviewState, currentRank, nextRank: nextRank?.displayName || null });
+  setText("rank-current", currentRank);
+  setText("rank-next", nextRank?.displayName || "—");
+  setText("weekly-advancement-percent", `${judgment.promotionProgress}%`);
+  setText("weekly-advancement-detail", judgment.primaryBlocker ? `${judgment.primaryBlocker} is the first gate between you and ${nextRank?.displayName || "the next rank"}.` : nextRank ? `Every gate for ${nextRank.displayName} is complete.` : "Highest rank secured.");
+  const meter = document.getElementById("weekly-advancement-meter");
+  if (meter) meter.style.width = `${judgment.promotionProgress}%`;
+  const rankStateBadge = document.getElementById("rank-state");
+  if (rankStateBadge) {
+    rankStateBadge.textContent = eligibility.status === "NOT ELIGIBLE" ? "BUILDING EVIDENCE" : eligibility.status;
+    rankStateBadge.className = `state-pill ${eligibility.status === "ELIGIBLE" ? "green" : eligibility.status === "PROGRESSING" ? "yellow" : eligibility.status === "BLOCKED" || eligibility.status === "CORRECTIVE PERIOD" ? "red" : "neutral"}`;
+  }
+  const requirements = document.getElementById("rank-requirements");
+  if (requirements) requirements.innerHTML = judgment.gates.map((gate) => `<article class="${gate.passed ? "passed" : "open"}"><i aria-hidden="true"></i><div><strong>${escapeHtml(gate.label)}</strong><small>${gate.passed ? "Secured" : `${gate.progress}% complete`}</small></div></article>`).join("");
+  const blockers = document.getElementById("rank-blockers");
+  if (blockers) blockers.innerHTML = eligibility.blockers.length ? `<strong>What remains</strong><ul>${eligibility.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : '<strong>No promotion blockers remain.</strong>';
+  const history = document.getElementById("rank-history");
+  if (history) history.innerHTML = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${escapeHtml(item.priorRank || "RECRUIT")} → ${escapeHtml(item.currentRank || "CADET")}</strong><span>${escapeHtml(item.promotionState || "PROMOTED")}</span></div><p>${escapeHtml(item.effectiveDate || "")}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
+  const promote = document.getElementById("finalize-promotion");
+  if (promote) promote.hidden = eligibility.status !== "ELIGIBLE" || !nextRank;
+  return;
   const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
   const review = generateAtlasPromotionReview({
     currentRank,
@@ -21463,25 +21498,25 @@ function renderRankSection() {
   setText("rank-next", nextRank?.displayName || "—");
   setText("rank-status", eligibility.status);
   setText("rank-qualifying-weeks", String(eligibility.consecutiveQualifyingWeeksRequired || 0));
-  const rankStateBadge = document.getElementById("rank-state");
-  if (rankStateBadge) {
-    rankStateBadge.textContent = eligibility.status;
-    rankStateBadge.className = `state-pill ${eligibility.status === "ELIGIBLE" ? "green" : eligibility.status === "PROMOTED" ? "green" : eligibility.status === "PROGRESSING" ? "yellow" : eligibility.status === "BLOCKED" ? "red" : "neutral"}`;
+  const legacyRankStateBadge = document.getElementById("rank-state");
+  if (legacyRankStateBadge) {
+    legacyRankStateBadge.textContent = eligibility.status;
+    legacyRankStateBadge.className = `state-pill ${eligibility.status === "ELIGIBLE" ? "green" : eligibility.status === "PROMOTED" ? "green" : eligibility.status === "PROGRESSING" ? "yellow" : eligibility.status === "BLOCKED" ? "red" : "neutral"}`;
   }
-  const requirements = document.getElementById("rank-requirements");
-  if (requirements) {
-    requirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
+  const legacyRequirements = document.getElementById("rank-requirements");
+  if (legacyRequirements) {
+    legacyRequirements.innerHTML = evidence.requirements.map((item) => `<li>${item.requirement.replaceAll("_", " ")} — target ${item.target}, actual ${item.actual === null || !Number.isFinite(Number(item.actual)) ? "Insufficient evidence" : Math.round(Number(item.actual) * 10) / 10} (${item.passed ? "PASS" : "FAIL"})</li>`).join("");
   }
-  const blockers = document.getElementById("rank-blockers");
-  if (blockers) {
-    blockers.innerHTML = eligibility.blockers.length ? eligibility.blockers.map((item) => `<div class="standards-item"><p>${item}</p></div>`).join("") : '<div class="standards-empty">No blockers detected.</div>';
+  const legacyBlockers = document.getElementById("rank-blockers");
+  if (legacyBlockers) {
+    legacyBlockers.innerHTML = eligibility.blockers.length ? eligibility.blockers.map((item) => `<div class="standards-item"><p>${item}</p></div>`).join("") : '<div class="standards-empty">No blockers detected.</div>';
   }
   const reviewOutput = document.getElementById("rank-review-output");
   if (reviewOutput) reviewOutput.textContent = review.text;
-  const history = document.getElementById("rank-history");
-  if (history) {
+  const legacyHistory = document.getElementById("rank-history");
+  if (legacyHistory) {
     const items = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${item.priorRank || "RECRUIT"} → ${item.currentRank || "CADET"}</strong><span>${item.promotionState || "PROMOTED"}</span></div><p>${item.effectiveDate || ""}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
-    history.innerHTML = items;
+    legacyHistory.innerHTML = items;
   }
   const ladder = document.getElementById("rank-ladder");
   if (ladder) {
@@ -21989,7 +22024,79 @@ function aggregateFromStoredInspection(record) {
   return aggregate;
 }
 
+function renderWeeklyJudgment(aggregate, storageMode) {
+  weeklyInspection = aggregate;
+  weeklyInspectionStorageMode = storageMode;
+  if (!aggregate || typeof DominionWeeklyAdvancement === "undefined") return;
+  const finalized = Boolean(aggregate.finalizedAt);
+  const currentRank = rankStatus.currentRank || "RECRUIT";
+  const nextRank = getNextRankDefinition(currentRank);
+  const promotionInput = buildCanonicalPromotionInput(currentRank, nextRank?.code || "CADET");
+  const eligibility = evaluatePromotionEligibility(promotionInput, nextRank?.code || "CADET");
+  const judgment = DominionWeeklyAdvancement.buildWeeklyJudgment({ inspection: aggregate, eligibility, standards: standardsReviewState, currentRank, nextRank: nextRank?.displayName || null });
+  setText("weekly-status", judgment.state.replaceAll("_", " "));
+  setText("weekly-range", `${aggregate.weekStartDate} — ${aggregate.weekEndDate}`);
+  setText("weekly-judgment-headline", judgment.headline);
+  setText("weekly-judgment-detail", judgment.detail);
+  setText("weekly-judgment-state", judgment.state.replaceAll("_", " "));
+  setText("weekly-score", formatDisciplineScore(aggregate.score));
+  setText("weekly-coverage", `${Math.round(Number(aggregate.evidenceCoverage || 0))}%`);
+  setText("weekly-storage", storageMode === "SUPABASE" ? "ACCOUNT" : "THIS DEVICE");
+  setText("weekly-evidence-through", aggregate.evidenceThroughDate || "Not started");
+  const status = document.getElementById("weekly-status");
+  if (status) status.className = `state-pill ${judgment.state === "EARNED" ? "green" : ["NOT_EARNED", "INCOMPLETE"].includes(judgment.state) ? "red" : judgment.state === "READY" ? "yellow" : "neutral"}`;
+  const verdict = document.querySelector(".weekly-verdict");
+  if (verdict) verdict.dataset.judgment = judgment.state;
+  const proofById = Object.fromEntries(judgment.proof.map((item) => [item.id, item]));
+  const execution = proofById.EXECUTION;
+  const evidence = proofById.EVIDENCE;
+  const standards = proofById.STANDARDS;
+  setText("weekly-execution-proof", execution.pending ? "No scored execution yet" : `${execution.passed ? "MEETS" : "BELOW"} ${execution.target}% standard`);
+  setText("weekly-evidence-proof", evidence.pending ? "No evidence coverage yet" : `${evidence.passed ? "MEETS" : "BELOW"} ${evidence.target}% standard`);
+  setText("weekly-standards-state", standards.passed ? "CLEAR" : `${standards.actual} OPEN`);
+  setText("weekly-standards-proof", standards.passed ? "No open case blocks advancement" : "Resolve open review before advancement");
+  document.querySelectorAll("#weekly-proof-grid article").forEach((card) => {
+    const proof = proofById[card.querySelector("span")?.textContent?.trim() || ""];
+    card.dataset.proof = proof?.pending ? "PENDING" : proof?.passed ? "PASS" : "FAIL";
+  });
+  const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
+  const domains = document.getElementById("weekly-domain-scores");
+  if (domains) domains.innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores?.[key]?.score)}</strong></div>`).join("");
+  const evidenceList = document.getElementById("weekly-evidence");
+  if (evidenceList) evidenceList.innerHTML = (aggregate.dailyEvidence || []).map((day) => `<article class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><strong>${escapeHtml(day.date)}</strong><span>${day.periodState === "FUTURE" ? "Future" : `${day.assessedCount}/5 recorded`}</span></article>`).join("");
+  renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
+  const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
+  const warning = finalized
+    ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
+    : aggregate.scoreIsProvisional
+      ? `Live week through ${aggregate.evidenceThroughDate || "today"}${missingLabels.length ? `. Still missing ${missingLabels.join(", ")}.` : "."}`
+      : "";
+  setText("weekly-warning", warning);
+  const finalizeButton = document.getElementById("finalize-week");
+  if (finalizeButton) {
+    finalizeButton.hidden = finalized;
+    finalizeButton.disabled = !aggregate.canFinalize;
+    finalizeButton.textContent = aggregate.canFinalize ? "Finalize week" : "Week not ready";
+    finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
+  }
+  setText("weekly-next-action-title", judgment.nextAction.label);
+  setText("weekly-next-action-detail", judgment.nextAction.detail);
+  const nextAction = document.getElementById("weekly-next-action-link");
+  if (nextAction) {
+    nextAction.hidden = ["FINALIZE", "PROMOTE"].includes(judgment.nextAction.code);
+    nextAction.textContent = judgment.nextAction.code === "STANDARDS" ? "Open Standards" : judgment.nextAction.code === "EXECUTE" && judgment.nextAction.section === "today" ? "Open Today" : "Open Record";
+    nextAction.href = `#${judgment.nextAction.section}`;
+    nextAction.dataset.section = judgment.nextAction.section;
+  }
+  renderRankSection();
+  renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
+  renderStandardsSection();
+  renderActivationGuide();
+}
+
 function renderWeeklyInspection(aggregate, storageMode) {
+  renderWeeklyJudgment(aggregate, storageMode);
+  return;
   weeklyInspection = aggregate;
   const finalized = Boolean(aggregate.finalizedAt);
   const finalizeState = deriveFinalizeConfirmationState(finalized, aggregate.evidenceCoverage);

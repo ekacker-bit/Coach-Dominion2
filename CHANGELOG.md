@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 026D Weekly Judgment
+
+- Replaces the sprawling Inspection and separate Rank screens with one weekly verdict: earned, not earned, ready, or still building.
+- Shows only three forms of proof at first glance: execution score, evidence coverage, and standards record.
+- Places rank advancement directly beneath the verdict with four plain-language gates, one blocker, and one next order.
+- Rechecks every eligibility gate at the moment of promotion and persists the resulting advancement history.
+- Keeps domain evidence, daily closeouts, and promotion history available behind optional details instead of crowding the primary decision.
+
 ## Unreleased - Build 026C Atlas Live Adaptation
 
 - Detects material readiness, pain, and execution deviations during the active day and proposes one bounded coaching change.

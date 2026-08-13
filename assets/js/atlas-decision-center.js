@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025V.1";
+  const VERSION = "025W.1";
   const CATEGORY_PRIORITY = Object.freeze({
     SAFETY: 100,
     INTEGRITY: 92,
@@ -14,6 +14,21 @@
     PROGRESSION: 68,
     WEEK: 60,
     COACHING: 52
+  });
+  const FEEDBACK_REASONS = Object.freeze({
+    TIMING: Object.freeze({ label: "Timing does not work", detail: "Keep the call open and record that its timing needs review." }),
+    CONSTRAINT: Object.freeze({ label: "A constraint is missing", detail: "Record a schedule, equipment, recovery, or life constraint for the source review." }),
+    EVIDENCE_DISPUTED: Object.freeze({ label: "The evidence looks wrong", detail: "Flag the source evidence for reconciliation before the call is accepted." }),
+    PREFER_HOLD: Object.freeze({ label: "I prefer to hold", detail: "Record a preference to keep the current approved prescription unchanged." })
+  });
+  const CATEGORY_RULES = Object.freeze({
+    SAFETY: "Safety evidence outranks progression and schedule convenience.",
+    INTEGRITY: "Conflicting approved records must be reconciled before Atlas advances the program.",
+    CALENDAR: "Structural plan changes require a deliberate future-calendar review.",
+    EVIDENCE: "Conflicting or incomplete evidence must be reconciled before Atlas judges execution.",
+    PROGRESSION: "Only verified completed work can support a future progression call.",
+    WEEK: "The next week changes only through one coordinated recruit approval.",
+    COACHING: "Atlas keeps the current prescription until the recruit makes a deliberate choice."
   });
 
   function upper(value = "") {
@@ -30,11 +45,35 @@
     return (hash >>> 0).toString(16).padStart(8, "0");
   }
 
+  function normalizeEvidence(evidence = []) {
+    return (Array.isArray(evidence) ? evidence : [])
+      .map((item) => {
+        if (typeof item === "string") return { label: "Signal", value: item, source: "Program evidence" };
+        if (!item || typeof item !== "object") return null;
+        const value = item.value === 0 ? "0" : String(item.value || "").trim();
+        if (!value) return null;
+        return {
+          label: String(item.label || "Signal").trim(),
+          value,
+          source: String(item.source || "Program evidence").trim()
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+
+  function normalizeConfidence(value, evidenceCount = 0) {
+    const confidence = upper(value);
+    if (["HIGH", "MODERATE", "LOW"].includes(confidence)) return confidence;
+    return evidenceCount >= 3 ? "HIGH" : evidenceCount >= 1 ? "MODERATE" : "LOW";
+  }
+
   function normalize(candidate = {}, index = 0) {
     const category = CATEGORY_PRIORITY[upper(candidate.category)] ? upper(candidate.category) : "COACHING";
     const urgency = Math.max(0, Math.min(9, Math.round(Number(candidate.urgency || 0))));
     const route = candidate.route && typeof candidate.route === "object" ? { ...candidate.route } : { section: "today" };
     const id = String(candidate.id || `${category.toLowerCase()}-${index + 1}`);
+    const evidence = normalizeEvidence(candidate.evidence);
     const decision = {
       version: VERSION,
       id,
@@ -48,6 +87,9 @@
       route,
       sourceStatus: upper(candidate.sourceStatus || "OPEN"),
       sourceRevision: candidate.sourceRevision ?? null,
+      evidence,
+      confidence: normalizeConfidence(candidate.confidence, evidence.length),
+      rule: String(candidate.rule || CATEGORY_RULES[category]),
       generatedAt: candidate.generatedAt || null
     };
     decision.fingerprint = stableHash({
@@ -71,11 +113,19 @@
         const current = unique.get(decision.id);
         if (!current || decision.priority > current.priority) unique.set(decision.id, decision);
       });
+    const feedback = (Array.isArray(input.feedback) ? input.feedback : [])
+      .filter((item) => item?.type === "RECRUIT_FEEDBACK" && item.decisionFingerprint)
+      .sort((left, right) => String(right.recordedAt || "").localeCompare(String(left.recordedAt || "")));
     const decisions = [...unique.values()].sort((left, right) =>
       right.priority - left.priority
       || String(left.domain).localeCompare(String(right.domain))
       || String(left.id).localeCompare(String(right.id))
-    ).map((decision, index) => ({ ...decision, order: index + 1, primary: index === 0 }));
+    ).map((decision, index) => ({
+      ...decision,
+      order: index + 1,
+      primary: index === 0,
+      recruitFeedback: feedback.find((item) => item.decisionFingerprint === decision.fingerprint) || null
+    }));
     const count = decisions.length;
     const primary = decisions[0] || null;
     return {
@@ -88,7 +138,7 @@
       primary,
       decisions,
       generatedAt: input.generatedAt || null,
-      safeguard: "The Decision Center never changes a plan. Every choice is completed in its canonical module and keeps its original receipt."
+      safeguard: "Atlas explains the call and records your context. Only the canonical source controls can change a plan."
     };
   }
 
@@ -110,5 +160,30 @@
     };
   }
 
-  return Object.freeze({ VERSION, CATEGORY_PRIORITY, buildCenter, buildEvent, stableHash });
+  function buildFeedback(decision = {}, reasonCode = "", options = {}) {
+    if (!decision.id || !decision.fingerprint) throw new Error("A canonical decision is required before recording feedback.");
+    const reason = upper(reasonCode);
+    if (!FEEDBACK_REASONS[reason]) throw new Error("Choose one reason before sending feedback to Atlas.");
+    const recordedAt = options.recordedAt || new Date().toISOString();
+    const note = String(options.note || "").replace(/\s+/g, " ").trim().slice(0, 240);
+    return {
+      version: VERSION,
+      id: `atlas-feedback-${stableHash(`${decision.fingerprint}:${reason}:${recordedAt}`)}`,
+      type: "RECRUIT_FEEDBACK",
+      decisionId: decision.id,
+      decisionFingerprint: decision.fingerprint,
+      category: decision.category,
+      domain: decision.domain,
+      sourceRevision: decision.sourceRevision ?? null,
+      reasonCode: reason,
+      reasonLabel: FEEDBACK_REASONS[reason].label,
+      note,
+      status: "RECORDED",
+      recordedAt,
+      userId: options.userId || null,
+      safeguard: "Feedback preserves the open decision and cannot modify the approved program."
+    };
+  }
+
+  return Object.freeze({ VERSION, CATEGORY_PRIORITY, CATEGORY_RULES, FEEDBACK_REASONS, buildCenter, buildEvent, buildFeedback, stableHash });
 });

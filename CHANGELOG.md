@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 025W Atlas Coaching Rationale
+
+- Explains every ranked Atlas call with its governing rule, confidence, and up to four canonical evidence signals.
+- Adds one bounded "This doesn't fit" response for timing, missing constraints, disputed evidence, or a preference to hold.
+- Keeps challenged decisions open and preserves every approved plan until the recruit acts in the canonical source module.
+- Saves the recruit's context to the account-safe Decision Center history and shows a concise receipt beside the call.
+- Ships a word-light desktop and mobile rationale experience plus a refreshed offline application shell.
+
 ## Unreleased - Build 025V Atlas Decision Center
 
 - Consolidates pending Safety, saved-program integrity, Calendar, Fuel evidence, Strength, Running, and weekly calls into one ranked queue on Today.

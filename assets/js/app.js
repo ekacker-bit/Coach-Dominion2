@@ -11700,6 +11700,11 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Resolve saved program",
       sourceStatus: "CONFLICT",
       sourceRevision: continuityState.accountRevision || null,
+      confidence: "HIGH",
+      evidence: [
+        { label: "Conflicts", value: `${conflicts.length} approved ${conflicts.length === 1 ? "record" : "records"}`, source: "Program continuity ledger" },
+        { label: "Account revision", value: continuityState.accountRevision || "Not stamped", source: "Account program copy" }
+      ],
       route: { action: "RESOLVE_CONTINUITY", section: "today", anchor: "continuity-conflict-panel" }
     });
   }
@@ -11717,6 +11722,11 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Review safety hold",
       sourceStatus: adjustment.status,
       sourceRevision: adjustment.planRevision || null,
+      confidence: "HIGH",
+      evidence: [
+        { label: "Safety signal", value: adjustment.summary?.painCount ? `${adjustment.summary.painCount} pain flag${adjustment.summary.painCount === 1 ? "" : "s"}` : "Pain or stopped work recorded", source: "Verified Strength result" },
+        { label: "Plan", value: `Revision ${adjustment.planRevision || "current"}`, source: "Approved Strength plan" }
+      ],
       route: { section: "performance", view: "today_training", anchor: "programming-review-panel" }
     });
   } else if (adjustment?.status === "PENDING" && Number(adjustment.summary?.changedCount || 0) > 0) {
@@ -11730,6 +11740,12 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Review Strength changes",
       sourceStatus: adjustment.status,
       sourceRevision: adjustment.planRevision || null,
+      confidence: Number(adjustment.summary?.changedCount || 0) > 1 ? "HIGH" : "MODERATE",
+      evidence: [
+        { label: "Earned changes", value: String(adjustment.summary.changedCount), source: "Verified Strength sets" },
+        { label: "Session", value: adjustment.sessionName || "Active Strength plan", source: "Workout receipt" },
+        { label: "Plan", value: `Revision ${adjustment.planRevision || "current"}`, source: "Approved Strength plan" }
+      ],
       route: { section: "performance", view: "today_training", anchor: "programming-review-panel" }
     });
   }
@@ -11749,6 +11765,11 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Resolve progression trial",
       sourceStatus: trial.status,
       sourceRevision: trial.planRevision || null,
+      confidence: "HIGH",
+      evidence: [
+        { label: "Trial verdict", value: trial.verdictLabel || trial.verdict || "Review required", source: "Progression trial receipt" },
+        { label: "Plan", value: `Revision ${trial.planRevision || "current"}`, source: "Approved Strength plan" }
+      ],
       route: { section: "today", anchor: "daily-assignment-panel" }
     });
   }
@@ -11765,6 +11786,11 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Review Calendar",
       sourceStatus: calendarHandoff.status,
       sourceRevision: calendarHandoff.planRevision || null,
+      confidence: "HIGH",
+      evidence: [
+        { label: "Handoff", value: calendarHandoff.status.replaceAll("_", " "), source: "Strength calendar handoff" },
+        { label: "Plan", value: `Revision ${calendarHandoff.planRevision || "current"}`, source: "Approved Strength plan" }
+      ],
       route: { section: "calendar", anchor: "weekly-orchestrator-panel" }
     });
   }
@@ -11781,6 +11807,12 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Review Running call",
       sourceStatus: running.status,
       sourceRevision: running.blockRevision || running.revision || null,
+      confidence: Number(running.evidence?.judgedRuns || 0) >= 3 ? "HIGH" : "MODERATE",
+      evidence: [
+        { label: "Judged runs", value: String(running.evidence?.judgedRuns || 0), source: "Verified Running results" },
+        { label: "Average completion", value: running.evidence?.averageCompletion == null ? "Not established" : `${running.evidence.averageCompletion}%`, source: "Running evidence ledger" },
+        { label: "Average effort", value: running.evidence?.averageRpe == null ? "Not reported" : `${running.evidence.averageRpe} RPE`, source: "Running evidence ledger" }
+      ],
       route: { section: "performance", view: "running", anchor: "running-command-panel" }
     });
   }
@@ -11797,6 +11829,11 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Review Fuel evidence",
       sourceStatus: fuel.verdict.code,
       sourceRevision: fuel.date || null,
+      confidence: "HIGH",
+      evidence: [
+        { label: "Verdict", value: fuel.verdict.code.replaceAll("_", " "), source: "Fuel daily closeout" },
+        { label: "Operating date", value: fuel.date || todayISODate(), source: "Fuel evidence ledger" }
+      ],
       route: { section: "nutrition", view: "today", anchor: "nutrition-command-output" }
     });
   }
@@ -11813,6 +11850,12 @@ function atlasDecisionCandidateSources() {
       actionLabel: "Review weekly command",
       sourceStatus: weekly.status,
       sourceRevision: weekly.targetWeekStart || null,
+      confidence: weekly.domains?.filter((domain) => domain.percent != null).length >= 4 ? "HIGH" : "MODERATE",
+      evidence: [
+        { label: "Secured domain", value: weekly.win?.percent == null ? weekly.win?.label || "Learning" : `${weekly.win.label} ${weekly.win.percent}%`, source: "Weekly program evidence" },
+        { label: "Limiting domain", value: weekly.watch?.percent == null ? weekly.watch?.label || "Learning" : `${weekly.watch.label} ${weekly.watch.percent}%`, source: "Weekly program evidence" },
+        { label: "Target week", value: weekly.targetWeekStart || "Next coordinated week", source: "Committed Calendar" }
+      ],
       route: { section: "program", anchor: "program-command-panel" }
     });
   }
@@ -11823,15 +11866,29 @@ function buildCurrentAtlasDecisionCenter() {
   if (typeof DominionAtlasDecisionCenter === "undefined") return null;
   return DominionAtlasDecisionCenter.buildCenter({
     candidates: atlasDecisionCandidateSources(),
+    feedback: readAtlasDecisionHistory(),
     generatedAt: new Date().toISOString()
   });
+}
+
+function atlasDecisionEvidenceMarkup(decision = {}) {
+  const evidence = Array.isArray(decision.evidence) ? decision.evidence : [];
+  const feedback = decision.recruitFeedback;
+  return `<details class="atlas-decision-why">
+    <summary><span>Why this call</span><small>${escapeHtml(decision.confidence || "LOW")} CONFIDENCE</small></summary>
+    <div class="atlas-decision-rationale">
+      <p>${escapeHtml(decision.rule || "Atlas is preserving the approved program until you decide.")}</p>
+      ${evidence.length ? `<dl>${evidence.map((item) => `<div><dt>${escapeHtml(item.label)}</dt><dd>${escapeHtml(item.value)}</dd><small>${escapeHtml(item.source)}</small></div>`).join("")}</dl>` : `<p class="muted">Atlas has limited evidence. Open the source before accepting the call.</p>`}
+    </div>
+  </details>
+  ${feedback ? `<p class="atlas-decision-feedback-receipt"><strong>Context recorded</strong><span>${escapeHtml(feedback.reasonLabel || feedback.reasonCode)}</span></p>` : ""}`;
 }
 
 function atlasDecisionQueueMarkup(decision = {}) {
   return `<li class="atlas-decision-item ${escapeHtml(String(decision.category || "coaching").toLowerCase())}">
     <span class="atlas-decision-order">${escapeHtml(String(decision.order || ""))}</span>
-    <div><span>${escapeHtml(decision.domain)} // ${escapeHtml(decision.category)}</span><strong>${escapeHtml(decision.title)}</strong><p>${escapeHtml(decision.detail)}</p><small>${escapeHtml(decision.consequence)}</small></div>
-    <button type="button" class="ghost" data-atlas-decision-action="OPEN" data-atlas-decision-id="${escapeHtml(decision.id)}">${escapeHtml(decision.actionLabel)}</button>
+    <div><span>${escapeHtml(decision.domain)} // ${escapeHtml(decision.category)}</span><strong>${escapeHtml(decision.title)}</strong><p>${escapeHtml(decision.detail)}</p><small>${escapeHtml(decision.consequence)}</small>${atlasDecisionEvidenceMarkup(decision)}</div>
+    <div class="atlas-decision-item-actions"><button type="button" class="ghost" data-atlas-decision-action="OPEN" data-atlas-decision-id="${escapeHtml(decision.id)}">${escapeHtml(decision.actionLabel)}</button><button type="button" class="text-button" data-atlas-decision-action="FEEDBACK" data-atlas-decision-id="${escapeHtml(decision.id)}">This doesn&rsquo;t fit</button></div>
   </li>`;
 }
 
@@ -11850,8 +11907,8 @@ function renderAtlasDecisionCenter() {
   if (state) state.className = `state-pill ${center.tone}`;
   const primary = document.getElementById("atlas-decision-center-primary");
   if (primary) primary.innerHTML = center.primary ? `<article class="atlas-decision-primary ${escapeHtml(center.primary.category.toLowerCase())}">
-    <div><span>${escapeHtml(center.primary.domain)} // ${escapeHtml(center.primary.category)}</span><h3>${escapeHtml(center.primary.title)}</h3><p>${escapeHtml(center.primary.detail)}</p><small>${escapeHtml(center.primary.consequence)}</small></div>
-    <button type="button" data-atlas-decision-action="OPEN" data-atlas-decision-id="${escapeHtml(center.primary.id)}">${escapeHtml(center.primary.actionLabel)}</button>
+    <div><span>${escapeHtml(center.primary.domain)} // ${escapeHtml(center.primary.category)}</span><h3>${escapeHtml(center.primary.title)}</h3><p>${escapeHtml(center.primary.detail)}</p><small>${escapeHtml(center.primary.consequence)}</small>${atlasDecisionEvidenceMarkup(center.primary)}</div>
+    <div class="atlas-decision-primary-actions"><button type="button" data-atlas-decision-action="OPEN" data-atlas-decision-id="${escapeHtml(center.primary.id)}">${escapeHtml(center.primary.actionLabel)}</button><button type="button" class="ghost" data-atlas-decision-action="FEEDBACK" data-atlas-decision-id="${escapeHtml(center.primary.id)}">This doesn&rsquo;t fit</button></div>
   </article>` : "";
   const list = document.getElementById("atlas-decision-center-list");
   if (list) list.innerHTML = center.decisions.map(atlasDecisionQueueMarkup).join("");
@@ -11882,6 +11939,34 @@ async function recordAtlasDecisionEvent(decision, type = "OPENED") {
   const history = [event, ...readAtlasDecisionHistory().filter((item) => item.id !== event.id)].slice(0, 120);
   saveClosedLoopLocal("HISTORY", "atlas-decision-center", history);
   return persistClosedLoopState("HISTORY", "atlas-decision-center", history);
+}
+
+let activeAtlasDecisionFeedbackId = null;
+
+function openAtlasDecisionFeedback(decision = {}) {
+  const dialog = document.getElementById("atlas-decision-feedback-dialog");
+  if (!dialog || !decision?.id || typeof DominionAtlasDecisionCenter === "undefined") return false;
+  activeAtlasDecisionFeedbackId = decision.id;
+  setText("atlas-decision-feedback-title", decision.title);
+  setText("atlas-decision-feedback-detail", "Tell Atlas what is missing. The decision stays open and the approved program stays unchanged.");
+  const options = document.getElementById("atlas-decision-feedback-options");
+  if (options) options.innerHTML = Object.entries(DominionAtlasDecisionCenter.FEEDBACK_REASONS || {}).map(([code, reason], index) => `<label><input type="radio" name="atlas-decision-feedback-reason" value="${escapeHtml(code)}" ${index === 0 ? "checked" : ""}><span><strong>${escapeHtml(reason.label)}</strong><small>${escapeHtml(reason.detail)}</small></span></label>`).join("");
+  const note = document.getElementById("atlas-decision-feedback-note");
+  if (note) note.value = "";
+  setText("atlas-decision-feedback-status", "");
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+  return true;
+}
+
+async function recordAtlasDecisionFeedback(decision = {}, reasonCode = "", note = "") {
+  if (typeof DominionAtlasDecisionCenter === "undefined" || !decision?.id) throw new Error("Atlas could not find that decision.");
+  const receipt = DominionAtlasDecisionCenter.buildFeedback(decision, reasonCode, { note, userId: session?.user?.id || null });
+  const history = [receipt, ...readAtlasDecisionHistory().filter((item) => item.id !== receipt.id)].slice(0, 120);
+  saveClosedLoopLocal("HISTORY", "atlas-decision-center", history);
+  const synced = await persistClosedLoopState("HISTORY", "atlas-decision-center", history);
+  renderAtlasDecisionCenter();
+  return { receipt, synced };
 }
 
 async function openAtlasDecision(decision = {}) {
@@ -17909,10 +17994,45 @@ if (typeof document !== "undefined") {
       setText("atlas-decision-center-feedback", "That decision is already clear. Atlas refreshed the queue.");
       return;
     }
+    if (button.dataset.atlasDecisionAction === "FEEDBACK") {
+      openAtlasDecisionFeedback(decision);
+      return;
+    }
     button.disabled = true;
     try { await openAtlasDecision(decision); }
     catch (error) { setText("atlas-decision-center-feedback", error?.message || "Atlas could not open that decision."); }
     finally { button.disabled = false; }
+  });
+  document.getElementById("atlas-decision-feedback-dialog")?.addEventListener("click", (event) => {
+    const close = event.target.closest("[data-atlas-feedback-close]");
+    if (!close) return;
+    activeAtlasDecisionFeedbackId = null;
+    event.currentTarget.close?.();
+  });
+  document.getElementById("atlas-decision-feedback-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
+    const center = buildCurrentAtlasDecisionCenter();
+    const decision = center?.decisions.find((item) => item.id === activeAtlasDecisionFeedbackId);
+    const reason = form.querySelector('input[name="atlas-decision-feedback-reason"]:checked')?.value || "";
+    const note = document.getElementById("atlas-decision-feedback-note")?.value || "";
+    if (!decision) {
+      setText("atlas-decision-feedback-status", "That call has already cleared. Atlas refreshed the queue.");
+      renderAtlasDecisionCenter();
+      return;
+    }
+    if (submit) submit.disabled = true;
+    try {
+      const { receipt, synced } = await recordAtlasDecisionFeedback(decision, reason, note);
+      document.getElementById("atlas-decision-feedback-dialog")?.close?.();
+      activeAtlasDecisionFeedbackId = null;
+      setText("atlas-decision-center-feedback", `${receipt.reasonLabel} recorded${synced ? " to your account" : " on this device"}. The decision remains open.`);
+    } catch (error) {
+      setText("atlas-decision-feedback-status", error?.message || "Atlas could not record that context.");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
   });
   document.getElementById("atlas-command-adjust")?.addEventListener("click", openAtlasDailyCommandAdjustment);
   document.getElementById("atlas-command-adjustment-choices")?.addEventListener("click", async (event) => {

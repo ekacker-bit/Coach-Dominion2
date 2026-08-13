@@ -5,17 +5,20 @@ const candidates = [
   { id: "weekly", category: "WEEK", domain: "PROGRAM", title: "Approve next week", route: { section: "program" } },
   { id: "running", category: "PROGRESSION", domain: "RUNNING", title: "Review Running progression", route: { section: "performance", view: "running" } },
   { id: "conflict", category: "INTEGRITY", domain: "PROGRAM", title: "Choose saved program", route: { action: "RESOLVE_CONTINUITY" } },
-  { id: "safety", category: "SAFETY", domain: "STRENGTH", title: "Review pain hold", route: { section: "today" } }
+  { id: "safety", category: "SAFETY", domain: "STRENGTH", title: "Review pain hold", evidence: [{ label: "Pain", value: "1 flag", source: "Workout receipt" }], route: { section: "today" } }
 ];
 
 const built = center.buildCenter({ candidates, generatedAt: "2026-08-12T12:00:00.000Z" });
-assert.equal(built.version, "025V.1");
+assert.equal(built.version, "025W.1");
 assert.equal(built.status, "DECISION_REQUIRED");
 assert.equal(built.count, 4);
 assert.equal(built.primary.id, "safety");
 assert.equal(built.decisions[1].id, "conflict");
 assert.equal(built.decisions[3].id, "weekly");
 assert.equal(built.tone, "red");
+assert.equal(built.primary.confidence, "MODERATE");
+assert.equal(built.primary.evidence[0].source, "Workout receipt");
+assert.match(built.primary.rule, /Safety evidence/);
 assert.equal(candidates[0].priority, undefined);
 
 const deduped = center.buildCenter({ candidates: [
@@ -36,5 +39,17 @@ assert.equal(event.type, "OPENED");
 assert.equal(event.decisionId, "safety");
 assert.equal(event.userId, "recruit-1");
 assert.deepEqual(event.route, built.primary.route);
+
+const feedback = center.buildFeedback(built.primary, "evidence_disputed", { recordedAt: "2026-08-12T12:06:00.000Z", userId: "recruit-1", note: "Pain was entered on the wrong exercise." });
+assert.equal(feedback.type, "RECRUIT_FEEDBACK");
+assert.equal(feedback.reasonCode, "EVIDENCE_DISPUTED");
+assert.equal(feedback.decisionFingerprint, built.primary.fingerprint);
+assert.match(feedback.safeguard, /cannot modify/);
+
+const challenged = center.buildCenter({ candidates, feedback: [feedback] });
+assert.equal(challenged.count, 4);
+assert.equal(challenged.primary.id, "safety");
+assert.equal(challenged.primary.recruitFeedback.reasonCode, "EVIDENCE_DISPUTED");
+assert.throws(() => center.buildFeedback(built.primary, "OTHER"), /Choose one reason/);
 
 console.log("Atlas Decision Center tests passed.");

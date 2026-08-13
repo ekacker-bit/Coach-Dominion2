@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased - Build 026C Atlas Live Adaptation
+
+- Detects material readiness, pain, and execution deviations during the active day and proposes one bounded coaching change.
+- Shows exactly what changes, why, and which same-day training and recovery surfaces are affected.
+- Requires Accept, Hold, or This doesn't fit before any non-safety adjustment becomes executable.
+- Applies approved changes to Today and Calendar together while preserving Fuel targets, future programming, and a one-click restore path.
+
+## Unreleased - Build 026B Mission Execution Spine
+
+- Turns Strength, Cardio, Core, Fuel, and Recovery into one ordered, resumable mission on Today.
+- Preserves one cross-domain checkpoint alongside the existing canonical module records so active work survives refreshes and device changes.
+- Advances the command automatically after durable evidence is secured without duplicating workout, run, Core, or Fuel logs.
+- Adds a compact mobile-first mission status strip while retaining detailed controls behind the existing module surfaces.
+
 ## Unreleased - Build 026A Today: One Flow
 
 - Replaces the Today dashboard stack with one three-stage path: Clear, Execute, Close.

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -791,6 +791,41 @@
             <button id="atlas-command-adjust" type="button" class="ghost" aria-haspopup="dialog" aria-controls="atlas-command-adjustment-dialog" hidden>This doesn&rsquo;t fit</button>
              <p id="today-mission-after"><span>THEN</span><strong>Your next action will appear here.</strong></p>
           </div>
+
+          <aside id="mission-execution-spine" class="mission-execution-spine" hidden aria-live="polite">
+            <header><span>MISSION STATUS</span><strong id="mission-spine-status">Checking today</strong></header>
+            <div id="mission-spine-current" class="mission-spine-current"></div>
+            <div id="mission-spine-sequence" class="mission-spine-sequence" aria-label="Today mission sequence"></div>
+            <footer><span id="mission-spine-sync">Your progress is protected.</span><small id="mission-spine-progress">0 of 0 secured</small></footer>
+          </aside>
+
+          <aside id="atlas-live-adaptation" class="atlas-live-adaptation" hidden aria-live="polite">
+            <header>
+              <div><span>ATLAS // LIVE ADAPTATION</span><h3 id="atlas-live-adaptation-title">Atlas recommends a change</h3></div>
+              <strong id="atlas-live-adaptation-state">REVIEW</strong>
+            </header>
+            <p id="atlas-live-adaptation-reason"></p>
+            <div class="atlas-live-adaptation-impact"><span>IMPACT</span><strong id="atlas-live-adaptation-impact"></strong></div>
+            <div id="atlas-live-adaptation-actions" class="atlas-live-adaptation-actions">
+              <button type="button" data-live-adaptation-action="ACCEPT">Accept for today</button>
+              <button type="button" class="ghost" data-live-adaptation-action="HOLD">Hold current mission</button>
+              <button type="button" class="ghost" data-live-adaptation-action="NOT_FIT">This doesn&rsquo;t fit</button>
+            </div>
+            <form id="atlas-live-adaptation-feedback" class="atlas-live-adaptation-feedback" hidden>
+              <label>What is missing?
+                <select name="reason" required>
+                  <option value="">Choose one</option>
+                  <option value="READINESS_MISMATCH">Readiness feels wrong</option>
+                  <option value="SCHEDULE_CONFLICT">Schedule changed</option>
+                  <option value="EQUIPMENT_CONSTRAINT">Equipment is unavailable</option>
+                  <option value="MISSING_CONTEXT">Atlas is missing context</option>
+                </select>
+              </label>
+              <label>One detail <span>optional</span><input name="note" maxlength="240" placeholder="What should Atlas account for?"></label>
+              <div><button type="button" class="ghost" data-live-adaptation-action="CANCEL_CONTEXT">Cancel</button><button type="submit">Record context</button></div>
+            </form>
+            <p id="atlas-live-adaptation-feedback-text" role="status"></p>
+          </aside>
 
           <aside id="atlas-command-adjustment-status" class="atlas-command-adjustment-status" hidden aria-live="polite">
             <div><span>DAY ADJUSTED</span><strong id="atlas-command-adjustment-label">Today&rsquo;s order changed</strong><p id="atlas-command-adjustment-result"></p></div>
@@ -2242,10 +2277,12 @@
 <script src="/assets/js/activation-repair.js?v=024f"></script>
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/atlas-daily-command.js?v=025o"></script>
+<script src="/assets/js/mission-execution-spine.js?v=026b"></script>
+<script src="/assets/js/atlas-live-adaptation.js?v=026c"></script>
 <script src="/assets/js/unified-blocker-resolution.js?v=025p"></script>
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc"></script>
 </body>
 </html>

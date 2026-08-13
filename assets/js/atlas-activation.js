@@ -237,7 +237,7 @@
 
   function buildReceipt(context = {}) {
     const preflight = context.preflight || preflightActivation(context);
-    if (preflight.status !== "READY_TO_ACTIVATE") throw new Error("Only a program that passed preflight can become active.");
+    if (preflight?.status !== "READY_TO_ACTIVATE") throw new Error("Only a program that passed preflight can become active.");
     const contract = context.contract || {};
     const week = context.week || context.weekDraft || {};
     const activatedAt = context.activatedAt || new Date().toISOString();

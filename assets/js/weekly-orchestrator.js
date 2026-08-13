@@ -721,7 +721,8 @@
   }
 
   function mergeCommittedWeek(history = [], approved = {}) {
-    const replaced = (history || []).map((item) => item.weekStart === approved.weekStart && item.status !== "REPLACED"
+    const previous = (Array.isArray(history) ? history : []).filter((item) => item && typeof item === "object");
+    const replaced = previous.map((item) => item.weekStart === approved.weekStart && item.status !== "REPLACED"
       ? { ...item, status: "REPLACED", state: "REPLACED", replacedAt: approved.approvedAt, replacedById: approved.id }
       : item);
     return [approved, ...replaced.filter((item) => item.id !== approved.id)].slice(0, 52);
@@ -729,8 +730,9 @@
 
   function weekForDate(history = [], value = null) {
     const date = dateIso(value) || new Date().toISOString().slice(0, 10);
-    return (history || [])
-      .filter((item) => item.status !== "REPLACED" && item.weekStart <= date && item.weekEnd >= date)
+    return (Array.isArray(history) ? history : [])
+      .filter((item) => item && typeof item === "object")
+      .filter((item) => item?.status !== "REPLACED" && item.weekStart <= date && item.weekEnd >= date)
       .sort((left, right) => Number(right.revision || 0) - Number(left.revision || 0))[0] || null;
   }
 

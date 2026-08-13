@@ -8444,7 +8444,7 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
       recruitContractRevision: contract.revision
     });
     await persistRunningState("PROFILE", "current", profile);
-    if (draft.status === "DRAFT") {
+    if (draft?.status === "DRAFT") {
       saveRunningBlockLocal("draft", draft);
       await persistRunningState("PLAN", "draft", draft);
       staged.push("Running block");
@@ -8483,12 +8483,22 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
   }
   if (program) saveAtlasProgramDraft({ ...program, status: program.status, stagedAt: now });
 
-  renderProgrammingReview();
-  renderCoreProgramming();
-  renderRunningCommand();
-  renderNutritionBaseline();
-  renderContractActivation();
-  renderWeeklyOrchestrator();
+  [
+    ["Strength", renderProgrammingReview],
+    ["Core", renderCoreProgramming],
+    ["Cardio", renderRunningCommand],
+    ["Fuel", renderNutritionBaseline],
+    ["Contract", renderContractActivation],
+    ["Calendar", renderWeeklyOrchestrator]
+  ].forEach(([surface, renderer]) => {
+    try { renderer(); }
+    catch (error) {
+      console.error("[atlas:program-stage-render] Program data is staged; one surface will recover on reload.", {
+        surface,
+        message: error?.message || "Render unavailable"
+      });
+    }
+  });
   const protectedText = protectedPlans.length ? ` Current ${protectedPlans.join(", ")} remain protected until approval.` : "";
   if (announce) setText("recruit-contract-feedback", program?.status === "READY_FOR_APPROVAL"
     ? `Atlas prepared the complete program${repairOnly && staged.length ? ` by updating ${staged.join(", ")}` : ""}.${protectedText}`
@@ -8518,7 +8528,7 @@ function buildAtlasApprovalCandidates(contract = readApprovedRecruitContract(), 
   };
   const nutritionHistory = typeof DominionAtlasActivation?.reconcileNutritionHistory === "function"
     ? DominionAtlasActivation.reconcileNutritionHistory(candidates.nutrition, readNutritionBaselineHistory(), { supersededAt: approvedAt })
-    : [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== candidates.nutrition.id)];
+    : [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item?.id !== candidates.nutrition.id)];
   return { candidates, nutritionHistory };
 }
 
@@ -8727,7 +8737,7 @@ async function approveAtlasProgram() {
   if (program?.status !== "READY_FOR_APPROVAL") program = await stageRecruitContractPlans({ announce: false });
   if (program?.status !== "READY_FOR_APPROVAL") throw new Error(program?.message || "The complete Atlas program is not ready yet.");
   const transaction = buildAtlasProgramPreflight(program);
-  if (!transaction || transaction.preflight.status !== "READY_TO_ACTIVATE") {
+  if (transaction?.preflight?.status !== "READY_TO_ACTIVATE") {
     const first = transaction?.preflight?.blockers?.[0];
     throw new Error(first ? `${first.detail} ${first.action}` : "Atlas found a blocker before activation. Nothing changed.");
   }
@@ -15580,7 +15590,9 @@ function readAdaptiveFuelingGoal() {
 function readNutritionBaselineHistory() {
   try {
     const value = JSON.parse(window.localStorage.getItem(nutritionBaselineStorageKey()) || "[]");
-    return Array.isArray(value) ? value : [];
+    return Array.isArray(value)
+      ? value.filter((item) => item && typeof item === "object" && typeof item.status === "string")
+      : [];
   } catch (_) {
     return [];
   }

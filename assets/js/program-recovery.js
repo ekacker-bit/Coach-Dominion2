@@ -18,7 +18,9 @@
   function upper(value = "") { return String(value || "").trim().toUpperCase(); }
   function buildRecovery(input = {}) {
     const repair = input.repair || {};
-    const modules = new Map((repair.modules || []).map((item) => [String(item.id || "").toLowerCase(), item]));
+    const modules = new Map((Array.isArray(repair.modules) ? repair.modules : [])
+      .filter((item) => item && typeof item === "object")
+      .map((item) => [String(item.id || "").toLowerCase(), item]));
     const contractReady = Boolean(input.contract) && repair.status !== "CONTRACT_REQUIRED";
     const planSteps = ORDER.slice(1, 5).map((step) => {
       const module = modules.get(step.id);

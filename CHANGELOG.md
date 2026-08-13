@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - Build 025Z.1 Program Completion Hotfix
+
+- Normalizes legacy plan, Fuel, and calendar records before Atlas completes a program.
+- Replaces null-state crashes with the existing named program blocker and safe recovery path.
+- Keeps staged program data intact when a secondary module renderer cannot refresh immediately.
+
 ## Unreleased - Build 025Z Guided Program Recovery
 
 - Turns incomplete activation into one six-step Contract, Strength, Cardio, Core, Fuel, and Calendar recovery path.

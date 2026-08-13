@@ -23,4 +23,7 @@ const active = recovery.buildRecovery({ repair: { status: "ACTIVE", modules, wee
 assert.equal(active.status, "ACTIVE");
 assert.equal(active.primary.action, "OPEN_TODAY");
 
+const legacyNull = recovery.buildRecovery({ repair: { status: "READY_TO_REPAIR", modules: [null, ...modules] }, contract: { id: "contract-1" } });
+assert.equal(legacyNull.steps.length, 6);
+
 console.log("Program Recovery tests passed.");

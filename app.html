@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -753,6 +753,15 @@
            <span id="today-command-state" class="state-pill neutral">ASSEMBLING</span>
          </header>
 
+        <nav id="today-flow-map" class="today-flow-map" aria-label="Today flow">
+          <ol>
+            <li data-today-flow-stage="CLEAR" aria-current="step"><span>01</span><strong>Clear</strong><small>Ready the day</small></li>
+            <li data-today-flow-stage="EXECUTE"><span>02</span><strong>Execute</strong><small>Do the work</small></li>
+            <li data-today-flow-stage="CLOSE"><span>03</span><strong>Close</strong><small>Preserve proof</small></li>
+          </ol>
+          <p><span>NOW</span><strong id="today-flow-current">Clearing today</strong><small id="today-flow-next">Atlas is checking the operating chain.</small></p>
+        </nav>
+
         <section id="one-command" class="card one-command today-mission" aria-labelledby="one-command-heading" data-command-mode="EXECUTE">
           <header class="one-command-header today-mission-header">
             <div>
@@ -1050,6 +1059,9 @@
           <section id="today-observation-verdict" class="observation-verdict-surface compact" aria-live="polite" hidden></section>
         </section>
 
+        <details id="today-more-context" class="today-more-context">
+          <summary><span>More context</span><small>Calendar, evidence, rationale, and detailed controls</small></summary>
+          <div class="today-more-context-stack">
         <section id="mobile-command" class="card mobile-command" aria-labelledby="mobile-command-heading">
           <header class="mobile-command-heading">
             <div>
@@ -1368,6 +1380,8 @@
         </article>
       </section>
       </details>
+          </div>
+        </details>
 
       <section id="record" class="card dominion-record scroll-anchor" aria-labelledby="dominion-record-heading" data-section="record">
         <div class="section-heading">
@@ -2232,6 +2246,6 @@
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a"></script>
 </body>
 </html>

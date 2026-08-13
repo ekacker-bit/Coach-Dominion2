@@ -7119,6 +7119,8 @@ function renderMissionExecution() {
 
 function openMissionSessionDetails(module = "STRENGTH") {
   const code = String(module || "STRENGTH").toUpperCase();
+  const context = document.getElementById("today-more-context");
+  if (context) context.open = true;
   if (code === "STRENGTH") {
     const detail = document.querySelector(".today-workout-detail");
     if (detail) detail.open = true;
@@ -8444,7 +8446,7 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
       recruitContractRevision: contract.revision
     });
     await persistRunningState("PROFILE", "current", profile);
-    if (draft.status === "DRAFT") {
+    if (draft?.status === "DRAFT") {
       saveRunningBlockLocal("draft", draft);
       await persistRunningState("PLAN", "draft", draft);
       staged.push("Running block");
@@ -8483,12 +8485,22 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
   }
   if (program) saveAtlasProgramDraft({ ...program, status: program.status, stagedAt: now });
 
-  renderProgrammingReview();
-  renderCoreProgramming();
-  renderRunningCommand();
-  renderNutritionBaseline();
-  renderContractActivation();
-  renderWeeklyOrchestrator();
+  [
+    ["Strength", renderProgrammingReview],
+    ["Core", renderCoreProgramming],
+    ["Cardio", renderRunningCommand],
+    ["Fuel", renderNutritionBaseline],
+    ["Contract", renderContractActivation],
+    ["Calendar", renderWeeklyOrchestrator]
+  ].forEach(([surface, renderer]) => {
+    try { renderer(); }
+    catch (error) {
+      console.error("[atlas:program-stage-render] Program data is staged; one surface will recover on reload.", {
+        surface,
+        message: error?.message || "Render unavailable"
+      });
+    }
+  });
   const protectedText = protectedPlans.length ? ` Current ${protectedPlans.join(", ")} remain protected until approval.` : "";
   if (announce) setText("recruit-contract-feedback", program?.status === "READY_FOR_APPROVAL"
     ? `Atlas prepared the complete program${repairOnly && staged.length ? ` by updating ${staged.join(", ")}` : ""}.${protectedText}`
@@ -8518,7 +8530,7 @@ function buildAtlasApprovalCandidates(contract = readApprovedRecruitContract(), 
   };
   const nutritionHistory = typeof DominionAtlasActivation?.reconcileNutritionHistory === "function"
     ? DominionAtlasActivation.reconcileNutritionHistory(candidates.nutrition, readNutritionBaselineHistory(), { supersededAt: approvedAt })
-    : [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item.id !== candidates.nutrition.id)];
+    : [candidates.nutrition, ...readNutritionBaselineHistory().filter((item) => item?.id !== candidates.nutrition.id)];
   return { candidates, nutritionHistory };
 }
 
@@ -8727,7 +8739,7 @@ async function approveAtlasProgram() {
   if (program?.status !== "READY_FOR_APPROVAL") program = await stageRecruitContractPlans({ announce: false });
   if (program?.status !== "READY_FOR_APPROVAL") throw new Error(program?.message || "The complete Atlas program is not ready yet.");
   const transaction = buildAtlasProgramPreflight(program);
-  if (!transaction || transaction.preflight.status !== "READY_TO_ACTIVATE") {
+  if (transaction?.preflight?.status !== "READY_TO_ACTIVATE") {
     const first = transaction?.preflight?.blockers?.[0];
     throw new Error(first ? `${first.detail} ${first.action}` : "Atlas found a blocker before activation. Nothing changed.");
   }
@@ -10519,6 +10531,8 @@ function renderMobileCommand() {
 function openMobileCommandSheet(kind = "roll-call") {
   setActiveSection("today");
   window.history.replaceState(null, "", "#today");
+  const context = document.getElementById("today-more-context");
+  if (context) context.open = true;
   const sheet = document.getElementById(kind === "nutrition" ? "mobile-nutrition-sheet" : "mobile-roll-call-sheet");
   if (sheet) {
     sheet.open = true;
@@ -10674,7 +10688,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025k", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025n", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=025p", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
+  navigator.serviceWorker.register("/sw.js?v=026a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11179,6 +11194,7 @@ function renderDailyCoachingLoop() {
   renderDailyRitual(queue);
   renderAdaptiveCoaching();
   renderMobileCommand();
+  renderTodayFlow(currentAtlasDailyCommand, queue);
   applyProductPolish();
 }
 
@@ -14660,6 +14676,49 @@ function renderAtlasDailyCommandAdjustment(model = currentAtlasDailyCommand) {
   choices.innerHTML = (model.adjustment?.choices || []).map((choice) => `<button type="button" class="atlas-command-adjustment-choice ${model.response?.choiceId === choice.id ? "selected" : ""}" data-atlas-command-choice="${escapeHtml(choice.id)}"><strong>${escapeHtml(choice.label)}</strong><span>${escapeHtml(choice.detail)}</span></button>`).join("");
 }
 
+function todayFlowStage(model = {}, queue = null) {
+  const state = String(model?.state || "ASSEMBLING").toUpperCase();
+  const currentId = String(queue?.current?.id || "").toLowerCase();
+  const clearStates = new Set(["ASSEMBLING", "CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT", "ROLL_CALL_REQUIRED", "AUTHORIZATION_REQUIRED"]);
+  const closeStates = new Set(["EVIDENCE_REQUIRED", "REVIEW_REQUIRED", "ADAPTATION_REQUIRED", "SECURED"]);
+  if (clearStates.has(state) || ["roll_call", "orders"].includes(currentId)) return "CLEAR";
+  if (closeStates.has(state) || currentId === "record" || queue?.complete) return "CLOSE";
+  return "EXECUTE";
+}
+
+function renderTodayFlow(model = currentAtlasDailyCommand, providedQueue = null) {
+  const today = document.getElementById("today");
+  const map = document.getElementById("today-flow-map");
+  if (!today || !map) return;
+  let queue = providedQueue;
+  if (!queue) {
+    try { queue = buildCurrentDailyExecutionQueue(); }
+    catch (_) { queue = null; }
+  }
+  const stage = todayFlowStage(model || {}, queue);
+  today.dataset.todayFlowStep = stage;
+  today.dataset.todayClearSurface = model?.mode === "SETUP" ? "SETUP" : "VERIFICATION";
+  map.dataset.flowStage = stage;
+  const order = ["CLEAR", "EXECUTE", "CLOSE"];
+  const currentIndex = order.indexOf(stage);
+  map.querySelectorAll("[data-today-flow-stage]").forEach((item) => {
+    const index = order.indexOf(item.dataset.todayFlowStage);
+    const current = index === currentIndex;
+    item.classList.toggle("complete", index < currentIndex || (stage === "CLOSE" && model?.secured));
+    item.classList.toggle("current", current);
+    if (current) item.setAttribute("aria-current", "step");
+    else item.removeAttribute("aria-current");
+  });
+  const current = queue?.current;
+  const labels = {
+    CLEAR: current?.actionLabel || model?.primary?.label || "Clear today",
+    EXECUTE: current?.label || model?.primary?.label || "Execute the mission",
+    CLOSE: model?.secured ? "Day secured" : current?.actionLabel || model?.primary?.label || "Close the day"
+  };
+  setText("today-flow-current", labels[stage]);
+  setText("today-flow-next", model?.secured ? "Return tomorrow for the next mission." : model?.after || current?.detail || "Complete this step to advance.");
+}
+
 function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   const section = document.getElementById("one-command");
   if (!section || !truth) {
@@ -14761,6 +14820,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   section.dataset.reconciledAt = new Date().toISOString();
   renderAtlasDailyCommandAdjustment(model);
   renderActivationRepair(truth);
+  renderTodayFlow(model);
 }
 
 function buildCurrentProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
@@ -15580,7 +15640,9 @@ function readAdaptiveFuelingGoal() {
 function readNutritionBaselineHistory() {
   try {
     const value = JSON.parse(window.localStorage.getItem(nutritionBaselineStorageKey()) || "[]");
-    return Array.isArray(value) ? value : [];
+    return Array.isArray(value)
+      ? value.filter((item) => item && typeof item === "object" && typeof item.status === "string")
+      : [];
   } catch (_) {
     return [];
   }

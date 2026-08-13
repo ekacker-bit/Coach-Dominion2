@@ -174,10 +174,11 @@
     const modules = MODULES.map((definition) => moduleState(definition, context, contract));
     const required = modules.filter((item) => item.included);
     const linked = required.filter((item) => item.complete);
-    const committedWeeks = Array.isArray(context.committedWeeks)
+    const committedWeeks = (Array.isArray(context.committedWeeks)
       ? context.committedWeeks
-      : context.committedWeek ? [context.committedWeek] : [];
-    const committed = committedWeeks.find((week) => week.status !== "REPLACED" && weekMatchesSources(week, contract, context)) || null;
+      : context.committedWeek ? [context.committedWeek] : [])
+      .filter((week) => week && typeof week === "object");
+    const committed = committedWeeks.find((week) => week?.status !== "REPLACED" && weekMatchesSources(week, contract, context)) || null;
     const matchingDraft = weekMatchesSources(context.weekDraft, contract, context) ? context.weekDraft : null;
     const pending = required.find((item) => !item.complete) || null;
     const total = required.length + 1;

@@ -303,6 +303,12 @@ test("committing a future week preserves the active current week", () => {
   assert.equal(history.find((item) => item.id === current.id).status, "COMMITTED");
 });
 
+test("legacy null calendar rows cannot crash program completion", () => {
+  const current = orchestrator.approveWeek(draft(), null, { approvedAt: "2026-08-02T14:00:00.000Z" });
+  const history = orchestrator.mergeCommittedWeek([null, current], current);
+  assert.equal(orchestrator.weekForDate([null, ...history], "2026-08-05").id, current.id);
+});
+
 test("a same-week replacement preserves lineage and marks the prior revision replaced", () => {
   const first = orchestrator.approveWeek(draft(), null, { approvedAt: "2026-08-02T14:00:00.000Z" });
   const second = orchestrator.approveWeek(draft(), first, { approvedAt: "2026-08-02T15:00:00.000Z" });

@@ -129,6 +129,12 @@ function matchingWeek(context, overrides = {}) {
 
 {
   const context = linkedContext();
+  context.committedWeeks = [null];
+  assert.doesNotThrow(() => activation.buildActivation(context));
+}
+
+{
+  const context = linkedContext();
   context.committedWeeks = [matchingWeek(context, { status: "APPROVED" })];
   context.weekDraft = matchingWeek(context, { id: "week-2-revision" });
   const state = activation.buildActivation(context);

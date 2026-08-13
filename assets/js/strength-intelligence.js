@@ -379,11 +379,11 @@
     if (!evidence.length) {
       return { code: "BASELINE_REQUIRED", label: "Establish baselines", tone: "neutral", detail: "Complete work sets before Coach Dominion claims a trend." };
     }
-    const plateaus = trajectories.filter((item) => item.status.code === "PLATEAU_REVIEW").length;
+    const plateaus = trajectories.filter((item) => item?.status?.code === "PLATEAU_REVIEW").length;
     if (plateaus >= 2) {
       return { code: "PLATEAU_REVIEW", label: "Review plateaus", tone: "yellow", detail: `${plateaus} exercises have four stable verified exposures. Review technique, recovery, or a small future programming change.` };
     }
-    const improving = trajectories.filter((item) => item.status.code === "TRENDING_UP").length;
+    const improving = trajectories.filter((item) => item?.status?.code === "TRENDING_UP").length;
     if (improving) {
       return { code: "PROGRESSING", label: "Progressing", tone: "green", detail: `${improving} exercise${improving === 1 ? "" : "s"} improved a verified load or rep best. Keep current safeguards in force.` };
     }

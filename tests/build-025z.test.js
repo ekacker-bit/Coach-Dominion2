@@ -11,6 +11,8 @@ assert.match(html, /id="program-recovery"/);
 assert.match(html, /program-recovery\.js\?v=025z/);
 assert.match(app, /buildCurrentProgramRecovery/);
 assert.match(app, /data-program-recovery-action/);
+assert.match(app, /transaction\?\.preflight\?\.status/);
+assert.match(app, /\[atlas:program-stage-render\]/);
 assert.match(css, /\.program-recovery/);
 assert.match(worker, /program-recovery\.js\?v=025z/);
 assert.match(worker, /025x-025y-025z/);

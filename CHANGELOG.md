@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 026E Daily Command UX Repair
+
+- Adds one deterministic Daily Decision that governs Today, Training, Fuel, Recovery, and the current-week Calendar.
+- Makes the first missing required plan the dominant repair order and prevents affected workouts or progression from executing until the program agrees.
+- Reorders Today around one action, readiness, schedule, evidence, closeout, rationale, and optional technical detail.
+- Reduces the mobile shell to Today, Train, Fuel, Review, and More while keeping secondary destinations and account actions accessible.
+- Keeps a finalized Contract read-only until the recruit explicitly starts an amendment draft.
+- Preserves Weekly Review scoring and promotion evidence with regression coverage.
+
 ## Unreleased - Build 026D Weekly Judgment
 
 - Replaces the sprawling Inspection and separate Rank screens with one weekly verdict: earned, not earned, ready, or still building.

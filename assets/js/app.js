@@ -66,6 +66,7 @@ let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let currentAtlasDailyCommand = null;
+let currentDailyDecision = null;
 let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
@@ -6361,17 +6362,21 @@ function renderTodayCommittedWeek() {
     ? sessionModels.map(({ item, execution }, index) => {
       const pmWindow = Boolean(day?.twoADay && Number(item.sessionOrder || index + 1) > 1);
       const locked = Boolean(pmWindow && !splitDayGate.allowed && !execution.complete);
-      const disabled = locked || execution.complete || execution.held;
+      const dailyModule = dailyDecisionModuleState(String(item.module || "training").toLowerCase());
+      const decisionBlocked = dailyModule.status === "BLOCKED";
+      const disabled = decisionBlocked || locked || execution.complete || execution.held;
       const actionLabel = execution.complete
         ? "Session complete"
         : execution.held
           ? "Safety hold"
+          : decisionBlocked
+            ? "Repair program first"
           : locked
             ? splitDayActionLabel(splitDayGate)
             : `Open ${day?.twoADay ? item.sessionLabel.toLowerCase() : "training"}`;
-      const stateLabel = locked ? splitDayGateLabel(splitDayGate) : execution.label;
-      const stateTone = locked ? splitDayGateTone(splitDayGate) : execution.tone;
-      return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked ? "locked" : ""}">
+      const stateLabel = decisionBlocked ? "PROGRAM BLOCKED" : locked ? splitDayGateLabel(splitDayGate) : execution.label;
+      const stateTone = decisionBlocked ? "red" : locked ? splitDayGateTone(splitDayGate) : execution.tone;
+      return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked || decisionBlocked ? "locked" : ""} ${decisionBlocked ? "daily-decision-blocked" : ""}">
         <span>${item.sessionOrder || index + 1}</span>
         <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
       </article>`;
@@ -6379,8 +6384,12 @@ function renderTodayCommittedWeek() {
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
   const dayOverride = currentDailyCalendarOverride(todayISODate());
+  const dailyBlocker = currentDailyDecision?.blocker
+    ? `<aside class="daily-decision-calendar-blocker"><strong>${escapeHtml(currentDailyDecision.blocker.title)}</strong><p>${escapeHtml(currentDailyDecision.blocker.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision.nextAction.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision.nextAction.module || "")}">${escapeHtml(currentDailyDecision.nextAction.label)}</button></aside>`
+    : "";
   const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+  if (dailyBlocker) panel.insertAdjacentHTML("afterbegin", dailyBlocker);
   if (dayOverride) panel.insertAdjacentHTML("afterbegin", `<aside class="atlas-calendar-override today"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>`);
   const todayHandoff = strengthCalendarHandoffMarkup(week.calendarReconciliation, "today");
   if (todayHandoff) panel.insertAdjacentHTML("afterbegin", todayHandoff);
@@ -8114,7 +8123,10 @@ function renderRecruitContract() {
   const amendmentPending = Boolean(signed && draft);
   const orientation = signed ? currentRecruitOrientation(approved) : null;
   const orientationComplete = orientation?.status === "COMPLETE";
+  const contractRoot = document.getElementById("contract");
+  if (contractRoot) contractRoot.dataset.contractMode = amendmentPending ? "AMENDMENT" : signed ? "FINALIZED" : "SETUP";
   if (setupProgress) setupProgress.hidden = Boolean(signed && !draft);
+  if (editor) editor.hidden = Boolean(signed && !draft);
   const activationSurface = document.getElementById("contract-activation");
   const weeklySurface = document.querySelector("#contract > .weekly-orchestrator");
   if (activationSurface) activationSurface.hidden = Boolean(approved && (!signed || !orientationComplete));
@@ -8253,6 +8265,10 @@ function renderRecruitContract() {
           <div><span>Contract ID</span><strong>${escapeHtml(approved.id)}</strong></div>
         </footer>
       </article>
+      <aside id="contract-daily-decision" class="contract-daily-decision" aria-live="polite">
+        <div><span id="contract-daily-decision-state">CHECKING TODAY</span><strong id="contract-daily-decision-title">Checking today's program</strong><small id="contract-daily-decision-detail">One daily decision governs every active plan.</small></div>
+        <button type="button" data-daily-decision-action="REPAIR" hidden>Repair program</button>
+      </aside>
       ${contractIntegrityMarkup(approved)}
       ${amendmentHandoff}
       ${amendmentPending ? signatureCeremony : ""}
@@ -8260,6 +8276,7 @@ function renderRecruitContract() {
         <div><span class="kicker">THE PATH FORWARD</span><h3 id="contract-momentum-heading">Turn the vow into the week.</h3></div>
         <ol>${journeyMarkup}</ol>
         <div class="contract-momentum-action">${nextButton}<button type="button" class="ghost" data-contract-experience-action="amend">Amend Contract</button></div>
+        <p class="contract-amendment-note">Amendments create a separate draft. This signed revision, its linked plans, and its operating week remain active until you approve and sign the replacement.</p>
       </section>
       <details class="contract-operating-terms"><summary><span>Operating terms</span><small>Schedule, module handoffs, and safeguards</small></summary><div>${operatingTerms}</div></details>
       <div class="contract-lifecycle-actions"><span class="muted">Need a clean restart?</span><button type="button" class="ghost danger" data-contract-lifecycle-action="delete-request">Delete previous Contract</button></div>`;
@@ -8270,6 +8287,7 @@ function renderRecruitContract() {
   renderContractActivation();
   renderWeeklyOrchestrator();
   renderDominionExperienceShell();
+  if (currentDailyDecision) renderDailyDecisionSurfaces();
 }
 
 async function signRecruitContractFromCeremony() {
@@ -10585,6 +10603,24 @@ function buildCurrentMobileCommand() {
     command.sync.label = `${unifiedBlocker.stateLabel} · ${command.sync.label}`;
     return command;
   }
+  if (currentDailyDecision?.operatingDate === todayISODate() && currentDailyDecision.blocker) {
+    command.blocker = currentDailyDecision.blocker;
+    command.modules = command.modules.map((item) => {
+      const state = dailyDecisionModuleState(item.id);
+      return state.status === "BLOCKED"
+        ? { ...item, status: "BLOCKED", active: false, enabled: false, actionLabel: "Repair first", detail: state.detail }
+        : item;
+    });
+    command.next = {
+      action: "DAILY_DECISION",
+      module: currentDailyDecision.nextAction.module || "",
+      label: currentDailyDecision.nextAction.label,
+      detail: currentDailyDecision.blocker.detail,
+      section: currentDailyDecision.nextAction.section || "contract"
+    };
+    command.sync.label = `ACTION REQUIRED - ${command.sync.label}`;
+    return command;
+  }
   if (truth.state !== "SECURED") {
     command.next = {
       action: "TRUTH",
@@ -10827,7 +10863,7 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
-  navigator.serviceWorker.register("/sw.js?v=026d", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026e", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11013,6 +11049,20 @@ function renderDailyAssignment() {
   const assignment = buildCurrentDailyAssignment();
   if (!assignment) {
     panel.innerHTML = `<div class="performance-empty">Daily assignment engine unavailable.</div>`;
+    return;
+  }
+  const dailyStrength = dailyDecisionModuleState("strength");
+  if (dailyStrength.status === "BLOCKED") {
+    setText("daily-assignment-state", "BLOCKED");
+    const blockedBadge = document.getElementById("daily-assignment-state");
+    if (blockedBadge) blockedBadge.className = "state-pill red";
+    panel.innerHTML = `<article class="daily-decision-module-blocker">
+      <span>Training protected</span>
+      <h3>${escapeHtml(currentDailyDecision?.blocker?.title || "Repair the program")}</h3>
+      <p>${escapeHtml(dailyStrength.detail)}</p>
+      <button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision?.nextAction?.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision?.nextAction?.module || "")}">${escapeHtml(currentDailyDecision?.nextAction?.label || "Repair program")}</button>
+      <small>Workout execution and progression remain locked until the signed Contract, plans, and week agree.</small>
+    </article>`;
     return;
   }
   const execution = readDailyAssignmentExecution();
@@ -12651,11 +12701,12 @@ async function recordAtlasDailyCommandEvent(command = {}, eventType, context = {
 function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth(), model = null) {
   if (!truth || !model || typeof DominionAtlasDailyCommand === "undefined") return model;
   const context = atlasDailyCommandContext(truth.date || todayISODate());
+  const queue = buildCurrentDailyExecutionQueue();
   const command = DominionAtlasDailyCommand.buildDailyCommand({
     truth,
     model,
     day: readCommittedUnifiedDay(),
-    queue: buildCurrentDailyExecutionQueue(),
+    queue,
     response: readAtlasDailyCommandResponse(context.date),
     readinessComplete: dailyState?.date === context.date,
     continuityCurrent: !currentContinuityConflicts().length && readContinuityRetryQueue().length === 0,
@@ -12670,9 +12721,141 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     ? resolved
     : DominionMissionExecutionSpine.applyToCommand(resolved, spine);
   const proposal = buildCurrentAtlasLiveAdaptation(spine);
-  return typeof DominionAtlasLiveAdaptation === "undefined"
+  const adapted = typeof DominionAtlasLiveAdaptation === "undefined"
     ? executable
     : DominionAtlasLiveAdaptation.applyToCommand(executable, proposal, context);
+  if (typeof DominionDailyDecision === "undefined") return adapted;
+  let activation = { modules: [] };
+  try {
+    activation = typeof DominionContractActivation === "undefined"
+      ? activation
+      : DominionContractActivation.buildActivation(contractActivationInputs());
+  } catch (_) {}
+  let readiness = {};
+  if (dailyState?.date === context.date) {
+    try { readiness = { ...evaluateOperationalReadiness(dailyState), ...dailyState }; }
+    catch (_) { readiness = { ...dailyState, classification: "RECORDED" }; }
+  }
+  currentDailyDecision = DominionDailyDecision.buildDailyDecision({
+    operatingDate: context.date,
+    truth,
+    command: adapted,
+    day: readCommittedUnifiedDay(),
+    queue,
+    plans: activation.modules || [],
+    continuityBlocker: blocker,
+    contractRevision: context.contractRevision,
+    readiness,
+    readinessComplete: dailyState?.date === context.date
+  });
+  return DominionDailyDecision.applyToCommand(adapted, currentDailyDecision);
+}
+
+function dailyDecisionModuleState(domain = "training") {
+  return typeof DominionDailyDecision === "undefined"
+    ? { status: "LOADING", executable: false, progressionAllowed: false, detail: "Checking today's order." }
+    : DominionDailyDecision.moduleState(currentDailyDecision, domain);
+}
+
+function dailyDecisionScheduleSummary(decision = currentDailyDecision) {
+  if (!decision) return { state: "Checking", detail: "Checking the committed week." };
+  if (decision.blocker) return { state: "Training protected", detail: decision.blocker.detail };
+  if (!decision.schedule.available) return { state: "No committed schedule", detail: "Open Calendar to commit the operating day." };
+  if (decision.schedule.recoveryDay) return { state: "Recovery day", detail: "No training is authorized today." };
+  const sessions = decision.schedule.sessions;
+  return {
+    state: `${sessions.length} training window${sessions.length === 1 ? "" : "s"}`,
+    detail: sessions.map((item) => `${item.window}: ${item.title}${item.longRunUncapped ? " - open duration" : item.estimatedMinutes ? ` - ${item.estimatedMinutes} min` : ""}`).join(" | ")
+  };
+}
+
+function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
+  if (!decision) return;
+  document.body.dataset.dailyDecisionStatus = decision.status;
+  document.body.dataset.dailyDecisionBlocker = decision.blocker?.code || "NONE";
+  document.body.dataset.dailyDecisionId = decision.id;
+  const readiness = decision.readiness;
+  setText("daily-decision-readiness-state", readiness.classification.replaceAll("_", " "));
+  setText("daily-decision-readiness-detail", readiness.complete
+    ? `${readiness.confidence}% confidence${readiness.energy === null ? "" : ` | Energy ${readiness.energy}/10`}${readiness.soreness === null ? "" : ` | Soreness ${readiness.soreness}/10`}`
+    : "Complete Roll Call before training can be cleared.");
+  const schedule = dailyDecisionScheduleSummary(decision);
+  setText("daily-decision-schedule-state", schedule.state);
+  setText("daily-decision-schedule-detail", schedule.detail);
+  const nextEvidence = decision.requiredEvidence[0];
+  setText("daily-decision-execution-title", decision.blocker ? "Training is not executable" : decision.status === "EMPTY" ? "Commit today's schedule" : nextEvidence?.label || (decision.recoveryDay ? "Protect the recovery day" : "Today's order is ready"));
+  setText("daily-decision-execution-detail", decision.blocker ? decision.blocker.detail : decision.status === "EMPTY" ? "No workout is executable until the operating day is committed." : nextEvidence?.actionLabel || decision.nutritionContext.detail);
+  const executionAction = document.getElementById("daily-decision-execution-action");
+  if (executionAction) {
+    executionAction.textContent = decision.blocker || decision.status === "EMPTY" ? decision.nextAction.label : nextEvidence?.actionLabel || decision.nextAction.label || "Open Today";
+    executionAction.dataset.dailyDecisionAction = decision.blocker ? "REPAIR" : "OPEN";
+    executionAction.dataset.dailyDecisionSection = decision.nextAction.section || "today";
+    executionAction.dataset.dailyDecisionModule = decision.nextAction.module || "";
+  }
+  const training = dailyDecisionModuleState("strength");
+  setText("training-daily-decision-title", training.status === "BLOCKED" ? "Training is protected" : training.status === "NO SCHEDULE" ? "No committed training" : decision.recoveryDay ? "Recovery day" : "Today's training");
+  setText("training-daily-decision-detail", training.detail);
+  const trainingAction = document.getElementById("training-daily-decision-action") || document.querySelector(".training-primary-action .button-link");
+  if (trainingAction) {
+    trainingAction.textContent = !training.executable && !decision.recoveryDay ? decision.nextAction.label : "Open today's order";
+    trainingAction.href = `#${!training.executable && !decision.recoveryDay ? decision.nextAction.section || "calendar" : "today"}`;
+    trainingAction.dataset.section = !training.executable && !decision.recoveryDay ? decision.nextAction.section || "calendar" : "today";
+  }
+  const fuel = dailyDecisionModuleState("nutrition");
+  setText("nutrition-command-status", fuel.status);
+  const nutritionStatus = document.getElementById("nutrition-command-status");
+  if (nutritionStatus) nutritionStatus.className = `state-pill ${decision.blocker ? "yellow" : decision.recoveryDay ? "green" : "neutral"}`;
+  const nutritionNext = document.getElementById("nutrition-next-action");
+  if (nutritionNext && decision.blocker) {
+    nutritionNext.innerHTML = `<div><div class="kicker">PROGRAM BLOCKER</div><h3>${escapeHtml(decision.blocker.title)}</h3><p>${escapeHtml(decision.blocker.detail)}</p><small>${escapeHtml(decision.nutritionContext.detail)}</small></div><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(decision.nextAction.section || "contract")}" data-daily-decision-module="${escapeHtml(decision.nextAction.module || "")}">${escapeHtml(decision.nextAction.label)}</button>`;
+  }
+  const todayFuelStatus = document.getElementById("today-nutrition-status");
+  if (todayFuelStatus && decision.blocker) {
+    todayFuelStatus.textContent = "PROGRAM BLOCKED";
+    todayFuelStatus.className = "state-pill yellow";
+  }
+  const recoveryState = dailyDecisionModuleState("recovery");
+  const recoveryStatus = document.getElementById("recovery-status");
+  if (recoveryStatus && decision.blocker) {
+    recoveryStatus.textContent = recoveryState.status;
+    recoveryStatus.className = "state-pill yellow";
+  }
+  const contractDecision = document.getElementById("contract-daily-decision");
+  if (contractDecision) {
+    contractDecision.classList.toggle("blocked", Boolean(decision.blocker));
+    setText("contract-daily-decision-state", decision.blocker ? "PROGRAM BLOCKED" : decision.recoveryDay ? "RECOVERY DAY" : decision.status.replaceAll("_", " "));
+    setText("contract-daily-decision-title", decision.blocker ? decision.blocker.title : decision.recoveryDay ? "Protect today's recovery" : decision.status === "EMPTY" ? "Commit today's schedule" : "Today's program is aligned");
+    setText("contract-daily-decision-detail", decision.blocker ? decision.blocker.detail : decision.nutritionContext.detail);
+    const contractAction = contractDecision.querySelector("button");
+    if (contractAction) {
+      contractAction.hidden = !decision.blocker;
+      contractAction.textContent = decision.nextAction.label;
+      contractAction.dataset.dailyDecisionSection = decision.nextAction.section || "contract";
+      contractAction.dataset.dailyDecisionModule = decision.nextAction.module || "";
+    }
+  }
+  document.querySelectorAll("[data-today-session-module]").forEach((button) => {
+    const moduleState = dailyDecisionModuleState(button.dataset.todaySessionModule);
+    if (!moduleState.executable) {
+      button.disabled = true;
+      button.textContent = decision.blocker ? "Repair program first" : decision.recoveryDay ? "Recovery day" : "Commit schedule first";
+      button.closest(".today-session-card")?.classList.add("daily-decision-blocked");
+    }
+  });
+}
+
+function openDailyDecisionRepair(decision = currentDailyDecision) {
+  const section = decision?.nextAction?.section || "contract";
+  const module = decision?.nextAction?.module || "";
+  setActiveSection(section);
+  if (section === "performance") setPerformanceActiveView(module === "core" ? "core" : module === "running" ? "running" : "today_training");
+  window.history.replaceState(null, "", `#${section}`);
+  window.setTimeout(() => {
+    const target = module === "core" ? document.getElementById("performance-view-core")
+      : module === "running" ? document.getElementById("performance-view-running")
+        : document.getElementById(section);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 0);
 }
 
 function readActiveAdaptiveDirective(date = todayISODate()) {
@@ -13026,14 +13209,18 @@ function renderRecoveryReview() {
   if (!panel) return;
   const review = buildCurrentRecoveryRecommendation();
   if (!review) { panel.innerHTML = `<div class="performance-empty">Recovery engine unavailable.</div>`; return; }
-  setText("recovery-status", review.status);
+  const dailyRecovery = dailyDecisionModuleState("recovery");
+  setText("recovery-status", currentDailyDecision?.blocker ? dailyRecovery.status : review.status);
   const plan = readRecoveryPlan();
   const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
-  panel.innerHTML = `<div class="connected-summary-grid">
-      <div><span>Recovery posture</span><strong>${escapeHtml(review.status)}</strong></div>
+  const dailyBlocker = currentDailyDecision?.blocker
+    ? `<article class="daily-decision-module-blocker"><span>Program blocker</span><h3>${escapeHtml(currentDailyDecision.blocker.title)}</h3><p>${escapeHtml(currentDailyDecision.blocker.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision.nextAction.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision.nextAction.module || "")}">${escapeHtml(currentDailyDecision.nextAction.label)}</button><small>Recovery stays available. Progression remains held.</small></article>`
+    : "";
+  panel.innerHTML = `${dailyBlocker}<div class="connected-summary-grid">
+      <div><span>Recovery posture</span><strong>${escapeHtml(currentDailyDecision?.blocker ? "PROTECT" : review.status)}</strong></div>
       <div><span>Priority</span><strong>${escapeHtml(review.priority)}</strong></div>
       <div><span>Confidence</span><strong>${escapeHtml(review.confidence)}</strong></div>
-      <div><span>Progression</span><strong>${review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
+      <div><span>Progression</span><strong>${currentDailyDecision?.blocker || review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
       <div><span>Calorie coverage</span><strong>${coverage(review.calorieCoverage)}</strong></div>
       <div><span>Protein coverage</span><strong>${coverage(review.proteinCoverage)}</strong></div>
       <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume · ${review.trainingSets} sets</strong></div>
@@ -13054,6 +13241,21 @@ function buildTodayRecoveryOrder() {
   const completed = Boolean(queueState.recoveryComplete);
   const recommendation = buildCurrentRecoveryRecommendation();
   const missionOrder = currentMissionRecoveryOrder(date);
+  if (currentDailyDecision?.operatingDate === date && currentDailyDecision.blocker) {
+    return {
+      state: "PROTECT",
+      tone: "yellow",
+      title: "Recovery remains available",
+      detail: "Training and progression are held while the program is repaired. Keep the approved recovery baseline and do not add compensatory work.",
+      actions: ["Use only pain-free recovery work.", "Preserve sleep, hydration, and normal fueling."],
+      priority: "PROTECT",
+      confidence: "PROGRAM BLOCKER",
+      progression: "HOLD",
+      completed: false,
+      primaryAction: "repair-program",
+      primaryLabel: currentDailyDecision.nextAction.label || "Repair program"
+    };
+  }
   if (missionOrder && typeof DominionMissionRecovery !== "undefined") {
     const missionProgress = DominionMissionRecovery.progress(missionOrder);
     const currentTask = DominionMissionRecovery.nextTask(missionOrder);
@@ -13779,6 +13981,10 @@ function coreGoalLabel(goal = "") {
 function renderCoreSession(prescription, execution, options = {}) {
   const compact = Boolean(options.compact);
   if (!prescription) return `<div class="performance-empty">Core programming engine unavailable.</div>`;
+  const dailyCore = dailyDecisionModuleState("core");
+  if (dailyCore.status === "BLOCKED") {
+    return `<article class="daily-decision-module-blocker"><span>Core protected</span><h3>${escapeHtml(currentDailyDecision?.blocker?.title || "Repair the program")}</h3><p>${escapeHtml(dailyCore.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision?.nextAction?.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision?.nextAction?.module || "core")}">${escapeHtml(currentDailyDecision?.nextAction?.label || "Repair Core plan")}</button></article>`;
+  }
   if (!prescription.session) {
     return `<div class="core-prescription-empty"><strong>${escapeHtml(prescription.status.replaceAll("_", " "))}</strong><p>${escapeHtml(prescription.message)}</p>${prescription.status === "PLAN_REQUIRED" ? `<button type="button" data-core-program-action="open-core-command">Build core plan</button>` : ""}</div>`;
   }
@@ -13823,7 +14029,8 @@ function renderCoreToday() {
   panel.innerHTML = renderCoreSession(prescription, execution, { compact: true });
   const status = document.getElementById("core-today-state");
   if (status) {
-    const state = execution?.state || prescription?.status || "PLAN_REQUIRED";
+    const dailyCore = dailyDecisionModuleState("core");
+    const state = dailyCore.status === "BLOCKED" ? "BLOCKED" : execution?.state || prescription?.status || "PLAN_REQUIRED";
     status.textContent = state.replaceAll("_", " ");
     status.className = `state-pill ${state === "COMPLETE" ? "green" : state === "SAFETY_HOLD" || state === "PAIN_HOLD" ? "red" : state === "READY" || state === "IN_PROGRESS" ? "yellow" : "neutral"}`;
   }
@@ -13939,6 +14146,8 @@ function renderRunningCommand(entries = performanceEntries) {
     ? DominionManualRun.formatPace(latestManualRun.metrics?.pace_seconds_per_unit || (Number(latestManualRun.metrics?.duration_seconds || 0) / Number(latestManualRun.metrics?.distance || 1)), latestManualRun.metrics?.distance_unit)
     : null;
   const canCountManualTowardToday = Boolean(dailyRun.session && !["REST_DAY", "PAIN_HOLD"].includes(dailyRun.status) && !["COMPLETE", "PARTIAL", "STOPPED", "PAIN_HOLD"].includes(execution?.state));
+  const dailyRunState = dailyDecisionModuleState("running");
+  const dailyRunBlocked = dailyRunState.status === "BLOCKED";
   panel.innerHTML = `
     <div class="running-command-grid">
       <article class="manual-run-card">
@@ -14031,7 +14240,8 @@ function renderRunningCommand(entries = performanceEntries) {
       <div class="running-execution-steps">${dailyRun.steps.map((step, index) => `<article><span>${index + 1}</span><div><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.instruction)}</p></div></article>`).join("")}</div>
       ${dailyRun.session.paceFast ? `<p><strong>Target pace:</strong> ${DominionRunning.formatPace(dailyRun.session.paceFast, dailyRun.session.unit)} to ${DominionRunning.formatPace(dailyRun.session.paceSlow, dailyRun.session.unit)}</p>` : ""}
       ${execution?.state === "REVIEW" ? runningActualReviewMarkup("performance", execution, dailyRun) : runningVerdictMarkup(execution)}
-      <div class="performance-actions"><button type="button" data-running-action="start-run" ${["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) || ["IN_PROGRESS", "PAUSED", "REVIEW", "COMPLETE", "PARTIAL", "PAIN_HOLD"].includes(execution?.state) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${!["IN_PROGRESS", "PAUSED"].includes(execution?.state) ? "disabled" : ""}>Finish &amp; log</button><button type="button" class="ghost" data-running-action="modify-run">Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
+      ${dailyRunBlocked ? `<article class="daily-decision-module-blocker"><span>Run protected</span><strong>${escapeHtml(currentDailyDecision?.blocker?.title || "Repair the program")}</strong><p>${escapeHtml(dailyRunState.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision?.nextAction?.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision?.nextAction?.module || "")}">${escapeHtml(currentDailyDecision?.nextAction?.label || "Repair program")}</button></article>` : ""}
+      <div class="performance-actions"><button type="button" data-running-action="start-run" ${dailyRunBlocked || ["PAIN_HOLD", "REST_DAY"].includes(dailyRun.status) || ["IN_PROGRESS", "PAUSED", "REVIEW", "COMPLETE", "PARTIAL", "PAIN_HOLD"].includes(execution?.state) ? "disabled" : ""}>Start run</button><button type="button" data-running-action="complete-run" ${dailyRunBlocked || !["IN_PROGRESS", "PAUSED"].includes(execution?.state) ? "disabled" : ""}>Finish &amp; log</button><button type="button" class="ghost" data-running-action="modify-run" ${dailyRunBlocked ? "disabled" : ""}>Modify</button><button type="button" class="ghost" data-running-action="report-pain">Report pain</button></div>` : `<div class="performance-empty">${escapeHtml(dailyRun.message)}</div>`}
     </section>
     ${runningProgressionMarkup(buildCurrentRunningProgression(entries))}
     <section class="running-reconciliation-panel">
@@ -15099,6 +15309,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   renderAtlasLiveAdaptation();
   renderActivationRepair(truth);
   renderTodayFlow(model);
+  renderDailyDecisionSurfaces(model.dailyDecision || currentDailyDecision);
 }
 
 function buildCurrentProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
@@ -16756,13 +16967,25 @@ function nutritionMealsForDate(date) {
 function buildCurrentFuelCalendarContext(date = todayISODate()) {
   if (typeof DominionFuelCalendar === "undefined" || !connectedApi()) return null;
   const importedTrainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
-  return DominionFuelCalendar.buildFuelCalendarContext({
+  const context = DominionFuelCalendar.buildFuelCalendarContext({
     date,
     committedDay: readCommittedUnifiedDay(date),
     importedTrainingDay,
     fallbackWindow: readMealTrainingWindow(),
     splitCheckpoint: readSplitDayCheckpoint(date)
   });
+  const decision = currentDailyDecision?.operatingDate === date ? currentDailyDecision : null;
+  if (!decision) return context;
+  return {
+    ...context,
+    trainingDay: decision.nutritionContext.trainingDay,
+    recoveryDay: !decision.nutritionContext.trainingDay,
+    blocker: decision.blocker || context.blocker,
+    source: "TODAY'S ORDER",
+    headline: decision.nutritionContext.headline,
+    detail: decision.nutritionContext.detail,
+    sessions: decision.authorizedTraining ? context.sessions : []
+  };
 }
 
 function buildCurrentMealCoachingPlan(date = nutritionCommandDate()) {
@@ -17384,6 +17607,7 @@ function renderNutritionCommand() {
   renderTodayNutritionExecution();
   renderMobileCommand();
   renderAtlasDecisionCenter();
+  renderDailyDecisionSurfaces();
 }
 
 function nutritionViewStorageKey() {
@@ -18169,6 +18393,7 @@ async function init() {
 }
 
 if (typeof document !== "undefined") {
+  if (typeof DominionDailyDecision !== "undefined") DominionDailyDecision.installExperience(document);
   if (typeof DominionWeeklyAdvancement !== "undefined") DominionWeeklyAdvancement.installExperience(document);
   applyProductPolish();
   startProductPolishObserver();
@@ -18184,6 +18409,19 @@ if (typeof document !== "undefined") {
     renderMobileInstallExperience();
   });
   document.addEventListener("click", async (event) => {
+    const dailyDecisionButton = event.target.closest("[data-daily-decision-action]");
+    if (dailyDecisionButton) {
+      event.preventDefault();
+      openDailyDecisionRepair({
+        ...(currentDailyDecision || {}),
+        nextAction: {
+          ...(currentDailyDecision?.nextAction || {}),
+          section: dailyDecisionButton.dataset.dailyDecisionSection || currentDailyDecision?.nextAction?.section || "contract",
+          module: dailyDecisionButton.dataset.dailyDecisionModule || currentDailyDecision?.nextAction?.module || ""
+        }
+      });
+      return;
+    }
     const unifiedButton = event.target.closest("[data-unified-blocker-action]");
     if (unifiedButton) {
       unifiedButton.disabled = true;
@@ -18303,6 +18541,7 @@ if (typeof document !== "undefined") {
     if (action === "ROLL_CALL") openMobileCommandSheet("roll-call");
     if (action === "NUTRITION") openMobileCommandSheet("nutrition");
     if (action === "UNIFIED_BLOCKER") await runUnifiedBlockerAction("RESOLVE_CONTINUITY");
+    if (action === "DAILY_DECISION") openDailyDecisionRepair();
     if (action === "MODULE") await launchMobileModule(button.dataset.mobileModule || "strength");
     if (action === "TRUTH") {
       const truth = buildCurrentOperatingTruth();
@@ -19406,6 +19645,10 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-today-recovery-action]");
     if (!button) return;
     const action = button.dataset.todayRecoveryAction;
+    if (action === "repair-program") {
+      openDailyDecisionRepair();
+      return;
+    }
     if (action === "mission-complete") {
       await completeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
       renderDailyCoachingLoop();

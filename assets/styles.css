@@ -177,6 +177,359 @@
   .strength-progression-trial li{grid-template-columns:1fr}.strength-progression-trial mark{text-align:left}.strength-trial-actions{display:grid}.strength-trial-actions button{width:100%}
 }
 
+/* Build 026E: one authoritative Daily Decision and a quieter daily loop. */
+:root {
+  --decision-safe: #2e8b57;
+  --decision-caution: #d49f37;
+  --decision-blocker: #a43a36;
+}
+
+html[data-daily-decision-ux="026E.1"] .scroll-anchor,
+html[data-daily-decision-ux="026E.1"] [data-section] {
+  scroll-margin-top: 112px;
+}
+
+html[data-daily-decision-ux="026E.1"] #today {
+  display: grid;
+  gap: 14px;
+}
+
+html[data-daily-decision-ux="026E.1"] #today > .today-command-header {
+  margin: 2px 0 0;
+}
+
+html[data-daily-decision-ux="026E.1"] #today > .today-command-header .kicker,
+html[data-daily-decision-ux="026E.1"] #today > .today-command-header > span {
+  display: none;
+}
+
+html[data-daily-decision-ux="026E.1"] #today > .today-command-header h2 {
+  margin-bottom: 2px;
+  font-size: clamp(34px, 4vw, 52px);
+}
+
+html[data-daily-decision-ux="026E.1"] #today > .today-command-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+html[data-daily-decision-ux="026E.1"] #one-command {
+  order: 1;
+  border-color: rgba(212, 159, 55, .42);
+  background: linear-gradient(145deg, rgba(28, 23, 14, .96), rgba(8, 13, 17, .99) 62%);
+}
+
+body[data-daily-decision-status="BLOCKED"] #one-command {
+  border-color: rgba(164, 58, 54, .75) !important;
+  box-shadow: inset 4px 0 0 var(--decision-blocker), 0 18px 40px rgba(0, 0, 0, .28) !important;
+}
+
+body[data-daily-decision-status="LOADING"] #one-command,
+body[data-daily-decision-status="READINESS_REQUIRED"] #one-command {
+  border-color: rgba(130, 142, 154, .48) !important;
+}
+
+body[data-daily-decision-status="STALE"] #one-command {
+  border-color: rgba(212, 159, 55, .7) !important;
+  box-shadow: inset 4px 0 0 var(--decision-caution) !important;
+}
+
+body[data-daily-decision-status="COMPLETED"] #one-command {
+  border-color: rgba(46, 139, 87, .72) !important;
+  box-shadow: inset 4px 0 0 var(--decision-safe) !important;
+}
+
+body[data-daily-decision-status="EMPTY"] #one-command {
+  border-color: rgba(130, 142, 154, .55) !important;
+  box-shadow: inset 4px 0 0 #7f8b96 !important;
+}
+
+html[data-daily-decision-ux="026E.1"] #one-command .one-command-header h2 {
+  max-width: 780px;
+  font-size: clamp(33px, 5vw, 58px);
+  line-height: .98;
+}
+
+html[data-daily-decision-ux="026E.1"] #one-command .today-mission-reason {
+  max-width: 760px;
+  border: 0;
+  padding-left: 0;
+  background: transparent;
+}
+
+html[data-daily-decision-ux="026E.1"] #one-command .today-mission-facts,
+html[data-daily-decision-ux="026E.1"] #one-command .today-mission-progress-row,
+html[data-daily-decision-ux="026E.1"] #one-command .one-command-progress,
+html[data-daily-decision-ux="026E.1"] #one-command .today-mission-after {
+  display: none;
+}
+
+html[data-daily-decision-ux="026E.1"] #one-command-primary,
+html[data-daily-decision-ux="026E.1"] .daily-decision-module-blocker button,
+html[data-daily-decision-ux="026E.1"] .daily-decision-calendar-blocker button {
+  min-height: 50px;
+  border-color: #ebbd47;
+  color: #080a0d;
+  background: linear-gradient(135deg, #f0c54d, #c49125);
+  box-shadow: none;
+}
+
+body[data-daily-decision-status="BLOCKED"] #one-command-primary,
+body[data-daily-decision-status="BLOCKED"] .daily-decision-module-blocker button,
+body[data-daily-decision-status="BLOCKED"] .daily-decision-calendar-blocker button {
+  border-color: #c74b45;
+  color: #fff;
+  background: var(--decision-blocker);
+}
+
+.daily-decision-support {
+  order: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.daily-decision-brief,
+.daily-decision-execution {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(12, 17, 22, .82);
+}
+
+.daily-decision-brief > span,
+.daily-decision-execution span {
+  display: block;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.daily-decision-brief > strong,
+.daily-decision-execution strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--stone);
+  font-size: 18px;
+}
+
+.daily-decision-brief > small,
+.daily-decision-execution small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.daily-decision-execution {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.daily-decision-execution button {
+  flex: 0 0 auto;
+}
+
+html[data-daily-decision-ux="026E.1"] #today #daily-ritual {
+  display: grid !important;
+  order: 3;
+}
+
+html[data-daily-decision-ux="026E.1"] #today:not([data-today-flow-step="CLOSE"]) #daily-ritual {
+  min-height: 0;
+  opacity: .78;
+}
+
+html[data-daily-decision-ux="026E.1"] #one-command-context {
+  order: 4;
+}
+
+html[data-daily-decision-ux="026E.1"] #today-mission-details {
+  order: 5;
+}
+
+html[data-daily-decision-ux="026E.1"] #today-more-context {
+  order: 6;
+}
+
+html[data-daily-decision-ux="026E.1"] #today-more-context > summary,
+html[data-daily-decision-ux="026E.1"] #one-command-context > summary,
+html[data-daily-decision-ux="026E.1"] #today-mission-details > summary {
+  min-height: 48px;
+}
+
+.daily-decision-module-blocker,
+.daily-decision-calendar-blocker {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(164, 58, 54, .72);
+  border-left: 4px solid var(--decision-blocker);
+  border-radius: 11px;
+  background: rgba(55, 17, 17, .42);
+}
+
+.daily-decision-module-blocker > span,
+.daily-decision-calendar-blocker > strong {
+  color: #e3908c;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.daily-decision-module-blocker h3,
+.daily-decision-module-blocker p,
+.daily-decision-calendar-blocker p {
+  margin: 0;
+}
+
+.daily-decision-module-blocker small {
+  color: var(--muted);
+}
+
+.today-session-card.daily-decision-blocked {
+  opacity: .72;
+  border-color: rgba(164, 58, 54, .5);
+}
+
+#contract[data-contract-mode="FINALIZED"] #recruit-contract-editor,
+#contract[data-contract-mode="FINALIZED"] #contract-setup-progress {
+  display: none !important;
+}
+
+#contract[data-contract-mode="AMENDMENT"] #recruit-contract-editor {
+  display: block;
+  border-color: rgba(212, 159, 55, .72);
+  box-shadow: inset 4px 0 0 var(--decision-caution);
+}
+
+.contract-amendment-note {
+  max-width: 760px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.contract-daily-decision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--decision-safe);
+  border-radius: 11px;
+  background: rgba(10, 17, 18, .72);
+}
+
+.contract-daily-decision.blocked {
+  border-color: rgba(164, 58, 54, .62);
+  border-left-color: var(--decision-blocker);
+  background: rgba(55, 17, 17, .32);
+}
+
+.contract-daily-decision span,
+.contract-daily-decision strong,
+.contract-daily-decision small { display: block; }
+
+.contract-daily-decision span {
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.contract-daily-decision strong { margin-top: 3px; color: var(--stone); }
+.contract-daily-decision small { margin-top: 3px; color: var(--muted); }
+
+@media (max-width: 760px) {
+  html[data-daily-decision-ux="026E.1"] .scroll-anchor,
+  html[data-daily-decision-ux="026E.1"] [data-section] {
+    scroll-margin-top: 76px;
+    scroll-margin-bottom: 92px;
+  }
+
+  body {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+
+  body[data-brand-system="021A"] .status-bar,
+  .status-bar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    scroll-snap-type: none;
+  }
+
+  .status-bar > div:nth-child(n + 4) {
+    display: none;
+  }
+
+  .status-bar > div {
+    min-width: 0;
+  }
+
+  .status-bar span,
+  .status-bar strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .daily-decision-support {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-decision-execution {
+    grid-column: auto;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .daily-decision-execution button {
+    width: 100%;
+  }
+
+  html[data-daily-decision-ux="026E.1"] #one-command {
+    min-height: calc(100svh - 245px);
+    align-content: center;
+    padding: 20px;
+  }
+
+  html[data-daily-decision-ux="026E.1"] #one-command .one-command-header {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-daily-decision-ux="026E.1"] #one-command .state-pill {
+    justify-self: start;
+  }
+
+  .mobile-command-bar [data-mobile-nav].active,
+  .mobile-command-bar [data-mobile-nav][aria-current="page"],
+  body[data-brand-system="021A"] .mobile-command-bar [data-mobile-nav].active {
+    color: #f3ca59;
+    background: rgba(212, 159, 55, .1);
+    box-shadow: inset 0 -2px 0 #d49f37;
+  }
+
+  #mobile-more-dialog .mobile-more-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .contract-daily-decision {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 /* Build 026D — one weekly judgment and one advancement path */
 .weekly-judgment {
   --judgment-gold: #d4af37;

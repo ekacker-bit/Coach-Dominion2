@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 026I Account Truth
+
+- Adds one versioned account snapshot for profile and orientation, readiness, performance evidence, daily closeouts, mission receipts, and Atlas coaching memory.
+- Reconciles concurrent device and account records without allowing a newer incomplete orientation or stale evidence copy to erase completed work.
+- Saves the canonical program manifest and broader account truth in one revision-checked transaction.
+- Protects the latest complete snapshot on-device when offline and retries it automatically when the connection returns.
+- Extends the existing saved-program dialog with a concise health check instead of adding another dashboard.
+- Falls back to the proven program-continuity ledger until Migration 028 is active, with an explicit status instead of a silent failure.
+
 ## Unreleased - Build 026H Adaptation Outcomes
 
 - Closes each completed 72-hour Atlas decision against post-window Roll Call, execution, and closeout evidence.

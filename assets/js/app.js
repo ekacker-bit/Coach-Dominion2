@@ -89,6 +89,22 @@ let continuityState = {
   lastResolution: null
 };
 const continuityRecordConflicts = new Map();
+let accountTruthSyncTimer = null;
+let accountTruthSyncPromise = null;
+let accountTruthState = {
+  mode: "CHECKING",
+  initialized: false,
+  applying: false,
+  accountRevision: 0,
+  truthSchemaVersion: 0,
+  snapshot: null,
+  accountSnapshot: null,
+  pendingWrites: 0,
+  lastVerifiedAt: null,
+  lastError: null,
+  legacyFallback: false,
+  recovered: false
+};
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -454,8 +470,316 @@ function writeContinuityRecordMeta(domain, stateType, stateKey, payload, options
 
 function recordContinuityWrite(domain, stateType, stateKey, payload) {
   const value = writeContinuityRecordMeta(domain, stateType, stateKey, payload, { updatedAt: new Date().toISOString(), source: "DEVICE" });
-  if (continuityState.initialized) scheduleContinuitySync();
+  if (continuityState.initialized) {
+    scheduleContinuitySync();
+    scheduleAccountTruthSync();
+  }
   return value;
+}
+
+function accountTruthSnapshotStorageKey() {
+  return `coach-dominion:account-truth:${session?.user?.id || "local"}:snapshot`;
+}
+
+function accountTruthQueueStorageKey() {
+  return `coach-dominion:account-truth:${session?.user?.id || "local"}:pending`;
+}
+
+function readAccountTruthLocalSnapshot() {
+  try { return JSON.parse(window.localStorage.getItem(accountTruthSnapshotStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function saveAccountTruthLocalSnapshot(snapshot) {
+  if (!snapshot) return null;
+  try { window.localStorage.setItem(accountTruthSnapshotStorageKey(), JSON.stringify(snapshot)); }
+  catch (_) {}
+  accountTruthState.snapshot = snapshot;
+  return snapshot;
+}
+
+function readAccountTruthQueue() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(accountTruthQueueStorageKey()) || "[]");
+    return Array.isArray(value) ? value.slice(-1) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveAccountTruthQueue(queue = []) {
+  const next = Array.isArray(queue) ? queue.slice(-1) : [];
+  try { window.localStorage.setItem(accountTruthQueueStorageKey(), JSON.stringify(next)); }
+  catch (_) {}
+  accountTruthState.pendingWrites = next.length;
+  renderAccountTruthHealth();
+  return next;
+}
+
+function queueAccountTruthWrite(snapshot, error = null) {
+  if (!snapshot || typeof DominionAccountTruth === "undefined") return [];
+  const queue = DominionAccountTruth.queueLatest(readAccountTruthQueue(), snapshot, error);
+  accountTruthState.mode = navigator.onLine === false ? "OFFLINE_PROTECTED" : "SAVE_QUEUED";
+  accountTruthState.lastError = error?.message || null;
+  saveAccountTruthQueue(queue);
+  return queue;
+}
+
+function accountTruthMissionEvidence() {
+  const saved = readClosedLoopState("HISTORY", "account-truth-mission-evidence", []);
+  const sources = [
+    ...(Array.isArray(saved) ? saved : []),
+    ...readClosedLoopHistory(),
+    ...readMissionExecutionReceipts(todayISODate()),
+    ...readMissionDebriefHistory(),
+    ...readMissionRecoveryHistory(),
+    ...readMorningVerificationHistory()
+  ];
+  return typeof DominionAccountTruth === "undefined"
+    ? sources
+    : DominionAccountTruth.mergeCollection(sources, [], DominionAccountTruth.COLLECTION_LIMITS.missionReceipts);
+}
+
+function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest || buildCurrentContinuityManifest()) {
+  if (typeof DominionAccountTruth === "undefined") return null;
+  return DominionAccountTruth.buildSnapshot({
+    profile: {
+      orientation: readRecruitOnboardingState(null),
+      constraints: readRecruitConstraintMemory()
+    },
+    readiness: {
+      current: dailyState || null,
+      history: readinessHistory
+    },
+    evidence: {
+      performance: performanceEntries,
+      closeouts: readDailyCloseoutHistory(),
+      missionReceipts: accountTruthMissionEvidence()
+    },
+    coaching: {
+      horizons: readAtlasAdaptiveHorizonHistory(),
+      outcomes: readAtlasAdaptationOutcomeHistory(),
+      decisions: readAtlasDecisionHistory()
+    }
+  }, {
+    userId: session?.user?.id || null,
+    deviceId: continuityDeviceId(),
+    capturedAt: new Date().toISOString(),
+    programFingerprint: manifest?.fingerprint || null
+  });
+}
+
+function applyAccountTruthSnapshot(snapshot = null) {
+  if (!snapshot || typeof DominionAccountTruth === "undefined") return 0;
+  const normalized = DominionAccountTruth.normalizeSnapshot(snapshot, {
+    userId: session?.user?.id || null,
+    deviceId: continuityDeviceId()
+  });
+  const profile = normalized.domains.profile.payload;
+  const readiness = normalized.domains.readiness.payload;
+  const evidence = normalized.domains.evidence.payload;
+  const coaching = normalized.domains.coaching.payload;
+  let restored = 0;
+  accountTruthState.applying = true;
+  try {
+    if (profile.orientation) {
+      const current = readRecruitOnboardingState(null);
+      const selected = DominionAccountTruth.mergeOrientation(current, profile.orientation);
+      if (DominionAccountTruth.semanticFingerprint(selected) !== DominionAccountTruth.semanticFingerprint(current)) restored += 1;
+      saveRecruitOnboardingLocal(selected);
+    }
+    if (profile.constraints) {
+      const current = readRecruitConstraintMemory();
+      const merged = DominionAccountTruth.mergeConstraints(current, profile.constraints);
+      if (DominionAccountTruth.semanticFingerprint(merged) !== DominionAccountTruth.semanticFingerprint(current)) restored += 1;
+      saveClosedLoopLocal("CONTEXT", "recruit-constraints", merged);
+    }
+    const mergedReadiness = DominionAccountTruth.mergeCollection(readinessHistory, readiness.history, DominionAccountTruth.COLLECTION_LIMITS.readiness);
+    if (DominionAccountTruth.semanticFingerprint(mergedReadiness) !== DominionAccountTruth.semanticFingerprint(readinessHistory)) restored += 1;
+    readinessHistory = mergedReadiness;
+    const todayReadiness = [readiness.current, ...mergedReadiness].find((item) => item?.date === todayISODate());
+    if (todayReadiness) {
+      dailyState = { ...(dailyState || {}), ...todayReadiness };
+      saveMobileDailyState(dailyState);
+    }
+    const mergedPerformance = DominionAccountTruth.mergeCollection(performanceEntries, evidence.performance, DominionAccountTruth.COLLECTION_LIMITS.performance);
+    if (DominionAccountTruth.semanticFingerprint(mergedPerformance) !== DominionAccountTruth.semanticFingerprint(performanceEntries)) restored += 1;
+    performanceEntries = mergedPerformance;
+    saveLocalPerformanceEntries(mergedPerformance);
+    const closeouts = DominionAccountTruth.mergeCollection(readDailyCloseoutHistory(), evidence.closeouts, DominionAccountTruth.COLLECTION_LIMITS.closeouts);
+    if (DominionAccountTruth.semanticFingerprint(closeouts) !== DominionAccountTruth.semanticFingerprint(readDailyCloseoutHistory())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "daily-closeout", closeouts);
+    closeouts.forEach((item) => { if (item?.date) saveClosedLoopLocal("CLOSEOUT", item.date, item); });
+    const missionEvidence = DominionAccountTruth.mergeCollection(accountTruthMissionEvidence(), evidence.missionReceipts, DominionAccountTruth.COLLECTION_LIMITS.missionReceipts);
+    if (DominionAccountTruth.semanticFingerprint(missionEvidence) !== DominionAccountTruth.semanticFingerprint(accountTruthMissionEvidence())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "account-truth-mission-evidence", missionEvidence);
+    const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
+    const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
+    const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
+    if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
+    saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
+    saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
+  } finally {
+    accountTruthState.applying = false;
+  }
+  saveAccountTruthLocalSnapshot(normalized);
+  return restored;
+}
+
+function renderAccountTruthHealth() {
+  if (typeof DominionAccountTruth === "undefined") return;
+  const snapshot = accountTruthState.snapshot || readAccountTruthLocalSnapshot();
+  const report = DominionAccountTruth.healthReport({
+    ...accountTruthState,
+    snapshot,
+    pendingWrites: readAccountTruthQueue().length,
+    online: navigator.onLine !== false
+  });
+  const root = document.getElementById("account-truth-health");
+  if (root) root.dataset.truthTone = report.tone;
+  setText("account-truth-status", report.status.replaceAll("_", " "));
+  setText("account-truth-headline", report.headline);
+  setText("account-truth-program", snapshot?.programFingerprint ? "LOCKED" : "CHECKING");
+  const evidence = snapshot?.domains?.evidence?.payload || {};
+  const coaching = snapshot?.domains?.coaching?.payload || {};
+  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0);
+  setText("account-truth-evidence", `${evidenceCount} SAVED`);
+  setText("account-truth-coaching", `${coachingCount} SAVED`);
+  const verified = report.lastVerifiedAt ? new Date(report.lastVerifiedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "NOT YET";
+  setText("account-truth-verified", verified);
+  document.body.dataset.accountTruth = report.status.toLowerCase().replaceAll("_", "-");
+}
+
+function accountTruthMigrationMissing(error = null) {
+  return ["42703", "42883", "PGRST202", "PGRST204", "PGRST205"].includes(error?.code)
+    || /truth_schema_version|truth_snapshot|sync_dominion_account_truth/i.test(error?.message || "");
+}
+
+function accountTruthRevisionConflict(error = null) {
+  return error?.code === "40001" || /REVISION_CONFLICT/i.test(error?.message || "");
+}
+
+async function saveAccountTruthLedger(manifest, snapshot, expectedRevision, integrityStatus = "VERIFIED") {
+  const supabase = await getClient();
+  const { data, error } = await supabase.rpc("sync_dominion_account_truth", {
+    expected_revision: Number(expectedRevision || 0),
+    next_schema_version: DominionContinuity.SCHEMA_VERSION,
+    next_truth_schema_version: DominionAccountTruth.SCHEMA_VERSION,
+    next_device_id: continuityDeviceId(),
+    next_manifest: manifest,
+    next_truth_snapshot: snapshot,
+    next_integrity_status: integrityStatus,
+    next_client_updated_at: new Date().toISOString()
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function syncDominionAccountTruth(options = {}) {
+  if (accountTruthSyncPromise) return accountTruthSyncPromise;
+  if (!session?.user?.id || typeof DominionAccountTruth === "undefined" || typeof DominionContinuity === "undefined") return false;
+  accountTruthSyncPromise = (async () => {
+    const localManifest = continuityState.manifest || buildCurrentContinuityManifest();
+    const localSnapshot = buildCurrentAccountTruthSnapshot(localManifest);
+    saveAccountTruthLocalSnapshot(localSnapshot);
+    if (navigator.onLine === false) {
+      queueAccountTruthWrite(localSnapshot);
+      accountTruthState = { ...accountTruthState, mode: "OFFLINE_PROTECTED", initialized: true };
+      renderAccountTruthHealth();
+      return false;
+    }
+    let lastError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const supabase = await getClient();
+        const { data, error } = await supabase.from("dominion_continuity_state")
+          .select("revision,schema_version,truth_schema_version,device_id,manifest,truth_snapshot,integrity_status,last_verified_at,client_updated_at,updated_at")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (error) throw error;
+        const accountRevision = Number(data?.revision || 0);
+        const programManifest = data?.manifest || localManifest;
+        const deviceSnapshot = buildCurrentAccountTruthSnapshot(programManifest);
+        const reconciliation = DominionAccountTruth.reconcileSnapshots(deviceSnapshot, data?.truth_snapshot || {}, {
+          userId: session.user.id,
+          deviceId: continuityDeviceId(),
+          programFingerprint: programManifest?.fingerprint || null
+        });
+        const restored = applyAccountTruthSnapshot(reconciliation.snapshot);
+        const saved = await saveAccountTruthLedger(programManifest, reconciliation.snapshot, accountRevision, restored ? "RECOVERED" : "VERIFIED");
+        const savedSnapshot = saved?.truth_snapshot || reconciliation.snapshot;
+        saveAccountTruthLocalSnapshot(savedSnapshot);
+        saveAccountTruthQueue([]);
+        continuityState.accountRevision = Number(saved?.revision || accountRevision + 1);
+        continuityState.accountManifest = saved?.manifest || programManifest;
+        if (saved?.manifest) saveContinuityManifestLocal(saved.manifest);
+        accountTruthState = {
+          ...accountTruthState,
+          mode: restored ? "RECOVERED" : "VERIFIED",
+          initialized: true,
+          accountRevision: continuityState.accountRevision,
+          truthSchemaVersion: Number(saved?.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION),
+          snapshot: savedSnapshot,
+          accountSnapshot: savedSnapshot,
+          pendingWrites: 0,
+          lastVerifiedAt: saved?.last_verified_at || saved?.updated_at || new Date().toISOString(),
+          lastError: null,
+          legacyFallback: false,
+          recovered: restored > 0
+        };
+        renderAccountTruthHealth();
+        if (restored) refreshContinuityConsumers();
+        return true;
+      } catch (error) {
+        lastError = error;
+        if (accountTruthRevisionConflict(error) && attempt === 0) continue;
+        break;
+      }
+    }
+    if (accountTruthMigrationMissing(lastError)) {
+      accountTruthState = {
+        ...accountTruthState,
+        mode: "LEGACY_ACTIVE",
+        initialized: true,
+        legacyFallback: true,
+        lastError: lastError?.message || "Migration 028 is not active"
+      };
+    } else {
+      queueAccountTruthWrite(localSnapshot, lastError);
+      accountTruthState = {
+        ...accountTruthState,
+        mode: "SAVE_QUEUED",
+        initialized: true,
+        legacyFallback: false,
+        lastError: lastError?.message || "Account truth sync unavailable"
+      };
+    }
+    renderAccountTruthHealth();
+    return false;
+  })();
+  try {
+    return await accountTruthSyncPromise;
+  } finally {
+    accountTruthSyncPromise = null;
+  }
+}
+
+function scheduleAccountTruthSync(delay = 900) {
+  if (accountTruthState.applying || !accountTruthState.initialized) return;
+  window.clearTimeout(accountTruthSyncTimer);
+  accountTruthSyncTimer = window.setTimeout(() => syncDominionAccountTruth(), delay);
+}
+
+async function flushAccountTruthPendingWrite(options = {}) {
+  const queue = readAccountTruthQueue();
+  if (!queue.length) return options.force ? syncDominionAccountTruth({ force: true }) : true;
+  if (navigator.onLine === false || !session?.user?.id) return false;
+  if (!options.force && !DominionAccountTruth.readyQueuedWrite(queue)) return false;
+  return syncDominionAccountTruth({ force: true });
 }
 
 function markContinuityRecordSynced(domain, stateType, stateKey, payload, updatedAt = null) {
@@ -718,6 +1042,7 @@ function renderDominionContinuity() {
     : "Every program save reached your account.");
   const syncTime = continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
   setText("continuity-device-label", syncTime ? `Account verified ${syncTime}` : continuityState.accountRevision ? "Account ledger verified" : "Checking account continuity");
+  renderAccountTruthHealth();
 }
 
 function setContinuityMode(mode, options = {}) {
@@ -4943,6 +5268,7 @@ function loadLocalPerformanceEntries() {
 function saveLocalPerformanceEntries(entries = []) {
   try {
     window.localStorage.setItem(performanceStorageKey(), JSON.stringify(entries));
+    scheduleAccountTruthSync();
     return true;
   } catch (_) {
     return false;
@@ -5496,6 +5822,7 @@ function saveRecruitOnboardingLocal(payload) {
   if (!payload) return payload;
   try {
     window.localStorage.setItem(recruitOnboardingStorageKey(), JSON.stringify(payload));
+    scheduleAccountTruthSync();
   } catch (error) {
     console.warn("[orientation:local] Device save failed.", {
       message: error?.message || "Local storage unavailable"
@@ -10228,6 +10555,7 @@ function saveMobileDailyState(payload = {}) {
   if (!payload?.date) return null;
   const saved = { ...payload, deviceSavedAt: new Date().toISOString() };
   window.localStorage.setItem(mobileDailyStateStorageKey(payload.date), JSON.stringify(saved));
+  scheduleAccountTruthSync();
   return saved;
 }
 
@@ -10859,7 +11187,7 @@ function registerMobileServiceWorker() {
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
   // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
-  const reloadKey = "coach-dominion:service-worker-reload:026h";
+  const reloadKey = "coach-dominion:service-worker-reload:026i";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10876,7 +11204,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026h", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=026h", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026i", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11415,6 +11744,7 @@ function readClosedLoopState(stateType, stateKey = "current", fallback = null) {
 
 function saveClosedLoopLocal(stateType, stateKey, payload) {
   window.localStorage.setItem(closedLoopStorageKey(stateType, stateKey), JSON.stringify(payload));
+  scheduleAccountTruthSync();
   return payload;
 }
 
@@ -18698,6 +19028,7 @@ async function init() {
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
+    await runStartupTask("account truth", syncDominionAccountTruth, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
     await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
     await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
@@ -18786,7 +19117,10 @@ if (typeof document !== "undefined") {
       if (dialog?.showModal && !dialog.open) dialog.showModal();
       return;
     }
-    if (action === "sync") await syncDominionContinuity();
+    if (action === "sync") {
+      await syncDominionContinuity();
+      await flushAccountTruthPendingWrite({ force: true });
+    }
     if (action === "keep-device") await repairDominionContinuity("DEVICE");
     if (action === "keep-account") await repairDominionContinuity("ACCOUNT");
     if (action === "resolve-device") await repairDominionContinuity("DEVICE", button.dataset.continuityKey);
@@ -18794,6 +19128,7 @@ if (typeof document !== "undefined") {
     if (action === "retry-pending") {
       await flushContinuityPendingWrites();
       await syncDominionContinuity();
+      await flushAccountTruthPendingWrite({ force: true });
     }
   });
   window.addEventListener("online", async () => {
@@ -18801,11 +19136,14 @@ if (typeof document !== "undefined") {
     const synced = await flushMobilePendingWrites();
     await flushContinuityPendingWrites();
     await syncDominionContinuity();
+    await flushAccountTruthPendingWrite({ force: true });
     setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
   });
   window.addEventListener("offline", () => {
     renderMobileCommand();
     setContinuityMode("OFFLINE", { initialized: true });
+    accountTruthState = { ...accountTruthState, mode: "OFFLINE_PROTECTED", initialized: true };
+    renderAccountTruthHealth();
     setText("mobile-command-feedback", "You’re offline. Today’s changes will stay on this device and sync automatically.");
   });
   document.getElementById("mobile-roll-call-form")?.addEventListener("input", (event) => {

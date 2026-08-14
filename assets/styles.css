@@ -4818,6 +4818,25 @@ textarea { max-width: 100%; }
 .continuity-pending-panel[hidden] { display: none; }
 .continuity-pending-panel > div { display: grid; gap: 5px; }
 .continuity-pending-panel p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.account-truth-health {
+  display: grid;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: linear-gradient(120deg, rgba(212, 175, 55, 0.07), rgba(5, 10, 14, 0.84) 58%);
+}
+.account-truth-health[data-truth-tone="green"] { border-color: rgba(46, 139, 87, 0.54); box-shadow: inset 3px 0 0 var(--ascent-green); }
+.account-truth-health[data-truth-tone="yellow"] { border-color: rgba(212, 175, 55, 0.6); box-shadow: inset 3px 0 0 var(--victory-gold); }
+.account-truth-health > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.account-truth-health > header > div { display: grid; gap: 4px; }
+.account-truth-health > header span { color: var(--victory-gold); font: 13px/1 var(--font-command); letter-spacing: .13em; }
+.account-truth-health > header strong { color: var(--stone); font-size: 16px; }
+.account-truth-health > header b { color: var(--stone); font: 13px/1 var(--font-command); letter-spacing: .1em; }
+.account-truth-health > p { margin: 0; color: var(--muted); font-size: 12px; }
+.account-truth-health dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--line); }
+.account-truth-health dl div { min-width: 0; padding: 11px 12px; background: #0b1014; }
+.account-truth-health dt { color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.account-truth-health dd { margin: 4px 0 0; overflow: hidden; color: var(--stone); font: 13px/1.15 var(--font-command); letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
 .continuity-repair-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 
 @media (max-width: 1080px) {
@@ -4830,6 +4849,8 @@ textarea { max-width: 100%; }
   .continuity-status strong { font-size: 12px; }
   .continuity-status-dot { width: 6px; height: 6px; }
   .continuity-canonical-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .account-truth-health dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .account-truth-health > header { align-items: stretch; flex-direction: column; gap: 8px; }
   .continuity-conflict-list article { grid-template-columns: 1fr; }
   .continuity-conflict-list article > div:last-child { display: grid; grid-template-columns: 1fr; }
   .continuity-pending-panel { align-items: stretch; flex-direction: column; }

@@ -26,7 +26,7 @@ test("Rank routes into Inspection and is no longer a competing destination", () 
   assert.match(app, /const SECTION_ORDER = \[[^\]]*"inspection"[^\]]*\]/);
   assert.doesNotMatch(app.match(/const SECTION_ORDER = \[[^\]]*\]/)?.[0] || "", /"rank"/);
   assert.match(app, /normalized === "rank" \|\| normalized === "promotion" \|\| normalized === "advancement"/);
-  assert.match(html, /data-section="inspection"><strong>Advancement<\/strong>/);
+  assert.match(html, /data-section="inspection"><strong>(?:Advancement|Rank &amp; advancement)<\/strong>/);
 });
 
 test("Promotion is rechecked at authorization time and history persists", () => {
@@ -51,7 +51,7 @@ test("Build 026D is responsive and refresh-safe", () => {
   assert.match(styles, /@media \(max-width: 760px\)/);
   assert.match(worker, /coach-dominion-[^"\s]*026d/);
   assert.match(worker, /weekly-advancement\.js\?v=026d/);
-  assert.match(app, /sw\.js\?v=026d/);
+  assert.match(app, /sw\.js\?v=026(?:d|e)/);
   assert.match(changelog, /Build 026D Weekly Judgment/);
   assert.ok(pkg.scripts["test:026d"]);
 });

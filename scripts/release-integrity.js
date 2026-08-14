@@ -13,6 +13,7 @@ const strength = read("assets/js/strength-training.js");
 const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
+const dailyDecision = read("assets/js/daily-decision.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
 const orientation = read("assets/js/first-week-orientation.js");
 const manualRun = read("assets/js/manual-run.js");
@@ -88,6 +89,9 @@ check("cache version", worker.includes('coach-dominion-025c-v1-025h-025i-025j'),
 check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3-025i-025j'), "service worker is caching the wrong stylesheet");
 check("cached application", worker.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "service worker is caching the wrong application");
 check("cached operating truth", worker.includes('/assets/js/operating-truth.js?v=025h'), "service worker is caching the wrong operating truth engine");
+check("026E Daily Decision engine", dailyDecision.includes('const VERSION = "026E.1"') && dailyDecision.includes("function buildDailyDecision"), "026E Daily Decision engine is missing");
+check("026E Daily Decision integration", html.includes('/assets/js/daily-decision.js?v=026e') && app.includes("DominionDailyDecision.buildDailyDecision") && app.includes("renderDailyDecisionSurfaces"), "026E Daily Decision is not governing the application");
+check("026E Daily Decision cache", worker.includes('/assets/js/daily-decision.js?v=026e') && worker.includes("026d-026e"), "026E Daily Decision assets are stale or uncached");
 check("cached Strength logger", worker.includes('/assets/js/strength-training.js?v=025g-025i-025j'), "service worker is caching the wrong Strength engine");
 check("025M Trends engine", trends.includes('const VERSION = "025M.1"') && trends.includes("function summarizeStrengthWorkload") && trends.includes("scorecards"), "025M outcome intelligence engine is incomplete");
 check("025M Trends integration", html.includes('data-trend-view="fuel"') && html.includes('/assets/js/trends-intelligence.js?v=025m') && app.includes("trend-training-command") && app.includes("trend-fuel-chart"), "025M Trends workspace is incomplete");

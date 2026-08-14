@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" data-daily-decision-ux="026E.1">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Build 026E Daily Command Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css?v=026e2">
+  <style>
+    .preview-shell { min-height: 100vh; padding: 18px max(18px, 4vw) 110px; }
+    .preview-brand { display: flex; align-items: center; gap: 12px; max-width: 1120px; margin: 0 auto 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+    .preview-brand img { width: 46px; height: 46px; }
+    .preview-brand span { display: grid; }
+    .preview-brand small { color: var(--gold); font-weight: 800; letter-spacing: .12em; }
+    .preview-brand strong { font-family: "Bebas Neue", sans-serif; color: var(--stone); font-size: 24px; letter-spacing: .06em; }
+    .preview-shell #today { width: min(100%, 1120px); margin: 0 auto; }
+    .preview-shell #one-command-context,
+    .preview-shell #today-mission-details,
+    .preview-shell #today-more-context { padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(10, 14, 18, .7); }
+    .preview-shell .daily-ritual { padding: 18px; }
+    .preview-shell .mobile-command-bar button { border: 0; background: transparent; }
+  </style>
+</head>
+<body data-brand-system="021A">
+  <main class="preview-shell">
+    <header class="preview-brand">
+      <img src="/assets/icons/dominion-mark.svg" alt="">
+      <span><small>THE STANDARD IS EARNED</small><strong>Coach Dominion</strong></span>
+    </header>
+    <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
+      <header class="today-command-header">
+        <div><div class="kicker">TODAY</div><h2 id="today-heading">Today</h2><p>One order. Execute it. Preserve the proof.</p></div>
+      </header>
+      <section id="one-command" class="card one-command today-mission" aria-labelledby="one-command-heading">
+        <header class="one-command-header today-mission-header">
+          <div><div class="kicker">TODAY'S ORDER</div><h2 id="one-command-heading">Checking today</h2><p id="one-command-detail">One decision governs every daily surface.</p></div>
+          <span id="one-command-state" class="state-pill neutral">CHECKING</span>
+        </header>
+        <p class="today-mission-reason"><span>WHY</span><strong id="today-mission-reason">Checking the complete program.</strong></p>
+        <div class="one-command-actions today-mission-actions"><button id="one-command-primary" type="button">Check again</button></div>
+      </section>
+      <section id="daily-decision-support" class="daily-decision-support" aria-label="Today's readiness, schedule, and execution">
+        <article class="daily-decision-brief"><span>Readiness</span><strong id="preview-readiness">Checking</strong><small id="preview-readiness-detail">Checking Roll Call.</small></article>
+        <article class="daily-decision-brief"><span>Schedule</span><strong id="preview-schedule">Checking</strong><small id="preview-schedule-detail">Checking the committed week.</small></article>
+        <article class="daily-decision-execution"><div><span>Do or prove</span><strong id="preview-execution">Checking today's work</strong><small id="preview-execution-detail">The next evidence action will appear here.</small></div><button class="ghost" id="preview-execution-action">Open</button></article>
+      </section>
+      <section id="daily-ritual" class="daily-ritual today-mission-closeout">
+        <header class="daily-ritual-header"><div><div class="kicker">CLOSE THE DAY</div><h2>Preserve the proof</h2><p>Closeout stays after execution and evidence.</p></div><span class="state-pill neutral">LOCKED</span></header>
+      </section>
+      <details id="one-command-context"><summary><span>Why this action?</span><small>Readiness, program, and safeguards</small></summary></details>
+      <details id="today-mission-details"><summary><span>Technical details</span><small>Sources and calculation state</small></summary></details>
+      <details id="today-more-context"><summary><span>More context</span><small>Deeper controls only when needed</small></summary><div class="today-more-context-stack"></div></details>
+    </section>
+  </main>
+  <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
+    <a data-mobile-nav="today" class="active" aria-current="page" href="#today">Today</a>
+    <a data-mobile-nav="train" href="#train">Train</a>
+    <a data-mobile-nav="fuel" href="#fuel">Fuel</a>
+    <a data-mobile-nav="review" href="#review">Review</a>
+    <button type="button" data-mobile-nav="more">More</button>
+  </nav>
+  <script src="/assets/js/daily-decision.js?v=026e"></script>
+  <script>
+    const blocked = new URLSearchParams(location.search).get("state") !== "ready";
+    const plans = [
+      { id: "strength", label: "Strength plan", complete: true, included: true },
+      { id: "running", label: "Running plan", complete: true, included: true },
+      { id: "core", label: "Core plan", complete: !blocked, included: true, section: "performance" },
+      { id: "nutrition", label: "Fuel plan", complete: true, included: true }
+    ];
+    const decision = DominionDailyDecision.buildDailyDecision({
+      operatingDate: "2026-08-13",
+      truth: { state: "TODAY", date: "2026-08-13" },
+      command: { state: "EXECUTION_REQUIRED", primary: { action: "TRAIN", label: "Start Lower A", section: "today" } },
+      day: { date: "2026-08-13", activities: [{ id: "lower-a", module: "strength", title: "Lower A", estimatedMinutes: 65, sessionWindow: "AM" }, { id: "core-a", module: "core", title: "Core A", estimatedMinutes: 15, sessionWindow: "AM" }] },
+      queue: { total: 2, completed: 0, steps: [{ id: "lower-a", label: "Lower A", state: "READY", actionLabel: "Start workout" }] },
+      plans,
+      contractRevision: 8,
+      readinessComplete: true,
+      readiness: { classification: "READY", confidence: 84, energy: 8, soreness: 2, pain: false }
+    });
+    document.body.dataset.dailyDecisionStatus = decision.status;
+    document.getElementById("one-command-heading").textContent = decision.blocker?.title || "Lower A is cleared";
+    document.getElementById("one-command-detail").textContent = decision.blocker?.detail || "Strength and Core share one approved AM training window.";
+    document.getElementById("one-command-state").textContent = decision.blocker ? "ACTION REQUIRED" : "READY";
+    document.getElementById("today-mission-reason").textContent = decision.blocker?.reason || "Roll Call and the complete program agree.";
+    document.getElementById("one-command-primary").textContent = decision.nextAction.label;
+    document.getElementById("preview-readiness").textContent = decision.readiness.classification.replaceAll("_", " ");
+    document.getElementById("preview-readiness-detail").textContent = `${decision.readiness.confidence}% confidence - Energy ${decision.readiness.energy}/10 - Soreness ${decision.readiness.soreness}/10`;
+    document.getElementById("preview-schedule").textContent = decision.blocker ? "Training protected" : "1 training window";
+    document.getElementById("preview-schedule-detail").textContent = decision.blocker?.detail || "AM: Lower A + Core A - 80 min";
+    document.getElementById("preview-execution").textContent = decision.blocker ? "Training is not executable" : decision.requiredEvidence[0].label;
+    document.getElementById("preview-execution-detail").textContent = decision.blocker?.detail || decision.requiredEvidence[0].actionLabel;
+    document.getElementById("preview-execution-action").textContent = decision.blocker ? decision.nextAction.label : decision.requiredEvidence[0].actionLabel;
+  </script>
+</body>
+</html>

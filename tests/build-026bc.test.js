@@ -72,7 +72,7 @@ test("Build 026B-C ships a responsive, fresh offline shell", () => {
   assert.match(worker, /coach-dominion-[^"\s]*026bc/);
   assert.match(worker, /mission-execution-spine\.js\?v=026b/);
   assert.match(worker, /atlas-live-adaptation\.js\?v=026c/);
-  assert.match(app, /sw\.js\?v=(?:026bc|026d)/);
+  assert.match(app, /sw\.js\?v=(?:026bc|026d|026e)/);
   assert.match(changelog, /Build 026B Mission Execution Spine/);
   assert.match(changelog, /Build 026C Atlas Live Adaptation/);
   assert.ok(pkg.scripts["test:026bc"]);

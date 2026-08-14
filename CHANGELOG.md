@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 026J Evidence Autopilot
+
+- Reconciles Strength, Cardio, Core, Fuel, Roll Call, daily closeout, recovery, and existing performance records into one canonical proof trail.
+- Uses stable action identities and source lineage so repeated syncs or a parallel performance summary cannot create duplicate credit.
+- Keeps connected-provider evidence verified, recruit-entered evidence self-reported, and unfinished actions incomplete.
+- Repairs a missing training summary for Trends only when no matching Coach Dominion performance evidence already exists.
+- Feeds the proof trail into Today, Weekly Review, Trends, and Account Truth without adding another dashboard or changing weekly scoring.
+- Adds a concise rebuild control and scheduled-gap count so missing evidence is visible and recoverable.
+
 ## Unreleased - Build 026I Account Truth
 
 - Adds one versioned account snapshot for profile and orientation, readiness, performance evidence, daily closeouts, mission receipts, and Atlas coaching memory.

@@ -11168,3 +11168,109 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .atlas-live-adaptation-feedback button { width: 100%; }
   .atlas-live-adaptation-feedback > div { grid-column: auto; display: grid; }
 }
+/* Build 026J: canonical evidence without another dashboard. */
+.evidence-autopilot-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-left: 3px solid var(--gold, #d4af37);
+  background: rgba(10, 10, 10, 0.58);
+}
+
+.evidence-autopilot-status > div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.evidence-autopilot-status span,
+.weekly-proof-status header span {
+  color: var(--gold, #d4af37);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.evidence-autopilot-status strong {
+  color: var(--stone, #e6e6e4);
+  font-size: 1rem;
+}
+
+.evidence-autopilot-status small,
+.weekly-proof-status small {
+  color: var(--muted, #9ca3af);
+}
+
+.evidence-autopilot-status[data-proof-tone="green"],
+.weekly-proof-status[data-proof-tone="green"] {
+  border-color: rgba(46, 75, 52, 0.9);
+  border-left-color: #5d9b69;
+}
+
+.evidence-autopilot-status[data-proof-tone="yellow"],
+.weekly-proof-status[data-proof-tone="yellow"] {
+  border-color: rgba(212, 175, 55, 0.48);
+}
+
+.weekly-proof-status {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-left: 3px solid var(--gold, #d4af37);
+  background: linear-gradient(110deg, rgba(212, 175, 55, 0.07), rgba(10, 10, 10, 0.35) 55%);
+}
+
+.weekly-proof-status header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.weekly-proof-status h3 {
+  margin: 0.18rem 0 0;
+}
+
+.weekly-proof-status > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.weekly-proof-status > div > span {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(230, 230, 228, 0.1);
+  color: var(--muted, #9ca3af);
+  font-size: 0.75rem;
+}
+
+.weekly-proof-status > div strong {
+  color: var(--stone, #e6e6e4);
+  font-size: 1.35rem;
+}
+
+@media (max-width: 640px) {
+  .evidence-autopilot-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .evidence-autopilot-status button {
+    align-self: start;
+  }
+
+  .weekly-proof-status header {
+    display: grid;
+  }
+
+  .weekly-proof-status > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

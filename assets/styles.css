@@ -530,6 +530,179 @@ html[data-daily-decision-ux="026E.1"] #today-mission-details > summary {
   }
 }
 
+/* Build 026G — bounded next-72-hour adaptation */
+html[data-adaptive-horizon-ux="026G.1"] #atlas-adaptive-horizon {
+  order: 4;
+}
+
+html[data-adaptive-horizon-ux="026G.1"] #one-command-context { order: 5; }
+html[data-adaptive-horizon-ux="026G.1"] #today-mission-details { order: 6; }
+html[data-adaptive-horizon-ux="026G.1"] #today-more-context { order: 7; }
+
+.atlas-adaptive-horizon[hidden] { display: none !important; }
+
+.atlas-adaptive-horizon {
+  --horizon-tone: rgba(212, 159, 55, .6);
+  display: grid;
+  gap: 18px;
+  padding: clamp(20px, 3vw, 30px);
+  border-color: var(--horizon-tone);
+  background: linear-gradient(135deg, rgba(212, 159, 55, .08), transparent 42%), #0b1114;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+
+.atlas-adaptive-horizon[data-horizon-tone="red"] {
+  --horizon-tone: rgba(164, 58, 54, .82);
+  background: linear-gradient(135deg, rgba(99, 24, 24, .28), transparent 48%), #0b1114;
+}
+
+.atlas-adaptive-horizon[data-horizon-tone="green"] {
+  --horizon-tone: rgba(46, 75, 52, .9);
+  background: linear-gradient(135deg, rgba(46, 75, 52, .24), transparent 48%), #0b1114;
+}
+
+.atlas-adaptive-horizon > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.atlas-adaptive-horizon > header h2 {
+  margin: 5px 0 4px;
+  font-size: clamp(28px, 4vw, 43px);
+  line-height: .98;
+}
+
+.atlas-adaptive-horizon > header p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.atlas-adaptive-horizon-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.atlas-adaptive-horizon-meta span {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--stone);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.atlas-adaptive-horizon-meta strong { color: var(--muted); }
+
+#atlas-adaptive-horizon-days {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#atlas-adaptive-horizon-days li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 108px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(2, 7, 9, .52);
+}
+
+#atlas-adaptive-horizon-days li > span {
+  color: #d4af37;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 17px;
+  letter-spacing: .06em;
+}
+
+#atlas-adaptive-horizon-days strong,
+#atlas-adaptive-horizon-days small { display: block; }
+
+#atlas-adaptive-horizon-days strong {
+  color: var(--stone);
+  line-height: 1.15;
+}
+
+#atlas-adaptive-horizon-days small {
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+#atlas-adaptive-horizon-days li[data-horizon-day-state="PROTECT"],
+#atlas-adaptive-horizon-days li[data-horizon-day-state="RECOVER"] {
+  border-color: rgba(164, 58, 54, .62);
+}
+
+#atlas-adaptive-horizon-days li[data-horizon-day-state="DELOAD"] {
+  border-color: rgba(212, 159, 55, .55);
+}
+
+.atlas-adaptive-horizon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.atlas-adaptive-horizon-actions:empty { display: none; }
+
+.atlas-adaptive-horizon-context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .28);
+}
+
+.atlas-adaptive-horizon-context[hidden] { display: none; }
+.atlas-adaptive-horizon-context > div { display: flex; align-items: end; gap: 8px; }
+
+.atlas-adaptive-horizon-guardrail,
+#atlas-adaptive-horizon-feedback {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.atlas-adaptive-horizon-guardrail::before {
+  content: "GUARDRAILS · ";
+  color: #d4af37;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+
+#today:not([data-today-flow-step="CLOSE"]) .atlas-adaptive-horizon[data-horizon-status="WAITING"],
+#today:not([data-today-flow-step="CLOSE"]) .atlas-adaptive-horizon[data-horizon-status="CURRENT"],
+#today:not([data-today-flow-step="CLOSE"]) .atlas-adaptive-horizon[data-horizon-status="HELD"] {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .atlas-adaptive-horizon { padding: 18px; }
+  .atlas-adaptive-horizon > header { display: grid; grid-template-columns: 1fr; }
+  .atlas-adaptive-horizon > header .state-pill { justify-self: start; }
+  #atlas-adaptive-horizon-days { grid-template-columns: 1fr; }
+  #atlas-adaptive-horizon-days li { min-height: 0; }
+  .atlas-adaptive-horizon-actions { display: grid; grid-template-columns: 1fr; }
+  .atlas-adaptive-horizon-actions button { width: 100%; }
+  .atlas-adaptive-horizon-context { grid-template-columns: 1fr; }
+  .atlas-adaptive-horizon-context > div { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
 /* Build 026D — one weekly judgment and one advancement path */
 .weekly-judgment {
   --judgment-gold: #d4af37;

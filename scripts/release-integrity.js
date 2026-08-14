@@ -14,6 +14,7 @@ const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
 const dailyDecision = read("assets/js/daily-decision.js");
+const adaptiveHorizon = read("assets/js/atlas-adaptive-horizon.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
 const orientation = read("assets/js/first-week-orientation.js");
 const manualRun = read("assets/js/manual-run.js");
@@ -92,6 +93,10 @@ check("cached operating truth", worker.includes('/assets/js/operating-truth.js?v
 check("026E Daily Decision engine", dailyDecision.includes('const VERSION = "026E.1"') && dailyDecision.includes("function buildDailyDecision"), "026E Daily Decision engine is missing");
 check("026E Daily Decision integration", html.includes('/assets/js/daily-decision.js?v=026e') && app.includes("DominionDailyDecision.buildDailyDecision") && app.includes("renderDailyDecisionSurfaces"), "026E Daily Decision is not governing the application");
 check("026E Daily Decision cache", worker.includes('/assets/js/daily-decision.js?v=026e') && worker.includes("026d-026e"), "026E Daily Decision assets are stale or uncached");
+check("026G adaptive horizon engine", adaptiveHorizon.includes('const VERSION = "026G.1"') && adaptiveHorizon.includes("function buildProposal") && adaptiveHorizon.includes("function applyToDay"), "026G adaptive horizon engine is missing");
+check("026G adaptive horizon integration", html.includes('/assets/js/atlas-adaptive-horizon.js?v=026g') && html.indexOf('atlas-adaptive-horizon.js?v=026g') < html.indexOf('app.js?v=') && app.includes("buildCurrentAtlasAdaptiveHorizon") && app.includes("renderAtlasAdaptiveHorizon") && app.includes('persistClosedLoopState("ADAPTIVE_HORIZON"'), "026G adaptive horizon is not connected end to end");
+check("026G adaptive horizon guardrails", adaptiveHorizon.includes("automaticPlanMutation: false") && adaptiveHorizon.includes("sessionsAdded: 0") && adaptiveHorizon.includes("fuelTargetsChanged: false") && adaptiveHorizon.includes("longRunsCapped: false"), "026G bounded adaptation guardrails are missing");
+check("026G adaptive horizon cache", worker.includes('/assets/js/atlas-adaptive-horizon.js?v=026g') && worker.includes("026e-026g") && app.includes('/sw.js?v=026g'), "026G adaptive horizon assets are stale or uncached");
 check("cached Strength logger", worker.includes('/assets/js/strength-training.js?v=025g-025i-025j'), "service worker is caching the wrong Strength engine");
 check("025M Trends engine", trends.includes('const VERSION = "025M.1"') && trends.includes("function summarizeStrengthWorkload") && trends.includes("scorecards"), "025M outcome intelligence engine is incomplete");
 check("025M Trends integration", html.includes('data-trend-view="fuel"') && html.includes('/assets/js/trends-intelligence.js?v=025m') && app.includes("trend-training-command") && app.includes("trend-fuel-chart"), "025M Trends workspace is incomplete");

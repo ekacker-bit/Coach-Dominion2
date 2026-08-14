@@ -67,6 +67,7 @@ let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let currentAtlasDailyCommand = null;
 let currentDailyDecision = null;
+let currentAdaptiveHorizon = null;
 let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
@@ -5696,6 +5697,14 @@ function readCommittedUnifiedDay(value = todayISODate()) {
   return week ? DominionWeeklyOrchestrator.dayForDate(week, value) : null;
 }
 
+function readEffectiveUnifiedDay(value = todayISODate()) {
+  const date = String(value || todayISODate()).slice(0, 10);
+  const day = readCommittedUnifiedDay(date);
+  if (!day || typeof DominionAtlasAdaptiveHorizon === "undefined") return day;
+  const proposal = activeAtlasAdaptiveHorizon(date);
+  return DominionAtlasAdaptiveHorizon.applyToDay(day, proposal, adaptiveHorizonContext(date));
+}
+
 function splitDayCheckpointStorageKey(value = todayISODate()) {
   return `coach-dominion:split-day:${session?.user?.id || "local"}:${String(value).slice(0, 10)}`;
 }
@@ -6347,7 +6356,7 @@ function renderTodayCommittedWeek() {
     panel.innerHTML = `<div class="today-committed-week-empty"><div><strong>No complete week is committed.</strong><p>Review the unified calendar before Today begins assigning cross-module work.</p></div><a href="#calendar" data-section="calendar">Open Calendar</a></div>`;
     return;
   }
-  const day = DominionWeeklyOrchestrator.dayForDate(week, todayISODate());
+  const day = readEffectiveUnifiedDay(todayISODate());
   const state = DominionWeeklyOrchestrator.weekState(week, todayISODate());
   status.textContent = state;
   status.className = `state-pill ${weeklyOrchestrationTone(state)}`;
@@ -7059,13 +7068,15 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
   const synced = await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
   if (!options.skipPerformanceEvidence) await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
   await saveCurrentMissionExecutionSpine();
+  await runAtlasAdaptiveHorizon();
+  renderAtlasAdaptiveHorizon();
   setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
   return receipt;
 }
 
 function buildCurrentMissionCockpit() {
   if (typeof DominionMissionExecution === "undefined") return null;
-  const day = readCommittedUnifiedDay();
+  const day = readEffectiveUnifiedDay();
   const cockpit = DominionMissionExecution.buildCockpit({
     date: todayISODate(),
     day: day || {},
@@ -10863,7 +10874,7 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026e", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026g", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11563,6 +11574,7 @@ async function submitDailyCloseout(event) {
     const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(), { previous, now: new Date().toISOString() });
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
+    await runAtlasAdaptiveHorizon();
     const form = document.getElementById("daily-closeout-form");
     if (form) form.dataset.dirty = "false";
     renderDailyCoachingLoop();
@@ -11676,6 +11688,8 @@ async function loadClosedLoopState() {
       ["EXECUTION_SPINE", `mission-spine:${todayISODate()}`],
       ["LIVE_ADAPTATION", `atlas-live-adaptation:${todayISODate()}`],
       ["HISTORY", "atlas-live-adaptation"],
+      ["ADAPTIVE_HORIZON", `atlas-adaptive-horizon:${todayISODate()}`],
+      ["HISTORY", "atlas-adaptive-horizon"],
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "atlas-daily-command"],
@@ -12638,7 +12652,11 @@ function currentDailyCalendarOverride(date = todayISODate()) {
     : DominionAtlasLiveAdaptation.activeCalendarOverride(readAtlasLiveAdaptation(date), context);
   if (live) return live;
   const response = readAtlasDailyCommandResponse(date);
-  return response?.status === "ACTIVE" && response.date === date ? response.calendarOverride : null;
+  if (response?.status === "ACTIVE" && response.date === date) return response.calendarOverride;
+  const horizon = activeAtlasAdaptiveHorizon(date);
+  return typeof DominionAtlasAdaptiveHorizon === "undefined"
+    ? null
+    : DominionAtlasAdaptiveHorizon.calendarOverrideForDate(horizon, date, adaptiveHorizonContext(date));
 }
 
 function renderAtlasLiveAdaptation() {
@@ -12672,6 +12690,183 @@ function renderAtlasLiveAdaptation() {
   }
 }
 
+function atlasAdaptiveHorizonStateKey(sourceDate = todayISODate()) {
+  return `atlas-adaptive-horizon:${String(sourceDate || todayISODate()).slice(0, 10)}`;
+}
+
+function readAtlasAdaptiveHorizon(sourceDate = todayISODate()) {
+  return readClosedLoopState("ADAPTIVE_HORIZON", atlasAdaptiveHorizonStateKey(sourceDate), null);
+}
+
+function readAtlasAdaptiveHorizonHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-adaptive-horizon", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function adaptiveHorizonContext(date = todayISODate()) {
+  const context = atlasDailyCommandContext(date);
+  let readiness = null;
+  if (dailyState?.date === date) {
+    try { readiness = evaluateOperationalReadiness(dailyState); }
+    catch (_) {}
+  }
+  return {
+    ...context,
+    readinessComplete: dailyState?.date === date,
+    readinessState: readiness?.state || dailyState?.classification || "",
+    pain: Boolean(dailyState?.date === date && dailyState?.pain)
+  };
+}
+
+function adaptiveHorizonCommittedDays(sourceDate = todayISODate()) {
+  if (typeof DominionAtlasAdaptiveHorizon === "undefined") return [];
+  return Array.from({ length: DominionAtlasAdaptiveHorizon.WINDOW_DAYS }, (_, index) => {
+    const date = DominionAtlasAdaptiveHorizon.addDays(sourceDate, index + 1);
+    const week = readCommittedUnifiedWeek(date);
+    const day = readCommittedUnifiedDay(date);
+    return day
+      ? { ...day, weekId: week?.id || null, weekRevision: Number(week?.revision || 0), committed: true }
+      : { date, weekId: null, weekRevision: 0, activities: [], committed: false };
+  });
+}
+
+function buildCurrentAtlasAdaptiveHorizon() {
+  if (typeof DominionAtlasAdaptiveHorizon === "undefined") return null;
+  const sourceDate = todayISODate();
+  const contract = readApprovedRecruitContract();
+  const sourceWeek = readCommittedUnifiedWeek(sourceDate);
+  const sourceDay = readEffectiveUnifiedDay(sourceDate);
+  const receipts = readMissionExecutionReceipts(sourceDate);
+  const closeout = readDailyCloseout(sourceDate);
+  const spine = buildCurrentMissionExecutionSpine();
+  const training = (spine?.assignments || []).filter((item) => item.kind === "TRAINING");
+  const history = readinessHistory.map((item) => {
+    let state = item.state || item.classification || "";
+    try { state = evaluateOperationalReadiness(item).state; }
+    catch (_) {}
+    return { ...item, state };
+  });
+  const prior = readAtlasAdaptiveHorizon(sourceDate);
+  return DominionAtlasAdaptiveHorizon.buildProposal({
+    sourceDate,
+    contractId: contract?.id || null,
+    contractRevision: Number(contract?.revision || 0),
+    sourceWeekId: sourceWeek?.id || null,
+    sourceWeekRevision: Number(sourceWeek?.revision || 0),
+    sourceDay: sourceDay || { date: sourceDate, activities: [] },
+    committedDays: adaptiveHorizonCommittedDays(sourceDate),
+    readinessHistory: history,
+    receipts,
+    plannedTraining: (sourceDay?.activities || []).length,
+    missionComplete: training.length > 0 ? training.every((item) => item.terminal) : closeout?.status === "SEALED",
+    closeoutSealed: closeout?.status === "SEALED",
+    priorProposal: prior,
+    generatedAt: new Date().toISOString()
+  });
+}
+
+async function saveAtlasAdaptiveHorizon(record = null) {
+  if (!record?.id || !record?.sourceDate) return false;
+  const history = [record, ...readAtlasAdaptiveHorizonHistory().filter((item) => item.id !== record.id)]
+    .sort((left, right) => String(right.sourceDate || "").localeCompare(String(left.sourceDate || "")))
+    .slice(0, 120);
+  currentAdaptiveHorizon = record;
+  saveClosedLoopLocal("ADAPTIVE_HORIZON", atlasAdaptiveHorizonStateKey(record.sourceDate), record);
+  saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", history);
+  const [currentSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("ADAPTIVE_HORIZON", atlasAdaptiveHorizonStateKey(record.sourceDate), record),
+    persistClosedLoopState("HISTORY", "atlas-adaptive-horizon", history)
+  ]);
+  return currentSaved && historySaved;
+}
+
+async function runAtlasAdaptiveHorizon() {
+  const proposal = buildCurrentAtlasAdaptiveHorizon();
+  if (!proposal) return null;
+  const stored = readAtlasAdaptiveHorizon(proposal.sourceDate);
+  currentAdaptiveHorizon = proposal;
+  if (stored?.id === proposal.id && stored.status === proposal.status && stored.updatedAt === proposal.updatedAt) return proposal;
+  await saveAtlasAdaptiveHorizon(proposal);
+  return proposal;
+}
+
+function activeAtlasAdaptiveHorizon(date = todayISODate()) {
+  if (typeof DominionAtlasAdaptiveHorizon === "undefined") return null;
+  const target = String(date || todayISODate()).slice(0, 10);
+  const context = adaptiveHorizonContext(target);
+  const records = [currentAdaptiveHorizon, ...readAtlasAdaptiveHorizonHistory()]
+    .filter(Boolean)
+    .filter((item, index, source) => source.findIndex((candidate) => candidate.id === item.id) === index)
+    .sort((left, right) => String(right.sourceDate || "").localeCompare(String(left.sourceDate || "")));
+  return records.find((proposal) => DominionAtlasAdaptiveHorizon.directiveForDate(proposal, target, context)) || null;
+}
+
+async function resolveAtlasAdaptiveHorizon(decision = "KEEP", context = {}) {
+  if (typeof DominionAtlasAdaptiveHorizon === "undefined") return null;
+  const proposal = buildCurrentAtlasAdaptiveHorizon();
+  if (!proposal) return null;
+  const resolved = DominionAtlasAdaptiveHorizon.resolveProposal(proposal, decision, {
+    ...context,
+    resolvedAt: new Date().toISOString()
+  });
+  const synced = await saveAtlasAdaptiveHorizon(resolved);
+  setText("atlas-adaptive-horizon-feedback", resolved.status === "APPROVED"
+    ? `Approved${synced ? " and synced" : " on this device"}. Only the bounded 72-hour window changes.`
+    : resolved.status === "HELD"
+      ? `Original plan kept${synced ? " and synced" : " on this device"}.`
+      : resolved.status === "AUTO_PROTECTED"
+        ? `Safety order acknowledged${synced ? " and synced" : " on this device"}. A fresh pain-free Roll Call can clear it.`
+        : `Context recorded${synced ? " and synced" : " on this device"}. No future change is active.`);
+  renderAtlasAdaptiveHorizon();
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  renderDailyCoachingLoop();
+  scheduleOperatingTruthReconciliation(100);
+  return resolved;
+}
+
+function adaptiveHorizonTone(proposal = {}) {
+  if (proposal.tone === "red") return "red";
+  if (proposal.tone === "yellow" || ["PROPOSED", "NEEDS_CONTEXT"].includes(proposal.status)) return "yellow";
+  if (proposal.tone === "green" || ["CURRENT", "APPROVED"].includes(proposal.status)) return "green";
+  return "neutral";
+}
+
+function renderAtlasAdaptiveHorizon() {
+  const section = document.getElementById("atlas-adaptive-horizon");
+  const days = document.getElementById("atlas-adaptive-horizon-days");
+  const actions = document.getElementById("atlas-adaptive-horizon-actions");
+  const form = document.getElementById("atlas-adaptive-horizon-context");
+  if (!section || !days || !actions || !form) return;
+  const proposal = currentAdaptiveHorizon?.sourceDate === todayISODate() ? currentAdaptiveHorizon : buildCurrentAtlasAdaptiveHorizon();
+  currentAdaptiveHorizon = proposal;
+  const visible = Boolean(proposal && proposal.code !== "SETUP_REQUIRED");
+  section.hidden = !visible;
+  if (!visible) return;
+  section.dataset.horizonStatus = proposal.status;
+  section.dataset.horizonTone = adaptiveHorizonTone(proposal);
+  setText("atlas-adaptive-horizon-title", proposal.headline);
+  setText("atlas-adaptive-horizon-detail", proposal.reason);
+  setText("atlas-adaptive-horizon-state", proposal.status.replaceAll("_", " "));
+  setText("atlas-adaptive-horizon-confidence", `${proposal.confidence} confidence`);
+  days.innerHTML = proposal.days.map((day) => `<li data-horizon-day-state="${escapeHtml(day.status)}"><span>${escapeHtml(new Date(`${day.date}T12:00:00Z`).toLocaleDateString([], { weekday: "short" }))}</span><div><strong>${escapeHtml(day.label)}</strong><small>${escapeHtml(day.detail)}</small></div></li>`).join("");
+  if (proposal.status === "AUTO_PROTECTED") {
+    actions.innerHTML = `<button type="button" data-adaptive-horizon-action="ROLL_CALL">Update Roll Call</button><button type="button" class="ghost" data-adaptive-horizon-action="ACKNOWLEDGE">Acknowledge</button><button type="button" class="ghost" data-adaptive-horizon-action="NOT_FIT">Add context</button>`;
+  } else if (proposal.status === "PROPOSED") {
+    actions.innerHTML = `<button type="button" data-adaptive-horizon-action="ACCEPT">Apply 72-hour change</button><button type="button" class="ghost" data-adaptive-horizon-action="KEEP">Keep plan</button><button type="button" class="ghost" data-adaptive-horizon-action="NOT_FIT">This doesn’t fit</button>`;
+  } else if (proposal.status === "NEEDS_CONTEXT") {
+    actions.innerHTML = `<button type="button" data-adaptive-horizon-action="ACCEPT">Apply 72-hour change</button><button type="button" class="ghost" data-adaptive-horizon-action="REOPEN_CONTEXT">Update context</button><button type="button" class="ghost" data-adaptive-horizon-action="KEEP">Keep plan</button>`;
+  } else if (proposal.status === "APPROVED") {
+    actions.innerHTML = `<button type="button" class="ghost" data-adaptive-horizon-action="KEEP">Restore committed plan</button>`;
+  } else if (proposal.status === "WAITING") {
+    actions.innerHTML = `<button type="button" class="ghost" data-adaptive-horizon-action="OPEN_TODAY">Continue today</button>`;
+  } else {
+    actions.innerHTML = "";
+  }
+  form.hidden = proposal.status !== "NEEDS_CONTEXT";
+  setText("atlas-adaptive-horizon-guardrail", "No added sessions. Fuel targets stay approved. Long-run time stays open.");
+}
+
 async function saveAtlasDailyCommandResponse(response) {
   if (!response?.id) return false;
   saveClosedLoopLocal("DECISION", atlasDailyCommandStateKey(response.date), response);
@@ -12702,10 +12897,11 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   if (!truth || !model || typeof DominionAtlasDailyCommand === "undefined") return model;
   const context = atlasDailyCommandContext(truth.date || todayISODate());
   const queue = buildCurrentDailyExecutionQueue();
+  const day = readEffectiveUnifiedDay(context.date);
   const command = DominionAtlasDailyCommand.buildDailyCommand({
     truth,
     model,
-    day: readCommittedUnifiedDay(),
+    day,
     queue,
     response: readAtlasDailyCommandResponse(context.date),
     readinessComplete: dailyState?.date === context.date,
@@ -12724,7 +12920,11 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   const adapted = typeof DominionAtlasLiveAdaptation === "undefined"
     ? executable
     : DominionAtlasLiveAdaptation.applyToCommand(executable, proposal, context);
-  if (typeof DominionDailyDecision === "undefined") return adapted;
+  const horizon = activeAtlasAdaptiveHorizon(context.date);
+  const horizonAdapted = typeof DominionAtlasAdaptiveHorizon === "undefined"
+    ? adapted
+    : DominionAtlasAdaptiveHorizon.applyToCommand(adapted, horizon, adaptiveHorizonContext(context.date));
+  if (typeof DominionDailyDecision === "undefined") return horizonAdapted;
   let activation = { modules: [] };
   try {
     activation = typeof DominionContractActivation === "undefined"
@@ -12739,8 +12939,8 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   currentDailyDecision = DominionDailyDecision.buildDailyDecision({
     operatingDate: context.date,
     truth,
-    command: adapted,
-    day: readCommittedUnifiedDay(),
+    command: horizonAdapted,
+    day,
     queue,
     plans: activation.modules || [],
     continuityBlocker: blocker,
@@ -12748,7 +12948,7 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     readiness,
     readinessComplete: dailyState?.date === context.date
   });
-  return DominionDailyDecision.applyToCommand(adapted, currentDailyDecision);
+  return DominionDailyDecision.applyToCommand(horizonAdapted, currentDailyDecision);
 }
 
 function dailyDecisionModuleState(domain = "training") {
@@ -12866,12 +13066,16 @@ function readActiveAdaptiveDirective(date = todayISODate()) {
   const commandDirective = typeof DominionAtlasDailyCommand === "undefined"
     ? null
     : DominionAtlasDailyCommand.responseDirective(readAtlasDailyCommandResponse(date), context);
+  const horizonDirective = typeof DominionAtlasAdaptiveHorizon === "undefined"
+    ? null
+    : DominionAtlasAdaptiveHorizon.directiveForDate(activeAtlasAdaptiveHorizon(date), date, adaptiveHorizonContext(date));
   const weeklyDirective = typeof DominionAdaptiveCoaching === "undefined"
     ? null
     : DominionAdaptiveCoaching.directiveForDate(readAtlasAdaptiveWeekState(), date)
       || DominionAdaptiveCoaching.directiveForDate(readAdaptiveCoachingState(), date);
   return liveDirective
     || commandDirective
+    || horizonDirective
     || weeklyDirective;
 }
 
@@ -15307,6 +15511,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   renderAtlasDailyCommandAdjustment(model);
   renderMissionExecutionSpine();
   renderAtlasLiveAdaptation();
+  renderAtlasAdaptiveHorizon();
   renderActivationRepair(truth);
   renderTodayFlow(model);
   renderDailyDecisionSurfaces(model.dailyDecision || currentDailyDecision);
@@ -18357,6 +18562,7 @@ async function init() {
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
     await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
     await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
+    await runStartupTask("Atlas adaptive horizon", runAtlasAdaptiveHorizon, startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
@@ -18394,6 +18600,7 @@ async function init() {
 
 if (typeof document !== "undefined") {
   if (typeof DominionDailyDecision !== "undefined") DominionDailyDecision.installExperience(document);
+  if (typeof DominionAtlasAdaptiveHorizon !== "undefined") DominionAtlasAdaptiveHorizon.installExperience(document);
   if (typeof DominionWeeklyAdvancement !== "undefined") DominionWeeklyAdvancement.installExperience(document);
   applyProductPolish();
   startProductPolishObserver();
@@ -18724,6 +18931,48 @@ if (typeof document !== "undefined") {
       form.hidden = true;
     } catch (error) {
       setText("atlas-live-adaptation-feedback-text", error?.message || "Atlas could not record that context.");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  });
+  document.getElementById("atlas-adaptive-horizon")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-adaptive-horizon-action]");
+    if (!button) return;
+    const action = button.dataset.adaptiveHorizonAction;
+    const form = document.getElementById("atlas-adaptive-horizon-context");
+    if (["NOT_FIT", "REOPEN_CONTEXT"].includes(action)) {
+      if (form) form.hidden = false;
+      form?.querySelector("select")?.focus();
+      return;
+    }
+    if (action === "CANCEL_CONTEXT") {
+      if (form) form.hidden = true;
+      return;
+    }
+    if (action === "ROLL_CALL") {
+      openMobileCommandSheet("roll-call");
+      return;
+    }
+    if (action === "OPEN_TODAY") {
+      document.getElementById("one-command")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    button.disabled = true;
+    try { await resolveAtlasAdaptiveHorizon(action); }
+    catch (error) { setText("atlas-adaptive-horizon-feedback", error?.message || "Atlas could not save that horizon choice."); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("atlas-adaptive-horizon-context")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
+    const values = new FormData(form);
+    if (submit) submit.disabled = true;
+    try {
+      await resolveAtlasAdaptiveHorizon("NOT_FIT", { reason: values.get("reason"), note: values.get("note") });
+      form.hidden = true;
+    } catch (error) {
+      setText("atlas-adaptive-horizon-feedback", error?.message || "Atlas could not record that context.");
     } finally {
       if (submit) submit.disabled = false;
     }

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -978,6 +978,31 @@
             </div>
             <p id="daily-ritual-feedback" class="daily-ritual-feedback" aria-live="polite"></p>
           </section>
+        </section>
+
+        <section id="atlas-adaptive-horizon" class="card atlas-adaptive-horizon" aria-labelledby="atlas-adaptive-horizon-title" data-horizon-status="WAITING" hidden>
+          <header>
+            <div><div class="kicker">NEXT 72 HOURS</div><h2 id="atlas-adaptive-horizon-title">Finish today first</h2><p id="atlas-adaptive-horizon-detail">Verified execution and Roll Call unlock tomorrow.</p></div>
+            <span id="atlas-adaptive-horizon-state" class="state-pill neutral">WAITING</span>
+          </header>
+          <div class="atlas-adaptive-horizon-meta"><span id="atlas-adaptive-horizon-confidence">Low confidence</span><strong>Tomorrow through day three</strong></div>
+          <ol id="atlas-adaptive-horizon-days" aria-label="Atlas next 72-hour outlook"></ol>
+          <div id="atlas-adaptive-horizon-actions" class="atlas-adaptive-horizon-actions"></div>
+          <form id="atlas-adaptive-horizon-context" class="atlas-adaptive-horizon-context" hidden>
+            <label>What is missing?
+              <select name="reason" required>
+                <option value="">Choose one</option>
+                <option value="READINESS_MISMATCH">Readiness feels wrong</option>
+                <option value="SCHEDULE_CONFLICT">Schedule changed</option>
+                <option value="EQUIPMENT_CONSTRAINT">Equipment is unavailable</option>
+                <option value="MISSING_CONTEXT">Atlas is missing context</option>
+              </select>
+            </label>
+            <label>One detail <span>optional</span><input name="note" maxlength="240" placeholder="What should Atlas account for?"></label>
+            <div><button type="button" class="ghost" data-adaptive-horizon-action="CANCEL_CONTEXT">Cancel</button><button type="submit">Record context</button></div>
+          </form>
+          <p id="atlas-adaptive-horizon-guardrail" class="atlas-adaptive-horizon-guardrail">No added sessions. Fuel targets stay approved. Long-run time stays open.</p>
+          <p id="atlas-adaptive-horizon-feedback" role="status" aria-live="polite"></p>
         </section>
 
         <section id="atlas-decision-center" class="card atlas-decision-center" aria-labelledby="atlas-decision-center-heading" data-decision-state="CLEAR" hidden>
@@ -2279,11 +2304,12 @@
 <script src="/assets/js/daily-decision.js?v=026e"></script>
 <script src="/assets/js/mission-execution-spine.js?v=026b"></script>
 <script src="/assets/js/atlas-live-adaptation.js?v=026c"></script>
+<script src="/assets/js/atlas-adaptive-horizon.js?v=026g"></script>
 <script src="/assets/js/weekly-advancement.js?v=026d"></script>
 <script src="/assets/js/unified-blocker-resolution.js?v=025p"></script>
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g"></script>
 </body>
 </html>

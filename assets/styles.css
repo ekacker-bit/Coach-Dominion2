@@ -535,9 +535,9 @@ html[data-adaptive-horizon-ux="026G.1"] #atlas-adaptive-horizon {
   order: 4;
 }
 
-html[data-adaptive-horizon-ux="026G.1"] #one-command-context { order: 5; }
-html[data-adaptive-horizon-ux="026G.1"] #today-mission-details { order: 6; }
-html[data-adaptive-horizon-ux="026G.1"] #today-more-context { order: 7; }
+html[data-adaptive-horizon-ux="026G.1"] #one-command-context { order: 6; }
+html[data-adaptive-horizon-ux="026G.1"] #today-mission-details { order: 7; }
+html[data-adaptive-horizon-ux="026G.1"] #today-more-context { order: 8; }
 
 .atlas-adaptive-horizon[hidden] { display: none !important; }
 
@@ -701,6 +701,55 @@ html[data-adaptive-horizon-ux="026G.1"] #today-more-context { order: 7; }
   .atlas-adaptive-horizon-actions button { width: 100%; }
   .atlas-adaptive-horizon-context { grid-template-columns: 1fr; }
   .atlas-adaptive-horizon-context > div { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+/* Build 026H - close every Atlas adjustment against actual outcomes. */
+html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5; }
+.atlas-adaptation-outcome[hidden] { display: none !important; }
+
+.atlas-adaptation-outcome {
+  --outcome-tone: rgba(212, 159, 55, .55);
+  display: grid;
+  gap: 16px;
+  padding: clamp(20px, 3vw, 28px);
+  border-color: var(--outcome-tone);
+  background: linear-gradient(135deg, rgba(212, 159, 55, .07), transparent 46%), #090d0f;
+}
+
+.atlas-adaptation-outcome[data-outcome-tone="green"] { --outcome-tone: rgba(75, 135, 88, .72); }
+.atlas-adaptation-outcome[data-outcome-tone="red"] { --outcome-tone: rgba(164, 58, 54, .78); }
+.atlas-adaptation-outcome[data-outcome-tone="neutral"] { --outcome-tone: rgba(127, 139, 145, .42); }
+.atlas-adaptation-outcome > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.atlas-adaptation-outcome > header h2 { margin: 5px 0 4px; font-size: clamp(28px, 4vw, 42px); line-height: 1; }
+.atlas-adaptation-outcome > header p { max-width: 720px; margin: 0; color: var(--muted); }
+.atlas-adaptation-outcome-evidence { display: flex; flex-wrap: wrap; gap: 9px; margin: 0; color: var(--muted); font-size: 12px; }
+.atlas-adaptation-outcome-evidence strong { color: var(--gold); text-transform: uppercase; letter-spacing: .08em; }
+
+.atlas-adaptation-outcome-lesson {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-left: 3px solid var(--outcome-tone);
+  background: rgba(255, 255, 255, .025);
+}
+
+.atlas-adaptation-outcome-lesson span { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .13em; }
+.atlas-adaptation-outcome-lesson strong { color: var(--stone); font-size: clamp(16px, 2vw, 20px); line-height: 1.35; }
+.atlas-adaptation-outcome-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.atlas-adaptation-outcome-kept { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+.atlas-adaptation-outcome-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0, 0, 0, .28); }
+.atlas-adaptation-outcome-context[hidden] { display: none; }
+.atlas-adaptation-outcome-context > div { display: flex; align-items: end; gap: 8px; }
+#atlas-adaptation-outcome-feedback { margin: 0; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 760px) {
+  .atlas-adaptation-outcome { padding: 18px; }
+  .atlas-adaptation-outcome > header { display: grid; grid-template-columns: 1fr; }
+  .atlas-adaptation-outcome > header .state-pill { justify-self: start; }
+  .atlas-adaptation-outcome-actions { display: grid; grid-template-columns: 1fr; }
+  .atlas-adaptation-outcome-actions button { width: 100%; }
+  .atlas-adaptation-outcome-context { grid-template-columns: 1fr; }
+  .atlas-adaptation-outcome-context > div { display: grid; grid-template-columns: 1fr 1fr; }
 }
 
 /* Build 026D — one weekly judgment and one advancement path */
@@ -3024,6 +3073,19 @@ html[data-adaptive-horizon-ux="026G.1"] #today-more-context { order: 7; }
 .weekly-closeout-days-list > span { padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; }
 .weekly-closeout-days-list strong { margin-right: 6px; color: var(--gold); }
 
+.weekly-adaptation-outcomes { margin: 18px 0; padding: 18px; border: 1px solid rgba(212, 175, 55, .28); border-radius: 10px; background: rgba(10, 10, 10, .42); }
+.weekly-adaptation-outcomes > header { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
+.weekly-adaptation-outcomes > header span { color: var(--gold); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
+.weekly-adaptation-outcomes > header h3 { margin: 4px 0 0; }
+.weekly-adaptation-outcomes > header small { color: var(--muted); }
+.weekly-adaptation-outcomes-list { display: grid; gap: 9px; margin-top: 14px; }
+.weekly-adaptation-outcomes-list article { display: grid; grid-template-columns: 105px minmax(160px, .7fr) minmax(220px, 1.3fr) auto; align-items: center; gap: 12px; padding: 13px; border: 1px solid var(--line); border-left: 3px solid rgba(127, 139, 145, .5); border-radius: 8px; }
+.weekly-adaptation-outcomes-list article[data-outcome-tone="green"] { border-left-color: #4b8758; }
+.weekly-adaptation-outcomes-list article[data-outcome-tone="red"] { border-left-color: #a43a36; }
+.weekly-adaptation-outcomes-list article > span,
+.weekly-adaptation-outcomes-list article > small { color: var(--muted); font-size: 11px; }
+.weekly-adaptation-outcomes-list article p { margin: 0; color: var(--muted); }
+
 @media (max-width: 720px) {
   .daily-closeout-panel > summary { min-height: 58px; padding: 12px; }
   .daily-closeout-panel > summary strong { font-size: 22px; }
@@ -3046,6 +3108,9 @@ html[data-adaptive-horizon-ux="026G.1"] #today-more-context { order: 7; }
   .weekly-closeout-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .weekly-closeout-metrics > div:nth-child(2) { border-right: 0; }
   .weekly-closeout-metrics > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .weekly-adaptation-outcomes { padding: 14px 12px; }
+  .weekly-adaptation-outcomes > header { align-items: start; }
+  .weekly-adaptation-outcomes-list article { grid-template-columns: 1fr; gap: 5px; }
 }
 
 /* Build 022E — Atlas closes the loop with an evidence-backed observation verdict. */

@@ -51,7 +51,7 @@ test("Build 026D is responsive and refresh-safe", () => {
   assert.match(styles, /@media \(max-width: 760px\)/);
   assert.match(worker, /coach-dominion-[^"\s]*026d/);
   assert.match(worker, /weekly-advancement\.js\?v=026d/);
-  assert.match(app, /sw\.js\?v=026(?:d|e)/);
+  assert.match(app, /sw\.js\?v=026(?:d|e|g|h)/);
   assert.match(changelog, /Build 026D Weekly Judgment/);
   assert.ok(pkg.scripts["test:026d"]);
 });

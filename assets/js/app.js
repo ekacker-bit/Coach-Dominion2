@@ -68,6 +68,7 @@ let currentOperatingTruth = null;
 let currentAtlasDailyCommand = null;
 let currentDailyDecision = null;
 let currentAdaptiveHorizon = null;
+let currentAdaptationOutcome = null;
 let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
@@ -7069,6 +7070,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
   if (!options.skipPerformanceEvidence) await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
   await saveCurrentMissionExecutionSpine();
   await runAtlasAdaptiveHorizon();
+  await runAtlasAdaptationOutcomes();
   renderAtlasAdaptiveHorizon();
   setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
   return receipt;
@@ -10857,7 +10859,7 @@ function registerMobileServiceWorker() {
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
   // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
-  const reloadKey = "coach-dominion:service-worker-reload:026d";
+  const reloadKey = "coach-dominion:service-worker-reload:026h";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -10874,7 +10876,7 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025o", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026g", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026h", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11351,6 +11353,7 @@ function renderDailyCoachingLoop() {
   renderMorningVerification();
   renderCoreToday();
   renderTodayRecoveryExecution();
+  renderAtlasAdaptationOutcome();
   const panel = document.getElementById("daily-orders-panel");
   const phases = document.getElementById("daily-loop-phases");
   if (!panel || !phases) return;
@@ -11575,6 +11578,7 @@ async function submitDailyCloseout(event) {
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
     await runAtlasAdaptiveHorizon();
+    await runAtlasAdaptationOutcomes();
     const form = document.getElementById("daily-closeout-form");
     if (form) form.dataset.dirty = "false";
     renderDailyCoachingLoop();
@@ -11621,6 +11625,8 @@ function closedLoopPayloadTimestamp(payload) {
     payload.closedAt,
     payload.rolledBackAt,
     payload.generatedAt,
+    payload.acknowledgedAt,
+    payload.challengedAt,
     payload.adaptation?.approvedAt,
     payload.adaptation?.generatedAt,
     payload.reconciliation?.generatedAt
@@ -11690,6 +11696,7 @@ async function loadClosedLoopState() {
       ["HISTORY", "atlas-live-adaptation"],
       ["ADAPTIVE_HORIZON", `atlas-adaptive-horizon:${todayISODate()}`],
       ["HISTORY", "atlas-adaptive-horizon"],
+      ["HISTORY", "atlas-adaptation-outcomes"],
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "atlas-daily-command"],
@@ -11713,6 +11720,13 @@ async function loadClosedLoopState() {
         saveClosedLoopLocal(stateType, stateKey, row.payload);
       }
     }
+    rows.filter((item) => item.state_type === "EVIDENCE" && String(item.state_key || "").startsWith("mission:"))
+      .forEach((row) => {
+        const local = readClosedLoopState(row.state_type, row.state_key, null);
+        const localTimestamp = closedLoopPayloadTimestamp(local);
+        const remoteTimestamp = Date.parse(row.updated_at || "") || 0;
+        if (!local || remoteTimestamp >= localTimestamp) saveClosedLoopLocal(row.state_type, row.state_key, row.payload);
+      });
     await ensureMorningVerification({ persist: true });
     renderDailyCoachingLoop();
     renderWeeklyCloseoutEvidence();
@@ -12760,6 +12774,7 @@ function buildCurrentAtlasAdaptiveHorizon() {
     plannedTraining: (sourceDay?.activities || []).length,
     missionComplete: training.length > 0 ? training.every((item) => item.terminal) : closeout?.status === "SEALED",
     closeoutSealed: closeout?.status === "SEALED",
+    calibrationMemory: typeof DominionAtlasAdaptationOutcomes !== "undefined" ? DominionAtlasAdaptationOutcomes.calibrationMemory(readAtlasAdaptationOutcomeHistory()) : [],
     priorProposal: prior,
     generatedAt: new Date().toISOString()
   });
@@ -12865,6 +12880,129 @@ function renderAtlasAdaptiveHorizon() {
   }
   form.hidden = proposal.status !== "NEEDS_CONTEXT";
   setText("atlas-adaptive-horizon-guardrail", "No added sessions. Fuel targets stay approved. Long-run time stays open.");
+}
+
+function atlasAdaptationOutcomeStateKey(proposal = {}) {
+  return `atlas-adaptation-outcome:${String(proposal.sourceDate || proposal.id || "unknown").slice(0, 40)}`;
+}
+
+function readAtlasAdaptationOutcome(proposal = {}) {
+  return readClosedLoopState("ADAPTATION_OUTCOME", atlasAdaptationOutcomeStateKey(proposal), null);
+}
+
+function readAtlasAdaptationOutcomeHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-adaptation-outcomes", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function atlasAdaptationEvidence(proposal = {}) {
+  return (proposal.days || []).map((day) => ({
+    date: day.date,
+    receipts: readMissionExecutionReceipts(day.date),
+    closeout: readDailyCloseout(day.date)
+  }));
+}
+
+function buildAtlasAdaptationOutcome(proposal = {}, now = new Date().toISOString()) {
+  if (typeof DominionAtlasAdaptationOutcomes === "undefined" || !proposal?.id) return null;
+  const today = String(now).slice(0, 10);
+  const reviewCloseout = readDailyCloseout(proposal.reviewDate);
+  return DominionAtlasAdaptationOutcomes.buildOutcome({
+    proposal,
+    readinessHistory,
+    evidenceByDate: atlasAdaptationEvidence(proposal),
+    priorOutcome: readAtlasAdaptationOutcome(proposal),
+    evaluatedAt: now,
+    windowClosed: today > proposal.reviewDate || (today === proposal.reviewDate && Boolean(reviewCloseout?.sealedAt || reviewCloseout?.updatedAt))
+  });
+}
+
+async function saveAtlasAdaptationOutcome(record = null, proposal = {}) {
+  if (!record?.id) return false;
+  const history = [record, ...readAtlasAdaptationOutcomeHistory().filter((item) => item.id !== record.id)]
+    .sort((left, right) => String(right.reviewDate || "").localeCompare(String(left.reviewDate || "")))
+    .slice(0, 120);
+  currentAdaptationOutcome = history[0] || record;
+  saveClosedLoopLocal("ADAPTATION_OUTCOME", atlasAdaptationOutcomeStateKey(proposal || record), record);
+  saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", history);
+  const [recordSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("ADAPTATION_OUTCOME", atlasAdaptationOutcomeStateKey(proposal || record), record),
+    persistClosedLoopState("HISTORY", "atlas-adaptation-outcomes", history)
+  ]);
+  return recordSaved && historySaved;
+}
+
+async function runAtlasAdaptationOutcomes() {
+  if (typeof DominionAtlasAdaptationOutcomes === "undefined") return null;
+  const proposals = readAtlasAdaptiveHorizonHistory()
+    .filter((item) => ["APPROVED", "AUTO_PROTECTED", "CURRENT"].includes(item.status))
+    .sort((left, right) => String(right.sourceDate || "").localeCompare(String(left.sourceDate || "")))
+    .slice(0, 30);
+  for (const proposal of proposals) {
+    const outcome = buildAtlasAdaptationOutcome(proposal);
+    if (!outcome || outcome.status === "WAITING") continue;
+    const prior = readAtlasAdaptationOutcome(proposal);
+    if (!prior || prior.fingerprint !== outcome.fingerprint || prior.status !== outcome.status) {
+      await saveAtlasAdaptationOutcome(outcome, proposal);
+    }
+  }
+  currentAdaptationOutcome = readAtlasAdaptationOutcomeHistory()[0] || null;
+  renderAtlasAdaptationOutcome();
+  return currentAdaptationOutcome;
+}
+
+async function resolveAtlasAdaptationOutcome(response = "KEEP_LESSON", context = {}) {
+  if (typeof DominionAtlasAdaptationOutcomes === "undefined" || !currentAdaptationOutcome) return null;
+  const resolved = DominionAtlasAdaptationOutcomes.resolveOutcome(currentAdaptationOutcome, response, {
+    ...context,
+    resolvedAt: new Date().toISOString()
+  });
+  const proposal = readAtlasAdaptiveHorizonHistory().find((item) => item.id === resolved.proposalId) || resolved;
+  const synced = await saveAtlasAdaptationOutcome(resolved, proposal);
+  await runAtlasAdaptiveHorizon();
+  setText("atlas-adaptation-outcome-feedback", resolved.status === "ACKNOWLEDGED"
+    ? `Verified lesson kept${synced ? " and synced" : " on this device"}. It may inform future explanations, never silently rewrite a plan.`
+    : `Your correction is recorded${synced ? " and synced" : " on this device"}. This conclusion will not enter Atlas memory.`);
+  renderAtlasAdaptationOutcome();
+  renderWeeklyAdaptationOutcomes();
+  return resolved;
+}
+
+function renderAtlasAdaptationOutcome() {
+  const section = document.getElementById("atlas-adaptation-outcome");
+  const actions = document.getElementById("atlas-adaptation-outcome-actions");
+  const form = document.getElementById("atlas-adaptation-outcome-context");
+  if (!section || !actions || !form) return;
+  const outcome = currentAdaptationOutcome || readAtlasAdaptationOutcomeHistory()[0] || null;
+  currentAdaptationOutcome = outcome;
+  const visible = Boolean(outcome && !["WAITING", "NOT_APPLIED"].includes(outcome.code));
+  section.hidden = !visible;
+  if (!visible) return;
+  section.dataset.outcomeStatus = outcome.status;
+  section.dataset.outcomeTone = outcome.tone || "neutral";
+  setText("atlas-adaptation-outcome-title", outcome.headline);
+  setText("atlas-adaptation-outcome-detail", outcome.detail);
+  const displayState = outcome.status === "ACKNOWLEDGED" ? "KEPT" : outcome.status === "CHALLENGED" ? "CORRECTED" : outcome.code === "NEEDS_REVIEW" ? "REVIEW" : ["HELPED", "HELD_STANDARD"].includes(outcome.code) ? "VERIFIED" : "EVIDENCE THIN";
+  setText("atlas-adaptation-outcome-state", displayState);
+  setText("atlas-adaptation-outcome-evidence", outcome.evidenceSummary);
+  setText("atlas-adaptation-outcome-lesson", outcome.lesson);
+  actions.innerHTML = outcome.status === "READY"
+    ? `${outcome.calibrationEligible ? `<button type="button" data-adaptation-outcome-action="KEEP_LESSON">${outcome.code === "NEEDS_REVIEW" ? "Keep this safeguard" : "Keep this lesson"}</button>` : ""}<button type="button" class="ghost" data-adaptation-outcome-action="CHALLENGE">This feels wrong</button>`
+    : outcome.status === "ACKNOWLEDGED"
+      ? '<span class="atlas-adaptation-outcome-kept">Verified lesson kept</span>'
+      : '<span class="atlas-adaptation-outcome-kept">Correction recorded - excluded from memory</span>';
+  form.hidden = outcome.status !== "READY";
+}
+
+function renderWeeklyAdaptationOutcomes(range = null) {
+  const list = document.getElementById("weekly-adaptation-outcomes-list");
+  if (!list) return;
+  const selectedDate = document.getElementById("weekly-date")?.value || todayISODate();
+  const selectedRange = range || getInspectionWeekRange(selectedDate);
+  const outcomes = readAtlasAdaptationOutcomeHistory().filter((item) => item.reviewDate >= selectedRange.weekStartDate && item.reviewDate <= selectedRange.weekEndDate && !["WAITING", "NOT_APPLIED"].includes(item.code));
+  list.innerHTML = outcomes.length
+    ? outcomes.map((item) => `<article data-outcome-tone="${escapeHtml(item.tone || "neutral")}"><span>${escapeHtml(item.reviewDate)}</span><strong>${escapeHtml(item.headline)}</strong><p>${escapeHtml(item.lesson)}</p><small>${escapeHtml(item.status.replaceAll("_", " "))} · ${escapeHtml(item.confidence || "LOW")} confidence</small></article>`).join("")
+    : '<div class="performance-empty">No completed Atlas adjustment window in this week.</div>';
 }
 
 async function saveAtlasDailyCommandResponse(response) {
@@ -15512,6 +15650,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   renderMissionExecutionSpine();
   renderAtlasLiveAdaptation();
   renderAtlasAdaptiveHorizon();
+  renderAtlasAdaptationOutcome();
   renderActivationRepair(truth);
   renderTodayFlow(model);
   renderDailyDecisionSurfaces(model.dailyDecision || currentDailyDecision);
@@ -18563,6 +18702,7 @@ async function init() {
     await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
     await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
     await runStartupTask("Atlas adaptive horizon", runAtlasAdaptiveHorizon, startupIssues);
+    await runStartupTask("Atlas adaptation outcomes", runAtlasAdaptationOutcomes, startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
@@ -18601,6 +18741,7 @@ async function init() {
 if (typeof document !== "undefined") {
   if (typeof DominionDailyDecision !== "undefined") DominionDailyDecision.installExperience(document);
   if (typeof DominionAtlasAdaptiveHorizon !== "undefined") DominionAtlasAdaptiveHorizon.installExperience(document);
+  if (typeof DominionAtlasAdaptationOutcomes !== "undefined") DominionAtlasAdaptationOutcomes.installExperience(document);
   if (typeof DominionWeeklyAdvancement !== "undefined") DominionWeeklyAdvancement.installExperience(document);
   applyProductPolish();
   startProductPolishObserver();
@@ -18973,6 +19114,40 @@ if (typeof document !== "undefined") {
       form.hidden = true;
     } catch (error) {
       setText("atlas-adaptive-horizon-feedback", error?.message || "Atlas could not record that context.");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  });
+  document.getElementById("atlas-adaptation-outcome")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-adaptation-outcome-action]");
+    if (!button) return;
+    const action = button.dataset.adaptationOutcomeAction;
+    const form = document.getElementById("atlas-adaptation-outcome-context");
+    if (action === "CHALLENGE") {
+      if (form) form.hidden = false;
+      form?.querySelector("select")?.focus();
+      return;
+    }
+    if (action === "CANCEL") {
+      if (form) form.hidden = true;
+      return;
+    }
+    button.disabled = true;
+    try { await resolveAtlasAdaptationOutcome(action); }
+    catch (error) { setText("atlas-adaptation-outcome-feedback", error?.message || "Atlas could not save that outcome response."); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById("atlas-adaptation-outcome-context")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
+    const values = new FormData(form);
+    if (submit) submit.disabled = true;
+    try {
+      await resolveAtlasAdaptationOutcome("CHALLENGE", { reason: values.get("reason"), note: values.get("note") });
+      form.hidden = true;
+    } catch (error) {
+      setText("atlas-adaptation-outcome-feedback", error?.message || "Atlas could not record that correction.");
     } finally {
       if (submit) submit.disabled = false;
     }
@@ -22557,6 +22732,7 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const evidenceList = document.getElementById("weekly-evidence");
   if (evidenceList) evidenceList.innerHTML = (aggregate.dailyEvidence || []).map((day) => `<article class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><strong>${escapeHtml(day.date)}</strong><span>${day.periodState === "FUTURE" ? "Future" : `${day.assessedCount}/5 recorded`}</span></article>`).join("");
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
+  renderWeeklyAdaptationOutcomes({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`

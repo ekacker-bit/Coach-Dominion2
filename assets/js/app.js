@@ -105,6 +105,14 @@ let accountTruthState = {
   legacyFallback: false,
   recovered: false
 };
+let evidenceAutopilotTimer = null;
+let evidenceAutopilotState = {
+  reconciling: false,
+  lastReconciledAt: null,
+  lastSavedRemotely: false,
+  repairedPerformanceEntries: 0,
+  lastError: null
+};
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -474,6 +482,7 @@ function recordContinuityWrite(domain, stateType, stateKey, payload) {
     scheduleContinuitySync();
     scheduleAccountTruthSync();
   }
+  if (!evidenceAutopilotState.reconciling) scheduleEvidenceAutopilotReconciliation();
   return value;
 }
 
@@ -533,7 +542,8 @@ function accountTruthMissionEvidence() {
     ...readMissionExecutionReceipts(todayISODate()),
     ...readMissionDebriefHistory(),
     ...readMissionRecoveryHistory(),
-    ...readMorningVerificationHistory()
+    ...readMorningVerificationHistory(),
+    ...readEvidenceAutopilotHistory()
   ];
   return typeof DominionAccountTruth === "undefined"
     ? sources
@@ -780,6 +790,140 @@ async function flushAccountTruthPendingWrite(options = {}) {
   if (navigator.onLine === false || !session?.user?.id) return false;
   if (!options.force && !DominionAccountTruth.readyQueuedWrite(queue)) return false;
   return syncDominionAccountTruth({ force: true });
+}
+
+function readEvidenceAutopilotHistory() {
+  const history = readClosedLoopState("HISTORY", "evidence-autopilot", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function evidenceAutopilotMissionReceipts() {
+  const history = readClosedLoopState("HISTORY", "account-truth-mission-evidence", []);
+  return [
+    ...(Array.isArray(history) ? history : []),
+    ...readMissionExecutionReceipts(todayISODate())
+  ].filter((item) => item?.module && item?.summary && item?.id);
+}
+
+function evidenceAutopilotSources() {
+  const readiness = [...readinessHistory, dailyState]
+    .filter(Boolean)
+    .map((item) => ({ ...item, sourceType: "ROLL_CALL", domain: "readiness", kind: "ROLL_CALL", state: "COMPLETE", source: "COACH_DOMINION" }));
+  const closeouts = readDailyCloseoutHistory()
+    .map((item) => ({ ...item, sourceType: "DAILY_CLOSEOUT", domain: "closeout", kind: "CLOSEOUT", state: "SEALED", metrics: { steps: item.steps, discipline: item.discipline } }));
+  const strength = readStrengthHistory()
+    .map((item) => ({ ...item, sourceType: "STRENGTH_EXECUTION", domain: "strength", kind: "SESSION", sessionId: item.sessionId || item.id, sessionName: item.sessionName || item.sessionSnapshot?.title || "Strength session", metrics: missionExecutionSummary("STRENGTH", item, item.sessionSnapshot) }));
+  const core = readCoreHistory()
+    .map((item) => ({ ...item, sourceType: "CORE_EXECUTION", domain: "core", kind: "SESSION", sessionId: item.sessionId || item.id, sessionName: item.sessionName || "Core session", metrics: { exercisesCompleted: Object.values(item.completedExercises || {}).filter(Boolean).length, quality: item.quality, effort: item.effort } }));
+  const performance = performanceEntries.map((item) => ({ ...item, sourceType: "PERFORMANCE_ENTRY" }));
+  const fuelLedger = readFuelClosedLoopLedger();
+  const fuel = (fuelLedger.closeouts || [])
+    .map((item) => ({ ...item, sourceType: "FUEL_CLOSEOUT", domain: "nutrition", kind: "INTAKE", state: item.status || "SEALED", metrics: item.metrics || item.actual || item.summary || {} }));
+  const meals = (readMealExecutionLedger().history || [])
+    .filter((item) => String(item.status || "").toUpperCase() === "CONFIRMED")
+    .map((item) => ({ ...item, sourceType: "MEAL_EXECUTION", domain: "nutrition", kind: "MEAL", state: "CONFIRMED", metrics: item.actual || item.estimate || {} }));
+  const recovery = readMissionRecoveryHistory()
+    .filter((item) => item?.completedAt || item?.status === "COMPLETE")
+    .map((item) => ({ ...item, sourceType: "RECOVERY_ORDER", domain: "recovery", kind: "RECOVERY", state: "COMPLETE", metrics: { completedTasks: (item.tasks || []).filter((task) => task.completedAt).length } }));
+  return [...evidenceAutopilotMissionReceipts(), ...strength, ...core, ...performance, ...fuel, ...meals, ...readiness, ...closeouts, ...recovery];
+}
+
+function evidenceAutopilotRequiredDomains(date = todayISODate()) {
+  const day = readEffectiveUnifiedDay(date);
+  const scheduled = (day?.activities || []).map((item) => DominionEvidenceAutopilot.normalizeDomain(item.module)).filter((domain) => ["strength", "running", "core", "nutrition"].includes(domain));
+  return [...new Set(["readiness", ...scheduled])];
+}
+
+function evidenceAutopilotWeekRequirements(date = todayISODate()) {
+  const week = readCommittedUnifiedWeek(date);
+  return (week?.days || []).map((day) => ({
+    date: day.date,
+    domains: [...new Set((day.activities || []).map((item) => DominionEvidenceAutopilot.normalizeDomain(item.module)).filter((domain) => ["strength", "running", "core", "nutrition"].includes(domain)))]
+  })).filter((item) => item.domains.length);
+}
+
+function evidenceAutopilotHasPerformanceEntry(receipt) {
+  return performanceEntries.some((entry) => {
+    if (entry.metrics?.source_evidence_id === receipt.id || String(entry.notes || "").includes(receipt.id)) return true;
+    if (entry.performanceDate !== receipt.date || entry.domain !== receipt.domain) return false;
+    const notes = String(entry.notes || "");
+    if ((receipt.sourceRefs || []).some((source) => source.sourceId && notes.includes(source.sourceId))) return true;
+    const receiptLabel = String(receipt.label || "").trim().toLowerCase();
+    const entryLabels = [entry.sessionName, entry.activityName].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+    return Boolean(receiptLabel) && entryLabels.includes(receiptLabel) && String(entry.source || "").toUpperCase() === "COACH_DOMINION";
+  });
+}
+
+async function repairEvidenceAutopilotPerformance(receipts = []) {
+  let repaired = 0;
+  for (const receipt of receipts) {
+    const entry = DominionEvidenceAutopilot.performanceEntryFor(receipt);
+    if (!entry || evidenceAutopilotHasPerformanceEntry(receipt)) continue;
+    try {
+      await persistPerformanceEvidenceEntry(entry);
+      repaired += 1;
+    } catch (_) {
+      // Incomplete evidence remains a proof receipt and never becomes a trend entry.
+    }
+  }
+  return repaired;
+}
+
+function renderEvidenceAutopilot() {
+  if (typeof DominionEvidenceAutopilot === "undefined") return;
+  const receipts = readEvidenceAutopilotHistory();
+  const today = DominionEvidenceAutopilot.dailyProof(todayISODate(), receipts, evidenceAutopilotRequiredDomains());
+  const todayRoot = document.getElementById("evidence-autopilot-status");
+  if (todayRoot) {
+    const securedCount = today.secured.length;
+    const missing = today.missingDomains.map((item) => item.toUpperCase().replaceAll("_", " "));
+    todayRoot.dataset.proofTone = missing.length ? "yellow" : securedCount ? "green" : "neutral";
+    setText("evidence-autopilot-state", missing.length ? "PROOF NEEDED" : securedCount ? "SECURED" : "AWAITING ACTION");
+    setText("evidence-autopilot-headline", missing.length ? missing.join(" + ") : `${securedCount} proof${securedCount === 1 ? "" : "s"} secured`);
+    setText("evidence-autopilot-detail", `${today.verified.length} verified · ${today.selfReported.length} self-reported${today.incomplete.length ? ` · ${today.incomplete.length} open` : ""}`);
+  }
+  const selectedDate = document.getElementById("weekly-date")?.value || todayISODate();
+  const range = getInspectionWeekRange(selectedDate);
+  const weekly = DominionEvidenceAutopilot.weeklyProof(range, receipts, evidenceAutopilotWeekRequirements(selectedDate));
+  setText("weekly-proof-secured", String(weekly.secured.length));
+  setText("weekly-proof-verified", String(weekly.verified.length));
+  setText("weekly-proof-reported", String(weekly.selfReported.length));
+  setText("weekly-proof-gaps", String(weekly.missing.length));
+  const weeklyRoot = document.getElementById("weekly-proof-status");
+  if (weeklyRoot) weeklyRoot.dataset.proofTone = weekly.missing.length ? "yellow" : weekly.secured.length ? "green" : "neutral";
+}
+
+async function reconcileEvidenceAutopilot(options = {}) {
+  if (typeof DominionEvidenceAutopilot === "undefined" || evidenceAutopilotState.reconciling) return readEvidenceAutopilotHistory();
+  evidenceAutopilotState.reconciling = true;
+  evidenceAutopilotState.lastError = null;
+  try {
+    const receipts = DominionEvidenceAutopilot.buildReceipts(evidenceAutopilotSources(), readEvidenceAutopilotHistory());
+    saveClosedLoopLocal("HISTORY", "evidence-autopilot", receipts);
+    const repaired = await repairEvidenceAutopilotPerformance(receipts);
+    const remote = options.persist === false ? false : await persistClosedLoopState("HISTORY", "evidence-autopilot", receipts);
+    evidenceAutopilotState = {
+      ...evidenceAutopilotState,
+      lastReconciledAt: new Date().toISOString(),
+      lastSavedRemotely: remote,
+      repairedPerformanceEntries: repaired
+    };
+    if (repaired) renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+    renderEvidenceAutopilot();
+    return receipts;
+  } catch (error) {
+    evidenceAutopilotState.lastError = error?.message || "Proof reconciliation unavailable";
+    renderEvidenceAutopilot();
+    return readEvidenceAutopilotHistory();
+  } finally {
+    evidenceAutopilotState.reconciling = false;
+  }
+}
+
+function scheduleEvidenceAutopilotReconciliation(delay = 180) {
+  if (typeof window === "undefined" || typeof DominionEvidenceAutopilot === "undefined" || evidenceAutopilotState.reconciling) return;
+  window.clearTimeout(evidenceAutopilotTimer);
+  evidenceAutopilotTimer = window.setTimeout(() => reconcileEvidenceAutopilot({ persist: true }), delay);
 }
 
 function markContinuityRecordSynced(domain, stateType, stateKey, payload, updatedAt = null) {
@@ -10556,6 +10700,7 @@ function saveMobileDailyState(payload = {}) {
   const saved = { ...payload, deviceSavedAt: new Date().toISOString() };
   window.localStorage.setItem(mobileDailyStateStorageKey(payload.date), JSON.stringify(saved));
   scheduleAccountTruthSync();
+  if (!evidenceAutopilotState.reconciling) scheduleEvidenceAutopilotReconciliation();
   return saved;
 }
 
@@ -11187,7 +11332,7 @@ function registerMobileServiceWorker() {
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
   // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
-  const reloadKey = "coach-dominion:service-worker-reload:026i";
+  const reloadKey = "coach-dominion:service-worker-reload:026j";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -11205,7 +11350,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=025p", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026h", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026i", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=026i", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026j", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11745,6 +11891,7 @@ function readClosedLoopState(stateType, stateKey = "current", fallback = null) {
 function saveClosedLoopLocal(stateType, stateKey, payload) {
   window.localStorage.setItem(closedLoopStorageKey(stateType, stateKey), JSON.stringify(payload));
   scheduleAccountTruthSync();
+  if (!evidenceAutopilotState.reconciling && !(stateType === "HISTORY" && stateKey === "evidence-autopilot")) scheduleEvidenceAutopilotReconciliation();
   return payload;
 }
 
@@ -11939,6 +12086,7 @@ function renderWeeklyCloseoutEvidence(range = null) {
   list.innerHTML = summary.days.length
     ? summary.days.map((day) => `<span><strong>${escapeHtml(day.date.slice(5))}</strong>${Number(day.steps?.effective || 0).toLocaleString()} steps · ${day.discipline?.answered || 0}/5</span>`).join("")
     : "<span>No daily closeouts in this week.</span>";
+  renderEvidenceAutopilot();
 }
 
 function closedLoopPayloadTimestamp(payload) {
@@ -11948,6 +12096,8 @@ function closedLoopPayloadTimestamp(payload) {
   if (!payload || typeof payload !== "object") return 0;
   const direct = [
     payload.updatedAt,
+    payload.capturedAt,
+    payload.occurredAt,
     payload.sealedAt,
     payload.approvedAt,
     payload.resolvedAt,
@@ -12029,6 +12179,7 @@ async function loadClosedLoopState() {
       ["HISTORY", "atlas-adaptation-outcomes"],
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
+      ["HISTORY", "evidence-autopilot"],
       ["HISTORY", "atlas-daily-command"],
       ["HISTORY", "atlas-decision-center"],
       ["CONTEXT", "recruit-constraints"]
@@ -12062,6 +12213,7 @@ async function loadClosedLoopState() {
     renderWeeklyCloseoutEvidence();
     renderRecruitConstraintMemory();
     renderAtlasDecisionCenter();
+    renderEvidenceAutopilot();
   } catch (_) {
     // Device state remains the explicit fallback.
   }
@@ -19024,6 +19176,7 @@ async function init() {
     await runStartupTask("Calendar", loadWeeklyOrchestrationState, startupIssues);
     await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
+    await runStartupTask("evidence autopilot", () => reconcileEvidenceAutopilot({ persist: true }), startupIssues);
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
@@ -19045,7 +19198,8 @@ async function init() {
       ["Atlas decisions", renderAtlasDecisionCenter],
       ["mobile command", renderMobileCommand],
       ["performance form", resetPerformanceForm],
-      ["performance workspace", () => setPerformanceActiveView("overview")]
+      ["performance workspace", () => setPerformanceActiveView("overview")],
+      ["evidence proof", renderEvidenceAutopilot]
     ];
     for (const [label, render] of finalRenders) {
       await runStartupTask(label, async () => render(), startupIssues);
@@ -19088,6 +19242,18 @@ if (typeof document !== "undefined") {
     renderMobileInstallExperience();
   });
   document.addEventListener("click", async (event) => {
+    const proofButton = event.target.closest("[data-evidence-autopilot-action]");
+    if (proofButton) {
+      event.preventDefault();
+      proofButton.disabled = true;
+      try {
+        await reconcileEvidenceAutopilot({ persist: true });
+        setText("mission-execution-feedback", evidenceAutopilotState.lastSavedRemotely ? "Proof rebuilt and saved to your account." : "Proof rebuilt on this device; account sync will retry.");
+      } finally {
+        proofButton.disabled = false;
+      }
+      return;
+    }
     const dailyDecisionButton = event.target.closest("[data-daily-decision-action]");
     if (dailyDecisionButton) {
       event.preventDefault();

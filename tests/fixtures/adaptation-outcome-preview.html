@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-adaptation-outcomes-ux="026H.1">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Build 026H Adaptation Outcome Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css?v=026h">
+  <style>
+    body { min-height: 100vh; }
+    .preview-shell { width: min(1000px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 80px; }
+    .preview-mast { margin-bottom: 24px; }
+    .preview-mast h1 { margin: 4px 0 8px; font-family: "Bebas Neue", Impact, sans-serif; font-size: clamp(44px, 7vw, 78px); letter-spacing: .03em; }
+    .preview-mast p { max-width: 660px; margin: 0; color: var(--muted); }
+    @media (max-width: 760px) { .preview-shell { width: min(100% - 24px, 1000px); padding-top: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <header class="preview-mast">
+      <div class="kicker">ATLAS // ADAPTATION OUTCOMES</div>
+      <h1>Prove the response.</h1>
+      <p>Atlas closes the loop only when post-window readiness and execution evidence support the conclusion.</p>
+    </header>
+    <section id="atlas-adaptation-outcome" class="card atlas-adaptation-outcome" data-outcome-status="READY">
+      <header><div><div class="kicker">ATLAS // WHAT CHANGED</div><h2 id="title"></h2><p id="detail"></p></div><span id="state" class="state-pill green">READY</span></header>
+      <p class="atlas-adaptation-outcome-evidence"><strong>Evidence</strong><span id="evidence"></span></p>
+      <div class="atlas-adaptation-outcome-lesson"><span>LESSON</span><strong id="lesson"></strong></div>
+      <div class="atlas-adaptation-outcome-actions"><button id="keep" type="button">Keep this lesson</button><button type="button" class="ghost">This feels wrong</button></div>
+      <p id="atlas-adaptation-outcome-feedback"></p>
+    </section>
+  </main>
+  <script src="/assets/js/atlas-adaptation-outcomes.js?v=026h"></script>
+  <script>
+    const unresolved = new URLSearchParams(location.search).get("state") === "review";
+    const proposal = {
+      id: "atlas-horizon:preview",
+      sourceDate: "2026-08-10",
+      effectiveDate: "2026-08-11",
+      reviewDate: "2026-08-13",
+      status: "APPROVED",
+      code: "DELOAD",
+      readiness: { latest: { date: "2026-08-10", state: "YELLOW", energy: 4, soreness: 7 } },
+      days: [
+        { date: "2026-08-11", directiveCode: "DELOAD", activities: [{ module: "STRENGTH" }] },
+        { date: "2026-08-12", directiveCode: "DELOAD", activities: [{ module: "RUNNING" }] },
+        { date: "2026-08-13", directiveCode: null, activities: [] }
+      ]
+    };
+    const result = DominionAtlasAdaptationOutcomes.buildOutcome({
+      proposal,
+      readinessHistory: unresolved
+        ? [{ date: "2026-08-13", state: "RED", pain: true }]
+        : [{ date: "2026-08-11", state: "YELLOW" }, { date: "2026-08-13", state: "GREEN", energy: 7, soreness: 3 }],
+      evidenceByDate: [
+        { date: "2026-08-11", receipts: [{ state: unresolved ? "PAIN_HOLD" : "COMPLETE", painReported: unresolved }], closeout: { status: "SEALED" } },
+        { date: "2026-08-12", receipts: [{ state: "SECURED" }], closeout: { status: "SEALED" } }
+      ],
+      evaluatedAt: "2026-08-14T08:00:00.000Z"
+    });
+    const root = document.getElementById("atlas-adaptation-outcome");
+    root.dataset.outcomeTone = result.tone;
+    root.dataset.outcomeStatus = result.status;
+    document.getElementById("title").textContent = result.headline;
+    document.getElementById("detail").textContent = result.detail;
+    document.getElementById("state").textContent = result.code === "NEEDS_REVIEW" ? "REVIEW" : "VERIFIED";
+    document.getElementById("state").className = `state-pill ${result.tone}`;
+    document.getElementById("evidence").textContent = result.evidenceSummary;
+    document.getElementById("lesson").textContent = result.lesson;
+    document.getElementById("keep").textContent = result.code === "NEEDS_REVIEW" ? "Keep this safeguard" : "Keep this lesson";
+  </script>
+</body>
+</html>

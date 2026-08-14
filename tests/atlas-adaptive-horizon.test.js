@@ -123,3 +123,13 @@ test("Build 026G expires after three days and never reaches an uncommitted date"
   assert.equal(horizon.directiveForDate(approved, "2026-08-17", { contractRevision: 8 }), null);
   assert.equal(proposal.days[2].weekId, "week-4");
 });
+
+test("Build 026H calibration changes explanation only, never the bounded decision", () => {
+  const baseline = input({ readinessHistory: [{ date: "2026-08-13", state: "YELLOW", energy: 4, soreness: 7 }] });
+  const calibrated = horizon.buildProposal({ ...baseline, calibrationMemory: [{ tag: "SHORT_REDUCTION_EFFECTIVE", lesson: "A short reduction restored readiness.", sourceOutcomeId: "outcome-1" }] });
+  assert.equal(calibrated.code, "DELOAD");
+  assert.equal(calibrated.status, "PROPOSED");
+  assert.equal(calibrated.calibration.tag, "SHORT_REDUCTION_EFFECTIVE");
+  assert.match(calibrated.reason, /Prior verified lesson/);
+  assert.equal(calibrated.bounds.automaticPlanMutation, false);
+});

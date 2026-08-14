@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 026H Adaptation Outcomes
+
+- Closes each completed 72-hour Atlas decision against post-window Roll Call, execution, and closeout evidence.
+- Distinguishes a helpful adjustment, a correctly held plan, an unresolved signal, and insufficient evidence in plain language.
+- Requires moderate or high independent evidence before a result can become an Atlas coaching lesson.
+- Lets the recruit keep or challenge the conclusion; challenged and inconclusive results never enter calibration memory.
+- Adds one compact outcome to Today and the matching weekly Review without creating another dashboard or silently changing a plan.
+
 ## Unreleased - Build 026G Adaptive Tomorrow
 
 - Turns verified readiness and completed execution into one bounded recommendation for the next 72 hours.

@@ -70,7 +70,7 @@ test("proposal tones and the phone layout remain legible without crowding Today"
 test("Build 026G starts with the app, is cache-safe, documented, and regression-tested", () => {
   assert.match(app, /runStartupTask\("Atlas adaptive horizon", runAtlasAdaptiveHorizon/);
   assert.match(app, /DominionAtlasAdaptiveHorizon\.installExperience\(document\)/);
-  assert.match(app, /sw\.js\?v=026g/);
+  assert.match(app, /sw\.js\?v=(?:026g|026h)/);
   assert.match(worker, /coach-dominion-[^"\s]*026e-026g/);
   assert.match(worker, /atlas-adaptive-horizon\.js\?v=026g/);
   assert.match(changelog, /Build 026G Adaptive Tomorrow/);

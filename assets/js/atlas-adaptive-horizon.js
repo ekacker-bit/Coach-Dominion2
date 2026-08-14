@@ -138,6 +138,15 @@
     })[code] || ["Keep the current plan", "No bounded change is justified."];
   }
 
+  function calibrationFor(code = "CURRENT", memory = []) {
+    const items = Array.isArray(memory) ? memory : [];
+    const exactTag = ({ DELOAD: "SHORT_REDUCTION_EFFECTIVE", CURRENT: "CURRENT_PLAN_TOLERATED", PROTECT: "PROTECT_RESPONSE_EFFECTIVE", RECOVER: "RECOVER_RESPONSE_EFFECTIVE" })[upper(code)];
+    const exact = exactTag ? items.find((item) => upper(item?.tag) === exactTag) : null;
+    const caution = upper(code) !== "CURRENT" ? items.find((item) => upper(item?.tag) === "REVIEW_BEFORE_REPEAT") : null;
+    const selected = caution || exact || null;
+    return selected ? { tag: upper(selected.tag), lesson: text(selected.lesson), sourceOutcomeId: selected.sourceOutcomeId || null, verifiedAt: selected.verifiedAt || null } : null;
+  }
+
   function projectionCode(code, index, hasTraining) {
     if (!hasTraining) return "RECOVERY";
     if (code === "PROTECT") return index === 0 ? "PROTECT" : "REASSESS";
@@ -207,7 +216,9 @@
     const execution = normalizeExecution(input);
     const setupReady = Boolean(input.contractId && Number(input.contractRevision || 0) > 0 && input.sourceWeekId && (input.committedDays || []).some((item) => item?.weekId));
     const code = deriveCode(readiness, execution, setupReady);
-    const [headline, reason] = decisionCopy(code);
+    const [headline, baseReason] = decisionCopy(code);
+    const calibration = calibrationFor(code, input.calibrationMemory);
+    const reason = calibration ? `${baseReason} Prior verified lesson: ${calibration.lesson}` : baseReason;
     const days = projectDays({ ...input, sourceDate }, code);
     const status = code === "PROTECT" ? "AUTO_PROTECTED" : ["RECOVER", "DELOAD"].includes(code) ? "PROPOSED" : code === "CURRENT" ? "CURRENT" : code;
     const fingerprint = stableHash({
@@ -219,6 +230,7 @@
       readiness,
       execution,
       code,
+      calibration,
       days: days.map((day) => ({ date: day.date, status: day.status, weekId: day.weekId, weekRevision: day.weekRevision, activities: day.activities }))
     });
     const prior = input.priorProposal || null;
@@ -244,6 +256,7 @@
       sourceWeekRevision: Number(input.sourceWeekRevision || 0),
       readiness,
       execution,
+      calibration,
       days,
       changes: changesFor(code),
       planChangesApproved: code === "PROTECT",
@@ -437,6 +450,7 @@
     normalizeReadiness,
     normalizeExecution,
     changesFor,
+    calibrationFor,
     buildProposal,
     resolveProposal,
     proposalApplies,

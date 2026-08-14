@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-adaptive-horizon-ux="026G.1">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Build 026G Adaptive Tomorrow Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css?v=026g">
+  <style>
+    body { min-height: 100vh; }
+    .preview-shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 80px; }
+    .preview-mast { margin-bottom: 24px; }
+    .preview-mast h1 { margin: 4px 0 8px; font-family: "Bebas Neue", Impact, sans-serif; font-size: clamp(44px, 7vw, 78px); letter-spacing: .03em; }
+    .preview-mast p { max-width: 660px; margin: 0; color: var(--muted); }
+    @media (max-width: 760px) { .preview-shell { width: min(100% - 24px, 1180px); padding-top: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <header class="preview-mast">
+      <div class="kicker">ATLAS // ADAPTIVE TOMORROW</div>
+      <h1>Earn tomorrow.</h1>
+      <p>Atlas uses verified execution and readiness to protect the next 72 hours without rewriting the program.</p>
+    </header>
+    <section id="today" data-today-flow-step="CLOSE">
+      <section id="atlas-adaptive-horizon" class="card atlas-adaptive-horizon" aria-labelledby="atlas-adaptive-horizon-title" data-horizon-status="PROPOSED">
+        <header>
+          <div><div class="kicker">NEXT 72 HOURS</div><h2 id="atlas-adaptive-horizon-title"></h2><p id="atlas-adaptive-horizon-detail"></p></div>
+          <span id="atlas-adaptive-horizon-state" class="state-pill yellow"></span>
+        </header>
+        <div class="atlas-adaptive-horizon-meta"><span id="atlas-adaptive-horizon-confidence"></span><strong>Tomorrow through day three</strong></div>
+        <ol id="atlas-adaptive-horizon-days"></ol>
+        <div id="atlas-adaptive-horizon-actions" class="atlas-adaptive-horizon-actions"></div>
+        <p class="atlas-adaptive-horizon-guardrail">No added sessions. Fuel targets stay approved. Long-run time stays open.</p>
+      </section>
+    </section>
+  </main>
+  <script src="/assets/js/atlas-adaptive-horizon.js?v=026g"></script>
+  <script>
+    const safety = new URLSearchParams(location.search).get("state") === "protect";
+    const sourceDate = "2026-08-13";
+    const proposal = DominionAtlasAdaptiveHorizon.buildProposal({
+      sourceDate,
+      contractId: "contract-preview",
+      contractRevision: 4,
+      sourceWeekId: "week-preview",
+      sourceWeekRevision: 2,
+      sourceDay: { date: sourceDate, activities: [{ module: "STRENGTH", title: "Lower A", estimatedMinutes: 65 }] },
+      committedDays: [
+        { date: "2026-08-14", weekId: "week-preview", weekRevision: 2, activities: [{ module: "STRENGTH", title: "Upper A", estimatedMinutes: 60 }] },
+        { date: "2026-08-15", weekId: "week-preview", weekRevision: 2, activities: [{ module: "RUNNING", title: "Long run", estimatedMinutes: 115 }], longRunUncapped: true },
+        { date: "2026-08-16", weekId: "week-preview", weekRevision: 2, activities: [{ module: "CORE", title: "Core Control", estimatedMinutes: 24 }] }
+      ],
+      readinessHistory: [{ date: sourceDate, state: safety ? "RED" : "YELLOW", energy: safety ? 4 : 5, soreness: safety ? 8 : 7, pain: safety }],
+      receipts: [{ id: "lower-a", module: "STRENGTH", state: "COMPLETE" }],
+      missionComplete: true,
+      closeoutSealed: true,
+      generatedAt: "2026-08-13T22:00:00.000Z"
+    });
+    const root = document.getElementById("atlas-adaptive-horizon");
+    root.dataset.horizonStatus = proposal.status;
+    root.dataset.horizonTone = proposal.tone;
+    document.getElementById("atlas-adaptive-horizon-title").textContent = proposal.headline;
+    document.getElementById("atlas-adaptive-horizon-detail").textContent = proposal.reason;
+    document.getElementById("atlas-adaptive-horizon-state").textContent = proposal.status.replaceAll("_", " ");
+    document.getElementById("atlas-adaptive-horizon-state").className = `state-pill ${proposal.tone}`;
+    document.getElementById("atlas-adaptive-horizon-confidence").textContent = `${proposal.confidence} confidence`;
+    document.getElementById("atlas-adaptive-horizon-days").innerHTML = proposal.days.map((day, index) => `<li data-horizon-day-state="${day.status}"><span>0${index + 1}</span><div><strong>${day.label}</strong><small>${day.detail}</small></div></li>`).join("");
+    document.getElementById("atlas-adaptive-horizon-actions").innerHTML = proposal.status === "PROPOSED"
+      ? '<button type="button">Accept change</button><button type="button" class="ghost">Keep the plan</button><button type="button" class="ghost">This doesn\'t fit</button>'
+      : '<button type="button">Acknowledge protection</button><button type="button" class="ghost">Open Roll Call</button>';
+  </script>
+</body>
+</html>

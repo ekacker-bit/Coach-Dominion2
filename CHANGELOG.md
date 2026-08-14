@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 026G Adaptive Tomorrow
+
+- Turns verified readiness and completed execution into one bounded recommendation for the next 72 hours.
+- Keeps a healthy recruit on the committed plan, proposes a short deload after degraded readiness, and protects the next exposure after pain or a stopped session.
+- Requires recruit approval for non-safety changes while applying clear, reversible safety protection automatically.
+- Applies approved changes to Today, Training, and Calendar without adding sessions, rewriting the Contract, or changing approved Fuel targets.
+- Keeps long-run duration open and expires every recommendation after three days or when the Contract or calendar revision changes.
+
 ## Unreleased - Build 026E Daily Command UX Repair
 
 - Adds one deterministic Daily Decision that governs Today, Training, Fuel, Recovery, and the current-week Calendar.

@@ -68,9 +68,9 @@ test("a finalized Contract is read-only until an explicit amendment", () => {
 });
 
 test("Build 026E is cache-safe, documented, and retains Weekly Review regression coverage", () => {
-  assert.match(worker, /coach-dominion-[^"\s]*026e/);
+  assert.match(worker, /coach-dominion-[^"\s]*026e(?:-026g)?/);
   assert.match(worker, /daily-decision\.js\?v=026e/);
-  assert.match(app, /sw\.js\?v=026e/);
+  assert.match(app, /sw\.js\?v=(?:026e|026g)/);
   assert.match(changelog, /Build 026E Daily Command UX Repair/);
   assert.ok(pkg.scripts["test:026e"].includes("weekly-inspection.test.js"));
   assert.ok(pkg.scripts["test:026e"].includes("rank-promotion.test.js"));

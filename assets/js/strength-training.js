@@ -897,7 +897,7 @@
       ? buildAdjustmentProposal(plan, [execution, ...priorHistory], { createdAt: options.createdAt || execution.completedAt || new Date().toISOString() })
       : null;
     const decisions = proposal?.decisions || [];
-    const earned = decisions.filter((item) => item.action === "PROGRESS_LOAD");
+    const earned = decisions.filter((item) => ["PROGRESS_LOAD", "PROGRESS_REPS"].includes(item.action));
     const reduced = decisions.filter((item) => item.action === "REDUCE_LOAD");
     const baselines = exerciseResults.filter((item) => item.baselineEstablished).length;
     const headline = execution.painReported || execution.state === "STOPPED"
@@ -938,6 +938,8 @@
           label: item.label,
           currentLoad: item.currentLoad,
           proposedLoad: item.proposedLoad,
+          currentReps: item.currentReps,
+          proposedReps: item.proposedReps,
           unit: item.unit,
           reason: item.reason
         }))
@@ -980,8 +982,10 @@
       exerciseName: planExercise.exerciseName,
       sessionId: execution.sessionId,
       currentLoad,
+      currentReps: Number(planExercise.targetReps || planExercise.reps || 0),
       actualLoad,
       proposedLoad: currentLoad,
+      proposedReps: Number(planExercise.targetReps || planExercise.reps || 0),
       unit,
       completedSets: exposure.completedSets,
       plannedSets: exposure.plannedSets,
@@ -1004,6 +1008,16 @@
     }
     if (exposure.averageRpe === null) {
       return { ...base, action: "REPEAT", label: "Repeat", reason: "RPE was not recorded, so Coach Dominion will not infer readiness to progress." };
+    }
+    if (!actualLoad && planExercise.repUnit === "reps" && base.qualityExposures >= 2) {
+      return {
+        ...base,
+        action: "PROGRESS_REPS",
+        label: "Progress repetitions",
+        proposedReps: base.currentReps + 1,
+        changed: true,
+        reason: "Two consecutive complete, pain-free bodyweight exposures at RPE 8 or below support one additional repetition."
+      };
     }
     if (!actualLoad) {
       return { ...base, action: "REPEAT", label: "Repeat", reason: "No external load was recorded. Bodyweight and timed work stay unchanged for manual review." };
@@ -1079,7 +1093,7 @@
       decisions,
       summary: {
         changedCount,
-        progressedCount: decisions.filter((item) => item.action === "PROGRESS_LOAD").length,
+        progressedCount: decisions.filter((item) => ["PROGRESS_LOAD", "PROGRESS_REPS"].includes(item.action)).length,
         reducedCount: decisions.filter((item) => item.action === "REDUCE_LOAD").length,
         repeatedCount: decisions.filter((item) => ["REPEAT", "HOLD_FOR_REVIEW", "SAFETY_HOLD"].includes(item.action)).length
       },
@@ -1100,7 +1114,7 @@
       throw new Error("This recommendation belongs to an older plan revision. Finish a workout on the active plan before approving another change.");
     }
     if (proposal.safetyHold) throw new Error("Resolve the pain hold before approving loaded changes.");
-    const supportedActions = new Set(["PROGRESS_LOAD", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"]);
+    const supportedActions = new Set(["PROGRESS_LOAD", "PROGRESS_REPS", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"]);
     const eligible = (proposal.decisions || []).filter((item) => item.changed && supportedActions.has(item.action));
     const requested = Array.isArray(options.selectedExerciseCodes) ? new Set(options.selectedExerciseCodes) : null;
     const selected = eligible.filter((item) => !requested || requested.has(item.exerciseCode));
@@ -1117,16 +1131,19 @@
           exerciseCode: exerciseItem.exerciseCode || exerciseItem.id,
           exerciseName: exerciseItem.exerciseName,
           previousLoad: exerciseItem.recommendedLoad,
+          previousReps: exerciseItem.targetReps,
           previousUnit: exerciseItem.unit,
           previousAction: exerciseItem.action,
           previousRationale: exerciseItem.rationale,
           appliedLoad: decision.proposedLoad,
+          appliedReps: decision.proposedReps,
           appliedUnit: decision.unit || exerciseItem.unit,
           decision: decision.action
         });
         return {
           ...exerciseItem,
           recommendedLoad: decision.proposedLoad,
+          targetReps: decision.proposedReps || exerciseItem.targetReps,
           unit: decision.unit || exerciseItem.unit,
           action: decision.action === "PROGRESS_LOAD" ? "PROGRESSED" : decision.action === "REDUCE_LOAD" ? "DELOADED" : "EVIDENCE ANCHORED",
           rationale: decision.reason
@@ -1178,6 +1195,7 @@
         return {
           ...exerciseItem,
           recommendedLoad: change.previousLoad,
+          targetReps: change.previousReps || exerciseItem.targetReps,
           unit: change.previousUnit || exerciseItem.unit,
           action: change.previousAction,
           rationale: change.previousRationale

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 027C Recovery Command
+
+- Turns sleep, resting heart rate, HRV, energy, soreness, pain, and recent training load into one green, amber, or red morning posture.
+- Tells the recruit exactly what changes today, then coordinates that order across Strength, Running, Core, Today, and Calendar.
+- Protects priority work and uncapped long runs when possible while removing secondary volume before compromising the main session.
+- Converts red days into a recovery-only prescription without changing the Recruit Contract, Dominion Campaign, or Fuel targets.
+- Measures the next Roll Call after every completed intervention and records whether the recovery order helped.
+- Keeps the mobile card word-light with one dominant action and personal-baseline signals behind the coaching decision.
+
 ## Unreleased - Build 027B Atlas Progression Engine
 
 - Converts completed Strength, Running, and Core evidence into one exact next prescription instead of leaving separate progression widgets to compete.

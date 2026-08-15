@@ -18,6 +18,7 @@ const dominionCampaign = read("assets/js/dominion-campaign.js");
 const fuelDayLedger = read("assets/js/fuel-day-ledger.js");
 const campaignCommissioning = read("assets/js/campaign-commissioning.js");
 const atlasProgressionEngine = read("assets/js/atlas-progression-engine.js");
+const recoveryCommand = read("assets/js/recovery-command.js");
 const accountTruthMigration = read("supabase/migrations/028_dominion_account_truth.sql");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
 const dailyDecision = read("assets/js/daily-decision.js");
@@ -240,6 +241,10 @@ check("027B cross-domain integration", html.includes('id="atlas-progression-orde
 check("027B durable receipt", app.includes('persistClosedLoopState("PROGRESSION_ORDER", "current"') && app.includes('persistClosedLoopState("HISTORY", "atlas-progression"'), "027B progression decisions are not durable");
 check("027B bounded domain rules", strength.includes("PROGRESS_REPS") && read("assets/js/running-progression.js").includes('progressionMode = "PACE"') && read("assets/js/core-programming.js").includes("function buildNextCycleDraft"), "027B domain progression rules are incomplete");
 check("027B responsive and offline", css.includes(".atlas-progression-order") && worker.includes('/assets/js/atlas-progression-engine.js?v=027b') && worker.includes("027a-027b"), "027B shell is stale or not responsive");
+check("027C recovery authority", recoveryCommand.includes('const VERSION = "027C.1"') && recoveryCommand.includes("function applyToDay") && recoveryCommand.includes("function buildOutcome"), "027C Recovery Command is incomplete");
+check("027C cross-domain integration", html.includes("ATLAS // RECOVERY COMMAND") && html.includes('/assets/js/recovery-command.js?v=027c') && app.includes("runRecoveryCommand") && app.includes("DominionRecoveryCommand.applyToDay") && app.includes("DominionRecoveryCommand.calendarOverride"), "027C is not connected across Roll Call, Today, and Calendar");
+check("027C durable outcomes", app.includes('persistClosedLoopState("RECOVERY_COMMAND", "current"') && app.includes('persistClosedLoopState("HISTORY", "recovery-command-outcomes"'), "027C command or outcome receipts are not durable");
+check("027C responsive and offline", css.includes(".today-recovery-signals") && css.includes('[data-recovery-posture="red"]') && worker.includes('/assets/js/recovery-command.js?v=027c') && worker.includes("027b-027c"), "027C shell is stale or not responsive");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

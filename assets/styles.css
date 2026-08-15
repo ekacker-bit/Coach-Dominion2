@@ -11810,3 +11810,32 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .atlas-progression-prescription { padding: 15px; }
   .atlas-progression-order-actions button { width: 100%; }
 }
+
+/* Build 027C: one morning Recovery Command. */
+.today-recovery-card[data-recovery-posture="green"] { border-color: rgba(56, 212, 141, 0.42); }
+.today-recovery-card[data-recovery-posture="amber"] { border-color: rgba(212, 175, 55, 0.58); }
+.today-recovery-card[data-recovery-posture="red"] { border-color: rgba(220, 92, 82, 0.62); box-shadow: inset 4px 0 0 rgba(220, 92, 82, 0.74); }
+.today-recovery-card[data-recovery-posture="unknown"] { border-color: var(--line); }
+.today-recovery-difference { display: grid; gap: 4px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(230, 230, 228, 0.1); }
+.today-recovery-difference span,
+.today-recovery-outcome > span { color: var(--gold); font: 800 0.68rem/1 var(--font-display); letter-spacing: 0.14em; }
+.today-recovery-difference strong { color: var(--stone); font-size: 0.9rem; line-height: 1.4; }
+.today-recovery-signals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.today-recovery-signals > span { min-width: 0; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, 0.18); }
+.today-recovery-signals small,
+.today-recovery-signals strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-recovery-signals small { color: var(--dim); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.today-recovery-signals strong { margin-top: 4px; color: var(--stone); font-size: 0.72rem; }
+.today-recovery-signals [data-signal-state="green"] { border-color: rgba(56, 212, 141, 0.24); }
+.today-recovery-signals [data-signal-state="amber"] { border-color: rgba(212, 175, 55, 0.42); background: rgba(212, 175, 55, 0.05); }
+.today-recovery-signals [data-signal-state="red"] { border-color: rgba(220, 92, 82, 0.48); background: rgba(110, 37, 32, 0.12); }
+.today-recovery-signals [data-signal-state="missing"] strong { color: var(--dim); }
+.today-recovery-outcome { display: grid; gap: 4px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 8px; background: rgba(0, 0, 0, 0.2); }
+.today-recovery-outcome[data-outcome-tone="green"] { border-left-color: var(--green); }
+.today-recovery-outcome[data-outcome-tone="red"] { border-left-color: var(--red); }
+.today-recovery-outcome strong { color: var(--stone); }
+.today-recovery-outcome small { color: var(--muted); line-height: 1.4; }
+@media (max-width: 720px) {
+  .today-recovery-signals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .today-recovery-difference strong { font-size: 0.82rem; }
+}

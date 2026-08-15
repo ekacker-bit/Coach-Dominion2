@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -405,6 +405,20 @@
             </div>
           </form>
         </dialog>
+        <section id="campaign-commissioning" class="campaign-commissioning" data-commissioning-tone="neutral" aria-labelledby="campaign-commissioning-heading">
+          <header class="campaign-commissioning-header">
+            <div><div class="kicker">BUILD 027A // CAMPAIGN COMMISSIONING</div><h3 id="campaign-commissioning-heading">Commission the campaign</h3><p id="campaign-commissioning-message">One Contract. One complete program. One opening calendar.</p></div>
+            <span id="campaign-commissioning-status" class="state-pill neutral">CONTRACT REQUIRED</span>
+          </header>
+          <div class="campaign-commissioning-progress" role="progressbar" aria-label="Campaign commissioning progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="campaign-commissioning-progress"></span></div>
+          <ol id="campaign-commissioning-steps" class="campaign-commissioning-steps" aria-label="Campaign commissioning stages"></ol>
+          <div id="campaign-commissioning-panel" class="campaign-commissioning-panel" aria-live="polite">
+            <div class="performance-empty">Sign the Recruit Contract to begin commissioning.</div>
+          </div>
+          <p id="campaign-commissioning-feedback" class="muted" aria-live="polite"></p>
+          <details id="campaign-commissioning-details" class="campaign-commissioning-details">
+            <summary><span>Setup details</span><small>Open only when Atlas requests an action</small></summary>
+            <div class="campaign-commissioning-detail-stack">
         <section id="first-week-orientation" class="first-week-orientation" aria-labelledby="first-week-orientation-heading" hidden>
           <div class="section-heading compact">
             <div>
@@ -433,6 +447,9 @@
             <div class="performance-empty">Approve the Recruit Contract to begin activation.</div>
           </div>
           <p id="contract-activation-feedback" class="muted" aria-live="polite"></p>
+        </section>
+            </div>
+          </details>
         </section>
        </section>
 
@@ -2389,6 +2406,7 @@
 <script src="/assets/js/dominion-campaign.js?v=026k"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l"></script>
+<script src="/assets/js/campaign-commissioning.js?v=027a"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a"></script>
 </body>
 </html>

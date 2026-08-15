@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Build 027A Campaign Commissioning</title>
+  <link rel="stylesheet" href="../../assets/styles.css">
+  <style>
+    body { min-height: 100vh; margin: 0; padding: 2rem; background: #0a0a0a; }
+    main { width: min(1100px, 100%); margin: 0 auto; }
+    @media (max-width: 760px) { body { padding: .75rem; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="campaign-commissioning" data-commissioning-tone="gold" aria-labelledby="campaign-commissioning-preview-heading">
+      <header class="campaign-commissioning-header">
+        <div>
+          <div class="kicker">BUILD 027A // CAMPAIGN COMMISSIONING</div>
+          <h3 id="campaign-commissioning-preview-heading">Authorize the campaign</h3>
+          <p>Atlas has assembled the Contract, program, and opening week. One authorization makes the campaign executable.</p>
+        </div>
+        <span class="state-pill yellow">READY</span>
+      </header>
+      <div class="campaign-commissioning-progress" role="progressbar" aria-label="Campaign commissioning progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80"><span style="width:80%"></span></div>
+      <ol class="campaign-commissioning-steps" aria-label="Campaign commissioning stages">
+        <li class="complete"><span>&check;</span><div><strong>Contract</strong><small>Commitment signed</small></div></li>
+        <li class="complete"><span>&check;</span><div><strong>Baseline</strong><small>Required profile ready</small></div></li>
+        <li class="complete"><span>&check;</span><div><strong>Program</strong><small>Four plans coordinated</small></div></li>
+        <li class="complete"><span>&check;</span><div><strong>Calendar</strong><small>Opening week committed</small></div></li>
+        <li class="current"><span>5</span><div><strong>Launch</strong><small>Authorization required</small></div></li>
+      </ol>
+      <div class="campaign-commissioning-panel">
+        <div class="campaign-commissioning-command">
+          <div class="campaign-commissioning-copy"><span>FINAL AUTHORIZATION</span><h4>Authorize the campaign</h4><p>All launch gates are clear. Begin Campaign activates the unified plan and opening calendar together.</p></div>
+          <dl>
+            <div><dt>Contract</dt><dd>R3</dd></div>
+            <div><dt>Baseline</dt><dd>4 / 6</dd></div>
+            <div><dt>Program</dt><dd>READY</dd></div>
+            <div><dt>Opening week</dt><dd>2026-08-17</dd></div>
+          </dl>
+          <details class="campaign-commissioning-baseline">
+            <summary>Week One evidence <small>4/6 captured &middot; never a hidden blocker</small></summary>
+            <ul>
+              <li data-baseline-state="captured"><span>&check;</span><div><strong>Body</strong><small>Captured</small></div></li>
+              <li data-baseline-state="captured"><span>&check;</span><div><strong>Performance</strong><small>Captured</small></div></li>
+              <li data-baseline-state="week-one"><span>W1</span><div><strong>Recovery</strong><small>Collect during the opening week</small></div></li>
+            </ul>
+          </details>
+          <button type="button" class="campaign-commissioning-action">Begin Campaign</button>
+        </div>
+      </div>
+      <details class="campaign-commissioning-details"><summary><span>Setup details</span><small>Open only when Atlas requests an action</small></summary></details>
+    </section>
+  </main>
+</body>
+</html>

@@ -11589,3 +11589,193 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .fuel-day-ledger-summary > div:nth-child(-n+2) { border-bottom: 1px solid rgba(230, 230, 228, .1); }
   .fuel-precision-tools > summary { align-items: start; flex-direction: column; gap: .2rem; }
 }
+/* Build 027A: one Campaign Commissioning gate */
+.campaign-commissioning {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 2.4vw, 1.55rem);
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.36);
+  border-left: 4px solid var(--victory-gold, #d4af37);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(212, 175, 55, 0.11), transparent 32%),
+    linear-gradient(145deg, rgba(15, 21, 18, 0.98), rgba(8, 12, 13, 0.98));
+}
+
+.campaign-commissioning::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  background-image: linear-gradient(rgba(230, 230, 228, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(230, 230, 228, 0.03) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.campaign-commissioning[data-commissioning-tone="green"] { border-left-color: #79ad87; }
+.campaign-commissioning[data-commissioning-tone="red"] { border-left-color: #dc786e; }
+
+.campaign-commissioning > * { position: relative; z-index: 1; }
+
+.campaign-commissioning-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.campaign-commissioning-header > div { min-width: 0; }
+.campaign-commissioning-header h3 { margin: 0.2rem 0 0.3rem; color: var(--stone, #e6e6e4); font-size: clamp(1.55rem, 4vw, 2.35rem); line-height: 0.98; }
+.campaign-commissioning-header p { max-width: 62ch; margin: 0; color: var(--muted, #9ca3af); }
+
+.campaign-commissioning-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(230, 230, 228, 0.1);
+}
+
+.campaign-commissioning-progress > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b6819, var(--victory-gold, #d4af37), #f3d675);
+  transition: width 240ms ease;
+}
+
+.campaign-commissioning[data-commissioning-tone="green"] .campaign-commissioning-progress > span { background: linear-gradient(90deg, #31523a, #79ad87); }
+
+.campaign-commissioning-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campaign-commissioning-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid rgba(230, 230, 228, 0.1);
+  border-radius: 11px;
+  color: var(--dim, #727982);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.campaign-commissioning-steps li > span {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font: 800 0.68rem/1 var(--font-body, sans-serif);
+}
+
+.campaign-commissioning-steps li div { display: grid; min-width: 0; gap: 0.12rem; }
+.campaign-commissioning-steps strong { color: inherit; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.campaign-commissioning-steps small { overflow: hidden; color: var(--dim, #727982); font-size: 0.63rem; text-overflow: ellipsis; white-space: nowrap; }
+.campaign-commissioning-steps li.complete { border-color: rgba(121, 173, 135, 0.32); color: #79ad87; }
+.campaign-commissioning-steps li.current { border-color: rgba(212, 175, 55, 0.62); color: var(--victory-gold, #d4af37); background: rgba(212, 175, 55, 0.07); }
+
+.campaign-commissioning-command { display: grid; gap: 1rem; }
+.campaign-commissioning-copy > span,
+.campaign-commissioning-blockers > span {
+  color: var(--victory-gold, #d4af37);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.campaign-commissioning-copy h4 { margin: 0.25rem 0; color: var(--stone, #e6e6e4); font-size: clamp(1.25rem, 3vw, 1.75rem); }
+.campaign-commissioning-copy p { max-width: 68ch; margin: 0; color: var(--muted, #9ca3af); }
+
+.campaign-commissioning-command dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid rgba(230, 230, 228, 0.1);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.campaign-commissioning-command dl div { display: grid; gap: 0.2rem; padding: 0.8rem; border-right: 1px solid rgba(230, 230, 228, 0.08); }
+.campaign-commissioning-command dl div:last-child { border-right: 0; }
+.campaign-commissioning-command dt { color: var(--dim, #727982); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+.campaign-commissioning-command dd { margin: 0; color: var(--stone, #e6e6e4); font-size: 0.82rem; font-weight: 800; }
+
+.campaign-commissioning-blockers { display: grid; gap: 0.55rem; }
+.campaign-commissioning-blockers article { display: grid; gap: 0.2rem; padding: 0.75rem 0.85rem; border: 1px solid rgba(220, 120, 110, 0.36); border-radius: 10px; background: rgba(110, 37, 32, 0.14); }
+.campaign-commissioning-blockers strong { color: #efaaa3; }
+.campaign-commissioning-blockers p,
+.campaign-commissioning-blockers small { margin: 0; color: var(--muted, #9ca3af); font-size: 0.72rem; }
+
+.campaign-commissioning-receipt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(121, 173, 135, 0.4);
+  border-radius: 11px;
+  background: rgba(49, 82, 58, 0.2);
+}
+.campaign-commissioning-receipt > span { display: grid; width: 2.2rem; height: 2.2rem; place-items: center; border: 1px solid #79ad87; border-radius: 50%; color: #79ad87; font-weight: 900; }
+.campaign-commissioning-receipt > div { display: grid; gap: 0.1rem; }
+.campaign-commissioning-receipt strong { color: var(--stone, #e6e6e4); }
+.campaign-commissioning-receipt small { color: var(--muted, #9ca3af); }
+.campaign-commissioning-receipt b { color: #79ad87; font-size: 0.7rem; letter-spacing: 0.08em; }
+
+.campaign-commissioning-baseline { border-top: 1px solid rgba(230, 230, 228, 0.09); }
+.campaign-commissioning-baseline summary,
+.campaign-commissioning-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0; cursor: pointer; color: var(--stone, #e6e6e4); font-weight: 800; }
+.campaign-commissioning-baseline summary small,
+.campaign-commissioning-details > summary small { color: var(--dim, #727982); font-size: 0.66rem; font-weight: 600; }
+.campaign-commissioning-baseline ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; margin: 0; padding: 0.2rem 0 0; list-style: none; }
+.campaign-commissioning-baseline li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.55rem; padding: 0.65rem; border: 1px solid rgba(230, 230, 228, 0.09); border-radius: 10px; }
+.campaign-commissioning-baseline li > span { color: var(--victory-gold, #d4af37); font-size: 0.7rem; font-weight: 900; }
+.campaign-commissioning-baseline li[data-baseline-state="captured"] > span { color: #79ad87; }
+.campaign-commissioning-baseline li div { display: grid; gap: 0.1rem; }
+.campaign-commissioning-baseline li strong { color: var(--stone, #e6e6e4); font-size: 0.7rem; }
+.campaign-commissioning-baseline li small { color: var(--dim, #727982); font-size: 0.64rem; line-height: 1.4; }
+
+.campaign-commissioning-action { justify-self: start; min-width: min(100%, 240px); }
+.campaign-commissioning[data-commissioning-tone="gold"] .campaign-commissioning-action,
+.campaign-commissioning[data-commissioning-tone="yellow"] .campaign-commissioning-action { color: #0a0a0a; background: linear-gradient(135deg, #f0c847, #d4af37); }
+
+.campaign-commissioning-details { border-top: 1px solid rgba(230, 230, 228, 0.12); }
+.campaign-commissioning-detail-stack { display: grid; gap: 1rem; padding-top: 0.5rem; }
+.campaign-commissioning-detail-stack > section { margin: 0; background: rgba(4, 7, 8, 0.34); }
+
+@media (max-width: 900px) {
+  .campaign-commissioning-steps { grid-template-columns: repeat(5, minmax(130px, 1fr)); overflow-x: auto; padding-bottom: 0.35rem; }
+  .campaign-commissioning-command dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .campaign-commissioning-command dl div:nth-child(2) { border-right: 0; }
+  .campaign-commissioning-command dl div:nth-child(-n + 2) { border-bottom: 1px solid rgba(230, 230, 228, 0.08); }
+}
+
+@media (max-width: 760px) {
+  .campaign-commissioning { margin-inline: -0.15rem; padding: 1rem 0.85rem; border-radius: 14px; }
+  .campaign-commissioning-header { display: grid; }
+  .campaign-commissioning-header .state-pill { justify-self: start; }
+  .campaign-commissioning-steps { grid-template-columns: repeat(5, minmax(116px, 1fr)); }
+  .campaign-commissioning-steps li { padding: 0.6rem; }
+  .campaign-commissioning-baseline ul { grid-template-columns: 1fr; }
+  .campaign-commissioning-action { width: 100%; }
+  .campaign-commissioning-receipt { grid-template-columns: auto minmax(0, 1fr); }
+  .campaign-commissioning-receipt b { grid-column: 2; }
+  .campaign-commissioning-details > summary { align-items: flex-start; flex-direction: column; gap: 0.2rem; }
+}
+
+@media (max-width: 440px) {
+  .campaign-commissioning-command dl { grid-template-columns: 1fr; }
+  .campaign-commissioning-command dl div { border-right: 0; border-bottom: 1px solid rgba(230, 230, 228, 0.08); }
+  .campaign-commissioning-command dl div:last-child { border-bottom: 0; }
+}

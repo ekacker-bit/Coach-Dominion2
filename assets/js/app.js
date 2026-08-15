@@ -6349,9 +6349,13 @@ function readCommittedUnifiedDay(value = todayISODate()) {
 function readEffectiveUnifiedDay(value = todayISODate()) {
   const date = String(value || todayISODate()).slice(0, 10);
   const day = readCommittedUnifiedDay(date);
-  if (!day || typeof DominionAtlasAdaptiveHorizon === "undefined") return day;
+  if (!day) return day;
   const proposal = activeAtlasAdaptiveHorizon(date);
-  return DominionAtlasAdaptiveHorizon.applyToDay(day, proposal, adaptiveHorizonContext(date));
+  const horizonDay = typeof DominionAtlasAdaptiveHorizon === "undefined"
+    ? day
+    : DominionAtlasAdaptiveHorizon.applyToDay(day, proposal, adaptiveHorizonContext(date));
+  if (typeof DominionRecoveryCommand === "undefined") return horizonDay;
+  return DominionRecoveryCommand.applyToDay(horizonDay, buildCurrentRecoveryCommand(date), recoveryCommandContext(date));
 }
 
 function splitDayCheckpointStorageKey(value = todayISODate()) {
@@ -11690,7 +11694,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026k", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026l", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=027b", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=027b", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=027c", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12525,10 +12530,13 @@ async function loadClosedLoopState() {
       ["CAMPAIGN_COMMISSION", "current"],
       ["CAMPAIGN", "current"],
       ["PROGRESSION_ORDER", "current"],
+      ["RECOVERY_COMMAND", "current"],
       ["HISTORY", "dominion-campaign"],
       ["HISTORY", "atlas-daily-command"],
       ["HISTORY", "atlas-decision-center"],
       ["HISTORY", "atlas-progression"],
+      ["HISTORY", "recovery-command"],
+      ["HISTORY", "recovery-command-outcomes"],
       ["CONTEXT", "recruit-constraints"]
     ];
     for (const [stateType, stateKey] of keys) {
@@ -12759,6 +12767,161 @@ function readAtlasProgressionOrder() {
 function readAtlasProgressionHistory() {
   const history = readClosedLoopState("HISTORY", "atlas-progression", []);
   return Array.isArray(history) ? history : [];
+}
+
+function readRecoveryCommand() {
+  return readClosedLoopState("RECOVERY_COMMAND", "current", null);
+}
+
+function readRecoveryCommandHistory() {
+  const history = readClosedLoopState("HISTORY", "recovery-command", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readRecoveryCommandOutcomeHistory() {
+  const history = readClosedLoopState("HISTORY", "recovery-command-outcomes", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function recoveryCommandDate(value = todayISODate(), offset = 0) {
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + Number(offset || 0));
+  return date.toISOString().slice(0, 10);
+}
+
+function recoveryCommandTrainingLoad(date = todayISODate(), day = readCommittedUnifiedDay(date)) {
+  const trainingModules = new Set(["STRENGTH", "RUNNING", "CORE", "CARDIO", "CONDITIONING"]);
+  const receiptsByDate = [];
+  for (let offset = -6; offset <= 0; offset += 1) {
+    const target = recoveryCommandDate(date, offset);
+    const receipts = readMissionExecutionReceipts(target).filter((item) => {
+      const module = String(item.module || item.domain || "").toUpperCase();
+      const state = String(item.state || item.status || "").toUpperCase();
+      return trainingModules.has(module) && ["COMPLETE", "COMPLETED", "SECURED", "PARTIAL", "STOPPED", "PAIN_HOLD"].includes(state);
+    });
+    receiptsByDate.push({ date: target, receipts });
+  }
+  let consecutiveTrainingDays = 0;
+  for (let index = receiptsByDate.length - 1; index >= 0; index -= 1) {
+    if (!receiptsByDate[index].receipts.length) {
+      if (index === receiptsByDate.length - 1) continue;
+      break;
+    }
+    consecutiveTrainingDays += 1;
+  }
+  const activities = (day?.activities || []).filter((item) => trainingModules.has(String(item.module || item.domain || item.type || "").toUpperCase()));
+  return {
+    scheduledMinutes: activities.reduce((sum, item) => sum + Math.max(0, Number(item.estimatedMinutes || 0)), 0),
+    sessionsToday: activities.length,
+    sessionsLast7: receiptsByDate.reduce((sum, item) => sum + item.receipts.length, 0),
+    consecutiveTrainingDays,
+    evidenceDays: receiptsByDate.filter((item) => item.receipts.length).length
+  };
+}
+
+function recoveryCommandContext(date = todayISODate()) {
+  const contract = readApprovedRecruitContract();
+  const week = readCommittedUnifiedWeek(date);
+  return {
+    date,
+    contractRevision: Number(contract?.revision || 0),
+    weekId: week?.id || null,
+    weekRevision: Number(week?.revision || 0)
+  };
+}
+
+function buildCurrentRecoveryCommand(date = todayISODate()) {
+  if (typeof DominionRecoveryCommand === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const week = readCommittedUnifiedWeek(date);
+  const day = readCommittedUnifiedDay(date);
+  const current = dailyState?.date === date ? dailyState : null;
+  let readiness = current ? { ...current, complete: true } : { date, complete: false };
+  if (current) {
+    try { readiness = { ...current, ...evaluateOperationalReadiness(current), date, complete: true }; }
+    catch (_) {}
+  }
+  const previous = readRecoveryCommand();
+  const command = DominionRecoveryCommand.buildCommand({
+    date,
+    readiness,
+    readinessComplete: Boolean(current),
+    trainingLoad: recoveryCommandTrainingLoad(date, day),
+    day,
+    contract,
+    week,
+    missionOrder: currentMissionRecoveryOrder(date),
+    previous: previous?.date === date ? previous : null,
+    generatedAt: previous?.date === date ? previous.generatedAt : new Date().toISOString()
+  });
+  return command;
+}
+
+async function saveRecoveryCommand(command, options = {}) {
+  if (!command?.id || typeof DominionRecoveryCommand === "undefined") return false;
+  const history = DominionRecoveryCommand.upsert(readRecoveryCommandHistory(), command, 180);
+  saveClosedLoopLocal("RECOVERY_COMMAND", "current", command);
+  saveClosedLoopLocal("HISTORY", "recovery-command", history);
+  const currentSaved = await persistClosedLoopState("RECOVERY_COMMAND", "current", command);
+  const historySaved = await persistClosedLoopState("HISTORY", "recovery-command", history);
+  scheduleAccountTruthSync();
+  if (options.render !== false) renderTodayRecoveryExecution();
+  return currentSaved && historySaved;
+}
+
+async function reconcileRecoveryCommandOutcomes() {
+  if (typeof DominionRecoveryCommand === "undefined") return [];
+  let outcomes = readRecoveryCommandOutcomeHistory();
+  const before = JSON.stringify(outcomes);
+  readRecoveryCommandHistory().filter((item) => item?.date && item.date < todayISODate()).forEach((command) => {
+    const outcome = DominionRecoveryCommand.buildOutcome(command, mergeReadinessHistory(), { evaluatedAt: new Date().toISOString() });
+    if (outcome?.id) outcomes = DominionRecoveryCommand.upsert(outcomes, outcome, 180);
+  });
+  if (JSON.stringify(outcomes) !== before) {
+    saveClosedLoopLocal("HISTORY", "recovery-command-outcomes", outcomes);
+    await persistClosedLoopState("HISTORY", "recovery-command-outcomes", outcomes);
+    scheduleAccountTruthSync();
+  }
+  return outcomes;
+}
+
+async function runRecoveryCommand(options = {}) {
+  const command = buildCurrentRecoveryCommand();
+  if (!command?.id) return null;
+  const current = readRecoveryCommand();
+  if (current?.id !== command.id || current.status !== command.status || current.order !== command.order) {
+    await saveRecoveryCommand(command, { render: false });
+  }
+  await reconcileRecoveryCommandOutcomes();
+  if (options.render !== false) {
+    renderOneCommand(buildCurrentOperatingTruth());
+    renderTodayRecoveryExecution();
+    renderDailyCoachingLoop();
+    renderTodayCommittedWeek();
+    renderWeeklyOrchestrator();
+  }
+  return command;
+}
+
+async function completeRecoveryCommand() {
+  if (typeof DominionRecoveryCommand === "undefined") return null;
+  const current = buildCurrentRecoveryCommand();
+  if (!current?.id) throw new Error("Atlas has no current recovery order.");
+  const completed = DominionRecoveryCommand.complete(current, { completedAt: new Date().toISOString(), source: "RECRUIT_CONFIRMED" });
+  await saveRecoveryCommand(completed, { render: false });
+  saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: completed.completedAt });
+  renderDailyCoachingLoop();
+  return completed;
+}
+
+async function reopenRecoveryCommand() {
+  const current = readRecoveryCommand();
+  if (!current?.id) return null;
+  const reopened = { ...current, status: "ACTIVE", completedAt: null, completionSource: null, updatedAt: new Date().toISOString() };
+  await saveRecoveryCommand(reopened, { render: false });
+  saveDailyExecutionQueueState({ recoveryComplete: false, recoveryCompletedAt: null });
+  renderDailyCoachingLoop();
+  return reopened;
 }
 
 function nextStrengthProgressionPrescription(plan = readApprovedStrengthPlan(), adjustment = readStrengthAdjustment()) {
@@ -13668,6 +13831,10 @@ async function resolveAtlasLiveAdaptation(decision = "HOLD", context = {}) {
 
 function currentDailyCalendarOverride(date = todayISODate()) {
   const context = atlasDailyCommandContext(date);
+  const recovery = typeof DominionRecoveryCommand === "undefined"
+    ? null
+    : DominionRecoveryCommand.calendarOverride(buildCurrentRecoveryCommand(date), recoveryCommandContext(date));
+  if (recovery) return recovery;
   const live = typeof DominionAtlasLiveAdaptation === "undefined"
     ? null
     : DominionAtlasLiveAdaptation.activeCalendarOverride(readAtlasLiveAdaptation(date), context);
@@ -14069,7 +14236,11 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   const horizonAdapted = typeof DominionAtlasAdaptiveHorizon === "undefined"
     ? adapted
     : DominionAtlasAdaptiveHorizon.applyToCommand(adapted, horizon, adaptiveHorizonContext(context.date));
-  if (typeof DominionDailyDecision === "undefined") return horizonAdapted;
+  const recovery = buildCurrentRecoveryCommand(context.date);
+  const recoveryAdapted = typeof DominionRecoveryCommand === "undefined"
+    ? horizonAdapted
+    : DominionRecoveryCommand.applyToCommand(horizonAdapted, recovery, recoveryCommandContext(context.date));
+  if (typeof DominionDailyDecision === "undefined") return recoveryAdapted;
   let activation = { modules: [] };
   try {
     activation = typeof DominionContractActivation === "undefined"
@@ -14084,7 +14255,7 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   currentDailyDecision = DominionDailyDecision.buildDailyDecision({
     operatingDate: context.date,
     truth,
-    command: horizonAdapted,
+    command: recoveryAdapted,
     day,
     queue,
     plans: activation.modules || [],
@@ -14093,13 +14264,16 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     readiness,
     readinessComplete: dailyState?.date === context.date
   });
-  return DominionDailyDecision.applyToCommand(horizonAdapted, currentDailyDecision);
+  return DominionDailyDecision.applyToCommand(recoveryAdapted, currentDailyDecision);
 }
 
 function dailyDecisionModuleState(domain = "training") {
-  return typeof DominionDailyDecision === "undefined"
+  const base = typeof DominionDailyDecision === "undefined"
     ? { status: "LOADING", executable: false, progressionAllowed: false, detail: "Checking today's order." }
     : DominionDailyDecision.moduleState(currentDailyDecision, domain);
+  return typeof DominionRecoveryCommand === "undefined"
+    ? base
+    : DominionRecoveryCommand.moduleState(buildCurrentRecoveryCommand(), domain, base);
 }
 
 function dailyDecisionScheduleSummary(decision = currentDailyDecision) {
@@ -14605,6 +14779,36 @@ function buildTodayRecoveryOrder() {
       primaryLabel: currentDailyDecision.nextAction.label || "Repair program"
     };
   }
+  const recoveryCommand = buildCurrentRecoveryCommand(date);
+  if (recoveryCommand) {
+    const currentTask = missionOrder && typeof DominionMissionRecovery !== "undefined" ? DominionMissionRecovery.nextTask(missionOrder) : null;
+    const commandComplete = recoveryCommand.status === "COMPLETE";
+    const availableSignals = (recoveryCommand.signals || []).filter((item) => !["MISSING", "UNAVAILABLE"].includes(item.status));
+    const concerns = (recoveryCommand.signals || []).filter((item) => Number(item.severity || 0) > 0);
+    const outcome = readRecoveryCommandOutcomeHistory().find((item) => item?.status === "READY") || null;
+    return {
+      state: commandComplete ? "COMPLETE" : recoveryCommand.posture === "UNKNOWN" ? "ROLL CALL REQUIRED" : recoveryCommand.posture,
+      posture: recoveryCommand.posture,
+      tone: commandComplete ? "green" : recoveryCommand.tone,
+      title: commandComplete ? "Recovery command secured" : recoveryCommand.headline,
+      detail: commandComplete ? `${recoveryCommand.order} Recorded for ${date}.` : recoveryCommand.order,
+      difference: recoveryCommand.difference,
+      actions: concerns.length
+        ? concerns.slice(0, 4).map((item) => `${item.label}: ${item.status.replaceAll("_", " ").toLowerCase()}`)
+        : [recoveryCommand.posture === "GREEN" ? "No recovery adjustment is required." : recoveryCommand.order],
+      signals: recoveryCommand.signals || [],
+      outcome,
+      priority: recoveryCommand.posture === "RED" ? "PROTECT" : recoveryCommand.posture === "AMBER" ? "ADJUST" : recoveryCommand.posture === "GREEN" ? "EXECUTE" : "PENDING",
+      confidence: availableSignals.length >= 6 ? "HIGH" : availableSignals.length >= 4 ? "MODERATE" : "LIMITED",
+      progression: recoveryCommand.posture === "GREEN" ? "PERMITTED" : "HOLD",
+      completed: commandComplete,
+      primaryAction: recoveryCommand.posture === "UNKNOWN" ? "roll-call" : currentTask ? "mission-complete" : commandComplete ? "command-undo" : "command-complete",
+      primaryLabel: recoveryCommand.posture === "UNKNOWN" ? "Complete Roll Call" : currentTask ? "Complete recovery action" : commandComplete ? "Reopen recovery command" : recoveryCommand.posture === "GREEN" ? "Confirm recovery check" : "Mark order complete",
+      currentTaskId: currentTask?.id || "",
+      recoveryCommandId: recoveryCommand.id,
+      safeguard: recoveryCommand.safeguard
+    };
+  }
   if (missionOrder && typeof DominionMissionRecovery !== "undefined") {
     const missionProgress = DominionMissionRecovery.progress(missionOrder);
     const currentTask = DominionMissionRecovery.nextTask(missionOrder);
@@ -14680,6 +14884,7 @@ function renderTodayRecoveryExecution() {
     return;
   }
   card.classList.toggle("is-complete", order.completed);
+  card.dataset.recoveryPosture = String(order.posture || order.tone || "neutral").toLowerCase();
   status.textContent = order.state;
   status.className = `state-pill ${order.tone}`;
   const checklist = order.taskStates
@@ -14689,6 +14894,7 @@ function renderTodayRecoveryExecution() {
       <span class="kicker">TODAY'S PRESCRIPTION</span>
       <h3>${escapeHtml(order.title)}</h3>
       <p>${escapeHtml(order.detail)}</p>
+      ${order.difference ? `<div class="today-recovery-difference"><span>WHAT CHANGES</span><strong>${escapeHtml(order.difference)}</strong></div>` : ""}
     </section>
     <div class="today-recovery-meta">
       <div><span>Priority</span><strong>${escapeHtml(order.priority)}</strong></div>
@@ -14696,12 +14902,14 @@ function renderTodayRecoveryExecution() {
       <div><span>Progression</span><strong>${escapeHtml(order.progression)}</strong></div>
     </div>
     <ul class="today-recovery-checklist">${checklist}</ul>
+    ${order.signals?.length ? `<div class="today-recovery-signals">${order.signals.map((signal) => `<span data-signal-state="${Number(signal.severity || 0) >= 2 ? "red" : Number(signal.severity || 0) === 1 ? "amber" : ["MISSING", "UNAVAILABLE"].includes(signal.status) ? "missing" : "green"}"><small>${escapeHtml(signal.label)}</small><strong>${escapeHtml(signal.status.replaceAll("_", " "))}</strong></span>`).join("")}</div>` : ""}
+    ${order.outcome ? `<article class="today-recovery-outcome" data-outcome-tone="${escapeHtml(order.outcome.tone || "neutral")}"><span>LAST INTERVENTION</span><strong>${escapeHtml(order.outcome.headline)}</strong><small>${escapeHtml(order.outcome.lesson)}</small></article>` : ""}
     <div class="today-recovery-controls">
       <button type="button" data-today-recovery-action="${escapeHtml(order.primaryAction)}" data-recovery-task-id="${escapeHtml(order.currentTaskId || "")}">${escapeHtml(order.primaryLabel)}</button>
       ${order.routeLabel ? `<button type="button" class="ghost" data-today-recovery-action="mission-route" data-recovery-task-id="${escapeHtml(order.currentTaskId || "")}">${escapeHtml(order.routeLabel)}</button>` : ""}
       <button type="button" class="ghost" data-today-recovery-action="review">Review evidence</button>
     </div>
-    <p class="today-recovery-safeguard">Completing this order records the action only. It never clears a pain safeguard or changes an approved training plan.</p>`;
+    <p class="today-recovery-safeguard">${escapeHtml(order.safeguard || "Completing this order records the action only. It never clears a pain safeguard or changes an approved training plan.")}</p>`;
 }
 
 function runningProfileStorageKey() {
@@ -16193,6 +16401,7 @@ async function saveMorningRollCallPayload(payload = {}, options = {}) {
   dailyState = normalized;
   readinessHistory = [...readinessHistory.filter((item) => item.date !== normalized.date), normalized];
   await ensureMorningVerification({ persist: false });
+  await runRecoveryCommand({ render: false });
   renderWarRoom(dailyState);
   setStatus("Roll Call saved on this device. Syncing…");
 
@@ -16209,6 +16418,7 @@ async function saveMorningRollCallPayload(payload = {}, options = {}) {
     dailyState = data;
     readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
     await ensureMorningVerification({ persist: true });
+    await runRecoveryCommand({ render: false });
     renderWarRoom(dailyState);
     try {
       await writeCommandEvents(data, previousState);
@@ -19782,6 +19992,7 @@ async function init() {
     await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
     await runStartupTask("Atlas adaptive horizon", runAtlasAdaptiveHorizon, startupIssues);
     await runStartupTask("Atlas adaptation outcomes", runAtlasAdaptationOutcomes, startupIssues);
+    await runStartupTask("Recovery Command", runRecoveryCommand, startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
@@ -21245,6 +21456,7 @@ if (typeof document !== "undefined") {
       return;
     }
     if (action === "mission-complete") {
+      await completeRecoveryCommand();
       await completeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
       renderDailyCoachingLoop();
       setText("today-recovery-feedback", "Current recovery action secured. The order advanced once.");
@@ -21258,6 +21470,16 @@ if (typeof document !== "undefined") {
     }
     if (action === "mission-route") {
       routeMissionRecoveryTask(button.dataset.recoveryTaskId || "");
+      return;
+    }
+    if (action === "command-complete") {
+      await completeRecoveryCommand();
+      setText("today-recovery-feedback", "Recovery command secured. Atlas will judge the result against the next Roll Call.");
+      return;
+    }
+    if (action === "command-undo") {
+      await reopenRecoveryCommand();
+      setText("today-recovery-feedback", "Recovery command reopened for today.");
       return;
     }
     if (action === "complete") {

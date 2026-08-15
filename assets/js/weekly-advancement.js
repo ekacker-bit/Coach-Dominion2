@@ -165,6 +165,10 @@
         <div class="weekly-advancement-copy"><strong id="weekly-advancement-percent">0%</strong><p id="weekly-advancement-detail">Finalize trustworthy weeks to begin advancement.</p></div>
         <div id="rank-requirements" class="weekly-advancement-gates"></div>
       </section>
+      <section id="dominion-campaign-review" class="dominion-campaign-review" data-campaign-tone="neutral" aria-labelledby="dominion-campaign-review-heading" aria-live="polite">
+        <div><span id="dominion-campaign-review-phase">CAMPAIGN // CHECKING</span><h3 id="dominion-campaign-review-heading">Twelve-week campaign</h3><p id="dominion-campaign-review-detail">Atlas is connecting this judgment to the declared outcome.</p></div>
+        <div class="dominion-campaign-review-read"><strong id="dominion-campaign-review-forecast">CHECKING</strong><small id="dominion-campaign-review-progress">0% complete</small><a href="#program" data-section="program">Open campaign</a></div>
+      </section>
       <aside id="weekly-next-action" class="weekly-next-action"><div><span>NEXT ORDER</span><h3 id="weekly-next-action-title">Complete the record</h3><p id="weekly-next-action-detail">Record the week before asking it to prove anything.</p></div><a id="weekly-next-action-link" href="#record" data-section="record">Open Record</a></aside>
       <div class="weekly-judgment-actions"><button id="finalize-week" type="button">Finalize week</button><button id="finalize-promotion" type="button" hidden>Authorize promotion</button><p id="rank-promotion-feedback" role="status" aria-live="polite"></p></div>
       <details class="weekly-proof-detail"><summary>Inspect the proof</summary><div class="weekly-proof-meta"><span>Saved as <strong id="weekly-storage">NOT LOADED</strong></span><span>Evidence through <strong id="weekly-evidence-through">&mdash;</strong></span></div><div id="weekly-domain-scores" class="weekly-domain-scores"></div><div id="weekly-evidence" class="evidence-list"></div><div id="rank-blockers" class="weekly-proof-blockers"></div></details>

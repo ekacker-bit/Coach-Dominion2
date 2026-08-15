@@ -113,6 +113,14 @@ let evidenceAutopilotState = {
   repairedPerformanceEntries: 0,
   lastError: null
 };
+let dominionCampaignTimer = null;
+let currentDominionCampaign = null;
+let dominionCampaignState = {
+  reconciling: false,
+  lastReconciledAt: null,
+  lastSavedRemotely: false,
+  lastError: null
+};
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -910,6 +918,7 @@ async function reconcileEvidenceAutopilot(options = {}) {
     };
     if (repaired) renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
     renderEvidenceAutopilot();
+    scheduleDominionCampaignReconciliation();
     return receipts;
   } catch (error) {
     evidenceAutopilotState.lastError = error?.message || "Proof reconciliation unavailable";
@@ -924,6 +933,168 @@ function scheduleEvidenceAutopilotReconciliation(delay = 180) {
   if (typeof window === "undefined" || typeof DominionEvidenceAutopilot === "undefined" || evidenceAutopilotState.reconciling) return;
   window.clearTimeout(evidenceAutopilotTimer);
   evidenceAutopilotTimer = window.setTimeout(() => reconcileEvidenceAutopilot({ persist: true }), delay);
+}
+
+function readDominionCampaign() {
+  return readClosedLoopState("CAMPAIGN", "current", null);
+}
+
+function readDominionCampaignHistory() {
+  const history = readClosedLoopState("HISTORY", "dominion-campaign", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function dominionCampaignInput() {
+  let outcome = null;
+  try { outcome = typeof DominionBodyComposition === "undefined" ? null : buildCurrentBodyOutcomeModel(); }
+  catch (_) {}
+  return {
+    today: todayISODate(),
+    contract: readApprovedRecruitContract(),
+    programReceipt: readAtlasProgramReceipt(),
+    weeks: readUnifiedWeekHistory(),
+    receipts: readEvidenceAutopilotHistory(),
+    inspections: [...inspectionHistory, weeklyInspection].filter(Boolean),
+    currentInspection: weeklyInspection,
+    standards: standardsReviewState,
+    outcome,
+    previous: readDominionCampaign(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function buildCurrentDominionCampaign() {
+  if (typeof DominionCampaign === "undefined") return null;
+  try {
+    return DominionCampaign.buildCampaign(dominionCampaignInput());
+  } catch (error) {
+    dominionCampaignState.lastError = error?.message || "Campaign unavailable";
+    return readDominionCampaign();
+  }
+}
+
+function dominionCampaignActionLabel(order = {}) {
+  if (order.code === "CONTRACT") return "Open Contract";
+  if (order.code === "PROGRAM") return "Activate program";
+  if (order.code === "FINALIZE_WEEK") return "Open Review";
+  if (order.code === "OUTCOME") return "Log checkpoint";
+  if (order.code === "CALENDAR") return "Open Calendar";
+  if (order.code === "EXECUTE") return "Execute today";
+  return "Open Today";
+}
+
+function dominionCampaignConditionValue(condition = {}) {
+  if (condition.id === "OUTCOME") return condition.passed ? "SECURED" : "NEEDED";
+  if (condition.id === "STANDARDS") return condition.passed ? "CLEAR" : `${condition.actual} OPEN`;
+  if (condition.id === "WEEKS") return `${condition.actual} / ${condition.target}`;
+  return `${Number(condition.actual || 0)}%`;
+}
+
+function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
+  if (!campaign || typeof DominionCampaign === "undefined") return;
+  currentDominionCampaign = campaign;
+  const tone = campaign.forecast?.tone || "neutral";
+  const order = campaign.currentOrder || { label: "Establish the campaign", detail: "One declared outcome comes first.", section: "contract" };
+  const main = document.getElementById("dominion-campaign");
+  if (main) {
+    main.dataset.campaignTone = tone;
+    setText("dominion-campaign-heading", campaign.status === "CONTRACT_REQUIRED" ? "Declare the objective" : campaign.status === "PROGRAM_REQUIRED" ? "Activate the campaign" : campaign.objective?.target || "Dominion Campaign");
+    setText("dominion-campaign-objective", campaign.status === "CONTRACT_REQUIRED"
+      ? "Sign the Dominion Contract to define the outcome and campaign clock."
+      : campaign.status === "PROGRAM_REQUIRED"
+        ? "The Contract is signed. Activate the complete program to begin the 12-week operation."
+        : `${campaign.objective?.goal || "DOMINION"} · ${campaign.startDate} to ${campaign.endDate}`);
+    setText("dominion-campaign-forecast", campaign.forecast?.label || "CHECKING");
+    const progress = document.getElementById("dominion-campaign-progress");
+    if (progress) progress.style.width = `${Number(campaign.progress || 0)}%`;
+    progress?.parentElement?.setAttribute("aria-valuenow", String(Number(campaign.progress || 0)));
+    const phases = document.getElementById("dominion-campaign-phases");
+    if (phases) phases.innerHTML = (campaign.phases || DominionCampaign.PHASES).map((phase) => {
+      const state = !campaign.currentWeek ? "future" : campaign.currentWeek > phase.endWeek ? "complete" : campaign.currentWeek >= phase.startWeek ? "current" : "future";
+      return `<article data-phase-state="${state}"><span>W${phase.startWeek}–${phase.endWeek}</span><strong>${escapeHtml(phase.label)}</strong></article>`;
+    }).join("");
+    setText("dominion-campaign-week", campaign.currentWeek ? `WEEK ${campaign.currentWeek} / ${campaign.totalWeeks}` : "NOT STARTED");
+    setText("dominion-campaign-execution", `${campaign.execution?.rate || 0}%`);
+    setText("dominion-campaign-proof", `${campaign.evidence?.rate || 0}%`);
+    setText("dominion-campaign-earned", `${campaign.weekly?.qualifying || 0} / ${DominionCampaign.QUALIFYING_WEEK_TARGET}`);
+    setText("dominion-campaign-order", order.label);
+    setText("dominion-campaign-order-detail", order.detail);
+    const action = document.getElementById("dominion-campaign-action");
+    if (action) {
+      action.href = `#${order.section || "today"}`;
+      action.dataset.section = order.section || "today";
+      action.textContent = dominionCampaignActionLabel(order);
+    }
+    const passed = (campaign.conditions || []).filter((condition) => condition.passed).length;
+    setText("dominion-campaign-condition-count", `${passed} of ${(campaign.conditions || []).length || 5} met`);
+    const conditions = document.getElementById("dominion-campaign-condition-list");
+    if (conditions) conditions.innerHTML = (campaign.conditions || []).map((condition) => `<article data-condition-state="${condition.passed ? "pass" : "open"}"><span aria-hidden="true">${condition.passed ? "✓" : "·"}</span><div><strong>${escapeHtml(condition.label)}</strong><small>${escapeHtml(condition.detail)}</small></div><b>${escapeHtml(dominionCampaignConditionValue(condition))}</b></article>`).join("") || '<div class="performance-empty">The Contract and complete program establish the win conditions.</div>';
+  }
+  const today = document.getElementById("dominion-campaign-today");
+  if (today) {
+    today.dataset.campaignTone = tone;
+    setText("dominion-campaign-today-phase", campaign.currentWeek ? `CAMPAIGN // WEEK ${campaign.currentWeek} // ${campaign.phase?.label?.toUpperCase() || "ACTIVE"}` : "CAMPAIGN // NOT STARTED");
+    setText("dominion-campaign-today-order", order.label);
+    setText("dominion-campaign-today-detail", campaign.status === "ACTIVE" ? `${campaign.forecast?.label || "CHECKING"} · ${campaign.progress || 0}% campaign progress` : order.detail);
+    const todayAction = document.getElementById("dominion-campaign-today-action");
+    if (todayAction) {
+      todayAction.href = `#${order.section || "program"}`;
+      todayAction.dataset.section = order.section || "program";
+      todayAction.textContent = order.section === "program" ? "View campaign" : dominionCampaignActionLabel(order);
+    }
+  }
+  const review = document.getElementById("dominion-campaign-review");
+  if (review) {
+    review.dataset.campaignTone = tone;
+    setText("dominion-campaign-review-phase", campaign.currentWeek ? `CAMPAIGN // WEEK ${campaign.currentWeek} // ${campaign.phase?.label?.toUpperCase() || "ACTIVE"}` : "CAMPAIGN // NOT STARTED");
+    setText("dominion-campaign-review-heading", campaign.objective?.target || "Twelve-week campaign");
+    setText("dominion-campaign-review-detail", campaign.status === "ACTIVE" ? `${campaign.weekly?.qualifying || 0} qualifying weeks · ${campaign.execution?.rate || 0}% execution · ${campaign.evidence?.rate || 0}% proof.` : order.detail);
+    setText("dominion-campaign-review-forecast", campaign.forecast?.label || "CHECKING");
+    setText("dominion-campaign-review-progress", `${campaign.progress || 0}% complete`);
+  }
+  document.body.dataset.dominionCampaign = String(campaign.status || "CHECKING").toLowerCase().replaceAll("_", "-");
+}
+
+async function reconcileDominionCampaign(options = {}) {
+  if (typeof DominionCampaign === "undefined" || dominionCampaignState.reconciling) return buildCurrentDominionCampaign();
+  dominionCampaignState.reconciling = true;
+  dominionCampaignState.lastError = null;
+  try {
+    const campaign = buildCurrentDominionCampaign();
+    if (!campaign) return null;
+    const history = DominionCampaign.upsertHistory(readDominionCampaignHistory(), campaign);
+    saveClosedLoopLocal("CAMPAIGN", "current", campaign);
+    saveClosedLoopLocal("HISTORY", "dominion-campaign", history);
+    let remote = false;
+    if (options.persist !== false) {
+      const results = await Promise.all([
+        persistClosedLoopState("CAMPAIGN", "current", campaign),
+        persistClosedLoopState("HISTORY", "dominion-campaign", history)
+      ]);
+      remote = results.every(Boolean);
+    }
+    dominionCampaignState = {
+      ...dominionCampaignState,
+      lastReconciledAt: new Date().toISOString(),
+      lastSavedRemotely: remote
+    };
+    currentDominionCampaign = campaign;
+    renderDominionCampaign(campaign);
+    return campaign;
+  } catch (error) {
+    dominionCampaignState.lastError = error?.message || "Campaign reconciliation unavailable";
+    const fallback = readDominionCampaign();
+    if (fallback) renderDominionCampaign(fallback);
+    return fallback;
+  } finally {
+    dominionCampaignState.reconciling = false;
+  }
+}
+
+function scheduleDominionCampaignReconciliation(delay = 260) {
+  if (typeof window === "undefined" || typeof DominionCampaign === "undefined" || dominionCampaignState.reconciling) return;
+  window.clearTimeout(dominionCampaignTimer);
+  dominionCampaignTimer = window.setTimeout(() => reconcileDominionCampaign({ persist: true }), delay);
 }
 
 function markContinuityRecordSynced(domain, stateType, stateKey, payload, updatedAt = null) {
@@ -11332,7 +11503,7 @@ function registerMobileServiceWorker() {
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
   // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
-  const reloadKey = "coach-dominion:service-worker-reload:026j";
+  const reloadKey = "coach-dominion:service-worker-reload:026k";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -11351,7 +11522,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026a", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026h", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026i", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026j", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=026j", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026k", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11464,6 +11636,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   renderTodayStandardsDuty();
   renderDataTruth();
   renderActivationGuide();
+  renderDominionCampaign();
 }
 
 let strengthRestTimer = null;
@@ -12180,6 +12353,8 @@ async function loadClosedLoopState() {
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "evidence-autopilot"],
+      ["CAMPAIGN", "current"],
+      ["HISTORY", "dominion-campaign"],
       ["HISTORY", "atlas-daily-command"],
       ["HISTORY", "atlas-decision-center"],
       ["CONTEXT", "recruit-constraints"]
@@ -12214,6 +12389,7 @@ async function loadClosedLoopState() {
     renderRecruitConstraintMemory();
     renderAtlasDecisionCenter();
     renderEvidenceAutopilot();
+    renderDominionCampaign();
   } catch (_) {
     // Device state remains the explicit fallback.
   }
@@ -16271,6 +16447,8 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     </details>`;
   renderProgramRecovery();
   renderRecruitConstraintMemory();
+  renderDominionCampaign();
+  if (!dominionCampaignState.reconciling) scheduleDominionCampaignReconciliation();
 }
 
 function renderProgramChangeImpact(form) {
@@ -19177,6 +19355,7 @@ async function init() {
     await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
     await runStartupTask("evidence autopilot", () => reconcileEvidenceAutopilot({ persist: true }), startupIssues);
+    await runStartupTask("Dominion Campaign", () => reconcileDominionCampaign({ persist: true }), startupIssues);
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
@@ -19199,7 +19378,8 @@ async function init() {
       ["mobile command", renderMobileCommand],
       ["performance form", resetPerformanceForm],
       ["performance workspace", () => setPerformanceActiveView("overview")],
-      ["evidence proof", renderEvidenceAutopilot]
+      ["evidence proof", renderEvidenceAutopilot],
+      ["Dominion Campaign", renderDominionCampaign]
     ];
     for (const [label, render] of finalRenders) {
       await runStartupTask(label, async () => render(), startupIssues);
@@ -23264,6 +23444,8 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   renderCommandCenterOverview(dailyState ? evaluateReadiness(dailyState) : null, aggregate);
   renderStandardsSection();
   renderActivationGuide();
+  renderDominionCampaign();
+  if (!dominionCampaignState.reconciling) scheduleDominionCampaignReconciliation();
 }
 
 function renderWeeklyInspection(aggregate, storageMode) {

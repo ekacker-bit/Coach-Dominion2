@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 026K Dominion Campaign
+
+- Turns the signed Recruit Contract and approved Atlas program into one finite 12-week campaign with Foundation, Build, Pressure, and Prove phases.
+- Establishes five explicit win conditions across execution, trusted proof, qualifying weeks, standards, and measurable outcome evidence.
+- Gives the recruit one current campaign order and an honest finish forecast without creating another approval step.
+- Connects the campaign to Program, Today, and Weekly Review so daily work and weekly judgments visibly serve the declared outcome.
+- Persists one deterministic current campaign and idempotent history to the account with device-first continuity.
+- Preserves separate credit for same-day Strength, Cardio, Core, and Fuel requirements while incomplete work remains unearned.
+
 ## Unreleased - Build 026J Evidence Autopilot
 
 - Reconciles Strength, Cardio, Core, Fuel, Roll Call, daily closeout, recovery, and existing performance records into one canonical proof trail.

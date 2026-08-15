@@ -9,6 +9,7 @@
     provider("STRAVA", "Strava", "ACTIVITY", ["RUN", "RIDE", "WALK", "SWIM"], ["READ_ACTIVITY"], "PLANNED", "PHASE_2", "Planned endurance activity import."),
     provider("GARMIN", "Garmin", "HEALTH", ["RUN", "RIDE", "SWIM", "STEPS", "HEART_RATE", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "ARCHITECTURE_ONLY", "PHASE_2", "Architecture preview for activity and health metrics."),
     provider("APPLE_HEALTH", "Apple Health", "HEALTH", ["STEPS", "HEART_RATE", "HEART_RATE_VARIABILITY", "SLEEP", "BODYWEIGHT"], ["READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "FILE_IMPORT", "PHASE_3", "User-controlled Apple Health export.xml import; no Apple credentials or live HealthKit access."),
+    provider("HEALTH_CONNECT", "Health Connect", "HEALTH", ["RUN", "WALK", "RIDE", "STRENGTH_SESSION", "STEPS", "HEART_RATE", "HEART_RATE_VARIABILITY", "SLEEP", "BODYWEIGHT"], ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"], "FILE_IMPORT", "PHASE_3", "User-controlled Health Connect JSON bridge import; no Google credentials are stored."),
     provider("FITBOD", "Fitbod", "STRENGTH", ["STRENGTH_SESSION", "EXERCISE_SET"], ["READ_STRENGTH_WORKOUTS"], "FILE_IMPORT", "PHASE_2", "User-controlled Fitbod workout-file import; no Fitbod credentials are stored."),
     provider("MYFITNESSPAL", "MyFitnessPal", "NUTRITION", ["CALORIES", "MACRONUTRIENTS", "BODYWEIGHT"], ["READ_NUTRITION", "READ_BODY_METRICS"], "HEALTHKIT_BRIDGE", "PHASE_5", "Automatic daily calorie and macro totals through Apple Health and a revocable iPhone Shortcut feed; no MyFitnessPal credentials are stored.")
   ]);
@@ -698,25 +699,97 @@
   }
 
   function summarizeAppleHealthByDate(records = []) {
+    return summarizeHealthMetricsByDate(records, ["APPLE_HEALTH"]);
+  }
+
+  function summarizeHealthMetricsByDate(records = [], providerCodes = ["APPLE_HEALTH", "HEALTH_CONNECT"]) {
+    const allowedProviders = new Set(providerCodes.map(upper));
+    const providerPriority = { HEALTH_CONNECT: 2, APPLE_HEALTH: 1, GARMIN: 0 };
     const byDate = new Map();
-    records.filter((record) => record.providerCode === "APPLE_HEALTH" && record.validationStatus === "VALID" && record.importStatus !== "DUPLICATE")
+    records.filter((record) => allowedProviders.has(record.providerCode) && record.validationStatus === "VALID" && !["DUPLICATE", "INVALIDATED", "REJECTED"].includes(record.importStatus))
       .forEach((record) => {
         const date = text(record.occurredAt).slice(0, 10);
-        const day = byDate.get(date) || { date, steps: null, restingHeartRate: null, heartRateVariability: null, weight: null, weightUnit: null, sleepAsleep: 0, sleepInBed: 0, records: 0 };
+        const day = byDate.get(date) || { date, steps: null, restingHeartRate: null, heartRateVariability: null, weight: null, weightUnit: null, sleepAsleep: 0, sleepInBed: 0, records: 0, providers: [], metricProviders: {} };
         const payload = record.normalizedPayload || {};
         day.records += 1;
-        if (record.dataType === "STEPS") day.steps = Math.round(Number(payload.value) || 0);
-        if (record.dataType === "HEART_RATE") day.restingHeartRate = Number(payload.value) || null;
-        if (record.dataType === "HEART_RATE_VARIABILITY") day.heartRateVariability = Number(payload.value) || null;
-        if (record.dataType === "BODYWEIGHT") { day.weight = Number(payload.value) || null; day.weightUnit = payload.unit || null; }
-        if (record.dataType === "SLEEP" && /Asleep/i.test(payload.sleep_stage || "")) day.sleepAsleep += Number(payload.value) || 0;
-        if (record.dataType === "SLEEP" && /InBed/i.test(payload.sleep_stage || "")) day.sleepInBed += Number(payload.value) || 0;
+        if (!day.providers.includes(record.providerCode)) day.providers.push(record.providerCode);
+        const preferred = (metric) => !day.metricProviders[metric] || day.metricProviders[metric] === record.providerCode || (providerPriority[record.providerCode] || 0) > (providerPriority[day.metricProviders[metric]] || 0);
+        if (record.dataType === "STEPS" && preferred("steps")) { day.steps = Math.round(Number(payload.value) || 0); day.metricProviders.steps = record.providerCode; }
+        if (record.dataType === "HEART_RATE" && preferred("restingHeartRate")) { day.restingHeartRate = Number(payload.value) || null; day.metricProviders.restingHeartRate = record.providerCode; }
+        if (record.dataType === "HEART_RATE_VARIABILITY" && preferred("heartRateVariability")) { day.heartRateVariability = Number(payload.value) || null; day.metricProviders.heartRateVariability = record.providerCode; }
+        if (record.dataType === "BODYWEIGHT" && preferred("weight")) { day.weight = Number(payload.value) || null; day.weightUnit = payload.unit || null; day.metricProviders.weight = record.providerCode; }
+        if (record.dataType === "SLEEP" && preferred("sleep")) {
+          if (day.metricProviders.sleep && day.metricProviders.sleep !== record.providerCode) { day.sleepAsleep = 0; day.sleepInBed = 0; }
+          day.metricProviders.sleep = record.providerCode;
+          if (/Asleep/i.test(payload.sleep_stage || "")) day.sleepAsleep += Number(payload.value) || 0;
+          if (/InBed/i.test(payload.sleep_stage || "")) day.sleepInBed += Number(payload.value) || 0;
+        }
         byDate.set(date, day);
       });
     return Array.from(byDate.values()).map((day) => ({
       ...day,
       sleep: Math.round((day.sleepAsleep || day.sleepInBed) * 100) / 100
-    })).sort((a, b) => b.date.localeCompare(a.date));
+    })).map(({ metricProviders, ...day }) => day).sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  function parseHealthConnectExportJson(jsonText, options = {}) {
+    let input;
+    try { input = typeof jsonText === "string" ? JSON.parse(jsonText) : clone(jsonText); }
+    catch (_) { return { records: [], errors: ["Health Connect import must be valid JSON."], ignoredCount: 0, supportedCount: 0 }; }
+    const rows = Array.isArray(input) ? input : Array.isArray(input?.records) ? input.records : Array.isArray(input?.data) ? input.data : [];
+    if (!rows.length) return { records: [], errors: ["Health Connect JSON contains no records."], ignoredCount: 0, supportedCount: 0 };
+    const typeFor = (row = {}) => upper(text(row.dataType || row.data_type || row.recordType || row.record_type || row.type).replace(/([a-z0-9])([A-Z])/g, "$1_$2")).replace(/_?RECORD$/, "");
+    const mapping = {
+      STEPS: "STEPS", STEP_COUNT: "STEPS", RESTING_HEART_RATE: "HEART_RATE", HEART_RATE: "HEART_RATE",
+      HEART_RATE_VARIABILITY_RMSSD: "HEART_RATE_VARIABILITY", HEART_RATE_VARIABILITY: "HEART_RATE_VARIABILITY",
+      SLEEP_SESSION: "SLEEP", SLEEP: "SLEEP", WEIGHT: "BODYWEIGHT", BODY_WEIGHT: "BODYWEIGHT",
+      RUNNING: "RUN", RUN: "RUN", WALKING: "WALK", WALK: "WALK", BIKING: "RIDE", CYCLING: "RIDE", RIDE: "RIDE",
+      STRENGTH_TRAINING: "STRENGTH_SESSION", STRENGTH_SESSION: "STRENGTH_SESSION", EXERCISE_SESSION: "CONDITIONING_SESSION"
+    };
+    const errors = [], records = [], dailySteps = new Map();
+    rows.forEach((row, index) => {
+      const rawType = typeFor(row);
+      const exerciseType = upper(row.exerciseType || row.exercise_type || row.activityType || row.activity_type);
+      const dataType = mapping[exerciseType] || mapping[rawType];
+      if (!dataType) return;
+      const occurredAt = normalizeTimestamp(row.endTime || row.end_time || row.startTime || row.start_time || row.time || row.date);
+      if (!occurredAt) { errors.push(`Health Connect row ${index + 1} has no valid date.`); return; }
+      const value = finite(row.value ?? row.count ?? row.steps ?? row.bpm ?? row.rmssd ?? row.weight ?? row.weightKg ?? row.weight_kg);
+      if (dataType === "STEPS") {
+        if (!Number.isFinite(value)) { errors.push(`Health Connect row ${index + 1} has invalid steps.`); return; }
+        const date = occurredAt.slice(0, 10);
+        const day = dailySteps.get(date) || { value: 0, seeds: [] };
+        day.value += value; day.seeds.push(canonicalSerialize(row)); dailySteps.set(date, day);
+        return;
+      }
+      const startAt = normalizeTimestamp(row.startTime || row.start_time || occurredAt);
+      const endAt = normalizeTimestamp(row.endTime || row.end_time || occurredAt);
+      const calculatedDuration = startAt && endAt ? Math.max(0, (new Date(endAt) - new Date(startAt)) / 1000) : null;
+      const durationSeconds = finite(row.durationSeconds ?? row.duration_seconds ?? calculatedDuration);
+      const payload = dataType === "SLEEP"
+        ? { value: durationSeconds === null ? finite(row.hours) : durationSeconds / 3600, unit: "h", sleep_stage: row.stage || "Asleep", start_at: startAt, end_at: endAt, source_name: "Health Connect" }
+        : ["RUN", "WALK", "RIDE", "STRENGTH_SESSION", "CONDITIONING_SESSION"].includes(dataType)
+          ? { activity_name: row.title || row.name || exerciseType.replaceAll("_", " ") || "Health Connect workout", activity_code: exerciseType.toLowerCase(), duration_seconds: durationSeconds, distance: finite(row.distance ?? row.distanceMeters ?? row.distance_meters), distance_unit: row.distanceUnit || row.distance_unit || "m", source_name: "Health Connect" }
+          : { value, unit: row.unit || (dataType === "BODYWEIGHT" ? (row.weightKg !== undefined || row.weight_kg !== undefined ? "kg" : "") : dataType === "HEART_RATE" ? "bpm" : "ms"), source_name: "Health Connect" };
+      const seed = canonicalSerialize({ rawType, occurredAt, row });
+      records.push(normalizeImportedRecord({
+        userId: options.userId || "local", connectedAccountId: options.connectedAccountId || "health-connect-file",
+        providerCode: "HEALTH_CONNECT", providerRecordId: text(row.id) || stableId("health_connect", seed),
+        providerRecordType: rawType || "HEALTH_CONNECT", dataType, occurredAt, timezone: row.timezone || options.timezone || "UTC",
+        normalizedPayload: payload, rawPayload: { type: rawType, source: text(row.dataOrigin || row.data_origin || row.source) || "Health Connect" },
+        sourceSyncJobId: options.sourceSyncJobId || null, isDemo: false,
+        validationStatus: dataType === "SLEEP" || ["RUN", "WALK", "RIDE", "STRENGTH_SESSION", "CONDITIONING_SESSION"].includes(dataType) || Number.isFinite(value) ? "VALID" : "INVALID"
+      }, options));
+    });
+    dailySteps.forEach((day, date) => records.push(normalizeImportedRecord({
+      userId: options.userId || "local", connectedAccountId: options.connectedAccountId || "health-connect-file",
+      providerCode: "HEALTH_CONNECT", providerRecordId: stableId("health_connect_steps", `${date}|${day.seeds.sort().join("|")}`),
+      providerRecordType: "STEPS", dataType: "STEPS", occurredAt: date, timezone: options.timezone || "UTC",
+      normalizedPayload: { value: Math.round(day.value), unit: "count", source_name: "Health Connect" },
+      rawPayload: { aggregate: "daily_sum", contributing_records: day.seeds.length }, sourceSyncJobId: options.sourceSyncJobId || null,
+      isDemo: false, validationStatus: "VALID"
+    }, options)));
+    return { records: sortByDate(records, "occurredAt"), errors, ignoredCount: Math.max(0, rows.length - records.length - dailySteps.size), supportedCount: records.length };
   }
 
   return Object.freeze({
@@ -727,7 +800,7 @@
     normalizeImportedPayload, classifyImportedDataType, normalizeImportedRecord, validateImportedRecord,
     buildImportedRecordDeduplicationKey, buildSourceRecordFingerprint, buildFileChecksum, reconcileImportedRecord, buildImportProvenance, mapImportedRecordToPerformanceEntry,
     summarizeSyncJob, buildImportBatch, rollbackImportBatch, deriveConnectedViewState, buildConnectedOverviewModel, storageKey, sortByDate, createDemoRecords,
-    parseFitbodWorkoutCsv, parseMyFitnessPalNutritionCsv, parseAppleHealthExportXml, summarizeAppleHealthByDate,
+    parseFitbodWorkoutCsv, parseMyFitnessPalNutritionCsv, parseAppleHealthExportXml, parseHealthConnectExportJson, summarizeAppleHealthByDate, summarizeHealthMetricsByDate,
     aggregateNutritionByDate, parseNutritionTarget, reconcileNutritionDay,
     normalizeExerciseName, groupFitbodWorkoutSessions, parsePrescribedStrengthTarget,
     reconcileFitbodWorkoutSession, stableId, stableUuid, clone

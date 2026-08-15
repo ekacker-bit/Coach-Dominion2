@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 027D Connected Evidence
+
+- Reconciles Apple Health, Health Connect, Fitbod, MyFitnessPal, Garmin, and Strava evidence against the committed Coach Dominion calendar.
+- Awards one verified proof per assignment even when multiple providers describe the same session.
+- Surfaces only materially conflicting or unmatched imports; normal training days require no reconciliation.
+- Adds a user-controlled Health Connect JSON bridge for Android workouts, steps, sleep, RHR, HRV, and body weight without storing Google credentials or raw files.
+- Feeds clean connected proof into Evidence Autopilot, Trends, and weekly review while leaving the Recruit Contract and approved program unchanged.
+- Replaces nine technical connection tabs with Overview, Sources, and Review and keeps provenance machinery behind diagnostic disclosure.
+
 ## Unreleased - Build 027C Recovery Command
 
 - Turns sleep, resting heart rate, HRV, energy, soreness, pain, and recent training load into one green, amber, or red morning posture.

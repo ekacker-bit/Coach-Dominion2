@@ -806,6 +806,83 @@ function readEvidenceAutopilotHistory() {
   return Array.isArray(history) ? history : [];
 }
 
+function readConnectedEvidenceReport() {
+  return readClosedLoopState("HISTORY", "connected-evidence-current", null);
+}
+
+function readConnectedEvidenceHistory() {
+  const history = readClosedLoopState("HISTORY", "connected-evidence", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readConnectedEvidenceResolutions() {
+  const resolutions = readClosedLoopState("HISTORY", "connected-evidence-resolutions", []);
+  return Array.isArray(resolutions) ? resolutions : [];
+}
+
+function connectedEvidenceAssignments() {
+  const seen = new Set();
+  return readUnifiedWeekHistory()
+    .filter((week) => week?.status !== "REPLACED")
+    .flatMap((week) => (week.days || []).flatMap((day) => (day.activities || []).map((activity) => ({
+      ...activity,
+      id: activity.id || activity.activityId || `${day.date}:${activity.module}:${activity.title || activity.name || "assignment"}`,
+      date: day.date,
+      domain: activity.module
+    }))))
+    .filter((assignment) => {
+      const key = `${assignment.date}|${assignment.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+async function reconcileConnectedEvidence(options = {}) {
+  if (typeof DominionConnectedEvidence === "undefined") return null;
+  let report = DominionConnectedEvidence.reconcile({
+    records: connectedImportedRecords,
+    assignments: connectedEvidenceAssignments(),
+    generatedAt: options.generatedAt || new Date().toISOString()
+  });
+  readConnectedEvidenceResolutions().forEach((item) => {
+    if (report.exceptions.some((exception) => exception.id === item.exceptionId)) {
+      report = DominionConnectedEvidence.resolve(report, item.exceptionId, item.resolution, { resolvedAt: item.resolvedAt });
+    }
+  });
+  const history = DominionConnectedEvidence.upsertHistory(readConnectedEvidenceHistory(), report);
+  saveClosedLoopLocal("HISTORY", "connected-evidence-current", report);
+  saveClosedLoopLocal("HISTORY", "connected-evidence", history);
+  if (options.persist !== false) {
+    await Promise.all([
+      persistClosedLoopState("HISTORY", "connected-evidence-current", report),
+      persistClosedLoopState("HISTORY", "connected-evidence", history)
+    ]);
+  }
+  if (options.render !== false) renderConnectedDominion();
+  return report;
+}
+
+async function resolveConnectedEvidence(exceptionId, resolution) {
+  const report = readConnectedEvidenceReport();
+  if (!report || typeof DominionConnectedEvidence === "undefined") return null;
+  const next = DominionConnectedEvidence.resolve(report, exceptionId, resolution);
+  const record = { exceptionId, resolution, resolvedAt: new Date().toISOString() };
+  const resolutions = [record, ...readConnectedEvidenceResolutions().filter((item) => item.exceptionId !== exceptionId)].slice(0, 180);
+  const history = DominionConnectedEvidence.upsertHistory(readConnectedEvidenceHistory(), next);
+  saveClosedLoopLocal("HISTORY", "connected-evidence-current", next);
+  saveClosedLoopLocal("HISTORY", "connected-evidence", history);
+  saveClosedLoopLocal("HISTORY", "connected-evidence-resolutions", resolutions);
+  await Promise.all([
+    persistClosedLoopState("HISTORY", "connected-evidence-current", next),
+    persistClosedLoopState("HISTORY", "connected-evidence", history),
+    persistClosedLoopState("HISTORY", "connected-evidence-resolutions", resolutions)
+  ]);
+  await reconcileEvidenceAutopilot({ persist: true });
+  renderConnectedDominion();
+  return next;
+}
+
 function evidenceAutopilotMissionReceipts() {
   const history = readClosedLoopState("HISTORY", "account-truth-mission-evidence", []);
   return [
@@ -837,7 +914,8 @@ function evidenceAutopilotSources() {
   const recovery = readMissionRecoveryHistory()
     .filter((item) => item?.completedAt || item?.status === "COMPLETE")
     .map((item) => ({ ...item, sourceType: "RECOVERY_ORDER", domain: "recovery", kind: "RECOVERY", state: "COMPLETE", metrics: { completedTasks: (item.tasks || []).filter((task) => task.completedAt).length } }));
-  return [...evidenceAutopilotMissionReceipts(), ...strength, ...core, ...performance, ...manualFuel, ...fuel, ...meals, ...readiness, ...closeouts, ...recovery];
+  const connected = readConnectedEvidenceReport()?.proofSources || [];
+  return [...evidenceAutopilotMissionReceipts(), ...connected, ...strength, ...core, ...performance, ...manualFuel, ...fuel, ...meals, ...readiness, ...closeouts, ...recovery];
 }
 
 function evidenceAutopilotRequiredDomains(date = todayISODate()) {
@@ -2449,6 +2527,8 @@ function formatObjectiveMetric(value, unit) {
 function objectiveSourceLabel(source) {
   const normalized = String(source || "").trim().toUpperCase();
   if (normalized === "APPLE_HEALTH") return "Apple Health";
+  if (normalized === "HEALTH_CONNECT") return "Health Connect";
+  if (normalized === "CONNECTED_HEALTH") return "Connected health";
   if (normalized === "SELF_REPORTED_CLOSEOUT") return "Daily closeout";
   if (normalized === "MANUAL") return "Manual";
   if (normalized === "SAVED") return "Saved";
@@ -11695,7 +11775,7 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026l", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027a", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027b", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=027c", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=027d", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12527,6 +12607,9 @@ async function loadClosedLoopState() {
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "evidence-autopilot"],
+      ["HISTORY", "connected-evidence-current"],
+      ["HISTORY", "connected-evidence"],
+      ["HISTORY", "connected-evidence-resolutions"],
       ["CAMPAIGN_COMMISSION", "current"],
       ["CAMPAIGN", "current"],
       ["PROGRESSION_ORDER", "current"],
@@ -16062,7 +16145,7 @@ function renderCommandCenterOverview(readinessResultOrState = null, weeklyInspec
 
 function appleHealthReadinessForDate(date = todayISODate()) {
   if (!connectedApi()) return null;
-  return connectedApi().summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === date) || null;
+  return connectedApi().summarizeHealthMetricsByDate(connectedImportedRecords).find((item) => item.date === date) || null;
 }
 
 function weightInPounds(value, unit = "") {
@@ -16098,8 +16181,9 @@ function prefillMorningRollCallForm(state = dailyState) {
     resting_heart_rate: isAvailable(state?.resting_heart_rate) ? state.resting_heart_rate : health?.restingHeartRate,
     heart_rate_variability: isAvailable(state?.heart_rate_variability) ? state.heart_rate_variability : health?.heartRateVariability
   };
+  const connectedSource = health?.providers?.length > 1 ? "CONNECTED_HEALTH" : health?.providers?.[0] || "APPLE_HEALTH";
   Object.keys(OBJECTIVE_METRIC_CONFIG).forEach((key) => {
-    const source = sources[key] || (isAvailable(state?.[key]) ? "SAVED" : isAvailable(values[key]) ? "APPLE_HEALTH" : "");
+    const source = sources[key] || (isAvailable(state?.[key]) ? "SAVED" : isAvailable(values[key]) ? connectedSource : "");
     setRollCallMetric(key, values[key], source);
   });
 }
@@ -19425,7 +19509,7 @@ function connectedStatusPill(value) {
 }
 
 function setConnectedActiveView(view = "overview") {
-  const allowed = ["overview", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "apple_health", "privacy"];
+  const allowed = ["overview", "sources", "providers", "accounts", "sync_history", "imported_records", "reconciliation", "nutrition", "apple_health", "privacy"];
   connectedActiveView = allowed.includes(view) ? view : "overview";
   document.querySelectorAll("[data-connected-view]").forEach((button) => {
     const active = button.dataset.connectedView === connectedActiveView;
@@ -19501,6 +19585,26 @@ function renderMfpNutritionFeedCard() {
   </article>`;
 }
 
+function renderConnectedEvidenceReview() {
+  const panel = document.getElementById("connected-view-reconciliation");
+  if (!panel) return;
+  const report = readConnectedEvidenceReport();
+  if (!report || report.status === "EMPTY") {
+    panel.innerHTML = `<div class="connected-empty"><strong>No evidence to review.</strong><p>Connect a source and Coach Dominion will reconcile it automatically.</p><button type="button" data-connected-action="open-sources">Connect a source</button></div>`;
+    return;
+  }
+  if (!report.exceptions?.length) {
+    panel.innerHTML = `<article class="connected-review-clear"><span aria-hidden="true">✓</span><div><span class="kicker">NO EXCEPTIONS</span><h3>Everything reconciled</h3><p>${escapeHtml(report.detail)}</p></div></article>`;
+    return;
+  }
+  panel.innerHTML = `<div class="connected-exception-list">${report.exceptions.map((item) => `<article class="connected-exception-card">
+    <header><div><span class="kicker">${escapeHtml(item.type.replaceAll("_", " "))}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.date)} · ${escapeHtml(item.domain)}</p></div>${connectedStatusPill("REVIEW")}</header>
+    <p>${escapeHtml(item.detail)}</p>
+    ${item.differences?.length ? `<dl>${item.differences.map((difference) => `<div><dt>${escapeHtml(difference.key.replaceAll(/([A-Z])/g, " $1"))}</dt><dd>${escapeHtml(difference.left)} vs ${escapeHtml(difference.right)}</dd></div>`).join("")}</dl>` : ""}
+    <div class="connected-actions">${item.type === "CONFLICTING_EVIDENCE" ? `<button type="button" data-connected-action="resolve-connected-primary" data-exception-id="${escapeHtml(item.id)}">Use ${escapeHtml(item.evidence.provider)}</button>` : `<button type="button" data-connected-action="open-calendar">Open Calendar</button>`}<button type="button" class="ghost" data-connected-action="ignore-connected-exception" data-exception-id="${escapeHtml(item.id)}">Ignore import</button></div>
+  </article>`).join("")}</div>`;
+}
+
 function renderConnectedDominion() {
   const api = connectedApi();
   if (!api || typeof document === "undefined") return;
@@ -19508,17 +19612,31 @@ function renderConnectedDominion() {
   setText("connected-storage", connectedStorageMode);
   setText("diagnostic-storage", connectedStorageMode);
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
-  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Remote Connected storage is unavailable. Showing user-scoped LOCAL FALLBACK data; this is not a remote success." : viewState === "LOADING" ? "Loading Connected Dominion state…" : "Fitbod and Apple Health file imports are active. MyFitnessPal can also deliver daily nutrition totals automatically through Apple Health and a private iPhone Shortcut.");
+  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Account sync is unavailable. Connected evidence remains protected on this device." : viewState === "LOADING" ? "Loading your connections…" : "Connected sources ready. Review appears only when evidence conflicts.");
   const overviewPanel = document.getElementById("connected-view-overview");
   const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
   const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
-  const latestHealthDate = latestDatedItem(api.summarizeAppleHealthByDate(connectedImportedRecords))?.date || "—";
-  if (overviewPanel) overviewPanel.innerHTML = `<div class="connected-summary-grid">
-    <div><span>Providers planned</span><strong>${overview.providerCount}</strong></div><div><span>Simulated accounts</span><strong>${overview.simulatedAccountCount}</strong></div>
-    <div><span>Recent sync</span><strong>${escapeHtml(overview.mostRecentSyncStatus)}</strong></div><div><span>Imported records</span><strong>${overview.importedRecordCount}</strong></div>
-    <div><span>Duplicates</span><strong>${overview.duplicateCount}</strong></div><div><span>Rejected</span><strong>${overview.rejectedCount}</strong></div>
-    <div><span>Unmapped</span><strong>${overview.unmappedCount}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div>
-  </div><div class="connected-summary-grid data-date-summary"><div><span>Latest Fitbod date</span><strong>${escapeHtml(latestFitbodDate)}</strong></div><div><span>Latest nutrition date</span><strong>${escapeHtml(latestNutritionDate)}</strong></div><div><span>Latest Apple Health date</span><strong>${escapeHtml(latestHealthDate)}</strong></div></div><div class="connected-notice"><strong>Date integrity:</strong> imported records remain available historically, but only evidence matching the active date is treated as current.</div>`;
+
+  const connectedEvidence = readConnectedEvidenceReport();
+  const evidenceStatus = connectedEvidence?.status || "EMPTY";
+  if (overviewPanel) overviewPanel.innerHTML = `<article class="connected-evidence-command ${escapeHtml(evidenceStatus.toLowerCase())}">
+    <div><span class="kicker">CONNECTED EVIDENCE</span><h3>${escapeHtml(connectedEvidence?.headline || "No connected evidence yet")}</h3><p>${escapeHtml(connectedEvidence?.detail || "Connect a source when you want automatic proof.")}</p></div>
+    ${evidenceStatus === "REVIEW" ? `<button type="button" data-connected-action="open-review">Review ${connectedEvidence.counts.exceptions}</button>` : evidenceStatus === "EMPTY" ? `<button type="button" data-connected-action="open-sources">Connect a source</button>` : connectedStatusPill("NO ACTION")}
+  </article>
+  <div class="connected-source-freshness" aria-label="Latest connected evidence">
+    <div><span>Strength</span><strong>${escapeHtml(latestFitbodDate)}</strong><small>Fitbod</small></div>
+    <div><span>Fuel</span><strong>${escapeHtml(latestNutritionDate)}</strong><small>MyFitnessPal</small></div>
+    <div><span>Health</span><strong>${escapeHtml(latestDatedItem(api.summarizeHealthMetricsByDate(connectedImportedRecords))?.date || "None")}</strong><small>Apple / Android</small></div>
+  </div>
+  <details class="product-diagnostics"><summary>Evidence details</summary><div class="connected-summary-grid"><div><span>Imported</span><strong>${connectedEvidence?.counts?.imported || 0}</strong></div><div><span>Matched</span><strong>${connectedEvidence?.counts?.matched || 0}</strong></div><div><span>Duplicates ignored</span><strong>${connectedEvidence?.counts?.ignored || 0}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div></div></details>`;
+
+  const sourcesPanel = document.getElementById("connected-view-sources");
+  if (sourcesPanel) sourcesPanel.innerHTML = `<div class="connected-source-grid">
+    <article><span class="kicker">STRENGTH</span><h3>Fitbod</h3><p>Import completed sets. Coach Dominion matches them to the committed workout.</p><button type="button" data-connected-action="fitbod-import">Import workout CSV</button></article>
+    <article><span class="kicker">FUEL</span><h3>MyFitnessPal</h3><p>Use daily calories and macros without duplicating meal evidence.</p><div class="connected-actions"><button type="button" data-connected-action="mfp-import">Import nutrition CSV</button><button type="button" class="ghost" data-connected-action="mfp-feed-open">Automatic feed</button></div></article>
+    <article><span class="kicker">IPHONE</span><h3>Apple Health</h3><p>Use steps, sleep, RHR, HRV, and body weight from a chosen export.</p><button type="button" data-connected-action="apple-health-import">Import export.xml</button></article>
+    <article><span class="kicker">ANDROID</span><h3>Health Connect</h3><p>Use health metrics and workouts from a chosen bridge export.</p><button type="button" data-connected-action="health-connect-import">Import JSON</button></article>
+  </div><details class="product-diagnostics"><summary>Privacy and import history</summary><p>Coach Dominion stores normalized evidence only. It never asks for provider passwords, never stores the selected raw file, and keeps duplicate credit out of the record.</p><div class="connected-actions"><button type="button" class="ghost" data-connected-action="open-import-history">View import history</button><button type="button" class="ghost" data-connected-action="open-privacy">View privacy controls</button></div></details>`;
 
   const providerPanel = document.getElementById("connected-view-providers");
   if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
@@ -19604,6 +19722,7 @@ function renderConnectedDominion() {
       ${day.date === todayISODate() ? `<div class="connected-actions"><button type="button" data-connected-action="apply-apple-readiness" ${dailyState ? "" : "disabled"}>Apply to today’s readiness</button></div><p class="muted">${dailyState ? "This updates objective readiness evidence while preserving your Energy, Soreness, Pain, and comments." : "Complete Morning Roll Call before applying objective health evidence."}</p>` : ""}
     </article>`).join("")}</div>` : `<div class="connected-empty">No Apple Health export has been imported yet.</div>`}`;
   }
+  renderConnectedEvidenceReview();
   renderDailyCoachingLoop();
   renderBaselineIntelligence();
   renderNutritionCommand();
@@ -19658,6 +19777,8 @@ async function saveConnectedState(message, forceLocalFallback = false) {
     connectedStorageMode = "LOCAL FALLBACK";
     connectedLoadState = { loading: false, remoteLoadFailed: true, authRequired: !session?.user?.id, localFallback: true };
   }
+  await reconcileConnectedEvidence({ persist: true, render: false });
+  await reconcileEvidenceAutopilot({ persist: true });
   renderConnectedDominion();
   setText("connected-feedback", `${message} ${connectedStorageMode === "LOCAL FALLBACK" ? "Saved locally; remote storage did not report success." : "Saved to remote storage."}`);
 }
@@ -19884,11 +20005,56 @@ async function importAppleHealthFile(file) {
   setConnectedActiveView("apple_health");
 }
 
+async function importHealthConnectFile(file) {
+  const api = connectedApi();
+  if (!api || !file) return;
+  if (file.size > 25 * 1024 * 1024) {
+    setText("connected-feedback", "Health Connect JSON exceeds the 25 MB browser-import limit.");
+    return;
+  }
+  setText("connected-feedback", "Reading supported Health Connect evidence…");
+  const requestedAt = new Date().toISOString();
+  const fileText = await file.text();
+  const batch = api.buildImportBatch({ userId: connectedUserId(), providerCode: "HEALTH_CONNECT", fileName: file.name, source: fileText, requestedAt, existingJobs: connectedSyncJobs });
+  let account = connectedAccounts.find((item) => item.providerCode === "HEALTH_CONNECT" && item.connectionStatus !== "DISCONNECTED" && !item.isSimulated);
+  if (!account) {
+    account = api.normalizeConnectedAccount({
+      userId: connectedUserId(), providerCode: "HEALTH_CONNECT", providerDisplayName: "Health Connect",
+      connectionStatus: "NOT_CONNECTED", permissions: ["READ_ACTIVITY", "READ_HEALTH_METRICS", "READ_BODY_METRICS", "READ_SLEEP", "READ_HEART_RATE", "READ_STEPS"],
+      externalAccountLabel: "User-controlled JSON bridge", isSimulated: false, createdAt: requestedAt, updatedAt: requestedAt
+    });
+    connectedAccounts = [account, ...connectedAccounts];
+  }
+  let job = api.normalizeSyncJob({
+    userId: connectedUserId(), connectedAccountId: account.id, providerCode: "HEALTH_CONNECT", syncType: "MANUAL", status: "QUEUED",
+    requestedAt, createdAt: requestedAt, isDemo: false,
+    summary: { fileName: file.name, rawFileStored: false, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  });
+  job = api.transitionSyncJob(job, "RUNNING", { now: requestedAt }).job;
+  const parsed = api.parseHealthConnectExportJson(fileText, { userId: connectedUserId(), connectedAccountId: account.id, sourceSyncJobId: job.id, importBatchId: job.id, fileChecksum: batch.fileChecksum });
+  const processed = parsed.records.map((record) => {
+    const reconciled = api.reconcileImportedRecord(record, connectedImportedRecords);
+    return reconciled.importStatus === "VALIDATED" ? { ...reconciled, importStatus: "MAPPED" } : reconciled;
+  });
+  connectedImportedRecords = [...processed, ...connectedImportedRecords];
+  const counts = api.summarizeSyncJob(processed);
+  const status = parsed.records.length && !parsed.errors.length ? "SUCCEEDED" : parsed.records.length ? "PARTIAL" : "FAILED";
+  job = api.transitionSyncJob({
+    ...job, importedCount: counts.imported, duplicateCount: counts.duplicate, rejectedCount: counts.rejected + parsed.errors.length, unmappedCount: counts.unmapped,
+    errorCode: status === "FAILED" ? "HEALTH_CONNECT_FILE_INVALID" : null, errorMessage: parsed.errors.slice(0, 5).join(" "),
+    summary: { ...counts, fileName: file.name, supportedSourceRows: parsed.supportedCount, ignoredSourceRows: parsed.ignoredCount, rawFileStored: false, fileChecksum: batch.fileChecksum, idempotencyKey: batch.idempotencyKey, repeatedBatch: batch.repeatedBatch, priorJobId: batch.priorJobId }
+  }, status, { now: new Date().toISOString() }).job;
+  connectedSyncJobs = [job, ...connectedSyncJobs];
+  await saveConnectedState(`Health Connect import ${status}: ${counts.new} new, ${counts.updated} updated, ${counts.duplicate} duplicate, ${counts.rejected + parsed.errors.length} rejected; ${parsed.ignoredCount} unsupported row(s) ignored.${batch.repeatedBatch ? " This exact file was imported before." : ""}`);
+  setConnectedActiveView(readConnectedEvidenceReport()?.status === "REVIEW" ? "reconciliation" : "overview");
+}
+
 async function applyAppleHealthReadiness() {
   const api = connectedApi();
   if (!api || !dailyState) return;
-  const day = api.summarizeAppleHealthByDate(connectedImportedRecords).find((item) => item.date === todayISODate());
+  const day = api.summarizeHealthMetricsByDate(connectedImportedRecords).find((item) => item.date === todayISODate());
   if (!day) return;
+  const source = day.providers?.length > 1 ? "CONNECTED_HEALTH" : day.providers?.[0] || "APPLE_HEALTH";
   const weight = day.weight === null ? dailyState.weight : /kg/i.test(day.weightUnit || "") ? Math.round(day.weight * 2.2046226218 * 10) / 10 : day.weight;
   const payload = {
     ...dailyState,
@@ -19901,10 +20067,10 @@ async function applyAppleHealthReadiness() {
     heart_rate_variability: day.heartRateVariability ?? dailyState.heart_rate_variability,
     objective_metric_sources: {
       ...(dailyState.objective_metric_sources || {}),
-      ...(day.weight !== null ? { weight: "APPLE_HEALTH" } : {}),
-      ...(day.restingHeartRate !== null ? { resting_heart_rate: "APPLE_HEALTH" } : {}),
-      ...(day.heartRateVariability !== null ? { heart_rate_variability: "APPLE_HEALTH" } : {}),
-      ...(day.steps !== null ? { steps: "APPLE_HEALTH" } : {})
+      ...(day.weight !== null ? { weight: source } : {}),
+      ...(day.restingHeartRate !== null ? { resting_heart_rate: source } : {}),
+      ...(day.heartRateVariability !== null ? { heart_rate_variability: source } : {}),
+      ...(day.steps !== null ? { steps: source } : {})
     },
     objective_metrics_updated_at: new Date().toISOString()
   };
@@ -19920,7 +20086,7 @@ async function applyAppleHealthReadiness() {
   await ensureMorningVerification({ persist: true });
   renderWarRoom(dailyState);
   renderConnectedDominion();
-  setText("connected-feedback", "Apple Health evidence applied to today’s readiness. Subjective Roll Call answers were preserved.");
+  setText("connected-feedback", "Connected health evidence applied to today's readiness. Subjective Roll Call answers were preserved.");
 }
 
 async function runStartupTask(label, task, issues = []) {
@@ -19980,9 +20146,10 @@ async function init() {
     await runStartupTask("Calendar", loadWeeklyOrchestrationState, startupIssues);
     await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
+    await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
+    await runStartupTask("Connected Evidence", () => reconcileConnectedEvidence({ persist: true, render: true }), startupIssues);
     await runStartupTask("evidence autopilot", () => reconcileEvidenceAutopilot({ persist: true }), startupIssues);
     await runStartupTask("Dominion Campaign", () => reconcileDominionCampaign({ persist: true }), startupIssues);
-    await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
@@ -22855,10 +23022,22 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-connected-action]");
     if (!button) return;
     const action = button.dataset.connectedAction;
+    if (action === "open-review") { setConnectedActiveView("reconciliation"); return; }
+    if (action === "open-sources") { setConnectedActiveView("sources"); return; }
+    if (action === "open-import-history") { setConnectedActiveView("imported_records"); return; }
+    if (action === "open-privacy") { setConnectedActiveView("privacy"); return; }
+    if (action === "open-calendar") {
+      setActiveSection("calendar");
+      window.history.replaceState(null, "", "#calendar");
+      return;
+    }
+    if (action === "resolve-connected-primary") { await resolveConnectedEvidence(button.dataset.exceptionId, "USE_PRIMARY"); return; }
+    if (action === "ignore-connected-exception") { await resolveConnectedEvidence(button.dataset.exceptionId, "IGNORE"); return; }
     if (action === "fitbod-import") document.getElementById("fitbod-import-file")?.click();
     if (action === "mfp-import") document.getElementById("mfp-import-file")?.click();
     if (await runMfpNutritionFeedAction(action)) return;
     if (action === "apple-health-import") document.getElementById("apple-health-import-file")?.click();
+    if (action === "health-connect-import") document.getElementById("health-connect-import-file")?.click();
     if (action === "apply-apple-readiness") await applyAppleHealthReadiness();
     if (action === "apply-reconciliation") applyFitbodReconciliation(button.dataset.sessionId);
     if (action === "apply-nutrition") applyNutritionReconciliation(button.dataset.nutritionDate);
@@ -22935,6 +23114,12 @@ if (typeof document !== "undefined") {
     const file = appleHealthImportFile.files?.[0];
     appleHealthImportFile.value = "";
     if (file) await importAppleHealthFile(file);
+  });
+  const healthConnectImportFile = document.getElementById("health-connect-import-file");
+  if (healthConnectImportFile) healthConnectImportFile.addEventListener("change", async () => {
+    const file = healthConnectImportFile.files?.[0];
+    healthConnectImportFile.value = "";
+    if (file) await importHealthConnectFile(file);
   });
   document.getElementById("performance-entry-list").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

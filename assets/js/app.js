@@ -827,13 +827,16 @@ function evidenceAutopilotSources() {
   const fuelLedger = readFuelClosedLoopLedger();
   const fuel = (fuelLedger.closeouts || [])
     .map((item) => ({ ...item, sourceType: "FUEL_CLOSEOUT", domain: "nutrition", kind: "INTAKE", state: item.status || "SEALED", metrics: item.metrics || item.actual || item.summary || {} }));
+  const manualFuel = nutritionEvidenceHistory(todayISODate())
+    .map((item) => typeof DominionFuelDayLedger === "undefined" ? null : DominionFuelDayLedger.evidence({ record: item }))
+    .filter(Boolean);
   const meals = (readMealExecutionLedger().history || [])
     .filter((item) => String(item.status || "").toUpperCase() === "CONFIRMED")
     .map((item) => ({ ...item, sourceType: "MEAL_EXECUTION", domain: "nutrition", kind: "MEAL", state: "CONFIRMED", metrics: item.actual || item.estimate || {} }));
   const recovery = readMissionRecoveryHistory()
     .filter((item) => item?.completedAt || item?.status === "COMPLETE")
     .map((item) => ({ ...item, sourceType: "RECOVERY_ORDER", domain: "recovery", kind: "RECOVERY", state: "COMPLETE", metrics: { completedTasks: (item.tasks || []).filter((task) => task.completedAt).length } }));
-  return [...evidenceAutopilotMissionReceipts(), ...strength, ...core, ...performance, ...fuel, ...meals, ...readiness, ...closeouts, ...recovery];
+  return [...evidenceAutopilotMissionReceipts(), ...strength, ...core, ...performance, ...manualFuel, ...fuel, ...meals, ...readiness, ...closeouts, ...recovery];
 }
 
 function evidenceAutopilotRequiredDomains(date = todayISODate()) {
@@ -893,12 +896,14 @@ function renderEvidenceAutopilot() {
   const selectedDate = document.getElementById("weekly-date")?.value || todayISODate();
   const range = getInspectionWeekRange(selectedDate);
   const weekly = DominionEvidenceAutopilot.weeklyProof(range, receipts, evidenceAutopilotWeekRequirements(selectedDate));
-  setText("weekly-proof-secured", String(weekly.secured.length));
-  setText("weekly-proof-verified", String(weekly.verified.length));
-  setText("weekly-proof-reported", String(weekly.selfReported.length));
-  setText("weekly-proof-gaps", String(weekly.missing.length));
   const weeklyRoot = document.getElementById("weekly-proof-status");
-  if (weeklyRoot) weeklyRoot.dataset.proofTone = weekly.missing.length ? "yellow" : weekly.secured.length ? "green" : "neutral";
+  if (weeklyRoot) {
+    setText("weekly-proof-secured", String(weekly.secured.length));
+    setText("weekly-proof-verified", String(weekly.verified.length));
+    setText("weekly-proof-reported", String(weekly.selfReported.length));
+    setText("weekly-proof-gaps", String(weekly.missing.length));
+    weeklyRoot.dataset.proofTone = weekly.missing.length ? "yellow" : weekly.secured.length ? "green" : "neutral";
+  }
 }
 
 async function reconcileEvidenceAutopilot(options = {}) {
@@ -11205,9 +11210,7 @@ function buildCurrentDailyAssignment() {
 }
 
 function currentMobileNutrition(date = todayISODate()) {
-  const api = connectedApi();
-  const imported = api ? api.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date) : null;
-  return imported || readManualNutrition(date) || null;
+  return buildFuelDayLedger(date).record || null;
 }
 
 function buildCurrentMobileCommand() {
@@ -11523,7 +11526,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026h", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026i", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026j", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026k", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=026k", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=026l", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -17117,6 +17121,74 @@ function readManualNutrition(date) {
   catch (_) { return null; }
 }
 
+function buildFuelDayLedger(date = todayISODate()) {
+  const api = connectedApi();
+  const imported = api ? api.aggregateNutritionByDate(connectedImportedRecords).find((item) => item.date === date) || null : null;
+  const manual = readManualNutrition(date);
+  if (typeof DominionFuelDayLedger === "undefined") {
+    const record = imported || manual || null;
+    return { date, record, imported, manual, source: imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE", status: record ? "LOGGED" : "EMPTY", primaryComplete: Boolean(record?.calories !== null && record?.calories !== undefined && record?.protein !== null && record?.protein !== undefined), complete: Boolean(record) };
+  }
+  const ledger = DominionFuelDayLedger.selectRecord({ date, imported, manual });
+  const calendar = buildCurrentFuelCalendarContext(date);
+  const trainingDay = calendar?.trainingDay === true;
+  const baselineTargets = currentNutritionTargetsForContext(trainingDay, date);
+  const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
+  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baselineTargets;
+  return { ...ledger, targets, progress: DominionFuelDayLedger.progress(ledger, targets) };
+}
+
+function fuelSourceLabel(source = "NONE") {
+  return source === "MYFITNESSPAL" ? "MYFITNESSPAL" : source === "MANUAL" ? "MANUAL ENTRY" : "NOT LOGGED";
+}
+
+function renderFuelDayLedger(date = nutritionCommandDate(), force = false) {
+  const form = document.getElementById("nutrition-manual-form");
+  const status = document.getElementById("fuel-day-ledger-status");
+  const summary = document.getElementById("fuel-day-ledger-summary");
+  if (!form || !status || !summary) return;
+  const ledger = buildFuelDayLedger(date);
+  if (force || form.dataset.dirty !== "true") {
+    form.elements.date.value = date;
+    ["calories", "protein", "carbs", "fat"].forEach((key) => {
+      form.elements[key].value = ledger.record?.[key] ?? "";
+    });
+    form.dataset.dirty = "false";
+  }
+  status.textContent = ledger.status === "LOGGED" ? "DAY LOGGED" : ledger.status === "PARTIAL" ? "FINISH TOTALS" : "NOT LOGGED";
+  status.className = `state-pill ${ledger.status === "LOGGED" ? "green" : ledger.status === "PARTIAL" ? "yellow" : "neutral"}`;
+  const record = ledger.record;
+  if (!record) {
+    summary.innerHTML = `<strong>One entry closes today’s Fuel evidence.</strong><span>Enter calories, protein, carbs, and fat. You can update the total later.</span>`;
+    return;
+  }
+  const reconciliation = ledger.reconciliation?.status === "REVIEW"
+    ? `<em>MyFitnessPal and manual totals differ. The complete source is preserved for review.</em>`
+    : "";
+  summary.innerHTML = `<div><span>${escapeHtml(fuelSourceLabel(ledger.source))}</span><strong>${Math.round(record.calories || 0)} kcal</strong></div>
+    <div><span>PROTEIN</span><strong>${Math.round(record.protein || 0)}g</strong></div>
+    <div><span>CARBS</span><strong>${Math.round(record.carbs || 0)}g</strong></div>
+    <div><span>FAT</span><strong>${Math.round(record.fat || 0)}g</strong></div>${reconciliation}`;
+}
+
+async function persistFuelDayTotals(input = {}, options = {}) {
+  const date = String(input.date || todayISODate());
+  const record = typeof DominionFuelDayLedger === "undefined"
+    ? { date, calories: Number(input.calories), protein: Number(input.protein), carbs: Number(input.carbs), fat: Number(input.fat), updatedAt: new Date().toISOString(), source: "MANUAL" }
+    : DominionFuelDayLedger.normalizeRecord(input, { date, source: "MANUAL", now: new Date().toISOString() });
+  window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
+  enqueueMobileWrite("NUTRITION_MANUAL", date, record);
+  const synced = await persistNutritionState("MANUAL_DAY", date, record);
+  if (options.render !== false) {
+    renderNutritionCommand();
+    if (date === todayISODate()) renderDailyCoachingLoop();
+    renderMobileCommand();
+    renderEvidenceAutopilot();
+    if (trendAnalyticsContext) renderTrendsAnalytics(trendAnalyticsContext.inspections, trendAnalyticsContext.dailyRecords, trendAnalyticsContext.storageMode);
+  }
+  return { record, synced };
+}
+
 function nutritionCommandDate() {
   return document.querySelector('#nutrition-manual-form [name="date"]')?.value || todayISODate();
 }
@@ -17313,16 +17385,13 @@ function nutritionIntelligenceAverage(value, unit) {
 
 function nutritionEvidenceHistory(windowEnd) {
   if (!connectedApi()) return [];
-  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
-  const importedByDate = new Map(imported.map((day) => [day.date, { ...day, source: "MYFITNESSPAL" }]));
   const history = [];
   const anchor = new Date(`${windowEnd}T12:00:00`);
   for (let offset = 13; offset >= 0; offset -= 1) {
     const date = new Date(anchor);
     date.setDate(anchor.getDate() - offset);
     const dateKey = date.toISOString().slice(0, 10);
-    const manual = readManualNutrition(dateKey);
-    const record = importedByDate.get(dateKey) || (manual ? { ...manual, source: "MANUAL" } : null);
+    const record = buildFuelDayLedger(dateKey).record;
     if (record) history.push(record);
   }
   return history;
@@ -18045,15 +18114,15 @@ function buildCurrentTodayNutritionExecution() {
   if (typeof DominionTodayNutrition === "undefined" || !connectedApi()) return null;
   const date = todayISODate();
   const nutritionDays = connectedApi().aggregateNutritionByDate(connectedImportedRecords);
-  const imported = nutritionDays.find((day) => day.date === date) || null;
-  const manual = readManualNutrition(date);
-  const actual = imported || manual || {};
-  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : nutritionDays.length ? "MYFITNESSPAL" : "NONE";
+  const ledger = buildFuelDayLedger(date);
+  const imported = ledger.imported;
+  const actual = ledger.record || {};
+  const source = ledger.source === "NONE" && nutritionDays.length ? "MYFITNESSPAL" : ledger.source;
   const sourceRecordedAt = imported?.records
     ?.map((record) => record.sourceUpdatedAt || record.updatedAt || record.createdAt || record.occurredAt)
     .filter(Boolean)
     .sort()
-    .at(-1) || manual?.updatedAt || null;
+    .at(-1) || ledger.record?.updatedAt || null;
   const trainingSessions = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords);
   const calendarContext = buildCurrentFuelCalendarContext(date);
   const fastingContext = buildCurrentFastingContext(date, calendarContext);
@@ -18064,7 +18133,7 @@ function buildCurrentTodayNutritionExecution() {
   const readiness = dailyState?.date === date ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
   return DominionTodayNutrition.buildTodayNutritionExecution({
     date,
-    actualDate: imported?.date || manual?.date || null,
+    actualDate: ledger.record?.date || null,
     latestEvidenceDate: nutritionDays[0]?.date || null,
     sourceRecordedAt,
     actual,
@@ -18509,17 +18578,12 @@ function renderTodayNutritionExecution() {
     const value = metric.target === null ? "—" : metric.actual === null ? `${Math.round(metric.target)} ${metric.unit} target` : `${Math.round(metric.remaining)} ${metric.unit} left`;
     return `<div><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   }).join("");
-  const legacyAction = command.primaryAction.route === "fasting" || command.primaryAction.id === "view-fast"
-    ? "view-fast"
-    : command.primaryAction.route === "plan"
-      ? "set-baseline"
-    : command.primaryAction.route === "connected"
-      ? "troubleshoot-sync"
-      : "open-nutrition";
+  const dayLedger = buildFuelDayLedger(todayISODate());
+  const fuelActionLabel = dayLedger.status === "LOGGED" ? "Update totals" : dayLedger.status === "PARTIAL" ? "Finish totals" : "Log today’s totals";
   output.innerHTML = `<div class="today-fuel-compact">
       <div><span class="kicker">TODAY'S ORDER</span><h3>${escapeHtml(command.headline)}</h3><p>${escapeHtml(command.detail)}</p></div>
       <div class="today-fuel-compact-metrics">${metrics}</div>
-      <button type="button" class="primary" data-today-nutrition-action="${escapeHtml(legacyAction)}">Open Fuel</button>
+      <button type="button" class="primary" data-today-nutrition-action="open-nutrition">${escapeHtml(fuelActionLabel)}</button>
     </div>`;
 }
 
@@ -18530,10 +18594,9 @@ function renderNutritionCommand() {
   if (!output || !statusPill || !form || typeof DominionNutritionCommand === "undefined" || !connectedApi()) return;
   if (!form.elements.date.value) form.elements.date.value = todayISODate();
   const date = nutritionCommandDate();
-  const imported = connectedApi().aggregateNutritionByDate(connectedImportedRecords).find((day) => day.date === date);
-  const manual = readManualNutrition(date);
-  const actual = imported || manual || {};
-  const source = imported ? "MYFITNESSPAL" : manual ? "MANUAL" : "NONE";
+  const ledger = buildFuelDayLedger(date);
+  const actual = ledger.record || {};
+  const source = ledger.source;
   const calendarContext = buildCurrentFuelCalendarContext(date);
   const trainingDay = calendarContext?.trainingDay === true;
   const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
@@ -18586,6 +18649,7 @@ function renderNutritionCommand() {
       <div><span>${fastingLive?.countdown ? "COUNTDOWN" : "WINDOW"}</span><strong>${escapeHtml(fastingLive?.countdown || fasting.windowLabel || "Paused today")}</strong><small>${escapeHtml(fasting.targetPolicy)}</small></div>
     </section>` : "";
   output.innerHTML = `${fastingBrief}${calendarBrief}<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
+  renderFuelDayLedger(date);
   const evidence = document.getElementById("fuel-command-evidence");
   if (evidence) {
     const warnings = fuel.warnings.map((warning) => `<p class="today-nutrition-warning">${escapeHtml(warning)}</p>`).join("");
@@ -18647,8 +18711,12 @@ function renderNutritionNextAction(command = null) {
   if (!output) return;
   const fuel = command || buildCurrentFuelCommand();
   if (!fuel) return;
-  output.innerHTML = `<div><div class="kicker">TODAY'S FUEL ORDER · ${escapeHtml(fuel.status)}</div><h3>${escapeHtml(fuel.headline)}</h3><p>${escapeHtml(fuel.detail)}</p></div>
-    <button type="button" data-nutrition-next-action="${escapeHtml(fuel.primaryAction.route)}">${escapeHtml(fuel.primaryAction.label)}</button>`;
+  const ledger = buildFuelDayLedger(todayISODate());
+  const logged = ledger.status === "LOGGED";
+  const headline = logged ? "Today’s Fuel total is secured" : ledger.status === "PARTIAL" ? "Finish today’s Fuel total" : "Log today’s calories and macros";
+  const detail = logged ? "This record now drives Today, Trends, evidence, and weekly coaching." : "One entry replaces meal-by-meal logging. Update it whenever the day changes.";
+  output.innerHTML = `<div><div class="kicker">TODAY'S FUEL ORDER · ${escapeHtml(logged ? "LOGGED" : "OPEN")}</div><h3>${escapeHtml(headline)}</h3><p>${escapeHtml(detail)}</p></div>
+    <button type="button" data-nutrition-next-action="log-day" data-fuel-followup="${escapeHtml(fuel.primaryAction.route)}">${escapeHtml(logged ? "Update totals" : ledger.status === "PARTIAL" ? "Finish totals" : "Log day")}</button>`;
 }
 
 async function saveManualNutrition(event) {
@@ -18656,17 +18724,20 @@ async function saveManualNutrition(event) {
   const form = event.currentTarget;
   const data = new FormData(form);
   const date = String(data.get("date") || todayISODate());
-  const record = { date, updatedAt: new Date().toISOString() };
-  ["calories", "protein", "carbs", "fat"].forEach((key) => {
-    const value = data.get(key);
-    record[key] = value === "" || value === null ? null : Number(value);
-  });
-  window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
-  const synced = await persistNutritionState("MANUAL_DAY", date, record);
-  renderNutritionCommand();
-  if (date === todayISODate()) renderDailyCoachingLoop();
-  renderMobileCommand();
-  setText("nutrition-command-feedback", `Manual totals saved${synced ? " to your account" : " locally"}. MyFitnessPal data will take priority when available for this date.`);
+  const button = form.querySelector('button[type="submit"]');
+  if (button) { button.disabled = true; button.textContent = "Saving…"; }
+  try {
+    const { synced } = await persistFuelDayTotals(Object.fromEntries(data.entries()));
+    form.dataset.dirty = "false";
+    renderFuelDayLedger(date, true);
+    setText("nutrition-command-feedback", synced
+      ? "Day secured. Fuel, Today, Trends, and weekly coaching now share this total."
+      : "Day secured on this device. Account sync will retry automatically.");
+  } catch (error) {
+    setText("nutrition-command-feedback", error?.message || "Fuel totals could not be saved.");
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Save Day"; }
+  }
 }
 
 function readConnectedLocal(kind, normalizer) {
@@ -19541,20 +19612,15 @@ if (typeof document !== "undefined") {
       button.textContent = "Saving…";
     }
     try {
-      const record = DominionMobileCommand.normalizeNutrition(Object.fromEntries(new FormData(form)), {
-        date: todayISODate(),
-        now: new Date().toISOString()
+      const normalized = DominionMobileCommand.normalizeNutrition(Object.fromEntries(new FormData(form)), {
+        date: todayISODate(), now: new Date().toISOString()
       });
-      window.localStorage.setItem(nutritionManualStorageKey(record.date), JSON.stringify(record));
-      enqueueMobileWrite("NUTRITION_MANUAL", record.date, record);
-      const synced = await persistNutritionState("MANUAL_DAY", record.date, record);
+      const { synced } = await persistFuelDayTotals(normalized);
       form.dataset.dirty = "false";
       document.getElementById("mobile-nutrition-sheet").open = false;
-      renderNutritionCommand();
-      renderDailyCoachingLoop();
       setText("mobile-command-feedback", synced
-        ? "Fuel totals saved and synced."
-        : "Fuel totals saved offline. They will sync automatically.");
+        ? "Fuel day secured across Today, Trends, and coaching."
+        : "Fuel day secured offline. It will sync automatically.");
       prefillMobileCommandForms(true);
     } catch (error) {
       setText("mobile-command-feedback", error?.message || "Fuel totals could not be saved.");
@@ -20583,13 +20649,25 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-weekly-plan-action]");
     if (button?.dataset.weeklyPlanAction === "approve") approveCurrentWeeklyPlan();
   });
-  document.getElementById("nutrition-manual-form")?.addEventListener("submit", saveManualNutrition);
+  const fuelDayForm = document.getElementById("nutrition-manual-form");
+  if (fuelDayForm && !fuelDayForm.elements.date.value) fuelDayForm.elements.date.value = todayISODate();
+  renderFuelDayLedger(todayISODate(), true);
+  fuelDayForm?.addEventListener("submit", saveManualNutrition);
+  fuelDayForm?.addEventListener("input", (event) => {
+    if (event.target.name !== "date") event.currentTarget.dataset.dirty = "true";
+  });
   document.querySelectorAll("[data-nutrition-view]").forEach((button) => {
     button.addEventListener("click", () => setNutritionActiveView(button.dataset.nutritionView));
   });
   document.getElementById("nutrition-next-action")?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-nutrition-next-action]");
     if (!button) return;
+    if (button.dataset.nutritionNextAction === "log-day") {
+      setNutritionActiveView("today");
+      document.querySelector('#nutrition-manual-form [name="calories"]')?.focus({ preventScroll: true });
+      document.getElementById("fuel-day-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     if (button.dataset.nutritionNextAction === "connected") {
       setActiveSection("connected");
       window.history.replaceState(null, "", "#connected");
@@ -20623,7 +20701,10 @@ if (typeof document !== "undefined") {
     setNutritionActiveView(button.dataset.nutritionNextAction);
     document.querySelector(`[data-nutrition-view-panel="${button.dataset.nutritionNextAction}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", renderNutritionCommand);
+  document.querySelector('#nutrition-manual-form [name="date"]')?.addEventListener("change", (event) => {
+    event.currentTarget.form.dataset.dirty = "false";
+    renderNutritionCommand();
+  });
   document.getElementById("nutrition-baseline-form")?.addEventListener("submit", reviewNutritionBaseline);
   document.getElementById("nutrition-baseline-output")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-nutrition-baseline-action]");
@@ -20740,10 +20821,10 @@ if (typeof document !== "undefined") {
       document.getElementById("nutrition-baseline-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    if (action === "log-intake") {
-      setNutritionActiveView("details");
+    if (action === "log-intake" || action === "open-nutrition") {
+      setNutritionActiveView("today");
       document.querySelector('#nutrition-manual-form [name="calories"]')?.focus({ preventScroll: true });
-      document.getElementById("nutrition-manual-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("fuel-day-ledger")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     setNutritionActiveView("today");
@@ -23742,14 +23823,11 @@ function saveTrendPreferences() {
 }
 
 function trendNutritionHistory(rangeDays = 84) {
-  const imported = connectedApi() ? connectedApi().aggregateNutritionByDate(connectedImportedRecords) : [];
-  const importedByDate = new Map(imported.map((item) => [item.date, { ...item, source: "IMPORTED" }]));
   const rows = [];
   const anchor = new Date(`${todayISODate()}T12:00:00Z`);
   for (let offset = Math.max(1, Number(rangeDays || 84)) - 1; offset >= 0; offset -= 1) {
     const date = new Date(anchor.getTime() - offset * 86400000).toISOString().slice(0, 10);
-    const manual = readManualNutrition(date);
-    const record = importedByDate.get(date) || (manual ? { ...manual, source: "MANUAL" } : null);
+    const record = buildFuelDayLedger(date).record;
     if (record) rows.push(record);
   }
   return rows;

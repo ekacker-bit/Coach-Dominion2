@@ -331,6 +331,41 @@
     };
   }
 
+  function buildNextCycleDraft(plan = {}, history = [], options = {}) {
+    if (plan.status !== "APPROVED") throw new Error("An approved Core cycle is required.");
+    const review = buildCycleReview(plan, history);
+    if (review.recommendation.code !== "PROGRESS_NEXT_CYCLE") throw new Error("Controlled Core evidence has not earned the next progression.");
+    const startDate = options.startDate || addDays(plan.endDate, 1);
+    const draft = buildFourWeekPlan(plan.profile, {
+      startDate,
+      generatedAt: options.generatedAt || new Date().toISOString()
+    });
+    const weeks = draft.weeks.map((week) => ({
+      ...week,
+      sessions: week.sessions.map((session) => ({
+        ...session,
+        exercises: session.exercises.map((item) => ({
+          ...item,
+          target: item.target + (item.metric === "SECONDS" ? 5 : 1),
+          progression: "EARNED_NEXT_CYCLE"
+        }))
+      }))
+    }));
+    return {
+      ...draft,
+      id: `${draft.id}:cycle-${Number(plan.cycleRevision || 1) + 1}`,
+      cycleRevision: Number(plan.cycleRevision || 1) + 1,
+      supersedesId: plan.id,
+      weeks,
+      progressionDecision: {
+        code: review.recommendation.code,
+        sourcePlanId: plan.id,
+        controlledSessions: review.controlledSessions,
+        appliedRule: "+1 repetition or +5 seconds; sets unchanged"
+      }
+    };
+  }
+
   function stableUuid(value = "") {
     const text = String(value);
     const seeds = [2166136261, 2246822507, 3266489909, 668265263];
@@ -393,6 +428,7 @@
     reportPain,
     movementCoverage,
     buildCycleReview,
+    buildNextCycleDraft,
     stableUuid,
     performanceEntriesForSession
   });

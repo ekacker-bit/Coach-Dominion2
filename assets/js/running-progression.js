@@ -47,6 +47,7 @@
       plannedDistance,
       completionPercent: completion !== null ? completion : plannedDistance > 0 ? Math.round(distance / plannedDistance * 100) : null,
       verdictCode: String(metrics.verdict_code || metrics.verdictCode || "OBSERVED").toUpperCase(),
+      runType: String(metrics.run_type || metrics.runType || metrics.session_type || "").toUpperCase(),
       pain: ["PAIN_HOLD", "SAFETY_REVIEW", "STOPPED"].includes(String(metrics.verdict_code || metrics.verdictCode || entry.status || "").toUpperCase())
     };
   }
@@ -82,24 +83,37 @@
     let headline = "Keep building the record";
     let detail = "Complete at least two prescribed runs with distance and elapsed time before Atlas recommends a change.";
     let distanceDeltaPercent = 0;
+    let durationDeltaPercent = 0;
+    let paceDeltaSecondsPerUnit = 0;
+    let progressionMode = "DURATION";
     if (painRuns.length) {
       code = "RECOVER"; tone = "red"; headline = "Hold Running progression";
       detail = "Pain evidence overrides volume and pace. Preserve the plan and clear recovery before another progression review.";
       distanceDeltaPercent = -20;
+      durationDeltaPercent = -20;
     } else if (judged.length >= 2 && (partial.length >= 2 || highEffort.length >= 2)) {
       code = "REDUCE"; tone = "yellow"; headline = "Reduce the next Running dose";
       detail = "Repeated partial or high-effort results support a bounded reduction before more demand.";
       distanceDeltaPercent = -10;
+      durationDeltaPercent = -10;
     } else if (judged.length >= 3 && onTarget.length >= 3 && !highEffort.length && !exceeded.length) {
       code = "PROGRESS"; tone = "green"; headline = "Progress the Running block";
       detail = "Three secured runs support a five-percent increase across future prescribed distance. Long runs remain uncapped by time.";
-      distanceDeltaPercent = 5;
+      const qualityRuns = onTarget.filter((run) => ["TEMPO", "INTERVAL"].includes(run.runType) && run.rpe !== null && run.rpe <= 7);
+      if (qualityRuns.length >= 2) {
+        progressionMode = "PACE";
+        paceDeltaSecondsPerUnit = -5;
+        detail = "Two controlled quality runs support a five-second pace step on future tempo and interval work while distance stays fixed.";
+      } else {
+        distanceDeltaPercent = 5;
+        durationDeltaPercent = 5;
+      }
     } else if (judged.length >= 2) {
       code = "REPEAT"; tone = exceeded.length || highEffort.length ? "yellow" : "neutral"; headline = "Repeat the current Running dose";
       detail = exceeded.length ? "Excess work was recorded. Repeat the approved dose while Atlas watches recovery." : "Evidence supports another exposure at the current dose before progression.";
     }
     const effectiveDate = today;
-    const fingerprint = stableHash({ blockId: block.id, revision: block.revision, runIds: runs.map((run) => run.id), code, distanceDeltaPercent });
+    const fingerprint = stableHash({ blockId: block.id, revision: block.revision, runIds: runs.map((run) => run.id), code, distanceDeltaPercent, durationDeltaPercent, paceDeltaSecondsPerUnit, progressionMode });
     const proposal = {
       version: VERSION,
       id: `running-progression:${block.id}:r${block.revision}:${fingerprint}`,
@@ -112,6 +126,10 @@
       blockRevision: Number(block.revision || 1),
       effectiveDate,
       distanceDeltaPercent,
+      durationDeltaPercent,
+      paceDeltaSecondsPerUnit,
+      progressionMode,
+      unit: block.profile?.preferredUnit || block.weeks?.[0]?.sessions?.find((item) => item.unit)?.unit || "unit",
       approvalRequired: code !== "COLLECT",
       evidence: { runs: runs.length, judgedRuns: judged.length, onTarget: onTarget.length, partial: partial.length, exceeded: exceeded.length, pain: painRuns.length, highEffort: highEffort.length, averageCompletion, averageRpe, sourceIds: runs.map((run) => run.id).filter(Boolean) },
       safeguard: "The active plan and completed weeks remain unchanged until the recruit approves this future revision."
@@ -140,14 +158,17 @@
       ...week,
       sessions: (week.sessions || []).map((session) => {
         if (session.type === "REST" || session.date <= decision.effectiveDate || !session.distance) return { ...session };
+        const paceEligible = decision.progressionMode === "PACE" && ["TEMPO", "INTERVAL"].includes(session.type);
         const distance = Number(Math.max(0.1, session.distance * factor).toFixed(1));
         return {
           ...session,
           distance,
-          estimatedMinutes: session.type === "LONG" ? Math.round(Number(session.estimatedMinutes || 0) * factor) : Math.max(1, Math.round(Number(session.estimatedMinutes || 0) * factor)),
+          paceFast: paceEligible && session.paceFast ? Math.max(1, Number(session.paceFast) + Number(decision.paceDeltaSecondsPerUnit || 0)) : session.paceFast,
+          paceSlow: paceEligible && session.paceSlow ? Math.max(1, Number(session.paceSlow) + Number(decision.paceDeltaSecondsPerUnit || 0)) : session.paceSlow,
+          estimatedMinutes: Math.max(1, Math.round(Number(session.estimatedMinutes || 0) * (1 + Number(decision.durationDeltaPercent || 0) / 100))),
           durationCapMinutes: session.type === "LONG" ? null : session.durationCapMinutes,
           durationPolicy: session.type === "LONG" ? "UNCAPPED_BY_TIME" : session.durationPolicy,
-          runningProgression: { decisionId: decision.id, code: decision.code, distanceDeltaPercent: decision.distanceDeltaPercent }
+          runningProgression: { decisionId: decision.id, code: decision.code, progressionMode: decision.progressionMode, distanceDeltaPercent: decision.distanceDeltaPercent, durationDeltaPercent: decision.durationDeltaPercent, paceDeltaSecondsPerUnit: decision.paceDeltaSecondsPerUnit }
         };
       })
     })).map((week) => ({ ...week, weeklyDistance: Number((week.sessions || []).reduce((total, session) => total + Number(session.distance || 0), 0).toFixed(1)) }));

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 027B Atlas Progression Engine
+
+- Converts completed Strength, Running, and Core evidence into one exact next prescription instead of leaving separate progression widgets to compete.
+- Advances load or bodyweight repetitions, running duration or quality pace, and earned Core-cycle targets through bounded domain rules.
+- Detects pain, stopped work, repeated misses, and high exertion before progression and explains the decision in one sentence.
+- Requires deliberate approval before revising an active plan and never rewrites the Recruit Contract or Dominion Campaign.
+- Persists the current order and its decision history to the recruit account with device-first continuity.
+- Refreshes the next prescription immediately after completed work and keeps the other domain calls behind one compact disclosure.
+
 ## Unreleased - Build 027A Campaign Commissioning
 
 - Replaces separate post-Contract chores with one commissioning path across Contract, baseline order, complete program, opening Calendar, and campaign launch.

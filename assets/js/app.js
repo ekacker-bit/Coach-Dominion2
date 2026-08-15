@@ -8050,6 +8050,7 @@ async function prepareMissionSessionFinish(module = "STRENGTH") {
     await persistCoreProgramState("HISTORY", "current", history);
     await saveCorePerformanceEvidence(prescription, result.execution);
     await saveMissionExecutionReceipt("CORE", result.execution, buildCurrentMissionCockpit()?.current || {}, prescription);
+    await reconcileAtlasProgressionOrder({ render: false });
   }
   setText("mission-execution-feedback", code === "CORE" ? "Core complete. Evidence saved automatically." : "Review the completed work, then save one evidence receipt.");
 }
@@ -8076,6 +8077,7 @@ async function finalizeRunningSession(context = "mission") {
   window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
   await persistRunningState("EXECUTION", todayISODate(), execution);
   await saveMissionExecutionReceipt("RUNNING", execution, buildCurrentMissionCockpit()?.current || {}, prescription);
+  await reconcileAtlasProgressionOrder({ render: false });
   setText("running-command-feedback", `${verdict.headline}. Actual distance and time are now the canonical run evidence.`);
   setText("mission-execution-feedback", `${verdict.headline}. Actual distance and time are secured.`);
   renderRunningCommand();
@@ -8120,6 +8122,7 @@ async function reportMissionPain(module = "STRENGTH") {
     await persistCoreProgramState("EXECUTION", todayISODate(), execution);
     await persistCoreProgramState("HISTORY", "current", history);
     await saveMissionExecutionReceipt(code, execution, item, currentCorePrescription());
+    await reconcileAtlasProgressionOrder({ render: false });
   }
   setText("mission-execution-feedback", "Pain hold saved. Stop the session and update Roll Call before more training.");
 }
@@ -11686,7 +11689,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026j", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026k", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026l", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=027a", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=027a", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=027b", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -11735,6 +11739,7 @@ async function preserveStrengthWorkout(execution) {
       await persistStrengthTrainingState("ADJUSTMENT", "current", adjustment);
     }
   }
+  await reconcileAtlasProgressionOrder({ render: false });
 }
 
 function renderTodayStandardsDuty() {
@@ -11776,6 +11781,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   renderTodayCommittedWeek();
   renderTodayBodyCheckpoint();
   renderAtlasDecisionCenter();
+  renderAtlasProgressionOrder();
   if (!state || !assignment) return;
   const execution = readDailyAssignmentExecution();
   const recovery = buildCurrentRecoveryRecommendation() || {};
@@ -12518,9 +12524,11 @@ async function loadClosedLoopState() {
       ["HISTORY", "evidence-autopilot"],
       ["CAMPAIGN_COMMISSION", "current"],
       ["CAMPAIGN", "current"],
+      ["PROGRESSION_ORDER", "current"],
       ["HISTORY", "dominion-campaign"],
       ["HISTORY", "atlas-daily-command"],
       ["HISTORY", "atlas-decision-center"],
+      ["HISTORY", "atlas-progression"],
       ["CONTEXT", "recruit-constraints"]
     ];
     for (const [stateType, stateKey] of keys) {
@@ -12555,6 +12563,7 @@ async function loadClosedLoopState() {
     renderEvidenceAutopilot();
     renderDominionCampaign();
     renderCampaignCommissioning();
+    await reconcileAtlasProgressionOrder();
   } catch (_) {
     // Device state remains the explicit fallback.
   }
@@ -12741,6 +12750,181 @@ function renderAtlasWeeklyCommand() {
   const panel = document.getElementById("atlas-weekly-command-panel");
   if (panel) panel.innerHTML = atlasWeeklyCommandMarkup(buildCurrentAtlasWeeklyCommand(), "review");
   renderAtlasDecisionCenter();
+}
+
+function readAtlasProgressionOrder() {
+  return readClosedLoopState("PROGRESSION_ORDER", "current", null);
+}
+
+function readAtlasProgressionHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-progression", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function nextStrengthProgressionPrescription(plan = readApprovedStrengthPlan(), adjustment = readStrengthAdjustment()) {
+  if (!plan?.sessions?.length) return null;
+  const session = plan.sessions.find((item) => item.id === adjustment?.sessionId) || plan.sessions[0];
+  const assignment = nextStrengthAssignmentForSession(session.id, todayISODate());
+  const targets = (session.exercises || []).slice(0, 3).map((item) => {
+    const load = Number(item.recommendedLoad || 0) > 0 ? `${item.recommendedLoad} ${item.unit || "lb"}` : "bodyweight";
+    return `${item.exerciseName}: ${item.recommendedSets} × ${item.targetReps} at ${load}`;
+  });
+  return `${assignment?.date ? `${assignment.date} · ` : ""}${session.name}: ${targets.join(" · ")}`;
+}
+
+function nextRunningProgressionPrescription(block = readApprovedRunningBlock()) {
+  const sessionItem = (block?.weeks || []).flatMap((week) => week.sessions || [])
+    .filter((item) => item.type !== "REST" && item.date > todayISODate())
+    .sort((left, right) => left.date.localeCompare(right.date))[0];
+  if (!sessionItem) return null;
+  const pace = sessionItem.paceFast && sessionItem.paceSlow && typeof DominionRunning !== "undefined"
+    ? ` · ${DominionRunning.formatPace(sessionItem.paceFast, sessionItem.unit)}–${DominionRunning.formatPace(sessionItem.paceSlow, sessionItem.unit)}`
+    : ` · RPE ${sessionItem.effortRpe || "controlled"}`;
+  return `${sessionItem.date} · ${sessionItem.title || sessionItem.type}: ${sessionItem.distance} ${sessionItem.unit}${pace}`;
+}
+
+function nextCoreProgressionPrescription(plan = readApprovedCorePlan()) {
+  const sessionItem = typeof DominionCoreProgramming === "undefined" ? null : DominionCoreProgramming.planSessions(plan || {})
+    .filter((item) => item.date > todayISODate())
+    .sort((left, right) => left.date.localeCompare(right.date))[0];
+  if (!sessionItem) return null;
+  const targets = (sessionItem.exercises || []).slice(0, 2).map((item) => `${item.name} ${item.sets} × ${item.target}${item.metric === "SECONDS" ? " sec" : ""}`);
+  return `${sessionItem.date} · ${sessionItem.title}: ${targets.join(" · ")}`;
+}
+
+function buildCurrentAtlasProgressionOrder() {
+  if (typeof DominionAtlasProgressionEngine === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const campaign = readDominionCampaign();
+  const program = readAtlasProgramReceipt();
+  const strengthPlan = readApprovedStrengthPlan();
+  const strengthProposal = readStrengthAdjustment();
+  const runningBlock = readApprovedRunningBlock();
+  const runningProposal = typeof DominionRunningProgression === "undefined" ? null : buildCurrentRunningProgression();
+  const corePlan = readApprovedCorePlan();
+  const coreReview = corePlan && typeof DominionCoreProgramming !== "undefined" ? DominionCoreProgramming.buildCycleReview(corePlan, readCoreHistory()) : null;
+  const coreCycleComplete = Boolean(coreReview && (coreReview.completedSessions >= coreReview.prescribedSessions || todayISODate() > corePlan.endDate));
+  const previous = readAtlasProgressionOrder();
+  const order = DominionAtlasProgressionEngine.buildDecision({
+    contract, campaign, program, previous,
+    strength: { plan: strengthPlan, proposal: strengthProposal, nextPrescription: nextStrengthProgressionPrescription(strengthPlan, strengthProposal) },
+    running: { block: runningBlock, proposal: runningProposal, nextPrescription: nextRunningProgressionPrescription(runningBlock) },
+    core: { plan: corePlan, review: coreReview, cycleComplete: coreCycleComplete, nextPrescription: nextCoreProgressionPrescription(corePlan) },
+    generatedAt: previous?.generatedAt || new Date().toISOString()
+  });
+  return previous?.id === order.id && previous.generatedAt ? { ...order, generatedAt: previous.generatedAt } : order;
+}
+
+async function saveAtlasProgressionOrder(order, options = {}) {
+  if (!order?.id) return false;
+  const history = [order, ...readAtlasProgressionHistory().filter((item) => item.id !== order.id)].slice(0, 120);
+  saveClosedLoopLocal("PROGRESSION_ORDER", "current", order);
+  saveClosedLoopLocal("HISTORY", "atlas-progression", history);
+  const currentSaved = await persistClosedLoopState("PROGRESSION_ORDER", "current", order);
+  const historySaved = await persistClosedLoopState("HISTORY", "atlas-progression", history);
+  if (options.render !== false) renderAtlasProgressionOrder();
+  return currentSaved && historySaved;
+}
+
+async function reconcileAtlasProgressionOrder(options = {}) {
+  const order = buildCurrentAtlasProgressionOrder();
+  if (!order?.id) return null;
+  const current = readAtlasProgressionOrder();
+  if (current?.id !== order.id || current.status !== order.status || current.prescription !== order.prescription) {
+    await saveAtlasProgressionOrder(order, { render: options.render !== false });
+  } else if (options.render !== false) renderAtlasProgressionOrder(order);
+  return order;
+}
+
+function atlasProgressionActionMarkup(order = {}) {
+  if (order.status === "AWAITING_APPROVAL") return `<button type="button" data-atlas-progression-action="APPLY">${escapeHtml(order.action?.label || "Apply next prescription")}</button><button type="button" class="ghost" data-atlas-progression-action="HOLD">Keep current targets</button>`;
+  if (order.status === "BLOCKED") return `<button type="button" class="ghost" data-atlas-progression-action="REVIEW">${escapeHtml(order.action?.label || "Review safety")}</button>`;
+  if (["APPLIED", "HELD"].includes(order.status)) return `<span class="atlas-progression-receipt">${escapeHtml(order.status)} · ${escapeHtml(order.resolution || "Decision recorded")}</span>`;
+  return "";
+}
+
+function renderAtlasProgressionOrder(order = buildCurrentAtlasProgressionOrder()) {
+  const root = document.getElementById("atlas-progression-order");
+  if (!root || !order) return;
+  root.dataset.progressionState = order.status;
+  setText("atlas-progression-order-heading", order.headline);
+  setText("atlas-progression-order-rationale", order.rationale);
+  setText("atlas-progression-order-prescription", order.prescription);
+  setText("atlas-progression-order-state", order.status.replaceAll("_", " "));
+  const state = document.getElementById("atlas-progression-order-state");
+  if (state) state.className = `state-pill ${order.tone || "neutral"}`;
+  const actions = document.getElementById("atlas-progression-order-actions");
+  if (actions) actions.innerHTML = atlasProgressionActionMarkup(order);
+  const domains = document.getElementById("atlas-progression-order-domains");
+  if (domains) domains.innerHTML = (order.candidates || []).map((item) => `<article class="atlas-progression-domain"><span>${escapeHtml(item.domain)} · ${escapeHtml(item.status.replaceAll("_", " "))}</span><strong>${escapeHtml(item.headline)}</strong><small>${escapeHtml(item.prescription)}</small></article>`).join("");
+  const detail = document.getElementById("atlas-progression-order-detail");
+  if (detail) detail.hidden = (order.candidates || []).length < 2;
+}
+
+async function applyCurrentRunningProgression() {
+  const proposal = buildCurrentRunningProgression();
+  if (!proposal || proposal.status !== "PROPOSED") throw new Error("No Running progression is awaiting approval.");
+  const current = readApprovedRunningBlock();
+  const decision = DominionRunningProgression.approveProposal(proposal, new Date().toISOString());
+  const revised = DominionRunningProgression.applyToBlock(current, decision, { appliedAt: new Date().toISOString() });
+  await persistRunningState("PLAN", `archive:${current.id}`, current);
+  saveRunningBlockLocal("active", revised);
+  await persistRunningState("PLAN", "active", revised);
+  await saveRunningProgression({ ...decision, appliedBlockId: revised.id, appliedBlockRevision: revised.revision, appliedAt: revised.approvedAt });
+  await refreshUnifiedWeekDraftForPlans({ force: true });
+  return { plan: revised, sourceId: decision.id };
+}
+
+async function applyCurrentCoreProgression() {
+  const plan = readApprovedCorePlan();
+  if (!plan || typeof DominionCoreProgramming === "undefined") throw new Error("No approved Core cycle is available.");
+  const draftBase = DominionCoreProgramming.buildNextCycleDraft(plan, readCoreHistory(), { generatedAt: new Date().toISOString() });
+  const contract = readApprovedRecruitContract();
+  const draft = contract ? DominionCoreProgramming.linkPlanToContract(draftBase, contract) : draftBase;
+  const approved = DominionCoreProgramming.approvePlan(draft, new Date().toISOString());
+  saveCoreProgramLocal("PLAN", `archive:${plan.id}`, plan);
+  saveCoreProgramLocal("DRAFT", "current", approved);
+  saveCoreProgramLocal("PLAN", "current", approved);
+  await persistCoreProgramState("PLAN", `archive:${plan.id}`, plan);
+  await persistCoreProgramState("DRAFT", "current", approved);
+  await persistCoreProgramState("PLAN", "current", approved);
+  await refreshUnifiedWeekDraftForPlans({ force: true });
+  return { plan: approved, sourceId: draft.progressionDecision?.sourcePlanId || plan.id };
+}
+
+async function resolveAtlasProgressionOrder(action = "APPLY") {
+  const order = buildCurrentAtlasProgressionOrder();
+  if (!order) throw new Error("Atlas could not build the next prescription.");
+  if (action === "REVIEW") {
+    setActiveSection("performance");
+    setPerformanceActiveView(order.domain === "RUNNING" ? "running" : order.domain === "CORE" ? "core" : "today_training");
+    window.history.replaceState(null, "", "#performance");
+    return order;
+  }
+  let result = null;
+  if (action === "HOLD") {
+    if (order.domain === "STRENGTH" && readStrengthAdjustment()?.status === "PENDING") await holdStrengthAdjustment();
+    if (order.domain === "RUNNING") {
+      const proposal = buildCurrentRunningProgression();
+      if (proposal?.status === "PROPOSED") await saveRunningProgression(DominionRunningProgression.holdProposal(proposal, new Date().toISOString()));
+    }
+  } else if (order.domain === "STRENGTH") result = await approveStrengthAdjustment(order.action?.selectedCodes || null);
+  else if (order.domain === "RUNNING") result = await applyCurrentRunningProgression();
+  else if (order.domain === "CORE") result = await applyCurrentCoreProgression();
+  else throw new Error("This progression order has no applicable plan revision.");
+  const receipt = DominionAtlasProgressionEngine.resolveDecision(order, action === "HOLD" ? "HELD" : "APPLIED", {
+    resolvedAt: new Date().toISOString(),
+    appliedPlanRevision: result?.plan?.revision || result?.plan?.cycleRevision || null,
+    appliedSourceId: result?.sourceId || order.sourceId || null
+  });
+  await saveAtlasProgressionOrder(receipt, { render: false });
+  renderProgrammingReview();
+  renderRunningCommand();
+  renderCoreProgramming();
+  renderWeeklyOrchestrator();
+  renderAtlasDecisionCenter();
+  renderAtlasProgressionOrder(buildCurrentAtlasProgressionOrder());
+  return receipt;
 }
 
 function atlasDecisionCandidateSources() {
@@ -20083,6 +20267,20 @@ if (typeof document !== "undefined") {
     catch (error) { setText("atlas-decision-center-feedback", error?.message || "Atlas could not open that decision."); }
     finally { button.disabled = false; }
   });
+  document.getElementById("atlas-progression-order")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-atlas-progression-action]");
+    if (!button) return;
+    button.disabled = true;
+    setText("atlas-progression-order-feedback", button.dataset.atlasProgressionAction === "APPLY" ? "Applying the next prescription…" : "Recording your decision…");
+    try {
+      const receipt = await resolveAtlasProgressionOrder(button.dataset.atlasProgressionAction);
+      setText("atlas-progression-order-feedback", receipt.status === "HELD" ? "Current targets retained. Atlas will review the next completed evidence." : receipt.status === "APPLIED" ? "Next prescription active. Contract and campaign unchanged." : "Safety review opened.");
+    } catch (error) {
+      setText("atlas-progression-order-feedback", error?.message || "Atlas could not resolve this progression order.");
+    } finally {
+      button.disabled = false;
+    }
+  });
   document.getElementById("atlas-decision-feedback-dialog")?.addEventListener("click", (event) => {
     const close = event.target.closest("[data-atlas-feedback-close]");
     if (!close) return;
@@ -21320,6 +21518,7 @@ if (typeof document !== "undefined") {
       await persistCoreProgramState("HISTORY", "current", history);
       await saveCorePerformanceEvidence(prescription, result.execution);
       await saveMissionExecutionReceipt("CORE", result.execution, buildCurrentMissionCockpit()?.current || {}, prescription);
+      await reconcileAtlasProgressionOrder({ render: false });
       renderPerformanceSection();
       renderTodayCommittedWeek();
       renderMissionExecution();

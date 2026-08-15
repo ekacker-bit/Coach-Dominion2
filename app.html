@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -1078,6 +1078,17 @@
             <div><button type="button" class="ghost" data-adaptation-outcome-action="CANCEL">Cancel</button><button type="submit">Record correction</button></div>
           </form>
           <p id="atlas-adaptation-outcome-feedback" role="status" aria-live="polite"></p>
+        </section>
+
+        <section id="atlas-progression-order" class="card atlas-progression-order" aria-labelledby="atlas-progression-order-heading" data-progression-state="LEARNING">
+          <header>
+            <div><div class="kicker">ATLAS // NEXT PRESCRIPTION</div><h2 id="atlas-progression-order-heading">Learning from completed work</h2><p id="atlas-progression-order-rationale">Atlas will turn verified results into the next specific target.</p></div>
+            <span id="atlas-progression-order-state" class="state-pill neutral">LEARNING</span>
+          </header>
+          <div class="atlas-progression-prescription"><span>NEXT</span><strong id="atlas-progression-order-prescription">Complete the current prescription.</strong></div>
+          <div id="atlas-progression-order-actions" class="atlas-progression-order-actions"></div>
+          <details id="atlas-progression-order-detail"><summary>Other domains</summary><div id="atlas-progression-order-domains"></div></details>
+          <p id="atlas-progression-order-feedback" class="muted" role="status" aria-live="polite"></p>
         </section>
 
         <section id="atlas-decision-center" class="card atlas-decision-center" aria-labelledby="atlas-decision-center-heading" data-decision-state="CLEAR" hidden>
@@ -2407,6 +2418,7 @@
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a"></script>
+<script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b"></script>
 </body>
 </html>

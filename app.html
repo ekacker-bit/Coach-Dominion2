@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -536,6 +536,25 @@
         </div>
         <div class="nutrition-workspace-panel" data-nutrition-view-panel="today">
           <div id="nutrition-command-output"><div class="performance-empty">Atlas is assembling today’s fuel order.</div></div>
+          <section id="fuel-day-ledger" class="fuel-day-ledger" aria-labelledby="fuel-day-ledger-heading">
+            <header>
+              <div><div class="kicker">TODAY'S TOTAL</div><h3 id="fuel-day-ledger-heading">Log the day once</h3><p>Calories and macros become Fuel evidence everywhere in Dominion.</p></div>
+              <span id="fuel-day-ledger-status" class="state-pill neutral">NOT LOGGED</span>
+            </header>
+            <form id="nutrition-manual-form" class="fuel-day-ledger-form">
+              <label>Date<input name="date" type="date" required></label>
+              <label>Calories<input name="calories" inputmode="numeric" type="number" min="0" max="10000" step="1" placeholder="2200" required></label>
+              <label>Protein (g)<input name="protein" inputmode="numeric" type="number" min="0" max="1500" step="1" placeholder="180" required></label>
+              <label>Carbs (g)<input name="carbs" inputmode="numeric" type="number" min="0" max="1500" step="1" placeholder="240" required></label>
+              <label>Fat (g)<input name="fat" inputmode="numeric" type="number" min="0" max="1500" step="1" placeholder="70" required></label>
+              <button type="submit">Save Day</button>
+            </form>
+            <div id="fuel-day-ledger-summary" class="fuel-day-ledger-summary" aria-live="polite">No total recorded yet.</div>
+            <p id="nutrition-command-feedback" class="muted" aria-live="polite"></p>
+          </section>
+          <details class="fuel-precision-tools">
+            <summary><span>Precision tools</span><small>Meals, fasting, timing, and closeout</small></summary>
+            <div class="fuel-precision-tools-body">
           <section id="fasting-execution-panel" class="fasting-execution-panel" aria-labelledby="fasting-execution-heading" hidden>
             <div class="section-heading compact">
               <div><div class="kicker">FASTING WINDOW</div><h3 id="fasting-execution-heading">Today&rsquo;s window</h3></div>
@@ -615,6 +634,8 @@
               <div id="meal-coaching-output" class="performance-empty">Approve a nutrition baseline to build the daily fueling map.</div>
               <p id="meal-coaching-feedback" class="muted"></p>
             </section>
+          </details>
+            </div>
           </details>
         </div>
         </div>
@@ -748,23 +769,10 @@
         </section>
         </div>
         <div class="nutrition-workspace-panel" data-nutrition-view-panel="details" hidden>
-        <details class="nutrition-manual-entry">
-             <summary>Enter today&rsquo;s totals manually</summary>
-          <form id="nutrition-manual-form" class="nutrition-manual-form">
-            <label>Date<input name="date" type="date" required></label>
-            <label>Calories<input name="calories" type="number" min="0" step="1"></label>
-            <label>Protein (g)<input name="protein" type="number" min="0" step="1"></label>
-            <label>Carbohydrates (g)<input name="carbs" type="number" min="0" step="1"></label>
-            <label>Fat (g)<input name="fat" type="number" min="0" step="1"></label>
-            <button type="submit">Save Manual Totals</button>
-          </form>
-          <p class="muted">Manual totals save to your account when available and are used only when no MyFitnessPal day exists for that date.</p>
-        </details>
         <section class="meal-execution-history-panel" aria-labelledby="meal-execution-history-heading">
           <div class="section-heading compact"><div><div class="kicker">MEAL RECORD</div><h3 id="meal-execution-history-heading">Planned and eaten</h3></div></div>
           <div id="meal-execution-history" class="performance-empty">No meal execution recorded yet.</div>
         </section>
-        <p id="nutrition-command-feedback" class="muted"></p>
         </div>
       </section>
 
@@ -2349,6 +2357,7 @@
 <script src="/assets/js/running-verdict.js?v=025r"></script>
 <script src="/assets/js/running-progression.js?v=025s"></script>
 <script src="/assets/js/fuel-execution.js?v=025t"></script>
+<script src="/assets/js/fuel-day-ledger.js?v=026l"></script>
 <script src="/assets/js/atlas-weekly-command.js?v=025u"></script>
 <!-- Legacy release-integrity marker: /assets/js/atlas-decision-center.js?v=025v -->
 <script src="/assets/js/atlas-decision-center.js?v=025w"></script>
@@ -2380,6 +2389,6 @@
 <script src="/assets/js/dominion-campaign.js?v=026k"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l"></script>
 </body>
 </html>

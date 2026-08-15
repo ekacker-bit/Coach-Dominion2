@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 026L Fuel Day Ledger
+
+- Replaces the buried daily-total workflow with one prominent calories, protein, carbs, and fat action in Fuel.
+- Makes one canonical day record drive Today, Fuel, Trends, Evidence Autopilot, and weekly nutrition coaching.
+- Preserves manual entries when MyFitnessPal is absent or incomplete and reconciles them when a complete import arrives.
+- Treats a complete daily total as valid Fuel evidence without forcing meal-by-meal logging or a separate closeout.
+- Moves fasting, meal construction, timing, and closeout into optional Precision Tools so the standard path stays simple.
+- Keeps the fast mobile Fuel form on the same account-backed record and supports offline continuity.
+
 ## Unreleased - Build 026K Dominion Campaign
 
 - Turns the signed Recruit Contract and approved Atlas program into one finite 12-week campaign with Foundation, Build, Pressure, and Prove phases.

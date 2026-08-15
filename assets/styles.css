@@ -11497,3 +11497,95 @@ body[data-dominion-section="today"] #dominion-mission-rail {
   .dominion-campaign-conditions article { grid-template-columns: auto minmax(0, 1fr); }
   .dominion-campaign-conditions article b { grid-column: 2; }
 }
+
+/* Build 026L: one daily Fuel ledger */
+.fuel-day-ledger {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid rgba(212, 175, 55, .46);
+  border-left: 4px solid var(--gold, #d4af37);
+  background: linear-gradient(120deg, rgba(212, 175, 55, .075), rgba(8, 13, 16, .9) 52%);
+}
+.fuel-day-ledger > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.fuel-day-ledger > header > div { display: grid; gap: .18rem; }
+.fuel-day-ledger h3 { margin: 0; color: var(--stone, #e6e6e4); font-size: clamp(1.25rem, 3vw, 1.8rem); }
+.fuel-day-ledger p { margin: 0; color: var(--muted, #9ca3af); }
+.fuel-day-ledger-form {
+  display: grid;
+  grid-template-columns: minmax(8rem, .85fr) repeat(4, minmax(7rem, 1fr)) auto;
+  align-items: end;
+  gap: .65rem;
+}
+.fuel-day-ledger-form label {
+  display: grid;
+  gap: .38rem;
+  color: var(--muted, #9ca3af);
+  font-size: .66rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.fuel-day-ledger-form label small { display: inline; color: var(--dim, #727982); font-size: inherit; }
+.fuel-day-ledger-form input {
+  min-width: 0;
+  width: 100%;
+  min-height: 48px;
+  padding: .72rem .75rem;
+  border: 1px solid rgba(230, 230, 228, .18);
+  color: var(--stone, #e6e6e4);
+  background: rgba(0, 0, 0, .3);
+}
+.fuel-day-ledger-form button { min-height: 48px; padding-inline: 1.15rem; white-space: nowrap; }
+.fuel-day-ledger-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid rgba(230, 230, 228, .1);
+}
+.fuel-day-ledger-summary > div { display: grid; gap: .2rem; padding: .75rem; border-right: 1px solid rgba(230, 230, 228, .1); }
+.fuel-day-ledger-summary > div:last-of-type { border-right: 0; }
+.fuel-day-ledger-summary span { color: var(--dim, #727982); font-size: .6rem; font-weight: 850; letter-spacing: .08em; }
+.fuel-day-ledger-summary strong { color: var(--stone, #e6e6e4); font-size: 1rem; }
+.fuel-day-ledger-summary > strong,
+.fuel-day-ledger-summary > span { grid-column: 1 / -1; }
+.fuel-day-ledger-summary > span { padding-top: .25rem; color: var(--muted, #9ca3af); font-size: .76rem; font-weight: 500; letter-spacing: 0; }
+.fuel-day-ledger-summary em { grid-column: 1 / -1; padding: .6rem .75rem; color: #e2b84b; font-size: .72rem; font-style: normal; }
+.fuel-precision-tools {
+  margin-top: .8rem;
+  border: 1px solid rgba(230, 230, 228, .1);
+  background: rgba(0, 0, 0, .16);
+}
+.fuel-precision-tools > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .9rem 1rem;
+  color: var(--stone, #e6e6e4);
+  font-size: .76rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.fuel-precision-tools > summary small { color: var(--dim, #727982); font-weight: 600; }
+.fuel-precision-tools-body { display: grid; gap: 1rem; padding: 0 1rem 1rem; }
+
+@media (max-width: 980px) {
+  .fuel-day-ledger-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fuel-day-ledger-form label:first-child { grid-column: 1 / -1; }
+  .fuel-day-ledger-form button { grid-column: 1 / -1; }
+}
+
+@media (max-width: 600px) {
+  .fuel-day-ledger { margin-inline: -.15rem; padding: .9rem; }
+  .fuel-day-ledger > header { display: grid; }
+  .fuel-day-ledger-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fuel-day-ledger-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fuel-day-ledger-summary > div:nth-child(2) { border-right: 0; }
+  .fuel-day-ledger-summary > div:nth-child(-n+2) { border-bottom: 1px solid rgba(230, 230, 228, .1); }
+  .fuel-precision-tools > summary { align-items: start; flex-direction: column; gap: .2rem; }
+}

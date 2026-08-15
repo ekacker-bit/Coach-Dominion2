@@ -209,7 +209,7 @@
 
   function currentOrder(input = {}, context = {}) {
     if (!input.contract) return { code: "CONTRACT", label: "Set the Contract", detail: "A campaign needs one declared outcome and a signed commitment.", section: "contract" };
-    if (!context.programActive) return { code: "PROGRAM", label: "Activate the program", detail: "Approve the coordinated Strength, Cardio, Core, Fuel, and Calendar plan.", section: "contract" };
+    if (!context.programActive) return { code: "PROGRAM", label: "Commission the campaign", detail: "Verify the baseline, complete program, and opening Calendar under one launch order.", section: "contract" };
     const todayMissing = context.requirements.filter((item) => item.date === context.today && !item.secured);
     if (todayMissing.length) {
       const domains = [...new Set(todayMissing.map((item) => item.domain.toUpperCase()))].join(" + ");

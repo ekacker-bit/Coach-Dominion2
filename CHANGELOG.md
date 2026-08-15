@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 027A Campaign Commissioning
+
+- Replaces separate post-Contract chores with one commissioning path across Contract, baseline order, complete program, opening Calendar, and campaign launch.
+- Distinguishes true launch blockers from recommended Week One body, performance, and recovery evidence so optional measurements never deadlock activation.
+- Makes one Begin Campaign authorization atomically activate Strength, Cardio, Core, Fuel, and the exact preflighted opening week.
+- Stores a Contract-bound commissioning receipt on-device and in the recruit account while automatically recognizing already-active programs without repeating setup.
+- Shows the exact blocking issue and next action while keeping detailed orientation and preflight controls behind one setup disclosure.
+- Connects the Dominion Campaign order to commissioning language and preserves the existing rollback-safe Atlas activation transaction.
+
 ## Unreleased - Build 026L Fuel Day Ledger
 
 - Replaces the buried daily-total workflow with one prominent calories, protein, carbs, and fat action in Fuel.

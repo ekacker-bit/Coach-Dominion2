@@ -121,6 +121,7 @@ let dominionCampaignState = {
   lastSavedRemotely: false,
   lastError: null
 };
+let campaignCommissioningBackfillPending = false;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -980,7 +981,7 @@ function buildCurrentDominionCampaign() {
 
 function dominionCampaignActionLabel(order = {}) {
   if (order.code === "CONTRACT") return "Open Contract";
-  if (order.code === "PROGRAM") return "Activate program";
+  if (order.code === "PROGRAM") return "Open commissioning";
   if (order.code === "FINALIZE_WEEK") return "Open Review";
   if (order.code === "OUTCOME") return "Log checkpoint";
   if (order.code === "CALENDAR") return "Open Calendar";
@@ -1003,11 +1004,11 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
   const main = document.getElementById("dominion-campaign");
   if (main) {
     main.dataset.campaignTone = tone;
-    setText("dominion-campaign-heading", campaign.status === "CONTRACT_REQUIRED" ? "Declare the objective" : campaign.status === "PROGRAM_REQUIRED" ? "Activate the campaign" : campaign.objective?.target || "Dominion Campaign");
+    setText("dominion-campaign-heading", campaign.status === "CONTRACT_REQUIRED" ? "Declare the objective" : campaign.status === "PROGRAM_REQUIRED" ? "Commission the campaign" : campaign.objective?.target || "Dominion Campaign");
     setText("dominion-campaign-objective", campaign.status === "CONTRACT_REQUIRED"
       ? "Sign the Dominion Contract to define the outcome and campaign clock."
       : campaign.status === "PROGRAM_REQUIRED"
-        ? "The Contract is signed. Activate the complete program to begin the 12-week operation."
+        ? "The Contract is signed. Commission the baseline, complete program, and opening Calendar to begin the 12-week operation."
         : `${campaign.objective?.goal || "DOMINION"} · ${campaign.startDate} to ${campaign.endDate}`);
     setText("dominion-campaign-forecast", campaign.forecast?.label || "CHECKING");
     const progress = document.getElementById("dominion-campaign-progress");
@@ -8507,6 +8508,162 @@ function contractActivationTone(status = "") {
   return "neutral";
 }
 
+function readCampaignCommissioningReceipt() {
+  return readClosedLoopState("CAMPAIGN_COMMISSION", "current", null);
+}
+
+function campaignCommissioningBaseline() {
+  return {
+    bodyBaseline: performanceEntries.some((item) => item?.domain === "body_metrics") || bodyProgressPhotos.length > 0,
+    performanceBaseline: performanceEntries.some((item) => ["strength", "running", "core", "conditioning", "fitness_test"].includes(item?.domain)),
+    recoveryBaseline: readinessHistory.length > 0 || Boolean(dailyState?.date)
+  };
+}
+
+function campaignCommissioningWeek(programReceipt = readAtlasProgramReceipt()) {
+  const history = readUnifiedWeekHistory().filter((item) => item?.status !== "REPLACED" && item?.state !== "REPLACED");
+  return history.find((item) => item.id === programReceipt?.weekId)
+    || history.find((item) => item.weekStart === programReceipt?.weekStart)
+    || readCommittedUnifiedWeek(todayISODate())
+    || null;
+}
+
+function buildCurrentCampaignCommissioning(overrides = {}) {
+  if (typeof DominionCampaignCommissioning === "undefined") return null;
+  const contract = overrides.contract || readApprovedRecruitContract();
+  const signatureValid = contract && typeof DominionContractExperience !== "undefined"
+    ? DominionContractExperience.signatureStatus(contract).valid
+    : false;
+  const orientation = contract ? currentRecruitOrientation(contract) : null;
+  const programReceipt = overrides.programReceipt || readAtlasProgramReceipt();
+  let programPackage = overrides.programPackage || null;
+  let preflight = overrides.preflight || null;
+  const receiptMatches = contract && DominionCampaignCommissioning.programActive(programReceipt, contract);
+  if (contract && !receiptMatches) {
+    try { programPackage = programPackage || buildCurrentAtlasProgramPackage(); }
+    catch (_) { programPackage = null; }
+    if (programPackage?.status === "READY_FOR_APPROVAL") {
+      try { preflight = preflight || buildAtlasProgramPreflight(programPackage)?.preflight || null; }
+      catch (error) {
+        preflight = { status: "BLOCKED", blockers: [{ title: "Program needs a rebuild", detail: error?.message || "Atlas could not verify the complete package.", action: "Rebuild the affected plan or calendar." }] };
+      }
+    }
+  }
+  return DominionCampaignCommissioning.buildCommissioning({
+    contract,
+    signatureValid,
+    profile: orientation?.profile || {},
+    orientation,
+    programPackage,
+    preflight,
+    programReceipt,
+    committedWeek: campaignCommissioningWeek(programReceipt),
+    receipt: overrides.receipt || readCampaignCommissioningReceipt(),
+    baseline: campaignCommissioningBaseline()
+  });
+}
+
+async function saveCampaignCommissioningReceipt(receipt) {
+  saveClosedLoopLocal("CAMPAIGN_COMMISSION", "current", receipt);
+  const saved = await persistClosedLoopState("CAMPAIGN_COMMISSION", "current", receipt);
+  return { receipt, saved };
+}
+
+function campaignCommissioningTone(status = "") {
+  if (status === "ACTIVE") return "green";
+  if (status === "BLOCKED") return "red";
+  if (status === "READY_TO_LAUNCH") return "yellow";
+  return "neutral";
+}
+
+function ensureCampaignCommissioningReceipt(model) {
+  if (!model?.legacyActive || campaignCommissioningBackfillPending || typeof DominionCampaignCommissioning === "undefined") return;
+  const programReceipt = readAtlasProgramReceipt();
+  const week = campaignCommissioningWeek(programReceipt);
+  try {
+    const receipt = DominionCampaignCommissioning.createReceipt(model, programReceipt, week || {}, { source: "ACTIVE_PROGRAM_BACKFILL" });
+    saveClosedLoopLocal("CAMPAIGN_COMMISSION", "current", receipt);
+    campaignCommissioningBackfillPending = true;
+    void persistClosedLoopState("CAMPAIGN_COMMISSION", "current", receipt).finally(() => {
+      campaignCommissioningBackfillPending = false;
+    });
+  } catch (_) {}
+}
+
+function renderCampaignCommissioning(model = buildCurrentCampaignCommissioning()) {
+  const root = document.getElementById("campaign-commissioning");
+  const panel = document.getElementById("campaign-commissioning-panel");
+  const badge = document.getElementById("campaign-commissioning-status");
+  const progress = document.getElementById("campaign-commissioning-progress");
+  const steps = document.getElementById("campaign-commissioning-steps");
+  if (!root || !panel || !badge || !steps || !model) return null;
+  ensureCampaignCommissioningReceipt(model);
+  root.dataset.commissioningTone = model.tone || "neutral";
+  badge.textContent = model.status === "READY_TO_LAUNCH" ? "READY" : model.status.replaceAll("_", " ");
+  badge.className = `state-pill ${campaignCommissioningTone(model.status)}`;
+  setText("campaign-commissioning-heading", model.headline);
+  setText("campaign-commissioning-message", model.message);
+  if (progress) progress.style.width = `${model.progress.percent}%`;
+  progress?.parentElement?.setAttribute("aria-valuenow", String(model.progress.percent));
+  steps.innerHTML = model.steps.map((item, index) => `<li class="${item.complete ? "complete" : ""} ${item.current ? "current" : ""}"><span>${item.complete ? "✓" : index + 1}</span><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></div></li>`).join("");
+  const contract = readApprovedRecruitContract();
+  const programReceipt = readAtlasProgramReceipt();
+  const week = campaignCommissioningWeek(programReceipt);
+  const baselineItems = model.baseline.signals.map((item) => `<li data-baseline-state="${item.captured ? "captured" : "week-one"}"><span>${item.captured ? "✓" : "W1"}</span><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.captured ? "Captured" : item.detail)}</small></div></li>`).join("");
+  const openingWeekLabel = week?.weekStart || programReceipt?.weekStart || (model.steps.find((item) => item.id === "calendar")?.complete ? "VERIFIED" : "PENDING");
+  const blockers = model.blockers.length
+    ? `<div class="campaign-commissioning-blockers"><span>LAUNCH BLOCKERS</span>${model.blockers.map((item) => `<article><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p><small>${escapeHtml(item.action)}</small></article>`).join("")}</div>`
+    : "";
+  const receipt = model.receipt || readCampaignCommissioningReceipt();
+  const activeProof = model.status === "ACTIVE"
+    ? `<div class="campaign-commissioning-receipt"><span aria-hidden="true">CD</span><div><strong>Campaign order active</strong><small>Contract R${escapeHtml(String(model.contractRevision))} · Week ${escapeHtml(week?.weekStart || receipt?.weekStart || programReceipt?.weekStart || "committed")}</small></div><b>${escapeHtml(String(receipt?.launchedAt || programReceipt?.activatedAt || "").slice(0, 10) || "ACTIVE")}</b></div>`
+    : "";
+  panel.innerHTML = `<div class="campaign-commissioning-command">
+    <div class="campaign-commissioning-copy"><span>${model.status === "ACTIVE" ? "COMMISSION COMPLETE" : model.status === "READY_TO_LAUNCH" ? "FINAL AUTHORIZATION" : "CURRENT ORDER"}</span><h4>${escapeHtml(model.headline)}</h4><p>${escapeHtml(model.message)}</p></div>
+    <dl><div><dt>Contract</dt><dd>${contract ? `R${escapeHtml(String(contract.revision || 1))}` : "REQUIRED"}</dd></div><div><dt>Baseline</dt><dd>${model.baseline.captured}/${model.baseline.total}</dd></div><div><dt>Program</dt><dd>${model.activeProgram ? "ACTIVE" : model.steps.find((item) => item.id === "program")?.complete ? "READY" : "BUILD"}</dd></div><div><dt>Opening week</dt><dd>${escapeHtml(openingWeekLabel)}</dd></div></dl>
+    ${blockers}
+    ${activeProof}
+    <details class="campaign-commissioning-baseline"><summary>Week One evidence <small>${model.baseline.captured}/${model.baseline.total} captured · never a hidden blocker</small></summary><ul>${baselineItems}</ul></details>
+    <button type="button" class="campaign-commissioning-action" data-campaign-commissioning-action="${escapeHtml(model.nextAction.code)}" data-campaign-commissioning-target="${escapeHtml(model.nextAction.target || "")}">${escapeHtml(model.nextAction.label)}</button>
+  </div>`;
+  document.body.dataset.campaignCommissioning = model.status.toLowerCase().replaceAll("_", "-");
+  return model;
+}
+
+function openCampaignCommissioningDetail(targetId) {
+  const details = document.getElementById("campaign-commissioning-details");
+  if (details) details.open = true;
+  window.requestAnimationFrame(() => document.getElementById(targetId || "campaign-commissioning")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
+async function beginCampaignCommissioning(button) {
+  if (typeof DominionCampaignCommissioning === "undefined") return;
+  const before = buildCurrentCampaignCommissioning();
+  if (before?.status !== "READY_TO_LAUNCH") throw new Error(before?.message || "Campaign commissioning is not ready.");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Commissioning…";
+  }
+  try {
+    const programReceipt = await approveAtlasProgram();
+    const week = campaignCommissioningWeek(programReceipt);
+    const activeModel = buildCurrentCampaignCommissioning({ programReceipt });
+    const receipt = DominionCampaignCommissioning.createReceipt(activeModel, programReceipt, week || {}, { source: "BEGIN_CAMPAIGN" });
+    const saved = await saveCampaignCommissioningReceipt(receipt);
+    renderFirstWeekOrientation();
+    renderContractActivation();
+    renderCampaignCommissioning();
+    renderWeeklyOrchestrator();
+    renderCampaignCommissioning();
+    await reconcileDominionCampaign({ persist: true });
+    setText("campaign-commissioning-feedback", `Campaign commissioned${saved.saved ? " and saved to your account" : " on this device; account sync will retry"}. The opening week is now executable.`);
+  } catch (error) {
+    renderCampaignCommissioning();
+    setText("campaign-commissioning-feedback", error?.message || "Campaign commissioning could not finish. The previous active program remains protected.");
+    throw error;
+  }
+}
+
 function renderContractActivation() {
   const panel = document.getElementById("contract-activation-panel");
   const status = document.getElementById("contract-activation-status");
@@ -8945,6 +9102,7 @@ function renderRecruitContract() {
   }
   renderFirstWeekOrientation();
   renderContractActivation();
+  renderCampaignCommissioning();
   renderWeeklyOrchestrator();
   renderDominionExperienceShell();
   if (currentDailyDecision) renderDailyDecisionSurfaces();
@@ -11527,7 +11685,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026i", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026j", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=026k", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=026l", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=026l", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=027a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12357,6 +12516,7 @@ async function loadClosedLoopState() {
       ["MORNING_VERIFICATION", todayISODate()],
       ["HISTORY", "morning-verification"],
       ["HISTORY", "evidence-autopilot"],
+      ["CAMPAIGN_COMMISSION", "current"],
       ["CAMPAIGN", "current"],
       ["HISTORY", "dominion-campaign"],
       ["HISTORY", "atlas-daily-command"],
@@ -12394,6 +12554,7 @@ async function loadClosedLoopState() {
     renderAtlasDecisionCenter();
     renderEvidenceAutopilot();
     renderDominionCampaign();
+    renderCampaignCommissioning();
   } catch (_) {
     // Device state remains the explicit fallback.
   }
@@ -19450,6 +19611,7 @@ async function init() {
       ["performance form", resetPerformanceForm],
       ["performance workspace", () => setPerformanceActiveView("overview")],
       ["evidence proof", renderEvidenceAutopilot],
+      ["Campaign commissioning", renderCampaignCommissioning],
       ["Dominion Campaign", renderDominionCampaign]
     ];
     for (const [label, render] of finalRenders) {
@@ -20364,6 +20526,48 @@ if (typeof document !== "undefined") {
         return;
       }
     }
+    const commissioningButton = event.target.closest("button[data-campaign-commissioning-action]");
+    if (commissioningButton && typeof DominionCampaignCommissioning !== "undefined") {
+      const action = commissioningButton.dataset.campaignCommissioningAction;
+      const target = commissioningButton.dataset.campaignCommissioningTarget;
+      if (action === "EDIT_CONTRACT") {
+        const editor = document.getElementById("recruit-contract-editor");
+        if (editor) editor.open = true;
+        editor?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.querySelector('#recruit-contract-form [name="age"]')?.focus({ preventScroll: true });
+        return;
+      }
+      if (["OPEN_ORIENTATION", "REVIEW_BLOCKERS"].includes(action)) {
+        openCampaignCommissioningDetail(target);
+        return;
+      }
+      if (action === "STAGE_PROGRAM") {
+        commissioningButton.disabled = true;
+        commissioningButton.textContent = "Building complete program…";
+        try {
+          await stageRecruitContractPlans({ announce: false });
+          renderContractActivation();
+          renderCampaignCommissioning();
+          openCampaignCommissioningDetail("contract-activation");
+          setText("campaign-commissioning-feedback", "Atlas assembled the complete package. Review any visible blocker or authorize the campaign when preflight is clear.");
+        } catch (error) {
+          renderCampaignCommissioning();
+          setText("campaign-commissioning-feedback", error?.message || "Atlas could not assemble the complete program.");
+        }
+        return;
+      }
+      if (action === "BEGIN_CAMPAIGN") {
+        try { await beginCampaignCommissioning(commissioningButton); }
+        catch (_) {}
+        return;
+      }
+      if (action === "OPEN_TODAY") {
+        setActiveSection("today");
+        window.history.replaceState(null, "", "#today");
+        document.getElementById("today")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
     const orientationButton = event.target.closest("button[data-first-week-action]");
     if (orientationButton && typeof DominionFirstWeekOrientation !== "undefined") {
       try {
@@ -20377,6 +20581,7 @@ if (typeof document !== "undefined") {
         saveRecruitOnboardingLocal(updated);
         await persistRecruitOnboardingState(updated);
         renderFirstWeekOrientation();
+        renderCampaignCommissioning();
         if (action === "launch") {
           await stageRecruitContractPlans({ announce: false });
           renderRecruitContract();
@@ -20448,6 +20653,7 @@ if (typeof document !== "undefined") {
           const receipt = await approveAtlasProgram();
           renderWeeklyOrchestrator();
           renderContractActivation();
+          renderCampaignCommissioning();
           renderProgramCommand();
           setText("weekly-orchestrator-feedback", `${receipt.headline}. Atlas activated the plans and this exact calendar together.`);
         } catch (error) {
@@ -20508,6 +20714,7 @@ if (typeof document !== "undefined") {
       if (["STAGE_PROGRAM", "STAGE_DRAFTS"].includes(activationAction)) {
         const program = await stageRecruitContractPlans({ announce: false });
         renderContractActivation();
+        renderCampaignCommissioning();
         setText("contract-activation-feedback", program?.status === "READY_FOR_APPROVAL"
           ? "Your complete program is ready. One approval activates Fuel, Strength, Core, Cardio, and the coordinated week."
           : program?.message || "Atlas needs one profile correction before it can finish the program.");
@@ -20520,6 +20727,7 @@ if (typeof document !== "undefined") {
         try {
           const receipt = await approveAtlasProgram();
           renderContractActivation();
+          renderCampaignCommissioning();
           setText("contract-activation-feedback", `${receipt.headline}. Fuel, Strength, Core, Cardio, and the coordinated week now share one Contract.`);
         } catch (error) {
           activationButton.disabled = false;

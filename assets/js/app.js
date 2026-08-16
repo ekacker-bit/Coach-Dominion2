@@ -105,6 +105,12 @@ let accountTruthState = {
   legacyFallback: false,
   recovered: false
 };
+let trustLayerState = {
+  report: null,
+  lastReportedFingerprint: null,
+  startupIssues: [],
+  running: false
+};
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
   reconciling: false,
@@ -678,6 +684,134 @@ function renderAccountTruthHealth() {
   const verified = report.lastVerifiedAt ? new Date(report.lastVerifiedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "NOT YET";
   setText("account-truth-verified", verified);
   document.body.dataset.accountTruth = report.status.toLowerCase().replaceAll("_", "-");
+  if (trustLayerState.report) renderTrustLayerHealth(trustLayerState.report);
+}
+
+function buildCurrentTrustLayerReport(options = {}) {
+  if (typeof DominionTrustLayer === "undefined") return null;
+  const manifest = continuityState.manifest || buildCurrentContinuityManifest();
+  const lineage = continuityState.lineage || (typeof DominionContinuity === "undefined" ? null : DominionContinuity.canonicalLineage(manifest || {}, { today: todayISODate() }));
+  const decisionConsistency = typeof DominionDailyDecisionIntegrity === "undefined" || !currentDailyDecision
+    ? Boolean(currentDailyDecision)
+    : DominionDailyDecisionIntegrity.consistencyReport(currentDailyDecision).valid;
+  const accountHealth = typeof DominionAccountTruth === "undefined"
+    ? accountTruthState
+    : DominionAccountTruth.healthReport({
+      ...accountTruthState,
+      snapshot: accountTruthState.snapshot || readAccountTruthLocalSnapshot(),
+      pendingWrites: readAccountTruthQueue().length,
+      online: navigator.onLine !== false
+    });
+  return DominionTrustLayer.evaluate({
+    online: navigator.onLine !== false,
+    accountHealth: { ...accountTruthState, ...accountHealth },
+    lineage,
+    conflicts: currentContinuityConflicts(),
+    pendingWrites: readContinuityRetryQueue().length,
+    programFingerprint: manifest?.fingerprint || null,
+    accountProgramFingerprint: continuityState.accountManifest?.fingerprint || accountTruthState.accountSnapshot?.programFingerprint || null,
+    decision: currentDailyDecision,
+    decisionConsistency,
+    startupIssues: options.startupIssues || trustLayerState.startupIssues,
+    recovered: options.recovered === true || accountTruthState.recovered === true
+  });
+}
+
+function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentTrustLayerReport()) {
+  if (!report) return;
+  trustLayerState.report = report;
+  const root = document.getElementById("account-truth-health");
+  if (root) root.dataset.truthTone = report.tone;
+  setText("account-truth-status", report.status.replaceAll("_", " "));
+  setText("account-truth-headline", report.headline);
+  setText("account-truth-program", report.checks.program);
+  setText("account-truth-calendar", report.checks.calendar);
+  setText("account-truth-today", report.checks.today);
+  setText("account-truth-evidence", report.checks.evidence);
+  const action = document.getElementById("account-truth-action");
+  if (action) {
+    action.hidden = !report.primaryAction;
+    action.textContent = report.primaryAction?.label || "Review";
+    action.dataset.trustAction = report.primaryAction?.code || "";
+    action.dataset.trustSection = report.primaryAction?.section || "";
+  }
+  document.body.dataset.trustLayer = report.status.toLowerCase().replaceAll("_", "-");
+}
+
+async function reportTrustEvent(event, report = trustLayerState.report, context = {}) {
+  if (!report || typeof DominionTrustLayer === "undefined" || typeof fetch === "undefined") return false;
+  const payload = DominionTrustLayer.telemetryPayload(event, report, {
+    pendingWrites: readContinuityRetryQueue().length + readAccountTruthQueue().length,
+    conflictCount: currentContinuityConflicts().length,
+    route: window.location.hash.replace(/^#/, "") || "app",
+    ...context
+  });
+  try {
+    const response = await fetch("/api/trust-events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+      credentials: "same-origin"
+    });
+    return response.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+function reportSafeRuntimeError(route = "runtime") {
+  try {
+    const report = trustLayerState.report || buildCurrentTrustLayerReport();
+    if (report) void reportTrustEvent("runtime_error", report, { route });
+  } catch (_) {}
+}
+
+async function runTrustLayer(options = {}) {
+  if (trustLayerState.running || typeof DominionTrustLayer === "undefined") return trustLayerState.report;
+  trustLayerState.running = true;
+  trustLayerState.startupIssues = Array.isArray(options.startupIssues) ? options.startupIssues : trustLayerState.startupIssues;
+  try {
+    let report = buildCurrentTrustLayerReport({ startupIssues: trustLayerState.startupIssues });
+    renderTrustLayerHealth(report);
+    if (options.repair !== false && report?.repairActions?.length && navigator.onLine !== false) {
+      await reportTrustEvent("repair_started", report);
+      let recovered = false;
+      try {
+        if (report.repairActions.includes("RETRY_SAVED_WORK")) {
+          await flushContinuityPendingWrites();
+          await flushAccountTruthPendingWrite({ force: true });
+          recovered = true;
+        }
+        if (report.repairActions.includes("SYNC_ACCOUNT_STATE")) {
+          await syncDominionContinuity();
+          await syncDominionAccountTruth({ force: true });
+          recovered = true;
+        }
+        if (report.repairActions.includes("REBUILD_TODAY")) {
+          const truth = buildCurrentOperatingTruth();
+          if (truth) {
+            renderOneCommand(truth);
+            recovered = Boolean(currentDailyDecision);
+          }
+        }
+        report = buildCurrentTrustLayerReport({ startupIssues: [], recovered });
+        renderTrustLayerHealth(report);
+        await reportTrustEvent("repair_completed", report);
+      } catch (_) {
+        report = buildCurrentTrustLayerReport({ startupIssues: trustLayerState.startupIssues });
+        renderTrustLayerHealth(report);
+        await reportTrustEvent("repair_failed", report);
+      }
+    }
+    if (report && report.fingerprint !== trustLayerState.lastReportedFingerprint) {
+      trustLayerState.lastReportedFingerprint = report.fingerprint;
+      await reportTrustEvent("trust_check", report);
+    }
+    return report;
+  } finally {
+    trustLayerState.running = false;
+  }
 }
 
 function accountTruthMigrationMissing(error = null) {
@@ -3594,7 +3728,10 @@ function revealMobileShell() {
 }
 
 function setText(id, value) {
-  document.getElementById(id).textContent = value;
+  const element = document.getElementById(id);
+  if (!element) return false;
+  element.textContent = value;
+  return true;
 }
 
 function confidencePercent(confidence) {
@@ -12007,7 +12144,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=027b", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027d", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027e", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=027f", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=027f", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=028a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -20465,6 +20603,11 @@ async function init() {
     for (const [label, render] of finalRenders) {
       await runStartupTask(label, async () => render(), startupIssues);
     }
+    await runStartupTask("daily decision", async () => {
+      const truth = buildCurrentOperatingTruth();
+      if (truth) renderOneCommand(truth);
+    }, startupIssues);
+    await runStartupTask("account health", () => runTrustLayer({ repair: true, startupIssues }), startupIssues);
     document.body.dataset.mobileHydration = "ready";
     document.body.dataset.startupRecovery = startupIssues.length ? "recovered" : "clean";
     document.body.dataset.startupRecoveryCount = String(startupIssues.length);
@@ -20504,6 +20647,21 @@ if (typeof document !== "undefined") {
     renderMobileInstallExperience();
   });
   document.addEventListener("click", async (event) => {
+    const trustAction = event.target.closest("[data-trust-action]");
+    if (trustAction) {
+      event.preventDefault();
+      const action = trustAction.dataset.trustAction;
+      if (action === "CHOOSE_SAVED_COPY") {
+        renderDominionContinuity();
+        const repairDialog = document.getElementById("continuity-repair-dialog");
+        if (repairDialog?.showModal && !repairDialog.open) repairDialog.showModal();
+      } else {
+        const section = trustAction.dataset.trustSection || "contract";
+        setActiveSection(section);
+        window.history.replaceState(null, "", `#${section}`);
+      }
+      return;
+    }
     const proofButton = event.target.closest("[data-evidence-autopilot-action]");
     if (proofButton) {
       event.preventDefault();
@@ -20565,6 +20723,7 @@ if (typeof document !== "undefined") {
     await flushContinuityPendingWrites();
     await syncDominionContinuity();
     await flushAccountTruthPendingWrite({ force: true });
+    await runTrustLayer({ repair: true, startupIssues: [] });
     setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
   });
   window.addEventListener("offline", () => {
@@ -20572,6 +20731,7 @@ if (typeof document !== "undefined") {
     setContinuityMode("OFFLINE", { initialized: true });
     accountTruthState = { ...accountTruthState, mode: "OFFLINE_PROTECTED", initialized: true };
     renderAccountTruthHealth();
+    renderTrustLayerHealth(buildCurrentTrustLayerReport());
     setText("mobile-command-feedback", "You’re offline. Today’s changes will stay on this device and sync automatically.");
   });
   document.getElementById("mobile-roll-call-form")?.addEventListener("input", (event) => {
@@ -21207,6 +21367,8 @@ if (typeof document !== "undefined") {
     window.history.replaceState(null, "", `#${destination.section}`);
     window.setTimeout(() => document.getElementById(destination.section)?.scrollIntoView({ block: "start" }), 0);
   });
+  window.addEventListener("error", () => reportSafeRuntimeError("runtime"));
+  window.addEventListener("unhandledrejection", () => reportSafeRuntimeError("promise"));
   document.getElementById("mobile-more-dialog")?.addEventListener("click", async (event) => {
     const dialog = event.currentTarget;
     const action = event.target.closest("[data-mobile-more-action]")?.dataset.mobileMoreAction;

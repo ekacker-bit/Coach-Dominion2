@@ -15,7 +15,7 @@ assert.match(html, /family=Bebas\+Neue&family=Raleway/);
 assert.match(html, /THE STANDARD IS EARNED/);
 assert.doesNotMatch(html, /DOMINION \/\/ CLOSED ALPHA/);
 assert.match(html, /class="dominion-footer"/);
-assert.match(html, /Discipline\. Accountability\. Dominion\. Ascension\. Precision\./);
+assert.match(html, /Discipline\. Accountability\. Ascension\. Precision\./);
 
 assert.match(styles, /Build 021A: Coach Dominion brand system/);
 assert.match(styles, /--dominion-black:\s*#0a0a0a/);

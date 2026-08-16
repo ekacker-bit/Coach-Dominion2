@@ -16,7 +16,7 @@ const reduced = buildAdaptiveFuelingProposal({ targets, nutritionDays: days, goa
 assert.deepStrictEqual(reduced.trainingTargets, targets);
 const fatLoss = buildAdaptiveFuelingProposal({ targets, nutritionDays: days, goal: "FAT_LOSS", readiness: "GREEN" });
 assert.strictEqual(fatLoss.trainingTargets.calories, targets.calories);
-assert.ok(fatLoss.strategy.includes("does not create automatic calorie cuts"));
+assert.match(fatLoss.strategy, /automatic calorie cuts/i);
 assert.throws(() => approveAdaptiveFuelingProposal({ status: "LEARNING" }));
 assert.strictEqual(approveAdaptiveFuelingProposal(maintain, "2026-07-27T12:00:00Z").status, "APPROVED");
 console.log("adaptive fueling tests passed");

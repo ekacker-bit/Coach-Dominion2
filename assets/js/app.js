@@ -122,6 +122,13 @@ let dominionCampaignState = {
   lastError: null
 };
 let campaignCommissioningBackfillPending = false;
+let currentCampaignVerdict = null;
+let campaignVerdictState = {
+  reconciling: false,
+  lastReconciledAt: null,
+  lastSavedRemotely: false,
+  lastError: null
+};
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -1137,6 +1144,7 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
     setText("dominion-campaign-review-progress", `${campaign.progress || 0}% complete`);
   }
   document.body.dataset.dominionCampaign = String(campaign.status || "CHECKING").toLowerCase().replaceAll("_", "-");
+  if (typeof DominionCampaignVerdict !== "undefined") renderCampaignVerdict(buildCurrentCampaignVerdict({ campaign }));
 }
 
 async function reconcileDominionCampaign(options = {}) {
@@ -1179,6 +1187,184 @@ function scheduleDominionCampaignReconciliation(delay = 260) {
   if (typeof window === "undefined" || typeof DominionCampaign === "undefined" || dominionCampaignState.reconciling) return;
   window.clearTimeout(dominionCampaignTimer);
   dominionCampaignTimer = window.setTimeout(() => reconcileDominionCampaign({ persist: true }), delay);
+}
+
+function readCampaignVerdict() {
+  return readClosedLoopState("CAMPAIGN_VERDICT", "current", null);
+}
+
+function readCampaignVerdictHistory() {
+  const history = readClosedLoopState("HISTORY", "campaign-verdicts", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function campaignVerdictInput(overrides = {}) {
+  return {
+    today: overrides.today || todayISODate(),
+    campaign: overrides.campaign || currentDominionCampaign || buildCurrentDominionCampaign(),
+    contract: overrides.contract || readApprovedRecruitContract(),
+    bodyOutcome: overrides.bodyOutcome || (typeof DominionBodyComposition === "undefined" ? null : buildCurrentBodyOutcomeModel()),
+    photos: overrides.photos || bodyProgressPhotos,
+    performanceEntries: overrides.performanceEntries || performanceEntries,
+    adaptationOutcomes: overrides.adaptationOutcomes || readAtlasAdaptationOutcomeHistory(),
+    previous: overrides.previous === undefined ? readCampaignVerdict() : overrides.previous,
+    generatedAt: overrides.generatedAt || new Date().toISOString()
+  };
+}
+
+function buildCurrentCampaignVerdict(overrides = {}) {
+  if (typeof DominionCampaignVerdict === "undefined") return null;
+  try {
+    return DominionCampaignVerdict.buildVerdict(campaignVerdictInput(overrides));
+  } catch (error) {
+    campaignVerdictState.lastError = error?.message || "Campaign verdict unavailable";
+    return readCampaignVerdict();
+  }
+}
+
+function campaignVerdictValue(value, unit = "") {
+  return typeof DominionCampaignVerdict === "undefined" ? "—" : DominionCampaignVerdict.formatValue(value, unit);
+}
+
+function campaignVerdictComparisonMarkup(items = [], empty) {
+  if (!items.length) return `<div class="campaign-verdict-empty">${escapeHtml(empty)}</div>`;
+  return items.slice(0, 4).map((item) => {
+    const delta = Number(item.change);
+    const signed = Number.isFinite(delta) && delta !== 0 ? `${delta > 0 ? "+" : ""}${delta}` : "—";
+    const state = item.direction ? item.direction.toLowerCase() : "measured";
+    return `<article data-verdict-change="${escapeHtml(state)}"><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.startDate || "START")} → ${escapeHtml(item.finishDate || "FINISH")}</small></div><span>${escapeHtml(campaignVerdictValue(item.start, item.unit))}</span><b>→</b><span>${escapeHtml(campaignVerdictValue(item.finish, item.unit))}</span><em>${escapeHtml(signed)}</em></article>`;
+  }).join("");
+}
+
+function renderCampaignVerdict(model = buildCurrentCampaignVerdict()) {
+  const root = document.getElementById("campaign-verdict");
+  if (!root || typeof DominionCampaignVerdict === "undefined") return;
+  currentCampaignVerdict = model;
+  const campaign = currentDominionCampaign || buildCurrentDominionCampaign();
+  const shouldShow = Boolean(model && (model.status !== "ACTIVE" || Number(campaign?.currentWeek || 0) >= 10));
+  root.hidden = !shouldShow;
+  if (!shouldShow) return;
+  const decision = model.decision || {};
+  root.dataset.verdictTone = model.status === "ACTIVE" ? "neutral" : decision.tone || "neutral";
+  setText("campaign-verdict-state", model.status.replaceAll("_", " "));
+  setText("campaign-verdict-heading", model.status === "ACTIVE" ? "Finish the campaign" : model.status === "EVIDENCE_DUE" ? "Complete the transformation record" : decision.headline || "Campaign verdict");
+  setText("campaign-verdict-detail", model.status === "ACTIVE"
+    ? `The verdict opens after ${model.campaign?.endDate || campaign?.endDate}. Keep executing the current order.`
+    : model.status === "EVIDENCE_DUE"
+      ? "A final comparable body checkpoint is required before Atlas can issue the verdict. Missing evidence is not failure, but it cannot prove change."
+      : decision.detail || "The campaign record is ready.");
+  setText("campaign-verdict-decision", model.status === "ACTIVE" ? `WEEK ${campaign?.currentWeek || 1} / ${campaign?.totalWeeks || 12}` : decision.label || "READY");
+  setText("campaign-verdict-execution", `${model.campaign?.executionRate || 0}%`);
+  setText("campaign-verdict-proof", `${model.campaign?.evidenceRate || 0}%`);
+  const qualifyingTarget = typeof DominionCampaign === "undefined" ? 9 : DominionCampaign.QUALIFYING_WEEK_TARGET;
+  setText("campaign-verdict-weeks", `${model.campaign?.qualifyingWeeks || 0} / ${qualifyingTarget || 9}`);
+  setText("campaign-verdict-conditions", `${model.campaign?.conditionsPassed || 0} / ${model.campaign?.conditionsTotal || 5}`);
+  const body = document.getElementById("campaign-verdict-body");
+  if (body) {
+    const photo = model.body?.photos || {};
+    body.innerHTML = `${campaignVerdictComparisonMarkup(model.body?.metrics || [], "No comparable body measurement yet.")}<p><strong>Progress photos</strong><span>${photo.comparable ? `${photo.checkpoints} comparable checkpoints · ${photo.startDate} → ${photo.finishDate}` : photo.checkpoints ? "One checkpoint preserved" : "Not captured"}</span></p>`;
+  }
+  const performance = document.getElementById("campaign-verdict-performance");
+  if (performance) performance.innerHTML = campaignVerdictComparisonMarkup(model.performance?.comparisons || [], "No comparable performance benchmark was captured.");
+  const earned = document.getElementById("campaign-verdict-earned");
+  if (earned) earned.innerHTML = (model.earned || []).map((item) => `<li><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></li>`).join("") || "<li><strong>No win condition cleared</strong><span>The record remains intact for the next Contract.</span></li>";
+  const missed = document.getElementById("campaign-verdict-missed");
+  if (missed) missed.innerHTML = (model.missed || []).map((item) => `<li><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></li>`).join("") || "<li><strong>Nothing left open</strong><span>Every declared campaign condition was earned.</span></li>";
+  const learned = document.getElementById("campaign-verdict-learned");
+  if (learned) learned.innerHTML = (model.learned || []).map((item) => `<li><strong>${escapeHtml(item.headline)}</strong><span>${escapeHtml(item.lesson)}</span></li>`).join("");
+  const adaptations = document.getElementById("campaign-verdict-adaptations");
+  if (adaptations) adaptations.innerHTML = `<div><span>Evaluated</span><strong>${model.adaptations?.evaluated || 0}</strong></div><div><span>Verified</span><strong>${model.adaptations?.verified || 0}</strong></div><div><span>Worked</span><strong>${model.adaptations?.worked || 0}</strong></div><div><span>Corrected</span><strong>${model.adaptations?.challenged || 0}</strong></div>`;
+  setText("campaign-verdict-next-mission", model.nextMission || "Complete the campaign record.");
+  const action = document.getElementById("campaign-verdict-action");
+  if (action) {
+    action.dataset.campaignVerdictAction = model.nextAction?.code || "FINISH_CAMPAIGN";
+    action.textContent = model.nextAction?.label || "Continue campaign";
+  }
+  setText("campaign-verdict-feedback", model.status === "SEALED"
+    ? `Verdict issued ${new Date(model.sealedAt).toLocaleDateString()}. The record will not change.`
+    : model.status === "REENLISTMENT_READY"
+      ? "The next Contract is prefilled from demonstrated results and still requires your review and signature."
+      : "Atlas never changes the next Contract without your review and signature.");
+}
+
+async function saveCampaignVerdict(record, options = {}) {
+  if (!record?.id) return false;
+  const history = [record, ...readCampaignVerdictHistory().filter((item) => item.id !== record.id)]
+    .sort((left, right) => String(right.sealedAt || right.updatedAt || right.generatedAt || "").localeCompare(String(left.sealedAt || left.updatedAt || left.generatedAt || "")))
+    .slice(0, 24);
+  saveClosedLoopLocal("CAMPAIGN_VERDICT", "current", record);
+  if (record.status !== "ACTIVE") saveClosedLoopLocal("HISTORY", "campaign-verdicts", history);
+  if (options.persist === false) return false;
+  const results = await Promise.all([
+    persistClosedLoopState("CAMPAIGN_VERDICT", "current", record),
+    record.status === "ACTIVE" ? Promise.resolve(true) : persistClosedLoopState("HISTORY", "campaign-verdicts", history)
+  ]);
+  return results.every(Boolean);
+}
+
+async function reconcileCampaignVerdict(options = {}) {
+  if (typeof DominionCampaignVerdict === "undefined" || campaignVerdictState.reconciling) return buildCurrentCampaignVerdict();
+  campaignVerdictState.reconciling = true;
+  campaignVerdictState.lastError = null;
+  try {
+    const verdict = buildCurrentCampaignVerdict();
+    if (!verdict) return null;
+    const remote = await saveCampaignVerdict(verdict, options);
+    campaignVerdictState = { ...campaignVerdictState, lastReconciledAt: new Date().toISOString(), lastSavedRemotely: remote };
+    currentCampaignVerdict = verdict;
+    renderCampaignVerdict(verdict);
+    return verdict;
+  } catch (error) {
+    campaignVerdictState.lastError = error?.message || "Campaign verdict unavailable";
+    const fallback = readCampaignVerdict();
+    if (fallback) renderCampaignVerdict(fallback);
+    return fallback;
+  } finally {
+    campaignVerdictState.reconciling = false;
+  }
+}
+
+async function sealCampaignVerdict(button) {
+  if (typeof DominionCampaignVerdict === "undefined") return null;
+  const model = buildCurrentCampaignVerdict();
+  const sealed = DominionCampaignVerdict.sealVerdict(model, { sealedAt: new Date().toISOString() });
+  const synced = await saveCampaignVerdict(sealed);
+  currentCampaignVerdict = sealed;
+  renderCampaignVerdict(sealed);
+  setText("campaign-verdict-feedback", `Campaign verdict issued${synced ? " and saved to your account" : " on this device; account sync will retry"}.`);
+  if (button) button.focus({ preventScroll: true });
+  return sealed;
+}
+
+async function prepareCampaignReEnlistment() {
+  if (typeof DominionCampaignVerdict === "undefined" || typeof DominionRecruitContract === "undefined") return null;
+  const verdict = readCampaignVerdict();
+  const contract = readApprovedRecruitContract();
+  if (!verdict || !contract) throw new Error("The current campaign verdict and Contract are required.");
+  const createdAt = new Date().toISOString();
+  const seed = DominionCampaignVerdict.reEnlistmentSeed(verdict, contract, { createdAt });
+  const draft = DominionRecruitContract.buildRecruitContractAmendment(contract, {}, recruitProfileForAtlas() || {}, {
+    today: todayISODate(),
+    createdAt
+  });
+  draft.reEnlistmentDraftId = `reenlist:${verdict.campaignId}:${todayISODate()}`;
+  draft.campaignReEnlistment = seed;
+  saveRecruitContractLocal("DRAFT", draft);
+  const contractSynced = await persistRecruitContractState("DRAFT", draft);
+  const updated = DominionCampaignVerdict.withReEnlistment(verdict, { id: draft.reEnlistmentDraftId, status: draft.status }, { updatedAt: createdAt });
+  const verdictSynced = await saveCampaignVerdict(updated);
+  currentCampaignVerdict = updated;
+  recruitContractSetupStep = 0;
+  const editor = document.getElementById("recruit-contract-editor");
+  if (editor) {
+    editor.hidden = false;
+    editor.open = true;
+    editor.dataset.focusInitialized = "true";
+  }
+  renderRecruitContract();
+  renderCampaignVerdict(updated);
+  setText("campaign-verdict-feedback", `Next Contract prepared${contractSynced && verdictSynced ? " and saved to your account" : " on this device"}. Review the goal, capacity, and target date before signing.`);
+  return updated;
 }
 
 function markContinuityRecordSynced(domain, stateType, stateKey, payload, updatedAt = null) {
@@ -11775,7 +11961,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=026l", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027a", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027b", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=027d", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=027d", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=027e", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12612,9 +12799,11 @@ async function loadClosedLoopState() {
       ["HISTORY", "connected-evidence-resolutions"],
       ["CAMPAIGN_COMMISSION", "current"],
       ["CAMPAIGN", "current"],
+      ["CAMPAIGN_VERDICT", "current"],
       ["PROGRESSION_ORDER", "current"],
       ["RECOVERY_COMMAND", "current"],
       ["HISTORY", "dominion-campaign"],
+      ["HISTORY", "campaign-verdicts"],
       ["HISTORY", "atlas-daily-command"],
       ["HISTORY", "atlas-decision-center"],
       ["HISTORY", "atlas-progression"],
@@ -20160,6 +20349,7 @@ async function init() {
     await runStartupTask("Atlas adaptive horizon", runAtlasAdaptiveHorizon, startupIssues);
     await runStartupTask("Atlas adaptation outcomes", runAtlasAdaptationOutcomes, startupIssues);
     await runStartupTask("Recovery Command", runRecoveryCommand, startupIssues);
+    await runStartupTask("Campaign Verdict", () => reconcileCampaignVerdict({ persist: true }), startupIssues);
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
@@ -20174,7 +20364,8 @@ async function init() {
       ["performance workspace", () => setPerformanceActiveView("overview")],
       ["evidence proof", renderEvidenceAutopilot],
       ["Campaign commissioning", renderCampaignCommissioning],
-      ["Dominion Campaign", renderDominionCampaign]
+      ["Dominion Campaign", renderDominionCampaign],
+      ["Campaign Verdict", renderCampaignVerdict]
     ];
     for (const [label, render] of finalRenders) {
       await runStartupTask(label, async () => render(), startupIssues);
@@ -20738,6 +20929,26 @@ if (typeof document !== "undefined") {
     finally { event.currentTarget.disabled = false; }
   });
   document.getElementById("program")?.addEventListener("click", async (event) => {
+    const verdictButton = event.target.closest("button[data-campaign-verdict-action]");
+    if (verdictButton) {
+      const action = verdictButton.dataset.campaignVerdictAction;
+      verdictButton.disabled = true;
+      try {
+        if (action === "SEAL_VERDICT") await sealCampaignVerdict(verdictButton);
+        else if (action === "PREPARE_REENLISTMENT") await prepareCampaignReEnlistment();
+        else {
+          const section = action === "CAPTURE_FINISH" ? "trends" : action === "REVIEW_NEXT_CONTRACT" ? "contract" : "today";
+          setActiveSection(section);
+          window.history.replaceState(null, "", `#${section}`);
+          if (section === "trends") setTrendView("body");
+        }
+      } catch (error) {
+        setText("campaign-verdict-feedback", error?.message || "Atlas could not complete the campaign action.");
+      } finally {
+        verdictButton.disabled = false;
+      }
+      return;
+    }
     const recoveryButton = event.target.closest("button[data-program-recovery-action]");
     if (recoveryButton) {
       recoveryButton.disabled = true;
@@ -26016,6 +26227,7 @@ async function persistBodyCheckIn(form, feedbackId = "body-checkin-feedback") {
   const outcome = buildCurrentBodyOutcomeModel();
   renderTodayBodyCheckpoint(outcome);
   if (outcome) renderBodyOutcome(outcome);
+  await reconcileCampaignVerdict({ persist: true });
   const photoMessage = photoResult.count
     ? ` ${photoResult.count} private photo${photoResult.count === 1 ? "" : "s"} saved.`
     : photoResult.errors.length

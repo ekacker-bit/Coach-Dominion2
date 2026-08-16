@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 027E Campaign Verdict & Re-Enlistment
+
+- Turns the 12-week close into one credible verdict: advance, re-enlist, or recommission.
+- Compares campaign-opening and campaign-closing body, photo, and performance evidence without treating missing proof as failure.
+- Separates what was earned, missed, and learned and names which verified Atlas adaptations actually worked.
+- Requires a final body checkpoint and deliberate recruit authorization before the immutable verdict is issued.
+- Prefills the next Contract from demonstrated results, missed conditions, and verified lessons while preserving recruit review and signature authority.
+- Keeps the conclusion mobile-first and word-light with one obvious next mission.
+
 ## Unreleased - Build 027D Connected Evidence
 
 - Reconciles Apple Health, Health Connect, Fitbod, MyFitnessPal, Garmin, and Strava evidence against the committed Coach Dominion calendar.

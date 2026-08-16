@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -168,6 +168,33 @@
           </div>
           <aside class="dominion-campaign-order"><div><span>CURRENT CAMPAIGN ORDER</span><strong id="dominion-campaign-order">Establish the Contract</strong><small id="dominion-campaign-order-detail">One declared outcome comes first.</small></div><a id="dominion-campaign-action" href="#contract" data-section="contract">Open Contract</a></aside>
           <details class="dominion-campaign-conditions"><summary>Win conditions <small id="dominion-campaign-condition-count">0 of 5 met</small></summary><div id="dominion-campaign-condition-list"></div></details>
+        </section>
+        <section id="campaign-verdict" class="campaign-verdict" data-verdict-tone="neutral" aria-labelledby="campaign-verdict-heading" aria-live="polite" hidden>
+          <header class="campaign-verdict-header">
+            <div><span>CAMPAIGN CLOSE // THE RECORD</span><h3 id="campaign-verdict-heading">Campaign verdict</h3><p id="campaign-verdict-detail">Atlas is assembling the final campaign record.</p></div>
+            <strong id="campaign-verdict-decision">CHECKING</strong>
+          </header>
+          <div class="campaign-verdict-metrics" aria-label="Campaign result summary">
+            <div><span>Execution</span><strong id="campaign-verdict-execution">0%</strong></div>
+            <div><span>Proof</span><strong id="campaign-verdict-proof">0%</strong></div>
+            <div><span>Earned weeks</span><strong id="campaign-verdict-weeks">0 / 9</strong></div>
+            <div><span>Conditions</span><strong id="campaign-verdict-conditions">0 / 5</strong></div>
+          </div>
+          <div class="campaign-verdict-comparisons">
+            <section><header><span>BODY</span><strong>Start → Finish</strong></header><div id="campaign-verdict-body"></div></section>
+            <section><header><span>PERFORMANCE</span><strong>Start → Finish</strong></header><div id="campaign-verdict-performance"></div></section>
+          </div>
+          <div class="campaign-verdict-read">
+            <section><span>EARNED</span><ul id="campaign-verdict-earned"></ul></section>
+            <section><span>MISSED</span><ul id="campaign-verdict-missed"></ul></section>
+            <section><span>LEARNED</span><ul id="campaign-verdict-learned"></ul></section>
+          </div>
+          <details class="campaign-verdict-method">
+            <summary>Atlas adaptation record <small>What actually worked</small></summary>
+            <div id="campaign-verdict-adaptations"></div>
+          </details>
+          <aside class="campaign-verdict-next"><div><span>NEXT MISSION</span><strong id="campaign-verdict-next-mission">Complete the campaign record.</strong></div><button id="campaign-verdict-action" type="button" data-campaign-verdict-action="FINISH_CAMPAIGN">Continue campaign</button></aside>
+          <p id="campaign-verdict-feedback" class="campaign-verdict-feedback" role="status"><span id="campaign-verdict-state">CHECKING</span> · Atlas never changes the next Contract without your review and signature.</p>
         </section>
         <section id="program-recovery" class="program-recovery" aria-labelledby="program-recovery-heading" aria-live="polite"></section>
         <details id="recruit-constraint-memory" class="recruit-constraint-memory">
@@ -2412,11 +2439,12 @@
 <script src="/assets/js/dominion-account-truth.js?v=026i"></script>
 <script src="/assets/js/evidence-autopilot.js?v=026j"></script>
 <script src="/assets/js/dominion-campaign.js?v=026k"></script>
+<script src="/assets/js/campaign-verdict.js?v=027e"></script>
 <!-- Legacy release-integrity marker: /assets/js/first-week-orientation.js?v=021h -->
 <script src="/assets/js/first-week-orientation.js?v=025q"></script>
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e"></script>
 </body>
 </html>

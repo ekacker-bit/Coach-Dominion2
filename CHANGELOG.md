@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 028A Trust Layer
+
+- Verifies the complete Contract, program, calendar, Today, and evidence chain at startup and after reconnection.
+- Repairs safe account drift, queued saves, and missing Today decisions automatically while preserving deliberate recruit choices.
+- Protects offline work and distinguishes sync delay from actual program failure.
+- Adds private, allowlisted production events for trust checks, repair attempts, and runtime failures without logging recruit data.
+- Replaces technical account language with a compact Account Health readout and one action only when the recruit must decide.
+- Adds end-to-end regression coverage and repairs the stale brand-copy check that was blocking release validation.
+
 ## Unreleased - Build 027F Daily Decision Integrity & Mobile UX Repair
 
 - Establishes one dated, versioned Daily Decision across Today, Calendar, Strength, Running, Core, Fuel, Recovery, and Review.

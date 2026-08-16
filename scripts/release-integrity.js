@@ -27,6 +27,8 @@ const accountTruthMigration = read("supabase/migrations/028_dominion_account_tru
 const dailyCommand = read("assets/js/atlas-daily-command.js");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
+const trustLayer = read("assets/js/trust-layer.js");
+const trustEventsApi = read("api/trust-events.js");
 const adaptiveHorizon = read("assets/js/atlas-adaptive-horizon.js");
 const adaptationOutcomes = read("assets/js/atlas-adaptation-outcomes.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
@@ -43,6 +45,11 @@ const failures = [];
 function check(label, condition, detail) {
   if (!condition) failures.push(`${label}: ${detail}`);
 }
+
+check("028A trust engine", trustLayer.includes('const VERSION = "028A.1"') && trustLayer.includes("function evaluate") && trustLayer.includes("function telemetryPayload"), "Trust Layer engine is missing");
+check("028A trust integration", html.includes('/assets/js/trust-layer.js?v=028a') && html.indexOf('trust-layer.js?v=028a') < html.indexOf('app.js?v=') && app.includes('runStartupTask("account health"') && app.includes("runTrustLayer"), "Trust Layer is not connected at startup");
+check("028A trust cache", worker.includes('/assets/js/trust-layer.js?v=028a') && worker.includes("027f-028a") && app.includes('/sw.js?v=028a'), "Trust Layer assets are stale or uncached");
+check("028A private telemetry", trustEventsApi.includes("coach_dominion_trust") && trustEventsApi.includes("payload_too_large") && !/body\.(?:email|userId|notes)/.test(trustEventsApi), "Trust telemetry is missing privacy guardrails");
 
 check("app shell", size("app.html") >= 110000, `app.html is only ${size("app.html")} bytes`);
 check("application", size("assets/js/app.js") >= 900000, `app.js is only ${size("assets/js/app.js")} bytes`);

@@ -4998,11 +4998,14 @@ textarea { max-width: 100%; }
 }
 .account-truth-health[data-truth-tone="green"] { border-color: rgba(46, 139, 87, 0.54); box-shadow: inset 3px 0 0 var(--ascent-green); }
 .account-truth-health[data-truth-tone="yellow"] { border-color: rgba(212, 175, 55, 0.6); box-shadow: inset 3px 0 0 var(--victory-gold); }
+.account-truth-health[data-truth-tone="red"] { border-color: rgba(180, 61, 61, 0.72); box-shadow: inset 3px 0 0 #b43d3d; }
 .account-truth-health > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .account-truth-health > header > div { display: grid; gap: 4px; }
 .account-truth-health > header span { color: var(--victory-gold); font: 13px/1 var(--font-command); letter-spacing: .13em; }
 .account-truth-health > header strong { color: var(--stone); font-size: 16px; }
 .account-truth-health > header b { color: var(--stone); font: 13px/1 var(--font-command); letter-spacing: .1em; }
+.account-truth-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.account-truth-actions button { min-height: 32px; padding: 7px 11px; font-size: 10px; }
 .account-truth-health > p { margin: 0; color: var(--muted); font-size: 12px; }
 .account-truth-health dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--line); }
 .account-truth-health dl div { min-width: 0; padding: 11px 12px; background: #0b1014; }

@@ -15,4 +15,6 @@ jobs:
         with:
           node-version: 22
       - name: Verify product and release integrity
-        run: npm test
+        run: |
+          npm test
+          npm run test:028a

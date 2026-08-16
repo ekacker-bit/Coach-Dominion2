@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 028E Transformation Ledger
+
+- Turns Trends into one start-to-now transformation story instead of a collection of analytics cards.
+- Combines weight, measurements, private photo checkpoints, Strength, Running, adherence, recovery, standards, and campaign progress.
+- Makes evidence confidence explicit across nine proof domains and never converts a thin baseline into a progress claim.
+- Shows one concise statement of what changed and one next coaching order.
+- Keeps detailed Training, Recovery, Fuel, and Body views available without adding another destination.
+- Fits the complete ledger on desktop and mobile without exposing release language to the recruit.
+
 ## Unreleased - Build 028D Weekly Replanning
 
 - Turns Weekly Review into one coaching proposal built from prescribed work, completed evidence, and readiness.

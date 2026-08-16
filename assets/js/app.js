@@ -1281,6 +1281,7 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
   }
   document.body.dataset.dominionCampaign = String(campaign.status || "CHECKING").toLowerCase().replaceAll("_", "-");
   if (typeof DominionCampaignVerdict !== "undefined") renderCampaignVerdict(buildCurrentCampaignVerdict({ campaign }));
+  refreshTransformationLedger();
 }
 
 async function reconcileDominionCampaign(options = {}) {
@@ -12343,7 +12344,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=028a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028c", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=028d", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=028e", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -24681,6 +24682,7 @@ function renderStandardsSection() {
   }
   renderTodayStandardsDuty();
   renderReviewHub();
+  refreshTransformationLedger();
 }
 
 function emptyComplianceDomains() {
@@ -26623,6 +26625,7 @@ function renderBodyPhotoExperience() {
   const to = document.getElementById("body-photo-to-date");
   const todayStatus = DominionBodyProgress.checkpointStatus(bodyProgressPhotos, todayISODate());
   setText("today-body-photo-count", `${todayStatus.count}/3`);
+  refreshTransformationLedger();
   if (!state || !output || !from || !to) return;
   if (bodyPhotoState.loading) {
     state.textContent = "CHECKING";
@@ -27031,6 +27034,66 @@ function renderProgramTrendsLegacy(model, domainTrends, trajectory, storageMode)
   setTrendView(trendActiveView);
 }
 
+function buildCurrentTransformationLedger(model = trendDashboardModel) {
+  if (!model || typeof DominionTransformationLedger === "undefined") return null;
+  return DominionTransformationLedger.buildLedger({
+    today: todayISODate(),
+    trendModel: model,
+    campaign: currentDominionCampaign || buildCurrentDominionCampaign() || {},
+    standards: standardsReviewState || [],
+    photos: bodyProgressPhotos || [],
+    rank: rankStatus || {}
+  });
+}
+
+function renderTransformationLedger(ledger = buildCurrentTransformationLedger()) {
+  const root = document.getElementById("transformation-ledger");
+  if (!root || !ledger) return;
+  root.dataset.ledgerTone = ledger.status.tone || "neutral";
+  setText("transformation-ledger-status", ledger.status.label);
+  setText("trend-evidence-score", `${ledger.confidence.score}%`);
+  setText("trend-evidence-label", ledger.confidence.label);
+  setText("trend-evidence-sources", `${ledger.confidence.sourceCount} of ${ledger.confidence.possibleSources} signals`);
+  const evidenceRing = document.getElementById("trend-evidence-ring");
+  if (evidenceRing) evidenceRing.style.setProperty("--trend-evidence", ledger.confidence.score);
+  setText("transformation-ledger-phase", ledger.campaign.phase);
+  setText("transformation-ledger-week", ledger.campaign.week ? `WEEK ${ledger.campaign.week} / ${ledger.campaign.totalWeeks}` : "NOT STARTED");
+  setText("transformation-ledger-forecast", ledger.campaign.forecast);
+  const progress = document.querySelector(".transformation-ledger-progress");
+  if (progress) progress.setAttribute("aria-valuenow", String(ledger.campaign.progress));
+  const progressBar = document.getElementById("transformation-ledger-progress");
+  if (progressBar) progressBar.style.width = `${ledger.campaign.progress}%`;
+  const bookends = document.getElementById("transformation-ledger-bookends");
+  if (bookends) bookends.innerHTML = ledger.bookends.map((item) => `<article data-comparable="${item.comparable ? "true" : "false"}">
+    <span>${escapeHtml(item.label)}</span>
+    <div><small>START</small><strong>${escapeHtml(item.from)}</strong><i aria-hidden="true">→</i><small>NOW</small><strong>${escapeHtml(item.to)}</strong></div>
+    <b>${escapeHtml(item.change)}</b>
+  </article>`).join("");
+  const signals = document.getElementById("transformation-ledger-signals");
+  if (signals) signals.innerHTML = ledger.signals.map((item) => `<article data-ledger-signal="${escapeHtml(item.id)}" data-ledger-tone="${escapeHtml(item.tone || "neutral")}" data-ledger-ready="${item.ready ? "true" : "false"}">
+    <header><span>${escapeHtml(item.label)}</span><i aria-hidden="true"></i></header>
+    <strong>${escapeHtml(item.value)}</strong>
+    <small>${escapeHtml(item.detail)}</small>
+    <em>${escapeHtml(item.evidence)}</em>
+  </article>`).join("");
+  setText("transformation-ledger-changed", ledger.changed.headline);
+  setText("transformation-ledger-changed-detail", `${ledger.changed.label} · ${ledger.changed.detail}`);
+  setText("transformation-ledger-next", ledger.next.headline);
+  setText("transformation-ledger-next-detail", ledger.next.detail);
+  const action = document.getElementById("transformation-ledger-next-action");
+  if (action) {
+    const section = ledger.next.section || "today";
+    action.textContent = section === "today" ? "Open Today" : section === "inspection" ? "Open Review" : section === "nutrition" ? "Open Fuel" : `Open ${section.charAt(0).toUpperCase()}${section.slice(1)}`;
+    action.href = `#${section}`;
+    action.dataset.section = section;
+    action.dataset.trendTargetView = ledger.next.view || "";
+  }
+}
+
+function refreshTransformationLedger() {
+  if (trendDashboardModel) renderTransformationLedger(buildCurrentTransformationLedger(trendDashboardModel));
+}
+
 function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
   trendDashboardModel = model;
   setText("trend-command-signal", model.coaching.signal);
@@ -27102,6 +27165,7 @@ function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
   setText("analytics-storage", storageMode === "SUPABASE" ? "ACCOUNT EVIDENCE" : "DEVICE EVIDENCE");
   setText("trend-method-version", model.version);
   document.getElementById("trend-domain-grid").innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div class="trend-domain-card ${domainTrends[key].direction.toLowerCase().replaceAll(" ", "-")}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${domainTrends[key].direction}</strong><small>${domainTrends[key].slope === null ? "Learning" : `${domainTrends[key].slope.toFixed(1)} pts/wk`}</small></div>`).join("");
+  renderTransformationLedger(buildCurrentTransformationLedger(model));
   setTrendView(trendActiveView);
 }
 

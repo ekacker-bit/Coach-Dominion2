@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Build 028B Frictionless Execution
+
+- Adds one compact Today dock that opens Strength, Running, Core, Fuel, Recovery, or Closeout directly.
+- Resumes active sessions before presenting lower-priority ready work.
+- Protects unfinished Fuel totals, run review fields, and Daily Closeout entries across refreshes and signed-in devices.
+- Reuses the durable Strength, Running, Core, Recovery, and evidence engines rather than creating duplicate logging paths.
+- Keeps the recruit-facing surface word-light and hides internal release language.
+
 ## Unreleased - Build 028A Trust Layer
 
 - Verifies the complete Contract, program, calendar, Today, and evidence chain at startup and after reconnection.

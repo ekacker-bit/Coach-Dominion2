@@ -11934,6 +11934,7 @@ function renderMobileCommand() {
   const modulePanel = document.getElementById("mobile-command-modules");
   const sync = document.getElementById("mobile-sync-state");
   const progress = document.getElementById("mobile-command-progress");
+  try { renderFrictionlessExecution(); } catch (_) {}
   if (!panel || !nextPanel || !modulePanel || !sync || typeof DominionMobileCommand === "undefined") return;
   let command;
   try { command = buildCurrentMobileCommand(); }
@@ -11986,6 +11987,198 @@ function openMobileCommandSheet(kind = "roll-call") {
       : sheet.querySelector('[name="energy"]');
     field?.focus({ preventScroll: true });
   }
+}
+
+let frictionlessDraftTimer = null;
+
+function readFrictionlessExecutionEnvelope() {
+  return readClosedLoopState("EXECUTION_DRAFT", todayISODate(), {
+    version: "028B.1",
+    date: todayISODate(),
+    activeModule: null,
+    drafts: {}
+  });
+}
+
+function currentFrictionlessExecution() {
+  if (typeof DominionFrictionlessExecution === "undefined") return null;
+  const envelope = readFrictionlessExecutionEnvelope();
+  const assignment = buildCurrentDailyAssignment();
+  const strength = readDailyAssignmentExecution() || {};
+  const runningPrescription = currentRunningPrescription();
+  const running = readRunningExecution() || {};
+  const corePrescription = currentCorePrescription();
+  const core = readCurrentCoreExecution() || {};
+  const fuel = buildFuelDayLedger(todayISODate());
+  const recovery = buildCurrentRecoveryCommand();
+  const closeout = readDailyCloseout();
+  return DominionFrictionlessExecution.buildDashboard({
+    date: todayISODate(),
+    lastModule: envelope.activeModule,
+    modules: {
+      strength: { planned: Boolean(assignment?.exercises?.length), available: assignment?.state !== "RECOVERY ONLY", state: strength.state || "READY", updatedAt: strength.updatedAt, detail: assignment?.title || "Strength session" },
+      running: { planned: Boolean(runningPrescription?.session), available: !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: running.state || "READY", updatedAt: running.updatedAt, draft: envelope.drafts?.running, detail: runningPrescription?.session?.title || "Run session" },
+      core: { planned: Boolean(corePrescription?.session), available: corePrescription?.status === "READY" || Boolean(core), state: core.state || corePrescription?.status || "READY", updatedAt: core.updatedAt, detail: corePrescription?.session?.title || "Core session" },
+      fuel: { planned: true, state: fuel.status, complete: fuel.primaryComplete, draft: envelope.drafts?.fuel, updatedAt: fuel.record?.updatedAt, detail: fuel.message },
+      recovery: { planned: true, available: Boolean(recovery), state: recovery?.status || "READY", complete: recovery?.status === "COMPLETE", updatedAt: recovery?.completedAt || recovery?.generatedAt, detail: recovery?.headline || "Recovery order" },
+      closeout: { planned: !document.getElementById("daily-closeout-panel")?.hidden || Boolean(closeout), state: closeout?.status || "WAITING", complete: closeout?.status === "SEALED", draft: envelope.drafts?.closeout, updatedAt: closeout?.updatedAt, detail: closeout ? "Daily proof sealed" : "Close the day" }
+    }
+  });
+}
+
+function renderFrictionlessExecution() {
+  const root = document.getElementById("frictionless-execution");
+  const modules = document.getElementById("frictionless-execution-modules");
+  const resume = document.getElementById("frictionless-execution-resume");
+  if (!root || !modules || !resume || typeof DominionFrictionlessExecution === "undefined") return;
+  let dashboard;
+  try { dashboard = currentFrictionlessExecution(); }
+  catch (_) {
+    root.hidden = false;
+    modules.innerHTML = "";
+    resume.hidden = true;
+    setText("frictionless-execution-feedback", "Loggers will unlock when today’s plan is ready.");
+    return;
+  }
+  if (!dashboard) return;
+  root.hidden = false;
+  setText("frictionless-execution-progress", `${dashboard.completed} of ${dashboard.total} complete`);
+  modules.innerHTML = dashboard.modules.map((item) => `<button type="button" data-execution-module="${escapeHtml(item.id)}" data-execution-state="${escapeHtml(item.state)}"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.actionLabel)} · ${escapeHtml(item.state.replaceAll("_", " "))}</small></button>`).join("");
+  resume.hidden = !dashboard.resume;
+  if (dashboard.resume) {
+    resume.dataset.executionModule = dashboard.resume.id;
+    resume.innerHTML = `<span>${escapeHtml(dashboard.resume.actionLabel)} ${escapeHtml(dashboard.resume.label)}</span><small>Saved ${escapeHtml(dashboard.resume.state.replaceAll("_", " "))}</small>`;
+  } else {
+    resume.dataset.executionModule = "";
+    resume.textContent = "";
+  }
+}
+
+function frictionlessFormValues(module = "", form = null) {
+  if (!form) return {};
+  if (module === "running") {
+    return {
+      distance: form.querySelector("[data-running-actual-distance]")?.value || "",
+      unit: form.querySelector("[data-running-actual-unit]")?.value || "",
+      hours: form.querySelector("[data-running-actual-hours]")?.value || "",
+      minutes: form.querySelector("[data-running-actual-minutes]")?.value || "",
+      seconds: form.querySelector("[data-running-actual-seconds]")?.value || "",
+      rpe: form.querySelector("[data-running-actual-rpe]")?.value || "",
+      averageHeartRate: form.querySelector("[data-running-actual-heart-rate]")?.value || "",
+      elevationGain: form.querySelector("[data-running-actual-elevation]")?.value || "",
+      notes: form.querySelector("[data-running-actual-notes]")?.value || ""
+    };
+  }
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+async function saveFrictionlessExecutionEnvelope(envelope) {
+  saveClosedLoopLocal("EXECUTION_DRAFT", todayISODate(), envelope);
+  renderFrictionlessExecution();
+  return persistClosedLoopState("EXECUTION_DRAFT", todayISODate(), envelope);
+}
+
+function scheduleFrictionlessDraft(module = "", form = null) {
+  if (typeof DominionFrictionlessExecution === "undefined" || !form) return;
+  const values = frictionlessFormValues(module, form);
+  const envelope = DominionFrictionlessExecution.updateDraftEnvelope(readFrictionlessExecutionEnvelope(), module, values, {
+    date: todayISODate(),
+    now: new Date().toISOString(),
+    activate: false
+  });
+  saveClosedLoopLocal("EXECUTION_DRAFT", todayISODate(), envelope);
+  renderFrictionlessExecution();
+  window.clearTimeout(frictionlessDraftTimer);
+  frictionlessDraftTimer = window.setTimeout(() => persistClosedLoopState("EXECUTION_DRAFT", todayISODate(), envelope), 500);
+}
+
+async function clearFrictionlessDraft(module = "") {
+  if (typeof DominionFrictionlessExecution === "undefined") return false;
+  const envelope = DominionFrictionlessExecution.updateDraftEnvelope(readFrictionlessExecutionEnvelope(), module, null, {
+    date: todayISODate(),
+    now: new Date().toISOString(),
+    clear: true,
+    activate: false
+  });
+  return saveFrictionlessExecutionEnvelope(envelope);
+}
+
+function applyFrictionlessValues(form, values = {}) {
+  if (!form || !values) return;
+  Object.entries(values).forEach(([name, value]) => {
+    const field = form.elements?.namedItem(name);
+    if (!field || value === null || value === undefined) return;
+    if (field.type === "checkbox") field.checked = value === true || value === "on";
+    else field.value = value;
+  });
+}
+
+function restoreFrictionlessDraftForms() {
+  const envelope = readFrictionlessExecutionEnvelope();
+  const fuel = envelope.drafts?.fuel?.values;
+  const closeout = envelope.drafts?.closeout?.values;
+  if (fuel) {
+    applyFrictionlessValues(document.getElementById("mobile-nutrition-form"), fuel);
+    applyFrictionlessValues(document.getElementById("nutrition-manual-form"), fuel);
+  }
+  if (closeout) {
+    const form = document.getElementById("daily-closeout-form");
+    applyFrictionlessValues(form, closeout);
+    if (form) form.dataset.dirty = "true";
+  }
+  const running = envelope.drafts?.running?.values;
+  const runningForm = document.querySelector('[data-running-actual-review="performance"], [data-running-actual-review="mission"]');
+  if (running && runningForm) {
+    const selectors = { distance: "distance", unit: "unit", hours: "hours", minutes: "minutes", seconds: "seconds", rpe: "rpe", averageHeartRate: "heart-rate", elevationGain: "elevation", notes: "notes" };
+    Object.entries(selectors).forEach(([key, suffix]) => {
+      const field = runningForm.querySelector(`[data-running-actual-${suffix}]`);
+      if (field && running[key] !== undefined) field.value = running[key];
+    });
+  }
+}
+
+async function openFrictionlessLogger(module = "") {
+  if (typeof DominionFrictionlessExecution === "undefined") return false;
+  const id = String(module || "").toLowerCase();
+  const envelope = DominionFrictionlessExecution.updateDraftEnvelope(readFrictionlessExecutionEnvelope(), id, readFrictionlessExecutionEnvelope().drafts?.[id]?.values || null, {
+    date: todayISODate(),
+    now: new Date().toISOString()
+  });
+  await saveFrictionlessExecutionEnvelope(envelope);
+  if (["strength", "running", "core"].includes(id)) {
+    const opened = await launchMobileModule(id);
+    window.requestAnimationFrame(restoreFrictionlessDraftForms);
+    return opened;
+  }
+  if (id === "fuel") {
+    openMobileCommandSheet("nutrition");
+    restoreFrictionlessDraftForms();
+    return true;
+  }
+  setActiveSection("today");
+  window.history.replaceState(null, "", "#today");
+  const context = document.getElementById("today-more-context");
+  if (context) context.open = true;
+  if (id === "recovery") {
+    const card = document.getElementById("today-recovery-card");
+    card?.scrollIntoView({ behavior: "smooth", block: "start" });
+    card?.querySelector("button[data-today-recovery-action]")?.focus({ preventScroll: true });
+    return true;
+  }
+  if (id === "closeout") {
+    const panel = document.getElementById("daily-closeout-panel");
+    if (!panel || panel.hidden) {
+      document.getElementById("daily-ritual")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setText("frictionless-execution-feedback", "Closeout unlocks after today’s required work is accounted for.");
+      return false;
+    }
+    panel.open = true;
+    restoreFrictionlessDraftForms();
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.querySelector('[name="selfReportedSteps"]')?.focus({ preventScroll: true });
+    return true;
+  }
+  return false;
 }
 
 function splitDayModuleAuthorization(module = "strength") {
@@ -12145,7 +12338,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=027d", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027e", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027f", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=028a", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: register("/sw.js?v=028a", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=028b", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12233,6 +12427,7 @@ function renderTodayStandardsDuty() {
 
 function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   const state = document.getElementById("today-completion-state");
+  renderFrictionlessExecution();
   renderTodayCommittedWeek();
   renderTodayBodyCheckpoint();
   renderAtlasDecisionCenter();
@@ -12851,6 +13046,7 @@ async function submitDailyCloseout(event) {
     const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(), { previous, now: new Date().toISOString() });
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
+    await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
     const form = document.getElementById("daily-closeout-form");
@@ -12985,6 +13181,7 @@ async function loadClosedLoopState() {
       ["CAMPAIGN_VERDICT", "current"],
       ["PROGRESSION_ORDER", "current"],
       ["RECOVERY_COMMAND", "current"],
+      ["EXECUTION_DRAFT", todayISODate()],
       ["HISTORY", "dominion-campaign"],
       ["HISTORY", "campaign-verdicts"],
       ["HISTORY", "atlas-daily-command"],
@@ -13019,6 +13216,8 @@ async function loadClosedLoopState() {
         if (!local || remoteTimestamp >= localTimestamp) saveClosedLoopLocal(row.state_type, row.state_key, row.payload);
       });
     await ensureMorningVerification({ persist: true });
+    restoreFrictionlessDraftForms();
+    renderFrictionlessExecution();
     renderDailyCoachingLoop();
     renderWeeklyCloseoutEvidence();
     renderRecruitConstraintMemory();
@@ -19773,6 +19972,7 @@ async function saveManualNutrition(event) {
   if (button) { button.disabled = true; button.textContent = "Saving…"; }
   try {
     const { synced } = await persistFuelDayTotals(Object.fromEntries(data.entries()));
+    await clearFrictionlessDraft("fuel");
     form.dataset.dirty = "false";
     renderFuelDayLedger(date, true);
     setText("nutrition-command-feedback", synced
@@ -20774,6 +20974,10 @@ if (typeof document !== "undefined") {
       renderMobileCommand();
     }
   });
+  document.getElementById("mobile-nutrition-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+    scheduleFrictionlessDraft("fuel", event.currentTarget);
+  });
   document.getElementById("mobile-nutrition-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -20787,6 +20991,7 @@ if (typeof document !== "undefined") {
         date: todayISODate(), now: new Date().toISOString()
       });
       const { synced } = await persistFuelDayTotals(normalized);
+      await clearFrictionlessDraft("fuel");
       form.dataset.dirty = "false";
       document.getElementById("mobile-nutrition-sheet").open = false;
       setText("mobile-command-feedback", synced
@@ -21367,6 +21572,19 @@ if (typeof document !== "undefined") {
     window.history.replaceState(null, "", `#${destination.section}`);
     window.setTimeout(() => document.getElementById(destination.section)?.scrollIntoView({ block: "start" }), 0);
   });
+  document.getElementById("frictionless-execution")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-execution-module]");
+    if (!button?.dataset.executionModule) return;
+    button.disabled = true;
+    try {
+      await openFrictionlessLogger(button.dataset.executionModule);
+      setText("frictionless-execution-feedback", "Opened the saved execution surface.");
+    } catch (error) {
+      setText("frictionless-execution-feedback", error?.message || "That logger could not be opened.");
+    } finally {
+      button.disabled = false;
+    }
+  });
   window.addEventListener("error", () => reportSafeRuntimeError("runtime"));
   window.addEventListener("unhandledrejection", () => reportSafeRuntimeError("promise"));
   document.getElementById("mobile-more-dialog")?.addEventListener("click", async (event) => {
@@ -21882,6 +22100,7 @@ if (typeof document !== "undefined") {
   document.getElementById("daily-closeout-form")?.addEventListener("input", (event) => {
     event.currentTarget.dataset.dirty = "true";
     updateDailyCloseoutPreview();
+    scheduleFrictionlessDraft("closeout", event.currentTarget);
   });
   document.querySelector('#daily-closeout-form [name="processedFoodStatus"]')?.addEventListener("change", (event) => {
     const list = document.getElementById("daily-closeout-processed-list");
@@ -21911,6 +22130,7 @@ if (typeof document !== "undefined") {
   fuelDayForm?.addEventListener("submit", saveManualNutrition);
   fuelDayForm?.addEventListener("input", (event) => {
     if (event.target.name !== "date") event.currentTarget.dataset.dirty = "true";
+    if (event.target.name !== "date") scheduleFrictionlessDraft("fuel", event.currentTarget);
   });
   document.querySelectorAll("[data-nutrition-view]").forEach((button) => {
     button.addEventListener("click", () => setNutritionActiveView(button.dataset.nutritionView));
@@ -22428,6 +22648,7 @@ if (typeof document !== "undefined") {
       }
       try {
         await finalizeRunningSession("performance");
+        await clearFrictionlessDraft("running");
       } catch (error) {
         const feedback = event.target.querySelector("[data-running-actual-feedback]");
         if (feedback) feedback.textContent = error?.message || "Run evidence could not be secured.";
@@ -22460,6 +22681,7 @@ if (typeof document !== "undefined") {
         const entry = DominionManualRun.buildPerformanceEntry(input, { today: todayISODate(), userId: session?.user?.id || null, createdAt });
         const saved = await persistPerformanceEvidenceEntry(entry);
         const application = await applyManualRunToToday(validation.run, saved.entry);
+        await clearFrictionlessDraft("running");
         renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
         renderTodayCommittedWeek();
         renderMissionExecution();
@@ -22511,6 +22733,10 @@ if (typeof document !== "undefined") {
     await persistRunningState("PROFILE", "current", savedProfile);
     renderRunningCommand();
     setText("running-command-feedback", "Running setup saved. Build the four-week draft when you are ready; the active plan remains unchanged.");
+  });
+  document.getElementById("running-command-panel")?.addEventListener("input", (event) => {
+    const form = event.target.closest('[data-running-actual-review="performance"]');
+    if (form) scheduleFrictionlessDraft("running", form);
   });
   document.getElementById("running-command-panel")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-running-action]");

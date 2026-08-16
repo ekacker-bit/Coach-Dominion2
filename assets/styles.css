@@ -12153,3 +12153,65 @@ body[data-app-loading="true"] #daily-decision-support { min-height: 118px; }
   html[data-daily-decision-integrity="027F.1"] #daily-decision-support .daily-decision-execution { grid-column: auto; }
   #inspection .weekly-domain-scores { grid-template-columns: 1fr; }
 }
+.frictionless-execution {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(212, 175, 55, .28);
+  background: linear-gradient(135deg, rgba(212, 175, 55, .08), rgba(10, 14, 16, .94) 42%);
+}
+
+.frictionless-execution[hidden] { display: none; }
+.frictionless-execution > header { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.frictionless-execution > header div { display: grid; gap: 4px; }
+.frictionless-execution > header span { color: var(--victory-gold); font: 12px/1 var(--font-command); letter-spacing: .14em; }
+.frictionless-execution > header strong { color: var(--stone); font-size: 16px; }
+.frictionless-execution > header small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.frictionless-execution > p { margin: 0; color: var(--muted); font-size: 11px; }
+
+#frictionless-execution-resume {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  text-align: left;
+}
+
+#frictionless-execution-resume[hidden] { display: none; }
+#frictionless-execution-resume small { color: currentColor; font-size: 10px; opacity: .78; }
+
+.frictionless-execution-modules { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+#frictionless-execution .frictionless-execution-modules button {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px;
+  border-color: var(--line);
+  background: rgba(9, 13, 15, .76);
+  color: var(--stone);
+  text-align: left;
+}
+#frictionless-execution .frictionless-execution-modules button:hover,
+#frictionless-execution .frictionless-execution-modules button:focus-visible {
+  border-color: var(--victory-gold);
+  background: rgba(17, 22, 24, .96);
+  color: var(--stone);
+}
+#frictionless-execution .frictionless-execution-modules button[data-execution-state="COMPLETE"] { border-color: rgba(46, 139, 87, .52); }
+#frictionless-execution .frictionless-execution-modules button[data-execution-state="IN_PROGRESS"],
+#frictionless-execution .frictionless-execution-modules button[data-execution-state="PAUSED"],
+#frictionless-execution .frictionless-execution-modules button[data-execution-state="REVIEW"],
+#frictionless-execution .frictionless-execution-modules button[data-execution-state="DRAFT"] { border-color: rgba(212, 175, 55, .58); }
+.frictionless-execution-modules button strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.frictionless-execution-modules button small { color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+
+@media (max-width: 760px) {
+  .frictionless-execution { padding: 13px; }
+  .frictionless-execution > header { align-items: start; flex-direction: column; gap: 5px; }
+  .frictionless-execution-modules { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .frictionless-execution-modules button { min-height: 54px; }
+}

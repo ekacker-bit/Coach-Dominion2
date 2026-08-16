@@ -1,11 +1,11 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e";
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f";
 const APP_SHELL = [
   "/",
   "/app",
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js?v=027d",
   "/assets/js/connected-evidence.js?v=027d",
@@ -83,6 +83,7 @@ const APP_SHELL = [
   "/assets/js/one-command.js",
   "/assets/js/atlas-daily-command.js?v=025o",
   "/assets/js/daily-decision.js?v=026e",
+  "/assets/js/daily-decision-integrity.js?v=027f",
   "/assets/js/mission-execution-spine.js?v=026b",
   "/assets/js/atlas-live-adaptation.js?v=026c",
   "/assets/js/atlas-adaptive-horizon.js?v=026g",

@@ -165,7 +165,7 @@ test("017E integration preserves weekly review loading, persistence, styles, tes
   const styles = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
   const migration = fs.readFileSync(path.join(root, "supabase/migrations/019_strength_week_review.sql"), "utf8");
   const pkg = fs.readFileSync(path.join(root, "package.json"), "utf8");
-  assert.match(html, /BUILD 017E/);
+  assert.match(html, /STRENGTH PLAN/);
   assert.match(html, /strength-week-review\.js/);
   assert.match(app, /persistStrengthTrainingState\("WEEK_REVIEW", "current"/);
   assert.match(app, /data-strength-review-action="finalize"/);

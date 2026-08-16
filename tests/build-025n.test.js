@@ -28,7 +28,7 @@ test("Build 025N proves one Contract-to-program lineage without mislabeling an a
   assert.match(continuity, /PROTECTED_CURRENT_WEEK/);
   assert.match(continuity, /next week must use Contract/);
   assert.match(app, /continuityLineageStateLabel/);
-  assert.match(html, /BUILD 025N \/\/ PROGRAM CONTINUITY/);
+  assert.match(html, /<!-- Program continuity -->/);
   assert.match(html, /id="continuity-lineage-summary"/);
 });
 

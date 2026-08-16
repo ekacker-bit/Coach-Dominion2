@@ -153,7 +153,7 @@
       </header>
       <div class="weekly-judgment-controls"><label>Week containing <input id="weekly-date" type="date"></label><button id="inspect-week" type="button" class="ghost">Check week</button></div>
       <p id="weekly-warning" class="status" aria-live="polite"></p>
-      <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Coach Dominion is checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
+      <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
       <div id="weekly-proof-grid" class="weekly-proof-grid" aria-label="Weekly proof">
         <article><span>EXECUTION</span><strong id="weekly-score">UNSCORED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>
         <article><span>EVIDENCE</span><strong id="weekly-coverage">0%</strong><small id="weekly-evidence-proof">Waiting for evidence</small></article>

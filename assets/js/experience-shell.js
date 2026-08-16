@@ -27,10 +27,11 @@
 
   function cleanBuildKicker(value = "") {
     const text = String(value || "").replace(/\s+/g, " ").trim();
-    const cleaned = text.replace(/^BUILD\s+\d+[A-Z]?\s*\/\/\s*/i, "");
-    if (!cleaned) return "DOMINION";
-    if (/^DOMINION\s*\/\//i.test(cleaned)) return cleaned;
-    return `DOMINION // ${cleaned}`;
+    const cleaned = text
+      .replace(/^BUILD\s+\d+[A-Z]?\s*(?:\/\/|·|-)?\s*/i, "")
+      .replace(/^DOMINION(?:\s+CAMPAIGN)?\s*\/\/\s*/i, "")
+      .trim();
+    return cleaned || "STATUS";
   }
 
   function moduleSection(module = "") {

@@ -21,7 +21,7 @@ for (const id of [
   assert.match(html, new RegExp(`id="${id}"`), `missing Build 018D surface: ${id}`);
 }
 
-assert.match(html, /BUILD (?:021I \/\/ CALENDAR COMMAND|024D \/\/ ATLAS PROGRAM CALENDAR)/);
+assert.match(html, /<div class="kicker">PROGRAM CALENDAR<\/div>/);
 assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js\?v=024d"/);
 assert.ok(html.indexOf("weekly-orchestrator.js") < html.indexOf("app.js"), "orchestrator must load before app integration");
 

@@ -9,6 +9,7 @@ const html = read("app.html");
 const index = read("index.html");
 const css = read("assets/styles.css");
 const app = read("assets/js/app.js");
+const experienceShell = read("assets/js/experience-shell.js");
 const strength = read("assets/js/strength-training.js");
 const trends = read("assets/js/trends-intelligence.js");
 const continuity = read("assets/js/dominion-continuity.js");
@@ -25,6 +26,7 @@ const connectedEvidenceMigration = read("supabase/migrations/20260815144525_conn
 const accountTruthMigration = read("supabase/migrations/028_dominion_account_truth.sql");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
 const dailyDecision = read("assets/js/daily-decision.js");
+const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
 const adaptiveHorizon = read("assets/js/atlas-adaptive-horizon.js");
 const adaptationOutcomes = read("assets/js/atlas-adaptation-outcomes.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
@@ -103,7 +105,7 @@ check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3-025i-025j
 check("cached application", worker.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "service worker is caching the wrong application");
 check("cached operating truth", worker.includes('/assets/js/operating-truth.js?v=025h'), "service worker is caching the wrong operating truth engine");
 check("026E Daily Decision engine", dailyDecision.includes('const VERSION = "026E.1"') && dailyDecision.includes("function buildDailyDecision"), "026E Daily Decision engine is missing");
-check("026E Daily Decision integration", html.includes('/assets/js/daily-decision.js?v=026e') && app.includes("DominionDailyDecision.buildDailyDecision") && app.includes("renderDailyDecisionSurfaces"), "026E Daily Decision is not governing the application");
+check("026E Daily Decision integration", html.includes('/assets/js/daily-decision.js?v=026e') && (app.includes("DominionDailyDecision.buildDailyDecision") || app.includes("decisionEngine.buildDailyDecision")) && app.includes("renderDailyDecisionSurfaces"), "026E Daily Decision compatibility layer is not available to the application");
 check("026E Daily Decision cache", worker.includes('/assets/js/daily-decision.js?v=026e') && worker.includes("026d-026e"), "026E Daily Decision assets are stale or uncached");
 check("026G adaptive horizon engine", adaptiveHorizon.includes('const VERSION = "026G.1"') && adaptiveHorizon.includes("function buildProposal") && adaptiveHorizon.includes("function applyToDay"), "026G adaptive horizon engine is missing");
 check("026G adaptive horizon integration", html.includes('/assets/js/atlas-adaptive-horizon.js?v=026g') && html.indexOf('atlas-adaptive-horizon.js?v=026g') < html.indexOf('app.js?v=') && app.includes("buildCurrentAtlasAdaptiveHorizon") && app.includes("renderAtlasAdaptiveHorizon") && app.includes('persistClosedLoopState("ADAPTIVE_HORIZON"'), "026G adaptive horizon is not connected end to end");
@@ -126,7 +128,7 @@ check("026J account truth and trends", app.includes("...readEvidenceAutopilotHis
 check("026J cache", worker.includes('/assets/js/evidence-autopilot.js?v=026j') && worker.includes("026h-026i-026j") && app.includes('/sw.js?v=026j'), "026J Evidence Autopilot assets are stale or uncached");
 check("026K campaign engine", dominionCampaign.includes('const VERSION = "026K.1"') && dominionCampaign.includes("function buildCampaign") && dominionCampaign.includes("function upsertHistory"), "026K Dominion Campaign engine is incomplete");
 check("026K campaign guardrails", dominionCampaign.includes("const CAMPAIGN_WEEKS = 12") && dominionCampaign.includes("const QUALIFYING_WEEK_TARGET = 9") && dominionCampaign.includes('upper(receipt.status) !== "INCOMPLETE"') && dominionCampaign.includes("used.add(fallback)"), "026K campaign duration, proof, or duplicate-credit guardrails are missing");
-check("026K campaign integration", html.includes('/assets/js/dominion-campaign.js?v=026k') && html.indexOf('dominion-campaign.js?v=026k') < html.indexOf('app.js?v=') && html.includes('id="dominion-campaign"') && html.includes('id="dominion-campaign-today"') && app.includes("reconcileDominionCampaign") && app.includes('runStartupTask("Dominion Campaign"'), "026K Dominion Campaign is not connected end to end");
+check("026K campaign integration", html.includes('/assets/js/dominion-campaign.js?v=026k') && html.indexOf('dominion-campaign.js?v=026k') < html.indexOf('app.js?v=') && html.includes('id="dominion-campaign"') && html.includes('id="dominion-campaign-today"') && app.includes("reconcileDominionCampaign") && app.includes('runStartupTask("Campaign"'), "026K Dominion Campaign is not connected end to end");
 check("026K campaign continuity", app.includes('persistClosedLoopState("CAMPAIGN", "current"') && app.includes('persistClosedLoopState("HISTORY", "dominion-campaign"') && app.includes('["CAMPAIGN", "current"]') && app.includes('["HISTORY", "dominion-campaign"]'), "026K campaign state is not durable across sessions");
 check("026K campaign weekly review", read("assets/js/weekly-advancement.js").includes('id="dominion-campaign-review"') && app.includes('document.getElementById("dominion-campaign-review")'), "026K Weekly Review campaign movement is missing");
 check("026K campaign responsive shell", css.includes(".dominion-campaign-phases") && css.includes(".dominion-campaign-today") && css.includes(".dominion-campaign-review") && css.includes("@media (max-width: 760px)"), "026K campaign responsive styling is missing");
@@ -257,6 +259,13 @@ check("027E evidence record", campaignVerdict.includes("function bodySummary") &
 check("027E re-enlistment safeguard", app.includes("buildRecruitContractAmendment") && app.includes("campaignReEnlistment") && !campaignVerdict.includes("approveRecruitContract"), "027E may bypass recruit review of the next Contract");
 check("027E durable integration", html.includes('id="campaign-verdict"') && html.includes('/assets/js/campaign-verdict.js?v=027e') && app.includes("reconcileCampaignVerdict") && app.includes('persistClosedLoopState("CAMPAIGN_VERDICT", "current"') && app.includes('persistClosedLoopState("HISTORY", "campaign-verdicts"'), "027E verdict is not connected or durable");
 check("027E responsive and offline", css.includes("Build 027E: Campaign Verdict and Re-Enlistment") && worker.includes('/assets/js/campaign-verdict.js?v=027e') && worker.includes("027d-027e") && app.includes('/sw.js?v=027e'), "027E shell is stale or not responsive");
+check("027F decision authority", dailyDecisionIntegrity.includes('const VERSION = "027F.1"') && dailyDecisionIntegrity.includes("function authorizationModel") && dailyDecisionIntegrity.includes("function consistencyReport"), "027F canonical Daily Decision authority is incomplete");
+check("027F domain integrity", dailyDecisionIntegrity.includes("Only ${plan.domain") && app.includes("DominionDailyDecisionIntegrity.buildDailyDecision") && app.includes("nutritionEvidence:"), "027F does not preserve domain-specific authorization and Fuel context");
+check("027F honest review and contract", app.includes("DominionDailyDecisionIntegrity.reviewSummary") && app.includes("DominionDailyDecisionIntegrity.contractMode") && css.includes('#contract[data-contract-mode="FINALIZED"]'), "027F Review or finalized Contract repair is incomplete");
+check("027F mobile and connection repair", app.includes("DominionDailyDecisionIntegrity.resolveMobileDestination") && app.includes("DominionDailyDecisionIntegrity.connectionState") && css.includes("Build 027F: Daily Decision integrity and mobile UX repair"), "027F mobile or Connections repair is incomplete");
+check("027F responsive and offline", html.includes('/assets/js/daily-decision-integrity.js?v=027f') && worker.includes('/assets/js/daily-decision-integrity.js?v=027f') && worker.includes("027e-027f") && app.includes('/sw.js?v=027f'), "027F assets are stale or uncached");
+const visibleHtml = `${html}\n${index}`.replace(/<!--[\s\S]*?-->/g, "");
+check("027F product word diet", !/>\s*(?:BUILD|RELEASE)\s+0?\d{2,3}[A-Z]?/i.test(visibleHtml) && !/<(?:span|div)[^>]*>\s*(?:BUILD|RELEASE)\s+0?\d{2,3}[A-Z]?/i.test(app) && experienceShell.includes('return cleaned || "STATUS"'), "release numbers or repetitive brand prefixes can still reach product copy");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

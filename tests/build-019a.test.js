@@ -18,7 +18,7 @@ for (const id of [
   "contract-signing-dialog-summary"
 ]) assert.match(`${html}\n${app}`, new RegExp(id), `missing 019A contract surface: ${id}`);
 
-assert.match(html, /BUILD (?:019A \/\/ THE DOMINION CONTRACT|021C \/\/ RECRUIT ENTRY)/);
+assert.match(html, /<div class="kicker">CONTRACT<\/div>/);
 assert.match(html, /Your commitment: train with discipline/);
 assert.match(html, /Do you swear to uphold this Contract\?/);
 assert.match(html, /src="\/assets\/js\/contract-experience\.js"/);

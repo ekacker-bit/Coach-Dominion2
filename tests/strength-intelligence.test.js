@@ -217,7 +217,7 @@ test("017F integration loads the engine and exposes strength intelligence in the
   const css = fs.readFileSync(path.join(root, "assets/styles.css"), "utf8");
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   assert.match(html, /strength-intelligence\.js/);
-  assert.match(html, /BUILD 017F/);
+  assert.match(html, /STRENGTH TREND/);
   assert.match(app, /DominionStrengthIntelligence/);
   assert.match(app, /renderStrengthIntelligence/);
   assert.match(css, /Build 017F/);

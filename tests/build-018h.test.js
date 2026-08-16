@@ -21,7 +21,7 @@ for (const id of [
   "mobile-command-dock"
 ]) assert.match(html, new RegExp(`id="${id}"`), `missing 018H surface: ${id}`);
 
-assert.match(html, /BUILD 018H \/\/ MOBILE COMMAND/);
+assert.match(html, /<div class="kicker">TODAY'S ORDER<\/div>/);
 assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
 assert.match(html, /name="apple-mobile-web-app-capable" content="yes"/);
 assert.match(html, /src="\/assets\/js\/mobile-command\.js(?:\?v=022g)?"/);

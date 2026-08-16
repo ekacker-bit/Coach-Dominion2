@@ -306,6 +306,7 @@
       activeWeekStart: decision.activeWeekStart || null,
       targetWeekStart: decision.targetWeekStart || null,
       appliedAt,
+      weeklyReplanning: decision.weeklyReplanning ? deepCopy(decision.weeklyReplanning) : null,
       changes: (decision.changes || []).map((item) => ({
         domain: item.domain,
         action: item.action,

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Weekly Replanning Preview</title>
+  <link rel="stylesheet" href="../../assets/styles.css">
+  <style>
+    body { min-height: 100vh; }
+    .preview-shell { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 80px; }
+    .preview-mast { margin-bottom: 24px; }
+    .preview-mast h1 { margin: 4px 0 8px; font-size: clamp(42px, 7vw, 72px); }
+    .preview-mast p { max-width: 650px; margin: 0; color: var(--muted); }
+    @media (max-width: 720px) { .preview-shell { width: min(100% - 24px, 1080px); padding-top: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <header class="preview-mast"><div class="kicker">WEEKLY REVIEW</div><h1>Earn next week.</h1><p>Evidence first. One coaching call. One approval.</p></header>
+    <article class="weekly-replanning gold" data-weekly-replanning>
+      <header class="weekly-replanning-header"><div><span>NEXT WEEK</span><h3>Rebalance the weekly demand</h3><p>Execution is below the committed dose. Reduce friction before increasing demand.</p></div><strong>PROPOSED</strong></header>
+      <section class="weekly-replanning-proof" aria-label="Prescribed versus completed"><div><span>PRESCRIBED</span><strong>15</strong></div><div><span>COMPLETED</span><strong>11</strong></div><div><span>EXECUTION</span><strong>73%</strong></div><div><span>CONFIDENCE</span><strong>HIGH</strong></div></section>
+      <section class="weekly-replanning-limiter"><div><span>LIMITING FACTOR</span><h4>Running</h4><p>Two prescribed sessions were not secured.</p></div><strong>1/3 complete</strong></section>
+      <section class="weekly-replanning-before-after" aria-label="Current and proposed week comparison"><article><span>THIS WEEK</span><strong>6 windows / 315 min</strong><small>2 recovery days</small></article><b aria-hidden="true">&rarr;</b><article><span>IF APPROVED</span><strong>6 windows / 300 min</strong><small>2 recovery days</small></article></section>
+      <div class="weekly-replanning-domains">
+        <article class="weekly-replanning-domain secured"><div><span>Strength</span><strong>3/3</strong><small>completed / prescribed</small></div><div class="weekly-replanning-domain-shift"><span>3 sessions / 180 min</span><b>&rarr;</b><span>3 sessions / 180 min</span></div><small>No schedule change</small></article>
+        <article class="weekly-replanning-domain limiting"><div><span>Running</span><strong>1/3</strong><small>completed / prescribed</small></div><div class="weekly-replanning-domain-shift"><span>3 sessions / 105 min</span><b>&rarr;</b><span>3 sessions / 90 min</span></div><small>-15 min</small></article>
+        <article class="weekly-replanning-domain secured"><div><span>Core</span><strong>2/2</strong><small>completed / prescribed</small></div><div class="weekly-replanning-domain-shift"><span>2 sessions / 30 min</span><b>&rarr;</b><span>2 sessions / 30 min</span></div><small>No schedule change</small></article>
+        <article class="weekly-replanning-domain watch"><div><span>Fuel</span><strong>5/7</strong><small>completed / prescribed</small></div><div class="weekly-replanning-domain-shift"><span>7 days</span><b>&rarr;</b><span>7 days</span></div><small>No schedule change</small></article>
+      </div>
+      <details class="weekly-replanning-adjustments"><summary>What changes and why</summary><ul><li><div><strong>Running</strong><span>Keep the next run easy until the committed week becomes executable.</span></div><small>3 sessions / 105 min &rarr; 3 sessions / 90 min</small></li><li><div><strong>Fuel</strong><span>Close the day before changing calorie or macro targets.</span></div><small>7 days &rarr; 7 days</small></li></ul></details>
+      <footer><div class="weekly-replanning-actions"><button type="button">Approve next week</button><button type="button" class="ghost">Repeat this week</button></div><small>Approval changes the next week only. The current week and completed evidence stay fixed.</small></footer>
+    </article>
+  </main>
+</body>
+</html>

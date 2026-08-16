@@ -19,3 +19,4 @@ jobs:
           npm test
           npm run test:028a
           npm run test:028b
+          npm run test:028c

@@ -170,24 +170,34 @@
     if (!responseApplies(response, context)) return command;
     const choice = CHOICES.find((item) => item.id === response.choiceId);
     if (!choice) return command;
+    const coach = response.coach || null;
+    const execution = coach?.execution || response.choiceId;
     const adjusted = {
       ...command,
       response,
-      title: response.choiceId === "RECOVERY_ONLY"
+      title: execution === "RECOVERY" || response.choiceId === "RECOVERY_ONLY"
         ? "Recovery governs today"
-        : response.choiceId === "REDUCE_TODAY"
+        : execution === "REDUCE" || response.choiceId === "REDUCE_TODAY"
           ? `Shortened: ${command.title}`
           : command.title,
-      detail: choice.result,
-      reason: `${choice.result} This is a day-only adjustment; the approved program and future calendar remain unchanged.`,
-      adjustment: { ...command.adjustment, active: true, label: choice.label, result: choice.result }
+      detail: coach?.summary || choice.result,
+      reason: coach
+        ? `${coach.summary} Tradeoff: ${coach.tradeoff}`
+        : `${choice.result} This is a day-only adjustment; the approved program and future calendar remain unchanged.`,
+      adjustment: {
+        ...command.adjustment,
+        active: true,
+        label: coach?.reasonLabel || choice.label,
+        result: coach?.summary || choice.result,
+        tradeoff: coach?.tradeoff || null
+      }
     };
-    if (response.choiceId === "REDUCE_TODAY" && Number(command.duration?.minutes) > 0) {
+    if ((execution === "REDUCE" || (!coach && response.choiceId === "REDUCE_TODAY")) && Number(command.duration?.minutes) > 0) {
       const minutes = Math.max(10, Math.round(command.duration.minutes * 0.75 / 5) * 5);
       adjusted.duration = { minutes, label: `${minutes} min`, open: false };
     }
-    if (response.choiceId === "MOVE_LATER") adjusted.window = "LATER TODAY";
-    if (response.choiceId === "RECOVERY_ONLY") {
+    if (execution === "MOVE" || (!coach && response.choiceId === "MOVE_LATER")) adjusted.window = "LATER TODAY";
+    if (execution === "RECOVERY" || (!coach && response.choiceId === "RECOVERY_ONLY")) {
       adjusted.window = "RECOVERY";
       adjusted.duration = { minutes: 20, label: "20 min", open: false };
       adjusted.primary = { action: "MODULE", label: "Open Recovery", section: "today", module: "recovery" };
@@ -287,7 +297,7 @@
   }
 
   function createResponse(command = {}, choiceId, context = {}) {
-    if (!command.adjustment?.available) throw new Error("This order cannot be changed after execution begins.");
+    if (!command.adjustment?.available && !context.coachProposal) throw new Error("This order cannot be changed after execution begins.");
     const choice = CHOICES.find((item) => item.id === choiceId);
     if (!choice) throw new Error("Choose one bounded adjustment.");
     const date = String(context.date || "").slice(0, 10);
@@ -310,7 +320,8 @@
       weekRevision: whole(context.weekRevision),
       createdAt: now,
       updatedAt: now,
-      calendarOverride: {
+      coach: context.coachProposal ? JSON.parse(JSON.stringify(context.coachProposal)) : null,
+      calendarOverride: context.calendarOverride ? JSON.parse(JSON.stringify(context.calendarOverride)) : {
         status: "DAY_OVERRIDE",
         date,
         label: choice.label,
@@ -320,7 +331,11 @@
         baseWeekRevision: whole(context.weekRevision),
         futureWeekChanged: false
       },
-      directive: directiveForChoice(choiceId, date, fingerprint)
+      directive: context.directive === undefined
+        ? directiveForChoice(choiceId, date, fingerprint)
+        : context.directive === null
+          ? null
+          : JSON.parse(JSON.stringify(context.directive))
     };
   }
 
@@ -336,6 +351,8 @@
       commandFingerprint: command.orderFingerprint || null,
       action: context.action || command.primary?.action || null,
       choiceId: context.choiceId || null,
+      reasonId: context.reasonId || null,
+      proposalId: context.proposalId || null,
       occurredAt
     };
   }

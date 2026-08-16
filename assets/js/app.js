@@ -66,6 +66,8 @@ let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let currentAtlasDailyCommand = null;
+let currentAtlasCoachProposal = null;
+let currentAtlasCoachSource = "DAILY_COMMAND";
 let currentDailyDecision = null;
 let currentAdaptiveHorizon = null;
 let currentAdaptationOutcome = null;
@@ -12339,7 +12341,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=027e", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027f", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=028b", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: register("/sw.js?v=028b", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=028c", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14504,8 +14507,7 @@ function currentDailyCalendarOverride(date = todayISODate()) {
 function renderAtlasLiveAdaptation() {
   const section = document.getElementById("atlas-live-adaptation");
   const actions = document.getElementById("atlas-live-adaptation-actions");
-  const form = document.getElementById("atlas-live-adaptation-feedback");
-  if (!section || !actions || !form) return;
+  if (!section || !actions) return;
   const proposal = buildCurrentAtlasLiveAdaptation();
   const visible = Boolean(proposal && !["HELD", "RESTORED"].includes(proposal.status));
   section.hidden = !visible;
@@ -14528,7 +14530,6 @@ function renderAtlasLiveAdaptation() {
   }
   if (approved) {
     setText("atlas-live-adaptation-feedback-text", "Approved for today only. Future programming and Fuel targets remain intact.");
-    form.hidden = true;
   }
 }
 
@@ -17399,7 +17400,8 @@ function renderAtlasDailyCommandAdjustment(model = currentAtlasDailyCommand) {
   const trigger = document.getElementById("atlas-command-adjust");
   const status = document.getElementById("atlas-command-adjustment-status");
   const choices = document.getElementById("atlas-command-adjustment-choices");
-  if (!trigger || !status || !choices || !model) return;
+  const reasons = document.getElementById("atlas-command-adjustment-reasons");
+  if (!trigger || !status || !choices || !reasons || !model) return;
   const available = Boolean(model.adjustment?.available);
   const active = Boolean(model.adjustment?.active && model.response?.status === "ACTIVE");
   trigger.hidden = !available;
@@ -17407,7 +17409,31 @@ function renderAtlasDailyCommandAdjustment(model = currentAtlasDailyCommand) {
   status.hidden = !active;
   setText("atlas-command-adjustment-label", model.adjustment?.label || "Today’s order changed");
   setText("atlas-command-adjustment-result", model.adjustment?.result || "");
-  choices.innerHTML = (model.adjustment?.choices || []).map((choice) => `<button type="button" class="atlas-command-adjustment-choice ${model.response?.choiceId === choice.id ? "selected" : ""}" data-atlas-command-choice="${escapeHtml(choice.id)}"><strong>${escapeHtml(choice.label)}</strong><span>${escapeHtml(choice.detail)}</span></button>`).join("");
+  choices.innerHTML = "";
+  reasons.innerHTML = typeof DominionAtlasCoach === "undefined" ? "" : DominionAtlasCoach.REASONS.map((reason) => `<button type="button" class="atlas-command-adjustment-reason ${currentAtlasCoachProposal?.reasonId === reason.id ? "selected" : ""}" data-atlas-coach-reason="${escapeHtml(reason.id)}" aria-pressed="${currentAtlasCoachProposal?.reasonId === reason.id ? "true" : "false"}"><strong>${escapeHtml(reason.label)}</strong><span>${escapeHtml(reason.detail)}</span></button>`).join("");
+  renderAtlasCoachProposal(currentAtlasCoachProposal);
+}
+
+function renderAtlasCoachProposal(proposal = currentAtlasCoachProposal) {
+  const panel = document.getElementById("atlas-command-adjustment-proposal");
+  if (!panel) return;
+  panel.hidden = !proposal;
+  if (!proposal) return;
+  setText("atlas-command-proposal-headline", proposal.headline);
+  setText("atlas-command-proposal-summary", proposal.summary);
+  setText("atlas-command-proposal-change", proposal.change);
+  setText("atlas-command-proposal-tradeoff", proposal.tradeoff);
+  const safety = document.getElementById("atlas-command-proposal-safety");
+  if (safety) {
+    safety.hidden = !proposal.safetyOverride;
+    safety.textContent = proposal.safetyOverride ? "Pain is a safety signal. Record it in Roll Call before training again." : "";
+  }
+  const reasons = document.getElementById("atlas-command-adjustment-reasons");
+  reasons?.querySelectorAll("[data-atlas-coach-reason]").forEach((button) => {
+    const selected = button.dataset.atlasCoachReason === proposal.reasonId;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+  });
 }
 
 function todayFlowStage(model = {}, queue = null) {
@@ -17788,27 +17814,60 @@ async function runActivationRepairAction(action = "RETRY", moduleId = "") {
   scheduleOperatingTruthReconciliation(800);
 }
 
-function openAtlasDailyCommandAdjustment() {
+function openAtlasDailyCommandAdjustment(preset = {}) {
   const dialog = document.getElementById("atlas-command-adjustment-dialog");
-  if (!dialog || !currentAtlasDailyCommand?.adjustment?.available) return;
+  const requestedSource = preset?.source === "LIVE_ADAPTATION" ? "LIVE_ADAPTATION" : "DAILY_COMMAND";
+  if (!dialog || !currentAtlasDailyCommand || (!currentAtlasDailyCommand.adjustment?.available && requestedSource !== "LIVE_ADAPTATION")) return;
+  currentAtlasCoachProposal = null;
+  currentAtlasCoachSource = requestedSource;
+  const note = document.getElementById("atlas-command-adjustment-note");
+  if (note) note.value = "";
   renderAtlasDailyCommandAdjustment(currentAtlasDailyCommand);
   recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "ADJUSTMENT_OPENED").catch(() => {});
   if (typeof dialog.showModal === "function") dialog.showModal();
   else dialog.setAttribute("open", "");
+  const reasonId = preset?.reasonId || "";
+  if (reasonId) selectAtlasCoachReason(reasonId);
 }
 
-async function applyAtlasDailyCommandAdjustment(choiceId) {
+function selectAtlasCoachReason(reasonId) {
+  if (typeof DominionAtlasCoach === "undefined" || !currentAtlasDailyCommand) return null;
+  currentAtlasCoachProposal = DominionAtlasCoach.buildProposal({
+    command: currentAtlasDailyCommand,
+    reasonId,
+    source: currentAtlasCoachSource,
+    generatedAt: new Date().toISOString(),
+    ...atlasDailyCommandContext()
+  });
+  renderAtlasCoachProposal(currentAtlasCoachProposal);
+  recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "COACH_REASON_SELECTED", {
+    reasonId: currentAtlasCoachProposal.reasonId,
+    proposalId: currentAtlasCoachProposal.id
+  }).catch(() => {});
+  return currentAtlasCoachProposal;
+}
+
+async function applyAtlasDailyCommandAdjustment(choiceId = null) {
   if (typeof DominionAtlasDailyCommand === "undefined" || !currentAtlasDailyCommand) return;
   const context = atlasDailyCommandContext();
-  const response = DominionAtlasDailyCommand.createResponse(currentAtlasDailyCommand, choiceId, {
+  const coachContext = currentAtlasCoachProposal && typeof DominionAtlasCoach !== "undefined"
+    ? DominionAtlasCoach.responseContext(currentAtlasCoachProposal, document.getElementById("atlas-command-adjustment-note")?.value || "")
+    : { note: document.getElementById("atlas-command-adjustment-note")?.value || "" };
+  const resolvedChoiceId = currentAtlasCoachProposal?.choiceId || choiceId;
+  const response = DominionAtlasDailyCommand.createResponse(currentAtlasDailyCommand, resolvedChoiceId, {
     ...context,
-    note: document.getElementById("atlas-command-adjustment-note")?.value || "",
+    ...coachContext,
     createdAt: new Date().toISOString()
   });
   await saveAtlasDailyCommandResponse(response);
-  await recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "ADJUSTMENT_APPLIED", { choiceId });
+  await recordAtlasDailyCommandEvent(currentAtlasDailyCommand, "ADJUSTMENT_APPLIED", {
+    choiceId: resolvedChoiceId,
+    reasonId: currentAtlasCoachProposal?.reasonId || null,
+    proposalId: currentAtlasCoachProposal?.id || null
+  });
   const dialog = document.getElementById("atlas-command-adjustment-dialog");
   if (dialog?.open && typeof dialog.close === "function") dialog.close();
+  currentAtlasCoachProposal = null;
   renderDailyCoachingLoop();
   renderWeeklyOrchestrator();
   renderTodayCommittedWeek();
@@ -21168,14 +21227,9 @@ if (typeof document !== "undefined") {
     const button = event.target.closest("button[data-live-adaptation-action]");
     if (!button) return;
     const action = button.dataset.liveAdaptationAction;
-    const form = document.getElementById("atlas-live-adaptation-feedback");
     if (action === "NOT_FIT" || action === "REOPEN_CONTEXT") {
-      if (form) form.hidden = false;
-      form?.querySelector("select")?.focus();
-      return;
-    }
-    if (action === "CANCEL_CONTEXT") {
-      if (form) form.hidden = true;
+      const proposal = buildCurrentAtlasLiveAdaptation();
+      openAtlasDailyCommandAdjustment({ reasonId: proposal?.safetyOverride ? "PAIN" : "FATIGUE", source: "LIVE_ADAPTATION" });
       return;
     }
     if (action === "ROLL_CALL") {
@@ -21186,21 +21240,6 @@ if (typeof document !== "undefined") {
     try { await resolveAtlasLiveAdaptation(action); }
     catch (error) { setText("atlas-live-adaptation-feedback-text", error?.message || "Atlas could not apply that choice."); }
     finally { button.disabled = false; }
-  });
-  document.getElementById("atlas-live-adaptation-feedback")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const submit = form.querySelector('button[type="submit"]');
-    const values = new FormData(form);
-    if (submit) submit.disabled = true;
-    try {
-      await resolveAtlasLiveAdaptation("NOT_FIT", { reason: values.get("reason"), note: values.get("note") });
-      form.hidden = true;
-    } catch (error) {
-      setText("atlas-live-adaptation-feedback-text", error?.message || "Atlas could not record that context.");
-    } finally {
-      if (submit) submit.disabled = false;
-    }
   });
   document.getElementById("atlas-adaptive-horizon")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-adaptive-horizon-action]");
@@ -21376,6 +21415,12 @@ if (typeof document !== "undefined") {
     }
   });
   document.getElementById("atlas-command-adjust")?.addEventListener("click", openAtlasDailyCommandAdjustment);
+  document.getElementById("atlas-command-adjustment-reasons")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-atlas-coach-reason]");
+    if (!button) return;
+    try { selectAtlasCoachReason(button.dataset.atlasCoachReason); }
+    catch (error) { setText("atlas-command-proposal-summary", error?.message || "Atlas could not review that constraint."); }
+  });
   document.getElementById("atlas-command-adjustment-choices")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-atlas-command-choice]");
     if (!button) return;
@@ -21571,6 +21616,21 @@ if (typeof document !== "undefined") {
     setActiveSection(destination.section);
     window.history.replaceState(null, "", `#${destination.section}`);
     window.setTimeout(() => document.getElementById(destination.section)?.scrollIntoView({ block: "start" }), 0);
+  });
+  document.getElementById("atlas-command-proposal-apply")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    try { await applyAtlasDailyCommandAdjustment(); }
+    catch (error) { setText("atlas-command-proposal-summary", error?.message || "Atlas could not apply that adjustment."); }
+    finally { event.currentTarget.disabled = false; }
+  });
+  document.getElementById("atlas-command-proposal-keep")?.addEventListener("click", () => {
+    recordAtlasDailyCommandEvent(currentAtlasDailyCommand || {}, "ADJUSTMENT_DECLINED", {
+      reasonId: currentAtlasCoachProposal?.reasonId || null,
+      proposalId: currentAtlasCoachProposal?.id || null
+    }).catch(() => {});
+    currentAtlasCoachProposal = null;
+    const dialog = document.getElementById("atlas-command-adjustment-dialog");
+    if (dialog?.open && typeof dialog.close === "function") dialog.close();
   });
   document.getElementById("frictionless-execution")?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-execution-module]");

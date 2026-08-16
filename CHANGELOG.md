@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 028C This Doesn't Fit Coach
+
+- Gives the recruit one Today response surface for pain, fatigue, travel, equipment, time, and preference constraints.
+- Shows Atlas's exact day-only adjustment and its tradeoff before anything changes.
+- Preserves the approved program, future calendar, and Fuel targets while applying only the authorized daily override.
+- Routes live-adaptation disagreement into the same coaching flow instead of opening a second feedback form.
+- Stores the bounded decision and restore path in the recruit account without persisting free-form context in analytics events.
+- Keeps pain safety-led by directing the recruit back to Roll Call before training again.
+
 ## Unreleased - Build 028B Frictionless Execution
 
 - Adds one compact Today dock that opens Strength, Running, Core, Fuel, Recovery, or Closeout directly.

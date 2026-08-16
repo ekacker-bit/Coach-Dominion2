@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Build 028D Weekly Replanning
+
+- Turns Weekly Review into one coaching proposal built from prescribed work, completed evidence, and readiness.
+- Names one limiting factor instead of asking the recruit to interpret a dashboard.
+- Shows the current week beside the proposed next week, including training windows, minutes, recovery, and domain-level changes.
+- Uses one approval to save the coaching decision, adapt the draft, and commit the coordinated calendar when it is clear.
+- Preserves the current week and completed evidence, and carries a durable approval receipt into the next calendar.
+- Keeps the recruit-facing review free of release language and makes the full comparison responsive on phones.
+
 ## Unreleased - Build 028C This Doesn't Fit Coach
 
 - Gives the recruit one Today response surface for pain, fatigue, travel, equipment, time, and preference constraints.

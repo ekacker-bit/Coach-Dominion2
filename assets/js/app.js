@@ -12342,7 +12342,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=027f", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028b", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=028c", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: register("/sw.js?v=028c", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=028d", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -13391,6 +13392,39 @@ function buildCurrentAtlasWeeklyCommand() {
   });
 }
 
+function weeklyReplanningPreviewWeek(proposal = currentAtlasAdaptiveWeek || buildCurrentAtlasAdaptiveWeek()) {
+  if (!proposal?.targetWeekStart || typeof DominionAtlasAdaptiveWeek === "undefined") return null;
+  const committed = readCommittedUnifiedWeekByStart(proposal.targetWeekStart);
+  if (committed && ["APPROVED", "HELD", "CURRENT"].includes(proposal.status)) return committed;
+  let draft = readUnifiedWeekDraft();
+  if (draft?.weekStart !== proposal.targetWeekStart) draft = buildUnifiedWeekDraft(proposal.targetWeekStart);
+  if (!draft) return null;
+  if (["HELD", "CURRENT", "MONITORING"].includes(proposal.status)) return draft;
+  const previewDecision = proposal.status === "APPROVED"
+    ? proposal
+    : DominionAtlasAdaptiveWeek.approveProposal(proposal, `${proposal.targetWeekStart}T00:00:00.000Z`);
+  if (!previewDecision) return draft;
+  if (DominionAtlasAdaptiveWeek.draftMatchesDecision(draft, previewDecision)) return draft;
+  try {
+    return DominionAtlasAdaptiveWeek.applyToDraft(draft, previewDecision, { appliedAt: `${proposal.targetWeekStart}T00:00:00.000Z` });
+  } catch (_) {
+    return draft;
+  }
+}
+
+function buildCurrentWeeklyReplanning(command = null, proposal = null) {
+  if (typeof DominionWeeklyReplanning === "undefined") return null;
+  const weeklyProposal = proposal || currentAtlasAdaptiveWeek || buildCurrentAtlasAdaptiveWeek();
+  const weeklyCommand = command || buildCurrentAtlasWeeklyCommand();
+  if (!weeklyProposal || !weeklyCommand) return null;
+  return DominionWeeklyReplanning.buildReplan({
+    proposal: weeklyProposal,
+    command: weeklyCommand,
+    currentWeek: readCommittedUnifiedWeek(todayISODate()),
+    proposedWeek: weeklyReplanningPreviewWeek(weeklyProposal)
+  });
+}
+
 function atlasWeeklyCommandMarkup(command = buildCurrentAtlasWeeklyCommand(), context = "review") {
   if (!command) return "";
   const domains = (command.domains || []).map((domain) => `<div class="${escapeHtml(domain.state.toLowerCase())}"><span>${escapeHtml(domain.label)}</span><strong>${domain.percent === null ? "—" : `${domain.percent}%`}</strong><small>${escapeHtml(domain.state)}</small></div>`).join("");
@@ -13411,9 +13445,43 @@ function atlasWeeklyCommandMarkup(command = buildCurrentAtlasWeeklyCommand(), co
   </article>`;
 }
 
+function weeklyReplanningMarkup(model = buildCurrentWeeklyReplanning()) {
+  if (!model) return "";
+  const status = String(model.status || "MONITORING").replaceAll("_", " ");
+  const evidencePercent = model.evidence.adherencePercent === null ? "--" : `${model.evidence.adherencePercent}%`;
+  const domainRows = model.domains.filter((domain) => domain.code !== "RECOVERY" || domain.before.sessions || domain.after.sessions).map((domain) => `
+    <article class="weekly-replanning-domain ${escapeHtml(domain.state.toLowerCase())}">
+      <div><span>${escapeHtml(domain.label)}</span><strong>${domain.planned ? `${domain.completed}/${domain.planned}` : "--"}</strong><small>${domain.planned ? "completed / prescribed" : "evidence forming"}</small></div>
+      <div class="weekly-replanning-domain-shift"><span>${escapeHtml(domain.beforeLabel)}</span><b aria-hidden="true">&rarr;</b><span>${escapeHtml(domain.afterLabel)}</span></div>
+      <small>${escapeHtml(domain.delta)}</small>
+    </article>`).join("");
+  const adjustments = model.adjustments.map((item) => `<li><div><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></div><small>${escapeHtml(item.before)} &rarr; ${escapeHtml(item.after)}</small></li>`).join("");
+  const actions = model.approval.required
+    ? `<button type="button" data-atlas-week-action="approve">${escapeHtml(model.approval.primaryLabel)}</button><button type="button" class="ghost" data-atlas-week-action="hold">${escapeHtml(model.approval.secondaryLabel)}</button>`
+    : model.approval.decided
+      ? `<span class="weekly-replanning-receipt">${model.approval.decided === "APPROVED" ? "NEXT WEEK APPROVED" : "CURRENT WEEK RETAINED"}</span>`
+      : "";
+  return `<article class="weekly-replanning ${escapeHtml(model.tone || "neutral")}" data-weekly-replanning>
+    <header class="weekly-replanning-header"><div><span>NEXT WEEK</span><h3>${escapeHtml(model.headline)}</h3><p>${escapeHtml(model.detail)}</p></div><strong>${escapeHtml(status)}</strong></header>
+    <section class="weekly-replanning-proof" aria-label="Prescribed versus completed"><div><span>PRESCRIBED</span><strong>${model.evidence.planned}</strong></div><div><span>COMPLETED</span><strong>${model.evidence.completed}</strong></div><div><span>EXECUTION</span><strong>${evidencePercent}</strong></div><div><span>CONFIDENCE</span><strong>${escapeHtml(model.confidence)}</strong></div></section>
+    <section class="weekly-replanning-limiter"><div><span>LIMITING FACTOR</span><h4>${escapeHtml(model.limiter.label)}</h4><p>${escapeHtml(model.limiter.detail)}</p></div><strong>${escapeHtml(model.limiter.value)}</strong></section>
+    <section class="weekly-replanning-before-after" aria-label="Current and proposed week comparison">
+      <article><span>THIS WEEK</span><strong>${model.current.trainingWindows} windows / ${model.current.plannedMinutes} min</strong><small>${model.current.recoveryDays} recovery day${model.current.recoveryDays === 1 ? "" : "s"}</small></article>
+      <b aria-hidden="true">&rarr;</b>
+      <article><span>IF APPROVED</span><strong>${model.next.trainingWindows} windows / ${model.next.plannedMinutes} min</strong><small>${model.next.recoveryDays} recovery day${model.next.recoveryDays === 1 ? "" : "s"}${model.next.blockerCount ? ` / ${model.next.blockerCount} calendar issue${model.next.blockerCount === 1 ? "" : "s"}` : ""}</small></article>
+    </section>
+    <div class="weekly-replanning-domains">${domainRows}</div>
+    ${adjustments ? `<details class="weekly-replanning-adjustments"><summary>What changes and why</summary><ul>${adjustments}</ul></details>` : ""}
+    <footer><div class="weekly-replanning-actions">${actions}</div><small>${escapeHtml(model.safeguard)}</small></footer>
+  </article>`;
+}
+
 function renderAtlasWeeklyCommand() {
   const panel = document.getElementById("atlas-weekly-command-panel");
-  if (panel) panel.innerHTML = atlasWeeklyCommandMarkup(buildCurrentAtlasWeeklyCommand(), "review");
+  if (panel) {
+    const command = buildCurrentAtlasWeeklyCommand();
+    panel.innerHTML = weeklyReplanningMarkup(buildCurrentWeeklyReplanning(command, currentAtlasAdaptiveWeek));
+  }
   renderAtlasDecisionCenter();
 }
 
@@ -14152,14 +14220,19 @@ async function applyAtlasWeeklyCommandAction(action = "approve") {
   const proposal = buildCurrentAtlasAdaptiveWeek();
   const command = buildCurrentAtlasWeeklyCommand();
   if (!proposal || !command || command.status !== "PROPOSED") throw new Error("The weekly command is not awaiting approval.");
+  const decidedAt = new Date().toISOString();
+  const replan = buildCurrentWeeklyReplanning(command, proposal);
   const commandDecision = action === "approve"
-    ? DominionAtlasWeeklyCommand.approveCommand(command, new Date().toISOString())
-    : DominionAtlasWeeklyCommand.holdCommand(command, new Date().toISOString());
+    ? DominionAtlasWeeklyCommand.approveCommand(command, decidedAt)
+    : DominionAtlasWeeklyCommand.holdCommand(command, decidedAt);
   const adaptiveDecision = action === "approve"
     ? DominionAtlasAdaptiveWeek.approveProposal(proposal, commandDecision.approvedAt)
     : DominionAtlasAdaptiveWeek.holdProposal(proposal, commandDecision.heldAt);
   if (!adaptiveDecision) throw new Error("Atlas could not preserve that weekly decision.");
   const decision = DominionAtlasWeeklyCommand.attachToDecision(adaptiveDecision, commandDecision);
+  if (replan && typeof DominionWeeklyReplanning !== "undefined") {
+    decision.weeklyReplanning = DominionWeeklyReplanning.decisionReceipt(replan, action === "approve" ? "APPROVED" : "HELD", decidedAt);
+  }
   const synced = await saveAtlasAdaptiveWeekRecord(decision);
   currentAtlasAdaptiveWeek = decision;
   const result = await runAtlasWeekAutopilot();

@@ -26,6 +26,7 @@ const connectedEvidenceMigration = read("supabase/migrations/20260815144525_conn
 const accountTruthMigration = read("supabase/migrations/028_dominion_account_truth.sql");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
 const atlasCoach = read("assets/js/atlas-coach.js");
+const weeklyReplanning = read("assets/js/weekly-replanning.js");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
 const trustLayer = read("assets/js/trust-layer.js");
@@ -51,6 +52,11 @@ check("028C coach engine", atlasCoach.includes('const VERSION = "028C.1"') && at
 check("028C unified feedback", html.includes('/assets/js/atlas-coach.js?v=028c') && html.includes('id="atlas-command-adjustment-reasons"') && app.includes("selectAtlasCoachReason") && app.includes('reasonId: proposal?.safetyOverride ? "PAIN" : "FATIGUE", source: "LIVE_ADAPTATION"'), "Recruit feedback is still fragmented");
 check("028C bounded persistence", dailyCommand.includes("coach: context.coachProposal") && dailyCommand.includes("proposalId: context.proposalId") && app.includes('persistClosedLoopState("DECISION", atlasDailyCommandStateKey(response.date), response)'), "Coach adjustments are not durable and reversible");
 check("028C offline shell", worker.includes('/assets/js/atlas-coach.js?v=028c') && worker.includes("028a-028b-028c") && app.includes('/sw.js?v=028c'), "Coach assets are stale or uncached");
+
+check("028D weekly replanning engine", weeklyReplanning.includes('const VERSION = "028D.1"') && weeklyReplanning.includes("function limitingFactor") && weeklyReplanning.includes("function decisionReceipt"), "Weekly replanning engine is incomplete");
+check("028D honest weekly proposal", html.includes('/assets/js/weekly-replanning.js?v=028d') && app.includes('aria-label="Prescribed versus completed"') && app.includes(">LIMITING FACTOR<") && app.includes(">IF APPROVED<"), "Weekly Review does not show the evidence and before-after proposal");
+check("028D one-decision persistence", app.includes("decision.weeklyReplanning = DominionWeeklyReplanning.decisionReceipt") && read("assets/js/atlas-adaptive-week.js").includes("weeklyReplanning: decision.weeklyReplanning"), "Weekly approval receipt is not reaching the calendar");
+check("028D offline shell", worker.includes('/assets/js/weekly-replanning.js?v=028d') && worker.includes("028a-028b-028c-028d") && app.includes('/sw.js?v=028d'), "Weekly replanning assets are stale or uncached");
 
 check("028A trust engine", trustLayer.includes('const VERSION = "028A.1"') && trustLayer.includes("function evaluate") && trustLayer.includes("function telemetryPayload"), "Trust Layer engine is missing");
 check("028A trust integration", html.includes('/assets/js/trust-layer.js?v=028a') && html.indexOf('trust-layer.js?v=028a') < html.indexOf('app.js?v=') && app.includes('runStartupTask("account health"') && app.includes("runTrustLayer"), "Trust Layer is not connected at startup");

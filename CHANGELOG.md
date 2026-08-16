@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Build 027F Daily Decision Integrity & Mobile UX Repair
+
+- Establishes one dated, versioned Daily Decision across Today, Calendar, Strength, Running, Core, Fuel, Recovery, and Review.
+- Confines missing-plan blockers to the affected domain, preserving completed work and every other approved session unless the Contract explicitly requires an all-or-nothing hold.
+- Rebuilds Today around one order, one reason, one action, compact evidence, and the actual session schedule.
+- Makes Weekly Review honest about evidence coverage, assessed days, unscored days, and thin-sample conclusions.
+- Keeps finalized Contracts read-only until Amend is chosen and simplifies Connections into current, stale, setup, demo, and failed states.
+- Locks the mobile dock to Today, Train, Fuel, Review, and More while preventing dock overlap and horizontal status scrolling.
+- Removes release numbers and repetitive brand prefixes from the product UI, keeping Coach Dominion identity in the header and Contract ceremony instead of every card.
+
 ## Unreleased - Build 027E Campaign Verdict & Re-Enlistment
 
 - Turns the 12-week close into one credible verdict: advance, re-enlist, or recommission.

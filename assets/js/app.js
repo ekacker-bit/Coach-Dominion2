@@ -1089,7 +1089,7 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
   const main = document.getElementById("dominion-campaign");
   if (main) {
     main.dataset.campaignTone = tone;
-    setText("dominion-campaign-heading", campaign.status === "CONTRACT_REQUIRED" ? "Declare the objective" : campaign.status === "PROGRAM_REQUIRED" ? "Commission the campaign" : campaign.objective?.target || "Dominion Campaign");
+    setText("dominion-campaign-heading", campaign.status === "CONTRACT_REQUIRED" ? "Declare the objective" : campaign.status === "PROGRAM_REQUIRED" ? "Commission the campaign" : campaign.objective?.target || "Campaign");
     setText("dominion-campaign-objective", campaign.status === "CONTRACT_REQUIRED"
       ? "Sign the Dominion Contract to define the outcome and campaign clock."
       : campaign.status === "PROGRAM_REQUIRED"
@@ -7312,8 +7312,9 @@ function renderTodayCommittedWeek() {
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
   const currentFuel = typeof currentMobileNutrition === "function" ? currentMobileNutrition(todayISODate()) : null;
   const dayOverride = currentDailyCalendarOverride(todayISODate());
+  const calendarBlockerAction = currentDailyDecision?.blocker?.action || currentDailyDecision?.nextAction || {};
   const dailyBlocker = currentDailyDecision?.blocker
-    ? `<aside class="daily-decision-calendar-blocker"><strong>${escapeHtml(currentDailyDecision.blocker.title)}</strong><p>${escapeHtml(currentDailyDecision.blocker.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision.nextAction.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision.nextAction.module || "")}">${escapeHtml(currentDailyDecision.nextAction.label)}</button></aside>`
+    ? `<aside class="daily-decision-calendar-blocker ${currentDailyDecision.status === "PARTIALLY_BLOCKED" ? "partial" : "full"}"><strong>${escapeHtml(currentDailyDecision.blocker.title)}</strong><p>${escapeHtml(currentDailyDecision.blocker.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(calendarBlockerAction.section || "contract")}" data-daily-decision-module="${escapeHtml(calendarBlockerAction.module || currentDailyDecision.blocker.domain || "")}">${escapeHtml(calendarBlockerAction.label || "Repair affected plan")}</button></aside>`
     : "";
   const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
@@ -8697,7 +8698,7 @@ function contractIntegrityMarkup(contract = null) {
     ? `<footer class="contract-handoff-receipt"><div><span>SIGNED RECEIPT</span><strong>Contract R${escapeHtml(String(receipt.contractRevision))}</strong></div><div><span>Signed</span><strong>${escapeHtml(signedAt)}</strong></div><div><span>Changes</span><strong>${escapeHtml(receiptChanges)}</strong></div></footer>`
     : `<footer class="contract-handoff-receipt pending"><div><span>RECEIPT</span><strong>Calendar confirmation pending</strong></div></footer>`;
   return `<section class="contract-integrity-card ${integrity.status.toLowerCase().replaceAll("_", "-")}" aria-label="Contract to calendar integrity">
-    <header><div><span class="kicker">BUILD 021F // CONTRACT TO CALENDAR</span><h3>One signed revision. One calendar truth.</h3><p>${escapeHtml(integrity.detail)}</p></div><span class="state-pill ${contractIntegrityTone(integrity.status)}">${escapeHtml(integrity.label)}</span></header>
+    <header><div><span class="kicker">CALENDAR ALIGNMENT</span><h3>One signed revision. One calendar truth.</h3><p>${escapeHtml(integrity.detail)}</p></div><span class="state-pill ${contractIntegrityTone(integrity.status)}">${escapeHtml(integrity.label)}</span></header>
     <div class="contract-integrity-grid">
       <article><span>SIGNED CONTRACT</span><strong>REVISION ${escapeHtml(String(integrity.contractRevision))}</strong><small>${contract.twoADays ? "Two-a-Days authorized" : `${contract.sessionMinutes}-minute standard`}</small></article>
       <article><span>CALENDAR STAMP</span><strong>${escapeHtml(calendarRevision)}</strong><small>${escapeHtml(integrity.weekStart || "Calendar rebuild required")}</small></article>
@@ -9119,7 +9120,7 @@ function renderFirstWeekOrientation() {
       <div class="orientation-rhythm-grid">
         <article><span>01 // ROLL CALL</span><strong>Report before prescription.</strong><p>Energy, soreness, pain, sleep, weight, RHR, and HRV establish readiness.</p></article>
         <article><span>02 // EXECUTE</span><strong>Follow the authorized work.</strong><p>Train, fuel, and recover inside the Contract and current readiness constraints.</p></article>
-        <article><span>03 // CLOSE</span><strong>Preserve the evidence.</strong><p>Finish the workout, confirm fueling, and close the Dominion Record.</p></article>
+        <article><span>03 // CLOSE</span><strong>Preserve the evidence.</strong><p>Finish the workout, confirm fueling, and close the Daily Record.</p></article>
       </div>
       <div class="orientation-atlas-order"><strong>${escapeHtml(athleteLabel)}:</strong> ${escapeHtml(atlasOrder)}</div>
       <div class="orientation-stage-actions"><button type="button" data-first-week-action="acknowledge-rhythm">I understand the daily rhythm</button></div>
@@ -9214,9 +9215,22 @@ function renderRecruitContract() {
   const orientation = signed ? currentRecruitOrientation(approved) : null;
   const orientationComplete = orientation?.status === "COMPLETE";
   const contractRoot = document.getElementById("contract");
-  if (contractRoot) contractRoot.dataset.contractMode = amendmentPending ? "AMENDMENT" : signed ? "FINALIZED" : "SETUP";
-  if (setupProgress) setupProgress.hidden = Boolean(signed && !draft);
-  if (editor) editor.hidden = Boolean(signed && !draft);
+  const contractMode = typeof DominionDailyDecisionIntegrity !== "undefined"
+    ? DominionDailyDecisionIntegrity.contractMode({ signed, draft })
+    : amendmentPending ? "AMENDMENT" : signed ? "FINALIZED" : "SETUP";
+  const finalizedReadOnly = contractMode === "FINALIZED";
+  if (contractRoot) contractRoot.dataset.contractMode = contractMode;
+  if (setupProgress) {
+    setupProgress.hidden = finalizedReadOnly;
+    setupProgress.setAttribute("aria-hidden", finalizedReadOnly ? "true" : "false");
+  }
+  if (editor) {
+    editor.hidden = Boolean(signed && !draft);
+    editor.hidden = finalizedReadOnly;
+    editor.open = !finalizedReadOnly && (!approved || Boolean(draft));
+    editor.toggleAttribute("inert", finalizedReadOnly);
+    editor.setAttribute("aria-hidden", finalizedReadOnly ? "true" : "false");
+  }
   const activationSurface = document.getElementById("contract-activation");
   const weeklySurface = document.querySelector("#contract > .weekly-orchestrator");
   if (activationSurface) activationSurface.hidden = Boolean(approved && (!signed || !orientationComplete));
@@ -9226,7 +9240,7 @@ function renderRecruitContract() {
       ? `${recruitContractGoalLabel(current.primaryGoal)} · ${current.trainingDaysPerWeek} days · ${current.twoADays ? "Two-a-Days" : `${current.sessionMinutes} min`}`
       : "Set goal, capacity, and constraints";
   }
-  if (editor && !editor.dataset.focusInitialized) {
+  if (editor && !editor.dataset.focusInitialized && !finalizedReadOnly) {
     editor.open = !approved || Boolean(draft);
     editor.dataset.focusInitialized = "true";
   }
@@ -10548,7 +10562,7 @@ function strengthProgressionTrialMarkup(trial = null, context = "train") {
       : `<div class="strength-trial-actions"><button type="button" data-programming-action="retain-trial">Retain</button><button type="button" class="ghost" data-programming-action="repeat-trial">Repeat trial</button><button type="button" class="ghost danger-action" data-programming-action="rollback-trial">Roll back</button></div>`
     : "";
   return `<section class="strength-progression-trial ${escapeHtml(tone)}" data-strength-progression-trial="${escapeHtml(context)}">
-    <header><div><span>BUILD 025L // PROGRESSION TRIAL</span><h3>${escapeHtml(headline)}</h3><p>${escapeHtml(detail)}</p></div><span class="state-pill ${escapeHtml(tone)}">${escapeHtml(String(trial.status || "SCHEDULED").replaceAll("_", " "))}</span></header>
+    <header><div><span>PROGRESSION TRIAL</span><h3>${escapeHtml(headline)}</h3><p>${escapeHtml(detail)}</p></div><span class="state-pill ${escapeHtml(tone)}">${escapeHtml(String(trial.status || "SCHEDULED").replaceAll("_", " "))}</span></header>
     <ul>${rows}</ul>
     ${actions}
   </section>`;
@@ -10756,10 +10770,10 @@ async function rollbackStrengthAdjustment() {
 
 function renderStrengthAdjustment(adjustment, activePlan) {
   if (!activePlan) {
-    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 025J // EARNED PROGRESSION</span><h4>Approve a plan to open progression</h4><p>Finished workouts can change the next matching prescription only after your approval.</p></div></section>`;
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">EARNED PROGRESSION</span><h4>Approve a plan to open progression</h4><p>Finished workouts can change the next matching prescription only after your approval.</p></div></section>`;
   }
   if (!adjustment) {
-    return `<section class="strength-adaptation-panel"><div><span class="kicker">BUILD 025J // EARNED PROGRESSION</span><h4>Finish a workout to earn the next decision</h4><p>Atlas uses completed sets, load, RPE, skips, substitutions, and pain. No evidence means no change.</p></div><div class="strength-adaptation-guardrails"><span>2 controlled exposures</span><span>Smallest load step</span><span>You approve every change</span></div></section>`;
+    return `<section class="strength-adaptation-panel"><div><span class="kicker">EARNED PROGRESSION</span><h4>Finish a workout to earn the next decision</h4><p>Atlas uses completed sets, load, RPE, skips, substitutions, and pain. No evidence means no change.</p></div><div class="strength-adaptation-guardrails"><span>2 controlled exposures</span><span>Smallest load step</span><span>You approve every change</span></div></section>`;
   }
   const pending = adjustment.status === "PENDING";
   const eligibleActions = new Set(["PROGRESS_LOAD", "REDUCE_LOAD", "ESTABLISH_BASELINE", "REPEAT"]);
@@ -10788,7 +10802,7 @@ function renderStrengthAdjustment(adjustment, activePlan) {
       ? `<div class="strength-activation-receipt"><div><span class="kicker">ROLLBACK RECEIPT</span><strong>Previous targets restored in plan R${adjustment.rollbackRevision}</strong><p>The approved change remains in the audit trail and no longer governs future sessions.</p></div></div>${strengthCalendarHandoffMarkup(adjustment.calendarHandoff, "train")}`
       : `<p class="muted">The recommendation was held. The active plan remains unchanged.</p>`;
   return `<section class="strength-adaptation-panel">
-    <header><div><span class="kicker">BUILD 025J // POST-SESSION DECISION</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Evidence from plan R${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
+    <header><div><span class="kicker">POST-SESSION DECISION</span><h4>${escapeHtml(adjustment.sessionName || "Strength adjustment")}</h4><p>Evidence from plan R${adjustment.planRevision || 1} · ${escapeHtml(adjustment.sourceState || "REVIEW")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(adjustment.status)}</span></header>
     <div class="connected-summary-grid">
       <div><span>Load progressions</span><strong>${adjustment.summary?.progressedCount || 0}</strong></div>
       <div><span>Load reductions</span><strong>${adjustment.summary?.reducedCount || 0}</strong></div>
@@ -10827,7 +10841,7 @@ function strengthBlockOptionsFromPanel() {
 function renderStrengthBlock(activePlan) {
   if (typeof DominionStrengthBlock === "undefined") return "";
   if (!activePlan) {
-    return `<section class="strength-block-command"><div><span class="kicker">BUILD 017G // STRENGTH BLOCKS</span><h4>Approve the program before planning a block</h4><p>Training blocks organize an approved program across foundation, accumulation, consolidation, and deload weeks.</p></div></section>`;
+    return `<section class="strength-block-command"><div><span class="kicker">STRENGTH BLOCK</span><h4>Approve the program before planning a block</h4><p>Training blocks organize an approved program across foundation, accumulation, consolidation, and deload weeks.</p></div></section>`;
   }
   const current = readStrengthBlock();
   const active = current?.status === "ACTIVE" && current.planId === activePlan.id ? current : null;
@@ -10874,7 +10888,7 @@ function renderStrengthBlock(activePlan) {
         ? `<button type="button" data-strength-block-action="next">Draft next block</button>`
         : `<button type="button" data-strength-block-action="generate">Build block draft</button>`;
   return `<section class="strength-block-command">
-    <header><div><span class="kicker">BUILD 017G // STRENGTH BLOCK PLANNING</span><h4>${active && context?.label ? escapeHtml(context.label) : draft ? `${draft.lengthWeeks}-week draft` : ended ? "Block closed" : "Plan the next 4-6 weeks"}</h4><p>${escapeHtml(preview.message || "Structure the approved program without silently changing it.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
+    <header><div><span class="kicker">BLOCK PLANNING</span><h4>${active && context?.label ? escapeHtml(context.label) : draft ? `${draft.lengthWeeks}-week draft` : ended ? "Block closed" : "Plan the next 4-6 weeks"}</h4><p>${escapeHtml(preview.message || "Structure the approved program without silently changing it.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
     ${staleRevision ? `<div class="connected-notice warning"><strong>Program revision changed.</strong> This block is frozen against revision ${active.planRevision}. End it or rebuild before block adjustments can govern Today.</div>` : ""}
     ${signal.code ? `<article class="strength-block-signal ${escapeHtml(signal.tone || "neutral")}"><div><span class="kicker">ENTRY REVIEW</span><strong>${escapeHtml(signal.label || signal.code)}</strong><p>${escapeHtml(signal.detail || "")}</p></div><span class="state-pill ${escapeHtml(signal.tone || "neutral")}">${escapeHtml(signal.code.replaceAll("_", " "))}</span></article>` : ""}
     ${context?.status === "ACTIVE" && context.week ? `<article class="strength-block-now"><div><span class="kicker">THIS WEEK</span><strong>${escapeHtml(context.week.phase.label)}</strong><p>${escapeHtml(context.week.objective)}</p></div><div><span>${context.week.setTargetPercent}% set target</span><span>RPE ceiling ${context.week.effortCeiling}</span><span>${coordinatedAssignments} scheduled assignment${coordinatedAssignments === 1 ? "" : "s"} coordinated</span></div></article>` : ""}
@@ -10897,7 +10911,7 @@ function renderStrengthBlock(activePlan) {
 function renderStrengthSchedule(activePlan) {
   if (typeof DominionStrengthSchedule === "undefined") return "";
   if (!activePlan) {
-    return `<section class="strength-week-command"><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>Schedule the approved program</h4><p>Approve the strength program first. Coach Dominion will then coordinate 2–6 strength sessions with running, core, recovery, and Today.</p></div></section>`;
+    return `<section class="strength-week-command"><div><span class="kicker">TRAINING CALENDAR</span><h4>Schedule the approved program</h4><p>Approve Strength first. Atlas will coordinate 2–6 sessions with running, core, recovery, and Today.</p></div></section>`;
   }
   const context = strengthScheduleContext();
   const storedSchedule = readApprovedStrengthSchedule();
@@ -10937,7 +10951,7 @@ function renderStrengthSchedule(activePlan) {
   const runningCoverage = days.some((day) => ["SCHEDULED", "REST"].includes(day.runCoverage)) ? "COORDINATED" : days.some((day) => day.runCoverage === "OUT_OF_RANGE") ? "NEXT-WEEK PLAN REQUIRED" : "PLAN REQUIRED";
   const coreCoverage = days.some((day) => ["SCHEDULED", "REST"].includes(day.coreCoverage)) ? "COORDINATED" : days.some((day) => day.coreCoverage === "OUT_OF_RANGE") ? "NEXT-CYCLE PLAN REQUIRED" : "PLAN REQUIRED";
   return `<section class="strength-week-command">
-    <header><div><span class="kicker">BUILD 017E // UNIFIED TRAINING CALENDAR</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
+    <header><div><span class="kicker">TRAINING CALENDAR</span><h4>${escapeHtml(displayed.weekStart || "")} to ${escapeHtml(displayed.weekEnd || "")}</h4><p>${escapeHtml(displayed.message || "Coordinate the next strength week.")}</p></div><span class="state-pill ${statusTone}">${escapeHtml(displayed.status.replaceAll("_", " "))}</span></header>
     <div class="strength-week-summary">
       <div><span>Scheduled</span><strong>${summary.scheduled}</strong></div>
       <div><span>Completed</span><strong>${summary.completed}</strong></div>
@@ -10980,7 +10994,7 @@ function renderStrengthWeekReview(activePlan) {
   if (typeof DominionStrengthWeekReview === "undefined") return "";
   const activeSchedule = readApprovedStrengthSchedule();
   if (!activePlan || !activeSchedule || activeSchedule.planId !== activePlan.id) {
-    return `<section class="strength-week-review"><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>Close the loop after approval</h4><p>Approve a weekly strength schedule first. Coach Dominion will then reconcile each assignment without changing the program or awarding ambiguous imports.</p></div></section>`;
+    return `<section class="strength-week-review"><div><span class="kicker">STRENGTH REVIEW</span><h4>Close the loop after approval</h4><p>Approve a weekly schedule first. Atlas will reconcile each assignment without changing the program or awarding ambiguous imports.</p></div></section>`;
   }
   const stored = readStrengthWeekReview();
   const finalized = stored?.scheduleId === activeSchedule.id && stored.status === "FINALIZED" ? stored : null;
@@ -11020,7 +11034,7 @@ function renderStrengthWeekReview(activePlan) {
   const canFinalize = review.finalizable && review.status !== "FINALIZED";
   const canRollover = review.status === "FINALIZED" && !rolloverReady && !protectedDraft;
   return `<section class="strength-week-review">
-    <header><div><span class="kicker">BUILD 017D // STRENGTH WEEK REVIEW</span><h4>${escapeHtml(review.weekStart)} to ${escapeHtml(review.weekEnd)}</h4><p>One auditable closeout across Coach Dominion workout logs and exact-date Fitbod evidence.</p></div><span class="state-pill ${statusTone}">${escapeHtml(review.status.replaceAll("_", " "))}</span></header>
+    <header><div><span class="kicker">STRENGTH REVIEW</span><h4>${escapeHtml(review.weekStart)} to ${escapeHtml(review.weekEnd)}</h4><p>One closeout across workout logs and exact-date Fitbod evidence.</p></div><span class="state-pill ${statusTone}">${escapeHtml(review.status.replaceAll("_", " "))}</span></header>
     <div class="strength-review-scorecard">
       <div><span>Session adherence</span><strong>${summary.adherencePercent || 0}%</strong><small>${summary.completed || 0} complete · ${summary.partial || 0} partial</small></div>
       <div><span>Set completion</span><strong>${summary.setCompletionPercent || 0}%</strong><small>${summary.setsCompleted || 0}/${summary.setsPrescribed || 0} credited sets</small></div>
@@ -11062,7 +11076,7 @@ function renderStrengthIntelligenceBrief(activePlan) {
   if (!intelligence) return "";
   const tone = intelligence.posture?.tone || "neutral";
   return `<article class="strength-intelligence-brief">
-    <div><span class="kicker">BUILD 017F // STRENGTH INTELLIGENCE</span><strong>${escapeHtml(intelligence.posture?.label || "Establish baselines")}</strong><p>${escapeHtml(intelligence.posture?.detail || "")}</p></div>
+    <div><span class="kicker">STRENGTH TREND</span><strong>${escapeHtml(intelligence.posture?.label || "Establish baselines")}</strong><p>${escapeHtml(intelligence.posture?.detail || "")}</p></div>
     <div class="strength-intelligence-brief-metrics">
       <span><b>${intelligence.summary.sessions || 0}</b> sessions</span>
       <span><b>${intelligence.summary.workSets || 0}</b> work sets</span>
@@ -11233,7 +11247,7 @@ function renderProgrammingReview() {
       <button type="button" data-programming-action="approve" ${savedDraft || !activePlan ? "" : "disabled"}>${activePlan ? "Approve revised program" : "Approve strength program"}</button>
       <button type="button" class="ghost" data-programming-action="refresh">Refresh evidence</button>
     </div>
-    <p class="muted">Approval activates the plan on Today. New movements remain technique-first; Coach Dominion does not estimate a max or silently raise load.</p>
+    <p class="muted">Approval activates the plan on Today. New movements remain technique-first; no max is estimated and load never rises silently.</p>
     ${activePlan ? `<article class="strength-active-plan"><span class="state-pill green">ACTIVE</span><div><strong>${escapeHtml(activePlan.profile.daysPerWeek)}-day ${escapeHtml(activePlan.profile.goal.replaceAll("_", " ").toLowerCase())} program</strong><p>Approved ${escapeHtml(activePlan.approvedAt || "")}. Session rotation advances only after a finished, partial, or stopped session is preserved.</p></div></article>` : ""}
     ${renderStrengthIntelligenceBrief(activePlan)}
     ${renderStrengthBlock(activePlan)}
@@ -11468,7 +11482,7 @@ function buildDataTruthModel({ date, dailyState: state, fitbodSessions = [], nut
     dataTruthSource("Training", latestDatedItem(fitbodSessions)?.date, targetDate, "Fitbod"),
     dataTruthSource("Nutrition", latestDatedItem(nutritionDays)?.date, targetDate, "MyFitnessPal"),
     dataTruthSource("Recovery metrics", latestDatedItem(appleHealthDays)?.date, targetDate, "Apple Health"),
-    dataTruthSource("Dominion Record", compliance?.compliance_date, targetDate, storageMode === "SUPABASE" ? "Supabase" : "local record", true)
+    dataTruthSource("Daily Record", compliance?.compliance_date, targetDate, storageMode === "SUPABASE" ? "account" : "this device", true)
   ];
   const counts = sources.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});
   const requiredMissing = sources.filter((item) => item.required && item.status !== "CURRENT");
@@ -11516,7 +11530,7 @@ function buildActivationGuide({ date, dailyState: state, hasRecruitContract = nu
     ...(typeof hasRecruitContract === "boolean" ? [{ id: "contract", label: "Approve your Recruit Contract", detail: "Define the goal and weekly capacity that coordinate every plan.", section: "contract", action: "Set commitment", complete: hasRecruitContract }] : []),
     { id: "fueling", label: "Approve a fueling baseline", detail: "Unlock daily calorie, protein, and meal guidance.", section: "nutrition", action: "Set fueling targets", complete: hasFuelingBaseline },
     { id: "connections", label: "Import your first real data source", detail: "Add a Fitbod, MyFitnessPal, or Apple Health file.", section: "connected", action: "Import evidence", complete: hasUserImport },
-    { id: "record", label: "Save today’s Dominion Record", detail: "Create the execution evidence used by weekly review.", section: "record", action: "Open Dominion Record", complete: compliance?.compliance_date === targetDate },
+    { id: "record", label: "Save today’s Daily Record", detail: "Create the evidence used by weekly review.", section: "record", action: "Open Daily Record", complete: compliance?.compliance_date === targetDate },
     { id: "inspection", label: "Finalize your first Weekly Review", detail: "Close the loop from daily evidence to the next operating plan.", section: "inspection", action: "Open Weekly Review", complete: hasFinalizedInspection }
   ];
   const completed = steps.filter((step) => step.complete).length;
@@ -11681,6 +11695,34 @@ function buildCurrentMobileCommand() {
     + scheduledMobileModules.filter((item) => item.complete).length
     + Number(Boolean(fuelTruth?.scheduled && fuelTruth.complete));
   command.progress.percent = Math.round((command.progress.completed / Math.max(1, command.progress.total)) * 100);
+  if (currentDailyDecision?.version === "027F.1") {
+    command.modules = command.modules.map((item) => {
+      const state = dailyDecisionModuleState(item.id);
+      return {
+        ...item,
+        status: state.status,
+        active: state.status === "IN PROGRESS" || item.active,
+        complete: state.complete || item.complete,
+        enabled: state.executable || state.complete,
+        actionLabel: state.status === "BLOCKED" ? state.action?.label || "Repair plan" : state.complete ? "Review" : item.actionLabel,
+        detail: state.detail
+      };
+    });
+    command.blocker = ["BLOCKED", "STALE", "FAILED"].includes(currentDailyDecision.status)
+      ? currentDailyDecision.blocker
+      : null;
+    command.next = {
+      action: "DAILY_DECISION",
+      module: currentDailyDecision.primaryAction?.module || "",
+      label: currentDailyDecision.primaryAction?.label || "Open Today",
+      detail: currentDailyDecision.blockers?.length && currentDailyDecision.status === "PARTIALLY_BLOCKED"
+        ? `${currentDailyDecision.blockers[0].title}. Other approved work remains available.`
+        : currentDailyDecision.blocker?.detail || currentDailyDecision.nutritionContext?.detail || "Today's decision is current.",
+      section: currentDailyDecision.primaryAction?.section || "today"
+    };
+    command.sync.label = `${currentDailyDecision.status.replaceAll("_", " ")} · ${command.sync.label}`;
+    return command;
+  }
   const unifiedBlocker = buildCurrentUnifiedBlocker();
   if (unifiedBlocker) {
     command.blocker = unifiedBlocker;
@@ -11780,7 +11822,9 @@ function renderMobileCommand() {
   setText("mobile-nutrition-summary", command.nutritionLogged ? "Totals saved" : "Today’s totals");
   prefillMobileCommandForms();
   renderMobileInstallExperience();
-  const activeMobileNav = DominionMobileCommand.mobileNavForSection(activeSection);
+  const activeMobileNav = typeof DominionDailyDecisionIntegrity !== "undefined"
+    ? DominionDailyDecisionIntegrity.mobileNavForSection(activeSection)
+    : DominionMobileCommand.mobileNavForSection(activeSection);
   document.querySelectorAll("#mobile-command-dock [data-mobile-nav]").forEach((button) => {
     const isActive = button.dataset.mobileNav === activeMobileNav;
     button.classList.toggle("active", isActive);
@@ -11962,7 +12006,8 @@ function registerMobileServiceWorker() {
   // Prior shell signature retained for release audit: register("/sw.js?v=027a", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027b", { updateViaCache: "none" })
   // Prior shell signature retained for release audit: register("/sw.js?v=027d", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=027e", { updateViaCache: "none" })
+  // Prior shell signature retained for release audit: register("/sw.js?v=027e", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=027f", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12072,7 +12117,7 @@ function renderTodayCommandSurface(assignment = buildCurrentDailyAssignment()) {
   setText("today-sequence-fueling-detail", nutritionReady ? "Training-day targets and meal timing are available." : "A baseline is required before Atlas can calculate remaining intake.");
   setText("today-sequence-recovery", recovery.status || "Review recovery");
   setText("today-sequence-recovery-detail", recovery.actions?.[0] || assignment.recoveryActions[0] || "Preserve the recovery window.");
-  setText("today-sequence-evidence", recordComplete ? "Dominion Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
+  setText("today-sequence-evidence", recordComplete ? "Daily Record saved" : workoutComplete ? "Review imported evidence" : "Evidence pending");
   setText("today-sequence-evidence-detail", recordComplete ? "Today’s execution record is current." : "Resolve only missing or ambiguous completion evidence.");
   renderTodayStandardsDuty();
   renderDataTruth();
@@ -12187,7 +12232,7 @@ function renderDailyAssignment() {
   const restActive = execution.restUntil && Date.parse(execution.restUntil) > Date.now();
   const blockContext = assignment.block?.status === "ACTIVE" ? assignment.block : null;
   const playerMarkup = liveState ? `<section class="strength-live-player">
-    <header><div><span class="kicker">BUILD 017E // LIVE WORKOUT</span><h3>${escapeHtml(activeExercise?.name || "Review the session")}</h3><p>${activeExercise ? `Next work set ${strengthWorkLogs(execution, activeExercise.id).length + 1} of ${activeExercise.sets}` : "All planned work is accounted for. Review before finalizing."}</p></div><span class="state-pill yellow">${escapeHtml(execution.state)}</span></header>
+    <header><div><span class="kicker">LIVE WORKOUT</span><h3>${escapeHtml(activeExercise?.name || "Review the session")}</h3><p>${activeExercise ? `Next work set ${strengthWorkLogs(execution, activeExercise.id).length + 1} of ${activeExercise.sets}` : "All planned work is accounted for. Review before finalizing."}</p></div><span class="state-pill yellow">${escapeHtml(execution.state)}</span></header>
     <div class="strength-player-progress"><span style="width:${progressPercent}%"></span></div>
     <div class="strength-player-metrics">
       <div><span>Work sets</span><strong>${completedSets}/${plannedSets}</strong></div>
@@ -12330,7 +12375,7 @@ function dailyActionLabel(action) {
     review_recovery: "Review Recovery & Fueling",
     review_programming: "Review Programming",
     approve_orders: "Approve Today’s Orders",
-    review_record: "Open Dominion Record",
+    review_record: "Open Daily Record",
     refresh: "Refresh Today’s Evidence"
   }[action] || "Refresh Today’s Evidence";
 }
@@ -12467,7 +12512,7 @@ function renderDailyCoachingLoop() {
     ? "All steps complete"
     : `${queue.completed}/${queue.total} complete · Next: ${current?.label || "Review today"}`);
   panel.innerHTML = queue.complete
-    ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Today’s execution is complete</h3><p>Readiness, plan, training, fueling, recovery, and the Dominion Record are all current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
+    ? `<div class="kicker">DAILY LOOP CLOSED</div><h3>Today’s execution is complete</h3><p>Readiness, training, fuel, recovery, and the Daily Record are current.</p><div class="daily-orders-actions"><button type="button" class="ghost" data-daily-action="refresh">Refresh evidence</button></div>`
     : `<div class="kicker">CURRENT ACTION</div>
       <h3>${escapeHtml(current?.label || loop.headline)}</h3>
       <p>${escapeHtml(current?.detail || loop.directive)}</p>
@@ -13018,7 +13063,7 @@ function atlasWeeklyCommandMarkup(command = buildCurrentAtlasWeeklyCommand(), co
         ? '<span class="atlas-weekly-command-receipt">CURRENT WEEK RETAINED</span>'
         : "";
   return `<article class="atlas-weekly-command ${escapeHtml(command.tone || "neutral")}" data-atlas-weekly-command="${escapeHtml(context)}">
-    <header><div><span>BUILD 025U · WEEKLY COMMAND</span><h3>${escapeHtml(command.headline)}</h3><p>${escapeHtml(command.detail)}</p></div><strong>${escapeHtml(String(command.status || "MONITORING").replaceAll("_", " "))}</strong></header>
+    <header><div><span>WEEKLY COMMAND</span><h3>${escapeHtml(command.headline)}</h3><p>${escapeHtml(command.detail)}</p></div><strong>${escapeHtml(String(command.status || "MONITORING").replaceAll("_", " "))}</strong></header>
     <div class="atlas-weekly-command-read"><article><span>WIN</span><strong>${escapeHtml(command.win.label)}</strong><p>${escapeHtml(command.win.detail)}</p></article><article><span>WATCH</span><strong>${escapeHtml(command.watch.label)}</strong><p>${escapeHtml(command.watch.detail)}</p></article><article><span>PRIORITY</span><strong>${escapeHtml(command.priority)}</strong></article></div>
     <div class="atlas-weekly-command-domains">${domains}</div>
     ${changes ? `<details><summary>Proposed changes · ${command.proposedChanges.length}</summary><ul>${changes}</ul></details>` : ""}
@@ -14512,7 +14557,7 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   const recoveryAdapted = typeof DominionRecoveryCommand === "undefined"
     ? horizonAdapted
     : DominionRecoveryCommand.applyToCommand(horizonAdapted, recovery, recoveryCommandContext(context.date));
-  if (typeof DominionDailyDecision === "undefined") return recoveryAdapted;
+  if (typeof DominionDailyDecisionIntegrity === "undefined" && typeof DominionDailyDecision === "undefined") return recoveryAdapted;
   let activation = { modules: [] };
   try {
     activation = typeof DominionContractActivation === "undefined"
@@ -14524,7 +14569,9 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     try { readiness = { ...evaluateOperationalReadiness(dailyState), ...dailyState }; }
     catch (_) { readiness = { ...dailyState, classification: "RECORDED" }; }
   }
-  currentDailyDecision = DominionDailyDecision.buildDailyDecision({
+  const fuelLedger = buildFuelDayLedger(context.date);
+  const approvedContract = readApprovedRecruitContract();
+  const dailyDecisionInput = {
     operatingDate: context.date,
     truth,
     command: recoveryAdapted,
@@ -14533,16 +14580,37 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     plans: activation.modules || [],
     continuityBlocker: blocker,
     contractRevision: context.contractRevision,
+    contract: approvedContract,
+    allOrNothingTraining: approvedContract?.allOrNothingTraining === true,
     readiness,
-    readinessComplete: dailyState?.date === context.date
-  });
+    readinessComplete: dailyState?.date === context.date,
+    executions: {
+      strength: readDailyAssignmentExecution(),
+      running: readRunningExecution(),
+      core: readCurrentCoreExecution()
+    },
+    nutritionEvidence: {
+      date: fuelLedger.record?.date || null,
+      record: fuelLedger.record || null,
+      updatedAt: fuelLedger.record?.updatedAt || null,
+      source: fuelLedger.source || "NONE"
+    }
+  };
+  if (typeof DominionDailyDecisionIntegrity !== "undefined") {
+    currentDailyDecision = DominionDailyDecisionIntegrity.buildDailyDecision(dailyDecisionInput);
+    return DominionDailyDecisionIntegrity.applyToCommand(recoveryAdapted, currentDailyDecision);
+  }
+  currentDailyDecision = DominionDailyDecision.buildDailyDecision(dailyDecisionInput);
   return DominionDailyDecision.applyToCommand(recoveryAdapted, currentDailyDecision);
 }
 
 function dailyDecisionModuleState(domain = "training") {
-  const base = typeof DominionDailyDecision === "undefined"
+  const decisionEngine = typeof DominionDailyDecisionIntegrity !== "undefined"
+    ? DominionDailyDecisionIntegrity
+    : typeof DominionDailyDecision !== "undefined" ? DominionDailyDecision : null;
+  const base = !decisionEngine
     ? { status: "LOADING", executable: false, progressionAllowed: false, detail: "Checking today's order." }
-    : DominionDailyDecision.moduleState(currentDailyDecision, domain);
+    : decisionEngine.moduleState(currentDailyDecision, domain);
   return typeof DominionRecoveryCommand === "undefined"
     ? base
     : DominionRecoveryCommand.moduleState(buildCurrentRecoveryCommand(), domain, base);
@@ -14550,13 +14618,13 @@ function dailyDecisionModuleState(domain = "training") {
 
 function dailyDecisionScheduleSummary(decision = currentDailyDecision) {
   if (!decision) return { state: "Checking", detail: "Checking the committed week." };
-  if (decision.blocker) return { state: "Training protected", detail: decision.blocker.detail };
+  if (decision.status === "BLOCKED" || decision.status === "STALE") return { state: "Training protected", detail: decision.blocker?.detail || "Today's order needs attention." };
   if (!decision.schedule.available) return { state: "No committed schedule", detail: "Open Calendar to commit the operating day." };
   if (decision.schedule.recoveryDay) return { state: "Recovery day", detail: "No training is authorized today." };
   const sessions = decision.schedule.sessions;
   return {
-    state: `${sessions.length} training window${sessions.length === 1 ? "" : "s"}`,
-    detail: sessions.map((item) => `${item.window}: ${item.title}${item.longRunUncapped ? " - open duration" : item.estimatedMinutes ? ` - ${item.estimatedMinutes} min` : ""}`).join(" | ")
+    state: `${sessions.length} training window${sessions.length === 1 ? "" : "s"}${decision.blockedDomains?.length ? " · one plan needs attention" : ""}`,
+    detail: sessions.map((item) => `${item.window}: ${item.title}${item.complete ? " · complete" : item.longRunUncapped ? " - open duration" : item.estimatedMinutes ? ` - ${item.estimatedMinutes} min` : ""}`).join(" | ")
   };
 }
 
@@ -14574,63 +14642,69 @@ function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
   setText("daily-decision-schedule-state", schedule.state);
   setText("daily-decision-schedule-detail", schedule.detail);
   const nextEvidence = decision.requiredEvidence[0];
-  setText("daily-decision-execution-title", decision.blocker ? "Training is not executable" : decision.status === "EMPTY" ? "Commit today's schedule" : nextEvidence?.label || (decision.recoveryDay ? "Protect the recovery day" : "Today's order is ready"));
-  setText("daily-decision-execution-detail", decision.blocker ? decision.blocker.detail : decision.status === "EMPTY" ? "No workout is executable until the operating day is committed." : nextEvidence?.actionLabel || decision.nutritionContext.detail);
+  const fullyBlocked = ["BLOCKED", "STALE", "FAILED"].includes(decision.status);
+  setText("daily-decision-execution-title", fullyBlocked ? "Today's work needs attention" : decision.status === "EMPTY" ? "Commit today's schedule" : decision.primaryAction?.label || nextEvidence?.label || (decision.recoveryDay ? "Protect the recovery day" : "Today's order is ready"));
+  setText("daily-decision-execution-detail", fullyBlocked ? decision.blocker?.detail : decision.status === "EMPTY" ? "No workout is executable until the operating day is committed." : decision.blockers?.length ? `${decision.blockers[0].title}. Other approved work remains available.` : nextEvidence?.actionLabel || decision.nutritionContext.detail);
   const executionAction = document.getElementById("daily-decision-execution-action");
   if (executionAction) {
-    executionAction.textContent = decision.blocker || decision.status === "EMPTY" ? decision.nextAction.label : nextEvidence?.actionLabel || decision.nextAction.label || "Open Today";
-    executionAction.dataset.dailyDecisionAction = decision.blocker ? "REPAIR" : "OPEN";
+    executionAction.textContent = decision.primaryAction?.label || decision.nextAction.label || "Open Today";
+    executionAction.dataset.dailyDecisionAction = fullyBlocked ? "REPAIR" : "OPEN";
     executionAction.dataset.dailyDecisionSection = decision.nextAction.section || "today";
     executionAction.dataset.dailyDecisionModule = decision.nextAction.module || "";
   }
   const training = dailyDecisionModuleState("strength");
-  setText("training-daily-decision-title", training.status === "BLOCKED" ? "Training is protected" : training.status === "NO SCHEDULE" ? "No committed training" : decision.recoveryDay ? "Recovery day" : "Today's training");
+  setText("training-daily-decision-title", training.status === "BLOCKED" ? "Strength needs attention" : training.status === "NOT SCHEDULED" ? "No Strength session today" : decision.recoveryDay ? "Recovery day" : "Today's Strength work");
   setText("training-daily-decision-detail", training.detail);
   const trainingAction = document.getElementById("training-daily-decision-action") || document.querySelector(".training-primary-action .button-link");
   if (trainingAction) {
-    trainingAction.textContent = !training.executable && !decision.recoveryDay ? decision.nextAction.label : "Open today's order";
-    trainingAction.href = `#${!training.executable && !decision.recoveryDay ? decision.nextAction.section || "calendar" : "today"}`;
-    trainingAction.dataset.section = !training.executable && !decision.recoveryDay ? decision.nextAction.section || "calendar" : "today";
+    const trainingDestination = training.status === "BLOCKED" ? training.action || decision.nextAction : { label: "Open today's order", section: "today" };
+    trainingAction.textContent = trainingDestination.label || "Open today's order";
+    trainingAction.href = `#${trainingDestination.section || "today"}`;
+    trainingAction.dataset.section = trainingDestination.section || "today";
   }
   const fuel = dailyDecisionModuleState("nutrition");
-  setText("nutrition-command-status", fuel.status);
+  setText("nutrition-command-status", fuel.status === "AVAILABLE" ? (decision.nutritionContext.trainingDay ? "TRAINING DAY" : "RECOVERY DAY") : fuel.status);
   const nutritionStatus = document.getElementById("nutrition-command-status");
-  if (nutritionStatus) nutritionStatus.className = `state-pill ${decision.blocker ? "yellow" : decision.recoveryDay ? "green" : "neutral"}`;
+  if (nutritionStatus) nutritionStatus.className = `state-pill ${fuel.status === "BLOCKED" ? "yellow" : decision.nutritionContext.trainingDay ? "green" : "neutral"}`;
   const nutritionNext = document.getElementById("nutrition-next-action");
-  if (nutritionNext && decision.blocker) {
-    nutritionNext.innerHTML = `<div><div class="kicker">PROGRAM BLOCKER</div><h3>${escapeHtml(decision.blocker.title)}</h3><p>${escapeHtml(decision.blocker.detail)}</p><small>${escapeHtml(decision.nutritionContext.detail)}</small></div><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(decision.nextAction.section || "contract")}" data-daily-decision-module="${escapeHtml(decision.nextAction.module || "")}">${escapeHtml(decision.nextAction.label)}</button>`;
+  if (nutritionNext && fuel.status === "BLOCKED") {
+    const fuelBlocker = decision.blockers.find((item) => item.affectedDomains.includes("nutrition"));
+    nutritionNext.innerHTML = `<div><div class="kicker">FUEL NEEDS ATTENTION</div><h3>${escapeHtml(fuelBlocker?.title || "Link the Fuel plan")}</h3><p>${escapeHtml(fuel.detail)}</p><small>${escapeHtml(decision.nutritionContext.detail)}</small></div><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(fuel.action?.section || "nutrition")}" data-daily-decision-module="nutrition">${escapeHtml(fuel.action?.label || "Open Fuel")}</button>`;
   }
   const todayFuelStatus = document.getElementById("today-nutrition-status");
-  if (todayFuelStatus && decision.blocker) {
-    todayFuelStatus.textContent = "PROGRAM BLOCKED";
-    todayFuelStatus.className = "state-pill yellow";
+  if (todayFuelStatus) {
+    todayFuelStatus.textContent = fuel.status === "BLOCKED" ? "FUEL NEEDS ATTENTION" : decision.nutritionContext.trainingDay ? (decision.completedSessions?.length ? "REFUEL" : "TRAINING DAY") : "RECOVERY DAY";
+    todayFuelStatus.className = `state-pill ${fuel.status === "BLOCKED" ? "yellow" : decision.nutritionContext.trainingDay ? "green" : "neutral"}`;
   }
   const recoveryState = dailyDecisionModuleState("recovery");
   const recoveryStatus = document.getElementById("recovery-status");
-  if (recoveryStatus && decision.blocker) {
+  if (recoveryStatus) {
     recoveryStatus.textContent = recoveryState.status;
-    recoveryStatus.className = "state-pill yellow";
+    recoveryStatus.className = `state-pill ${recoveryState.status === "BLOCKED" ? "yellow" : "green"}`;
   }
   const contractDecision = document.getElementById("contract-daily-decision");
   if (contractDecision) {
-    contractDecision.classList.toggle("blocked", Boolean(decision.blocker));
-    setText("contract-daily-decision-state", decision.blocker ? "PROGRAM BLOCKED" : decision.recoveryDay ? "RECOVERY DAY" : decision.status.replaceAll("_", " "));
-    setText("contract-daily-decision-title", decision.blocker ? decision.blocker.title : decision.recoveryDay ? "Protect today's recovery" : decision.status === "EMPTY" ? "Commit today's schedule" : "Today's program is aligned");
-    setText("contract-daily-decision-detail", decision.blocker ? decision.blocker.detail : decision.nutritionContext.detail);
+    contractDecision.classList.toggle("blocked", fullyBlocked);
+    setText("contract-daily-decision-state", decision.status.replaceAll("_", " "));
+    setText("contract-daily-decision-title", fullyBlocked ? decision.blocker?.title : decision.blockers?.length ? "Approved work remains available" : decision.recoveryDay ? "Protect today's recovery" : decision.status === "EMPTY" ? "Commit today's schedule" : "Today's program is aligned");
+    setText("contract-daily-decision-detail", fullyBlocked ? decision.blocker?.detail : decision.blockers?.length ? `${decision.blockers[0].title}. Only the affected domain is held.` : decision.nutritionContext.detail);
     const contractAction = contractDecision.querySelector("button");
     if (contractAction) {
-      contractAction.hidden = !decision.blocker;
-      contractAction.textContent = decision.nextAction.label;
-      contractAction.dataset.dailyDecisionSection = decision.nextAction.section || "contract";
-      contractAction.dataset.dailyDecisionModule = decision.nextAction.module || "";
+      contractAction.hidden = !decision.blockers?.length;
+      contractAction.textContent = decision.blocker?.action?.label || decision.nextAction.label;
+      contractAction.dataset.dailyDecisionSection = decision.blocker?.action?.section || decision.nextAction.section || "contract";
+      contractAction.dataset.dailyDecisionModule = decision.blocker?.domain || decision.nextAction.module || "";
     }
   }
   document.querySelectorAll("[data-today-session-module]").forEach((button) => {
     const moduleState = dailyDecisionModuleState(button.dataset.todaySessionModule);
-    if (!moduleState.executable) {
+    const blocked = moduleState.status === "BLOCKED";
+    button.closest(".today-session-card")?.classList.toggle("daily-decision-blocked", blocked);
+    if (blocked) {
       button.disabled = true;
-      button.textContent = decision.blocker ? "Repair program first" : decision.recoveryDay ? "Recovery day" : "Commit schedule first";
-      button.closest(".today-session-card")?.classList.add("daily-decision-blocked");
+      button.textContent = moduleState.action?.label || "Repair this plan";
+    } else if (moduleState.scheduled && !moduleState.complete) {
+      button.disabled = false;
     }
   });
 }
@@ -14860,7 +14934,7 @@ function buildCurrentClosedLoopInput() {
         },
         record: {
           planned: true,
-          title: "Dominion Record",
+          title: "Daily Record",
           target: "Close today's execution record",
           sourceId: date
         }
@@ -15005,17 +15079,19 @@ function renderRecoveryReview() {
   const review = buildCurrentRecoveryRecommendation();
   if (!review) { panel.innerHTML = `<div class="performance-empty">Recovery engine unavailable.</div>`; return; }
   const dailyRecovery = dailyDecisionModuleState("recovery");
-  setText("recovery-status", currentDailyDecision?.blocker ? dailyRecovery.status : review.status);
+  const programWideBlocker = ["BLOCKED", "STALE", "FAILED"].includes(currentDailyDecision?.status);
+  const recoveryBlocked = programWideBlocker || dailyRecovery.status === "BLOCKED";
+  setText("recovery-status", recoveryBlocked ? dailyRecovery.status : review.status);
   const plan = readRecoveryPlan();
   const coverage = (value) => value === null ? "NO TARGET" : `${value}%`;
-  const dailyBlocker = currentDailyDecision?.blocker
+  const dailyBlocker = recoveryBlocked && currentDailyDecision?.blocker
     ? `<article class="daily-decision-module-blocker"><span>Program blocker</span><h3>${escapeHtml(currentDailyDecision.blocker.title)}</h3><p>${escapeHtml(currentDailyDecision.blocker.detail)}</p><button type="button" data-daily-decision-action="REPAIR" data-daily-decision-section="${escapeHtml(currentDailyDecision.nextAction.section || "contract")}" data-daily-decision-module="${escapeHtml(currentDailyDecision.nextAction.module || "")}">${escapeHtml(currentDailyDecision.nextAction.label)}</button><small>Recovery stays available. Progression remains held.</small></article>`
     : "";
   panel.innerHTML = `${dailyBlocker}<div class="connected-summary-grid">
-      <div><span>Recovery posture</span><strong>${escapeHtml(currentDailyDecision?.blocker ? "PROTECT" : review.status)}</strong></div>
+      <div><span>Recovery posture</span><strong>${escapeHtml(recoveryBlocked ? "PROTECT" : review.status)}</strong></div>
       <div><span>Priority</span><strong>${escapeHtml(review.priority)}</strong></div>
       <div><span>Confidence</span><strong>${escapeHtml(review.confidence)}</strong></div>
-      <div><span>Progression</span><strong>${currentDailyDecision?.blocker || review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
+      <div><span>Progression</span><strong>${recoveryBlocked || review.holdProgression ? "HOLD" : "PERMITTED"}</strong></div>
       <div><span>Calorie coverage</span><strong>${coverage(review.calorieCoverage)}</strong></div>
       <div><span>Protein coverage</span><strong>${coverage(review.proteinCoverage)}</strong></div>
       <div><span>Training load</span><strong>${Math.round(review.trainingVolume).toLocaleString()} volume · ${review.trainingSets} sets</strong></div>
@@ -15036,7 +15112,10 @@ function buildTodayRecoveryOrder() {
   const completed = Boolean(queueState.recoveryComplete);
   const recommendation = buildCurrentRecoveryRecommendation();
   const missionOrder = currentMissionRecoveryOrder(date);
-  if (currentDailyDecision?.operatingDate === date && currentDailyDecision.blocker) {
+  const recoveryDecisionState = dailyDecisionModuleState("recovery");
+  const recoveryProgramBlocked = currentDailyDecision?.operatingDate === date
+    && (["BLOCKED", "STALE", "FAILED"].includes(currentDailyDecision.status) || recoveryDecisionState.status === "BLOCKED");
+  if (recoveryProgramBlocked && currentDailyDecision.blocker) {
     return {
       state: "PROTECT",
       tone: "yellow",
@@ -15319,7 +15398,7 @@ function runningProgressionMarkup(proposal = buildCurrentRunningProgression()) {
         ? '<span class="running-progression-receipt">CURRENT DOSE RETAINED</span>'
         : "";
   return `<section class="running-progression ${escapeHtml(proposal.tone || "neutral")}">
-    <header><div><span>BUILD 025S · ATLAS RUNNING CALL</span><h3>${escapeHtml(proposal.headline)}</h3><p>${escapeHtml(proposal.detail)}</p></div><strong>${escapeHtml(String(proposal.code || "COLLECT").replaceAll("_", " "))}</strong></header>
+    <header><div><span>ATLAS RUNNING CALL</span><h3>${escapeHtml(proposal.headline)}</h3><p>${escapeHtml(proposal.detail)}</p></div><strong>${escapeHtml(String(proposal.code || "COLLECT").replaceAll("_", " "))}</strong></header>
     <div class="running-progression-evidence"><div><span>Judged runs</span><strong>${metrics.judgedRuns || 0}</strong></div><div><span>On target</span><strong>${metrics.onTarget || 0}</strong></div><div><span>Average completion</span><strong>${metrics.averageCompletion ?? "—"}${metrics.averageCompletion === null || metrics.averageCompletion === undefined ? "" : "%"}</strong></div><div><span>Change</span><strong>${proposal.distanceDeltaPercent > 0 ? "+" : ""}${proposal.distanceDeltaPercent || 0}%</strong></div></div>
     <div class="running-progression-actions">${actions}</div><small>${escapeHtml(proposal.safeguard || "No silent plan changes.")}</small>
   </section>`;
@@ -15997,7 +16076,7 @@ function renderRunningCommand(entries = performanceEntries) {
         </form>
       </article>
       <article class="running-contract-bridge ${contractState === "CONTRACT_UPDATE_AVAILABLE" ? "update" : ""}">
-        <div><span class="kicker">BUILD 018C // CONTRACT TO PLAN</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} · ${contract.declaredWeeklyDistance || "—"} ${escapeHtml(contract.preferredUnit)} baseline · contract revision ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
+        <div><span class="kicker">RUNNING COMMITMENT</span><h3>${contract ? escapeHtml(contract.target) : "Connect the Recruit Contract"}</h3><p>${contract ? `${contract.runningDaysPerWeek} running day${contract.runningDaysPerWeek === 1 ? "" : "s"} · ${contract.declaredWeeklyDistance || "—"} ${escapeHtml(contract.preferredUnit)} baseline · Contract ${contract.revision}` : "Approve one commitment first so Running, Strength, and Core share the same calendar."}</p></div>
         <div class="running-contract-bridge-actions"><span class="state-pill ${contractState === "ALIGNED" ? "green" : contractState === "CONTRACT_UPDATE_AVAILABLE" ? "yellow" : "neutral"}">${escapeHtml(contractState.replaceAll("_", " "))}</span><button type="button" class="ghost" data-running-action="open-contract">${contract ? "Review contract" : "Create contract"}</button></div>
       </article>
       <form id="running-profile-form" class="running-profile-card">
@@ -16048,7 +16127,7 @@ function renderRunningCommand(entries = performanceEntries) {
       ${command.zones.length ? `<div class="running-zone-grid">${command.zones.map((zone) => `<article class="running-zone-card"><span>${escapeHtml(zone.code)}</span><strong>${DominionRunning.formatPace(zone.fastSecondsPerUnit, profile.preferredUnit)} to ${DominionRunning.formatPace(zone.slowSecondsPerUnit, profile.preferredUnit)}</strong><p>${escapeHtml(zone.purpose)}</p></article>`).join("")}</div><p class="muted">Terrain, weather, readiness, and pain take priority over pace.</p>` : `<div class="running-effort-ready"><strong>EFFORT MODE READY</strong><p>No benchmark yet. The plan will use RPE and talk-test guidance so training can begin safely now.</p></div>`}
     </section>
     <section class="running-week-panel running-block-panel">
-      <div class="section-heading compact"><div><span class="kicker">BUILD 018C // FOUR-WEEK RUNNING PLAN</span><h3>${activeBlock ? "Active running block" : draftBlock ? "Draft ready for approval" : "Build a committable plan"}</h3><p class="muted">${escapeHtml(blockMessage || "Save the running setup to begin.")}</p></div><span class="state-pill ${activeBlock ? "green" : draftBlock ? "yellow" : "neutral"}">${escapeHtml(blockStatus.replaceAll("_", " "))}</span></div>
+      <div class="section-heading compact"><div><span class="kicker">FOUR-WEEK PLAN</span><h3>${activeBlock ? "Active running block" : draftBlock ? "Draft ready for approval" : "Build a committable plan"}</h3><p class="muted">${escapeHtml(blockMessage || "Save the running setup to begin.")}</p></div><span class="state-pill ${activeBlock ? "green" : draftBlock ? "yellow" : "neutral"}">${escapeHtml(blockStatus.replaceAll("_", " "))}</span></div>
       ${previewBlock ? `
         <div class="running-plan-summary running-block-summary">
           <div><span>Block dates</span><strong>${escapeHtml(previewBlock.startDate)} to ${escapeHtml(previewBlock.endDate)}</strong></div>
@@ -16063,7 +16142,7 @@ function renderRunningCommand(entries = performanceEntries) {
       <div class="running-block-actions"><label>Block starts<input id="running-block-start" type="date" value="${escapeHtml(draftBlock?.startDate || DominionRunning.weekStartIso(todayISODate()))}"></label><button type="button" class="${draftBlock ? "ghost" : ""}" data-running-action="generate-block">${draftBlock ? "Rebuild draft" : "Build 4-week draft"}</button>${activeBlock ? `<button type="button" class="ghost" data-running-action="review-log">Review run evidence</button>` : ""}</div>
     </section>
     <section class="running-execution-panel">
-      <div class="section-heading compact"><div><span class="kicker">BUILD 010C // DAILY RUN EXECUTION</span><h3>Today&apos;s run</h3><p class="muted">${escapeHtml(dailyRun.message)}</p></div><span class="state-pill ${dailyRun.status === "READY" ? "green" : dailyRun.status === "PAIN_HOLD" ? "red" : "yellow"}">${escapeHtml(dailyRun.status.replaceAll("_", " "))}</span></div>
+      <div class="section-heading compact"><div><span class="kicker">TODAY'S RUN</span><h3>Today&apos;s run</h3><p class="muted">${escapeHtml(dailyRun.message)}</p></div><span class="state-pill ${dailyRun.status === "READY" ? "green" : dailyRun.status === "PAIN_HOLD" ? "red" : "yellow"}">${escapeHtml(dailyRun.status.replaceAll("_", " "))}</span></div>
       ${dailyRun.session ? `<div class="running-plan-summary"><div><span>Session</span><strong>${escapeHtml(dailyRun.session.type)}</strong></div><div><span>Distance</span><strong>${dailyRun.session.distance} ${dailyRun.session.unit}</strong></div><div><span>Duration</span><strong>~${dailyRun.session.estimatedMinutes || Math.round(dailyRun.session.distance * ((dailyRun.session.paceFast + dailyRun.session.paceSlow) / 2) / 60)} min</strong></div><div><span>Execution</span><strong>${escapeHtml(execution?.state || "NOT STARTED")}</strong></div></div>
       ${dailyRun.adjustment?.factor < 1 ? `<div class="running-adjustment"><strong>READINESS ADJUSTMENT</strong><p>${escapeHtml(dailyRun.adjustment.reason)} Distance delta: ${dailyRun.adjustment.distanceDelta} ${dailyRun.session.unit}.</p></div>` : ""}
       <div class="running-execution-steps">${dailyRun.steps.map((step, index) => `<article><span>${index + 1}</span><div><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.instruction)}</p></div></article>`).join("")}</div>
@@ -16074,7 +16153,7 @@ function renderRunningCommand(entries = performanceEntries) {
     </section>
     ${runningProgressionMarkup(buildCurrentRunningProgression(entries))}
     <section class="running-reconciliation-panel">
-      <div class="section-heading compact"><div><span class="kicker">BUILD 010D // RUN IMPORT &amp; RECONCILIATION</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
+      <div class="section-heading compact"><div><span class="kicker">RUN EVIDENCE</span><h3>Weekly evidence review</h3><p class="muted">${escapeHtml(reconciliation?.message || "Approve the current weekly plan to begin matching run evidence.")}</p></div><span class="state-pill ${reconciliation?.status === "READY" ? "green" : reconciliation ? "yellow" : "neutral"}">${escapeHtml(reconciliation?.status?.replaceAll("_", " ") || "PLAN REQUIRED")}</span></div>
       ${reconciliation ? `
         <div class="running-plan-summary">
           <div><span>Prescribed runs</span><strong>${reconciliation.summary.prescribed}</strong></div>
@@ -16804,7 +16883,7 @@ function buildCurrentOperatingTruth() {
     module("recovery", "Recovery", Boolean(week), recoveryActual.complete ? "COMPLETE" : "READY", recoveryActual, {
       detail: "Complete today’s recovery order"
     }),
-    module("record", "Dominion Record", Boolean(week), recordActual.complete ? "COMPLETE" : "READY", recordActual, {
+    module("record", "Daily Record", Boolean(week), recordActual.complete ? "COMPLETE" : "READY", recordActual, {
       detail: "Close today’s execution record"
     })
   ];
@@ -16855,7 +16934,7 @@ function fallbackOneCommandModel(truth = {}) {
     mode: ["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED", "CONFLICT"].includes(state) ? "SETUP" : "EXECUTE",
     eyebrow: "OPERATING TRUTH // SINGLE ORDER",
     title: truth.title || "Reconcile the operating chain",
-    detail: truth.detail || "Coach Dominion could not finish the first reconciliation. Your saved work is protected.",
+    detail: truth.detail || "The initial check could not finish. Your saved work is protected.",
     primary: {
       action: truth.action?.action || "REFRESH",
       label: truth.action?.label || "Reconcile again",
@@ -17624,7 +17703,7 @@ async function signOutUser() {
 function handleSectionNavigation(link) {
   const nextSection = link?.dataset?.section || normalizeSectionKey(link?.hash?.replace("#", ""));
   if (shouldWarnBeforeNavigation(nextSection, complianceDirtyState)) {
-    const proceed = window.confirm("You have unsaved Dominion Record changes. Leave this section anyway?");
+    const proceed = window.confirm("You have unsaved Daily Record changes. Leave this section anyway?");
     if (!proceed) return false;
   }
   setActiveSection(nextSection);
@@ -17864,9 +17943,9 @@ async function createMfpNutritionFeed() {
     mfpNutritionFeedSecret = token;
     await loadMfpNutritionFeedState();
     renderConnectedDominion();
-    setText("connected-feedback", "Private feed key created. Copy it into your iPhone Shortcut now; Coach Dominion will not show it again after this page closes.");
+    setText("connected-feedback", "Private feed key created. Copy it into your iPhone Shortcut now; it will not be shown again.");
   } catch (_) {
-    setText("connected-feedback", "Coach Dominion could not create the feed key. Confirm migration 014 is applied, then try again.");
+    setText("connected-feedback", "The feed key could not be created. Try again or open the advanced evidence audit.");
   }
 }
 
@@ -18881,11 +18960,11 @@ function buildCurrentFuelCalendarContext(date = todayISODate()) {
     ...context,
     trainingDay: decision.nutritionContext.trainingDay,
     recoveryDay: !decision.nutritionContext.trainingDay,
-    blocker: decision.blocker || context.blocker,
+    blocker: decision.blockedDomains?.includes("nutrition") ? decision.blocker : context.blocker,
     source: "TODAY'S ORDER",
     headline: decision.nutritionContext.headline,
     detail: decision.nutritionContext.detail,
-    sessions: decision.authorizedTraining ? context.sessions : []
+    sessions: decision.nutritionContext.trainingDay ? context.sessions : []
   };
 }
 
@@ -19017,7 +19096,7 @@ function fuelExecutionMarkup(order = buildCurrentFuelExecutionOrder()) {
     ? `<article class="fuel-execution-verdict ${escapeHtml(order.verdict?.tone || "neutral")}"><span>ATLAS FUEL VERDICT</span><strong>${escapeHtml(order.verdict?.headline || "Fuel day closed")}</strong><p>${escapeHtml(order.verdict?.detail || "The day is secured.")}</p><small>${escapeHtml(order.verdict?.safeguard || order.safeguard || "Approved targets remain unchanged.")}</small></article>`
     : "";
   return `<section class="fuel-execution-order ${order.splitDay ? "split" : ""}">
-    <header><div><span>BUILD 025T · TODAY'S FUEL ORDER</span><h3>${escapeHtml(order.headline)}</h3><p>${escapeHtml(order.detail)}</p></div><strong>${order.hydrationLiters}L<small> hydration</small></strong></header>
+    <header><div><span>TODAY'S FUEL ORDER</span><h3>${escapeHtml(order.headline)}</h3><p>${escapeHtml(order.detail)}</p></div><strong>${order.hydrationLiters}L<small> hydration</small></strong></header>
     <div class="fuel-execution-metrics">${metric("Calories left", remaining.calories, "")}${metric("Protein left", remaining.protein, "g")}${metric("Carbs left", remaining.carbs, "g")}${metric("Fat left", remaining.fat, "g")}</div>
     <div class="fuel-execution-timing"><span>${order.splitDay ? "AM / PM FUEL BRIDGE" : order.longRun ? "LONG-RUN FUEL" : "TIMING"}</span><strong>${escapeHtml(order.timing)}</strong></div>
     ${verdict}
@@ -19746,7 +19825,7 @@ function renderMfpNutritionFeedCard() {
     ? `${escapeHtml(latestEvent.nutrition_date)} · ${escapeHtml(latestEvent.outcome)} · ${latestEvent.sample_count} Health sample(s)`
     : "No nutrition delivery received yet.";
   return `<article class="connected-detail-card nutrition-feed-card">
-    <header><div><span class="kicker">BUILD 015A // AUTOMATED NUTRITION FEED</span><h3>MyFitnessPal → Apple Health → Coach Dominion</h3><p>Daily calorie and macro totals without storing your MyFitnessPal password or raw food diary.</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
+    <header><div><span class="kicker">AUTOMATED NUTRITION</span><h3>MyFitnessPal → Apple Health</h3><p>Daily calorie and macro totals without storing your MyFitnessPal password or raw food diary.</p></div><span class="state-pill ${statusTone}">${escapeHtml(status)}</span></header>
     <div class="nutrition-feed-summary">
       <div><span>Endpoint</span><strong>${escapeHtml(endpoint)}</strong></div>
       <div><span>Last delivery</span><strong>${active?.last_used_at ? escapeHtml(new Date(active.last_used_at).toLocaleString()) : "Never"}</strong></div>
@@ -19768,7 +19847,7 @@ function renderMfpNutritionFeedCard() {
         <li>Send those four totals to the endpoint above with an <code>Authorization: Bearer YOUR_FEED_KEY</code> header.</li>
         <li>Create a daily Personal Automation after your final meal. Disable “Ask Before Running” if your iOS version permits it.</li>
       </ol>
-      <p class="muted">MyFitnessPal does not send meal timestamps to Apple Health, so Coach Dominion intentionally treats this as one daily-total record.</p>
+      <p class="muted">MyFitnessPal does not send meal times to Apple Health, so this remains one daily-total record.</p>
       ${mfpNutritionFeedSecret ? `<pre>${escapeHtml(template)}</pre>` : ""}
     </details>
   </article>`;
@@ -19779,7 +19858,7 @@ function renderConnectedEvidenceReview() {
   if (!panel) return;
   const report = readConnectedEvidenceReport();
   if (!report || report.status === "EMPTY") {
-    panel.innerHTML = `<div class="connected-empty"><strong>No evidence to review.</strong><p>Connect a source and Coach Dominion will reconcile it automatically.</p><button type="button" data-connected-action="open-sources">Connect a source</button></div>`;
+    panel.innerHTML = `<div class="connected-empty"><strong>No evidence to review.</strong><p>Connect a source for automatic matching.</p><button type="button" data-connected-action="open-sources">Connect a source</button></div>`;
     return;
   }
   if (!report.exceptions?.length) {
@@ -19805,6 +19884,24 @@ function renderConnectedDominion() {
   const overviewPanel = document.getElementById("connected-view-overview");
   const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
   const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
+  const latestHealthDate = latestDatedItem(api.summarizeHealthMetricsByDate(connectedImportedRecords))?.date || null;
+  const connectionPresentation = (providerCode, latestDate, setupAction) => {
+    const account = connectedAccounts.find((item) => item.providerCode === providerCode && item.connectionStatus !== "DISCONNECTED") || null;
+    const state = typeof DominionDailyDecisionIntegrity !== "undefined"
+      ? DominionDailyDecisionIntegrity.connectionState({
+          status: account?.connectionStatus || "NOT_CONNECTED",
+          isSimulated: Boolean(account?.isSimulated),
+          lastSyncAt: latestDate && latestDate !== "—" ? `${latestDate}T12:00:00` : null,
+          failed: connectedSyncJobs.some((job) => job.providerCode === providerCode && job.status === "FAILED")
+        })
+      : { state: account ? "CURRENT" : "SETUP_REQUIRED", label: account ? "Current" : "Setup required", action: account ? "Review" : "Set up" };
+    return { ...state, providerCode, latestDate: latestDate || "None", setupAction };
+  };
+  const sourceStates = [
+    connectionPresentation("FITBOD", latestFitbodDate, "fitbod-import"),
+    connectionPresentation("MYFITNESSPAL", latestNutritionDate, "mfp-import"),
+    connectionPresentation("APPLE_HEALTH", latestHealthDate, "apple-health-import")
+  ];
 
   const connectedEvidence = readConnectedEvidenceReport();
   const evidenceStatus = connectedEvidence?.status || "EMPTY";
@@ -19812,20 +19909,18 @@ function renderConnectedDominion() {
     <div><span class="kicker">CONNECTED EVIDENCE</span><h3>${escapeHtml(connectedEvidence?.headline || "No connected evidence yet")}</h3><p>${escapeHtml(connectedEvidence?.detail || "Connect a source when you want automatic proof.")}</p></div>
     ${evidenceStatus === "REVIEW" ? `<button type="button" data-connected-action="open-review">Review ${connectedEvidence.counts.exceptions}</button>` : evidenceStatus === "EMPTY" ? `<button type="button" data-connected-action="open-sources">Connect a source</button>` : connectedStatusPill("NO ACTION")}
   </article>
-  <div class="connected-source-freshness" aria-label="Latest connected evidence">
-    <div><span>Strength</span><strong>${escapeHtml(latestFitbodDate)}</strong><small>Fitbod</small></div>
-    <div><span>Fuel</span><strong>${escapeHtml(latestNutritionDate)}</strong><small>MyFitnessPal</small></div>
-    <div><span>Health</span><strong>${escapeHtml(latestDatedItem(api.summarizeHealthMetricsByDate(connectedImportedRecords))?.date || "None")}</strong><small>Apple / Android</small></div>
+  <div class="connected-source-freshness" aria-label="Connection status">
+    ${sourceStates.map((source, index) => `<article data-connection-state="${escapeHtml(source.state)}"><span>${["Strength", "Fuel", "Health"][index]}</span><strong>${escapeHtml(source.label)}</strong><small>${escapeHtml(source.latestDate === "—" ? "No evidence yet" : `Latest ${source.latestDate}`)}</small>${source.action ? `<button type="button" class="ghost" data-connected-action="${escapeHtml(source.setupAction)}">${escapeHtml(source.action)}</button>` : ""}</article>`).join("")}
   </div>
-  <details class="product-diagnostics"><summary>Evidence details</summary><div class="connected-summary-grid"><div><span>Imported</span><strong>${connectedEvidence?.counts?.imported || 0}</strong></div><div><span>Matched</span><strong>${connectedEvidence?.counts?.matched || 0}</strong></div><div><span>Duplicates ignored</span><strong>${connectedEvidence?.counts?.ignored || 0}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div></div></details>`;
+  <details class="product-diagnostics"><summary>Advanced evidence audit</summary><div class="connected-summary-grid"><div><span>Imported</span><strong>${connectedEvidence?.counts?.imported || 0}</strong></div><div><span>Matched</span><strong>${connectedEvidence?.counts?.matched || 0}</strong></div><div><span>Duplicates ignored</span><strong>${connectedEvidence?.counts?.ignored || 0}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div></div></details>`;
 
   const sourcesPanel = document.getElementById("connected-view-sources");
   if (sourcesPanel) sourcesPanel.innerHTML = `<div class="connected-source-grid">
-    <article><span class="kicker">STRENGTH</span><h3>Fitbod</h3><p>Import completed sets. Coach Dominion matches them to the committed workout.</p><button type="button" data-connected-action="fitbod-import">Import workout CSV</button></article>
+    <article><span class="kicker">STRENGTH</span><h3>Fitbod</h3><p>Import completed sets and match them to the committed workout.</p><button type="button" data-connected-action="fitbod-import">Import workout CSV</button></article>
     <article><span class="kicker">FUEL</span><h3>MyFitnessPal</h3><p>Use daily calories and macros without duplicating meal evidence.</p><div class="connected-actions"><button type="button" data-connected-action="mfp-import">Import nutrition CSV</button><button type="button" class="ghost" data-connected-action="mfp-feed-open">Automatic feed</button></div></article>
     <article><span class="kicker">IPHONE</span><h3>Apple Health</h3><p>Use steps, sleep, RHR, HRV, and body weight from a chosen export.</p><button type="button" data-connected-action="apple-health-import">Import export.xml</button></article>
     <article><span class="kicker">ANDROID</span><h3>Health Connect</h3><p>Use health metrics and workouts from a chosen bridge export.</p><button type="button" data-connected-action="health-connect-import">Import JSON</button></article>
-  </div><details class="product-diagnostics"><summary>Privacy and import history</summary><p>Coach Dominion stores normalized evidence only. It never asks for provider passwords, never stores the selected raw file, and keeps duplicate credit out of the record.</p><div class="connected-actions"><button type="button" class="ghost" data-connected-action="open-import-history">View import history</button><button type="button" class="ghost" data-connected-action="open-privacy">View privacy controls</button></div></details>`;
+  </div><details class="product-diagnostics"><summary>Privacy and import history</summary><p>Only normalized evidence is stored. Provider passwords and selected raw files are never retained; duplicate credit is removed.</p><div class="connected-actions"><button type="button" class="ghost" data-connected-action="open-import-history">View import history</button><button type="button" class="ghost" data-connected-action="open-privacy">View privacy controls</button></div></details>`;
 
   const providerPanel = document.getElementById("connected-view-providers");
   if (providerPanel) providerPanel.innerHTML = `<div class="provider-grid">${api.getConnectedProviderCatalog().map((provider) => {
@@ -19879,7 +19974,7 @@ function renderConnectedDominion() {
         <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}.</p>
         <ul>${session.exercises.map((exercise) => `<li>${escapeHtml(exercise.name)} — ${exercise.sets} set(s), ${exercise.reps} total reps</li>`).join("")}</ul>
         ${review.substitutions.length && review.prescribedExerciseCount ? `<p class="muted">Unmatched or substituted: ${escapeHtml(review.substitutions.map((item) => item.name).join(", "))}</p>` : ""}
-        <div class="connected-actions"><button type="button" data-connected-action="apply-reconciliation" data-session-id="${escapeHtml(session.id)}" ${["UNMATCHED", "REVIEW_REQUIRED"].includes(review.recommendation) ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-strength-target">Review Strength target</button></div>
+        <div class="connected-actions"><button type="button" data-connected-action="apply-reconciliation" data-session-id="${escapeHtml(session.id)}" ${["UNMATCHED", "REVIEW_REQUIRED"].includes(review.recommendation) ? "disabled" : ""}>Apply to Daily Record</button><button type="button" class="ghost" data-connected-action="review-strength-target">Review Strength target</button></div>
       </article>`;
     }).join("")}</div>` : `<div class="connected-empty">No Fitbod workout is ready for reconciliation. Import a Fitbod workout CSV first.</div>`;
   }
@@ -19894,7 +19989,7 @@ function renderConnectedDominion() {
       return `<article class="connected-detail-card"><header><div><span class="kicker">MYFITNESSPAL DAILY REVIEW</span><h3>${escapeHtml(day.date)}</h3><p>${day.meals} meal-level row(s)</p></div>${connectedStatusPill(review.recommendation)}</header>
         <div class="connected-summary-grid">${metricRows}</div>
         <p><strong>Atlas recommendation:</strong> ${escapeHtml(review.recommendation.replaceAll("_", " "))}. ${review.targetCount ? `${review.withinCount} of ${review.targetCount} nutrition targets were within tolerance.` : "Add a Nutrition assigned target to enable reconciliation."}</p>
-        <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply recommendation to Dominion Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
+        <div class="connected-actions"><button type="button" data-connected-action="apply-nutrition" data-nutrition-date="${escapeHtml(day.date)}" ${review.recommendation === "REVIEW_REQUIRED" ? "disabled" : ""}>Apply to Daily Record</button><button type="button" class="ghost" data-connected-action="review-nutrition-target">Review Nutrition target</button></div>
       </article>`;
     }).join("")}</div>` : `<div class="connected-empty">No MyFitnessPal nutrition day is ready. Import the Nutrition CSV from your MyFitnessPal export.</div>`;
     nutritionPanel.innerHTML = `${renderMfpNutritionFeedCard()}${nutritionDaysMarkup}`;
@@ -19902,7 +19997,7 @@ function renderConnectedDominion() {
   const appleHealthPanel = document.getElementById("connected-view-apple_health");
   if (appleHealthPanel) {
     const days = api.summarizeAppleHealthByDate(connectedImportedRecords);
-    appleHealthPanel.innerHTML = `<article class="connected-detail-card"><header><div><span class="kicker">BUILD 006E // APPLE HEALTH IMPORT</span><h3>Readiness evidence</h3><p>Upload the export.xml produced by Apple Health. Coach Dominion reads supported metrics only and never stores the raw XML file.</p></div>${connectedStatusPill(days.length ? "VALID" : "NOT_IMPORTED")}</header>
+    appleHealthPanel.innerHTML = `<article class="connected-detail-card"><header><div><span class="kicker">APPLE HEALTH IMPORT</span><h3>Readiness evidence</h3><p>Upload the export.xml produced by Apple Health. Only supported metrics are read; the raw XML file is never stored.</p></div>${connectedStatusPill(days.length ? "VALID" : "NOT_IMPORTED")}</header>
       <div class="connected-actions"><button type="button" data-connected-action="apple-health-import">Choose Apple Health export.xml</button></div>
       <p class="muted">Supported: daily steps, resting heart rate, HRV, body weight, and sleep analysis. Other health categories are ignored.</p>
     </article>
@@ -19934,7 +20029,7 @@ function applyFitbodReconciliation(sessionId) {
   if (review.recommendation === "COMPLETE_WITH_MODIFICATION") form.elements.strength_restriction.value = `Fitbod substitutions: ${review.substitutions.map((item) => item.name).join(", ")}.`;
   setComplianceDirtyState();
   renderComplianceScore(readComplianceForm());
-  setText("connected-feedback", "Fitbod recommendation applied to Strength Compliance. Review it, then save the Dominion Record.");
+  setText("connected-feedback", "Fitbod evidence applied to Strength. Review it, then save the Daily Record.");
   setActiveSection("record");
   window.history.replaceState(null, "", "#record");
 }
@@ -19950,7 +20045,7 @@ function applyNutritionReconciliation(date) {
   form.elements.nutrition_note.value = `MyFitnessPal reconciliation: ${review.withinCount}/${review.targetCount} targets within tolerance.`;
   setComplianceDirtyState();
   renderComplianceScore(readComplianceForm());
-  setText("connected-feedback", "MyFitnessPal recommendation applied to Nutrition Compliance. Review it, then save the Dominion Record.");
+  setText("connected-feedback", "MyFitnessPal evidence applied to Fuel. Review it, then save the Daily Record.");
   setActiveSection("record");
   window.history.replaceState(null, "", "#record");
 }
@@ -20338,7 +20433,7 @@ async function init() {
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Connected Evidence", () => reconcileConnectedEvidence({ persist: true, render: true }), startupIssues);
     await runStartupTask("evidence autopilot", () => reconcileEvidenceAutopilot({ persist: true }), startupIssues);
-    await runStartupTask("Dominion Campaign", () => reconcileDominionCampaign({ persist: true }), startupIssues);
+    await runStartupTask("Campaign", () => reconcileDominionCampaign({ persist: true }), startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
     await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
@@ -20364,7 +20459,7 @@ async function init() {
       ["performance workspace", () => setPerformanceActiveView("overview")],
       ["evidence proof", renderEvidenceAutopilot],
       ["Campaign commissioning", renderCampaignCommissioning],
-      ["Dominion Campaign", renderDominionCampaign],
+      ["Campaign", renderDominionCampaign],
       ["Campaign Verdict", renderCampaignVerdict]
     ];
     for (const [label, render] of finalRenders) {
@@ -20391,6 +20486,7 @@ async function init() {
 
 if (typeof document !== "undefined") {
   if (typeof DominionDailyDecision !== "undefined") DominionDailyDecision.installExperience(document);
+  if (typeof DominionDailyDecisionIntegrity !== "undefined") DominionDailyDecisionIntegrity.installExperience(document);
   if (typeof DominionAtlasAdaptiveHorizon !== "undefined") DominionAtlasAdaptiveHorizon.installExperience(document);
   if (typeof DominionAtlasAdaptationOutcomes !== "undefined") DominionAtlasAdaptationOutcomes.installExperience(document);
   if (typeof DominionWeeklyAdvancement !== "undefined") DominionWeeklyAdvancement.installExperience(document);
@@ -21096,8 +21192,10 @@ if (typeof document !== "undefined") {
     if (!button) return;
     event.preventDefault();
     const action = button.dataset.mobileNav;
-    const destination = typeof DominionMobileCommand !== "undefined"
-      ? DominionMobileCommand.resolveMobileDestination(action)
+    const destination = typeof DominionDailyDecisionIntegrity !== "undefined"
+      ? DominionDailyDecisionIntegrity.resolveMobileDestination(action)
+      : typeof DominionMobileCommand !== "undefined"
+        ? DominionMobileCommand.resolveMobileDestination(action)
       : { section: action === "train" ? "performance" : action === "fuel" ? "nutrition" : action === "review" ? "inspection" : "today" };
     if (destination.dialog) {
       const dialog = document.getElementById(destination.dialog);
@@ -21107,6 +21205,7 @@ if (typeof document !== "undefined") {
     if (destination.performanceView) setPerformanceActiveView(destination.performanceView);
     setActiveSection(destination.section);
     window.history.replaceState(null, "", `#${destination.section}`);
+    window.setTimeout(() => document.getElementById(destination.section)?.scrollIntoView({ block: "start" }), 0);
   });
   document.getElementById("mobile-more-dialog")?.addEventListener("click", async (event) => {
     const dialog = event.currentTarget;
@@ -21775,7 +21874,7 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(adaptiveFuelingStorageKey(approved.goal), JSON.stringify(approved));
       const synced = await persistNutritionState("ADAPTIVE_APPROVAL", approved.goal, approved);
       renderNutritionCommand();
-      setText("adaptive-fueling-feedback", `Fueling variant approved${synced ? " and saved to your account" : " locally"}. The Dominion Record target was not changed.`);
+      setText("adaptive-fueling-feedback", `Fueling variant approved${synced ? " and saved to your account" : " on this device"}. The Daily Record target was not changed.`);
     } catch (error) {
       setText("adaptive-fueling-feedback", error.message);
     }
@@ -22949,7 +23048,7 @@ if (typeof document !== "undefined") {
       window.localStorage.setItem(dailyOrdersStorageKey(), JSON.stringify(approval));
       await approveCurrentClosedLoopDecision();
       renderDailyCoachingLoop();
-      setText("daily-orders-feedback", "Today’s orders approved locally. The mission and Dominion Record were not changed.");
+      setText("daily-orders-feedback", "Today’s orders approved on this device. The mission and Daily Record were not changed.");
     }
     if (action === "review_recovery") {
       setActiveSection("performance");
@@ -24329,7 +24428,7 @@ async function saveDailyCompliance(event) {
     if (!saved) setText("compliance-storage", "UNSAVED — local storage unavailable");
   } finally {
     button.disabled = false;
-    button.textContent = "Save Dominion Record";
+    button.textContent = "Save Daily Record";
     updateComplianceStatusMessage();
   }
   await loadTrendsAnalytics();
@@ -24447,8 +24546,8 @@ function resolveWeeklyInspectionLoadOutcome(input = {}) {
     inspection: null,
     records: localRecords,
     warning: localRecords.length
-      ? `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). Showing local fallback.`
-      : `Remote Dominion Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). No local fallback rows were found.`
+      ? `Account Daily Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). Showing the saved device copy.`
+      : `Account Daily Records could not be loaded (${input.recordsReadError?.message || "unknown error"}). No saved device copy was found.`
   };
 }
 
@@ -24485,6 +24584,16 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   weeklyInspection = aggregate;
   weeklyInspectionStorageMode = storageMode;
   if (!aggregate || typeof DominionWeeklyAdvancement === "undefined") return;
+  const evidenceSummary = typeof DominionDailyDecisionIntegrity !== "undefined"
+    ? DominionDailyDecisionIntegrity.reviewSummary(aggregate)
+    : {
+        elapsedDays: Number(aggregate.elapsedDayCount || 0),
+        assessedDays: Number(aggregate.counts?.assessedDays || 0),
+        unscoredDays: Number(aggregate.counts?.unscoredDays || 0),
+        coverage: Math.round(Number(aggregate.evidenceCoverage || 0)),
+        scoreText: formatDisciplineScore(aggregate.score),
+        thinEvidence: Boolean(aggregate.scoreIsProvisional)
+      };
   const finalized = Boolean(aggregate.finalizedAt);
   const currentRank = rankStatus.currentRank || "RECRUIT";
   const nextRank = getNextRankDefinition(currentRank);
@@ -24496,14 +24605,26 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   setText("weekly-judgment-headline", judgment.headline);
   setText("weekly-judgment-detail", judgment.detail);
   setText("weekly-judgment-state", judgment.state.replaceAll("_", " "));
-  setText("weekly-score", formatDisciplineScore(aggregate.score));
-  setText("weekly-coverage", `${Math.round(Number(aggregate.evidenceCoverage || 0))}%`);
+  setText("weekly-score", evidenceSummary.scoreText);
+  setText("weekly-coverage", evidenceSummary.headline || `${evidenceSummary.coverage}%`);
   setText("weekly-storage", storageMode === "SUPABASE" ? "ACCOUNT" : "THIS DEVICE");
   setText("weekly-evidence-through", aggregate.evidenceThroughDate || "Not started");
+  setText("weekly-assessed-days", `${evidenceSummary.assessedDays} of ${evidenceSummary.elapsedDays} elapsed`);
+  setText("weekly-unscored-days", evidenceSummary.unscoredDays);
+  setText("weekly-result-counts", `${aggregate.counts?.completed || 0} / ${aggregate.counts?.partial || 0} / ${aggregate.counts?.missed || 0}`);
+  setText("weekly-excluded-counts", `${aggregate.counts?.excused || 0} / ${aggregate.counts?.notApplicable || 0}`);
+  setText("weekly-modification-count", aggregate.counts?.approvedModifications || 0);
+  setText("weekly-projected-coverage", `${Math.round(aggregate.projectedFullWeekCoverage || 0)}%`);
+  setText("weekly-calculation-meta", `${aggregate.calculationVersion || INSPECTION_CALCULATION_VERSION} · ${evidenceSummary.elapsedDays}/7 days elapsed`);
+  setText("weekly-strongest", evidenceSummary.thinEvidence ? "Hidden until evidence is sufficient" : (aggregate.strongestDomains || []).map((key) => COMPLIANCE_DOMAIN_LABELS[key] || key).join(" / ") || "UNSCORED");
+  setText("weekly-weakest", evidenceSummary.thinEvidence ? "Hidden until evidence is sufficient" : (aggregate.weakestDomains || []).map((key) => COMPLIANCE_DOMAIN_LABELS[key] || key).join(" / ") || "UNSCORED");
   const status = document.getElementById("weekly-status");
-  if (status) status.className = `state-pill ${judgment.state === "EARNED" ? "green" : ["NOT_EARNED", "INCOMPLETE"].includes(judgment.state) ? "red" : judgment.state === "READY" ? "yellow" : "neutral"}`;
+  if (status) status.className = `state-pill ${judgment.state === "EARNED" ? "green" : judgment.state === "NOT_EARNED" ? "red" : ["INCOMPLETE", "READY"].includes(judgment.state) ? "yellow" : "neutral"}`;
   const verdict = document.querySelector(".weekly-verdict");
-  if (verdict) verdict.dataset.judgment = judgment.state;
+  if (verdict) {
+    verdict.dataset.judgment = judgment.state;
+    verdict.dataset.evidenceStrength = evidenceSummary.thinEvidence ? "THIN" : "SUPPORTED";
+  }
   const proofById = Object.fromEntries(judgment.proof.map((item) => [item.id, item]));
   const execution = proofById.EXECUTION;
   const evidence = proofById.EVIDENCE;
@@ -24518,7 +24639,11 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   });
   const label = (key) => key ? COMPLIANCE_DOMAIN_LABELS[key] : "UNSCORED";
   const domains = document.getElementById("weekly-domain-scores");
-  if (domains) domains.innerHTML = COMPLIANCE_DOMAINS.map((key) => `<div><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${formatDisciplineScore(aggregate.domainScores?.[key]?.score)}</strong></div>`).join("");
+  if (domains) domains.innerHTML = COMPLIANCE_DOMAINS.map((key) => {
+    const score = aggregate.domainScores?.[key]?.score;
+    const observations = Number(aggregate.domainScores?.[key]?.assessed || aggregate.domainScores?.[key]?.assessedCount || 0);
+    return `<div data-evidence-state="${observations ? "ASSESSED" : "UNSCORED"}"><span>${COMPLIANCE_DOMAIN_LABELS[key]}</span><strong>${score === null || typeof score === "undefined" ? "Unscored" : `${Math.round(score)}% of assessed`}</strong><small>${observations ? `${observations} observation${observations === 1 ? "" : "s"}` : "No evidence"}</small></div>`;
+  }).join("");
   const evidenceList = document.getElementById("weekly-evidence");
   if (evidenceList) evidenceList.innerHTML = (aggregate.dailyEvidence || []).map((day) => `<article class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><strong>${escapeHtml(day.date)}</strong><span>${day.periodState === "FUTURE" ? "Future" : `${day.assessedCount}/5 recorded`}</span></article>`).join("");
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
@@ -24527,13 +24652,14 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
     : aggregate.scoreIsProvisional
-      ? `Live week through ${aggregate.evidenceThroughDate || "today"}${missingLabels.length ? `. Still missing ${missingLabels.join(", ")}.` : "."}`
+      ? `${evidenceSummary.headline || "Evidence is incomplete"}. ${evidenceSummary.unscoredDays} day${evidenceSummary.unscoredDays === 1 ? "" : "s"} remain unscored${missingLabels.length ? `; missing ${missingLabels.join(", ")}` : ""}. Scores describe assessed observations only.`
       : "";
   setText("weekly-warning", warning);
   const finalizeButton = document.getElementById("finalize-week");
   if (finalizeButton) {
     finalizeButton.hidden = finalized;
     finalizeButton.disabled = !aggregate.canFinalize;
+    finalizeButton.classList.toggle("is-unavailable", finalizeButton.disabled);
     finalizeButton.textContent = aggregate.canFinalize ? "Finalize week" : "Week not ready";
     finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
   }

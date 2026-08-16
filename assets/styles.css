@@ -12020,3 +12020,133 @@ body[data-dominion-section="today"] #dominion-mission-rail {
 .connected-review-clear{display:flex;align-items:center;gap:18px;padding:28px;border:1px solid rgba(46,132,52,.7);background:rgba(46,132,52,.12)}.connected-review-clear>span{display:grid;place-items:center;width:52px;height:52px;border:1px solid var(--green);border-radius:50%;color:var(--green);font-size:28px}.connected-review-clear h3{margin:4px 0}.connected-review-clear p{margin:0;color:var(--muted)}
 .connected-exception-list{display:grid;gap:14px}.connected-exception-card{padding:20px;border:1px solid var(--gold);box-shadow:inset 4px 0 0 var(--gold);background:var(--panel3)}.connected-exception-card header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.connected-exception-card h3{margin:5px 0}.connected-exception-card dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.connected-exception-card dl>div{padding:10px;border:1px solid var(--line)}.connected-exception-card dt{color:var(--dim);font-size:11px;text-transform:uppercase}.connected-exception-card dd{margin:3px 0 0;font-weight:800}
 @media(max-width:700px){.connected-evidence-command{align-items:flex-start;flex-direction:column;padding:20px}.connected-evidence-command button{width:100%}.connected-source-freshness{grid-template-columns:1fr}.connected-source-grid{grid-template-columns:1fr}.connected-source-grid>article{min-height:0}.connected-exception-card header{display:block}.connected-exception-card dl{grid-template-columns:1fr}.connected-review-clear{align-items:flex-start;padding:20px}.connected-view-nav{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Build 027F: Daily Decision integrity and mobile UX repair. */
+html[data-daily-decision-integrity="027F.1"] .scroll-anchor { scroll-margin-top: 132px; }
+html[data-daily-decision-integrity="027F.1"] #today[data-decision-authority="027F"] #one-command {
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--line));
+  box-shadow: inset 4px 0 0 var(--gold), 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+html[data-daily-decision-integrity="027F.1"] #daily-decision-support {
+  position: relative;
+  z-index: 2;
+  margin-top: 12px;
+  border-color: color-mix(in srgb, var(--gold) 28%, var(--line));
+}
+html[data-daily-decision-integrity="027F.1"] #daily-decision-support .daily-decision-execution {
+  border-left: 3px solid var(--gold);
+  background: rgba(212, 175, 55, 0.06);
+}
+body[data-daily-decision-status="PARTIALLY_BLOCKED"] #one-command { border-color: rgba(212, 175, 55, 0.62); }
+body[data-daily-decision-status="BLOCKED"] #one-command,
+body[data-daily-decision-status="FAILED"] #one-command { border-color: rgba(176, 66, 58, 0.66); box-shadow: inset 4px 0 0 var(--red); }
+.today-session-card.daily-decision-blocked { border-color: rgba(212, 175, 55, 0.52); opacity: 0.86; }
+.today-session-card:not(.daily-decision-blocked) button[data-today-session-module]:not(:disabled) { opacity: 1; }
+
+#contract[data-contract-mode="FINALIZED"] #contract-setup-progress,
+#contract[data-contract-mode="FINALIZED"] #recruit-contract-editor,
+#contract[data-contract-mode="FINALIZED"] .contract-setup-progress,
+#contract[data-contract-mode="FINALIZED"] .recruit-contract-editor,
+#recruit-contract-editor[hidden] { display: none !important; }
+#contract[data-contract-mode="AMENDMENT"] #recruit-contract-editor { border-color: rgba(212, 175, 55, 0.58); }
+
+#inspection .weekly-score-grid { align-items: stretch; }
+#inspection .weekly-score-grid > div:nth-child(3) {
+  order: -1;
+  grid-column: span 2;
+  border-color: rgba(212, 175, 55, 0.5);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.09), var(--panel3));
+}
+#inspection .weekly-score-grid > div:nth-child(3) strong { font-size: clamp(1.05rem, 2.3vw, 1.45rem); color: var(--gold); }
+#inspection .weekly-score-grid > div:nth-child(2) strong { font-size: 1rem; line-height: 1.35; }
+#inspection .weekly-domain-scores strong { font-size: 0.93rem; line-height: 1.35; }
+#inspection .weekly-domain-scores small { display: block; margin-top: 5px; color: var(--dim); font-size: 0.68rem; }
+#inspection .weekly-domain-scores [data-evidence-state="UNSCORED"] { border-style: dashed; opacity: 0.68; }
+#inspection .weekly-verdict[data-evidence-strength="THIN"] { border-color: rgba(212, 175, 55, 0.42); box-shadow: none; }
+#inspection button:disabled,
+#inspection button.is-unavailable,
+#rank button:disabled {
+  border-color: var(--line) !important;
+  color: var(--dim) !important;
+  background: rgba(114, 121, 130, 0.08) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.connected-source-freshness > article {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 16px;
+  background: var(--panel3);
+}
+.connected-source-freshness > article strong { font-size: 1.15rem; }
+.connected-source-freshness > article button { justify-self: start; margin-top: 8px; min-height: 38px; }
+.connected-source-freshness [data-connection-state="CURRENT"] { box-shadow: inset 0 3px 0 var(--green); }
+.connected-source-freshness [data-connection-state="STALE"],
+.connected-source-freshness [data-connection-state="SETUP_REQUIRED"] { box-shadow: inset 0 3px 0 var(--gold); }
+.connected-source-freshness [data-connection-state="IMPORT_FAILED"] { box-shadow: inset 0 3px 0 var(--red); }
+.connected-source-freshness [data-connection-state="DEMO"],
+.connected-source-freshness [data-connection-state="COMING_SOON"] { box-shadow: inset 0 3px 0 var(--dim); }
+
+body[data-app-loading="true"] #mobile-command-dock,
+body[data-app-loading="true"] .command-header { opacity: 1; }
+body[data-app-loading="true"] #one-command,
+body[data-app-loading="true"] #daily-decision-support { min-height: 118px; }
+
+@media (max-width: 720px) {
+  html[data-daily-decision-integrity="027F.1"] .scroll-anchor { scroll-margin-top: 106px; }
+  html[data-daily-decision-integrity="027F.1"] body { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+  html[data-daily-decision-integrity="027F.1"] .war-room-shell { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  html[data-daily-decision-integrity="027F.1"] #one-command { padding: 18px; }
+  html[data-daily-decision-integrity="027F.1"] #daily-decision-support { grid-template-columns: 1fr 1fr; gap: 8px; }
+  html[data-daily-decision-integrity="027F.1"] #daily-decision-support .daily-decision-execution { grid-column: 1 / -1; }
+  html[data-daily-decision-integrity="027F.1"] .status-bar {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    overflow: visible !important;
+    scroll-snap-type: none !important;
+  }
+  html[data-daily-decision-integrity="027F.1"] .status-bar > div { min-width: 0 !important; padding: 9px 8px !important; }
+  html[data-daily-decision-integrity="027F.1"] .status-bar > div:nth-child(n + 4) { display: none; }
+  html[data-daily-decision-integrity="027F.1"] .status-bar span,
+  html[data-daily-decision-integrity="027F.1"] .status-bar strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html[data-daily-decision-integrity="027F.1"] #mobile-command-dock {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 6px;
+  }
+  html[data-daily-decision-integrity="027F.1"] #mobile-command-dock [data-mobile-nav] {
+    display: grid;
+    min-width: 0;
+    min-height: 46px;
+    place-items: center;
+    padding: 8px 3px;
+    border: 0;
+    color: var(--muted);
+    background: transparent;
+    font-size: 0.69rem;
+  }
+  html[data-daily-decision-integrity="027F.1"] #mobile-command-dock [data-mobile-nav].active,
+  html[data-daily-decision-integrity="027F.1"] #mobile-command-dock [data-mobile-nav][aria-current="page"] {
+    color: var(--gold);
+    background: rgba(212, 175, 55, 0.09);
+    box-shadow: inset 0 -3px 0 var(--gold);
+  }
+  #inspection .weekly-score-grid { grid-template-columns: 1fr; }
+  #inspection .weekly-score-grid > div:nth-child(3) { grid-column: auto; }
+  #inspection .weekly-domain-scores { grid-template-columns: 1fr 1fr; }
+  .connected-source-freshness { grid-template-columns: 1fr; }
+  .connected-source-freshness > article button { width: 100%; }
+}
+
+@media (max-width: 410px) {
+  html[data-daily-decision-integrity="027F.1"] #daily-decision-support { grid-template-columns: 1fr; }
+  html[data-daily-decision-integrity="027F.1"] #daily-decision-support .daily-decision-execution { grid-column: auto; }
+  #inspection .weekly-domain-scores { grid-template-columns: 1fr; }
+}

@@ -34,7 +34,7 @@ assert.match(html, /id="app-content" tabindex="-1"/);
 assert.match(html, /id="status-data"/);
 assert.match(html, /<h2 id="connected-heading">Connections &amp; Data<\/h2>/);
 assert.match(html, /class="product-diagnostics"/);
-assert.match(html, /BUILD 012E \/\/ UNIFIED WEEKLY REVIEW/);
+assert.match(html, /<div class="kicker">WEEKLY REVIEW<\/div>/);
 assert.match(html, /class="today-supporting-detail today-workout-detail"/);
 assert.match(html, /class="today-supporting-detail today-intelligence-detail"/);
 assert.match(html, />Do this next</);
@@ -88,7 +88,7 @@ assert.equal(truth.sources.find((item) => item.label === "Training").status, "HI
 
 const missingRequired = app.buildDataTruthModel({ date: "2026-07-29" });
 assert.equal(missingRequired.state, "ACTION NEEDED");
-assert.deepEqual(missingRequired.requiredMissing, ["Readiness", "Dominion Record"]);
+assert.deepEqual(missingRequired.requiredMissing, ["Readiness", "Daily Record"]);
 
 const activation = app.buildActivationGuide({
   date: "2026-07-29",

@@ -34,7 +34,7 @@
       trainingTargets.carbs = base.carbs + 20;
       trainingTargets.fat = base.fat - 9;
     } else if (goal === "FAT_LOSS") {
-      strategy = "Hold approved energy targets. Build 008B does not create automatic calorie cuts.";
+      strategy = "Hold approved energy targets. Automatic calorie cuts are never created.";
     } else if (reducedReadiness) {
       strategy = "Hold approved targets while readiness is reduced; do not restrict recovery fuel.";
     }

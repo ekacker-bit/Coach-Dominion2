@@ -13,7 +13,7 @@ assert.match(engine, /const VERSION = "025W\.1"/);
 assert.match(engine, /FEEDBACK_REASONS/);
 assert.match(engine, /function normalizeEvidence/);
 assert.match(engine, /function buildFeedback/);
-assert.match(html, /BUILD 025W \/\/ ATLAS COACHING RATIONALE/);
+assert.match(html, /<div class="kicker">WHY THIS ORDER<\/div>/);
 assert.match(html, /id="atlas-decision-feedback-dialog"/);
 assert.match(html, /id="atlas-decision-feedback-options"/);
 assert.match(html, /atlas-decision-center\.js\?v=025w/);

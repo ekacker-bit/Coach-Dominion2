@@ -109,7 +109,7 @@
   }
 
   function objective(contract = {}) {
-    const target = text(contract.target || contract.goalStatement || contract.outcome, "Earn the Dominion standard");
+    const target = text(contract.target || contract.goalStatement || contract.outcome, "Earn the standard");
     const goal = upper(contract.primaryGoal || contract.goal || "DOMINION").replaceAll("_", " ");
     return { target, goal, targetDate: isoDate(contract.targetDate || contract.target_date) };
   }

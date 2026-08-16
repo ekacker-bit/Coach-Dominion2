@@ -189,7 +189,7 @@ test("017G is integrated into the product, persistence contract, and full test s
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   assert.match(html, /strength-block\.js/);
   assert.match(app, /DominionStrengthBlock/);
-  assert.match(app, /BUILD 017G/);
+  assert.match(app, /STRENGTH BLOCK/);
   assert.match(app, /"BLOCK"/);
   assert.match(app, /stateType === "BLOCK"/);
   assert.match(app, /`block-\$\{stateKey\}`/);

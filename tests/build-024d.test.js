@@ -11,7 +11,7 @@ const styles = read("assets/styles.css");
 const worker = read("sw.js");
 const packageJson = read("package.json");
 
-assert.match(html, /BUILD 024D \/\/ ATLAS PROGRAM CALENDAR/);
+assert.match(html, /<div class="kicker">PROGRAM CALENDAR<\/div>/);
 assert.match(html, /weekly-orchestrator\.js\?v=024d/);
 assert.match(html, /styles\.css\?v=(?:024[defgn]|025[abc])/);
 assert.match(html, /app\.js\?v=(?:024[defghijklmn]|025[abc])/);

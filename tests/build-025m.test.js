@@ -12,7 +12,7 @@ const worker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
 test("Build 025M turns Trends into a five-domain outcome board", () => {
-  assert.match(html, /BUILD 025M \/\/ OUTCOME INTELLIGENCE/);
+  assert.match(html, /<div class="kicker">TRENDS<\/div>/);
   assert.match(html, /data-trend-view="fuel"/);
   assert.match(html, /data-trend-metric="strength"/);
   assert.match(html, /data-trend-metric="fuel"/);

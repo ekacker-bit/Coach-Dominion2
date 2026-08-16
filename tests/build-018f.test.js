@@ -8,11 +8,11 @@ const app = fs.readFileSync(path.join(root, "assets", "js", "app.js"), "utf8");
 const styles = fs.readFileSync(path.join(root, "assets", "styles.css"), "utf8");
 const packageJson = fs.readFileSync(path.join(root, "package.json"), "utf8");
 
-assert.match(html, /BUILD (?:019A \/\/ THE DOMINION CONTRACT|021C \/\/ RECRUIT ENTRY)/);
+assert.match(html, /<div class="kicker">CONTRACT<\/div>/);
 assert.match(html, /id="recruit-contract-editor"/);
 assert.match(html, /id="recruit-contract-editor-summary"/);
 assert.match(html, /<div class="kicker">TODAY<\/div>/);
-assert.match(html, /BUILD 018F \/\/ NEXT ACTION/);
+assert.match(html, /<div class="kicker">PRIORITY<\/div>/);
 assert.match(html, /id="closed-loop-summary"/);
 assert.match(html, /id="daily-sequence-summary"/);
 assert.match(html, /Full day sequence/);

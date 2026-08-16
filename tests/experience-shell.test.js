@@ -4,8 +4,9 @@ const shell = require("../assets/js/experience-shell.js");
 assert.equal(shell.VERSION, "021I.1");
 assert.equal(shell.sectionMeta("nutrition").mode, "FUEL");
 assert.equal(shell.sectionMeta("unknown").label, "Today");
-assert.equal(shell.cleanBuildKicker("BUILD 018F // FOCUS MODE"), "DOMINION // FOCUS MODE");
-assert.equal(shell.cleanBuildKicker("DOMINION // CLOSED ALPHA"), "DOMINION // CLOSED ALPHA");
+assert.equal(shell.cleanBuildKicker("BUILD 018F // FOCUS MODE"), "FOCUS MODE");
+assert.equal(shell.cleanBuildKicker("DOMINION // CLOSED ALPHA"), "CLOSED ALPHA");
+assert.equal(shell.cleanBuildKicker("TODAY'S ORDER"), "TODAY'S ORDER");
 
 let mission = shell.buildMissionState({});
 assert.equal(mission.phase, "COMMIT");

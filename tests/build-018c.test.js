@@ -8,7 +8,7 @@ const app = fs.readFileSync(path.join(root, "assets", "js", "app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "assets", "js", "running-command.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "assets", "styles.css"), "utf8");
 
-assert.match(html, /BUILD 018C \/\/ RUNNING PLAN COMMITMENT/);
+assert.match(html, /RUNNING COMMITMENT/);
 assert.match(html, />Running Plan</);
 assert.match(css, /Build 018C: contract-driven running blocks/);
 

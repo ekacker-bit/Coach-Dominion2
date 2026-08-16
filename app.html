@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -1724,18 +1724,34 @@
           </div>
         </header>
 
-        <div class="trend-command-lead">
-          <article class="trend-atlas-read" aria-live="polite">
-            <span>ATLAS READ</span>
-            <strong id="trend-command-signal">Building the signal</strong>
-            <p id="trend-command-detail">Pulling the program’s primary evidence.</p>
-            <a id="trend-command-action" href="#today" data-section="today">Complete today</a>
-          </article>
-          <article class="trend-evidence-gauge">
-            <div id="trend-evidence-ring" class="trend-ring" style="--trend-evidence:0"><strong id="trend-evidence-score">0%</strong></div>
-            <div><span>Evidence</span><strong id="trend-evidence-label">LEARNING</strong><small id="trend-evidence-sources">0 of 5 signals</small></div>
-          </article>
-        </div>
+        <section id="transformation-ledger" class="transformation-ledger" data-ledger-tone="neutral" aria-labelledby="transformation-ledger-heading" aria-live="polite">
+          <header class="transformation-ledger-header">
+            <div class="transformation-ledger-command">
+              <span>THE LEDGER</span>
+              <h3 id="transformation-ledger-heading"><strong id="trend-command-signal">Building the signal</strong></h3>
+              <p id="trend-command-detail">Pulling the program&rsquo;s primary evidence.</p>
+              <a id="trend-command-action" href="#today" data-section="today">Complete today</a>
+            </div>
+            <div class="transformation-ledger-state">
+              <strong id="transformation-ledger-status">BUILDING</strong>
+              <div class="trend-evidence-gauge">
+                <div id="trend-evidence-ring" class="trend-ring" style="--trend-evidence:0"><strong id="trend-evidence-score">0%</strong></div>
+                <div><span>Evidence</span><strong id="trend-evidence-label">BUILDING</strong><small id="trend-evidence-sources">0 of 9 signals</small></div>
+              </div>
+            </div>
+          </header>
+          <div class="transformation-ledger-campaign">
+            <div><span id="transformation-ledger-phase">CAMPAIGN NOT COMMISSIONED</span><strong id="transformation-ledger-week">—</strong></div>
+            <div class="transformation-ledger-progress" role="progressbar" aria-label="Campaign progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="transformation-ledger-progress"></span></div>
+            <b id="transformation-ledger-forecast">BUILDING</b>
+          </div>
+          <div id="transformation-ledger-bookends" class="transformation-ledger-bookends" aria-label="Start to now"></div>
+          <div id="transformation-ledger-signals" class="transformation-ledger-signals" aria-label="Transformation evidence"></div>
+          <div class="transformation-ledger-verdict">
+            <article><span>WHAT CHANGED</span><strong id="transformation-ledger-changed">The baseline is still forming</strong><small id="transformation-ledger-changed-detail">Keep logging before claiming a change.</small></article>
+            <article class="next"><span>WHAT NEXT</span><strong id="transformation-ledger-next">Hold the approved plan</strong><small id="transformation-ledger-next-detail">Keep producing comparable evidence.</small><a id="transformation-ledger-next-action" href="#today" data-section="today">Open Today</a></article>
+          </div>
+        </section>
 
         <nav class="trend-view-tabs" aria-label="Trend views">
           <button type="button" data-trend-view="overview" aria-selected="true">Overview</button>
@@ -2391,6 +2407,7 @@
 <script src="/assets/js/daily-closeout.js?v=022f"></script>
 <script src="/assets/js/outcome-plan-revision.js?v=021m"></script>
 <script src="/assets/js/trends-intelligence.js?v=025m"></script>
+<script src="/assets/js/transformation-ledger.js?v=028e"></script>
 <script src="/assets/js/nutrition-baseline.js"></script>
 <script src="/assets/js/nutrition-review.js"></script>
 <script src="/assets/js/meal-coaching.js"></script>
@@ -2463,6 +2480,6 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e"></script>
 </body>
 </html>

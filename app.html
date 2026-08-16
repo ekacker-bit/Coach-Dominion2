@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -901,19 +901,6 @@
               <button type="button" class="ghost" data-live-adaptation-action="HOLD">Hold current mission</button>
               <button type="button" class="ghost" data-live-adaptation-action="NOT_FIT">This doesn&rsquo;t fit</button>
             </div>
-            <form id="atlas-live-adaptation-feedback" class="atlas-live-adaptation-feedback" hidden>
-              <label>What is missing?
-                <select name="reason" required>
-                  <option value="">Choose one</option>
-                  <option value="READINESS_MISMATCH">Readiness feels wrong</option>
-                  <option value="SCHEDULE_CONFLICT">Schedule changed</option>
-                  <option value="EQUIPMENT_CONSTRAINT">Equipment is unavailable</option>
-                  <option value="MISSING_CONTEXT">Atlas is missing context</option>
-                </select>
-              </label>
-              <label>One detail <span>optional</span><input name="note" maxlength="240" placeholder="What should Atlas account for?"></label>
-              <div><button type="button" class="ghost" data-live-adaptation-action="CANCEL_CONTEXT">Cancel</button><button type="submit">Record context</button></div>
-            </form>
             <p id="atlas-live-adaptation-feedback-text" role="status"></p>
           </aside>
 
@@ -928,10 +915,19 @@
 
           <dialog id="atlas-command-adjustment-dialog" class="atlas-command-adjustment-dialog" aria-labelledby="atlas-command-adjustment-heading">
             <form method="dialog" class="atlas-command-adjustment-shell">
-              <header><div><span>ATLAS // BOUNDED CHANGE</span><h2 id="atlas-command-adjustment-heading">What doesn&rsquo;t fit?</h2><p>Change today without silently rewriting the approved program.</p></div><button type="submit" class="ghost" value="cancel" aria-label="Close adjustment dialog">Close</button></header>
-              <div id="atlas-command-adjustment-choices" class="atlas-command-adjustment-choices"></div>
-              <label>Optional context<input id="atlas-command-adjustment-note" maxlength="180" placeholder="Time, equipment, recovery, or another constraint"></label>
-              <p class="atlas-command-adjustment-guardrail"><strong>Guardrail:</strong> the adjustment expires tonight. Pain must still be reported in Roll Call.</p>
+              <header><div><span>ATLAS // COACH</span><h2 id="atlas-command-adjustment-heading">What changed?</h2><p>Tell Atlas what no longer fits today.</p></div><button type="submit" class="ghost" value="cancel" aria-label="Close adjustment dialog">Close</button></header>
+              <div id="atlas-command-adjustment-reasons" class="atlas-command-adjustment-reasons" aria-label="Choose what changed"></div>
+              <label>One useful detail <span>optional</span><input id="atlas-command-adjustment-note" maxlength="180" placeholder="What should Atlas account for?"></label>
+              <section id="atlas-command-adjustment-proposal" class="atlas-command-adjustment-proposal" hidden aria-live="polite">
+                <span>PROPOSED FOR TODAY</span>
+                <h3 id="atlas-command-proposal-headline">Atlas is reviewing the constraint</h3>
+                <p id="atlas-command-proposal-summary"></p>
+                <div><article><small>WHAT CHANGES</small><strong id="atlas-command-proposal-change"></strong></article><article><small>TRADEOFF</small><strong id="atlas-command-proposal-tradeoff"></strong></article></div>
+                <p id="atlas-command-proposal-safety" class="atlas-command-proposal-safety" hidden></p>
+                <footer><button id="atlas-command-proposal-keep" type="button" class="ghost">Keep original</button><button id="atlas-command-proposal-apply" type="button">Apply for today</button></footer>
+              </section>
+              <div id="atlas-command-adjustment-choices" class="atlas-command-adjustment-choices" hidden></div>
+              <p class="atlas-command-adjustment-guardrail">Today only. Future programming and Fuel targets stay intact. Pain must also be recorded in Roll Call.</p>
             </form>
           </dialog>
 
@@ -2444,7 +2440,8 @@
 <script src="/assets/js/operating-truth.js?v=025h"></script>
 <script src="/assets/js/activation-repair.js?v=024f"></script>
 <script src="/assets/js/one-command.js?v=021n"></script>
-<script src="/assets/js/atlas-daily-command.js?v=025o"></script>
+<script src="/assets/js/atlas-daily-command.js?v=025o-028c"></script>
+<script src="/assets/js/atlas-coach.js?v=028c"></script>
 <script src="/assets/js/daily-decision.js?v=026e"></script>
 <script src="/assets/js/daily-decision-integrity.js?v=027f"></script>
 <script src="/assets/js/mission-execution-spine.js?v=026b"></script>
@@ -2465,6 +2462,6 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c"></script>
 </body>
 </html>

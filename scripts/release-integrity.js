@@ -25,6 +25,7 @@ const connectedEvidence = read("assets/js/connected-evidence.js");
 const connectedEvidenceMigration = read("supabase/migrations/20260815144525_connected_evidence_provider.sql");
 const accountTruthMigration = read("supabase/migrations/028_dominion_account_truth.sql");
 const dailyCommand = read("assets/js/atlas-daily-command.js");
+const atlasCoach = read("assets/js/atlas-coach.js");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
 const trustLayer = read("assets/js/trust-layer.js");
@@ -45,6 +46,11 @@ const failures = [];
 function check(label, condition, detail) {
   if (!condition) failures.push(`${label}: ${detail}`);
 }
+
+check("028C coach engine", atlasCoach.includes('const VERSION = "028C.1"') && atlasCoach.includes("function buildProposal") && atlasCoach.includes("function responseContext"), "This Doesn't Fit coach engine is missing");
+check("028C unified feedback", html.includes('/assets/js/atlas-coach.js?v=028c') && html.includes('id="atlas-command-adjustment-reasons"') && app.includes("selectAtlasCoachReason") && app.includes('reasonId: proposal?.safetyOverride ? "PAIN" : "FATIGUE", source: "LIVE_ADAPTATION"'), "Recruit feedback is still fragmented");
+check("028C bounded persistence", dailyCommand.includes("coach: context.coachProposal") && dailyCommand.includes("proposalId: context.proposalId") && app.includes('persistClosedLoopState("DECISION", atlasDailyCommandStateKey(response.date), response)'), "Coach adjustments are not durable and reversible");
+check("028C offline shell", worker.includes('/assets/js/atlas-coach.js?v=028c') && worker.includes("028a-028b-028c") && app.includes('/sw.js?v=028c'), "Coach assets are stale or uncached");
 
 check("028A trust engine", trustLayer.includes('const VERSION = "028A.1"') && trustLayer.includes("function evaluate") && trustLayer.includes("function telemetryPayload"), "Trust Layer engine is missing");
 check("028A trust integration", html.includes('/assets/js/trust-layer.js?v=028a') && html.indexOf('trust-layer.js?v=028a') < html.indexOf('app.js?v=') && app.includes('runStartupTask("account health"') && app.includes("runTrustLayer"), "Trust Layer is not connected at startup");

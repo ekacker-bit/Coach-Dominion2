@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Truthful Program Lifecycle
+
+- Gives the program exactly five lifecycle states: Draft, Ready to commit, Active, Completed, and Superseded.
+- Uses the same lifecycle across Contract, Calendar, Today, Review, Trends, and the Program command.
+- Keeps amendment drafts, saved conflicts, and repair needs as attention notices without changing the active program's state.
+- Removes contradictory combinations such as an Active Contract beside an uncommitted Calendar label.
+- Points every lifecycle state to one next action without exposing release language to the recruit.
+
 ## Unreleased - Command-First Today
 
 - Gives the next action the first desktop and mobile viewport instead of leading with orientation or diagnostics.

@@ -33,6 +33,7 @@ const accountEntry = read("assets/js/account-entry.js");
 const canonicalDailyCommand = read("assets/js/canonical-daily-command.js");
 const accountPersistence = read("assets/js/account-persistence.js");
 const commandFirstToday = read("assets/js/command-first-today.js");
+const programLifecycle = read("assets/js/program-lifecycle.js");
 const accountPersistenceMigration = read("supabase/migrations/20260817113359_account_persistence_receipts.sql");
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
@@ -132,7 +133,7 @@ check("stylesheet version", html.includes('/assets/styles.css?v=025c3-025i-025j'
 check("application version", html.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "app.html is not using the 025J application");
 check("strength logger version", html.includes('/assets/js/strength-training.js?v=025g-025i-025j'), "app.html is not using the 025J Strength engine");
 check("operating truth version", html.includes('/assets/js/operating-truth.js?v=025h') && read("assets/js/operating-truth.js").includes('const VERSION = "025H.1"'), "025H operating truth is stale");
-check("cache version", worker.includes('coach-dominion-029c-account-persistence'), "service-worker cache namespace is stale");
+check("cache version", worker.includes('coach-dominion-029e-truthful-program-lifecycle'), "service-worker cache namespace is stale");
 check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3-025i-025j'), "service worker is caching the wrong stylesheet");
 check("cached application", worker.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "service worker is caching the wrong application");
 check("cached operating truth", worker.includes('/assets/js/operating-truth.js?v=025h'), "service worker is caching the wrong operating truth engine");
@@ -318,6 +319,10 @@ check("account persistence cache", html.includes('/assets/js/account-persistence
 check("command-first Today hierarchy", commandFirstToday.includes('const VERSION = "029D.1"') && commandFirstToday.includes('"#mission-execution"') && commandFirstToday.indexOf('"#frictionless-execution"') < commandFirstToday.indexOf('".lower-grid"') && app.includes("DominionCommandFirstToday.apply(document)") && app.includes('today.dataset.commandOrder = "029D"'), "Today does not place command and execution before supporting context");
 check("command-first Today presentation", css.includes('data-today-hierarchy="029D.1"') && css.includes('#one-command[data-primary-command="true"]') && css.includes('min-height: calc(100svh - 132px)') && html.includes('/assets/js/command-first-today.js?v=029d'), "Today cannot hold the primary command in the first mobile viewport");
 check("command-first Today cache", worker.includes('/assets/js/command-first-today.js?v=029d') && worker.includes("029c-029d") && app.includes('/sw.js?v=029d'), "029D assets are stale or uncached");
+check("truthful program lifecycle", programLifecycle.includes('const VERSION = "029E.1"') && programLifecycle.includes('READY_TO_COMMIT: "READY_TO_COMMIT"') && programLifecycle.includes('SUPERSEDED: "SUPERSEDED"') && !programLifecycle.includes("DRAFT_REVISION"), "029E exposes competing program lifecycle states");
+check("lifecycle cross-surface integration", app.includes("DominionProgramLifecycle.derive") && app.includes('["program", "contract", "calendar", "today", "inspection", "trends", "rank"]') && app.includes('["recruit-contract-status", "weekly-orchestrator-status", "program-command-status"]'), "029E does not use one lifecycle across the recruit journey");
+check("lifecycle attention boundary", app.includes("dataset.programAttention") && !app.includes('lifecycle.state === "DRAFT_REVISION"') && !app.includes("ACTIVE WEEK · DRAFT UNAPPLIED"), "029E still mixes amendment or repair attention into program state");
+check("truthful lifecycle cache", html.includes('/assets/js/program-lifecycle.js?v=029e') && worker.includes('/assets/js/program-lifecycle.js?v=029e') && worker.includes("029d-029e") && app.includes('/sw.js?v=029e'), "029E assets are stale or uncached");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

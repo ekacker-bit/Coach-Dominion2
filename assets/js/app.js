@@ -12646,7 +12646,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=029a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: serviceWorker.register("/sw.js?v=029b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029c", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029d", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029d", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029e", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -18051,10 +18052,11 @@ function buildCurrentProgramRecovery() {
 }
 
 function currentProgramLifecycle() {
-  if (typeof DominionReleaseStabilization === "undefined") return null;
+  if (typeof DominionProgramLifecycle === "undefined") return null;
   const contract = readApprovedRecruitContract();
   const draft = readRecruitContractDraft();
   const week = readCommittedUnifiedWeek(todayISODate());
+  const weekDraft = readUnifiedWeekDraft();
   const receipt = readAtlasProgramReceipt();
   let activation = null;
   let audit = null;
@@ -18063,18 +18065,24 @@ function currentProgramLifecycle() {
   const modules = activation?.modules || [];
   const required = modules.filter((item) => item.included !== false);
   const plansApproved = required.length > 0 && required.every((item) => item.complete === true || ["ACTIVE", "APPROVED", "COMPLETE"].includes(String(item.status || "").toUpperCase()));
-  const state = DominionReleaseStabilization.lifecycle({
+  const canonical = buildCurrentCanonicalDailyCommand(todayISODate());
+  const conflicts = currentContinuityConflicts();
+  const repairRequired = audit?.status === "REPAIR_REQUIRED";
+  const lifecycle = DominionProgramLifecycle.derive({
+    today: todayISODate(),
     contractApproved: Boolean(contract),
     plansApproved,
-    calendarReady: Boolean(week),
-    draftRevision: Boolean(contract && draft),
-    repairRequired: currentContinuityConflicts().length > 0 || audit?.status === "REPAIR_REQUIRED",
-    launchPending: Boolean(contract && plansApproved && week && receipt?.status !== "ACTIVE"),
-    receiptActive: receipt?.status === "ACTIVE",
-    paused: receipt?.status === "PAUSED"
+    committedWeek: week,
+    weekEnd: week?.weekEnd,
+    draftWeek: weekDraft,
+    amendmentDraft: Boolean(contract && draft),
+    canonicalState: canonical?.lifecycle?.program,
+    receiptStatus: receipt?.status,
+    conflict: conflicts.length > 0,
+    repairRequired,
+    blocked: weekDraft?.approvalBlocked === true || conflicts.length > 0 || repairRequired
   });
-  const canonical = buildCurrentCanonicalDailyCommand(todayISODate());
-  return { state, label: DominionReleaseStabilization.lifecycleLabel(state), contract, draft, week, receipt, canonical };
+  return { ...lifecycle, contract, draft, week, weekDraft, receipt, canonical };
 }
 
 function renderProgramRecovery(model = buildCurrentProgramRecovery()) {
@@ -18107,7 +18115,7 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
   const repairVisible = Boolean(!unifiedProgram && repair?.visible && readApprovedRecruitContract());
   const lifecycle = currentProgramLifecycle();
   const displayStatus = lifecycle?.state || unifiedProgram?.status || (repairVisible ? repair.status : model.status);
-  const displayTone = unifiedProgram?.tone || (repairVisible ? atlasRepairStateTone(repair.status) : model.tone);
+  const displayTone = lifecycle?.tone || unifiedProgram?.tone || (repairVisible ? atlasRepairStateTone(repair.status) : model.tone);
   const status = document.getElementById("program-command-status");
   if (status) {
     status.textContent = lifecycle?.label || displayStatus.replaceAll("_", " ");
@@ -18480,16 +18488,23 @@ function renderDominionExperienceShell() {
   const lifecycle = currentProgramLifecycle();
   if (lifecycle) {
     document.body.dataset.programLifecycle = lifecycle.state.toLowerCase().replaceAll("_", "-");
-    ["program", "contract", "calendar", "today"].forEach((sectionId) => {
+    if (lifecycle.attention) document.body.dataset.programAttention = lifecycle.attention.toLowerCase().replaceAll(" ", "-");
+    else delete document.body.dataset.programAttention;
+    ["program", "contract", "calendar", "today", "inspection", "trends", "rank"].forEach((sectionId) => {
       const sectionRoot = document.getElementById(sectionId);
-      if (sectionRoot) sectionRoot.dataset.programLifecycle = lifecycle.state;
+      if (!sectionRoot) return;
+      sectionRoot.dataset.programLifecycle = lifecycle.state;
+      if (lifecycle.attention) sectionRoot.dataset.programAttention = lifecycle.attention;
+      else delete sectionRoot.dataset.programAttention;
     });
     if (activeSection !== "today") setText("shell-mission-phase", lifecycle.label);
-    setText("recruit-contract-status", lifecycle.state === "DRAFT_REVISION" ? lifecycle.label : lifecycle.contract ? "ACTIVE" : "SETUP NEEDED");
-    const canonicalWeekLabel = lifecycle.contract && lifecycle.canonical?.lifecycle?.week
-      ? lifecycle.canonical.lifecycle.week.replaceAll("_", " ")
-      : null;
-    setText("weekly-orchestrator-status", canonicalWeekLabel || (lifecycle.state === "DRAFT_REVISION" ? "ACTIVE WEEK · DRAFT UNAPPLIED" : lifecycle.state === "ACTIVE" ? "ACTIVE" : lifecycle.label));
+    ["recruit-contract-status", "weekly-orchestrator-status", "program-command-status"].forEach((statusId) => {
+      const status = document.getElementById(statusId);
+      if (!status) return;
+      status.textContent = lifecycle.label;
+      status.className = `state-pill ${lifecycle.tone}`;
+      status.title = lifecycle.attention ? `${lifecycle.label} · ${lifecycle.attention}` : lifecycle.label;
+    });
   }
   document.querySelectorAll(".kicker:not([data-humanized])").forEach((element) => {
     element.textContent = DominionExperienceShell.cleanBuildKicker(element.textContent);

@@ -6,6 +6,14 @@
   "use strict";
 
   const VERSION = "026C.1";
+  const STABILIZATION_VERSION = "029G.1";
+  const ADAPTATION_STATES = Object.freeze({
+    MISSION_ACTIVE: "MISSION_ACTIVE",
+    ADAPTATION_PROPOSED: "ADAPTATION_PROPOSED",
+    ADAPTATION_ACCEPTED: "ADAPTATION_ACCEPTED",
+    ADAPTATION_DECLINED: "ADAPTATION_DECLINED",
+    MISSION_COMPLETED: "MISSION_COMPLETED"
+  });
   const DECISIONS = new Set(["ACCEPT", "HOLD", "NOT_FIT", "RESTORE"]);
 
   function text(value = "") {
@@ -37,9 +45,9 @@
     };
     if (code === "RECOVER_AFTER_DEVIATION") return {
       tone: "yellow",
-      headline: "Recover before the next exposure",
+      headline: "Atlas proposes recovery before the next exposure",
       reason: "Today ended partial, stopped, or materially outside the prescription.",
-      impact: "The completed evidence stays intact. Recovery replaces additional loaded work today.",
+      impact: "If accepted, completed evidence stays intact and remaining loaded work becomes adapted, not required.",
       choiceId: "RECOVERY_ONLY",
       safetyOverride: false
     };
@@ -82,6 +90,7 @@
         ];
     return {
       version: VERSION,
+      stabilizationVersion: STABILIZATION_VERSION,
       id: `atlas-live-directive:${proposal.date}:${proposal.fingerprint}`,
       status: "APPROVED",
       code: recovery ? "PROTECT" : "DELOAD",
@@ -89,6 +98,10 @@
       reviewDate: proposal.date,
       approvedAt,
       planChangesApproved: true,
+      assignmentOutcome: recovery ? "ADAPTED_NOT_REQUIRED" : "ADAPTED",
+      evidencePolicy: "PRESERVE_COMPLETED",
+      closeoutPolicy: recovery ? "RECOVERY_EVIDENCE_ONLY" : "ADAPTED_EXECUTION",
+      laterSessionCountdown: recovery ? null : "UNCHANGED",
       changes: changes.map(([domain, action, volumeDeltaPercent, loadDeltaPercent]) => ({
         domain,
         action,
@@ -131,10 +144,12 @@
     const now = input.generatedAt || new Date().toISOString();
     return {
       version: VERSION,
+      stabilizationVersion: STABILIZATION_VERSION,
       id: `atlas-live:${date}:${fingerprint}`,
       date,
       fingerprint,
       status: "PROPOSED",
+      adaptationState: ADAPTATION_STATES.ADAPTATION_PROPOSED,
       code,
       ...definition,
       contractId: input.contractId || null,
@@ -158,23 +173,32 @@
     const code = upper(decision);
     if (!DECISIONS.has(code)) throw new Error("Choose Accept, Hold, or This does not fit.");
     if (proposal.status === "RESTORED" && code !== "RESTORE") return proposal;
-    if (proposal.safetyOverride && code === "HOLD") throw new Error("Pain and RED readiness cannot be overridden. Update Roll Call or accept the recovery order.");
     const now = context.resolvedAt || new Date().toISOString();
-    if (code === "RESTORE") return { ...proposal, status: "RESTORED", directive: null, calendarOverride: null, restoredAt: now, updatedAt: now };
+    if (code === "RESTORE") return { ...proposal, status: "RESTORED", adaptationState: ADAPTATION_STATES.MISSION_ACTIVE, directive: null, calendarOverride: null, restoredAt: now, updatedAt: now };
     if (code === "NOT_FIT") {
       return {
         ...proposal,
         status: "NEEDS_CONTEXT",
+        adaptationState: ADAPTATION_STATES.ADAPTATION_DECLINED,
         responseReason: upper(context.reason || "OTHER"),
         note: text(context.note).slice(0, 240),
         resolvedAt: now,
         updatedAt: now
       };
     }
-    if (code === "HOLD") return { ...proposal, status: "HELD", directive: null, calendarOverride: null, resolvedAt: now, updatedAt: now };
+    if (code === "HOLD") return {
+      ...proposal,
+      status: "HELD",
+      adaptationState: ADAPTATION_STATES.ADAPTATION_DECLINED,
+      directive: null,
+      calendarOverride: null,
+      resolvedAt: now,
+      updatedAt: now
+    };
     return {
       ...proposal,
       status: "APPROVED",
+      adaptationState: ADAPTATION_STATES.ADAPTATION_ACCEPTED,
       directive: directiveFor(proposal, now),
       calendarOverride: calendarOverride(proposal),
       approvedAt: now,
@@ -196,18 +220,15 @@
     if (["PROPOSED", "NEEDS_CONTEXT"].includes(proposal.status)) {
       return {
         ...command,
-        state: "ADAPTATION_REQUIRED",
-        stateLabel: "DECISION REQUIRED",
-        verb: "REVIEW",
-        title: proposal.headline,
-        detail: proposal.impact,
-        reason: proposal.reason,
-        primary: { action: "LIVE_ADAPTATION", label: "REVIEW - Atlas adjustment", section: "today", module: "" },
-        adjustment: { ...(command.adjustment || {}), available: false },
+        adaptationState: proposal.adaptationState || ADAPTATION_STATES.ADAPTATION_PROPOSED,
         liveAdaptation: proposal
       };
     }
-    if (proposal.status !== "APPROVED") return { ...command, liveAdaptation: proposal };
+    if (proposal.status !== "APPROVED") return {
+      ...command,
+      adaptationState: proposal.adaptationState || ADAPTATION_STATES.MISSION_ACTIVE,
+      liveAdaptation: proposal
+    };
     const recovery = proposal.choiceId === "RECOVERY_ONLY";
     return {
       ...command,
@@ -217,12 +238,17 @@
       window: recovery ? "RECOVERY" : command.window,
       duration: recovery ? { minutes: 20, label: "20 min", open: false } : Number(command.duration?.minutes) > 0 ? { minutes: Math.max(10, Math.round(command.duration.minutes * 0.75 / 5) * 5), label: `${Math.max(10, Math.round(command.duration.minutes * 0.75 / 5) * 5)} min`, open: false } : command.duration,
       primary: recovery ? { action: "MODULE", label: "OPEN - Recovery", section: "today", module: "recovery" } : command.primary,
+      adaptationState: ADAPTATION_STATES.ADAPTATION_ACCEPTED,
+      assignmentOutcome: recovery ? "ADAPTED_NOT_REQUIRED" : "ADAPTED",
+      laterSessionCountdown: recovery ? null : command.laterSessionCountdown,
       liveAdaptation: proposal
     };
   }
 
   return Object.freeze({
     VERSION,
+    STABILIZATION_VERSION,
+    ADAPTATION_STATES,
     DECISIONS,
     stableHash,
     triggerFor,

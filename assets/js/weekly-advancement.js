@@ -167,7 +167,7 @@
       </section>
       <section id="dominion-campaign-review" class="dominion-campaign-review" data-campaign-tone="neutral" aria-labelledby="dominion-campaign-review-heading" aria-live="polite">
         <div><span id="dominion-campaign-review-phase">CAMPAIGN // CHECKING</span><h3 id="dominion-campaign-review-heading">Twelve-week campaign</h3><p id="dominion-campaign-review-detail">Atlas is connecting this judgment to the declared outcome.</p></div>
-        <div class="dominion-campaign-review-read"><strong id="dominion-campaign-review-forecast">CHECKING</strong><small id="dominion-campaign-review-progress">0% complete</small><a href="#program" data-section="program">Open campaign</a></div>
+        <div class="dominion-campaign-review-read"><strong id="dominion-campaign-review-forecast">CHECKING</strong><small id="dominion-campaign-review-progress">Campaign not started</small><a href="#program" data-section="program">Open campaign</a></div>
       </section>
       <aside id="weekly-next-action" class="weekly-next-action"><div><span>NEXT ORDER</span><h3 id="weekly-next-action-title">Complete the record</h3><p id="weekly-next-action-detail">Record the week before asking it to prove anything.</p></div><a id="weekly-next-action-link" href="#record" data-section="record">Open Record</a></aside>
       <div class="weekly-judgment-actions"><button id="finalize-week" type="button">Finalize week</button><button id="finalize-promotion" type="button" hidden>Authorize promotion</button><p id="rank-promotion-feedback" role="status" aria-live="polite"></p></div>

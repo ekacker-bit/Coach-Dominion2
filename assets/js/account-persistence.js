@@ -6,6 +6,7 @@
   "use strict";
 
   const VERSION = "029C.1";
+  const STABILIZATION_VERSION = "029G.1";
   const SCHEMA_VERSION = 1;
   const AUTH_DRAIN_EVENTS = Object.freeze(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
 
@@ -136,8 +137,36 @@
     return Boolean(session?.user?.id && AUTH_DRAIN_EVENTS.includes(String(event || "").toUpperCase()));
   }
 
+  function canonicalPendingEntries(continuityQueue = [], accountQueue = []) {
+    const granular = Array.isArray(continuityQueue) ? continuityQueue.filter(Boolean) : [];
+    const aggregate = Array.isArray(accountQueue) ? accountQueue.filter(Boolean) : [];
+    if (granular.length) return granular.map((item) => ({ ...item, queueSource: "CONTINUITY" }));
+    return aggregate.map((item) => ({ ...item, queueSource: "ACCOUNT_TRUTH" }));
+  }
+
+  function pendingState(continuityQueue = [], accountQueue = []) {
+    const entries = canonicalPendingEntries(continuityQueue, accountQueue);
+    return {
+      count: entries.length,
+      entries,
+      state: entries.length ? "SYNC_PENDING" : "CURRENT",
+      label: entries.length ? `Sync · ${entries.length}` : "Synced"
+    };
+  }
+
+  function telemetry(input = {}) {
+    return {
+      operation: String(input.operation || "account_save").slice(0, 48),
+      type: String(input.type || "ACCOUNT_TRUTH").slice(0, 48),
+      revision: Math.max(0, Number(input.revision || 0)),
+      status: String(input.status || "UNKNOWN").slice(0, 48),
+      attempt: Math.max(0, Number(input.attempt || 0))
+    };
+  }
+
   return Object.freeze({
     VERSION,
+    STABILIZATION_VERSION,
     SCHEMA_VERSION,
     AUTH_DRAIN_EVENTS: [...AUTH_DRAIN_EVENTS],
     stableSerialize,
@@ -151,6 +180,9 @@
     nextDelay,
     receiptMatches,
     status,
-    shouldDrainForAuthEvent
+    shouldDrainForAuthEvent,
+    canonicalPendingEntries,
+    pendingState,
+    telemetry
   });
 });

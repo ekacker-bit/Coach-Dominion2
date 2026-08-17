@@ -11,7 +11,7 @@ const worker = read("sw.js");
 assert.match(html, /app\.js\?v=(?:024[klmn]|025[abc])/);
 assert.match(worker, /coach-dominion-(?:024[klmn]|025[abc])-v1/);
 assert.match(app, /function refreshProgramActivationSurfaces/);
-assert.match(app, /Active program saved; one surface will recover on reload/);
+assert.match(app, /Active program is safe; one surface will recover on reload/);
 assert.match(app, /commitUnifiedWeekDraft\(\{ activationPreflight: preflight, deferRender: true \}\)/);
 assert.match(app, /if \(!options\.deferRender\) refreshProgramActivationSurfaces\(\)/);
 assert.match(app, /refreshProgramActivationSurfaces\(\);\s+return receipt;/);

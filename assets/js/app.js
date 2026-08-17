@@ -454,7 +454,7 @@ function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = nu
     errorCode: error?.code || null
   };
   saveContinuityRetryQueue([...queue.filter((entry) => entry.key !== key), item]);
-  if (continuityState.initialized && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: readContinuityRetryQueue().length });
+  if (continuityState.initialized && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: canonicalPendingWriteState().count });
   return item;
 }
 
@@ -594,6 +594,21 @@ function saveAccountTruthQueue(queue = []) {
   accountTruthState.pendingWrites = next.length;
   renderAccountTruthHealth();
   return next;
+}
+
+function canonicalPendingWriteState() {
+  const continuityQueue = readContinuityRetryQueue();
+  const accountQueue = readAccountTruthQueue();
+  if (typeof DominionAccountPersistence !== "undefined" && DominionAccountPersistence.pendingState) {
+    return DominionAccountPersistence.pendingState(continuityQueue, accountQueue);
+  }
+  const entries = continuityQueue.length ? continuityQueue : accountQueue;
+  return {
+    count: entries.length,
+    entries,
+    state: entries.length ? "SYNC_PENDING" : "CURRENT",
+    label: entries.length ? `Sync · ${entries.length}` : "Synced"
+  };
 }
 
 function buildAccountTruthWriteEnvelope(manifest, snapshot, expectedRevision, options = {}) {
@@ -755,7 +770,7 @@ function renderAccountTruthHealth() {
   const report = DominionAccountTruth.healthReport({
     ...accountTruthState,
     snapshot,
-    pendingWrites: readAccountTruthQueue().length,
+    pendingWrites: canonicalPendingWriteState().count,
     online: navigator.onLine !== false
   });
   const root = document.getElementById("account-truth-health");
@@ -771,7 +786,7 @@ function renderAccountTruthHealth() {
   setText("account-truth-coaching", `${coachingCount} SAVED`);
   const verified = report.lastVerifiedAt ? new Date(report.lastVerifiedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "NOT YET";
   setText("account-truth-verified", verified);
-  const allQueued = [...readContinuityRetryQueue(), ...readAccountTruthQueue()];
+  const allQueued = canonicalPendingWriteState().entries;
   const queueAge = typeof DominionReleaseStabilization === "undefined" ? "NONE" : DominionReleaseStabilization.oldestAge(allQueued).label;
   setText("account-truth-queue-age", queueAge);
   document.body.dataset.accountTruth = report.status.toLowerCase().replaceAll("_", "-");
@@ -790,7 +805,7 @@ function buildCurrentTrustLayerReport(options = {}) {
     : DominionAccountTruth.healthReport({
       ...accountTruthState,
       snapshot: accountTruthState.snapshot || readAccountTruthLocalSnapshot(),
-      pendingWrites: readAccountTruthQueue().length,
+      pendingWrites: canonicalPendingWriteState().count,
       online: navigator.onLine !== false
     });
   return DominionTrustLayer.evaluate({
@@ -798,7 +813,7 @@ function buildCurrentTrustLayerReport(options = {}) {
     accountHealth: { ...accountTruthState, ...accountHealth },
     lineage,
     conflicts: currentContinuityConflicts(),
-    pendingWrites: readContinuityRetryQueue().length,
+    pendingWrites: canonicalPendingWriteState().count,
     programFingerprint: manifest?.fingerprint || null,
     accountProgramFingerprint: continuityState.accountManifest?.fingerprint || accountTruthState.accountSnapshot?.programFingerprint || null,
     decision: currentDailyDecision,
@@ -832,7 +847,7 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
 async function reportTrustEvent(event, report = trustLayerState.report, context = {}) {
   if (!report || typeof DominionTrustLayer === "undefined" || typeof fetch === "undefined") return false;
   const payload = DominionTrustLayer.telemetryPayload(event, report, {
-    pendingWrites: readContinuityRetryQueue().length + readAccountTruthQueue().length,
+    pendingWrites: canonicalPendingWriteState().count,
     conflictCount: currentContinuityConflicts().length,
     route: window.location.hash.replace(/^#/, "") || "app",
     ...context
@@ -854,7 +869,16 @@ async function reportTrustEvent(event, report = trustLayerState.report, context 
 async function reportSyncLifecycle(event, context = {}) {
   const report = trustLayerState.report || buildCurrentTrustLayerReport();
   if (!report) return false;
-  return reportTrustEvent(event, report, { subsystem: "account_sync", ...context });
+  const safeContext = typeof DominionAccountPersistence !== "undefined" && DominionAccountPersistence.telemetry
+    ? DominionAccountPersistence.telemetry({
+        operation: event,
+        type: context.domain || context.subsystem || "ACCOUNT_SYNC",
+        revision: context.revision || continuityState.accountRevision,
+        status: context.status || context.code || (context.failed ? "FAILED" : "ACTIVE"),
+        attempt: context.attempt || context.attempts || 0
+      })
+    : { operation: event, type: "ACCOUNT_SYNC", revision: Number(continuityState.accountRevision || 0), status: "ACTIVE", attempt: 0 };
+  return reportTrustEvent(event, report, safeContext);
 }
 
 function reportSafeRuntimeError(route = "runtime") {
@@ -1149,10 +1173,12 @@ async function flushAccountTruthPendingWrite(options = {}) {
 }
 
 async function drainAccountPersistence(options = {}) {
-  if (!readAccountTruthQueue().length) return true;
-  const saved = await flushAccountTruthPendingWrite({ force: options.force === true });
-  if (!saved) scheduleAccountTruthQueueDrain();
-  return saved;
+  const continuitySaved = readContinuityRetryQueue().length ? await flushContinuityPendingWrites() : true;
+  const accountSaved = readAccountTruthQueue().length
+    ? await flushAccountTruthPendingWrite({ force: options.force === true })
+    : true;
+  if (!accountSaved) scheduleAccountTruthQueueDrain();
+  return continuitySaved && accountSaved;
 }
 
 function installAccountPersistenceRecovery(supabase) {
@@ -1443,6 +1469,15 @@ function dominionCampaignConditionValue(condition = {}) {
 function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
   if (!campaign || typeof DominionCampaign === "undefined") return;
   currentDominionCampaign = campaign;
+  const metrics = typeof DominionFinalBetaStabilization === "undefined"
+    ? {
+        campaignElapsed: Math.max(0, Math.min(100, Math.round(Number(campaign.elapsedDays || 0) / Math.max(1, Number(campaign.totalWeeks || 12) * 7) * 100))),
+        evidenceCoverage: Math.round(Number(campaign.evidence?.rate || 0)),
+        assessedExecutionScore: Number(campaign.weekly?.finalized || 0) > 0 ? Math.round(Number(campaign.weekly?.disciplineAverage || 0)) : null,
+        qualifyingWeeks: Number(campaign.weekly?.qualifying || 0),
+        qualifyingWeekTarget: Number(DominionCampaign.QUALIFYING_WEEK_TARGET || 9)
+      }
+    : DominionFinalBetaStabilization.campaignMetrics(campaign);
   const tone = campaign.forecast?.tone || "neutral";
   const order = campaign.currentOrder || { label: "Establish the campaign", detail: "One declared outcome comes first.", section: "contract" };
   const main = document.getElementById("dominion-campaign");
@@ -1456,17 +1491,17 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
         : `${campaign.objective?.goal || "DOMINION"} · ${campaign.startDate} to ${campaign.endDate}`);
     setText("dominion-campaign-forecast", campaign.forecast?.label || "CHECKING");
     const progress = document.getElementById("dominion-campaign-progress");
-    if (progress) progress.style.width = `${Number(campaign.progress || 0)}%`;
-    progress?.parentElement?.setAttribute("aria-valuenow", String(Number(campaign.progress || 0)));
+    if (progress) progress.style.width = `${metrics.campaignElapsed}%`;
+    progress?.parentElement?.setAttribute("aria-valuenow", String(metrics.campaignElapsed));
     const phases = document.getElementById("dominion-campaign-phases");
     if (phases) phases.innerHTML = (campaign.phases || DominionCampaign.PHASES).map((phase) => {
       const state = !campaign.currentWeek ? "future" : campaign.currentWeek > phase.endWeek ? "complete" : campaign.currentWeek >= phase.startWeek ? "current" : "future";
       return `<article data-phase-state="${state}"><span>W${phase.startWeek}–${phase.endWeek}</span><strong>${escapeHtml(phase.label)}</strong></article>`;
     }).join("");
     setText("dominion-campaign-week", campaign.currentWeek ? `WEEK ${campaign.currentWeek} / ${campaign.totalWeeks}` : "NOT STARTED");
-    setText("dominion-campaign-execution", `${campaign.execution?.rate || 0}%`);
-    setText("dominion-campaign-proof", `${campaign.evidence?.rate || 0}%`);
-    setText("dominion-campaign-earned", `${campaign.weekly?.qualifying || 0} / ${DominionCampaign.QUALIFYING_WEEK_TARGET}`);
+    setText("dominion-campaign-execution", metrics.assessedExecutionScore === null ? "UNSCORED" : `${metrics.assessedExecutionScore}%`);
+    setText("dominion-campaign-proof", `${metrics.evidenceCoverage}%`);
+    setText("dominion-campaign-earned", `${metrics.qualifyingWeeks} / ${metrics.qualifyingWeekTarget}`);
     setText("dominion-campaign-order", order.label);
     setText("dominion-campaign-order-detail", order.detail);
     const action = document.getElementById("dominion-campaign-action");
@@ -1478,14 +1513,17 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
     const passed = (campaign.conditions || []).filter((condition) => condition.passed).length;
     setText("dominion-campaign-condition-count", `${passed} of ${(campaign.conditions || []).length || 5} met`);
     const conditions = document.getElementById("dominion-campaign-condition-list");
-    if (conditions) conditions.innerHTML = (campaign.conditions || []).map((condition) => `<article data-condition-state="${condition.passed ? "pass" : "open"}"><span aria-hidden="true">${condition.passed ? "✓" : "·"}</span><div><strong>${escapeHtml(condition.label)}</strong><small>${escapeHtml(condition.detail)}</small></div><b>${escapeHtml(dominionCampaignConditionValue(condition))}</b></article>`).join("") || '<div class="performance-empty">The Contract and complete program establish the win conditions.</div>';
+    if (conditions) conditions.innerHTML = (campaign.conditions || []).map((condition) => {
+      const value = condition.id === "EXECUTION" && metrics.assessedExecutionScore === null ? "UNSCORED" : dominionCampaignConditionValue(condition);
+      return `<article data-condition-state="${condition.passed ? "pass" : "open"}"><span aria-hidden="true">${condition.passed ? "✓" : "·"}</span><div><strong>${escapeHtml(condition.label)}</strong><small>${escapeHtml(condition.detail)}</small></div><b>${escapeHtml(value)}</b></article>`;
+    }).join("") || '<div class="performance-empty">The Contract and complete program establish the win conditions.</div>';
   }
   const today = document.getElementById("dominion-campaign-today");
   if (today) {
     today.dataset.campaignTone = tone;
     setText("dominion-campaign-today-phase", campaign.currentWeek ? `CAMPAIGN // WEEK ${campaign.currentWeek} // ${campaign.phase?.label?.toUpperCase() || "ACTIVE"}` : "CAMPAIGN // NOT STARTED");
     setText("dominion-campaign-today-order", order.label);
-    setText("dominion-campaign-today-detail", campaign.status === "ACTIVE" ? `${campaign.forecast?.label || "CHECKING"} · ${campaign.progress || 0}% campaign progress` : order.detail);
+    setText("dominion-campaign-today-detail", campaign.status === "ACTIVE" ? `${campaign.forecast?.label || "CHECKING"} · ${metrics.campaignElapsed}% elapsed` : order.detail);
     const todayAction = document.getElementById("dominion-campaign-today-action");
     if (todayAction) {
       todayAction.href = `#${order.section || "program"}`;
@@ -1498,9 +1536,9 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
     review.dataset.campaignTone = tone;
     setText("dominion-campaign-review-phase", campaign.currentWeek ? `CAMPAIGN // WEEK ${campaign.currentWeek} // ${campaign.phase?.label?.toUpperCase() || "ACTIVE"}` : "CAMPAIGN // NOT STARTED");
     setText("dominion-campaign-review-heading", campaign.objective?.target || "Twelve-week campaign");
-    setText("dominion-campaign-review-detail", campaign.status === "ACTIVE" ? `${campaign.weekly?.qualifying || 0} qualifying weeks · ${campaign.execution?.rate || 0}% execution · ${campaign.evidence?.rate || 0}% proof.` : order.detail);
+    setText("dominion-campaign-review-detail", campaign.status === "ACTIVE" ? `${metrics.qualifyingWeeks} qualifying weeks · ${metrics.assessedExecutionScore === null ? "Execution unscored" : `${metrics.assessedExecutionScore}% assessed execution`} · ${metrics.evidenceCoverage}% evidence coverage.` : order.detail);
     setText("dominion-campaign-review-forecast", campaign.forecast?.label || "CHECKING");
-    setText("dominion-campaign-review-progress", `${campaign.progress || 0}% complete`);
+    setText("dominion-campaign-review-progress", `${metrics.campaignElapsed}% campaign elapsed`);
   }
   document.body.dataset.dominionCampaign = String(campaign.status || "CHECKING").toLowerCase().replaceAll("_", "-");
   if (typeof DominionCampaignVerdict !== "undefined") renderCampaignVerdict(buildCurrentCampaignVerdict({ campaign }));
@@ -1877,7 +1915,7 @@ function buildCurrentUnifiedBlocker() {
   if (typeof DominionUnifiedBlockerResolution === "undefined") return null;
   return DominionUnifiedBlockerResolution.buildBlocker({
     conflicts: currentContinuityConflicts(),
-    pendingWrites: readContinuityRetryQueue().length,
+    pendingWrites: canonicalPendingWriteState().count,
     lineage: continuityState.lineage,
     accountRevision: continuityState.accountRevision
   });
@@ -1941,7 +1979,7 @@ function renderDominionContinuity() {
   const manifest = continuityState.manifest || buildCurrentContinuityManifest();
   const lineage = DominionContinuity.canonicalLineage(manifest || {}, { today: todayISODate() });
   const conflicts = currentContinuityConflicts();
-  const pendingWrites = readContinuityRetryQueue().length + readAccountTruthQueue().length;
+  const pendingWrites = canonicalPendingWriteState().count;
   continuityState.lineage = lineage;
   continuityState.pendingWrites = pendingWrites;
   const displayMode = conflicts.length ? "CONFLICT" : pendingWrites ? "PENDING" : continuityState.mode;
@@ -1961,7 +1999,8 @@ function renderDominionContinuity() {
     button.className = `continuity-status ${presentation.tone}`;
     button.setAttribute("aria-label", `Account sync status: ${presentation.label}. ${presentation.detail}`);
   }
-  setText("continuity-status-label", presentation.label);
+  const pendingState = canonicalPendingWriteState();
+  setText("continuity-status-label", pendingState.count ? pendingState.label : presentation.label);
   setText("continuity-status-detail", presentation.detail);
   setText("continuity-repair-summary", presentation.detail);
   setText("continuity-lineage-summary", lineage.headline);
@@ -2106,7 +2145,7 @@ async function syncDominionContinuity(options = {}) {
   }
   if (navigator.onLine === false) {
     saveContinuityManifestLocal(buildCurrentContinuityManifest());
-    setContinuityMode(readContinuityRetryQueue().length ? "PENDING" : "OFFLINE", { initialized: true });
+    setContinuityMode(canonicalPendingWriteState().count ? "PENDING" : "OFFLINE", { initialized: true });
     return false;
   }
   setContinuityMode("SYNCING");
@@ -2203,7 +2242,7 @@ async function syncDominionContinuity(options = {}) {
   }
   const missingStorage = ["42P01", "42883", "PGRST202", "PGRST205"].includes(lastError?.code)
     || /dominion_continuity_state|sync_dominion_continuity_state/i.test(lastError?.message || "");
-  const pendingWrites = readContinuityRetryQueue().length;
+  const pendingWrites = canonicalPendingWriteState().count;
   setContinuityMode(pendingWrites ? "PENDING" : missingStorage ? "LOCAL_ONLY" : "OFFLINE", {
     initialized: true,
     pendingWrites,
@@ -2254,7 +2293,7 @@ async function completeContinuityResolution(preference) {
     ? { advance: remainingConflicts === 0, keepDialogOpen: remainingConflicts > 0, route: "today", message: "Saved program reconciled." }
     : DominionUnifiedBlockerResolution.resolutionOutcome({
         remainingConflicts,
-        pendingWrites: readContinuityRetryQueue().length,
+        pendingWrites: canonicalPendingWriteState().count,
         synced,
         nextTitle: nextTruth?.title
       });
@@ -3944,6 +3983,12 @@ function generateAtlasTrendReport(analytics) {
 async function getClient() {
   if (client) return client;
   const response = await fetch("/api/config");
+  const contentType = response.headers.get("content-type") || "";
+  if (!response.ok || !contentType.includes("application/json")) {
+    const error = new Error("Account connection is temporarily unavailable. Your saved work remains protected.");
+    error.code = "ACCOUNT_CONFIG_UNAVAILABLE";
+    throw error;
+  }
   const config = await response.json();
   if (!config.ok) throw new Error(config.error || "Configuration unavailable.");
   client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
@@ -6975,9 +7020,10 @@ function refreshProgramActivationSurfaces() {
   renderers.forEach(([surface, renderer]) => {
     try { renderer(); }
     catch (error) {
-      console.error("[atlas:render] Active program saved; one surface will recover on reload.", {
-        surface,
-        message: error?.message || "Render unavailable"
+      console.info("[atlas:render-fallback] Active program is safe; one surface will recover on reload.", {
+        operation: "render_active_program_surface",
+        type: surface,
+        status: "fallback"
       });
     }
   });
@@ -7006,8 +7052,15 @@ function readEffectiveUnifiedDay(value = todayISODate()) {
   const horizonDay = typeof DominionAtlasAdaptiveHorizon === "undefined"
     ? day
     : DominionAtlasAdaptiveHorizon.applyToDay(day, proposal, adaptiveHorizonContext(date));
+  const liveProposal = typeof DominionAtlasLiveAdaptation === "undefined" ? null : readAtlasLiveAdaptation(date);
+  const liveState = typeof DominionFinalBetaStabilization === "undefined"
+    ? liveProposal?.status
+    : DominionFinalBetaStabilization.adaptationState(liveProposal);
+  if (["PROPOSED", "HELD", "NEEDS_CONTEXT", "ADAPTATION_PROPOSED", "ADAPTATION_DECLINED"].includes(liveState)) return horizonDay;
   if (typeof DominionRecoveryCommand === "undefined") return horizonDay;
-  return DominionRecoveryCommand.applyToDay(horizonDay, buildCurrentRecoveryCommand(date), recoveryCommandContext(date));
+  const recoveryCommand = buildCurrentRecoveryCommand(date);
+  if (["AMBER", "RED"].includes(recoveryCommand?.posture) && liveProposal?.status !== "APPROVED") return horizonDay;
+  return DominionRecoveryCommand.applyToDay(horizonDay, recoveryCommand, recoveryCommandContext(date));
 }
 
 function buildCurrentCanonicalDailyCommand(value = todayISODate()) {
@@ -7472,10 +7525,6 @@ function renderWeeklyOrchestrator() {
   if (savedDraft && legacyDraftDisposition !== "CURRENT_CONTRACT") {
     try {
       savedDraft = buildUnifiedWeekDraft(targetWeekStart);
-      if (savedDraft) {
-        saveWeeklyOrchestrationLocal("DRAFT", "current", savedDraft);
-        persistWeeklyOrchestrationState("DRAFT", "current", savedDraft).catch(() => {});
-      }
     } catch (_) {
       savedDraft = null;
     }
@@ -7483,13 +7532,16 @@ function renderWeeklyOrchestrator() {
   if (savedDraft?.status === "DRAFT" && savedDraft.version !== DominionWeeklyOrchestrator.VERSION) {
     try {
       savedDraft = buildUnifiedWeekDraft(savedDraft.weekStart || targetWeekStart);
-      saveWeeklyOrchestrationLocal("DRAFT", "current", savedDraft);
-      persistWeeklyOrchestrationState("DRAFT", "current", savedDraft).catch(() => {});
     } catch (_) {
       savedDraft = null;
     }
   }
-  const preview = savedDraft || future || buildUnifiedWeekDraft(targetWeekStart);
+  const stagedWeek = savedDraft || future || null;
+  const requestedView = document.body.dataset.calendarWeekView || "ACTIVE";
+  const calendarView = typeof DominionFinalBetaStabilization === "undefined"
+    ? { mode: active ? "ACTIVE" : stagedWeek ? "STAGED" : "EMPTY", week: active || stagedWeek }
+    : DominionFinalBetaStabilization.weekView({ activeWeek: active, stagedWeek, requested: requestedView });
+  const preview = calendarView.week || buildUnifiedWeekDraft(targetWeekStart);
   if (!preview) return;
   const autopilot = buildCurrentAtlasWeekAutopilot({ draft: savedDraft, futureWeek: future });
   const displayState = autopilot?.status === "COMMITTED" && preview.atlasAdaptiveWeek?.status === "APPROVED"
@@ -7508,7 +7560,7 @@ function renderWeeklyOrchestrator() {
     <strong>${escapeHtml(moduleState.replaceAll("_", " "))}</strong>
     <small>${key === "nutrition" ? "Daily targets" : `${preview.actual?.[key] || 0}/${preview.expected?.[key] || 0} sessions`}</small>
   </article>`).join("");
-  const canEditCalendar = preview.status === "DRAFT" && Boolean(savedDraft);
+  const canEditCalendar = calendarView.mode === "STAGED" && preview.status === "DRAFT" && Boolean(savedDraft);
   const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
   const days = (preview.days || []).map((day) => {
     const dayOverride = currentDailyCalendarOverride(day.date);
@@ -7547,23 +7599,27 @@ function renderWeeklyOrchestrator() {
   const calendarHandoff = preview.calendarReconciliation
     || active?.calendarReconciliation
     || (latestHandoff?.weekStarts?.some((weekStart) => [preview.weekStart, active?.weekStart].includes(weekStart)) ? latestHandoff : null);
-  const controls = preview.status === "DRAFT" && savedDraft
+  const controls = calendarView.mode === "STAGED" && preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
   panel.innerHTML = `
     ${unifiedBlockerBannerMarkup(unifiedBlocker, "calendar")}
+    <nav class="calendar-week-switch" aria-label="Calendar week view">
+      <button type="button" data-weekly-orchestrator-action="view-active" aria-pressed="${calendarView.mode === "ACTIVE"}" ${active ? "" : "disabled"}>Active week</button>
+      <button type="button" data-weekly-orchestrator-action="view-staged" aria-pressed="${calendarView.mode === "STAGED"}" ${stagedWeek ? "" : "disabled"}>Next week</button>
+    </nav>
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>Contract or module edits stage the next week. Today keeps following this approved calendar.</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
     ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
     ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "calendar")}
     ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
-    <div class="weekly-orchestrator-controls"><label>Operating week<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}"></label><div><span>Storage</span><strong>${weeklyOrchestrationStorageMode === "REMOTE" ? "Account synced" : "Local fallback"}</strong></div></div>
+    <div class="weekly-orchestrator-controls"><label>${calendarView.mode === "ACTIVE" ? "Active week" : "Staged week"}<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}" ${calendarView.mode === "ACTIVE" ? "readonly" : ""}></label><div><span>State</span><strong>${calendarView.mode === "ACTIVE" ? "Active · protected" : "Next · editable"}</strong></div></div>
     <div class="weekly-orchestrator-module-grid">${modules}</div>
     <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
     ${!preview.twoADaysEnabled && preview.days?.some((day) => day.twoADayAuthorizationRequired) ? `<div class="weekly-orchestrator-alert"><strong>Two-a-Days are off in the signed Contract.</strong><p>These stacked days exceed 120 minutes, but they cannot become AM/PM Two-a-Days until you deliberately amend and re-sign the Contract.</p><button type="button" class="ghost" data-weekly-orchestrator-action="amend-two-a-days">Review Two-a-Days</button></div>` : ""}
     ${blocking.length ? `<section id="calendar-blockers" class="calendar-blockers" aria-labelledby="calendar-blockers-heading"><header><div><span class="kicker">COMMITMENT BLOCKED</span><strong id="calendar-blockers-heading">${atlasRepairableBlockers.length ? "Atlas can complete the program" : `Clear ${blocking.length} blocker${blocking.length === 1 ? "" : "s"}`}</strong></div><span>${blocking.length}</span></header>${atlasRepairableBlockers.length ? `<button type="button" class="calendar-repair-primary" data-weekly-orchestrator-action="repair-program">Complete my program</button>` : ""}<div>${blocking.map((item) => { const meta = weeklyOrchestrationBlockerMeta(item); return `<article><div><span>${escapeHtml(meta.label)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span><p>${escapeHtml(item.detail)}</p></div>${atlasRepairableBlockers.includes(item) ? `<small>Atlas repair</small>` : `<a href="#${escapeHtml(meta.section)}" data-section="${escapeHtml(meta.section)}">${escapeHtml(meta.action)}</a>`}</article>`; }).join("")}</div></section>` : ""}
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
-    <div class="weekly-orchestrator-actions"><p>${escapeHtml(preview.message || "Review the complete week before commitment.")}${existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
+    <div class="weekly-orchestrator-actions"><p>${calendarView.mode === "ACTIVE" ? "This is the week Today executes. Build or edit the staged week without changing it." : escapeHtml(preview.message || "Review the complete week before commitment.")}${calendarView.mode === "STAGED" && existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${calendarView.mode === "STAGED" && savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
 }
 
 function todaySessionExecutionRecord(item = {}) {
@@ -8010,13 +8066,25 @@ function renderMorningVerification() {
   const panel = document.getElementById("morning-verification-panel");
   const badge = document.getElementById("morning-verification-state");
   if (!section || !panel || !badge) return;
-  const receipt = currentMorningVerification();
+  let receipt = currentMorningVerification();
   if (!receipt) {
     section.dataset.verificationState = "ROLL_CALL_REQUIRED";
     badge.textContent = "ROLL CALL NEEDED";
     badge.className = "state-pill neutral";
     panel.innerHTML = `<div class="morning-verification-empty"><strong>Clear today before training</strong><p>Roll Call turns current readiness and the latest recovery evidence into one decision.</p><button type="button" data-morning-verification-action="ROLL_CALL">Complete Roll Call</button></div>`;
     return;
+  }
+  const acceptedRecovery = typeof DominionAtlasLiveAdaptation === "undefined" ? null : readAtlasLiveAdaptation(todayISODate());
+  if (acceptedRecovery?.status === "APPROVED" && acceptedRecovery.choiceId === "RECOVERY_ONLY") {
+    receipt = {
+      ...receipt,
+      code: "RECOVERY_ACCEPTED",
+      tone: "yellow",
+      headline: "Recovery governs today",
+      detail: "The original training assignment is adapted and not required. Complete recovery evidence and close the day.",
+      action: "RECOVERY",
+      actionLabel: "Open recovery"
+    };
   }
   section.dataset.verificationState = receipt.code;
   badge.textContent = receipt.code.replaceAll("_", " ");
@@ -10162,9 +10230,10 @@ async function stageRecruitContractPlans({ announce = true, repairOnly = false }
   ].forEach(([surface, renderer]) => {
     try { renderer(); }
     catch (error) {
-      console.error("[atlas:program-stage-render] Program data is staged; one surface will recover on reload.", {
-        surface,
-        message: error?.message || "Render unavailable"
+      console.info("[atlas:program-stage-render] Program data is staged; one surface will recover on reload.", {
+        operation: "render_staged_program_surface",
+        type: surface,
+        status: "fallback"
       });
     }
   });
@@ -12648,7 +12717,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029d", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029e", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029f", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029f", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029g2", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14855,7 +14925,7 @@ async function resolveAtlasLiveAdaptation(decision = "HOLD", context = {}) {
   setText("atlas-live-adaptation-feedback-text", resolved.status === "APPROVED"
     ? `Approved for today${synced ? " and synced" : "; account sync will retry"}. Future programming is unchanged.`
     : resolved.status === "HELD"
-      ? `Current mission held${synced ? " and synced" : " on this device"}.`
+      ? `Current mission preserved${synced ? " and synced" : " on this device"}. The proposal remains in history.`
       : resolved.status === "RESTORED"
         ? `Original mission restored${synced ? " and synced" : " on this device"}.`
         : `Context recorded${synced ? " and synced" : " on this device"}. Atlas did not change the mission.`);
@@ -14868,14 +14938,21 @@ async function resolveAtlasLiveAdaptation(decision = "HOLD", context = {}) {
 
 function currentDailyCalendarOverride(date = todayISODate()) {
   const context = atlasDailyCommandContext(date);
-  const recovery = typeof DominionRecoveryCommand === "undefined"
-    ? null
-    : DominionRecoveryCommand.calendarOverride(buildCurrentRecoveryCommand(date), recoveryCommandContext(date));
-  if (recovery) return recovery;
+  const proposal = typeof DominionAtlasLiveAdaptation === "undefined" ? null : readAtlasLiveAdaptation(date);
+  const adaptationState = typeof DominionFinalBetaStabilization === "undefined"
+    ? proposal?.status
+    : DominionFinalBetaStabilization.adaptationState(proposal);
+  if (["PROPOSED", "HELD", "NEEDS_CONTEXT", "ADAPTATION_PROPOSED", "ADAPTATION_DECLINED"].includes(adaptationState)) return null;
   const live = typeof DominionAtlasLiveAdaptation === "undefined"
     ? null
-    : DominionAtlasLiveAdaptation.activeCalendarOverride(readAtlasLiveAdaptation(date), context);
+    : DominionAtlasLiveAdaptation.activeCalendarOverride(proposal, context);
   if (live) return live;
+  const recoveryCommand = typeof DominionRecoveryCommand === "undefined" ? null : buildCurrentRecoveryCommand(date);
+  if (["AMBER", "RED"].includes(recoveryCommand?.posture) && proposal?.status !== "APPROVED") return null;
+  const recovery = typeof DominionRecoveryCommand === "undefined"
+    ? null
+    : DominionRecoveryCommand.calendarOverride(recoveryCommand, recoveryCommandContext(date));
+  if (recovery) return recovery;
   const response = readAtlasDailyCommandResponse(date);
   if (response?.status === "ACTIVE" && response.date === date) return response.calendarOverride;
   const horizon = activeAtlasAdaptiveHorizon(date);
@@ -14900,11 +14977,16 @@ function renderAtlasLiveAdaptation() {
   setText("atlas-live-adaptation-impact", proposal.impact);
   const approved = proposal.status === "APPROVED";
   const needsContext = proposal.status === "NEEDS_CONTEXT";
-  actions.innerHTML = approved
-    ? `<button type="button" class="ghost" data-live-adaptation-action="RESTORE">Restore original mission</button>`
-    : needsContext
-      ? `<button type="button" class="ghost" data-live-adaptation-action="REOPEN_CONTEXT">Update context</button><button type="button" data-live-adaptation-action="ACCEPT">Accept adjustment</button>`
-      : `<button type="button" data-live-adaptation-action="ACCEPT">Accept for today</button>${proposal.safetyOverride ? `<button type="button" class="ghost" data-live-adaptation-action="ROLL_CALL">Review Roll Call</button>` : `<button type="button" class="ghost" data-live-adaptation-action="HOLD">Hold current mission</button>`}<button type="button" class="ghost" data-live-adaptation-action="NOT_FIT">This doesn\'t fit</button>`;
+  const controls = typeof DominionFinalBetaStabilization === "undefined"
+    ? []
+    : DominionFinalBetaStabilization.adaptationControls(proposal);
+  actions.innerHTML = controls.length
+    ? controls.map((control) => `<button type="button" class="${control.primary ? "" : "ghost"}" data-live-adaptation-action="${escapeHtml(control.code)}">${escapeHtml(control.label)}</button>`).join("")
+    : approved
+      ? `<button type="button" class="ghost" data-live-adaptation-action="RESTORE">Restore current mission</button>`
+      : needsContext
+        ? `<button type="button" class="ghost" data-live-adaptation-action="REOPEN_CONTEXT">Update context</button><button type="button" data-live-adaptation-action="ACCEPT">Accept recovery</button>`
+        : `<button type="button" data-live-adaptation-action="ACCEPT">Accept recovery</button><button type="button" class="ghost" data-live-adaptation-action="HOLD">Hold current mission</button><button type="button" class="ghost" data-live-adaptation-action="NOT_FIT">This doesn\'t fit</button>`;
   if (needsContext) {
     setText("atlas-live-adaptation-feedback-text", "Your context is recorded. The approved mission remains unchanged until you accept a bounded adjustment.");
   }
@@ -15255,7 +15337,7 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     queue,
     response: readAtlasDailyCommandResponse(context.date),
     readinessComplete: dailyState?.date === context.date,
-    continuityCurrent: !currentContinuityConflicts().length && readContinuityRetryQueue().length === 0,
+    continuityCurrent: !currentContinuityConflicts().length && canonicalPendingWriteState().count === 0,
     ...context
   });
   const blocker = buildCurrentUnifiedBlocker();
@@ -15275,7 +15357,8 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     ? adapted
     : DominionAtlasAdaptiveHorizon.applyToCommand(adapted, horizon, adaptiveHorizonContext(context.date));
   const recovery = buildCurrentRecoveryCommand(context.date);
-  const recoveryAdapted = typeof DominionRecoveryCommand === "undefined"
+  const proposalBlocksRecovery = proposal && ["PROPOSED", "HELD", "NEEDS_CONTEXT"].includes(proposal.status);
+  const recoveryAdapted = typeof DominionRecoveryCommand === "undefined" || proposalBlocksRecovery
     ? horizonAdapted
     : DominionRecoveryCommand.applyToCommand(horizonAdapted, recovery, recoveryCommandContext(context.date));
   if (typeof DominionDailyDecisionIntegrity === "undefined" && typeof DominionDailyDecision === "undefined") return recoveryAdapted;
@@ -15333,10 +15416,26 @@ function dailyDecisionModuleState(domain = "training") {
   const base = !decisionEngine
     ? { status: "LOADING", executable: false, progressionAllowed: false, detail: "Checking today's order." }
     : decisionEngine.moduleState(currentDailyDecision, domain);
+  const liveProposal = typeof DominionAtlasLiveAdaptation === "undefined"
+    ? null
+    : currentAtlasDailyCommand?.liveAdaptation || readAtlasLiveAdaptation(todayISODate());
+  if (liveProposal?.status === "APPROVED" && liveProposal.choiceId === "RECOVERY_ONLY") {
+    const key = String(domain || "").toLowerCase();
+    if (["training", "strength", "running", "core"].includes(key)) {
+      return {
+        status: "ADAPTED · NOT REQUIRED",
+        executable: false,
+        progressionAllowed: false,
+        detail: "Recovery was accepted for today. The replaced assignment is preserved as adapted, not missed."
+      };
+    }
+    if (key === "recovery") return { status: "AVAILABLE", executable: true, progressionAllowed: true, detail: "Complete the accepted recovery evidence." };
+  }
   const canonical = currentCanonicalDailyCommand || buildCurrentCanonicalDailyCommand(todayISODate());
   if (canonical?.blocked && typeof DominionCanonicalDailyCommand !== "undefined") {
     return DominionCanonicalDailyCommand.moduleState(canonical, domain, base);
   }
+  if (["PROPOSED", "HELD", "NEEDS_CONTEXT"].includes(liveProposal?.status)) return base;
   return typeof DominionRecoveryCommand === "undefined"
     ? base
     : DominionRecoveryCommand.moduleState(buildCurrentRecoveryCommand(), domain, base);
@@ -15864,6 +15963,28 @@ function buildTodayRecoveryOrder() {
     };
   }
   const recoveryCommand = buildCurrentRecoveryCommand(date);
+  const liveProposal = typeof DominionAtlasLiveAdaptation === "undefined"
+    ? null
+    : currentAtlasDailyCommand?.liveAdaptation || readAtlasLiveAdaptation(date);
+  if (["AMBER", "RED"].includes(recoveryCommand?.posture) && liveProposal?.status !== "APPROVED") {
+    return {
+      state: "PROPOSED",
+      posture: recoveryCommand.posture,
+      tone: "yellow",
+      title: "Recovery is proposed",
+      detail: "The current mission remains active until you accept the recommendation.",
+      difference: recoveryCommand.difference,
+      actions: [recoveryCommand.order],
+      signals: recoveryCommand.signals || [],
+      priority: "DECISION",
+      confidence: "CURRENT EVIDENCE",
+      progression: "UNCHANGED",
+      completed: false,
+      primaryAction: "review-proposal",
+      primaryLabel: "Review recommendation",
+      safeguard: "A recommendation does not change the mission, Calendar, Fuel, or evidence requirements until accepted."
+    };
+  }
   if (currentDailyDecision?.recoveryDay === true) {
     const commandComplete = recoveryCommand?.status === "COMPLETE" || completed;
     const currentTask = missionOrder && typeof DominionMissionRecovery !== "undefined" ? DominionMissionRecovery.nextTask(missionOrder) : null;
@@ -18175,7 +18296,6 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
   renderProgramRecovery();
   renderRecruitConstraintMemory();
   renderDominionCampaign();
-  if (!dominionCampaignState.reconciling) scheduleDominionCampaignReconciliation();
 }
 
 function renderProgramChangeImpact(form) {
@@ -20860,7 +20980,7 @@ function renderConnectedDominion() {
   const accountSync = typeof DominionReleaseStabilization !== "undefined"
     ? DominionReleaseStabilization.syncSummary({
         online: typeof navigator === "undefined" ? true : navigator.onLine,
-        pending: Number(continuityState.pendingWrites || 0),
+        pending: canonicalPendingWriteState().count,
         conflicts: continuityState.conflicts?.length || 0,
         lastSavedAt: continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleString() : null
       })
@@ -21483,7 +21603,8 @@ async function init() {
     }
     setStatus("");
   } catch (error) {
-    setStatus(error.message);
+    console.info("[startup:account-fallback] Account connection unavailable; local state remains protected.", { code: error?.code || "ACCOUNT_UNAVAILABLE" });
+    setStatus("Account connection is temporarily unavailable. Your saved work remains protected.");
   } finally {
     setLoading(false);
     renderDominionExperienceShell();
@@ -21585,14 +21706,13 @@ if (typeof document !== "undefined") {
   window.addEventListener("online", async () => {
     renderMobileCommand();
     const synced = await flushMobilePendingWrites();
-    await flushContinuityPendingWrites();
-    if (readAccountTruthQueue().length) await drainAccountPersistence({ reason: "online", force: true });
+    if (canonicalPendingWriteState().count) await drainAccountPersistence({ reason: "online", force: true });
     else await syncDominionAccountTruth({ force: true, reason: "online" });
     await runTrustLayer({ repair: true, startupIssues: [] });
     setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
   });
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && navigator.onLine !== false && readAccountTruthQueue().length) {
+    if (document.visibilityState === "visible" && navigator.onLine !== false && canonicalPendingWriteState().count) {
       void drainAccountPersistence({ reason: "visible", force: true });
     }
   });
@@ -21817,6 +21937,14 @@ if (typeof document !== "undefined") {
     if (await handlePlanCommandAction(event)) return;
     await handleBodyOutcomeAction(event);
   });
+  document.querySelector("#today-body-capture > summary")?.addEventListener("click", (event) => {
+    if (window.innerWidth > 760) return;
+    event.preventDefault();
+    setTrendView("body");
+    setActiveSection("trends");
+    window.history.replaceState(null, "", "#trends");
+    document.getElementById("trends")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   document.getElementById("today-body-capture")?.addEventListener("toggle", (event) => {
     if (event.isTrusted) event.currentTarget.dataset.userToggled = "true";
   });
@@ -21840,6 +21968,7 @@ if (typeof document !== "undefined") {
     const action = button.dataset.liveAdaptationAction;
     if (action === "NOT_FIT" || action === "REOPEN_CONTEXT") {
       const proposal = buildCurrentAtlasLiveAdaptation();
+      if (action === "NOT_FIT") await resolveAtlasLiveAdaptation("NOT_FIT", { reason: "CONTEXT_REQUIRED" });
       openAtlasDailyCommandAdjustment({ reasonId: proposal?.safetyOverride ? "PAIN" : "FATIGUE", source: "LIVE_ADAPTATION" });
       return;
     }
@@ -22534,6 +22663,11 @@ if (typeof document !== "undefined") {
     const weekButton = event.target.closest("button[data-weekly-orchestrator-action]");
     if (weekButton && typeof DominionWeeklyOrchestrator !== "undefined") {
       const action = weekButton.dataset.weeklyOrchestratorAction;
+      if (action === "view-active" || action === "view-staged") {
+        document.body.dataset.calendarWeekView = action === "view-staged" ? "STAGED" : "ACTIVE";
+        renderWeeklyOrchestrator();
+        return;
+      }
       if (action === "amend-two-a-days") {
         const approved = readApprovedRecruitContract();
         if (!approved || typeof DominionRecruitContract === "undefined") return;
@@ -22558,15 +22692,20 @@ if (typeof document !== "undefined") {
         return;
       }
       if (["build", "rebuild"].includes(action)) {
-        const requested = document.getElementById("weekly-orchestrator-week-start")?.value || unifiedWeekTargetStart();
+        const activeWeek = readCommittedUnifiedWeek(todayISODate());
+        const requested = action === "build" && (document.body.dataset.calendarWeekView || "ACTIVE") === "ACTIVE" && activeWeek
+          ? DominionWeeklyOrchestrator.addDays(activeWeek.weekStart, 7)
+          : document.getElementById("weekly-orchestrator-week-start")?.value || unifiedWeekTargetStart();
         const weekStart = DominionWeeklyOrchestrator.weekStartIso(requested);
-        const active = readCommittedUnifiedWeek(todayISODate());
+        const active = activeWeek;
         if (active?.weekStart === weekStart && DominionWeeklyOrchestrator.weekState(active, todayISODate()) === "ACTIVE") {
           setText("weekly-orchestrator-feedback", `The active week is protected. Build the next week beginning ${DominionWeeklyOrchestrator.addDays(active.weekStart, 7)}.`);
           return;
         }
         const draft = await saveUnifiedWeekDraftForActivation(weekStart);
         if (!draft) return;
+        document.body.dataset.calendarWeekView = "STAGED";
+        renderWeeklyOrchestrator();
         setText("weekly-orchestrator-feedback", `${draft.message} Draft saved for review.`);
         setText("contract-activation-feedback", `${draft.message} Draft saved for review.`);
         return;
@@ -22983,6 +23122,10 @@ if (typeof document !== "undefined") {
     const action = button.dataset.todayRecoveryAction;
     if (action === "repair-program") {
       openDailyDecisionRepair();
+      return;
+    }
+    if (action === "review-proposal") {
+      document.getElementById("atlas-live-adaptation")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     if (action === "mission-complete") {
@@ -25748,7 +25891,6 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   renderStandardsSection();
   renderActivationGuide();
   renderDominionCampaign();
-  if (!dominionCampaignState.reconciling) scheduleDominionCampaignReconciliation();
 }
 
 function renderWeeklyInspection(aggregate, storageMode) {

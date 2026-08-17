@@ -93,7 +93,9 @@ let continuityState = {
 };
 const continuityRecordConflicts = new Map();
 let accountTruthSyncTimer = null;
+let accountTruthRetryTimer = null;
 let accountTruthSyncPromise = null;
+let accountTruthAuthSubscription = null;
 let accountTruthState = {
   mode: "CHECKING",
   initialized: false,
@@ -104,6 +106,9 @@ let accountTruthState = {
   accountSnapshot: null,
   pendingWrites: 0,
   lastVerifiedAt: null,
+  confirmedMutationId: null,
+  confirmedFingerprint: null,
+  serverConfirmed: false,
   lastError: null,
   legacyFallback: false,
   recovered: false
@@ -568,7 +573,15 @@ function saveAccountTruthLocalSnapshot(snapshot) {
 function readAccountTruthQueue() {
   try {
     const value = JSON.parse(window.localStorage.getItem(accountTruthQueueStorageKey()) || "[]");
-    return Array.isArray(value) ? value.slice(-1) : [];
+    const queue = Array.isArray(value) ? value.slice(-1) : [];
+    if (typeof DominionAccountPersistence === "undefined") return queue;
+    const fallbackManifest = continuityState.manifest || readContinuityManifestLocal() || buildCurrentContinuityManifest();
+    return queue.map((item) => DominionAccountPersistence.buildEnvelope(item, {
+      manifest: fallbackManifest,
+      userId: session?.user?.id || null,
+      deviceId: continuityDeviceId(),
+      expectedRevision: continuityState.accountRevision
+    })).filter(Boolean);
   } catch (_) {
     return [];
   }
@@ -583,14 +596,51 @@ function saveAccountTruthQueue(queue = []) {
   return next;
 }
 
-function queueAccountTruthWrite(snapshot, error = null) {
-  if (!snapshot || typeof DominionAccountTruth === "undefined") return [];
+function buildAccountTruthWriteEnvelope(manifest, snapshot, expectedRevision, options = {}) {
+  if (!manifest || !snapshot) return null;
+  if (typeof DominionAccountPersistence === "undefined") return {
+    manifest,
+    snapshot,
+    expectedRevision: Number(expectedRevision || 0),
+    clientUpdatedAt: options.clientUpdatedAt || new Date().toISOString()
+  };
+  return DominionAccountPersistence.buildEnvelope({
+    userId: session?.user?.id || null,
+    deviceId: continuityDeviceId(),
+    expectedRevision,
+    manifest,
+    snapshot,
+    mutationId: options.mutationId,
+    clientUpdatedAt: options.clientUpdatedAt || new Date().toISOString()
+  });
+}
+
+function scheduleAccountTruthQueueDrain() {
+  window.clearTimeout(accountTruthRetryTimer);
+  const queue = readAccountTruthQueue();
+  if (!queue.length || !session?.user?.id || navigator.onLine === false) return;
+  const delay = typeof DominionAccountPersistence === "undefined"
+    ? 1000
+    : DominionAccountPersistence.nextDelay(queue);
+  accountTruthRetryTimer = window.setTimeout(() => drainAccountPersistence({ reason: "retry_timer" }), Math.max(0, delay ?? 0));
+}
+
+function queueAccountTruthWrite(write, error = null) {
+  if (!write || typeof DominionAccountTruth === "undefined") return [];
+  const envelope = write.snapshot && write.manifest
+    ? buildAccountTruthWriteEnvelope(write.manifest, write.snapshot, write.expectedRevision, write)
+    : buildAccountTruthWriteEnvelope(continuityState.manifest || buildCurrentContinuityManifest(), write, continuityState.accountRevision);
+  if (!envelope) return [];
   const previous = readAccountTruthQueue();
-  const queue = DominionAccountTruth.queueLatest(previous, snapshot, error, { failedAttempt: Boolean(error) });
+  const queue = typeof DominionAccountPersistence === "undefined"
+    ? DominionAccountTruth.queueLatest(previous, envelope.snapshot, error, { failedAttempt: Boolean(error) })
+    : DominionAccountPersistence.queueLatest(previous, envelope, error, { failedAttempt: Boolean(error) });
   accountTruthState.mode = navigator.onLine === false ? "OFFLINE_PROTECTED" : "SAVE_QUEUED";
+  accountTruthState.serverConfirmed = false;
   accountTruthState.lastError = error?.message || null;
   saveAccountTruthQueue(queue);
-  if (!previous.some((item) => item.id === queue[0]?.id) || error) void reportSyncLifecycle("save_queued", { domain: "account_truth", failed: Boolean(error) });
+  if (!previous.some((item) => (item.mutationId || item.id) === (queue[0]?.mutationId || queue[0]?.id)) || error) void reportSyncLifecycle("save_queued", { domain: "account_truth", failed: Boolean(error) });
+  scheduleAccountTruthQueueDrain();
   return queue;
 }
 
@@ -869,20 +919,97 @@ function accountTruthRevisionConflict(error = null) {
   return error?.code === "40001" || /REVISION_CONFLICT/i.test(error?.message || "");
 }
 
-async function saveAccountTruthLedger(manifest, snapshot, expectedRevision, integrityStatus = "VERIFIED") {
+function accountPersistenceMigrationMissing(error = null) {
+  return ["42703", "42883", "PGRST202", "PGRST204"].includes(error?.code)
+    || /last_mutation_id|last_mutation_fingerprint|sync_dominion_account_truth_v2/i.test(error?.message || "");
+}
+
+async function loadAccountTruthLedger() {
   const supabase = await getClient();
-  const { data, error } = await supabase.rpc("sync_dominion_account_truth", {
-    expected_revision: Number(expectedRevision || 0),
+  const baseColumns = "revision,schema_version,truth_schema_version,device_id,manifest,truth_snapshot,integrity_status,last_verified_at,client_updated_at,updated_at";
+  const receiptColumns = `${baseColumns},last_mutation_id,last_mutation_fingerprint,last_acknowledged_at`;
+  let result = await supabase.from("dominion_continuity_state")
+    .select(receiptColumns)
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+  if (result.error && accountPersistenceMigrationMissing(result.error)) {
+    result = await supabase.from("dominion_continuity_state")
+      .select(baseColumns)
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (!result.error && result.data) result.data.__legacyReceipt = true;
+  }
+  if (result.error) throw result.error;
+  return result.data || null;
+}
+
+async function saveAccountTruthLedger(envelope, integrityStatus = "VERIFIED") {
+  const supabase = await getClient();
+  const common = {
+    expected_revision: Number(envelope.expectedRevision || 0),
     next_schema_version: DominionContinuity.SCHEMA_VERSION,
     next_truth_schema_version: DominionAccountTruth.SCHEMA_VERSION,
-    next_device_id: continuityDeviceId(),
-    next_manifest: manifest,
-    next_truth_snapshot: snapshot,
+    next_device_id: envelope.deviceId || continuityDeviceId(),
+    next_manifest: envelope.manifest,
+    next_truth_snapshot: envelope.snapshot,
     next_integrity_status: integrityStatus,
-    next_client_updated_at: new Date().toISOString()
+    next_client_updated_at: envelope.clientUpdatedAt || new Date().toISOString()
+  };
+  let { data, error } = await supabase.rpc("sync_dominion_account_truth_v2", {
+    ...common,
+    next_mutation_id: envelope.mutationId,
+    next_mutation_fingerprint: envelope.mutationFingerprint
   });
+  if (error && accountPersistenceMigrationMissing(error)) {
+    ({ data, error } = await supabase.rpc("sync_dominion_account_truth", common));
+    if (!error) {
+      const legacy = Array.isArray(data) ? data[0] : data;
+      return legacy ? { ...legacy, __legacyReceipt: true } : legacy;
+    }
+  }
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
+}
+
+function accountTruthReceiptMatches(receipt, envelope, options = {}) {
+  if (!receipt || !envelope) return false;
+  if (typeof DominionAccountPersistence !== "undefined") {
+    return DominionAccountPersistence.receiptMatches(receipt, envelope, {
+      acceptExactState: options.acceptExactState === true || receipt.__legacyReceipt === true
+    });
+  }
+  return receipt?.manifest?.fingerprint === envelope?.manifest?.fingerprint
+    && receipt?.truth_snapshot?.fingerprint === envelope?.snapshot?.fingerprint;
+}
+
+function confirmAccountTruthReceipt(receipt, envelope, restored = 0) {
+  const snapshot = receipt?.truth_snapshot || envelope.snapshot;
+  saveAccountTruthLocalSnapshot(snapshot);
+  saveAccountTruthQueue([]);
+  window.clearTimeout(accountTruthRetryTimer);
+  continuityState.accountRevision = Number(receipt?.revision || envelope.expectedRevision + 1);
+  continuityState.accountManifest = receipt?.manifest || envelope.manifest;
+  continuityState.lastSyncedAt = receipt?.last_acknowledged_at || receipt?.last_verified_at || receipt?.updated_at || new Date().toISOString();
+  if (receipt?.manifest) saveContinuityManifestLocal(receipt.manifest);
+  accountTruthState = {
+    ...accountTruthState,
+    mode: restored ? "RECOVERED" : "VERIFIED",
+    initialized: true,
+    accountRevision: continuityState.accountRevision,
+    truthSchemaVersion: Number(receipt?.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION),
+    snapshot,
+    accountSnapshot: snapshot,
+    pendingWrites: 0,
+    lastVerifiedAt: receipt?.last_acknowledged_at || receipt?.last_verified_at || receipt?.updated_at || new Date().toISOString(),
+    confirmedMutationId: receipt?.last_mutation_id || envelope.mutationId || null,
+    confirmedFingerprint: receipt?.last_mutation_fingerprint || envelope.mutationFingerprint || null,
+    serverConfirmed: true,
+    lastError: null,
+    legacyFallback: receipt?.__legacyReceipt === true,
+    recovered: restored > 0
+  };
+  renderAccountTruthHealth();
+  return snapshot;
 }
 
 async function syncDominionAccountTruth(options = {}) {
@@ -892,22 +1019,18 @@ async function syncDominionAccountTruth(options = {}) {
     void reportSyncLifecycle("sync_started", { reason: options.reason || (options.force ? "forced" : "scheduled") });
     const localManifest = continuityState.manifest || buildCurrentContinuityManifest();
     const localSnapshot = buildCurrentAccountTruthSnapshot(localManifest);
+    let writeEnvelope = buildAccountTruthWriteEnvelope(localManifest, localSnapshot, continuityState.accountRevision);
     saveAccountTruthLocalSnapshot(localSnapshot);
     if (navigator.onLine === false) {
-      queueAccountTruthWrite(localSnapshot);
-      accountTruthState = { ...accountTruthState, mode: "OFFLINE_PROTECTED", initialized: true };
+      queueAccountTruthWrite(writeEnvelope);
+      accountTruthState = { ...accountTruthState, mode: "OFFLINE_PROTECTED", initialized: true, serverConfirmed: false };
       renderAccountTruthHealth();
       return false;
     }
     let lastError = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const supabase = await getClient();
-        const { data, error } = await supabase.from("dominion_continuity_state")
-          .select("revision,schema_version,truth_schema_version,device_id,manifest,truth_snapshot,integrity_status,last_verified_at,client_updated_at,updated_at")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-        if (error) throw error;
+        const data = await loadAccountTruthLedger();
         const accountRevision = Number(data?.revision || 0);
         const accountManifest = data?.manifest || null;
         const manifestReconciliation = accountManifest ? DominionContinuity.reconcileManifests(localManifest, accountManifest) : null;
@@ -937,55 +1060,28 @@ async function syncDominionAccountTruth(options = {}) {
         const restored = applyAccountTruthSnapshot(reconciliation.snapshot);
         const manifestMatches = Boolean(data?.manifest?.fingerprint && data.manifest.fingerprint === programManifest?.fingerprint);
         const truthMatches = Boolean(data?.truth_snapshot?.fingerprint && data.truth_snapshot.fingerprint === reconciliation.snapshot.fingerprint);
-        if (!options.force && data && manifestMatches && truthMatches) {
-          saveAccountTruthLocalSnapshot(data.truth_snapshot);
-          saveAccountTruthQueue([]);
-          continuityState.accountRevision = accountRevision;
-          continuityState.accountManifest = data.manifest;
-          continuityState.lastSyncedAt = data.last_verified_at || data.updated_at || new Date().toISOString();
-          saveContinuityManifestLocal(data.manifest);
-          accountTruthState = {
-            ...accountTruthState,
-            mode: restored ? "RECOVERED" : "VERIFIED",
-            initialized: true,
-            accountRevision,
-            truthSchemaVersion: Number(data.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION),
-            snapshot: data.truth_snapshot,
-            accountSnapshot: data.truth_snapshot,
-            pendingWrites: 0,
-            lastVerifiedAt: data.last_verified_at || data.updated_at || new Date().toISOString(),
-            lastError: null,
-            legacyFallback: false,
-            recovered: restored > 0
-          };
-          renderAccountTruthHealth();
+        const pendingEnvelope = readAccountTruthQueue()[0] || null;
+        if (data && manifestMatches && truthMatches) {
+          const readEnvelope = pendingEnvelope || buildAccountTruthWriteEnvelope(programManifest, reconciliation.snapshot, Math.max(0, accountRevision - 1), {
+            mutationId: data.last_mutation_id || undefined,
+            clientUpdatedAt: data.client_updated_at || data.updated_at
+          });
+          if (!accountTruthReceiptMatches(data, readEnvelope, { acceptExactState: true })) throw Object.assign(new Error("Account state matched but did not produce an exact server receipt."), { code: "SAVE_NOT_ACKNOWLEDGED" });
+          confirmAccountTruthReceipt(data, readEnvelope, restored);
           void reportSyncLifecycle("sync_completed", { changed: false, revision: accountRevision });
           if (restored) refreshContinuityConsumers();
           return true;
         }
-        const saved = await saveAccountTruthLedger(programManifest, reconciliation.snapshot, accountRevision, restored ? "RECOVERED" : "VERIFIED");
-        const savedSnapshot = saved?.truth_snapshot || reconciliation.snapshot;
-        saveAccountTruthLocalSnapshot(savedSnapshot);
-        saveAccountTruthQueue([]);
-        continuityState.accountRevision = Number(saved?.revision || accountRevision + 1);
-        continuityState.accountManifest = saved?.manifest || programManifest;
-        continuityState.lastSyncedAt = saved?.last_verified_at || saved?.updated_at || new Date().toISOString();
-        if (saved?.manifest) saveContinuityManifestLocal(saved.manifest);
-        accountTruthState = {
-          ...accountTruthState,
-          mode: restored ? "RECOVERED" : "VERIFIED",
-          initialized: true,
-          accountRevision: continuityState.accountRevision,
-          truthSchemaVersion: Number(saved?.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION),
-          snapshot: savedSnapshot,
-          accountSnapshot: savedSnapshot,
-          pendingWrites: 0,
-          lastVerifiedAt: saved?.last_verified_at || saved?.updated_at || new Date().toISOString(),
-          lastError: null,
-          legacyFallback: false,
-          recovered: restored > 0
-        };
-        renderAccountTruthHealth();
+        const identity = typeof DominionAccountPersistence !== "undefined"
+          && pendingEnvelope
+          && pendingEnvelope.manifestFingerprint === programManifest?.fingerprint
+          && pendingEnvelope.truthFingerprint === reconciliation.snapshot?.fingerprint
+          ? { mutationId: pendingEnvelope.mutationId, clientUpdatedAt: pendingEnvelope.clientUpdatedAt }
+          : {};
+        writeEnvelope = buildAccountTruthWriteEnvelope(programManifest, reconciliation.snapshot, accountRevision, identity);
+        const saved = await saveAccountTruthLedger(writeEnvelope, restored ? "RECOVERED" : "VERIFIED");
+        if (!accountTruthReceiptMatches(saved, writeEnvelope)) throw Object.assign(new Error("Account save was not acknowledged by the server."), { code: "SAVE_NOT_ACKNOWLEDGED" });
+        confirmAccountTruthReceipt(saved, writeEnvelope, restored);
         void reportSyncLifecycle("sync_completed", { changed: true, revision: continuityState.accountRevision });
         if (restored) refreshContinuityConsumers();
         return true;
@@ -1007,11 +1103,12 @@ async function syncDominionAccountTruth(options = {}) {
         lastError: lastError?.message || "Migration 028 is not active"
       };
     } else {
-      queueAccountTruthWrite(localSnapshot, lastError);
+      queueAccountTruthWrite(writeEnvelope || buildAccountTruthWriteEnvelope(localManifest, localSnapshot, continuityState.accountRevision), lastError);
       accountTruthState = {
         ...accountTruthState,
         mode: "SAVE_QUEUED",
         initialized: true,
+        serverConfirmed: false,
         legacyFallback: false,
         lastError: lastError?.message || "Account truth sync unavailable"
       };
@@ -1035,13 +1132,39 @@ function scheduleAccountTruthSync(delay = 900) {
 
 async function flushAccountTruthPendingWrite(options = {}) {
   const queue = readAccountTruthQueue();
-  if (!queue.length) return options.force ? syncDominionAccountTruth({ force: true }) : true;
+  if (!queue.length) return true;
   if (navigator.onLine === false || !session?.user?.id) return false;
-  if (!options.force && !DominionAccountTruth.readyQueuedWrite(queue)) return false;
+  const ready = typeof DominionAccountPersistence === "undefined"
+    ? DominionAccountTruth.readyQueuedWrite(queue)
+    : DominionAccountPersistence.ready(queue);
+  if (!options.force && !ready) {
+    scheduleAccountTruthQueueDrain();
+    return false;
+  }
   const item = queue[0];
   const saved = await syncDominionAccountTruth({ force: true, reason: "queued_retry" });
   void reportSyncLifecycle(saved ? "retry_succeeded" : "retry_failed", { domain: "account_truth", attempts: item?.attempts || 0 });
+  if (!saved) scheduleAccountTruthQueueDrain();
   return saved;
+}
+
+async function drainAccountPersistence(options = {}) {
+  if (!readAccountTruthQueue().length) return true;
+  const saved = await flushAccountTruthPendingWrite({ force: options.force === true });
+  if (!saved) scheduleAccountTruthQueueDrain();
+  return saved;
+}
+
+function installAccountPersistenceRecovery(supabase) {
+  if (accountTruthAuthSubscription || !supabase?.auth?.onAuthStateChange) return;
+  const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    if (typeof DominionAccountPersistence !== "undefined"
+      && !DominionAccountPersistence.shouldDrainForAuthEvent(event, nextSession)) return;
+    if (!nextSession?.user?.id) return;
+    session = nextSession;
+    window.setTimeout(() => drainAccountPersistence({ reason: `auth_${String(event || "session").toLowerCase()}`, force: true }), 0);
+  });
+  accountTruthAuthSubscription = data?.subscription || null;
 }
 
 function readEvidenceAutopilotHistory() {
@@ -12521,7 +12644,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=028e", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028f", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=029a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029b", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: serviceWorker.register("/sw.js?v=029b", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029c", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -21221,6 +21345,7 @@ async function init() {
       return;
     }
     session = data.session;
+    installAccountPersistenceRecovery(supabase);
     if (typeof DominionAccountEntry !== "undefined") {
       const access = DominionAccountEntry.accountAccess(session.user);
       document.body.dataset.accountAccess = access.status;
@@ -21411,10 +21536,15 @@ if (typeof document !== "undefined") {
     renderMobileCommand();
     const synced = await flushMobilePendingWrites();
     await flushContinuityPendingWrites();
-    await syncDominionContinuity();
-    await flushAccountTruthPendingWrite({ force: true });
+    if (readAccountTruthQueue().length) await drainAccountPersistence({ reason: "online", force: true });
+    else await syncDominionAccountTruth({ force: true, reason: "online" });
     await runTrustLayer({ repair: true, startupIssues: [] });
     setText("mobile-command-feedback", synced ? "Saved changes are synced." : "Connection restored. Sync is still retrying.");
+  });
+  window.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && navigator.onLine !== false && readAccountTruthQueue().length) {
+      void drainAccountPersistence({ reason: "visible", force: true });
+    }
   });
   window.addEventListener("offline", () => {
     renderMobileCommand();

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Account Persistence Receipts
+
+- Automatically drains protected account saves after sign-in, token refresh, connectivity recovery, and a visible-tab return.
+- Gives every account write a stable mutation ID so a retry cannot duplicate an already accepted save.
+- Preserves revision checks so an older device cannot overwrite a newer account revision.
+- Clears the pending state only after the server returns the same program and account-truth fingerprints.
+- Keeps Account Saved, Verifying, Sync Pending, Offline Protected, and Retry Required as distinct states.
+
 ## Unreleased - Canonical Daily Command
 
 - Establishes one committed program-week-day authority for Today, Train, Fuel, Recovery, Program, Calendar, Quick Log, and Closeout.

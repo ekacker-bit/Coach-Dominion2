@@ -49,6 +49,12 @@ test("protects offline and queued work without inventing a failure", () => {
   assert.equal(queued.checks.evidence, "SYNC PENDING");
 });
 
+test("does not call account state verified before a server receipt", () => {
+  const report = Trust.evaluate(healthy({ accountHealth: { initialized: true, status: "VERIFYING" } }));
+  assert.equal(report.status, "CHECKING");
+  assert.equal(report.headline, "Verifying your account");
+});
+
 test("repairs safe account and Today drift automatically", () => {
   const fingerprint = Trust.evaluate(healthy({ accountProgramFingerprint: "program-2" }));
   assert.equal(fingerprint.status, "REPAIRING");

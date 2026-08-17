@@ -31,6 +31,8 @@ const transformationLedger = read("assets/js/transformation-ledger.js");
 const releaseStabilization = read("assets/js/release-stabilization.js");
 const accountEntry = read("assets/js/account-entry.js");
 const canonicalDailyCommand = read("assets/js/canonical-daily-command.js");
+const accountPersistence = read("assets/js/account-persistence.js");
+const accountPersistenceMigration = read("supabase/migrations/20260817113359_account_persistence_receipts.sql");
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
@@ -129,7 +131,7 @@ check("stylesheet version", html.includes('/assets/styles.css?v=025c3-025i-025j'
 check("application version", html.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "app.html is not using the 025J application");
 check("strength logger version", html.includes('/assets/js/strength-training.js?v=025g-025i-025j'), "app.html is not using the 025J Strength engine");
 check("operating truth version", html.includes('/assets/js/operating-truth.js?v=025h') && read("assets/js/operating-truth.js").includes('const VERSION = "025H.1"'), "025H operating truth is stale");
-check("cache version", worker.includes('coach-dominion-029a-account-entry-closeout'), "service-worker cache namespace is stale");
+check("cache version", worker.includes('coach-dominion-029c-account-persistence'), "service-worker cache namespace is stale");
 check("cached stylesheet", worker.includes('/assets/styles.css?v=025c3-025i-025j'), "service worker is caching the wrong stylesheet");
 check("cached application", worker.includes('/assets/js/app.js?v=025c7-025h-025i-025j'), "service worker is caching the wrong application");
 check("cached operating truth", worker.includes('/assets/js/operating-truth.js?v=025h'), "service worker is caching the wrong operating truth engine");
@@ -296,7 +298,7 @@ check("027F responsive and offline", html.includes('/assets/js/daily-decision-in
 const visibleHtml = `${html}\n${index}`.replace(/<!--[\s\S]*?-->/g, "");
 check("027F product word diet", !/>\s*(?:BUILD|RELEASE)\s+0?\d{2,3}[A-Z]?/i.test(visibleHtml) && !/<(?:span|div)[^>]*>\s*(?:BUILD|RELEASE)\s+0?\d{2,3}[A-Z]?/i.test(app) && experienceShell.includes('return cleaned || "STATUS"'), "release numbers or repetitive brand prefixes can still reach product copy");
 check("release stabilization engine", releaseStabilization.includes('const VERSION = "028F.1"') && releaseStabilization.includes("function percentValue") && releaseStabilization.includes("function enqueue") && releaseStabilization.includes("function lifecycle") && releaseStabilization.includes("function connectionState"), "release stabilization authority is incomplete");
-check("idempotent account save", app.includes('runStartupTask("account save"') && !app.includes('runStartupTask("account continuity"') && app.includes("manifestMatches && truthMatches") && app.includes('reportSyncLifecycle("sync_completed", { changed: false'), "startup still multiplies account writes or cannot suppress unchanged saves");
+check("idempotent account save", app.includes('runStartupTask("account save"') && !app.includes('runStartupTask("account continuity"') && app.includes("if (data && manifestMatches && truthMatches)") && app.includes('reportSyncLifecycle("sync_completed", { changed: false'), "startup still multiplies account writes or cannot suppress unchanged saves");
 check("recovery and Today order", app.includes("function stabilizeTodayCommandOrder") && app.includes('today.dataset.commandOrder = "029A"') && app.includes('priority: "RECOVER / PROTECT"') && app.includes('progression: "N/A — HELD"'), "Today or recovery-day semantics are incomplete");
 check("truthful connection and mobile state", app.includes('class="connected-account-health"') && app.includes("Last successful") && html.includes('class="continuity-sync-icon"') && css.includes("min-width: 44px !important; min-height: 44px !important"), "connection truth or mobile continuity state is incomplete");
 check("Data API grants", releaseStabilizationMigration.includes("grant select, insert, update, delete on table") && releaseStabilizationMigration.includes("public.performance_entries") && releaseStabilizationMigration.includes("public.dominion_continuity_state"), "authenticated Data API grants are incomplete");
@@ -308,6 +310,10 @@ check("canonical daily command", canonicalDailyCommand.includes('const VERSION =
 check("draft is not executable", canonicalDailyCommand.includes("draftSchedule") && canonicalDailyCommand.includes("executable: false") && app.includes("canonicalDailyCommand: currentCanonicalDailyCommand") && dailyDecisionIntegrity.includes("canonical?.blocked"), "a draft week can still leak into executable training");
 check("canonical cross-surface integration", app.includes("function buildCurrentCanonicalDailyCommand") && app.includes("DominionCanonicalDailyCommand.moduleState") && app.includes("schedulePending") && app.includes("Commit the coordinated week"), "Today, Train, Fuel, Recovery, Calendar, or Closeout can diverge from the committed day");
 check("canonical shell cache", html.includes('/assets/js/canonical-daily-command.js?v=029b') && worker.includes('/assets/js/canonical-daily-command.js?v=029b') && worker.includes("029a-029b") && app.includes('/sw.js?v=029b'), "029B assets are stale or uncached");
+check("account persistence receipts", accountPersistence.includes('const VERSION = "029C.1"') && accountPersistence.includes("function receiptMatches") && app.includes("sync_dominion_account_truth_v2") && app.includes("SAVE_NOT_ACKNOWLEDGED"), "029C account writes can still clear without an exact receipt");
+check("account persistence recovery", app.includes("installAccountPersistenceRecovery") && app.includes("scheduleAccountTruthQueueDrain") && app.includes('window.addEventListener("visibilitychange"'), "029C protected saves do not drain after auth or connectivity recovery");
+check("account persistence database", accountPersistenceMigration.includes("add column if not exists truth_snapshot") && accountPersistenceMigration.includes("last_mutation_id") && accountPersistenceMigration.includes("DOMINION_ACCOUNT_MUTATION_ID_REUSED") && accountPersistenceMigration.includes("DOMINION_CONTINUITY_REVISION_CONFLICT") && accountPersistenceMigration.includes("security invoker"), "029C database writes are not self-contained, idempotent, and revision safe");
+check("account persistence cache", html.includes('/assets/js/account-persistence.js?v=029c') && worker.includes('/assets/js/account-persistence.js?v=029c') && worker.includes("029b-029c") && app.includes('/sw.js?v=029c'), "029C assets are stale or uncached");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

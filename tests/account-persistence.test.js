@@ -94,3 +94,17 @@ test("auth recovery is bounded to sessions that can actually drain", () => {
   assert.equal(Persistence.shouldDrainForAuthEvent("TOKEN_REFRESHED", { user: { id: "user-1" } }), true);
   assert.equal(Persistence.shouldDrainForAuthEvent("SIGNED_OUT", null), false);
 });
+
+test("deterministic failures pause instead of retrying forever", () => {
+  const states = Persistence.PERSISTENCE_STATES;
+  assert.equal(Persistence.classifyFailure(null, { conflict: true }), states.CONFLICT_REQUIRES_CHOICE);
+  assert.equal(Persistence.classifyFailure({ status: 401 }, {}), states.AUTH_REQUIRED);
+  assert.equal(Persistence.classifyFailure({ status: 422 }, {}), states.VALIDATION_FAILURE);
+  assert.equal(Persistence.classifyFailure({ code: "NETWORK" }, {}), states.TRANSIENT_FAILURE);
+  assert.equal(Persistence.classifyFailure(null, { serverConfirmed: true, pendingWrites: 0 }), states.SYNCED);
+  assert.equal(Persistence.shouldRetry(states.TRANSIENT_FAILURE), true);
+  assert.equal(Persistence.shouldRetry(states.CONFLICT_REQUIRES_CHOICE), false);
+  const paused = Persistence.queueLatest([], envelope(), { code: "CONFLICT" }, { conflict: true, failedAttempt: true, now: "2026-08-17T12:00:00.000Z" });
+  assert.equal(paused[0].persistenceState, states.CONFLICT_REQUIRES_CHOICE);
+  assert.equal(Persistence.ready(paused, { now: "2026-08-18T12:00:00.000Z" }), null);
+});

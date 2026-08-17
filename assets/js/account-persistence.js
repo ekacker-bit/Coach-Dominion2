@@ -6,9 +6,28 @@
   "use strict";
 
   const VERSION = "029C.1";
-  const STABILIZATION_VERSION = "029G.1";
+  const STABILIZATION_VERSION = "029N.1";
   const SCHEMA_VERSION = 1;
   const AUTH_DRAIN_EVENTS = Object.freeze(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
+  const PERSISTENCE_STATES = Object.freeze({
+    TRANSIENT_FAILURE: "TRANSIENT_FAILURE",
+    AUTH_REQUIRED: "AUTH_REQUIRED",
+    CONFLICT_REQUIRES_CHOICE: "CONFLICT_REQUIRES_CHOICE",
+    VALIDATION_FAILURE: "VALIDATION_FAILURE",
+    SYNCED: "SYNCED"
+  });
+
+  function classifyFailure(error = null, context = {}) {
+    if (context.conflict === true || /conflict|same approved revision/i.test(String(error?.message || ""))) return PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE;
+    if (context.authenticated === false || ["401", "403", "PGRST301"].includes(String(error?.code || error?.status || ""))) return PERSISTENCE_STATES.AUTH_REQUIRED;
+    if (context.validation === true || ["400", "422", "23502", "23514"].includes(String(error?.code || error?.status || ""))) return PERSISTENCE_STATES.VALIDATION_FAILURE;
+    if (!error && context.serverConfirmed === true && Number(context.pendingWrites || 0) === 0) return PERSISTENCE_STATES.SYNCED;
+    return PERSISTENCE_STATES.TRANSIENT_FAILURE;
+  }
+
+  function shouldRetry(state) {
+    return state === PERSISTENCE_STATES.TRANSIENT_FAILURE;
+  }
 
   function stableSerialize(value) {
     if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -67,6 +86,7 @@
       attempts: Math.max(0, Number(input.attempts || 0)),
       nextAttemptAt: input.nextAttemptAt || now,
       errorCode: input.errorCode || null,
+      persistenceState: input.persistenceState || null,
       supersedesMutationId: input.supersedesMutationId || null
     };
   }
@@ -87,6 +107,9 @@
     const failedAttempt = options.failedAttempt === true || Boolean(error);
     const attempts = same ? Number(current.attempts || 0) + Number(failedAttempt) : Number(failedAttempt);
     const now = options.now || new Date().toISOString();
+    const persistenceState = failedAttempt
+      ? classifyFailure(error, options)
+      : incoming.persistenceState || PERSISTENCE_STATES.TRANSIENT_FAILURE;
     return [{
       ...incoming,
       queuedAt: same ? current.queuedAt : now,
@@ -94,6 +117,7 @@
       attempts,
       nextAttemptAt: failedAttempt ? new Date(Date.parse(now) + retryDelay(Math.max(1, attempts), options)).toISOString() : now,
       errorCode: error?.code || incoming.errorCode || null,
+      persistenceState,
       supersedesMutationId: same ? current.supersedesMutationId : current?.mutationId || incoming.supersedesMutationId || null
     }];
   }
@@ -101,12 +125,14 @@
   function ready(queue = [], options = {}) {
     const item = (Array.isArray(queue) ? queue : [])[0] || null;
     if (!item) return null;
+    if (item.persistenceState && !shouldRetry(item.persistenceState)) return null;
     return Date.parse(item.nextAttemptAt || item.queuedAt || 0) <= Date.parse(options.now || new Date().toISOString()) ? item : null;
   }
 
   function nextDelay(queue = [], options = {}) {
     const item = (Array.isArray(queue) ? queue : [])[0] || null;
     if (!item) return null;
+    if (item.persistenceState && !shouldRetry(item.persistenceState)) return null;
     return Math.max(0, Date.parse(item.nextAttemptAt || item.queuedAt || 0) - Date.parse(options.now || new Date().toISOString()));
   }
 
@@ -126,6 +152,9 @@
 
   function status(input = {}) {
     const pending = Number(input.pendingWrites || 0);
+    if (input.persistenceState === PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE) return { state: PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE, confirmed: false, label: "CHOICE NEEDED", detail: "Automatic retries are paused until you choose the saved Contract." };
+    if (input.persistenceState === PERSISTENCE_STATES.AUTH_REQUIRED) return { state: PERSISTENCE_STATES.AUTH_REQUIRED, confirmed: false, label: "SIGN IN", detail: "Sign in to resume protected account saves." };
+    if (input.persistenceState === PERSISTENCE_STATES.VALIDATION_FAILURE) return { state: PERSISTENCE_STATES.VALIDATION_FAILURE, confirmed: false, label: "REVIEW NEEDED", detail: "This save needs correction before it can continue." };
     if (input.online === false) return { state: "OFFLINE_PROTECTED", confirmed: false, label: "SAVED HERE", detail: "Account sync resumes automatically." };
     if (pending) return { state: "SAVE_QUEUED", confirmed: false, label: "SYNC PENDING", detail: `${pending} protected save${pending === 1 ? "" : "s"} waiting.` };
     if (input.lastError) return { state: "RETRY_REQUIRED", confirmed: false, label: "RETRY NEEDED", detail: "The last account save was not confirmed." };
@@ -150,7 +179,7 @@
       count: entries.length,
       entries,
       state: entries.length ? "SYNC_PENDING" : "CURRENT",
-      label: entries.length ? `Sync · ${entries.length}` : "Synced"
+      label: entries.length ? `Sync ${entries.length}` : "Synced"
     };
   }
 
@@ -169,6 +198,7 @@
     STABILIZATION_VERSION,
     SCHEMA_VERSION,
     AUTH_DRAIN_EVENTS: [...AUTH_DRAIN_EVENTS],
+    PERSISTENCE_STATES: { ...PERSISTENCE_STATES },
     stableSerialize,
     fingerprint,
     recordFingerprint,
@@ -180,6 +210,8 @@
     nextDelay,
     receiptMatches,
     status,
+    classifyFailure,
+    shouldRetry,
     shouldDrainForAuthEvent,
     canonicalPendingEntries,
     pendingState,

@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "026I.1";
+  const VERSION = "029N.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -16,7 +16,8 @@
     horizons: 120,
     outcomes: 120,
     decisions: 120,
-    constraints: 120
+    constraints: 120,
+    reconciliationReceipts: 120
   });
   const VOLATILE_KEYS = new Set([
     "capturedAt", "captured_at", "savedAt", "saved_at", "syncedAt", "synced_at",
@@ -157,7 +158,8 @@
     if (domain === "evidence") return {
       performance: mergeCollection(value.performance || [], [], COLLECTION_LIMITS.performance),
       closeouts: mergeCollection(value.closeouts || [], [], COLLECTION_LIMITS.closeouts),
-      missionReceipts: mergeCollection(value.missionReceipts || [], [], COLLECTION_LIMITS.missionReceipts)
+      missionReceipts: mergeCollection(value.missionReceipts || [], [], COLLECTION_LIMITS.missionReceipts),
+      reconciliationReceipts: mergeCollection(value.reconciliationReceipts || [], [], COLLECTION_LIMITS.reconciliationReceipts)
     };
     if (domain === "coaching") return {
       horizons: mergeCollection(value.horizons || [], [], COLLECTION_LIMITS.horizons),
@@ -219,7 +221,8 @@
     if (domain === "evidence") return {
       performance: mergeCollection(device.performance, account.performance, COLLECTION_LIMITS.performance),
       closeouts: mergeCollection(device.closeouts, account.closeouts, COLLECTION_LIMITS.closeouts),
-      missionReceipts: mergeCollection(device.missionReceipts, account.missionReceipts, COLLECTION_LIMITS.missionReceipts)
+      missionReceipts: mergeCollection(device.missionReceipts, account.missionReceipts, COLLECTION_LIMITS.missionReceipts),
+      reconciliationReceipts: mergeCollection(device.reconciliationReceipts, account.reconciliationReceipts, COLLECTION_LIMITS.reconciliationReceipts)
     };
     if (domain === "coaching") return {
       horizons: mergeCollection(device.horizons, account.horizons, COLLECTION_LIMITS.horizons),

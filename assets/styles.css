@@ -4985,6 +4985,36 @@ textarea { max-width: 100%; }
 .continuity-conflict-list article small { color: var(--dim); font-size: 9px; }
 .continuity-conflict-list article > div:last-child { display: flex; flex-wrap: wrap; gap: 7px; }
 .continuity-conflict-list button { padding: 8px 10px; font-size: 9px; }
+.continuity-conflict-list .continuity-conflict-card {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 14px;
+  padding: 16px;
+}
+.continuity-conflict-card > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.continuity-conflict-card > header > div { display: grid; gap: 5px; }
+.continuity-conflict-card > button { justify-self: start; }
+.continuity-candidates { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; }
+.continuity-candidates section { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); background: #101214; }
+.continuity-candidates section > span { color: var(--victory-gold); font-size: 10px; }
+.continuity-candidates section > strong { font-family: var(--font-command); font-size: 17px; letter-spacing: .06em; }
+.continuity-candidates section > small { line-height: 1.55; }
+.continuity-diff-table { display: grid !important; gap: 1px !important; overflow: hidden; border: 1px solid var(--line); background: var(--line); }
+.continuity-diff-table > div { display: grid !important; grid-template-columns: minmax(120px, .8fr) repeat(2, minmax(0, 1fr)); gap: 1px !important; }
+.continuity-diff-table > div > * { min-width: 0; padding: 9px 10px; overflow-wrap: anywhere; background: #0d1012; }
+.continuity-diff-table .continuity-diff-head > span { color: var(--dim); font-size: 9px; }
+.continuity-diff-table strong { color: var(--stone); font-size: 10px; }
+.continuity-impact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--line); }
+.continuity-impact > div { padding: 10px; background: #101214; }
+.continuity-impact dt { color: var(--victory-gold); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.continuity-impact dd { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.continuity-choice-consequences { display: grid !important; gap: 6px !important; padding: 12px; border-left: 3px solid var(--victory-gold); background: rgba(212, 175, 55, .06); }
+.continuity-record-actions { display: flex !important; flex-wrap: wrap; gap: 8px !important; }
+.fuel-contract-provisional { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding: 18px; border: 1px solid rgba(212, 175, 55, .62); background: linear-gradient(135deg, rgba(212, 175, 55, .13), rgba(170, 47, 47, .1)); }
+.fuel-contract-provisional span { display: block; color: var(--victory-gold); font: 700 .76rem/1.2 var(--font-command); letter-spacing: .12em; }
+.fuel-contract-provisional strong,
+.fuel-contract-provisional p { display: block; margin-top: 6px; }
+.fuel-contract-provisional p { margin-bottom: 0; color: var(--muted); }
 .continuity-pending-panel { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 17px; border: 1px solid rgba(212, 175, 55, 0.48); background: rgba(212, 175, 55, 0.07); }
 .continuity-pending-panel[hidden] { display: none; }
 .continuity-pending-panel > div { display: grid; gap: 5px; }
@@ -5012,6 +5042,12 @@ textarea { max-width: 100%; }
 .account-truth-health dt { color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .account-truth-health dd { margin: 4px 0 0; overflow: hidden; color: var(--stone); font: 13px/1.15 var(--font-command); letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
 .continuity-repair-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.global-contract-blocker { position: sticky; z-index: 85; top: 104px; display: flex; align-items: center; justify-content: space-between; gap: 18px; width: min(1180px, calc(100% - 32px)); margin: 12px auto 20px; padding: 12px 14px 12px 17px; border: 1px solid rgba(185, 68, 68, .72); border-left: 4px solid #b94444; background: rgba(21, 10, 11, .96); box-shadow: 0 12px 30px rgba(0, 0, 0, .34); }
+.global-contract-blocker[hidden] { display: none; }
+.global-contract-blocker > div { display: grid; gap: 3px; }
+.global-contract-blocker strong { font-family: var(--font-command); font-size: 19px; font-weight: 500; letter-spacing: .04em; }
+.global-contract-blocker span { color: var(--muted); font-size: 10px; }
+.global-contract-blocker button { flex: 0 0 auto; }
 
 @media (max-width: 1080px) {
   .continuity-status { min-width: auto; }
@@ -5027,10 +5063,20 @@ textarea { max-width: 100%; }
   .account-truth-health > header { align-items: stretch; flex-direction: column; gap: 8px; }
   .continuity-conflict-list article { grid-template-columns: 1fr; }
   .continuity-conflict-list article > div:last-child { display: grid; grid-template-columns: 1fr; }
+  .continuity-conflict-card > header { flex-direction: column; }
+  .continuity-candidates, .continuity-impact { grid-template-columns: 1fr; }
+  .continuity-diff-table { overflow-x: auto; }
+  .continuity-diff-table > div { min-width: 560px; }
+  .continuity-record-actions { display: grid !important; grid-template-columns: 1fr; }
+  .continuity-record-actions button { width: 100%; }
+  .fuel-contract-provisional { align-items: stretch; flex-direction: column; }
+  .fuel-contract-provisional button { width: 100%; }
   .continuity-pending-panel { align-items: stretch; flex-direction: column; }
   .continuity-pending-panel button { width: 100%; }
   .continuity-repair-shell > footer { align-items: stretch; flex-direction: column; }
   .continuity-repair-shell > footer button { width: 100%; }
+  .global-contract-blocker { top: 92px; align-items: stretch; flex-direction: column; width: calc(100% - 20px); margin-top: 8px; }
+  .global-contract-blocker button { width: 100%; }
 }
 
 html {

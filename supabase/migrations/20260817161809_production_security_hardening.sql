@@ -76,8 +76,9 @@ create policy weekly_inspections_delete_own_rows
   on public.weekly_inspections for delete to authenticated
   using ((select auth.uid()) = user_id);
 
--- The table's UNIQUE (user_id, week_start_date) constraint already owns the
--- equivalent weekly_inspections_user_week_start_date_key index.
-drop index if exists public.weekly_inspections_user_week_unique;
+-- The weekly_inspections_user_week_unique constraint already owns an index
+-- for (user_id, week_start_date). Remove only the redundant standalone index;
+-- never drop the constraint-owned index itself.
+drop index if exists public.weekly_inspections_user_week_start_date_key;
 
 commit;

@@ -53,3 +53,17 @@ test("rejects unsupported methods and oversized payloads", () => {
   handler({ method: "POST", headers: { "content-length": "9000" }, body: {} }, largeRes);
   assert.equal(largeRes.statusCode, 413);
 });
+
+test("preserves allowlisted account-sync lifecycle events", () => {
+  const res = response();
+  const logs = [];
+  const original = console.info;
+  console.info = (value) => logs.push(value);
+  try {
+    handler({ method: "POST", headers: {}, body: { event: "retry_succeeded", status: "VERIFIED", route: "app" } }, res);
+  } finally {
+    console.info = original;
+  }
+  assert.equal(res.statusCode, 202);
+  assert.match(logs[0], /"event":"retry_succeeded"/);
+});

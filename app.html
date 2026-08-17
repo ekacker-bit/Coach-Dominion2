@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -33,7 +33,8 @@
         <h1 class="visually-hidden">Coach Dominion Command Center</h1>
         <div class="shell-account"><span id="shell-rank-badge">RECRUIT</span><p class="muted" id="identity">Verifying session…</p></div>
       </div>
-        <button id="continuity-status" class="continuity-status neutral" type="button" data-continuity-action="open" aria-haspopup="dialog">
+        <button id="continuity-status" class="continuity-status neutral" type="button" data-continuity-action="open" aria-haspopup="dialog" aria-label="Account sync status: checking">
+          <span class="continuity-sync-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7.2 18.5h9.7a4.1 4.1 0 0 0 .7-8.1A6.1 6.1 0 0 0 6 8.7a4.9 4.9 0 0 0 1.2 9.8Z"/><path d="m9 12-2 2 2 2M7 14h4.2M15 8l2-2 2 2M17 6h-4.2"/></svg></span>
           <span class="continuity-status-dot" aria-hidden="true"></span>
           <span><strong id="continuity-status-label">CHECKING</strong><small id="continuity-status-detail">Checking your saved program</small></span>
         </button>
@@ -116,6 +117,8 @@
             <div><dt>Calendar</dt><dd id="account-truth-calendar">CHECKING</dd></div>
             <div><dt>Today</dt><dd id="account-truth-today">CHECKING</dd></div>
             <div><dt>Evidence</dt><dd id="account-truth-evidence">CHECKING</dd></div>
+            <div><dt>Last account save</dt><dd id="account-truth-verified">NOT YET</dd></div>
+            <div><dt>Oldest queued save</dt><dd id="account-truth-queue-age">NONE</dd></div>
           </dl>
         </section>
         <aside id="continuity-conflict-panel" class="continuity-conflict-panel" hidden>
@@ -2461,7 +2464,8 @@
 <script src="/assets/js/atlas-daily-command.js?v=025o-028c"></script>
 <script src="/assets/js/atlas-coach.js?v=028c"></script>
 <script src="/assets/js/daily-decision.js?v=026e"></script>
-<script src="/assets/js/daily-decision-integrity.js?v=027f"></script>
+<script src="/assets/js/release-stabilization.js?v=028f"></script>
+<script src="/assets/js/daily-decision-integrity.js?v=027f-028f"></script>
 <script src="/assets/js/mission-execution-spine.js?v=026b"></script>
 <script src="/assets/js/atlas-live-adaptation.js?v=026c"></script>
 <script src="/assets/js/atlas-adaptive-horizon.js?v=026g"></script>
@@ -2480,6 +2484,6 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f"></script>
 </body>
 </html>

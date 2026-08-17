@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - Release Stabilization & Daily Command Repair
+
+- Replaces competing startup writers with one idempotent, account-scoped save and a bounded retry queue.
+- Keeps device fallback quiet and durable while distinguishing device saves, account saves, pending work, and explicit conflicts.
+- Reorders Today into one command-first path and makes recovery days read as recovery rather than failed training days.
+- Centralizes percentage formatting and program lifecycle language across Program, Calendar, Contract, Today, and the header.
+- Makes Connections report setup, freshness, pending work, conflicts, failures, and missing evidence truthfully.
+- Protects completed and past calendar work while revealing move controls only during focused editing.
+- Adds explicit Supabase Data API grants without weakening row-level security.
+
 ## Unreleased - Build 028E Transformation Ledger
 
 - Turns Trends into one start-to-now transformation story instead of a collection of analytics cards.

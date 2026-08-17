@@ -259,23 +259,28 @@
     return { state, snapshot, deviceWins, accountWins };
   }
 
-  function retryDelay(attempts = 1) {
-    return [0, 15000, 60000, 300000, 1800000][Math.min(Math.max(0, Number(attempts || 1) - 1), 4)];
+  function retryDelay(attempts = 1, options = {}) {
+    const base = Math.min(1800000, 1000 * (2 ** Math.max(0, Number(attempts || 1) - 1)));
+    const jitterRatio = options.jitterRatio ?? 0.2;
+    const random = options.random ?? Math.random();
+    return Math.max(0, Math.round(base + (base * jitterRatio * ((random * 2) - 1))));
   }
 
   function queueLatest(queue = [], snapshot, error = null, options = {}) {
     if (!snapshot) return [];
     const now = options.now || new Date().toISOString();
     const existing = (Array.isArray(queue) ? queue : []).find((item) => item?.fingerprint === snapshot.fingerprint);
-    const attempts = Number(existing?.attempts || 0) + 1;
+    const failedAttempt = options.failedAttempt === true || Boolean(error);
+    if (existing && !failedAttempt) return [existing];
+    const attempts = Number(existing?.attempts || 0) + Number(failedAttempt);
     return [{
       id: `truth:${snapshot.fingerprint}`,
       fingerprint: snapshot.fingerprint,
       snapshot,
       queuedAt: existing?.queuedAt || now,
-      lastAttemptAt: now,
+      lastAttemptAt: failedAttempt ? now : existing?.lastAttemptAt || null,
       attempts,
-      nextAttemptAt: new Date(parsedTime(now) + retryDelay(attempts)).toISOString(),
+      nextAttemptAt: failedAttempt ? new Date(parsedTime(now) + retryDelay(Math.max(1, attempts), options)).toISOString() : now,
       errorCode: error?.code || null
     }];
   }

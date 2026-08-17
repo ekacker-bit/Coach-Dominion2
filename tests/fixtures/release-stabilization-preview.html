@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Recovery Day Command Preview</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/styles.css?v=028f">
+  <style>
+    body { min-height: 100vh; background: #090b0b; }
+    .preview-header { position: sticky; z-index: 5; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 76px; padding: 10px clamp(18px, 4vw, 54px); border-bottom: 1px solid rgba(212,175,55,.35); background: rgba(8,10,10,.97); }
+    .preview-brand { display: flex; align-items: center; gap: 12px; }
+    .preview-brand img { width: 48px; height: 48px; }
+    .preview-brand span { display: grid; }
+    .preview-brand small { color: var(--victory-gold); font: 11px/1 var(--font-command); letter-spacing: .16em; }
+    .preview-brand strong { color: var(--stone); font: 27px/1 var(--font-command); letter-spacing: .05em; }
+    .preview-nav { display: flex; gap: 4px; }
+    .preview-nav span { padding: 11px 14px; color: var(--muted); font: 13px/1 var(--font-command); letter-spacing: .06em; }
+    .preview-nav .active { color: var(--victory-gold); border-bottom: 2px solid var(--victory-gold); }
+    .preview-shell { width: min(1120px, calc(100% - 36px)); margin: 0 auto; padding: 34px 0 120px; }
+    .preview-title { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 18px; }
+    .preview-title h1 { margin: 0; color: var(--stone); font: clamp(44px, 7vw, 72px)/.9 var(--font-command); letter-spacing: .03em; }
+    .preview-title p { margin: 8px 0 0; color: var(--muted); }
+    .recovery-command { overflow: hidden; border: 1px solid rgba(212,175,55,.5); background: linear-gradient(140deg, rgba(34,30,17,.9), rgba(10,15,12,.96) 62%); }
+    .recovery-command header { display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: clamp(22px, 4vw, 38px); border-bottom: 1px solid var(--line); }
+    .recovery-command h2 { margin: 8px 0 10px; color: var(--stone); font: clamp(38px, 6vw, 68px)/.93 var(--font-command); letter-spacing: .025em; }
+    .recovery-command p { max-width: 720px; margin: 0; color: var(--muted); line-height: 1.55; }
+    .recovery-command .state-pill { align-self: start; }
+    .recovery-reason { display: grid; grid-template-columns: 90px 1fr; gap: 18px; align-items: center; padding: 18px clamp(22px, 4vw, 38px); border-bottom: 1px solid var(--line); }
+    .recovery-reason span, .preview-label { color: var(--victory-gold); font: 12px/1 var(--font-command); letter-spacing: .14em; }
+    .recovery-reason strong { color: var(--stone); font-size: 18px; }
+    .recovery-action { display: flex; justify-content: space-between; gap: 18px; align-items: center; padding: 22px clamp(22px, 4vw, 38px); }
+    .recovery-action div { display: grid; gap: 6px; }
+    .recovery-action strong { color: var(--stone); font-size: 22px; }
+    .recovery-action small { color: var(--muted); }
+    .decision-strip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); margin-top: 14px; border: 1px solid var(--line); background: #0d1111; }
+    .decision-strip article { min-width: 0; padding: 17px 18px; border-right: 1px solid var(--line); }
+    .decision-strip article:last-child { border: 0; }
+    .decision-strip span { color: var(--dim); font: 10px/1 var(--font-command); letter-spacing: .11em; }
+    .decision-strip strong { display: block; margin-top: 9px; color: var(--stone); font: 21px/1 var(--font-command); letter-spacing: .04em; }
+    .execution-grid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; margin-top: 20px; }
+    .execution-grid button { display: grid; min-height: 92px; gap: 7px; align-content: center; justify-items: start; padding: 14px; border: 1px solid var(--line); background: #101515; color: var(--stone); text-align: left; }
+    .execution-grid button[disabled] { color: var(--dim); opacity: .6; }
+    .execution-grid small { color: var(--dim); font-size: 9px; letter-spacing: .08em; }
+    .execution-grid .next { border-color: rgba(212,175,55,.65); box-shadow: inset 0 -2px 0 var(--victory-gold); }
+    .day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+    .day-card { min-height: 210px; padding: 24px; border: 1px solid var(--line); background: linear-gradient(145deg,#111818,#0a0e0e); }
+    .day-card h3 { margin: 9px 0; color: var(--stone); font: 34px/1 var(--font-command); }
+    .day-card p { color: var(--muted); line-height: 1.5; }
+    .day-card footer { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 24px; }
+    .closeout-card { display: flex; justify-content: space-between; gap: 18px; align-items: center; margin-top: 14px; padding: 22px 24px; border: 1px solid var(--line); background: #0c1010; }
+    .closeout-card h3 { margin: 7px 0 0; color: var(--stone); font: 28px/1 var(--font-command); }
+    .preview-mobile-dock { display: none; }
+    @media (max-width: 720px) {
+      .preview-header { min-height: 66px; padding: 8px 14px; }
+      .preview-brand img { width: 42px; height: 42px; }
+      .preview-brand small, .preview-nav { display: none; }
+      .preview-brand strong { font-size: 22px; }
+      .preview-shell { width: min(100% - 24px, 1120px); padding-top: 24px; }
+      .preview-title { align-items: center; }
+      .preview-title h1 { font-size: 52px; }
+      .recovery-command header { grid-template-columns: 1fr; padding: 24px 20px; }
+      .recovery-command h2 { font-size: 43px; }
+      .recovery-reason { grid-template-columns: 1fr; gap: 8px; padding: 16px 20px; }
+      .recovery-action { display: grid; padding: 20px; }
+      .recovery-action button { min-height: 48px; width: 100%; }
+      .decision-strip { grid-template-columns: 1fr 1fr; }
+      .decision-strip article:nth-child(2) { border-right: 0; }
+      .decision-strip article:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .execution-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .execution-grid button { min-height: 84px; }
+      .day-grid { grid-template-columns: 1fr; }
+      .closeout-card { align-items: start; }
+      .preview-mobile-dock { position: fixed; z-index: 8; left: 10px; right: 10px; bottom: max(10px,env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5,1fr); min-height: 68px; border: 1px solid var(--line); border-radius: 16px; background: rgba(10,14,16,.98); }
+      .preview-mobile-dock span { display: grid; place-items: center; color: var(--muted); font: 11px/1 var(--font-command); }
+      .preview-mobile-dock .active { color: var(--stone); box-shadow: inset 0 -3px 0 var(--victory-gold); }
+    }
+  </style>
+</head>
+<body data-dominion-section="today">
+  <header class="preview-header">
+    <div class="preview-brand"><img src="/assets/icons/dominion-mark.svg" alt=""><span><small>THE STANDARD IS EARNED</small><strong>Coach Dominion</strong></span></div>
+    <nav class="preview-nav" aria-label="Primary preview"><span class="active">TODAY</span><span>TRAIN</span><span>CALENDAR</span><span>FUEL</span><span>REVIEW</span></nav>
+    <button class="continuity-status neutral" type="button" aria-label="Account sync status: current">
+      <span class="continuity-sync-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7.2 18.5h9.7a4.1 4.1 0 0 0 .7-8.1A6.1 6.1 0 0 0 6 8.7a4.9 4.9 0 0 0 1.2 9.8Z"/><path d="m9 12-2 2 2 2M7 14h4.2M15 8l2-2 2 2M17 6h-4.2"/></svg></span>
+      <span class="continuity-status-dot" aria-hidden="true"></span><span><strong>ACCOUNT SAVED</strong><small>Current</small></span>
+    </button>
+  </header>
+  <main class="preview-shell">
+    <header class="preview-title"><div><h1>Today</h1><p>One order. One action. Preserve the proof.</p></div><span class="state-pill neutral">RECOVERY</span></header>
+    <section class="recovery-command" aria-labelledby="recovery-preview-title">
+      <header><div><span class="preview-label">TODAY'S ORDER</span><h2 id="recovery-preview-title">Protect the recovery day</h2><p>No training is assigned. Complete the recovery action and preserve normal fueling.</p></div><span class="state-pill neutral">RECOVER</span></header>
+      <div class="recovery-reason"><span>WHY</span><strong>The approved calendar and today's readiness both call for recovery.</strong></div>
+      <div class="recovery-action"><div><span class="preview-label">DO THIS NOW</span><strong>Complete recovery action</strong><small>Log the action to unlock Daily Closeout.</small></div><button type="button">Open Recovery</button></div>
+    </section>
+    <section class="decision-strip" aria-label="Recovery-day decision facts">
+      <article><span>SCHEDULE</span><strong>Recovery day</strong></article>
+      <article><span>TRAINING</span><strong>REST · N/A</strong></article>
+      <article><span>READINESS</span><strong id="preview-confidence">—</strong></article>
+      <article><span>PROGRESSION</span><strong>N/A · HELD</strong></article>
+    </section>
+    <section class="execution-grid" aria-label="Today's applicable actions">
+      <button type="button" disabled><strong>Strength</strong><small>REST · N/A</small></button>
+      <button type="button" disabled><strong>Run</strong><small>REST · N/A</small></button>
+      <button type="button" disabled><strong>Core</strong><small>REST · N/A</small></button>
+      <button type="button"><strong>Fuel</strong><small>READY</small></button>
+      <button type="button" class="next"><strong>Recover</strong><small>OPEN</small></button>
+      <button type="button" disabled><strong>Close</strong><small>AFTER RECOVERY</small></button>
+    </section>
+    <section class="day-grid">
+      <article class="day-card"><span class="preview-label">RECOVERY</span><h3>Restore capacity</h3><p>Complete the assigned recovery protocol. Training volume does not count against today's evidence.</p><footer><span class="state-pill neutral">OPEN</span><button type="button">Log recovery</button></footer></article>
+      <article class="day-card"><span class="preview-label">FUEL</span><h3>Preserve the baseline</h3><p>Recovery-day calories and protein remain applicable. No compensation or restriction is authorized.</p><footer><span class="state-pill green">READY</span><button class="ghost" type="button">Log totals</button></footer></article>
+    </section>
+    <section class="closeout-card"><div><span class="preview-label">CLOSEOUT</span><h3>Unlocks after recovery evidence</h3></div><span class="state-pill neutral">WAITING</span></section>
+  </main>
+  <nav class="preview-mobile-dock" aria-label="Mobile command bar"><span class="active">Today</span><span>Train</span><span>Fuel</span><span>Review</span><span>More</span></nav>
+  <script src="/assets/js/release-stabilization.js?v=028f"></script>
+  <script>
+    document.getElementById("preview-confidence").textContent = DominionReleaseStabilization.formatPercent(0.8) + " confidence";
+  </script>
+</body>
+</html>

@@ -164,7 +164,11 @@
   }
 
   function telemetryPayload(event, report = {}, context = {}) {
-    const allowedEvents = new Set(["trust_check", "repair_started", "repair_completed", "repair_failed", "runtime_error"]);
+    const allowedEvents = new Set([
+      "trust_check", "repair_started", "repair_completed", "repair_failed", "runtime_error",
+      "sync_started", "sync_completed", "conflict_detected", "save_queued", "queue_retry",
+      "retry_succeeded", "retry_failed", "sync_failed", "startup_recovery"
+    ]);
     const safeEvent = allowedEvents.has(clean(event)) ? clean(event) : "trust_check";
     const requestedRoute = clean(context.route || "app").toLowerCase();
     return {

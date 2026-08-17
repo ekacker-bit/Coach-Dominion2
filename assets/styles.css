@@ -12576,3 +12576,76 @@ body[data-app-loading="true"] #daily-decision-support { min-height: 118px; }
   .transformation-ledger-signals article > strong { font-size: 25px; }
   .transformation-ledger-bookends article > div { grid-template-columns: auto 1fr auto auto 1fr; }
 }
+
+/* Release stabilization: one truthful command, durable save status, focused controls. */
+.continuity-sync-icon {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+}
+.continuity-sync-icon svg { width: 20px; height: 20px; overflow: visible; }
+.continuity-sync-icon path { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.continuity-status.yellow { border-color: rgba(201, 130, 37, .64); color: #d99a45; }
+.continuity-status.yellow .continuity-status-dot { background: #d99a45; box-shadow: 0 0 0 4px rgba(217, 154, 69, .12); }
+.continuity-status.neutral .continuity-sync-icon { color: var(--muted); }
+.continuity-status.red .continuity-sync-icon { color: var(--red); }
+
+body:not([data-dominion-section="today"]) .dominion-mission-rail {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  gap: 16px;
+  padding-block: 12px;
+}
+body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-journey,
+body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-truth-summary,
+body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-truth-alert { display: none !important; }
+body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-copy h2 { margin: 0; font-size: clamp(22px, 2.5vw, 34px); }
+body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-copy p { margin-block: 2px 0; }
+
+#today[data-command-order="028F"] > * { scroll-margin-top: 132px; }
+#today[data-command-order="028F"] #one-command { margin-bottom: 0; }
+#today[data-command-order="028F"] #mission-execution,
+#today[data-command-order="028F"] #morning-verification,
+#today[data-command-order="028F"] .lower-grid,
+#today[data-command-order="028F"] #frictionless-execution,
+#today[data-command-order="028F"] #today-nutrition-card,
+#today[data-command-order="028F"] #today-recovery-card,
+#today[data-command-order="028F"] #daily-ritual { margin-top: 18px; }
+
+.calendar-move-control { opacity: 0; pointer-events: none; transform: translateY(-3px); transition: opacity .16s ease, transform .16s ease; }
+.weekly-orchestrator-day:focus-within .calendar-move-control,
+.weekly-orchestrator-day:hover .calendar-move-control { opacity: 1; pointer-events: auto; transform: none; }
+.weekly-orchestrator-day[tabindex="0"]:focus-visible { outline: 2px solid rgba(212, 175, 55, .74); outline-offset: 3px; }
+
+.frictionless-execution-modules button[disabled] { cursor: default; opacity: .48; }
+.frictionless-execution-modules button[disabled] small { color: var(--dim); }
+
+.connected-account-health {
+  display: grid;
+  grid-template-columns: minmax(120px, .4fr) minmax(140px, .5fr) minmax(180px, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: rgba(8, 12, 13, .72);
+}
+.connected-account-health > span { color: var(--dim); font: 11px/1 var(--font-command); letter-spacing: .09em; text-transform: uppercase; }
+.connected-account-health > strong { color: var(--stone); font: 16px/1 var(--font-command); letter-spacing: .04em; }
+.connected-account-health > small { color: var(--muted); }
+
+@media (max-width: 720px) {
+  .continuity-status { min-width: 44px !important; min-height: 44px !important; padding: 10px !important; justify-content: center; }
+  .continuity-status > span:last-child { display: none !important; }
+  .continuity-status-dot { position: absolute; right: 7px; bottom: 7px; width: 7px !important; height: 7px !important; }
+  .continuity-sync-icon { display: inline-grid !important; width: 22px; height: 22px; }
+  .continuity-sync-icon svg { width: 22px; height: 22px; }
+  body:not([data-dominion-section="today"]) .dominion-mission-rail { grid-template-columns: 1fr auto; padding: 10px 14px; }
+  body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-phase { display: none; }
+  body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-copy .kicker,
+  body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-copy p { display: none; }
+  body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-copy h2 { font-size: 22px; }
+  .weekly-orchestrator-day:focus-within .calendar-move-control { opacity: 1; pointer-events: auto; }
+  .connected-account-health { grid-template-columns: 1fr; gap: 7px; }
+}

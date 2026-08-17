@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Command-First Today
+
+- Gives the next action the first desktop and mobile viewport instead of leading with orientation or diagnostics.
+- Orders Today as command, executable work, quick logging, Daily State context, Closeout, then supporting intelligence.
+- Keeps Fuel and Recovery inside the same compact Daily State group instead of scattering them through the page.
+- Compresses the completed Roll Call summary and keeps deeper rationale closed until the recruit asks for it.
+- Preserves all existing safety, plan, evidence, and recovery controls while removing visual competition with the current command.
+
 ## Unreleased - Account Persistence Receipts
 
 - Automatically drains protected account saves after sign-in, token refresh, connectivity recovery, and a visible-tab return.

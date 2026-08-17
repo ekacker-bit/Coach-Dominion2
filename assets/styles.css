@@ -12656,3 +12656,46 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
   .weekly-orchestrator-day:focus-within .calendar-move-control { opacity: 1; pointer-events: auto; }
   .connected-account-health { grid-template-columns: 1fr; gap: 7px; }
 }
+
+/* Command-first Today: the next action owns the first viewport. */
+html[data-today-hierarchy="029D.1"] #today > .today-command-header,
+html[data-today-hierarchy="029D.1"] #today > #today-flow-map { display: none !important; }
+html[data-today-hierarchy="029D.1"] #today[data-command-order="029D"] {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+html[data-today-hierarchy="029D.1"] #today[data-command-order="029D"] > * { margin-block: 0; scroll-margin-top: 118px; }
+html[data-today-hierarchy="029D.1"] #one-command[data-primary-command="true"] {
+  order: -10;
+  min-height: min(590px, calc(100svh - 150px));
+  display: grid;
+  align-content: center;
+  border-color: color-mix(in srgb, var(--victory-gold) 58%, var(--line));
+  box-shadow: inset 3px 0 0 var(--victory-gold), 0 24px 70px rgba(0, 0, 0, .3);
+}
+html[data-today-hierarchy="029D.1"] #one-command .today-mission-facts { margin-block: 14px; }
+html[data-today-hierarchy="029D.1"] #one-command .today-mission-progress-row { margin-top: 4px; }
+html[data-today-hierarchy="029D.1"] #today [data-command-layer="execution"] { border-color: rgba(212, 175, 55, .24); }
+html[data-today-hierarchy="029D.1"] #today [data-command-layer="context"] { background: color-mix(in srgb, var(--panel) 92%, transparent); }
+html[data-today-hierarchy="029D.1"] #daily-state-summary:not([hidden]) { padding: 18px 20px; }
+html[data-today-hierarchy="029D.1"] #daily-state-summary:not([hidden]) dl {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 12px 0;
+  background: var(--line);
+}
+html[data-today-hierarchy="029D.1"] #daily-state-summary:not([hidden]) dl > div { padding: 10px 12px; border: 0; background: var(--panel3); }
+html[data-today-hierarchy="029D.1"] #today-more-context > summary { min-height: 50px; }
+
+@media (max-width: 720px) {
+  html[data-today-hierarchy="029D.1"] #today[data-command-order="029D"] { gap: 12px; }
+  html[data-today-hierarchy="029D.1"] #one-command[data-primary-command="true"] {
+    min-height: calc(100svh - 132px);
+    padding: 22px 18px;
+    align-content: start;
+  }
+  html[data-today-hierarchy="029D.1"] #one-command .today-mission-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  html[data-today-hierarchy="029D.1"] #one-command .today-mission-facts > div { padding: 9px 7px; }
+  html[data-today-hierarchy="029D.1"] #daily-state-summary:not([hidden]) dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

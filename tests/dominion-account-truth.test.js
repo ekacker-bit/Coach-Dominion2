@@ -74,7 +74,8 @@ test("the retry queue keeps only the newest complete snapshot", () => {
 
 test("health distinguishes verified, queued, and legacy accounts", () => {
   const value = snapshot({});
-  assert.equal(truth.healthReport({ snapshot: value, accountRevision: 4, truthSchemaVersion: 1 }).status, "VERIFIED");
+  assert.equal(truth.healthReport({ snapshot: value, accountRevision: 4, truthSchemaVersion: 1, serverConfirmed: true }).status, "VERIFIED");
+  assert.equal(truth.healthReport({ snapshot: value, accountRevision: 4, truthSchemaVersion: 1, serverConfirmed: false }).status, "VERIFYING");
   assert.equal(truth.healthReport({ snapshot: value, pendingWrites: 1 }).status, "SAVE_QUEUED");
   assert.equal(truth.healthReport({ snapshot: value, lastError: "missing", legacyFallback: true }).status, "LEGACY_ACTIVE");
 });

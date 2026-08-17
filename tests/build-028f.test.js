@@ -25,7 +25,7 @@ test("startup uses one canonical account save and unchanged truth is skipped", (
   assert.doesNotMatch(app, /runStartupTask\("account continuity"/);
   assert.match(app, /const manifestMatches = Boolean/);
   assert.match(app, /const truthMatches = Boolean/);
-  assert.match(app, /if \(!options\.force && data && manifestMatches && truthMatches\)/);
+  assert.match(app, /if \(data && manifestMatches && truthMatches\)/);
   assert.match(app, /reportSyncLifecycle\("sync_completed", \{ changed: false/);
   assert.match(app, /reportSyncLifecycle\("save_queued"/);
   assert.match(app, /reportSyncLifecycle\("retry_succeeded"/);

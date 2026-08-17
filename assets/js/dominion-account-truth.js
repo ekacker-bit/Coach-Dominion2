@@ -316,10 +316,14 @@
       status = "RETRY_REQUIRED";
       tone = "yellow";
       headline = "Account verification needs another attempt.";
-    } else if (revision && schemaVersion >= SCHEMA_VERSION && domainCount === TRUTH_DOMAINS.length) {
+    } else if (revision && schemaVersion >= SCHEMA_VERSION && domainCount === TRUTH_DOMAINS.length && input.serverConfirmed === true) {
       status = input.recovered ? "RECOVERED" : "VERIFIED";
       tone = "green";
       headline = input.recovered ? "Account evidence restored and verified." : "Program, evidence, and coaching memory agree.";
+    } else if (revision && schemaVersion >= SCHEMA_VERSION && domainCount === TRUTH_DOMAINS.length) {
+      status = "VERIFYING";
+      tone = "neutral";
+      headline = "Waiting for an exact account receipt.";
     }
     return {
       version: VERSION,

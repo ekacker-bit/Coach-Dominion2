@@ -129,6 +129,11 @@
       tone = "yellow";
       headline = "Repairing saved state";
       detail = "Account state and Today are being reconciled automatically.";
+    } else if (accountStatus === "VERIFYING") {
+      status = "CHECKING";
+      tone = "neutral";
+      headline = "Verifying your account";
+      detail = "The app is waiting for an exact server receipt before calling this account current.";
     } else if (input.recovered === true || accountStatus === "RECOVERED") {
       status = "RECOVERED";
       tone = "green";

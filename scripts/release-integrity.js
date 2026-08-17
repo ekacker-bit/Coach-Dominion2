@@ -41,6 +41,7 @@ const accountPersistenceMigration = read("supabase/migrations/20260817113359_acc
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
 const productionSecurityMigration = read("supabase/migrations/20260817161809_production_security_hardening.sql");
 const rlsPolicyPerformanceMigration = read("supabase/migrations/20260817173114_rls_policy_performance.sql");
+const foreignKeyIndexMigration = read("supabase/migrations/20260817175555_foreign_key_index_coverage.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
 const trustLayer = read("assets/js/trust-layer.js");
@@ -347,6 +348,8 @@ check("intentional nutrition ingress", productionSecurityMigration.includes("gra
 check("weekly policy consolidation", productionSecurityMigration.includes("drop policy if exists weekly_inspections_own_all") && productionSecurityMigration.includes("for update to authenticated") && productionSecurityMigration.includes("(select auth.uid()) = user_id") && productionSecurityMigration.includes("drop index if exists public.weekly_inspections_user_week_start_date_key") && !productionSecurityMigration.includes("drop index if exists public.weekly_inspections_user_week_unique"), "weekly inspection policies or indexes remain duplicated");
 check("RLS initPlan acceleration", rlsPolicyPerformanceMigration.includes("replace(policy_row.qual, 'auth.uid()', '(select auth.uid())')") && rlsPolicyPerformanceMigration.includes("to authenticated") && rlsPolicyPerformanceMigration.includes("changed_count <> 125"), "029J does not safely cache authenticated identity across the production policy baseline");
 check("RLS semantic guard", rlsPolicyPerformanceMigration.includes("coalesce(qual, '') in") && rlsPolicyPerformanceMigration.includes("'(auth.uid() = user_id)'") && rlsPolicyPerformanceMigration.includes("'(auth.uid() = id)'") && !/drop policy|create policy/i.test(rlsPolicyPerformanceMigration), "029J changes policy identity or accepts unreviewed predicates");
+check("foreign-key index coverage", (foreignKeyIndexMigration.match(/create index if not exists/gi) || []).length === 9 && foreignKeyIndexMigration.includes("matched_count <> 9") && foreignKeyIndexMigration.includes("verified_count <> 9"), "029K does not cover and verify the nine reviewed foreign keys");
+check("foreign-key index restraint", !/drop index|drop constraint|alter table/i.test(foreignKeyIndexMigration), "029K removes indexes or changes relationship semantics");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

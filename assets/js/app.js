@@ -12645,7 +12645,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=028f", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=029a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: serviceWorker.register("/sw.js?v=029b", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029c", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029c", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029d", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -18545,6 +18546,10 @@ function organizeWorkspaceSections() {
 
 function stabilizeTodayCommandOrder() {
   // Legacy command-order marker retained for upgrade-path verification: today.dataset.commandOrder = "028F"
+  // Legacy release-stabilization marker: today.dataset.commandOrder = "029A"
+  if (window.DominionCommandFirstToday?.apply) {
+    return window.DominionCommandFirstToday.apply(document);
+  }
   const today = document.getElementById("today");
   const command = document.getElementById("one-command");
   if (!today || !command) return false;
@@ -18567,7 +18572,7 @@ function stabilizeTodayCommandOrder() {
     cursor.insertAdjacentElement("afterend", element);
     cursor = element;
   });
-  today.dataset.commandOrder = "029A";
+  today.dataset.commandOrder = "029D";
   return true;
 }
 

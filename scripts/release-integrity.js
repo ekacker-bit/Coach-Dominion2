@@ -32,6 +32,7 @@ const releaseStabilization = read("assets/js/release-stabilization.js");
 const accountEntry = read("assets/js/account-entry.js");
 const canonicalDailyCommand = read("assets/js/canonical-daily-command.js");
 const accountPersistence = read("assets/js/account-persistence.js");
+const commandFirstToday = read("assets/js/command-first-today.js");
 const accountPersistenceMigration = read("supabase/migrations/20260817113359_account_persistence_receipts.sql");
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
@@ -314,6 +315,9 @@ check("account persistence receipts", accountPersistence.includes('const VERSION
 check("account persistence recovery", app.includes("installAccountPersistenceRecovery") && app.includes("scheduleAccountTruthQueueDrain") && app.includes('window.addEventListener("visibilitychange"'), "029C protected saves do not drain after auth or connectivity recovery");
 check("account persistence database", accountPersistenceMigration.includes("add column if not exists truth_snapshot") && accountPersistenceMigration.includes("last_mutation_id") && accountPersistenceMigration.includes("DOMINION_ACCOUNT_MUTATION_ID_REUSED") && accountPersistenceMigration.includes("DOMINION_CONTINUITY_REVISION_CONFLICT") && accountPersistenceMigration.includes("security invoker"), "029C database writes are not self-contained, idempotent, and revision safe");
 check("account persistence cache", html.includes('/assets/js/account-persistence.js?v=029c') && worker.includes('/assets/js/account-persistence.js?v=029c') && worker.includes("029b-029c") && app.includes('/sw.js?v=029c'), "029C assets are stale or uncached");
+check("command-first Today hierarchy", commandFirstToday.includes('const VERSION = "029D.1"') && commandFirstToday.includes('"#mission-execution"') && commandFirstToday.indexOf('"#frictionless-execution"') < commandFirstToday.indexOf('".lower-grid"') && app.includes("DominionCommandFirstToday.apply(document)") && app.includes('today.dataset.commandOrder = "029D"'), "Today does not place command and execution before supporting context");
+check("command-first Today presentation", css.includes('data-today-hierarchy="029D.1"') && css.includes('#one-command[data-primary-command="true"]') && css.includes('min-height: calc(100svh - 132px)') && html.includes('/assets/js/command-first-today.js?v=029d'), "Today cannot hold the primary command in the first mobile viewport");
+check("command-first Today cache", worker.includes('/assets/js/command-first-today.js?v=029d') && worker.includes("029c-029d") && app.includes('/sw.js?v=029d'), "029D assets are stale or uncached");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

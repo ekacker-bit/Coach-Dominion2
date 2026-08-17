@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Production Release Canary
+
+- Polls the public production URL after every main-branch release until the exact expected Git commit is actually serving.
+- Verifies the live health contract, application shell, and privacy-safe telemetry round trip instead of trusting a completed build alone.
+- Fails the production workflow visibly when the deployed release is stale, malformed, or unreachable after the bounded rollout window.
+- Requires no Vercel token and sends no recruit, account, or health data.
+
 ## Unreleased - Production Reliability Signals
 
 - Preserves queue age, retry attempts, sync outcome, route, and account-confirmation context from the browser through the production log.

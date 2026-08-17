@@ -46,9 +46,14 @@ test("029L ships its current offline shell and CI gate", () => {
   const worker = read("sw.js");
   const app = read("assets/js/app.js");
   const workflow = read(".github/workflows/release-integrity.yml");
+  const packageJson = read("package.json");
   assert.match(html, /trust-layer\.js\?v=028a-029l/);
   assert.match(worker, /trust-layer\.js\?v=028a-029l/);
   assert.match(worker, /029l-production-reliability/);
   assert.match(app, /register\("\/sw\.js\?v=029l"/);
-  assert.match(workflow, /npm run test:029l/);
+  assert.ok(
+    /npm run test:029l/.test(workflow) ||
+    (/npm run test:029m/.test(workflow) && /"test:029m"[^\n]+npm run test:029l/.test(packageJson)),
+    "CI must run the 029L gate directly or through its verified successor"
+  );
 });

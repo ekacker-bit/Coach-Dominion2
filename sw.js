@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h";
-// Current release marker: coach-dominion-029h-beta-readiness
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l";
+// Current release marker: coach-dominion-029l-production-reliability
+// Prior release marker: coach-dominion-029h-beta-readiness
 // Prior release marker: coach-dominion-029g-final-beta-stabilization
 // Prior release marker: coach-dominion-029f-honest-connections
 // Legacy release marker retained for upgrade-path verification: coach-dominion-028f-release-stabilization
@@ -106,7 +107,7 @@ const APP_SHELL = [
   "/assets/js/dominion-account-truth.js?v=026i",
   "/assets/js/account-persistence.js?v=029c-029g",
   "/assets/js/command-first-today.js?v=029d",
-  "/assets/js/trust-layer.js?v=028a",
+  "/assets/js/trust-layer.js?v=028a-029l",
   "/assets/js/beta-readiness-gate.js?v=029h",
   "/assets/js/frictionless-execution.js?v=028b",
   "/assets/js/account-entry.js?v=029a",
@@ -118,7 +119,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l"
 ];
 
 self.addEventListener("install", (event) => {

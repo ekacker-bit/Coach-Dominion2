@@ -44,7 +44,8 @@ test("consolidates Weekly Inspection authorization and duplicate indexing", () =
   assert.equal((migration.match(/to authenticated/gi) || []).length, 4);
   assert.match(migration, /using \(\(select auth\.uid\(\)\) = user_id\)/i);
   assert.match(migration, /with check \(\(select auth\.uid\(\)\) = user_id\)/i);
-  assert.match(migration, /drop index if exists public\.weekly_inspections_user_week_unique/i);
+  assert.match(migration, /drop index if exists public\.weekly_inspections_user_week_start_date_key/i);
+  assert.doesNotMatch(migration, /drop index if exists public\.weekly_inspections_user_week_unique/i);
 });
 
 test("uses a bounded transactional migration", () => {

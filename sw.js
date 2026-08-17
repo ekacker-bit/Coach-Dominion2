@@ -1,6 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d";
-// Current release marker: coach-dominion-029d-command-first-today
-// Prior release marker: coach-dominion-029c-account-persistence
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e";
+// Current release marker: coach-dominion-029e-truthful-program-lifecycle
+// Prior release marker: coach-dominion-029d-command-first-today
 // Legacy release marker retained for upgrade-path verification: coach-dominion-028f-release-stabilization
 const APP_SHELL = [
   "/",
@@ -91,6 +91,7 @@ const APP_SHELL = [
   "/assets/js/daily-decision.js?v=026e",
   "/assets/js/release-stabilization.js?v=028f",
   "/assets/js/canonical-daily-command.js?v=029b",
+  "/assets/js/program-lifecycle.js?v=029e",
   "/assets/js/daily-decision-integrity.js?v=027f-028f",
   "/assets/js/mission-execution-spine.js?v=026b",
   "/assets/js/atlas-live-adaptation.js?v=026c",
@@ -113,7 +114,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e"
 ];
 
 self.addEventListener("install", (event) => {

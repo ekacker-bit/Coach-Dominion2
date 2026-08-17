@@ -1,4 +1,8 @@
-const ALLOWED_EVENTS = new Set(["trust_check", "repair_started", "repair_completed", "repair_failed", "runtime_error"]);
+const ALLOWED_EVENTS = new Set([
+  "trust_check", "repair_started", "repair_completed", "repair_failed", "runtime_error",
+  "sync_started", "sync_completed", "conflict_detected", "save_queued", "queue_retry",
+  "retry_succeeded", "retry_failed", "sync_failed", "startup_recovery"
+]);
 const ALLOWED_STATUSES = new Set(["CHECKING", "VERIFIED", "RECOVERED", "REPAIRING", "PROTECTED", "ACTION_REQUIRED"]);
 const ALLOWED_ROUTES = new Set(["app", "today", "performance", "calendar", "nutrition", "program", "inspection", "contract", "connected", "more", "runtime", "promise"]);
 

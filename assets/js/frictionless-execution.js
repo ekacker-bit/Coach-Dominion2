@@ -34,9 +34,10 @@
     const active = !complete && (input.active === true || ACTIVE.has(rawState));
     const planned = input.planned !== false;
     const available = input.available !== false;
-    let state = complete ? "COMPLETE" : active ? rawState : draft ? "DRAFT" : planned && available ? (rawState === "WAITING" ? "READY" : rawState) : "WAITING";
+    let state = complete ? "COMPLETE" : active ? rawState : draft ? "DRAFT" : planned && available ? (rawState === "WAITING" ? "READY" : rawState) : "NOT_APPLICABLE";
     if (["EMPTY", "NOT_LOGGED", "OPEN"].includes(state)) state = draft ? "DRAFT" : "READY";
-    const actionLabel = complete ? "Review" : active ? "Resume" : draft ? "Continue" : available && planned ? "Open" : "Review";
+    const applicable = planned && available;
+    const actionLabel = !applicable ? "N/A" : complete ? "Review" : active ? "Resume" : draft ? "Continue" : "Open";
     return {
       ...definition,
       state,
@@ -45,6 +46,7 @@
       draft,
       planned,
       available,
+      applicable,
       actionLabel,
       detail: String(input.detail || "").trim(),
       updatedAt: input.updatedAt || input.draft?.updatedAt || null
@@ -59,15 +61,16 @@
     const resume = resumable.find((item) => item.id === lastModule)
       || resumable.sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")))[0]
       || null;
-    const completed = modules.filter((item) => item.complete).length;
+    const applicable = modules.filter((item) => item.applicable);
+    const completed = applicable.filter((item) => item.complete).length;
     return {
       version: VERSION,
       date: input.date || null,
       modules,
       resume,
       completed,
-      total: modules.length,
-      percent: Math.round((completed / modules.length) * 100)
+      total: applicable.length,
+      percent: applicable.length ? Math.round((completed / applicable.length) * 100) : 0
     };
   }
 

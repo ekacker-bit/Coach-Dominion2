@@ -62,7 +62,7 @@ test("027F Connections expose repairable user states and hide audit detail", () 
   const app = read("assets/js/app.js");
   const styles = read("assets/styles.css");
 
-  assert.match(app, /DominionDailyDecisionIntegrity\.connectionState/);
+  assert.match(app, /DominionReleaseStabilization\.connectionState/);
   assert.match(app, /data-connection-state/);
   assert.match(app, /Advanced evidence audit/);
   assert.match(styles, /data-connection-state="STALE"/);

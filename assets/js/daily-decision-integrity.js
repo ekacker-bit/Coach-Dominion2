@@ -213,16 +213,18 @@
       const scheduled = sessions.length > 0;
       const readinessHold = TRAINING_DOMAINS.includes(domain) && scheduled && !complete && !readiness.complete;
       const blocked = domainBlockers.length > 0 || readinessHold;
+      const recoveryRest = schedule.recoveryDay && TRAINING_DOMAINS.includes(domain);
       const reason = domainBlockers[0]?.detail || (readinessHold ? "Complete Roll Call before starting this session." : complete ? "Completion evidence is preserved." : scheduled ? "Approved and scheduled today." : domain === "nutrition" ? "Fuel remains available every day." : domain === "recovery" ? "Recovery remains available every day." : "Not scheduled today.");
       byDomain[domain] = {
         domain,
         scheduled,
         complete,
         blocked,
-        authorized: !blocked && (domain === "nutrition" || domain === "recovery" || (scheduled && !complete)),
-        executable: !blocked && (domain === "nutrition" || domain === "recovery" || (scheduled && !complete)),
+        applicable: !recoveryRest && (scheduled || domain === "nutrition" || domain === "recovery"),
+        authorized: !recoveryRest && !blocked && (domain === "nutrition" || domain === "recovery" || (scheduled && !complete)),
+        executable: !recoveryRest && !blocked && (domain === "nutrition" || domain === "recovery" || (scheduled && !complete)),
         progressionAllowed: TRAINING_DOMAINS.includes(domain) && scheduled && !complete && !blocked && !readiness.pain,
-        state: complete ? "COMPLETED" : blocked ? "BLOCKED" : scheduled ? "AUTHORIZED" : domain === "nutrition" || domain === "recovery" ? "AVAILABLE" : "NOT_SCHEDULED",
+        state: recoveryRest ? "REST" : complete ? "COMPLETED" : blocked ? "BLOCKED" : scheduled ? "AUTHORIZED" : domain === "nutrition" || domain === "recovery" ? "AVAILABLE" : "NOT_SCHEDULED",
         reason,
         blockers: domainBlockers.map((blocker) => blocker.code),
         sessions
@@ -417,8 +419,14 @@
     const elapsedDays = Math.max(0, Number(aggregate.elapsedDayCount ?? aggregate.elapsedDays ?? 0));
     const assessedDays = Math.max(0, Number(aggregate.counts?.assessedDays ?? aggregate.assessedDays ?? 0));
     const unscoredDays = Math.max(0, Number(aggregate.counts?.unscoredDays ?? Math.max(0, elapsedDays - assessedDays)));
-    const coverage = Math.max(0, Math.min(100, Math.round(Number(aggregate.evidenceCoverage || 0))));
-    const score = Number.isFinite(Number(aggregate.score)) ? Number(aggregate.score) : null;
+    const normalizedCoverage = typeof DominionReleaseStabilization !== "undefined"
+      ? DominionReleaseStabilization.percentValue(aggregate.evidenceCoverage)
+      : Number(aggregate.evidenceCoverage || 0);
+    const normalizedScore = typeof DominionReleaseStabilization !== "undefined"
+      ? DominionReleaseStabilization.percentValue(aggregate.score)
+      : Number(aggregate.score);
+    const coverage = Math.max(0, Math.min(100, Math.round(normalizedCoverage || 0)));
+    const score = Number.isFinite(normalizedScore) ? normalizedScore : null;
     const thinEvidence = assessedDays < 2 || coverage < 50;
     return {
       elapsedDays,
@@ -440,6 +448,9 @@
   }
 
   function connectionState(input = {}, now = new Date()) {
+    if (typeof DominionReleaseStabilization !== "undefined") {
+      return DominionReleaseStabilization.connectionState(input, { now: now.toISOString() });
+    }
     const status = upper(input.status || input.connectionStatus || "NOT_CONNECTED");
     const lastAt = input.lastSuccessfulAt || input.lastSyncAt || input.updatedAt || null;
     const ageDays = lastAt ? Math.floor((now.getTime() - new Date(lastAt).getTime()) / 86400000) : null;

@@ -36,7 +36,7 @@ test("profile, readiness, evidence, and coaching memory reconcile at startup", (
   assert.match(app, /orientation: readRecruitOnboardingState/);
   assert.match(app, /performance: performanceEntries/);
   assert.match(app, /outcomes: readAtlasAdaptationOutcomeHistory/);
-  assert.match(app, /runStartupTask\("account truth", syncDominionAccountTruth/);
+  assert.match(app, /runStartupTask\("account save", \(\) => syncDominionAccountTruth/);
   assert.match(app, /function applyAccountTruthSnapshot/);
 });
 

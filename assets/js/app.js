@@ -415,8 +415,26 @@ function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = nu
   if (payload === undefined || payload === null) return null;
   const queue = readContinuityRetryQueue();
   const key = continuityRetryKey(domain, stateType, stateKey);
-  const existing = queue.find((item) => item.key === key);
   const now = new Date().toISOString();
+  if (typeof DominionReleaseStabilization !== "undefined") {
+    const fingerprint = typeof DominionContinuity === "undefined" ? DominionReleaseStabilization.fingerprint(payload) : DominionContinuity.semanticFingerprint(payload, { sortRootArray: stateType === "HISTORY" });
+    const next = DominionReleaseStabilization.enqueue(queue, {
+      key,
+      domain,
+      stateType,
+      stateKey,
+      payload,
+      fingerprint,
+      errorCode: error?.code || null
+    }, { now, failedAttempt: Boolean(error) });
+    saveContinuityRetryQueue(next);
+    if (!queue.some((item) => item.id === next.find((item) => item.key === key)?.id) || error) {
+      void reportSyncLifecycle("save_queued", { domain, failed: Boolean(error) });
+    }
+    if (continuityState.initialized && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: next.length });
+    return next.find((item) => item.key === key) || null;
+  }
+  const existing = queue.find((item) => item.key === key);
   const item = {
     key,
     domain,
@@ -460,9 +478,24 @@ async function flushContinuityPendingWrites() {
       setContinuityMode("PENDING", { pendingWrites: queue.length });
       return false;
     }
-    for (const item of queue) {
-      try { await persistContinuityRetryItem(item); }
-      catch (_) {}
+    const ready = typeof DominionReleaseStabilization === "undefined"
+      ? queue
+      : DominionReleaseStabilization.ready(queue);
+    for (const item of ready) {
+      try {
+        void reportSyncLifecycle("queue_retry", { domain: item.domain, attempts: item.attempts });
+        const saved = await persistContinuityRetryItem(item);
+        if (saved !== false) {
+          acknowledgeContinuityRetry(item.domain, item.stateType, item.stateKey);
+          void reportSyncLifecycle("retry_succeeded", { domain: item.domain, attempts: item.attempts });
+        } else {
+          enqueueContinuityRetry(item.domain, item.stateType, item.stateKey, item.payload, { code: "SAVE_NOT_ACKNOWLEDGED" });
+          void reportSyncLifecycle("retry_failed", { domain: item.domain, attempts: Number(item.attempts || 0) + 1 });
+        }
+      } catch (error) {
+        enqueueContinuityRetry(item.domain, item.stateType, item.stateKey, item.payload, error);
+        void reportSyncLifecycle("retry_failed", { domain: item.domain, attempts: Number(item.attempts || 0) + 1, code: error?.code || "UNKNOWN" });
+      }
     }
     const remaining = readContinuityRetryQueue();
     continuityState.pendingWrites = remaining.length;
@@ -551,10 +584,12 @@ function saveAccountTruthQueue(queue = []) {
 
 function queueAccountTruthWrite(snapshot, error = null) {
   if (!snapshot || typeof DominionAccountTruth === "undefined") return [];
-  const queue = DominionAccountTruth.queueLatest(readAccountTruthQueue(), snapshot, error);
+  const previous = readAccountTruthQueue();
+  const queue = DominionAccountTruth.queueLatest(previous, snapshot, error, { failedAttempt: Boolean(error) });
   accountTruthState.mode = navigator.onLine === false ? "OFFLINE_PROTECTED" : "SAVE_QUEUED";
   accountTruthState.lastError = error?.message || null;
   saveAccountTruthQueue(queue);
+  if (!previous.some((item) => item.id === queue[0]?.id) || error) void reportSyncLifecycle("save_queued", { domain: "account_truth", failed: Boolean(error) });
   return queue;
 }
 
@@ -685,6 +720,9 @@ function renderAccountTruthHealth() {
   setText("account-truth-coaching", `${coachingCount} SAVED`);
   const verified = report.lastVerifiedAt ? new Date(report.lastVerifiedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "NOT YET";
   setText("account-truth-verified", verified);
+  const allQueued = [...readContinuityRetryQueue(), ...readAccountTruthQueue()];
+  const queueAge = typeof DominionReleaseStabilization === "undefined" ? "NONE" : DominionReleaseStabilization.oldestAge(allQueued).label;
+  setText("account-truth-queue-age", queueAge);
   document.body.dataset.accountTruth = report.status.toLowerCase().replaceAll("_", "-");
   if (trustLayerState.report) renderTrustLayerHealth(trustLayerState.report);
 }
@@ -762,6 +800,12 @@ async function reportTrustEvent(event, report = trustLayerState.report, context 
   }
 }
 
+async function reportSyncLifecycle(event, context = {}) {
+  const report = trustLayerState.report || buildCurrentTrustLayerReport();
+  if (!report) return false;
+  return reportTrustEvent(event, report, { subsystem: "account_sync", ...context });
+}
+
 function reportSafeRuntimeError(route = "runtime") {
   try {
     const report = trustLayerState.report || buildCurrentTrustLayerReport();
@@ -786,8 +830,7 @@ async function runTrustLayer(options = {}) {
           recovered = true;
         }
         if (report.repairActions.includes("SYNC_ACCOUNT_STATE")) {
-          await syncDominionContinuity();
-          await syncDominionAccountTruth({ force: true });
+          await syncDominionAccountTruth({ force: true, reason: "trust_repair" });
           recovered = true;
         }
         if (report.repairActions.includes("REBUILD_TODAY")) {
@@ -845,6 +888,7 @@ async function syncDominionAccountTruth(options = {}) {
   if (accountTruthSyncPromise) return accountTruthSyncPromise;
   if (!session?.user?.id || typeof DominionAccountTruth === "undefined" || typeof DominionContinuity === "undefined") return false;
   accountTruthSyncPromise = (async () => {
+    void reportSyncLifecycle("sync_started", { reason: options.reason || (options.force ? "forced" : "scheduled") });
     const localManifest = continuityState.manifest || buildCurrentContinuityManifest();
     const localSnapshot = buildCurrentAccountTruthSnapshot(localManifest);
     saveAccountTruthLocalSnapshot(localSnapshot);
@@ -864,7 +908,25 @@ async function syncDominionAccountTruth(options = {}) {
           .maybeSingle();
         if (error) throw error;
         const accountRevision = Number(data?.revision || 0);
-        const programManifest = data?.manifest || localManifest;
+        const accountManifest = data?.manifest || null;
+        const manifestReconciliation = accountManifest ? DominionContinuity.reconcileManifests(localManifest, accountManifest) : null;
+        const recordDomains = new Set([...continuityRecordConflicts.values()].map((item) => item.domain));
+        const unresolvedManifest = (manifestReconciliation?.conflicts || []).filter((item) => !recordDomains.has(item.domain));
+        if (!options.prefer && (continuityRecordConflicts.size || unresolvedManifest.length)) {
+          continuityState.accountRevision = accountRevision;
+          continuityState.accountManifest = accountManifest;
+          continuityState.manifestConflicts = unresolvedManifest;
+          setContinuityMode("CONFLICT", { initialized: true });
+          void reportSyncLifecycle("conflict_detected", { conflictCount: continuityRecordConflicts.size + unresolvedManifest.length });
+          return false;
+        }
+        const programManifest = options.prefer === "ACCOUNT" && accountManifest
+          ? accountManifest
+          : options.prefer === "DEVICE" || !accountManifest
+            ? localManifest
+            : manifestReconciliation?.manifest || localManifest;
+        saveContinuityManifestLocal(programManifest);
+        applyContinuitySnapshotPayloads(programManifest);
         const deviceSnapshot = buildCurrentAccountTruthSnapshot(programManifest);
         const reconciliation = DominionAccountTruth.reconcileSnapshots(deviceSnapshot, data?.truth_snapshot || {}, {
           userId: session.user.id,
@@ -872,12 +934,41 @@ async function syncDominionAccountTruth(options = {}) {
           programFingerprint: programManifest?.fingerprint || null
         });
         const restored = applyAccountTruthSnapshot(reconciliation.snapshot);
+        const manifestMatches = Boolean(data?.manifest?.fingerprint && data.manifest.fingerprint === programManifest?.fingerprint);
+        const truthMatches = Boolean(data?.truth_snapshot?.fingerprint && data.truth_snapshot.fingerprint === reconciliation.snapshot.fingerprint);
+        if (!options.force && data && manifestMatches && truthMatches) {
+          saveAccountTruthLocalSnapshot(data.truth_snapshot);
+          saveAccountTruthQueue([]);
+          continuityState.accountRevision = accountRevision;
+          continuityState.accountManifest = data.manifest;
+          continuityState.lastSyncedAt = data.last_verified_at || data.updated_at || new Date().toISOString();
+          saveContinuityManifestLocal(data.manifest);
+          accountTruthState = {
+            ...accountTruthState,
+            mode: restored ? "RECOVERED" : "VERIFIED",
+            initialized: true,
+            accountRevision,
+            truthSchemaVersion: Number(data.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION),
+            snapshot: data.truth_snapshot,
+            accountSnapshot: data.truth_snapshot,
+            pendingWrites: 0,
+            lastVerifiedAt: data.last_verified_at || data.updated_at || new Date().toISOString(),
+            lastError: null,
+            legacyFallback: false,
+            recovered: restored > 0
+          };
+          renderAccountTruthHealth();
+          void reportSyncLifecycle("sync_completed", { changed: false, revision: accountRevision });
+          if (restored) refreshContinuityConsumers();
+          return true;
+        }
         const saved = await saveAccountTruthLedger(programManifest, reconciliation.snapshot, accountRevision, restored ? "RECOVERED" : "VERIFIED");
         const savedSnapshot = saved?.truth_snapshot || reconciliation.snapshot;
         saveAccountTruthLocalSnapshot(savedSnapshot);
         saveAccountTruthQueue([]);
         continuityState.accountRevision = Number(saved?.revision || accountRevision + 1);
         continuityState.accountManifest = saved?.manifest || programManifest;
+        continuityState.lastSyncedAt = saved?.last_verified_at || saved?.updated_at || new Date().toISOString();
         if (saved?.manifest) saveContinuityManifestLocal(saved.manifest);
         accountTruthState = {
           ...accountTruthState,
@@ -894,11 +985,15 @@ async function syncDominionAccountTruth(options = {}) {
           recovered: restored > 0
         };
         renderAccountTruthHealth();
+        void reportSyncLifecycle("sync_completed", { changed: true, revision: continuityState.accountRevision });
         if (restored) refreshContinuityConsumers();
         return true;
       } catch (error) {
         lastError = error;
-        if (accountTruthRevisionConflict(error) && attempt === 0) continue;
+        if (accountTruthRevisionConflict(error)) {
+          void reportSyncLifecycle("conflict_detected", { attempt: attempt + 1 });
+          if (attempt === 0) continue;
+        }
         break;
       }
     }
@@ -921,6 +1016,7 @@ async function syncDominionAccountTruth(options = {}) {
       };
     }
     renderAccountTruthHealth();
+    void reportSyncLifecycle("sync_failed", { code: lastError?.code || "UNKNOWN", recoverable: true });
     return false;
   })();
   try {
@@ -941,7 +1037,10 @@ async function flushAccountTruthPendingWrite(options = {}) {
   if (!queue.length) return options.force ? syncDominionAccountTruth({ force: true }) : true;
   if (navigator.onLine === false || !session?.user?.id) return false;
   if (!options.force && !DominionAccountTruth.readyQueuedWrite(queue)) return false;
-  return syncDominionAccountTruth({ force: true });
+  const item = queue[0];
+  const saved = await syncDominionAccountTruth({ force: true, reason: "queued_retry" });
+  void reportSyncLifecycle(saved ? "retry_succeeded" : "retry_failed", { domain: "account_truth", attempts: item?.attempts || 0 });
+  return saved;
 }
 
 function readEvidenceAutopilotHistory() {
@@ -1718,17 +1817,26 @@ function renderDominionContinuity() {
   const manifest = continuityState.manifest || buildCurrentContinuityManifest();
   const lineage = DominionContinuity.canonicalLineage(manifest || {}, { today: todayISODate() });
   const conflicts = currentContinuityConflicts();
-  const pendingWrites = readContinuityRetryQueue().length;
+  const pendingWrites = readContinuityRetryQueue().length + readAccountTruthQueue().length;
   continuityState.lineage = lineage;
   continuityState.pendingWrites = pendingWrites;
   const displayMode = conflicts.length ? "CONFLICT" : pendingWrites ? "PENDING" : continuityState.mode;
-  const presentation = DominionContinuity.syncPresentation(displayMode, {
+  const legacyPresentation = DominionContinuity.syncPresentation(displayMode, {
     conflictCount: conflicts.length,
     pendingCount: pendingWrites,
     lineage
   });
+  const presentation = typeof DominionReleaseStabilization === "undefined" ? legacyPresentation : DominionReleaseStabilization.syncSummary({
+    conflicts: conflicts.length,
+    pending: pendingWrites,
+    online: navigator.onLine !== false,
+    lastSavedAt: continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null
+  });
   const button = document.getElementById("continuity-status");
-  if (button) button.className = `continuity-status ${presentation.tone}`;
+  if (button) {
+    button.className = `continuity-status ${presentation.tone}`;
+    button.setAttribute("aria-label", `Account sync status: ${presentation.label}. ${presentation.detail}`);
+  }
   setText("continuity-status-label", presentation.label);
   setText("continuity-status-detail", presentation.detail);
   setText("continuity-repair-summary", presentation.detail);
@@ -1775,7 +1883,10 @@ function setContinuityMode(mode, options = {}) {
 function scheduleContinuitySync(delay = 500) {
   window.clearTimeout(continuitySyncTimer);
   setContinuityMode(navigator.onLine === false ? "OFFLINE" : "SYNCING");
-  continuitySyncTimer = window.setTimeout(() => syncDominionContinuity(), delay);
+  continuitySyncTimer = window.setTimeout(() => {
+    if (typeof DominionAccountTruth !== "undefined") syncDominionAccountTruth({ reason: "program_changed" });
+    else syncDominionContinuity({ legacy: true });
+  }, delay);
 }
 
 async function saveContinuityLedger(manifest, expectedRevision) {
@@ -1866,6 +1977,9 @@ function refreshContinuityConsumers() {
 
 async function syncDominionContinuity(options = {}) {
   if (!session?.user?.id || typeof DominionContinuity === "undefined") return false;
+  if (typeof DominionAccountTruth !== "undefined" && options.legacy !== true) {
+    return syncDominionAccountTruth({ force: options.force === true, reason: options.reason || "continuity_requested" });
+  }
   if (navigator.onLine === false) {
     saveContinuityManifestLocal(buildCurrentContinuityManifest());
     setContinuityMode(readContinuityRetryQueue().length ? "PENDING" : "OFFLINE", { initialized: true });
@@ -3139,7 +3253,7 @@ function generateMorningBrief(readinessResult) {
 }
 
 function formatAtlasBriefVoice(brief) {
-  const confidence = `${Math.round(Number(brief.confidence || 0) * 100)}%`;
+  const confidence = confidencePercent(brief.confidence);
   const missing = brief.missingEvidence.length ? brief.missingEvidence.join(", ") : "None";
   const orders = brief.orders.map((order) => `- ${order}`).join("\n");
   const restrictions = brief.restrictions.map((restriction) => `- ${restriction}`).join("\n");
@@ -3719,8 +3833,13 @@ function setStatus(message) {
 }
 
 function setLoading(isLoading) {
-  document.getElementById("app-content").hidden = isLoading;
-  document.getElementById("loading").hidden = !isLoading;
+  const content = document.getElementById("app-content");
+  const loading = document.getElementById("loading");
+  if (content) {
+    content.hidden = false;
+    content.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+  if (loading) loading.hidden = !isLoading;
   document.body.dataset.appLoading = isLoading ? "true" : "false";
 }
 
@@ -3738,7 +3857,10 @@ function setText(id, value) {
 }
 
 function confidencePercent(confidence) {
-  return `${Math.round(Number(confidence || 0) * 100)}%`;
+  if (typeof DominionReleaseStabilization !== "undefined") return DominionReleaseStabilization.formatPercent(confidence);
+  const value = Number(confidence);
+  if (!Number.isFinite(value)) return "—";
+  return `${Math.round(value >= 0 && value <= 1 ? value * 100 : value)}%`;
 }
 
 function clearElement(element) {
@@ -7245,15 +7367,16 @@ function renderWeeklyOrchestrator() {
   const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
   const days = (preview.days || []).map((day) => {
     const dayOverride = currentDailyCalendarOverride(day.date);
+    const dayEditable = canEditCalendar && day.date >= todayISODate();
     const activities = day.activities.length
       ? day.activities.map((item) => `<div class="weekly-orchestrator-activity ${item.module.toLowerCase()} ${item.tertiary ? "tertiary" : ""}">
         ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
         <span>${escapeHtml(item.module)}${item.calendarEdited ? " · MOVED" : ""}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small>
         ${item.module === "STRENGTH" && item.planRevision ? `<small class="calendar-plan-revision">Plan R${item.planRevision}${item.revisionSource === "EARNED_PROGRESSION" ? " · synced" : ""}</small>` : ""}
-        ${canEditCalendar ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
+        ${dayEditable ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
       </div>`).join("")
       : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
-    return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()} ${dayOverride ? "atlas-adjusted" : ""}">
+    return `<article class="weekly-orchestrator-day ${day.load.toLowerCase()} ${dayOverride ? "atlas-adjusted" : ""}" ${dayEditable ? `tabindex="0" aria-label="${escapeHtml(day.weekday)} schedule. Focus to reveal move controls."` : ""}>
       <header><div><span>${escapeHtml(day.weekday)}</span><strong>${escapeHtml(day.date.slice(5))}</strong></div><span>${escapeHtml(day.load)}</span></header>
       ${dayOverride ? `<aside class="atlas-calendar-override"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>` : ""}
       ${day.activities.length ? `<div class="calendar-window-count"><strong>${day.sessionCount || day.activities.length}</strong> training window${(day.sessionCount || day.activities.length) === 1 ? "" : "s"}${day.corePaired ? " · Core paired" : ""}</div>` : ""}
@@ -12015,16 +12138,18 @@ function currentFrictionlessExecution() {
   const fuel = buildFuelDayLedger(todayISODate());
   const recovery = buildCurrentRecoveryCommand();
   const closeout = readDailyCloseout();
+  const recoveryDay = currentDailyDecision?.recoveryDay === true;
+  const recoveryComplete = recovery?.status === "COMPLETE" || readDailyExecutionQueueState().recoveryComplete === true;
   return DominionFrictionlessExecution.buildDashboard({
     date: todayISODate(),
     lastModule: envelope.activeModule,
     modules: {
-      strength: { planned: Boolean(assignment?.exercises?.length), available: assignment?.state !== "RECOVERY ONLY", state: strength.state || "READY", updatedAt: strength.updatedAt, detail: assignment?.title || "Strength session" },
-      running: { planned: Boolean(runningPrescription?.session), available: !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: running.state || "READY", updatedAt: running.updatedAt, draft: envelope.drafts?.running, detail: runningPrescription?.session?.title || "Run session" },
-      core: { planned: Boolean(corePrescription?.session), available: corePrescription?.status === "READY" || Boolean(core), state: core.state || corePrescription?.status || "READY", updatedAt: core.updatedAt, detail: corePrescription?.session?.title || "Core session" },
+      strength: { planned: !recoveryDay && Boolean(assignment?.exercises?.length), available: !recoveryDay && assignment?.state !== "RECOVERY ONLY", state: recoveryDay ? "REST" : strength.state || "READY", updatedAt: strength.updatedAt, detail: recoveryDay ? "Recovery day" : assignment?.title || "Strength session" },
+      running: { planned: !recoveryDay && Boolean(runningPrescription?.session), available: !recoveryDay && !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: recoveryDay ? "REST" : running.state || "READY", updatedAt: running.updatedAt, draft: envelope.drafts?.running, detail: recoveryDay ? "Recovery day" : runningPrescription?.session?.title || "Run session" },
+      core: { planned: !recoveryDay && Boolean(corePrescription?.session), available: !recoveryDay && (corePrescription?.status === "READY" || Boolean(core)), state: recoveryDay ? "REST" : core.state || corePrescription?.status || "READY", updatedAt: core.updatedAt, detail: recoveryDay ? "Recovery day" : corePrescription?.session?.title || "Core session" },
       fuel: { planned: true, state: fuel.status, complete: fuel.primaryComplete, draft: envelope.drafts?.fuel, updatedAt: fuel.record?.updatedAt, detail: fuel.message },
       recovery: { planned: true, available: Boolean(recovery), state: recovery?.status || "READY", complete: recovery?.status === "COMPLETE", updatedAt: recovery?.completedAt || recovery?.generatedAt, detail: recovery?.headline || "Recovery order" },
-      closeout: { planned: !document.getElementById("daily-closeout-panel")?.hidden || Boolean(closeout), state: closeout?.status || "WAITING", complete: closeout?.status === "SEALED", draft: envelope.drafts?.closeout, updatedAt: closeout?.updatedAt, detail: closeout ? "Daily proof sealed" : "Close the day" }
+      closeout: { planned: recoveryDay ? recoveryComplete || Boolean(closeout) : !document.getElementById("daily-closeout-panel")?.hidden || Boolean(closeout), available: recoveryDay ? recoveryComplete || Boolean(closeout) : true, state: closeout?.status || "WAITING", complete: closeout?.status === "SEALED", draft: envelope.drafts?.closeout, updatedAt: closeout?.updatedAt, detail: recoveryDay && !recoveryComplete ? "Complete recovery first" : closeout ? "Daily proof sealed" : "Close the day" }
     }
   });
 }
@@ -12047,6 +12172,13 @@ function renderFrictionlessExecution() {
   root.hidden = false;
   setText("frictionless-execution-progress", `${dashboard.completed} of ${dashboard.total} complete`);
   modules.innerHTML = dashboard.modules.map((item) => `<button type="button" data-execution-module="${escapeHtml(item.id)}" data-execution-state="${escapeHtml(item.state)}"><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.actionLabel)} · ${escapeHtml(item.state.replaceAll("_", " "))}</small></button>`).join("");
+  dashboard.modules.filter((item) => !item.applicable).forEach((item) => {
+    const button = modules.querySelector(`[data-execution-module="${item.id}"]`);
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
+    }
+  });
   resume.hidden = !dashboard.resume;
   if (dashboard.resume) {
     resume.dataset.executionModule = dashboard.resume.id;
@@ -12344,7 +12476,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=028a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028c", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=028e", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: register("/sw.js?v=028e", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=028f", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15048,7 +15181,7 @@ function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
   const readiness = decision.readiness;
   setText("daily-decision-readiness-state", readiness.classification.replaceAll("_", " "));
   setText("daily-decision-readiness-detail", readiness.complete
-    ? `${readiness.confidence}% confidence${readiness.energy === null ? "" : ` | Energy ${readiness.energy}/10`}${readiness.soreness === null ? "" : ` | Soreness ${readiness.soreness}/10`}`
+    ? `${confidencePercent(readiness.confidence)} confidence${readiness.energy === null ? "" : ` | Energy ${readiness.energy}/10`}${readiness.soreness === null ? "" : ` | Soreness ${readiness.soreness}/10`}`
     : "Complete Roll Call before training can be cleared.");
   const schedule = dailyDecisionScheduleSummary(decision);
   setText("daily-decision-schedule-state", schedule.state);
@@ -15543,6 +15676,29 @@ function buildTodayRecoveryOrder() {
     };
   }
   const recoveryCommand = buildCurrentRecoveryCommand(date);
+  if (currentDailyDecision?.recoveryDay === true) {
+    const commandComplete = recoveryCommand?.status === "COMPLETE" || completed;
+    const currentTask = missionOrder && typeof DominionMissionRecovery !== "undefined" ? DominionMissionRecovery.nextTask(missionOrder) : null;
+    return {
+      state: commandComplete ? "COMPLETE" : "RECOVERY",
+      posture: "RECOVERY",
+      tone: commandComplete ? "green" : "neutral",
+      title: commandComplete ? "Recovery secured" : "Protect the recovery day",
+      detail: commandComplete ? `Recovery evidence recorded for ${date}.` : "No training is assigned. Complete the recovery action and preserve normal fueling.",
+      difference: "Strength, Running, and Core are rest today.",
+      actions: currentTask ? [currentTask.label] : ["Complete pain-free recovery work.", "Preserve sleep, hydration, and recovery-day Fuel."],
+      signals: recoveryCommand?.signals || [],
+      priority: "RECOVER / PROTECT",
+      confidence: recoveryCommand ? "CURRENT EVIDENCE" : "SCHEDULE",
+      progression: "N/A — HELD",
+      completed: commandComplete,
+      primaryAction: currentTask ? "mission-complete" : commandComplete ? "command-undo" : "command-complete",
+      primaryLabel: currentTask ? "Complete recovery action" : commandComplete ? "Reopen recovery" : "Mark recovery complete",
+      currentTaskId: currentTask?.id || "",
+      recoveryCommandId: recoveryCommand?.id || "",
+      safeguard: "Recovery evidence closes the recovery requirement. It does not authorize training or load progression."
+    };
+  }
   if (recoveryCommand) {
     const currentTask = missionOrder && typeof DominionMissionRecovery !== "undefined" ? DominionMissionRecovery.nextTask(missionOrder) : null;
     const commandComplete = recoveryCommand.status === "COMPLETE";
@@ -17708,6 +17864,32 @@ function buildCurrentProgramRecovery() {
   });
 }
 
+function currentProgramLifecycle() {
+  if (typeof DominionReleaseStabilization === "undefined") return null;
+  const contract = readApprovedRecruitContract();
+  const draft = readRecruitContractDraft();
+  const week = readCommittedUnifiedWeek(todayISODate());
+  const receipt = readAtlasProgramReceipt();
+  let activation = null;
+  let audit = null;
+  try { activation = contract && typeof DominionContractActivation !== "undefined" ? DominionContractActivation.buildActivation(contractActivationInputs()) : null; } catch (_) {}
+  try { audit = receipt ? currentAtlasActivationAudit(receipt) : null; } catch (_) {}
+  const modules = activation?.modules || [];
+  const required = modules.filter((item) => item.included !== false);
+  const plansApproved = required.length > 0 && required.every((item) => item.complete === true || ["ACTIVE", "APPROVED", "COMPLETE"].includes(String(item.status || "").toUpperCase()));
+  const state = DominionReleaseStabilization.lifecycle({
+    contractApproved: Boolean(contract),
+    plansApproved,
+    calendarReady: Boolean(week),
+    draftRevision: Boolean(contract && draft),
+    repairRequired: currentContinuityConflicts().length > 0 || audit?.status === "REPAIR_REQUIRED",
+    launchPending: Boolean(contract && plansApproved && week && receipt?.status !== "ACTIVE"),
+    receiptActive: receipt?.status === "ACTIVE",
+    paused: receipt?.status === "PAUSED"
+  });
+  return { state, label: DominionReleaseStabilization.lifecycleLabel(state), contract, draft, week, receipt };
+}
+
 function renderProgramRecovery(model = buildCurrentProgramRecovery()) {
   const root = document.getElementById("program-recovery");
   if (!root || !model) return;
@@ -17736,11 +17918,12 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     : DominionUnifiedBlockerResolution.programView(unifiedBlocker);
   const repair = buildAtlasProgramRepairModel();
   const repairVisible = Boolean(!unifiedProgram && repair?.visible && readApprovedRecruitContract());
-  const displayStatus = unifiedProgram?.status || (repairVisible ? repair.status : model.status);
+  const lifecycle = currentProgramLifecycle();
+  const displayStatus = lifecycle?.state || unifiedProgram?.status || (repairVisible ? repair.status : model.status);
   const displayTone = unifiedProgram?.tone || (repairVisible ? atlasRepairStateTone(repair.status) : model.tone);
   const status = document.getElementById("program-command-status");
   if (status) {
-    status.textContent = displayStatus.replaceAll("_", " ");
+    status.textContent = lifecycle?.label || displayStatus.replaceAll("_", " ");
     status.className = `state-pill ${displayTone}`;
   }
   const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
@@ -18107,6 +18290,17 @@ function renderDominionExperienceShell() {
   document.title = `${section.label} | Coach Dominion`;
   document.body.dataset.dominionPhase = (truth?.state || mission.phase).toLowerCase().replaceAll("_", "-");
   document.body.dataset.dominionSection = activeSection;
+  const lifecycle = currentProgramLifecycle();
+  if (lifecycle) {
+    document.body.dataset.programLifecycle = lifecycle.state.toLowerCase().replaceAll("_", "-");
+    ["program", "contract", "calendar", "today"].forEach((sectionId) => {
+      const sectionRoot = document.getElementById(sectionId);
+      if (sectionRoot) sectionRoot.dataset.programLifecycle = lifecycle.state;
+    });
+    if (activeSection !== "today") setText("shell-mission-phase", lifecycle.label);
+    setText("recruit-contract-status", lifecycle.state === "DRAFT_REVISION" ? lifecycle.label : lifecycle.contract ? "ACTIVE" : "SETUP NEEDED");
+    setText("weekly-orchestrator-status", lifecycle.state === "DRAFT_REVISION" ? "ACTIVE WEEK · DRAFT UNAPPLIED" : lifecycle.state === "ACTIVE" ? "ACTIVE" : lifecycle.label);
+  }
   document.querySelectorAll(".kicker:not([data-humanized])").forEach((element) => {
     element.textContent = DominionExperienceShell.cleanBuildKicker(element.textContent);
     element.dataset.humanized = "true";
@@ -18156,7 +18350,35 @@ function organizeWorkspaceSections() {
     const section = document.getElementById(id);
     if (section && section.parentElement !== app) app.appendChild(section);
   });
+  stabilizeTodayCommandOrder();
   document.body.dataset.workspaceArchitecture = "009C";
+}
+
+function stabilizeTodayCommandOrder() {
+  const today = document.getElementById("today");
+  const command = document.getElementById("one-command");
+  if (!today || !command) return false;
+  const ordered = [
+    document.getElementById("mission-execution"),
+    document.getElementById("morning-verification"),
+    document.querySelector("section.lower-grid"),
+    document.getElementById("frictionless-execution"),
+    document.getElementById("today-nutrition-card"),
+    document.getElementById("today-recovery-card"),
+    document.getElementById("daily-ritual"),
+    document.getElementById("atlas-adaptive-horizon"),
+    document.getElementById("atlas-adaptation-outcome"),
+    document.getElementById("atlas-progression-order"),
+    document.getElementById("adaptive-coaching"),
+    document.getElementById("today-more-context")
+  ].filter(Boolean);
+  let cursor = command;
+  ordered.forEach((element) => {
+    cursor.insertAdjacentElement("afterend", element);
+    cursor = element;
+  });
+  today.dataset.commandOrder = "028F";
+  return true;
 }
 
 function restoreSectionFromHash() {
@@ -18747,13 +18969,13 @@ function renderAdaptiveFueling() {
       <article class="adaptive-target-variant"><h4>Training day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.trainingTargets)}</div></article>
       <article class="adaptive-target-variant"><h4>Recovery day</h4><div class="adaptive-target-grid">${adaptiveTargetCards(current.recoveryTargets)}</div></article>
     </div>
-    <p class="muted">${current.evidenceDays} complete nutrition day(s) · calorie adherence ${Math.round(current.adherence.calories * 100)}% · protein adherence ${Math.round(current.adherence.protein * 100)}%</p>
+    <p class="muted">${current.evidenceDays} complete nutrition day(s) · calorie adherence ${confidencePercent(current.adherence.calories)} · protein adherence ${confidencePercent(current.adherence.protein)}</p>
     <ul class="baseline-safeguards">${current.safeguards.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
     <div class="weekly-plan-actions"><button type="button" data-adaptive-fueling-action="approve" ${current.status === "APPROVED" ? "disabled" : ""}>${current.status === "APPROVED" ? "Fueling Variant Approved" : "Approve Fueling Variant"}</button></div>`;
 }
 
 function nutritionIntelligencePercent(value) {
-  return value === null || value === undefined ? "—" : `${Math.round(value * 100)}%`;
+  return confidencePercent(value);
 }
 
 function nutritionIntelligenceAverage(value, unit) {
@@ -19207,7 +19429,7 @@ function renderFastingReview() {
     output.innerHTML = "Fasting is optional and currently off.";
     return;
   }
-  const rate = verdict.adherence === null ? "Not established" : `${Math.round(verdict.adherence * 100)}%`;
+  const rate = verdict.adherence === null ? "Not established" : confidencePercent(verdict.adherence);
   const action = ["PAUSE", "SHORTEN", "WIDEN"].includes(verdict.verdict)
     ? `<button type="button" data-fasting-review-action="review-change" data-protocol="${escapeHtml(verdict.suggestedProtocol)}">Review change</button>`
     : "";
@@ -20243,7 +20465,7 @@ async function loadConnectedDominion() {
 
 function connectedStatusPill(value) {
   const status = escapeHtml(value || "UNKNOWN");
-  const tone = ["CONNECTED", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
+  const tone = ["CONNECTED", "CURRENT", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "IMPORT_FAILED", "CONFLICT", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["STALE", "SYNC_PENDING", "PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
   return `<span class="state-pill ${tone}">${status}</span>`;
 }
 
@@ -20358,15 +20580,20 @@ function renderConnectedDominion() {
   const latestHealthDate = latestDatedItem(api.summarizeHealthMetricsByDate(connectedImportedRecords))?.date || null;
   const connectionPresentation = (providerCode, latestDate, setupAction) => {
     const account = connectedAccounts.find((item) => item.providerCode === providerCode && item.connectionStatus !== "DISCONNECTED") || null;
-    const state = typeof DominionDailyDecisionIntegrity !== "undefined"
-      ? DominionDailyDecisionIntegrity.connectionState({
+    const jobs = api.sortByDate(connectedSyncJobs.filter((job) => job.providerCode === providerCode), "requestedAt");
+    const latestJob = jobs[0] || null;
+    const records = connectedImportedRecords.filter((record) => record.providerCode === providerCode);
+    const lastSuccessfulAt = account?.lastSuccessfulSyncAt || (latestDate && latestDate !== "—" ? `${latestDate}T12:00:00` : null);
+    const state = typeof DominionReleaseStabilization !== "undefined"
+      ? DominionReleaseStabilization.connectionState({
           status: account?.connectionStatus || "NOT_CONNECTED",
-          isSimulated: Boolean(account?.isSimulated),
-          lastSyncAt: latestDate && latestDate !== "—" ? `${latestDate}T12:00:00` : null,
-          failed: connectedSyncJobs.some((job) => job.providerCode === providerCode && job.status === "FAILED")
+          lastSuccessfulAt,
+          evidenceCount: records.length,
+          pending: ["QUEUED", "RUNNING"].includes(latestJob?.status),
+          failed: latestJob?.status === "FAILED"
         })
       : { state: account ? "CURRENT" : "SETUP_REQUIRED", label: account ? "Current" : "Setup required", action: account ? "Review" : "Set up" };
-    return { ...state, providerCode, latestDate: latestDate || "None", setupAction };
+    return { ...state, providerCode, latestDate: latestDate || "None", lastSuccessfulAt, setupAction };
   };
   const sourceStates = [
     connectionPresentation("FITBOD", latestFitbodDate, "fitbod-import"),
@@ -20376,13 +20603,22 @@ function renderConnectedDominion() {
 
   const connectedEvidence = readConnectedEvidenceReport();
   const evidenceStatus = connectedEvidence?.status || "EMPTY";
+  const accountSync = typeof DominionReleaseStabilization !== "undefined"
+    ? DominionReleaseStabilization.syncSummary({
+        online: typeof navigator === "undefined" ? true : navigator.onLine,
+        pending: Number(continuityState.pendingWrites || 0),
+        conflicts: continuityState.conflicts?.length || 0,
+        lastSavedAt: continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleString() : null
+      })
+    : { label: connectedStorageMode, detail: "Account health is shown in the header." };
   if (overviewPanel) overviewPanel.innerHTML = `<article class="connected-evidence-command ${escapeHtml(evidenceStatus.toLowerCase())}">
     <div><span class="kicker">CONNECTED EVIDENCE</span><h3>${escapeHtml(connectedEvidence?.headline || "No connected evidence yet")}</h3><p>${escapeHtml(connectedEvidence?.detail || "Connect a source when you want automatic proof.")}</p></div>
     ${evidenceStatus === "REVIEW" ? `<button type="button" data-connected-action="open-review">Review ${connectedEvidence.counts.exceptions}</button>` : evidenceStatus === "EMPTY" ? `<button type="button" data-connected-action="open-sources">Connect a source</button>` : connectedStatusPill("NO ACTION")}
   </article>
   <div class="connected-source-freshness" aria-label="Connection status">
-    ${sourceStates.map((source, index) => `<article data-connection-state="${escapeHtml(source.state)}"><span>${["Strength", "Fuel", "Health"][index]}</span><strong>${escapeHtml(source.label)}</strong><small>${escapeHtml(source.latestDate === "—" ? "No evidence yet" : `Latest ${source.latestDate}`)}</small>${source.action ? `<button type="button" class="ghost" data-connected-action="${escapeHtml(source.setupAction)}">${escapeHtml(source.action)}</button>` : ""}</article>`).join("")}
+    ${sourceStates.map((source, index) => `<article data-connection-state="${escapeHtml(source.state)}"><span>${["Strength", "Fuel", "Health"][index]}</span><strong>${escapeHtml(source.label)}</strong><small>${escapeHtml(source.lastSuccessfulAt ? `Last successful ${new Date(source.lastSuccessfulAt).toLocaleDateString()}` : "No successful import yet")}</small>${source.action ? `<button type="button" class="ghost" data-connected-action="${escapeHtml(source.setupAction)}">${escapeHtml(source.action)}</button>` : ""}</article>`).join("")}
   </div>
+  <article class="connected-account-health" aria-label="Account save health"><span>Account saves</span><strong>${escapeHtml(accountSync.label)}</strong><small>${escapeHtml(accountSync.detail)}</small></article>
   <details class="product-diagnostics"><summary>Advanced evidence audit</summary><div class="connected-summary-grid"><div><span>Imported</span><strong>${connectedEvidence?.counts?.imported || 0}</strong></div><div><span>Matched</span><strong>${connectedEvidence?.counts?.matched || 0}</strong></div><div><span>Duplicates ignored</span><strong>${connectedEvidence?.counts?.ignored || 0}</strong></div><div><span>Storage</span><strong>${escapeHtml(overview.storageState)}</strong></div></div></details>`;
 
   const sourcesPanel = document.getElementById("connected-view-sources");
@@ -20414,13 +20650,21 @@ function renderConnectedDominion() {
     const jobs = connectedSyncJobs.filter((job) => job.connectedAccountId === account.id);
     const records = connectedImportedRecords.filter((record) => record.connectedAccountId === account.id);
     const counts = api.summarizeSyncJob(records);
+    const latestJob = api.sortByDate(jobs, "requestedAt")[0] || null;
+    const presentation = typeof DominionReleaseStabilization !== "undefined" ? DominionReleaseStabilization.connectionState({
+      status: account.connectionStatus,
+      lastSuccessfulAt: account.lastSuccessfulSyncAt,
+      evidenceCount: records.length,
+      pending: ["QUEUED", "RUNNING"].includes(latestJob?.status),
+      failed: latestJob?.status === "FAILED"
+    }) : { state: account.connectionStatus, label: account.connectionStatus };
     const connectionMode = account.metadata?.connection_mode || account.metadata?.connectionMode || "";
     const accountKind = account.isSimulated ? "SIMULATED · ARCHITECTURE PREVIEW" : connectionMode === "APPLE_HEALTH_SHORTCUT" ? "AUTOMATED · APPLE HEALTH SHORTCUT" : "USER FILE IMPORT";
     const accountActions = account.isSimulated && account.connectionStatus === "CONNECTED"
       ? `<button type="button" data-connected-action="sync" data-account-id="${account.id}">Run manual DEMO sync</button><button type="button" class="ghost" data-connected-action="disconnect" data-account-id="${account.id}">Disconnect simulated account</button>`
       : connectionMode === "APPLE_HEALTH_SHORTCUT" ? `<button type="button" data-connected-action="mfp-feed-open">Review automatic feed</button>` : "";
-    return `<article class="connected-detail-card"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${accountKind}</span></div>${connectedStatusPill(account.connectionStatus)}</header>
-      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Permissions</dt><dd>${escapeHtml(account.permissions.join(", ") || "None")}</dd></div><div><dt>Last sync</dt><dd>${escapeHtml(jobs[0]?.status || "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
+    return `<article class="connected-detail-card" data-connection-state="${escapeHtml(presentation.state)}"><header><div><h3>${escapeHtml(account.providerDisplayName)}</h3><span class="demo-badge">${accountKind}</span></div>${connectedStatusPill(presentation.state)}</header>
+      <dl class="connected-detail-grid"><div><dt>Account</dt><dd>${escapeHtml(account.externalAccountLabel || "Demo account")}</dd></div><div><dt>Status</dt><dd>${escapeHtml(presentation.label)}</dd></div><div><dt>Last successful</dt><dd>${escapeHtml(account.lastSuccessfulSyncAt ? new Date(account.lastSuccessfulSyncAt).toLocaleString() : "Never")}</dd></div><div><dt>Records</dt><dd>${records.length} total · ${counts.duplicate} duplicate · ${counts.rejected} rejected · ${counts.unmapped} unmapped</dd></div></dl>
       <div class="connected-actions">${accountActions}</div>
     </article>`;
   }).join("")}</div>` : `<div class="connected-empty">No simulated accounts. Use PROVIDERS to review permissions and simulate an architecture-preview connection.</div>`;
@@ -20849,9 +21093,10 @@ async function runStartupTask(label, task, issues = []) {
     return await task();
   } catch (error) {
     issues.push({ label, message: error?.message || "Unknown startup error" });
-    console.error(`[startup:${label}] Recovered without stopping the command center.`, {
+    console.info(`[startup:${label}] Optional surface used protected local state.`, {
       message: error?.message || "Unknown startup error"
     });
+    void reportSyncLifecycle("startup_recovery", { surface: label, code: error?.code || "LOCAL_FALLBACK" });
     return null;
   }
 }
@@ -20907,8 +21152,7 @@ async function init() {
     await runStartupTask("Campaign", () => reconcileDominionCampaign({ persist: true }), startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
-    await runStartupTask("account continuity", syncDominionContinuity, startupIssues);
-    await runStartupTask("account truth", syncDominionAccountTruth, startupIssues);
+    await runStartupTask("account save", () => syncDominionAccountTruth({ reason: "startup" }), startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
     await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
     await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);

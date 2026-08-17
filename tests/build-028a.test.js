@@ -27,7 +27,7 @@ test("startup verifies and repairs the full account chain without blocking optio
   assert.match(engine, /ACTION_REQUIRED/);
   assert.match(app, /runStartupTask\("account health", \(\) => runTrustLayer\(\{ repair: true, startupIssues \}\)/);
   assert.match(app, /await flushContinuityPendingWrites\(\)/);
-  assert.match(app, /await syncDominionAccountTruth\(\{ force: true \}\)/);
+  assert.match(app, /await runStartupTask\("account save", \(\) => syncDominionAccountTruth\(\{ reason: "startup" \}\)/);
   assert.match(app, /renderOneCommand\(truth\)/);
   assert.match(app, /window\.addEventListener\("online"/);
   assert.match(app, /if \(!element\) return false/);

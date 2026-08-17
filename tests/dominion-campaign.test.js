@@ -65,6 +65,8 @@ test("campaign anchors to the activated week and creates four three-week phases"
   assert.deepEqual(result.phases.map((phase) => phase.code), ["FOUNDATION", "BUILD", "PRESSURE", "PROVE"]);
   assert.equal(result.currentWeek, 1);
   assert.equal(result.phase.code, "FOUNDATION");
+  assert.equal(result.metrics.assessedExecutionScore, null);
+  assert.equal(result.conditions.find((condition) => condition.id === "EXECUTION").passed, false);
 });
 
 test("campaign counts two same-domain sessions on one day independently", () => {

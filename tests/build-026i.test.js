@@ -28,7 +28,8 @@ test("program state and broader recruit truth save atomically", () => {
   assert.match(migration, /manifest = coalesce\(next_manifest/);
   assert.match(migration, /truth_snapshot = coalesce\(next_truth_snapshot/);
   assert.match(migration, /current_row\.revision <> coalesce\(expected_revision/);
-  assert.match(app, /saveAccountTruthLedger\(programManifest, reconciliation\.snapshot/);
+  assert.match(app, /writeEnvelope = buildAccountTruthWriteEnvelope\(programManifest, reconciliation\.snapshot/);
+  assert.match(app, /saveAccountTruthLedger\(writeEnvelope/);
 });
 
 test("profile, readiness, evidence, and coaching memory reconcile at startup", () => {

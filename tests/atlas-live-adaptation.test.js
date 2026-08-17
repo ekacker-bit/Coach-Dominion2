@@ -35,11 +35,13 @@ test("Build 026C proposes a bounded reduction for low energy", () => {
   assert.equal(proposal.safetyOverride, false);
 });
 
-test("Build 026C makes pain a non-overridable recovery order", () => {
+test("Build 029G keeps even a pain-triggered recovery proposal recruit-controlled", () => {
   const proposal = atlas.buildProposal(context({ pain: true, readinessState: "RED" }));
   assert.equal(proposal.code, "PROTECT_TODAY");
   assert.equal(proposal.safetyOverride, true);
-  assert.throws(() => atlas.resolveProposal(proposal, "HOLD"), /cannot be overridden/i);
+  const held = atlas.resolveProposal(proposal, "HOLD");
+  assert.equal(held.status, "HELD");
+  assert.equal(held.adaptationState, "ADAPTATION_DECLINED");
   const approved = atlas.resolveProposal(proposal, "ACCEPT", { resolvedAt: "2026-08-13T12:05:00.000Z" });
   assert.equal(approved.status, "APPROVED");
   assert.equal(approved.calendarOverride.window, "RECOVERY");
@@ -73,12 +75,13 @@ test("Build 026C applies only an approved, matching day directive", () => {
   assert.equal(atlas.activeDirective(approved, { ...matching, weekRevision: 4 }), null);
 });
 
-test("Build 026C promotes one proposal above execution and keeps approval reversible", () => {
+test("Build 029G preserves the active mission until the proposal is accepted", () => {
   const proposal = atlas.buildProposal(context({ energy: 3 }));
   const command = atlas.applyToCommand({ state: "EXECUTION_REQUIRED", title: "Lower A", primary: { action: "MISSION_SPINE" }, adjustment: { available: true } }, proposal, { date: "2026-08-13", contractRevision: 8, weekRevision: 3 });
-  assert.equal(command.state, "ADAPTATION_REQUIRED");
-  assert.equal(command.primary.action, "LIVE_ADAPTATION");
-  assert.equal(command.adjustment.available, false);
+  assert.equal(command.state, "EXECUTION_REQUIRED");
+  assert.equal(command.primary.action, "MISSION_SPINE");
+  assert.equal(command.adjustment.available, true);
+  assert.equal(command.adaptationState, "ADAPTATION_PROPOSED");
   const approved = atlas.resolveProposal(proposal, "ACCEPT", { resolvedAt: "2026-08-13T12:05:00.000Z" });
   const applied = atlas.applyToCommand({ state: "EXECUTION_REQUIRED", title: "Lower A", duration: { minutes: 60 }, primary: { action: "MISSION_SPINE" } }, approved, { date: "2026-08-13", contractRevision: 8, weekRevision: 3 });
   assert.equal(applied.duration.label, "45 min");

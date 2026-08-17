@@ -107,7 +107,7 @@
     const open = openStandards(standards);
     const confirmed = open.filter((item) => CONFIRMED_STANDARDS.has(upper(item?.status)));
     const photoCount = photoCheckpoints(photos);
-    const campaignProgress = finite(campaign.progress);
+    const campaignProgress = finite(campaign.metrics?.campaignElapsed ?? campaign.progress);
     const campaignWeek = finite(campaign.currentWeek);
     const campaignTotal = finite(campaign.totalWeeks) || 12;
     const adherenceReady = discipline.observations >= 2 || nutrition.evidenceDays >= 3;

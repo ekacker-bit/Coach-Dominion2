@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Final Beta Stabilization
+
+- Keeps the active mission authoritative until the recruit explicitly accepts an Atlas recovery proposal.
+- Applies accepted recovery across Today, Train, Calendar, Fuel, Recovery, Closeout, and evidence with replaced training marked adapted and not required.
+- Uses one visible pending-save count, exact server receipts, automatic retry drains, and redacted sync telemetry.
+- Separates the protected active week from the editable staged week and makes Calendar open on the week Today is executing.
+- Separates campaign elapsed time, evidence coverage, assessed execution, promotion progress, and setup completeness; unassessed work stays unscored.
+- Reduces mobile density while keeping the command, current mission, Quick Log, and sync count visible.
+
 ## Unreleased - Honest Connection Health
 
 - Replaces the optimistic Connections umbrella with one aggregate derived from source freshness, import outcomes, storage availability, and account-save receipts.

@@ -6,6 +6,7 @@
   "use strict";
 
   const VERSION = "026K.1";
+  const STABILIZATION_VERSION = "029G.1";
   const CAMPAIGN_WEEKS = 12;
   const CAMPAIGN_DAYS = CAMPAIGN_WEEKS * 7;
   const EXECUTION_STANDARD = 85;
@@ -303,7 +304,7 @@
     const campaignObjective = objective(contract);
     const id = `dominion:${contractIdentity(contract)}:r${contractRevision(contract)}:${dates.startDate}`;
     const conditions = [
-      condition("EXECUTION", "Mission execution", executionRate, EXECUTION_STANDARD, executionRate >= EXECUTION_STANDARD, `${secured.length} of ${requirements.length} scheduled actions secured`),
+      condition("EXECUTION", "Assessed execution", disciplineAverage ?? 0, EXECUTION_STANDARD, inspections.length > 0 && Number(disciplineAverage) >= EXECUTION_STANDARD, inspections.length ? `${inspections.length} finalized week${inspections.length === 1 ? "" : "s"} assessed` : "No finalized weekly judgment yet"),
       condition("EVIDENCE", "Trusted proof", evidenceRate, EVIDENCE_STANDARD, evidenceRate >= EVIDENCE_STANDARD, `${trusted.length} scheduled actions carry usable proof`),
       condition("WEEKS", "Earned weeks", qualifyingWeeks, QUALIFYING_WEEK_TARGET, qualifyingWeeks >= QUALIFYING_WEEK_TARGET, `${qualifyingWeeks} finalized qualifying week${qualifyingWeeks === 1 ? "" : "s"}`),
       condition("OUTCOME", "Outcome evidence", outcome.complete ? 1 : 0, 1, outcome.complete, outcome.complete ? `${outcome.checkpoints} comparable checkpoints` : "Baseline and follow-up required"),
@@ -314,10 +315,21 @@
       + (evidenceRate / 100 * 15)
       + (Math.min(qualifyingWeeks, QUALIFYING_WEEK_TARGET) / QUALIFYING_WEEK_TARGET * 10)
       + (outcome.complete ? 10 : 0));
+    const metrics = {
+      campaignElapsed: Math.round(elapsedDays / CAMPAIGN_DAYS * 100),
+      evidenceCoverage: evidenceRate,
+      assessedExecutionScore: inspections.length ? disciplineAverage : null,
+      promotionRequirement: Math.round(Math.min(qualifyingWeeks, QUALIFYING_WEEK_TARGET) / QUALIFYING_WEEK_TARGET * 100),
+      setupCompleteness: programActive ? 100 : 50,
+      assessedWeeks: inspections.length,
+      qualifyingWeeks,
+      qualifyingWeekTarget: QUALIFYING_WEEK_TARGET
+    };
     const previous = input.previous?.id === id ? input.previous : null;
     const updatedAt = input.updatedAt || new Date().toISOString();
     const result = {
       version: VERSION,
+      stabilizationVersion: STABILIZATION_VERSION,
       id,
       contractId: contractIdentity(contract),
       contractRevision: contractRevision(contract),
@@ -333,6 +345,7 @@
       phases: clone(PHASES),
       forecast: campaignForecast,
       progress: clamp(progress),
+      metrics,
       execution: { scheduled: requirements.length, secured: secured.length, missing: requirements.filter((item) => !item.secured).length, rate: executionRate },
       evidence: { trusted: trusted.length, rate: evidenceRate, verified: secured.filter((item) => item.evidenceStatus === "VERIFIED").length, selfReported: secured.filter((item) => item.evidenceStatus === "SELF_REPORTED").length },
       weekly: { finalized: inspections.length, qualifying: qualifyingWeeks, disciplineAverage, evidenceAverage },
@@ -351,6 +364,7 @@
       phase: result.phase.code,
       forecast: result.forecast.code,
       progress: result.progress,
+      metrics: result.metrics,
       execution: result.execution,
       evidence: result.evidence,
       weekly: result.weekly,
@@ -394,6 +408,7 @@
 
   return {
     VERSION,
+    STABILIZATION_VERSION,
     CAMPAIGN_WEEKS,
     PHASES,
     EXECUTION_STANDARD,

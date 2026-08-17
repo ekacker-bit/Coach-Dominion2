@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Foreign-Key Index Coverage
+
+- Adds nine reviewed foreign-key indexes that protect relationship lookups and parent-row cleanup as account evidence grows.
+- Covers five cascade, three restrict, and one set-null path across coaching restrictions, connected imports, nutrition ingress, physique evidence, standards events, and workout sets.
+- Verifies the exact production constraint shapes before creating indexes and verifies every resulting leading key before commit.
+- Leaves ten low-signal unused-index observations untouched until production usage history justifies removal.
+
 ## Unreleased - Policy Performance Acceleration
 
 - Caches the authenticated recruit ID once per query across 125 owner policies instead of recalculating it for every row.

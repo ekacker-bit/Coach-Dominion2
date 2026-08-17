@@ -46,6 +46,9 @@ const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
 const trustLayer = read("assets/js/trust-layer.js");
 const trustEventsApi = read("api/trust-events.js");
+const healthApi = read("api/health.js");
+const productionCanary = read("scripts/production-canary.js");
+const releaseWorkflow = read(".github/workflows/release-integrity.yml");
 const adaptiveHorizon = read("assets/js/atlas-adaptive-horizon.js");
 const adaptationOutcomes = read("assets/js/atlas-adaptation-outcomes.js");
 const unifiedBlocker = read("assets/js/unified-blocker-resolution.js");
@@ -86,6 +89,10 @@ check("029L reliability envelope", trustLayer.includes('const RELIABILITY_VERSIO
 check("029L reliability severity", trustLayer.includes("function reliabilitySeverity") && trustEventsApi.includes('severity === "error"') && trustEventsApi.includes('event === "retry_failed"') && app.includes("currentReliabilityContext"), "Expected recovery and actionable failures are not classified separately");
 check("029L support path", html.includes('id="account-truth-support"') && app.includes("lastSupportSignal") && app.includes("renderReliabilitySupportCode") && app.includes('event.error || event.message') && app.includes("event.reason"), "Account Health cannot expose a safe support reference for browser failures");
 check("029L reliability cache", html.includes('/assets/js/trust-layer.js?v=028a-029l') && worker.includes('/assets/js/trust-layer.js?v=028a-029l') && worker.includes("029l-production-reliability") && app.includes('/sw.js?v=029l'), "Reliability instrumentation is stale or uncached");
+check("029M release identity", healthApi.includes('release: "029M.1"') && healthApi.includes("VERCEL_GIT_COMMIT_SHA") && healthApi.includes('productionCanary: "available"') && html.includes('<meta name="coach-dominion-release" content="029M.1">'), "Production cannot prove which release and commit are serving");
+check("029M live probe", productionCanary.includes("/api/health") && productionCanary.includes("/api/trust-events") && productionCanary.includes("account-truth-health") && productionCanary.includes("CD-[A-F0-9]{8}"), "The production canary does not verify the full public reliability path");
+check("029M deployment gate", releaseWorkflow.includes("production-canary:") && releaseWorkflow.includes("needs: verify") && releaseWorkflow.includes("github.event_name == 'push'") && releaseWorkflow.includes("coach-dominion2.vercel.app") && releaseWorkflow.includes("--expected-release 029M.1") && releaseWorkflow.includes("--expected-commit ${{ github.sha }}"), "A successful build can still bypass the exact live production commit canary");
+check("029M privacy boundary", productionCanary.includes('event: "trust_check"') && productionCanary.includes('route: "app"') && !/\b(?:email|userId|healthData|notes)\s*:/.test(productionCanary), "The canary telemetry payload contains personal or health data");
 
 check("app shell", size("app.html") >= 110000, `app.html is only ${size("app.html")} bytes`);
 check("application", size("assets/js/app.js") >= 900000, `app.js is only ${size("assets/js/app.js")} bytes`);

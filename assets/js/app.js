@@ -12647,7 +12647,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: serviceWorker.register("/sw.js?v=029b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029d", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029e", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029e", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029f", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -20717,7 +20718,7 @@ async function loadConnectedDominion() {
 
 function connectedStatusPill(value) {
   const status = escapeHtml(value || "UNKNOWN");
-  const tone = ["CONNECTED", "CURRENT", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "IMPORT_FAILED", "CONFLICT", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["STALE", "SYNC_PENDING", "PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
+  const tone = ["CONNECTED", "CURRENT", "CONNECTED_CURRENT", "SUCCEEDED", "MAPPED", "VALID"].includes(value) ? "green" : ["FAILED", "ERROR", "IMPORT_FAILED", "CONFLICT", "SYNC_ERROR", "REJECTED", "INVALID"].includes(value) ? "red" : ["STALE", "CONNECTED_STALE", "SYNC_PENDING", "PARTIAL", "UNMAPPED", "DUPLICATE", "REAUTH_REQUIRED"].includes(value) ? "yellow" : "neutral";
   return `<span class="state-pill ${tone}">${status}</span>`;
 }
 
@@ -20822,10 +20823,8 @@ function renderConnectedDominion() {
   const api = connectedApi();
   if (!api || typeof document === "undefined") return;
   const overview = api.buildConnectedOverviewModel({ accounts: connectedAccounts, jobs: connectedSyncJobs, records: connectedImportedRecords, storageState: connectedStorageMode });
-  setText("connected-storage", connectedStorageMode);
   setText("diagnostic-storage", connectedStorageMode);
   const viewState = api.deriveConnectedViewState({ ...connectedLoadState, accounts: connectedAccounts });
-  setText("connected-feedback", viewState === "LOCAL_FALLBACK_ACTIVE" ? "Account sync is unavailable. Connected evidence remains protected on this device." : viewState === "LOADING" ? "Loading your connections…" : "Connected sources ready. Review appears only when evidence conflicts.");
   const overviewPanel = document.getElementById("connected-view-overview");
   const latestFitbodDate = latestDatedItem(api.groupFitbodWorkoutSessions(connectedImportedRecords))?.date || "—";
   const latestNutritionDate = latestDatedItem(api.aggregateNutritionByDate(connectedImportedRecords))?.date || "—";
@@ -20845,7 +20844,10 @@ function renderConnectedDominion() {
           failed: latestJob?.status === "FAILED"
         })
       : { state: account ? "CURRENT" : "SETUP_REQUIRED", label: account ? "Current" : "Setup required", action: account ? "Review" : "Set up" };
-    return { ...state, providerCode, latestDate: latestDate || "None", lastSuccessfulAt, setupAction };
+    const presentation = typeof DominionConnectedHealth !== "undefined"
+      ? DominionConnectedHealth.source({ ...state, isSimulated: account?.isSimulated === true })
+      : state;
+    return { ...presentation, providerCode, latestDate: latestDate || "None", lastSuccessfulAt, setupAction };
   };
   const sourceStates = [
     connectionPresentation("FITBOD", latestFitbodDate, "fitbod-import"),
@@ -20863,7 +20865,35 @@ function renderConnectedDominion() {
         lastSavedAt: continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleString() : null
       })
     : { label: connectedStorageMode, detail: "Account health is shown in the header." };
-  if (overviewPanel) overviewPanel.innerHTML = `<article class="connected-evidence-command ${escapeHtml(evidenceStatus.toLowerCase())}">
+  const connectedHealth = typeof DominionConnectedHealth !== "undefined"
+    ? DominionConnectedHealth.aggregate({
+        sources: sourceStates,
+        accountState: accountSync.state,
+        storageState: viewState,
+        remoteLoadFailed: connectedLoadState.remoteLoadFailed === true,
+        online: typeof navigator === "undefined" ? true : navigator.onLine
+      })
+    : { state: "SETUP_REQUIRED", label: "SETUP REQUIRED", tone: "neutral", detail: "Review connection health." };
+  const connectedStatus = document.getElementById("connected-storage");
+  if (connectedStatus) {
+    connectedStatus.textContent = connectedHealth.label;
+    connectedStatus.className = `state-pill ${connectedHealth.tone}`;
+    connectedStatus.setAttribute("aria-label", `Connection status: ${connectedHealth.label.toLowerCase()}`);
+  }
+  const connectedFeedback = document.getElementById("connected-feedback");
+  if (connectedFeedback) {
+    connectedFeedback.textContent = viewState === "LOADING"
+      ? "Loading your connections…"
+      : typeof DominionConnectedHealth !== "undefined"
+        ? DominionConnectedHealth.sentence(connectedHealth)
+        : connectedHealth.detail;
+    connectedFeedback.dataset.connectionState = connectedHealth.state;
+  }
+  if (overviewPanel) overviewPanel.innerHTML = `<article class="connected-health-summary ${escapeHtml(connectedHealth.tone)}" data-connection-health="${escapeHtml(connectedHealth.state)}">
+    <div><span class="kicker">CONNECTION HEALTH</span><h3>${escapeHtml(connectedHealth.label)}</h3><p>${escapeHtml(connectedHealth.detail)}</p></div>
+    <span class="state-pill ${escapeHtml(connectedHealth.tone)}">${escapeHtml(connectedHealth.label)}</span>
+  </article>
+  <article class="connected-evidence-command ${escapeHtml(evidenceStatus.toLowerCase())}">
     <div><span class="kicker">CONNECTED EVIDENCE</span><h3>${escapeHtml(connectedEvidence?.headline || "No connected evidence yet")}</h3><p>${escapeHtml(connectedEvidence?.detail || "Connect a source when you want automatic proof.")}</p></div>
     ${evidenceStatus === "REVIEW" ? `<button type="button" data-connected-action="open-review">Review ${connectedEvidence.counts.exceptions}</button>` : evidenceStatus === "EMPTY" ? `<button type="button" data-connected-action="open-sources">Connect a source</button>` : connectedStatusPill("NO ACTION")}
   </article>

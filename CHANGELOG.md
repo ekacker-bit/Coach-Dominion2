@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Honest Connection Health
+
+- Replaces the optimistic Connections umbrella with one aggregate derived from source freshness, import outcomes, storage availability, and account-save receipts.
+- Reserves Connected and current for Strength, Fuel, and Health sources with recent successful evidence.
+- Distinguishes Connected but stale, Setup required, Sync pending, and Error without hiding the source that needs attention.
+- Prevents simulated connections and connected sources with no evidence from being counted as current.
+- Keeps the last successful import visible for every source and makes the aggregate status compact on mobile.
+
 ## Unreleased - Truthful Program Lifecycle
 
 - Gives the program exactly five lifecycle states: Draft, Ready to commit, Active, Completed, and Superseded.

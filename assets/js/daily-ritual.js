@@ -49,12 +49,13 @@
 
   function milestoneState(queue = {}, loop = {}) {
     const record = (queue.steps || []).find((step) => step.id === "record");
+    const closeout = (queue.steps || []).find((step) => step.id === "closeout");
     const reviewClosed = loop.review?.status === "CLOSED";
     const adaptationApproved = loop.adaptation?.status === "APPROVED" || loop.state === "LOOP CLOSED";
     const completion = {
-      execute: Boolean(queue.complete),
+      execute: Boolean(queue.closeoutReady || queue.complete),
       record: Boolean(record?.complete),
-      verify: Boolean(reviewClosed),
+      verify: Boolean(closeout?.complete || reviewClosed),
       adapt: Boolean(adaptationApproved)
     };
     const currentId = MILESTONES.find((item) => !completion[item.id])?.id || null;
@@ -66,7 +67,7 @@
   }
 
   function buildDailyRitual(input = {}) {
-    const queue = input.queue || { steps: [], completed: 0, total: 6, percent: 0, complete: false };
+    const queue = input.queue || { steps: [], completed: 0, total: 7, percent: 0, complete: false, closeoutReady: false };
     const loop = input.closedLoop || {};
     const milestones = milestoneState(queue, loop);
     const stats = securedDayStats(input.history, input.date);
@@ -85,6 +86,14 @@
       state = "IN_MOTION";
       title = `${queue.completed} of ${queue.total} commitments secured`;
       detail = `Finish ${queue.current?.label?.toLowerCase() || "the current order"}. The seal remains open until the record is complete.`;
+    }
+    if (queue.closeoutReady && !closeoutSealed) {
+      state = "CLOSEOUT_READY";
+      eyebrow = "DAILY CLOSEOUT";
+      title = "Report the day as lived";
+      detail = "Add final steps and private discipline evidence. Unanswered items remain unknown—not failures.";
+      action = "open_closeout";
+      actionLabel = "Complete Closeout";
     }
     if (queue.complete && !loop.review?.status && loop.state !== "REVIEW READY") {
       state = "EVIDENCE_CHECK";

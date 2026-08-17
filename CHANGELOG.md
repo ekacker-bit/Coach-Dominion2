@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Account Enrollment & Daily Closeout
+
+- Adds a deliberate Create Account path that sends new recruits into the Contract after confirmation.
+- Keeps password recovery from silently creating an account and handles confirmation-required signup safely.
+- Establishes a server-controlled access tier for future trials and paid memberships without adding payment behavior now.
+- Restores Daily Closeout as the final commitment in Today after the Daily Record.
+- Keeps final steps, discipline answers, and amendments in the existing account-backed Closeout record.
+- Prevents the daily loop from reporting complete until the Closeout is sealed.
+
 ## Unreleased - Release Stabilization & Daily Command Repair
 
 - Replaces competing startup writers with one idempotent, account-scoped save and a bounded retry queue.

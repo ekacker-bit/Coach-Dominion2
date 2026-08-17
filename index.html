@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#080a08">
   <title>Coach Dominion — Earn Entry</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=025q">
+  <link rel="stylesheet" href="/assets/styles.css?v=029a">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/assets/js/account-entry.js?v=029a"></script>
 </head>
 <body class="auth-page">
   <main class="entry-shell">
@@ -34,9 +35,14 @@
 
     <section class="entry-access" aria-labelledby="access-title">
       <div class="entry-access-header">
-        <span class="kicker">AUTHORIZED RECRUITS</span>
+        <span id="entry-access-kicker" class="kicker">AUTHORIZED RECRUITS</span>
         <h2 id="access-title">Resume the mission.</h2>
-        <p>Your Contract, program, evidence, and next order are waiting.</p>
+        <p id="entry-access-detail">Your Contract, program, evidence, and next order are waiting.</p>
+      </div>
+
+      <div class="entry-mode" role="tablist" aria-label="Account access">
+        <button id="entry-mode-signin" class="ghost" type="button" role="tab" aria-selected="true" aria-controls="password-form" data-entry-mode="signin">Sign in</button>
+        <button id="entry-mode-signup" class="ghost" type="button" role="tab" aria-selected="false" aria-controls="signup-form" data-entry-mode="signup">Create account</button>
       </div>
 
       <form id="password-form" class="entry-form">
@@ -50,6 +56,23 @@
           </span>
         </label>
         <button id="password-submit" class="entry-submit" type="submit"><span>Enter the command center</span><b aria-hidden="true">→</b></button>
+      </form>
+
+      <form id="signup-form" class="entry-form" hidden>
+        <label for="signup-email">Email
+          <input id="signup-email" type="email" inputmode="email" autocomplete="email" required placeholder="recruit@example.com">
+        </label>
+        <label for="signup-password">Create password
+          <span class="entry-password-control">
+            <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required placeholder="8 or more characters">
+            <button class="entry-password-toggle" type="button" aria-pressed="false" data-password-target="signup-password">Show</button>
+          </span>
+        </label>
+        <label for="signup-password-confirm">Confirm password
+          <input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" required placeholder="Repeat your password">
+        </label>
+        <p class="entry-enrollment-note"><strong>Closed-alpha access is included today.</strong> Any future paid plan will require separate consent.</p>
+        <button id="signup-submit" class="entry-submit" type="submit"><span>Begin the Contract</span><b aria-hidden="true">→</b></button>
       </form>
 
       <p id="status" class="entry-status" role="status" aria-live="polite"></p>
@@ -85,6 +108,9 @@ function entryError(error) {
   const message = String(error?.message || error || "").toLowerCase();
   if (message.includes("invalid login")) return "That email and password did not match. Check both and try again.";
   if (message.includes("email not confirmed")) return "Confirm your email before entering the command center.";
+  if (message.includes("already registered") || message.includes("already exists")) return "That account already exists. Return to Sign in or request a secure link.";
+  if (message.includes("password") && (message.includes("weak") || message.includes("short") || message.includes("characters"))) return "Use a stronger password with at least 8 characters.";
+  if (message.includes("signup") && message.includes("disabled")) return "New account enrollment is temporarily closed.";
   if (message.includes("rate") || message.includes("too many")) return "Too many attempts. Hold position for a moment, then try again.";
   if (message.includes("fetch") || message.includes("network")) return "The command center could not be reached. Check your connection and try again.";
   return error?.message || "Entry failed. Try again or request a secure link.";
@@ -100,6 +126,26 @@ function setButtonState(button, isLoading, loadingText, idleText) {
   button.disabled = isLoading;
   button.classList.toggle("is-loading", isLoading);
   button.querySelector("span") ? button.querySelector("span").textContent = isLoading ? loadingText : idleText : button.textContent = isLoading ? loadingText : idleText;
+}
+
+function setEntryMode(mode = "signin") {
+  const signup = mode === "signup";
+  const signInForm = document.getElementById("password-form");
+  const signupForm = document.getElementById("signup-form");
+  signInForm.hidden = signup;
+  signupForm.hidden = !signup;
+  document.querySelectorAll("[data-entry-mode]").forEach((button) => {
+    const selected = button.dataset.entryMode === mode;
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+    button.tabIndex = selected ? 0 : -1;
+  });
+  document.getElementById("entry-access-kicker").textContent = signup ? "NEW RECRUIT" : "AUTHORIZED RECRUITS";
+  document.getElementById("access-title").textContent = signup ? "Accept the challenge." : "Resume the mission.";
+  document.getElementById("entry-access-detail").textContent = signup
+    ? "Create your account, define the Contract, and let Atlas build Week One."
+    : "Your Contract, program, evidence, and next order are waiting.";
+  setStatus("");
+  (signup ? document.getElementById("signup-email") : document.getElementById("password-email"))?.focus({ preventScroll: true });
 }
 
 (async () => {
@@ -119,13 +165,17 @@ function setButtonState(button, isLoading, loadingText, idleText) {
   }
 })();
 
-document.getElementById("password-visibility").addEventListener("click", (event) => {
-  const password = document.getElementById("password");
+document.querySelectorAll(".entry-password-toggle").forEach((button) => button.addEventListener("click", (event) => {
+  const password = document.getElementById(event.currentTarget.dataset.passwordTarget || "password");
   const reveal = password.type === "password";
   password.type = reveal ? "text" : "password";
   event.currentTarget.textContent = reveal ? "Hide" : "Show";
   event.currentTarget.setAttribute("aria-pressed", reveal ? "true" : "false");
-});
+}));
+
+document.querySelectorAll("[data-entry-mode]").forEach((button) => button.addEventListener("click", (event) => {
+  setEntryMode(event.currentTarget.dataset.entryMode || "signin");
+}));
 
 document.querySelector(".entry-recovery").addEventListener("toggle", (event) => {
   if (!event.currentTarget.open) return;
@@ -153,6 +203,44 @@ document.getElementById("password-form").addEventListener("submit", async (event
   }
 });
 
+document.getElementById("signup-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = document.getElementById("signup-submit");
+  const validation = window.DominionAccountEntry.validateSignup({
+    email: document.getElementById("signup-email").value,
+    password: document.getElementById("signup-password").value,
+    confirmation: document.getElementById("signup-password-confirm").value
+  });
+  if (!validation.valid) {
+    setStatus(validation.errors[0]?.message || "Review the account details and try again.", "error");
+    document.getElementById(`signup-${validation.errors[0]?.field === "confirmation" ? "password-confirm" : validation.errors[0]?.field}`)?.focus();
+    return;
+  }
+  setButtonState(button, true, "Creating account", "Begin the Contract");
+  setStatus("Creating your secure account…", "working");
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: validation.email,
+      password: validation.password,
+      options: window.DominionAccountEntry.signupOptions(window.location.origin)
+    });
+    if (error) throw error;
+    const outcome = window.DominionAccountEntry.signupOutcome(data);
+    if (outcome.destination) {
+      setStatus("Account created. Opening your Contract…", "success");
+      window.location.replace(outcome.destination);
+      return;
+    }
+    setStatus("Check your email to confirm the account. If you already have one, return to Sign in.", "success");
+    document.getElementById("signup-form").reset();
+  } catch (error) {
+    setStatus(entryError(error), "error");
+  } finally {
+    setButtonState(button, false, "Creating account", "Begin the Contract");
+  }
+});
+
 document.getElementById("magic-link-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = document.getElementById("magic-submit");
@@ -161,7 +249,7 @@ document.getElementById("magic-link-form").addEventListener("submit", async (eve
   try {
     const supabase = await getClient();
     const email = document.getElementById("magic-email").value.trim();
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + "/app#today" } });
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + "/app#today", shouldCreateUser: false } });
     if (error) throw error;
     setStatus("Secure link sent. Check your email to resume the mission.", "success");
   } catch (error) {

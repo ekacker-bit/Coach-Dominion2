@@ -117,11 +117,29 @@ function loop(overrides = {}) {
     fuelingBaseline: true,
     fuelingComplete: true,
     recoveryComplete: true,
-    recordComplete: true
+    recordComplete: true,
+    closeoutComplete: true
   });
   assert.equal(queue.complete, true);
   assert.equal(queue.state, "DAY COMPLETE");
   assert.equal(queue.percent, 100);
+}
+
+{
+  const queue = daily.buildDailyExecutionQueue({
+    readinessComplete: true,
+    ordersApproved: true,
+    trainingComplete: true,
+    fuelingBaseline: true,
+    fuelingComplete: true,
+    recoveryComplete: true,
+    recordComplete: true,
+    closeoutComplete: false
+  });
+  assert.equal(queue.complete, false);
+  assert.equal(queue.closeoutReady, true);
+  assert.equal(queue.current.id, "closeout");
+  assert.equal(queue.current.action, "open_closeout");
 }
 
 console.log("Daily coaching loop tests passed.");

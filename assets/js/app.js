@@ -808,7 +808,7 @@ function buildCurrentTrustLayerReport(options = {}) {
       pendingWrites: canonicalPendingWriteState().count,
       online: navigator.onLine !== false
     });
-  return DominionTrustLayer.evaluate({
+  const report = DominionTrustLayer.evaluate({
     online: navigator.onLine !== false,
     accountHealth: { ...accountTruthState, ...accountHealth },
     lineage,
@@ -821,27 +821,49 @@ function buildCurrentTrustLayerReport(options = {}) {
     startupIssues: options.startupIssues || trustLayerState.startupIssues,
     recovered: options.recovered === true || accountTruthState.recovered === true
   });
+  if (typeof DominionBetaReadinessGate === "undefined") return report;
+  const date = todayISODate();
+  const canonical = currentCanonicalDailyCommand?.date === date
+    ? currentCanonicalDailyCommand
+    : buildCurrentCanonicalDailyCommand(date);
+  const readiness = DominionBetaReadinessGate.evaluate({
+    trustReport: report,
+    account: { ...accountTruthState, status: accountHealth.status },
+    pendingWrites: canonicalPendingWriteState().count,
+    online: navigator.onLine !== false,
+    lifecycle: currentProgramLifecycle(),
+    activeWeek: readCommittedUnifiedWeek(date),
+    canonicalCommand: canonical,
+    adaptation: readAtlasLiveAdaptation(date)
+  });
+  return { ...report, readiness };
 }
 
 function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentTrustLayerReport()) {
   if (!report) return;
   trustLayerState.report = report;
+  const readiness = report.readiness || null;
   const root = document.getElementById("account-truth-health");
-  if (root) root.dataset.truthTone = report.tone;
-  setText("account-truth-status", report.status.replaceAll("_", " "));
-  setText("account-truth-headline", report.headline);
-  setText("account-truth-program", report.checks.program);
-  setText("account-truth-calendar", report.checks.calendar);
-  setText("account-truth-today", report.checks.today);
-  setText("account-truth-evidence", report.checks.evidence);
+  if (root) {
+    root.dataset.truthTone = readiness?.tone || report.tone;
+    root.dataset.readiness = readiness?.state || report.status;
+  }
+  setText("account-truth-status", readiness?.label || report.status.replaceAll("_", " "));
+  setText("account-truth-headline", readiness?.headline || report.headline);
+  setText("account-truth-program", readiness?.checks?.program || report.checks.program);
+  setText("account-truth-calendar", readiness?.checks?.calendar || report.checks.calendar);
+  setText("account-truth-today", readiness?.checks?.today || report.checks.today);
+  setText("account-truth-evidence", readiness?.checks?.evidence || report.checks.evidence);
   const action = document.getElementById("account-truth-action");
+  const primaryAction = readiness?.primaryAction || report.primaryAction;
   if (action) {
-    action.hidden = !report.primaryAction;
-    action.textContent = report.primaryAction?.label || "Review";
-    action.dataset.trustAction = report.primaryAction?.code || "";
-    action.dataset.trustSection = report.primaryAction?.section || "";
+    action.hidden = !primaryAction;
+    action.textContent = primaryAction?.label || "Review";
+    action.dataset.trustAction = primaryAction?.code || "";
+    action.dataset.trustSection = primaryAction?.section || "";
   }
   document.body.dataset.trustLayer = report.status.toLowerCase().replaceAll("_", "-");
+  document.body.dataset.betaReadiness = readiness?.state?.toLowerCase().replaceAll("_", "-") || "checking";
 }
 
 async function reportTrustEvent(event, report = trustLayerState.report, context = {}) {
@@ -12718,7 +12740,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029d", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029e", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029f", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029g2", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029g2", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029h", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

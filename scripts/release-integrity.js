@@ -39,6 +39,7 @@ const finalBetaStabilization = read("assets/js/final-beta-stabilization.js");
 const betaReadinessGate = read("assets/js/beta-readiness-gate.js");
 const accountPersistenceMigration = read("supabase/migrations/20260817113359_account_persistence_receipts.sql");
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
+const productionSecurityMigration = read("supabase/migrations/20260817161809_production_security_hardening.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
 const trustLayer = read("assets/js/trust-layer.js");
@@ -339,6 +340,10 @@ check("beta readiness authority", betaReadinessGate.includes('const VERSION = "0
 check("beta readiness integration", html.includes('/assets/js/beta-readiness-gate.js?v=029h') && html.indexOf('beta-readiness-gate.js?v=029h') < html.indexOf('app.js?v=') && app.includes("DominionBetaReadinessGate.evaluate") && app.includes("dataset.betaReadiness"), "029H readiness does not govern Account Health");
 check("beta readiness purity", !/localStorage|sessionStorage|fetch\(|\.insert\(|\.update\(/.test(betaReadinessGate), "029H readiness creates side effects while evaluating state");
 check("beta readiness offline shell", worker.includes('coach-dominion-029h-beta-readiness') && worker.includes('/assets/js/beta-readiness-gate.js?v=029h') && app.includes('/sw.js?v=029h'), "029H assets are stale or uncached");
+check("production legacy quarantine", productionSecurityMigration.includes("alter table public.users enable row level security") && productionSecurityMigration.includes("alter table public.daily_reports enable row level security") && productionSecurityMigration.includes("revoke all privileges on table public.users from anon, authenticated"), "legacy bootstrap tables remain exposed to the Data API");
+check("trigger RPC lockdown", productionSecurityMigration.includes("revoke all on function public.handle_new_user() from public, anon, authenticated") && productionSecurityMigration.includes("alter function public.mark_revoked_nutrition_feed() set search_path = ''") && productionSecurityMigration.includes("alter function public.set_updated_at() set search_path = ''"), "trigger-only functions remain callable or have mutable search paths");
+check("intentional nutrition ingress", productionSecurityMigration.includes("grant execute on function public.ingest_nutrition_feed(text, jsonb) to anon, authenticated") && productionSecurityMigration.includes("Accepts no caller-controlled user identity"), "the nutrition bridge exception is missing or undocumented");
+check("weekly policy consolidation", productionSecurityMigration.includes("drop policy if exists weekly_inspections_own_all") && productionSecurityMigration.includes("for update to authenticated") && productionSecurityMigration.includes("(select auth.uid()) = user_id") && productionSecurityMigration.includes("drop index if exists public.weekly_inspections_user_week_unique"), "weekly inspection policies or indexes remain duplicated");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

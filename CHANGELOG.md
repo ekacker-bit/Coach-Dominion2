@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Production Security Hardening
+
+- Quarantines two empty legacy tables that were unnecessarily exposed through the Data API.
+- Makes trigger-only account and evidence functions unavailable as public RPC endpoints.
+- Pins trigger search paths and preserves the token-authenticated nutrition bridge as an explicit, documented exception.
+- Replaces overlapping Weekly Inspection policies with one authenticated owner policy per operation.
+- Removes the duplicate weekly inspection index without changing the canonical uniqueness constraint.
+- Adds a production verification runbook, including the remaining Auth password-protection toggle.
+
 ## Unreleased - Beta Readiness Gate
 
 - Proves that the approved program, active Calendar week, Today command, latest account receipt, and saved evidence agree before calling the experience current.

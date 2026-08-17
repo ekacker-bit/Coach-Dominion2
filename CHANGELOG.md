@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Canonical Daily Command
+
+- Establishes one committed program-week-day authority for Today, Train, Fuel, Recovery, Program, Calendar, Quick Log, and Closeout.
+- Keeps draft calendar assignments visible for review but makes them non-executable everywhere else.
+- Replaces competing setup actions with one instruction: Commit the coordinated week.
+- Prevents an uncommitted week from being mislabeled as a recovery day or receiving recovery-day Fuel targets.
+- Preserves committed Two-a-Day AM/PM windows and uncapped long-run truth across every daily surface.
+- Adds explicit Draft, Ready to Commit, Active, Completed, and Superseded lifecycle state to the canonical object.
+
 ## Unreleased - Account Enrollment & Daily Closeout
 
 - Adds a deliberate Create Account path that sends new recruits into the Contract after confirmation.

@@ -66,6 +66,7 @@ let mobileInstallPrompt = null;
 let mobileSyncInFlight = false;
 let currentOperatingTruth = null;
 let currentAtlasDailyCommand = null;
+let currentCanonicalDailyCommand = null;
 let currentAtlasCoachProposal = null;
 let currentAtlasCoachSource = "DAILY_COMMAND";
 let currentDailyDecision = null;
@@ -6886,6 +6887,27 @@ function readEffectiveUnifiedDay(value = todayISODate()) {
   return DominionRecoveryCommand.applyToDay(horizonDay, buildCurrentRecoveryCommand(date), recoveryCommandContext(date));
 }
 
+function buildCurrentCanonicalDailyCommand(value = todayISODate()) {
+  if (typeof DominionCanonicalDailyCommand === "undefined") return null;
+  const date = String(value || todayISODate()).slice(0, 10);
+  const week = readCommittedUnifiedWeek(date);
+  const day = week ? readEffectiveUnifiedDay(date) : null;
+  const closeout = readDailyCloseout(date);
+  return DominionCanonicalDailyCommand.buildCanonicalDailyCommand({
+    date,
+    contract: readApprovedRecruitContract(),
+    committedWeek: week,
+    committedDay: day,
+    draftWeek: readUnifiedWeekDraft(),
+    dayComplete: closeout?.status === "SEALED",
+    executions: {
+      strength: readDailyAssignmentExecution(),
+      running: readRunningExecution(),
+      core: readCurrentCoreExecution()
+    }
+  });
+}
+
 function splitDayCheckpointStorageKey(value = todayISODate()) {
   return `coach-dominion:split-day:${session?.user?.id || "local"}:${String(value).slice(0, 10)}`;
 }
@@ -7535,7 +7557,7 @@ function renderTodayCommittedWeek() {
   if (!week) {
     status.textContent = "NOT COMMITTED";
     status.className = "state-pill yellow";
-    panel.innerHTML = `<div class="today-committed-week-empty"><div><strong>No complete week is committed.</strong><p>Review the unified calendar before Today begins assigning cross-module work.</p></div><a href="#calendar" data-section="calendar">Open Calendar</a></div>`;
+    panel.innerHTML = `<div class="today-committed-week-empty"><div><strong>No week is active.</strong><p>A draft can be reviewed in Calendar, but it cannot authorize today's work.</p></div><a href="#calendar" data-section="calendar">Commit the coordinated week</a></div>`;
     return;
   }
   const day = readEffectiveUnifiedDay(todayISODate());
@@ -12275,6 +12297,17 @@ function restoreFrictionlessDraftForms() {
 async function openFrictionlessLogger(module = "") {
   if (typeof DominionFrictionlessExecution === "undefined") return false;
   const id = String(module || "").toLowerCase();
+  if (["strength", "running", "core", "recovery"].includes(id)) {
+    const moduleState = dailyDecisionModuleState(id);
+    if (!moduleState.executable) {
+      setText("frictionless-execution-feedback", moduleState.detail || "Commit the coordinated week before opening this work.");
+      if (moduleState.action?.section) {
+        setActiveSection(moduleState.action.section);
+        window.history.replaceState(null, "", `#${moduleState.action.section}`);
+      }
+      return false;
+    }
+  }
   const envelope = DominionFrictionlessExecution.updateDraftEnvelope(readFrictionlessExecutionEnvelope(), id, readFrictionlessExecutionEnvelope().drafts?.[id]?.values || null, {
     date: todayISODate(),
     now: new Date().toISOString()
@@ -12338,6 +12371,15 @@ function splitDayModuleAuthorization(module = "strength") {
 }
 
 async function launchMobileModule(module = "strength") {
+  const moduleState = dailyDecisionModuleState(module);
+  if (!moduleState.executable) {
+    setText("mobile-command-feedback", moduleState.detail || "This work is not authorized by today's committed schedule.");
+    if (moduleState.action?.section) {
+      setActiveSection(moduleState.action.section);
+      window.history.replaceState(null, "", `#${moduleState.action.section}`);
+    }
+    return false;
+  }
   const splitAuthorization = splitDayModuleAuthorization(module);
   if (!splitAuthorization.allowed) {
     setText("mobile-command-feedback", splitAuthorization.message);
@@ -12478,7 +12520,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=028c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028e", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028f", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029a", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: register("/sw.js?v=029a", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029b", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15074,7 +15117,10 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
   if (!truth || !model || typeof DominionAtlasDailyCommand === "undefined") return model;
   const context = atlasDailyCommandContext(truth.date || todayISODate());
   const queue = buildCurrentDailyExecutionQueue();
-  const day = readEffectiveUnifiedDay(context.date);
+  currentCanonicalDailyCommand = buildCurrentCanonicalDailyCommand(context.date);
+  const day = currentCanonicalDailyCommand
+    ? currentCanonicalDailyCommand.day.committed ? currentCanonicalDailyCommand.day.source : null
+    : readEffectiveUnifiedDay(context.date);
   const command = DominionAtlasDailyCommand.buildDailyCommand({
     truth,
     model,
@@ -15124,6 +15170,7 @@ function buildCurrentAtlasDailyCommand(truth = currentOperatingTruth || buildCur
     truth,
     command: recoveryAdapted,
     day,
+    canonicalDailyCommand: currentCanonicalDailyCommand,
     queue,
     plans: activation.modules || [],
     continuityBlocker: blocker,
@@ -15159,6 +15206,10 @@ function dailyDecisionModuleState(domain = "training") {
   const base = !decisionEngine
     ? { status: "LOADING", executable: false, progressionAllowed: false, detail: "Checking today's order." }
     : decisionEngine.moduleState(currentDailyDecision, domain);
+  const canonical = currentCanonicalDailyCommand || buildCurrentCanonicalDailyCommand(todayISODate());
+  if (canonical?.blocked && typeof DominionCanonicalDailyCommand !== "undefined") {
+    return DominionCanonicalDailyCommand.moduleState(canonical, domain, base);
+  }
   return typeof DominionRecoveryCommand === "undefined"
     ? base
     : DominionRecoveryCommand.moduleState(buildCurrentRecoveryCommand(), domain, base);
@@ -15166,6 +15217,7 @@ function dailyDecisionModuleState(domain = "training") {
 
 function dailyDecisionScheduleSummary(decision = currentDailyDecision) {
   if (!decision) return { state: "Checking", detail: "Checking the committed week." };
+  if (decision.blocker?.code === "WEEK_COMMIT_REQUIRED") return { state: "Week not committed", detail: "Draft assignments are preview only. Commit the coordinated week to authorize today's work." };
   if (decision.status === "BLOCKED" || decision.status === "STALE") return { state: "Training protected", detail: decision.blocker?.detail || "Today's order needs attention." };
   if (!decision.schedule.available) return { state: "No committed schedule", detail: "Open Calendar to commit the operating day." };
   if (decision.schedule.recoveryDay) return { state: "Recovery day", detail: "No training is authorized today." };
@@ -15181,6 +15233,11 @@ function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
   document.body.dataset.dailyDecisionStatus = decision.status;
   document.body.dataset.dailyDecisionBlocker = decision.blocker?.code || "NONE";
   document.body.dataset.dailyDecisionId = decision.id;
+  if (currentCanonicalDailyCommand) {
+    document.body.dataset.programState = currentCanonicalDailyCommand.lifecycle.program;
+    document.body.dataset.weekState = currentCanonicalDailyCommand.lifecycle.week;
+    document.body.dataset.dayState = currentCanonicalDailyCommand.lifecycle.day;
+  }
   const readiness = decision.readiness;
   setText("daily-decision-readiness-state", readiness.classification.replaceAll("_", " "));
   setText("daily-decision-readiness-detail", readiness.complete
@@ -15191,7 +15248,7 @@ function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
   setText("daily-decision-schedule-detail", schedule.detail);
   const nextEvidence = decision.requiredEvidence[0];
   const fullyBlocked = ["BLOCKED", "STALE", "FAILED"].includes(decision.status);
-  setText("daily-decision-execution-title", fullyBlocked ? "Today's work needs attention" : decision.status === "EMPTY" ? "Commit today's schedule" : decision.primaryAction?.label || nextEvidence?.label || (decision.recoveryDay ? "Protect the recovery day" : "Today's order is ready"));
+  setText("daily-decision-execution-title", decision.blocker?.code === "WEEK_COMMIT_REQUIRED" ? "Commit the coordinated week" : fullyBlocked ? "Today's work needs attention" : decision.status === "EMPTY" ? "Commit today's schedule" : decision.primaryAction?.label || nextEvidence?.label || (decision.recoveryDay ? "Protect the recovery day" : "Today's order is ready"));
   setText("daily-decision-execution-detail", fullyBlocked ? decision.blocker?.detail : decision.status === "EMPTY" ? "No workout is executable until the operating day is committed." : decision.blockers?.length ? `${decision.blockers[0].title}. Other approved work remains available.` : nextEvidence?.actionLabel || decision.nutritionContext.detail);
   const executionAction = document.getElementById("daily-decision-execution-action");
   if (executionAction) {
@@ -15211,7 +15268,8 @@ function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
     trainingAction.dataset.section = trainingDestination.section || "today";
   }
   const fuel = dailyDecisionModuleState("nutrition");
-  setText("nutrition-command-status", fuel.status === "AVAILABLE" ? (decision.nutritionContext.trainingDay ? "TRAINING DAY" : "RECOVERY DAY") : fuel.status);
+  const schedulePending = decision.nutritionContext?.schedulePending === true || decision.nutritionContext?.type === "SCHEDULE_PENDING";
+  setText("nutrition-command-status", schedulePending ? "SCHEDULE PENDING" : fuel.status === "AVAILABLE" ? (decision.nutritionContext.trainingDay ? "TRAINING DAY" : "RECOVERY DAY") : fuel.status);
   const nutritionStatus = document.getElementById("nutrition-command-status");
   if (nutritionStatus) nutritionStatus.className = `state-pill ${fuel.status === "BLOCKED" ? "yellow" : decision.nutritionContext.trainingDay ? "green" : "neutral"}`;
   const nutritionNext = document.getElementById("nutrition-next-action");
@@ -15221,7 +15279,7 @@ function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
   }
   const todayFuelStatus = document.getElementById("today-nutrition-status");
   if (todayFuelStatus) {
-    todayFuelStatus.textContent = fuel.status === "BLOCKED" ? "FUEL NEEDS ATTENTION" : decision.nutritionContext.trainingDay ? (decision.completedSessions?.length ? "REFUEL" : "TRAINING DAY") : "RECOVERY DAY";
+    todayFuelStatus.textContent = schedulePending ? "SCHEDULE PENDING" : fuel.status === "BLOCKED" ? "FUEL NEEDS ATTENTION" : decision.nutritionContext.trainingDay ? (decision.completedSessions?.length ? "REFUEL" : "TRAINING DAY") : "RECOVERY DAY";
     todayFuelStatus.className = `state-pill ${fuel.status === "BLOCKED" ? "yellow" : decision.nutritionContext.trainingDay ? "green" : "neutral"}`;
   }
   const recoveryState = dailyDecisionModuleState("recovery");
@@ -17890,7 +17948,8 @@ function currentProgramLifecycle() {
     receiptActive: receipt?.status === "ACTIVE",
     paused: receipt?.status === "PAUSED"
   });
-  return { state, label: DominionReleaseStabilization.lifecycleLabel(state), contract, draft, week, receipt };
+  const canonical = buildCurrentCanonicalDailyCommand(todayISODate());
+  return { state, label: DominionReleaseStabilization.lifecycleLabel(state), contract, draft, week, receipt, canonical };
 }
 
 function renderProgramRecovery(model = buildCurrentProgramRecovery()) {
@@ -18302,7 +18361,10 @@ function renderDominionExperienceShell() {
     });
     if (activeSection !== "today") setText("shell-mission-phase", lifecycle.label);
     setText("recruit-contract-status", lifecycle.state === "DRAFT_REVISION" ? lifecycle.label : lifecycle.contract ? "ACTIVE" : "SETUP NEEDED");
-    setText("weekly-orchestrator-status", lifecycle.state === "DRAFT_REVISION" ? "ACTIVE WEEK · DRAFT UNAPPLIED" : lifecycle.state === "ACTIVE" ? "ACTIVE" : lifecycle.label);
+    const canonicalWeekLabel = lifecycle.contract && lifecycle.canonical?.lifecycle?.week
+      ? lifecycle.canonical.lifecycle.week.replaceAll("_", " ")
+      : null;
+    setText("weekly-orchestrator-status", canonicalWeekLabel || (lifecycle.state === "DRAFT_REVISION" ? "ACTIVE WEEK · DRAFT UNAPPLIED" : lifecycle.state === "ACTIVE" ? "ACTIVE" : lifecycle.label));
   }
   document.querySelectorAll(".kicker:not([data-humanized])").forEach((element) => {
     element.textContent = DominionExperienceShell.cleanBuildKicker(element.textContent);
@@ -19642,20 +19704,38 @@ function nutritionMealsForDate(date) {
 
 function buildCurrentFuelCalendarContext(date = todayISODate()) {
   if (typeof DominionFuelCalendar === "undefined" || !connectedApi()) return null;
+  const canonical = currentCanonicalDailyCommand?.date === date
+    ? currentCanonicalDailyCommand
+    : buildCurrentCanonicalDailyCommand(date);
   const importedTrainingDay = connectedApi().groupFitbodWorkoutSessions(connectedImportedRecords).some((session) => session.date === date);
   const context = DominionFuelCalendar.buildFuelCalendarContext({
     date,
-    committedDay: readCommittedUnifiedDay(date),
-    importedTrainingDay,
+    committedDay: canonical?.day?.committed ? canonical.day.source : readCommittedUnifiedDay(date),
+    importedTrainingDay: canonical?.blocked ? false : importedTrainingDay,
     fallbackWindow: readMealTrainingWindow(),
     splitCheckpoint: readSplitDayCheckpoint(date)
   });
+  if (canonical?.blocked) {
+    return {
+      ...context,
+      trainingDay: false,
+      recoveryDay: false,
+      schedulePending: true,
+      blocker: canonical.blocker,
+      source: "SCHEDULE PENDING",
+      headline: canonical.fuelContext.headline,
+      detail: canonical.fuelContext.detail,
+      sessions: [],
+      targets: null
+    };
+  }
   const decision = currentDailyDecision?.operatingDate === date ? currentDailyDecision : null;
   if (!decision) return context;
   return {
     ...context,
     trainingDay: decision.nutritionContext.trainingDay,
-    recoveryDay: !decision.nutritionContext.trainingDay,
+    recoveryDay: decision.nutritionContext.recoveryDay === true,
+    schedulePending: decision.nutritionContext.schedulePending === true,
     blocker: decision.blockedDomains?.includes("nutrition") ? decision.blocker : context.blocker,
     source: "TODAY'S ORDER",
     headline: decision.nutritionContext.headline,
@@ -19669,6 +19749,21 @@ function buildCurrentMealCoachingPlan(date = nutritionCommandDate()) {
   const baseline = activeNutritionBaseline(date);
   const calendarContext = buildCurrentFuelCalendarContext(date);
   const fastingContext = buildCurrentFastingContext(date, calendarContext);
+  if (calendarContext?.schedulePending) {
+    return {
+      status: "SCHEDULE PENDING",
+      reason: "Commit the coordinated week before Atlas chooses training-day or recovery-day meal timing.",
+      date,
+      trainingDay: false,
+      trainingWindow: "UNSCHEDULED",
+      targets: null,
+      slots: [],
+      meals: nutritionMealsForDate(date),
+      safeguards: ["Draft calendar assignments never change Fuel targets."],
+      calendarContext,
+      fastingContext
+    };
+  }
   const trainingDay = calendarContext?.trainingDay === true;
   const targets = baseline ? (trainingDay ? baseline.trainingTargets : baseline.recoveryTargets) : {};
   const plan = DominionMealCoaching.buildMealCoachingPlan({
@@ -19730,11 +19825,12 @@ function buildCurrentTodayNutritionExecution() {
   const calendarContext = buildCurrentFuelCalendarContext(date);
   const fastingContext = buildCurrentFastingContext(date, calendarContext);
   const trainingDay = calendarContext?.trainingDay === true;
-  const baseTargets = currentNutritionTargetsForContext(trainingDay, date);
+  const schedulePending = calendarContext?.schedulePending === true;
+  const baseTargets = schedulePending ? {} : currentNutritionTargetsForContext(trainingDay, date);
   const approvedFueling = readApprovedAdaptiveFueling(currentAdaptiveFuelingGoal());
-  const targets = approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
+  const targets = schedulePending ? {} : approvedFueling ? (trainingDay ? approvedFueling.trainingTargets : approvedFueling.recoveryTargets) : baseTargets;
   const readiness = dailyState?.date === date ? evaluateOperationalReadiness(dailyState).state : "UNKNOWN";
-  return DominionTodayNutrition.buildTodayNutritionExecution({
+  const execution = DominionTodayNutrition.buildTodayNutritionExecution({
     date,
     actualDate: ledger.record?.date || null,
     latestEvidenceDate: nutritionDays[0]?.date || null,
@@ -19748,6 +19844,14 @@ function buildCurrentTodayNutritionExecution() {
     fastingContext,
     readiness
   });
+  return schedulePending ? {
+    ...execution,
+    status: "SCHEDULE PENDING",
+    trainingDay: false,
+    trainingWindowLabel: "Schedule pending",
+    instruction: "Commit the coordinated week before Atlas selects training-day or recovery-day targets. You can still record today's totals.",
+    actions: [{ id: "log-intake", label: "Log today's totals" }, { id: "commit-week", label: "Commit the coordinated week" }]
+  } : execution;
 }
 
 function buildCurrentFuelClosedLoop(date = todayISODate(), execution = null) {

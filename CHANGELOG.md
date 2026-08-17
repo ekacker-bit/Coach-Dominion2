@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Beta Readiness Gate
+
+- Proves that the approved program, active Calendar week, Today command, latest account receipt, and saved evidence agree before calling the experience current.
+- Keeps a healthy account quiet while reducing every genuine inconsistency to one prioritized action.
+- Treats an Atlas adaptation proposal as a coaching decision, not a broken program, and preserves the current mission until the recruit decides.
+- Distinguishes server verification, protected offline work, queued saves, and recruit action without exposing technical release language.
+- Reuses the existing Account Health surface and Trust Layer instead of adding another dashboard or creating writes during rendering.
+
 ## Unreleased - Final Beta Stabilization
 
 - Keeps the active mission authoritative until the recruit explicitly accepts an Atlas recovery proposal.

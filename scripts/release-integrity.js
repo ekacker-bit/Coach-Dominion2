@@ -36,6 +36,7 @@ const commandFirstToday = read("assets/js/command-first-today.js");
 const programLifecycle = read("assets/js/program-lifecycle.js");
 const connectedHealth = read("assets/js/connected-health.js");
 const finalBetaStabilization = read("assets/js/final-beta-stabilization.js");
+const betaReadinessGate = read("assets/js/beta-readiness-gate.js");
 const accountPersistenceMigration = read("supabase/migrations/20260817113359_account_persistence_receipts.sql");
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
@@ -334,6 +335,10 @@ check("final beta persistence truth", finalBetaStabilization.includes("function 
 check("final beta active and staged weeks", finalBetaStabilization.includes("function weekView") && app.includes('data-weekly-orchestrator-action="view-active"') && app.includes('data-weekly-orchestrator-action="view-staged"') && app.includes('document.body.dataset.calendarWeekView = "STAGED"'), "029G Calendar does not protect the active week from staged edits");
 check("final beta campaign semantics", finalBetaStabilization.includes("assessedExecutionScore") && dominionCampaign.includes("stabilizationVersion: STABILIZATION_VERSION") && app.includes('metrics.assessedExecutionScore === null ? "UNSCORED"'), "029G campaign metrics still mix time, evidence, execution, or promotion");
 check("final beta responsive and offline", html.includes('/assets/js/final-beta-stabilization.js?v=029g') && worker.includes('/assets/js/final-beta-stabilization.js?v=029g') && worker.includes("029f-029g") && app.includes('/sw.js?v=029g') && css.includes("Build 029G: final beta stabilization"), "029G shell is stale or mobile stabilization is missing");
+check("beta readiness authority", betaReadinessGate.includes('const VERSION = "029H.1"') && betaReadinessGate.includes('DECISION_REQUIRED: "DECISION_REQUIRED"') && betaReadinessGate.includes("ACCOUNT_RECEIPT_REQUIRED"), "029H beta readiness authority is incomplete");
+check("beta readiness integration", html.includes('/assets/js/beta-readiness-gate.js?v=029h') && html.indexOf('beta-readiness-gate.js?v=029h') < html.indexOf('app.js?v=') && app.includes("DominionBetaReadinessGate.evaluate") && app.includes("dataset.betaReadiness"), "029H readiness does not govern Account Health");
+check("beta readiness purity", !/localStorage|sessionStorage|fetch\(|\.insert\(|\.update\(/.test(betaReadinessGate), "029H readiness creates side effects while evaluating state");
+check("beta readiness offline shell", worker.includes('coach-dominion-029h-beta-readiness') && worker.includes('/assets/js/beta-readiness-gate.js?v=029h') && app.includes('/sw.js?v=029h'), "029H assets are stale or uncached");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

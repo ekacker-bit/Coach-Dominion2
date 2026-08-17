@@ -6,7 +6,8 @@ module.exports = function handler(req, res) {
     status: "ready",
     checks: {
       application: "available",
-      trustTelemetry: "available"
+      trustTelemetry: "available",
+      reliabilitySignals: "structured"
     }
   });
 };

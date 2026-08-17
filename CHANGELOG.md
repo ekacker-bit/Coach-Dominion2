@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Production Reliability Signals
+
+- Preserves queue age, retry attempts, sync outcome, route, and account-confirmation context from the browser through the production log.
+- Keeps expected local recovery at information level while escalating repeated retries and genuine runtime, repair, or sync failures.
+- Returns one short support code for warning and error events so a recruit report can be matched to the exact structured log entry.
+- Redacts personal fields, health notes, and raw error messages; only bounded operational metadata leaves the browser.
+- Rate-limits routine startup and sync noise without suppressing actual failures.
+
 ## Unreleased - Foreign-Key Index Coverage
 
 - Adds nine reviewed foreign-key indexes that protect relationship lookups and parent-row cleanup as account evidence grows.

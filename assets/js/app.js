@@ -116,9 +116,11 @@ let accountTruthState = {
 let trustLayerState = {
   report: null,
   lastReportedFingerprint: null,
+  lastSupportSignal: null,
   startupIssues: [],
   running: false
 };
+const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
   reconciling: false,
@@ -611,6 +613,46 @@ function canonicalPendingWriteState() {
   };
 }
 
+function currentReliabilityContext() {
+  const pending = canonicalPendingWriteState();
+  const entries = Array.isArray(pending.entries) ? pending.entries : [];
+  const now = Date.now();
+  const queuedAt = entries
+    .map((item) => Date.parse(item?.queuedAt || item?.createdAt || item?.clientUpdatedAt || item?.updatedAt || ""))
+    .filter(Number.isFinite);
+  return {
+    pendingWrites: pending.count,
+    retryCount: entries.reduce((highest, item) => Math.max(highest, Number(item?.attempts || item?.attempt || 0)), 0),
+    oldestQueuedAgeMs: queuedAt.length ? Math.max(0, now - Math.min(...queuedAt)) : 0,
+    accountConfirmed: accountTruthState.serverConfirmed === true,
+    online: navigator.onLine !== false
+  };
+}
+
+function shouldReportTrustPayload(payload = {}) {
+  const noiseEvents = new Set(["trust_check", "repair_started", "sync_started", "save_queued", "queue_retry", "startup_recovery"]);
+  if (!noiseEvents.has(payload.event)) return true;
+  const key = [payload.event, payload.route, payload.status, payload.operationStatus, payload.pendingWrites, payload.retryCount, payload.fingerprint].join("|");
+  const now = Date.now();
+  const lastReportedAt = Number(trustSignalLedger.get(key) || 0);
+  trustSignalLedger.set(key, now);
+  if (trustSignalLedger.size > 80) {
+    [...trustSignalLedger.entries()]
+      .filter(([, timestamp]) => now - timestamp > 10 * 60 * 1000)
+      .forEach(([staleKey]) => trustSignalLedger.delete(staleKey));
+  }
+  return now - lastReportedAt >= 60 * 1000;
+}
+
+function renderReliabilitySupportCode() {
+  const signal = trustLayerState.lastSupportSignal;
+  const root = document.getElementById("account-truth-support");
+  const code = document.getElementById("account-truth-support-code");
+  const visible = Boolean(signal?.supportCode && ["warning", "error"].includes(signal.severity));
+  if (root) root.hidden = !visible;
+  if (code) code.textContent = visible ? signal.supportCode : "";
+}
+
 function buildAccountTruthWriteEnvelope(manifest, snapshot, expectedRevision, options = {}) {
   if (!manifest || !snapshot) return null;
   if (typeof DominionAccountPersistence === "undefined") return {
@@ -864,16 +906,18 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   }
   document.body.dataset.trustLayer = report.status.toLowerCase().replaceAll("_", "-");
   document.body.dataset.betaReadiness = readiness?.state?.toLowerCase().replaceAll("_", "-") || "checking";
+  renderReliabilitySupportCode();
 }
 
 async function reportTrustEvent(event, report = trustLayerState.report, context = {}) {
   if (!report || typeof DominionTrustLayer === "undefined" || typeof fetch === "undefined") return false;
   const payload = DominionTrustLayer.telemetryPayload(event, report, {
-    pendingWrites: canonicalPendingWriteState().count,
+    ...currentReliabilityContext(),
     conflictCount: currentContinuityConflicts().length,
     route: window.location.hash.replace(/^#/, "") || "app",
     ...context
   });
+  if (!shouldReportTrustPayload(payload)) return true;
   try {
     const response = await fetch("/api/trust-events", {
       method: "POST",
@@ -882,6 +926,20 @@ async function reportTrustEvent(event, report = trustLayerState.report, context 
       keepalive: true,
       credentials: "same-origin"
     });
+    const receipt = await response.json().catch(() => null);
+    if (response.ok && receipt?.supportCode) {
+      if (["warning", "error"].includes(receipt.severity)) {
+        trustLayerState.lastSupportSignal = {
+          supportCode: receipt.supportCode,
+          severity: receipt.severity,
+          event,
+          reportedAt: new Date().toISOString()
+        };
+      } else if (["sync_completed", "retry_succeeded", "repair_completed"].includes(event) && currentReliabilityContext().pendingWrites === 0) {
+        trustLayerState.lastSupportSignal = null;
+      }
+      renderReliabilitySupportCode();
+    }
     return response.ok;
   } catch (_) {
     return false;
@@ -894,19 +952,23 @@ async function reportSyncLifecycle(event, context = {}) {
   const safeContext = typeof DominionAccountPersistence !== "undefined" && DominionAccountPersistence.telemetry
     ? DominionAccountPersistence.telemetry({
         operation: event,
-        type: context.domain || context.subsystem || "ACCOUNT_SYNC",
+        type: context.domain || context.subsystem || context.surface || "ACCOUNT_SYNC",
         revision: context.revision || continuityState.accountRevision,
         status: context.status || context.code || (context.failed ? "FAILED" : "ACTIVE"),
         attempt: context.attempt || context.attempts || 0
       })
     : { operation: event, type: "ACCOUNT_SYNC", revision: Number(continuityState.accountRevision || 0), status: "ACTIVE", attempt: 0 };
-  return reportTrustEvent(event, report, safeContext);
+  return reportTrustEvent(event, report, { ...currentReliabilityContext(), ...safeContext, errorCode: context.code || "" });
 }
 
-function reportSafeRuntimeError(route = "runtime") {
+function reportSafeRuntimeError(route = "runtime", error = null) {
   try {
     const report = trustLayerState.report || buildCurrentTrustLayerReport();
-    if (report) void reportTrustEvent("runtime_error", report, { route });
+    if (report) void reportTrustEvent("runtime_error", report, {
+      route,
+      errorName: error?.name || (typeof error === "string" ? "Error" : "UnknownError"),
+      errorCode: error?.code || ""
+    });
   } catch (_) {}
 }
 
@@ -12741,7 +12803,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029e", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029f", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029g2", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029h", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029h", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029l", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -22408,8 +22471,8 @@ if (typeof document !== "undefined") {
       button.disabled = false;
     }
   });
-  window.addEventListener("error", () => reportSafeRuntimeError("runtime"));
-  window.addEventListener("unhandledrejection", () => reportSafeRuntimeError("promise"));
+  window.addEventListener("error", (event) => reportSafeRuntimeError("runtime", event.error || event.message));
+  window.addEventListener("unhandledrejection", (event) => reportSafeRuntimeError("promise", event.reason));
   document.getElementById("mobile-more-dialog")?.addEventListener("click", async (event) => {
     const dialog = event.currentTarget;
     const action = event.target.closest("[data-mobile-more-action]")?.dataset.mobileMoreAction;

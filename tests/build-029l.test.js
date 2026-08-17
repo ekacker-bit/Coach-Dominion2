@@ -1,0 +1,54 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const read = (file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
+
+test("029L keeps production reliability context intact from browser to log", () => {
+  const trust = read("assets/js/trust-layer.js");
+  const endpoint = read("api/trust-events.js");
+  assert.match(trust, /const RELIABILITY_VERSION = "029L\.1"/);
+  assert.match(trust, /oldestQueuedAgeMs/);
+  assert.match(trust, /operationStatus/);
+  assert.match(endpoint, /category: "production_reliability"/);
+  assert.match(endpoint, /requestId:/);
+  assert.match(endpoint, /supportCode:/);
+  assert.match(endpoint, /receivedAt:/);
+});
+
+test("029L makes real failures visible without turning protected recovery into errors", () => {
+  const endpoint = read("api/trust-events.js");
+  const app = read("assets/js/app.js");
+  assert.match(endpoint, /FAILURE_EVENTS/);
+  assert.match(endpoint, /event === "retry_failed"/);
+  assert.match(endpoint, /severity === "error"/);
+  assert.match(endpoint, /severity === "warning"/);
+  assert.match(app, /function currentReliabilityContext/);
+  assert.match(app, /function shouldReportTrustPayload/);
+  assert.match(app, /event\.error \|\| event\.message/);
+  assert.match(app, /event\.reason/);
+});
+
+test("029L exposes a short support reference only when it is needed", () => {
+  const html = read("app.html");
+  const app = read("assets/js/app.js");
+  assert.match(html, /id="account-truth-support"[^>]*hidden/);
+  assert.match(html, /id="account-truth-support-code"/);
+  assert.match(app, /lastSupportSignal/);
+  assert.match(app, /\["warning", "error"\]/);
+  assert.match(app, /renderReliabilitySupportCode/);
+  assert.doesNotMatch(html.replace(/<!--[\s\S]*?-->/g, ""), />\s*(?:BUILD|RELEASE)\s+029L/i);
+});
+
+test("029L ships its current offline shell and CI gate", () => {
+  const html = read("app.html");
+  const worker = read("sw.js");
+  const app = read("assets/js/app.js");
+  const workflow = read(".github/workflows/release-integrity.yml");
+  assert.match(html, /trust-layer\.js\?v=028a-029l/);
+  assert.match(worker, /trust-layer\.js\?v=028a-029l/);
+  assert.match(worker, /029l-production-reliability/);
+  assert.match(app, /register\("\/sw\.js\?v=029l"/);
+  assert.match(workflow, /npm run test:029l/);
+});

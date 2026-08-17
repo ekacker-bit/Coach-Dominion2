@@ -5,6 +5,7 @@
   "use strict";
 
   const VERSION = "028A.1";
+  const RELIABILITY_VERSION = "029L.1";
   const SAFE_ISSUES = new Set([
     "ACCOUNT_RETRY_REQUIRED",
     "ACCOUNT_SAVE_QUEUED",
@@ -50,6 +51,21 @@
 
   function unique(values) {
     return [...new Set(values.filter(Boolean))];
+  }
+
+  function boundedCount(value, max = 999999) {
+    return Math.min(max, count(value));
+  }
+
+  function reliabilitySeverity(event, context = {}) {
+    const normalizedEvent = clean(event).toLowerCase();
+    const attempt = Math.max(count(context.attempt), count(context.retryCount));
+    const oldestQueuedAgeMs = boundedCount(context.oldestQueuedAgeMs, 7 * 24 * 60 * 60 * 1000);
+    if (["runtime_error", "repair_failed", "sync_failed"].includes(normalizedEvent)) return "error";
+    if (normalizedEvent === "retry_failed") return attempt >= 3 || oldestQueuedAgeMs >= 5 * 60 * 1000 ? "error" : "warning";
+    if (normalizedEvent === "conflict_detected") return "warning";
+    if (normalizedEvent === "save_queued" && (boundedCount(context.pendingWrites) >= 3 || oldestQueuedAgeMs >= 2 * 60 * 1000)) return "warning";
+    return "info";
   }
 
   function actionForIssues(issues) {
@@ -176,18 +192,35 @@
     ]);
     const safeEvent = allowedEvents.has(clean(event)) ? clean(event) : "trust_check";
     const requestedRoute = clean(context.route || "app").toLowerCase();
+    const attempt = boundedCount(context.attempt, 100);
+    const retryCount = Math.max(attempt, boundedCount(context.retryCount, 100));
+    const oldestQueuedAgeMs = boundedCount(context.oldestQueuedAgeMs, 7 * 24 * 60 * 60 * 1000);
+    const operationStatus = normalizeStatus(context.operationStatus || context.status || "UNKNOWN");
     return {
+      schemaVersion: RELIABILITY_VERSION,
       event: safeEvent,
       status: normalizeStatus(report.status),
+      severity: reliabilitySeverity(safeEvent, { ...context, attempt, retryCount, oldestQueuedAgeMs }),
       issueCodes: unique((report.issueCodes || []).map(normalizeStatus)).slice(0, 12),
       repairActions: unique((report.repairActions || []).map(normalizeStatus)).slice(0, 8),
-      pendingWrites: count(context.pendingWrites),
-      conflictCount: count(context.conflictCount),
+      pendingWrites: boundedCount(context.pendingWrites, 1000),
+      conflictCount: boundedCount(context.conflictCount, 1000),
+      retryCount,
+      attempt,
+      oldestQueuedAgeMs,
+      operation: clean(context.operation).slice(0, 48),
+      subsystem: clean(context.subsystem || context.type).slice(0, 48),
+      operationStatus,
+      revision: boundedCount(context.revision, Number.MAX_SAFE_INTEGER),
+      accountConfirmed: context.accountConfirmed === true,
+      online: context.online !== false,
+      errorName: clean(context.errorName).slice(0, 48),
+      errorCode: clean(context.errorCode || context.code).slice(0, 48),
       route: SAFE_ROUTES.has(requestedRoute) ? requestedRoute : "app",
-      version: VERSION,
+      version: RELIABILITY_VERSION,
       fingerprint: clean(report.fingerprint).slice(0, 160)
     };
   }
 
-  return { VERSION, evaluate, telemetryPayload };
+  return { VERSION, RELIABILITY_VERSION, evaluate, reliabilitySeverity, telemetryPayload };
 });

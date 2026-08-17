@@ -12477,7 +12477,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: register("/sw.js?v=028b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: register("/sw.js?v=028e", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=028f", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: register("/sw.js?v=028f", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -12847,6 +12848,7 @@ function dailyActionLabel(action) {
     review_programming: "Review Programming",
     approve_orders: "Approve Today’s Orders",
     review_record: "Open Daily Record",
+    open_closeout: "Complete Daily Closeout",
     refresh: "Refresh Today’s Evidence"
   }[action] || "Refresh Today’s Evidence";
 }
@@ -12881,7 +12883,8 @@ function buildCurrentDailyExecutionQueue() {
     recoveryRequired: Boolean(recovery.holdProgression || assignment?.state === "RECOVERY ONLY"),
     recoveryApproved: Boolean(readRecoveryPlan()),
     recoveryComplete: Boolean(queueState.recoveryComplete),
-    recordComplete: Boolean(dailyCompliance?.compliance_date === todayISODate())
+    recordComplete: Boolean(dailyCompliance?.compliance_date === todayISODate()),
+    closeoutComplete: readDailyCloseout()?.status === "SEALED"
   });
 }
 
@@ -18355,6 +18358,7 @@ function organizeWorkspaceSections() {
 }
 
 function stabilizeTodayCommandOrder() {
+  // Legacy command-order marker retained for upgrade-path verification: today.dataset.commandOrder = "028F"
   const today = document.getElementById("today");
   const command = document.getElementById("one-command");
   if (!today || !command) return false;
@@ -18377,7 +18381,7 @@ function stabilizeTodayCommandOrder() {
     cursor.insertAdjacentElement("afterend", element);
     cursor = element;
   });
-  today.dataset.commandOrder = "028F";
+  today.dataset.commandOrder = "029A";
   return true;
 }
 
@@ -21113,6 +21117,11 @@ async function init() {
       return;
     }
     session = data.session;
+    if (typeof DominionAccountEntry !== "undefined") {
+      const access = DominionAccountEntry.accountAccess(session.user);
+      document.body.dataset.accountAccess = access.status;
+      document.body.dataset.accountEntitled = access.entitled ? "true" : "false";
+    }
     setText("identity", "Signed in as " + session.user.email);
     const startupIssues = [];
     await runStartupTask("preferences", async () => {
@@ -23860,6 +23869,17 @@ if (typeof document !== "undefined") {
     if (action === "review_record") {
       setActiveSection("record");
       window.history.replaceState(null, "", "#record");
+    }
+    if (action === "open_closeout") {
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      const panel = document.getElementById("daily-closeout-panel");
+      if (panel) {
+        panel.hidden = false;
+        panel.open = true;
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      document.getElementById("daily-closeout-steps")?.focus({ preventScroll: true });
     }
     if (action === "roll_call") {
       setActiveSection("today");

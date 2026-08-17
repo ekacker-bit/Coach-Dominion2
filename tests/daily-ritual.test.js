@@ -6,8 +6,8 @@ assert.deepEqual(ritual.MILESTONES.map((item) => item.id), ["execute", "record",
 
 const openQueue = {
   completed: 2,
-  total: 6,
-  percent: 33,
+  total: 7,
+  percent: 29,
   complete: false,
   current: { label: "Execute training" },
   steps: [{ id: "record", complete: false }]
@@ -15,14 +15,15 @@ const openQueue = {
 let state = ritual.buildDailyRitual({ date: "2026-07-31", queue: openQueue, closedLoop: { state: "EXECUTION OPEN" } });
 assert.equal(state.state, "IN_MOTION");
 assert.equal(state.action, "continue_execution");
-assert.equal(state.evidence.percent, 33);
+assert.equal(state.evidence.percent, 29);
 
 const completeQueue = {
-  completed: 6,
-  total: 6,
+  completed: 7,
+  total: 7,
   percent: 100,
   complete: true,
-  steps: [{ id: "record", complete: true }]
+  closeoutReady: true,
+  steps: [{ id: "record", complete: true }, { id: "closeout", complete: true }]
 };
 state = ritual.buildDailyRitual({ date: "2026-07-31", queue: completeQueue, closedLoop: { state: "REVIEW READY", reconciliation: { summary: { completionPercent: 100, confidence: "HIGH" } } } });
 assert.equal(state.state, "CLOSEOUT_READY");
@@ -33,7 +34,7 @@ assert.equal(state.state, "READY_TO_SEAL");
 assert.equal(state.action, "close_review");
 assert.equal(state.evidence.confidence, "HIGH");
 assert.equal(state.milestones[0].complete, true);
-assert.equal(state.milestones[2].current, true);
+assert.equal(state.milestones[3].current, true);
 
 state = ritual.buildDailyRitual({
   date: "2026-07-31",

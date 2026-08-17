@@ -165,12 +165,21 @@
       },
       {
         id: "record",
-        label: "Close the Dominion Record",
+        label: "Complete the Daily Record",
         detail: input.recordComplete ? "Today’s execution record is saved." : "Review the day and preserve the evidence used by Weekly Review.",
         complete: Boolean(input.recordComplete),
         blockedBy: null,
         action: "review_record",
         actionLabel: "Complete Dominion Record"
+      },
+      {
+        id: "closeout",
+        label: "Close the day",
+        detail: input.closeoutComplete ? "Final steps and discipline evidence are sealed." : "Add final steps and the private discipline evidence you choose to report.",
+        complete: Boolean(input.closeoutComplete),
+        blockedBy: null,
+        action: "open_closeout",
+        actionLabel: input.closeoutComplete ? "Review Closeout" : "Complete Daily Closeout"
       }
     ];
 
@@ -189,6 +198,7 @@
     const current = steps.find((step) => step.status === "CURRENT")
       || steps.find((step) => !step.complete && step.blockedBy && step.action)
       || null;
+    const closeoutReady = steps.filter((step) => step.id !== "closeout").every((step) => step.complete);
     return {
       date: input.date || null,
       steps,
@@ -197,6 +207,8 @@
       total: steps.length,
       percent: Math.round(completed / steps.length * 100),
       complete: completed === steps.length,
+      closeoutReady,
+      closeoutComplete: Boolean(input.closeoutComplete),
       state: completed === steps.length ? "DAY COMPLETE" : `${completed}/${steps.length} COMPLETE`
     };
   }

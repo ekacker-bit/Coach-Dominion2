@@ -296,8 +296,10 @@
 
   function resolve(input = {}) {
     const startedAt = Date.now();
-    const operatingDate = input.operatingDate || input.truth?.date || input.day?.date || new Date().toISOString().slice(0, 10);
-    const schedule = scheduleModel(input.day || null, { ...input, operatingDate });
+    const canonical = input.canonicalDailyCommand || null;
+    const canonicalDay = canonical ? (canonical.day?.committed ? canonical.day.source : null) : input.day || null;
+    const operatingDate = input.operatingDate || input.truth?.date || canonical?.date || canonicalDay?.date || new Date().toISOString().slice(0, 10);
+    const schedule = scheduleModel(canonicalDay, { ...input, operatingDate });
     const readinessSource = input.readiness || {};
     const readiness = {
       complete: input.readinessComplete === true,
@@ -311,6 +313,14 @@
     const blockers = planBlockers(input.plans, { allOrNothingTraining });
     const continuity = normalizeContinuityBlocker(input.continuityBlocker, schedule, { plans: input.plans, allOrNothingTraining });
     if (continuity && !blockers.some((blocker) => blocker.code === continuity.code)) blockers.push(continuity);
+    if (canonical?.blocked && canonical.blocker && !blockers.some((blocker) => blocker.code === canonical.blocker.code)) {
+      blockers.unshift({
+        ...canonical.blocker,
+        affectedDomains: Array.isArray(canonical.blocker.affectedDomains) ? canonical.blocker.affectedDomains.map(domainName) : [...TRAINING_DOMAINS, "recovery"],
+        action: { ...canonical.primaryAction },
+        priority: Number(canonical.blocker.priority || 130)
+      });
+    }
     if (readiness.pain) blockers.unshift({
       code: "PAIN_SAFETY_HOLD",
       domain: "training",
@@ -334,8 +344,11 @@
     blockers.sort((left, right) => Number(right.priority || 0) - Number(left.priority || 0));
     const authorization = authorizationModel(schedule, blockers, readiness, input);
     const evidence = evidenceModel(input, schedule, operatingDate);
-    const recoveryDay = schedule.recoveryDay;
-    const actions = selectActions({ schedule, authorization, blockers, readiness, evidence, recoveryDay });
+    const recoveryDay = canonical ? Boolean(canonical.day?.recoveryDay) : schedule.recoveryDay;
+    const selectedActions = selectActions({ schedule, authorization, blockers, readiness, evidence, recoveryDay });
+    const actions = canonical?.blocked
+      ? { primary: { ...canonical.primaryAction }, secondary: [] }
+      : selectedActions;
     const scheduledTraining = schedule.sessions.filter((session) => TRAINING_DOMAINS.includes(session.module));
     const incompleteTraining = scheduledTraining.filter((session) => !session.complete);
     const authorizedTraining = incompleteTraining.some((session) => authorization[session.module]?.authorized);
@@ -343,9 +356,11 @@
     const loading = input.loading === true;
     const failed = input.failed === true;
     const stale = blockers.some((blocker) => blocker.code === "STALE_DAILY_EVIDENCE");
-    const status = loading ? "LOADING" : failed ? "FAILED" : stale ? "STALE" : recoveryDay ? "RECOVERY_DAY" : !schedule.available ? "EMPTY" : !readiness.complete && incompleteTraining.length ? "READINESS_REQUIRED" : scheduledTraining.length && scheduledTraining.every((session) => session.complete) ? "COMPLETED" : allTrainingBlocked ? "BLOCKED" : blockers.length ? "PARTIALLY_BLOCKED" : authorizedTraining ? "TRAINING_AUTHORIZED" : "READY";
+    const status = loading ? "LOADING" : failed ? "FAILED" : stale ? "STALE" : canonical?.blocked ? "BLOCKED" : recoveryDay ? "RECOVERY_DAY" : !schedule.available ? "EMPTY" : !readiness.complete && incompleteTraining.length ? "READINESS_REQUIRED" : scheduledTraining.length && scheduledTraining.every((session) => session.complete) ? "COMPLETED" : allTrainingBlocked ? "BLOCKED" : blockers.length ? "PARTIALLY_BLOCKED" : authorizedTraining ? "TRAINING_AUTHORIZED" : "READY";
     const decidedAt = input.decidedAt || new Date().toISOString();
-    const nutritionContext = fuelContext(schedule, evidence);
+    const nutritionContext = canonical?.fuelContext
+      ? { ...canonical.fuelContext, evidenceState: evidence.fuel.state }
+      : fuelContext(schedule, evidence);
     const decision = {
       version: VERSION,
       operatingDate,
@@ -371,6 +386,8 @@
       decisionAt: decidedAt,
       decisionVersion: VERSION,
       sourceState: input.truth?.state || input.command?.state || null,
+      canonicalDailyCommandId: canonical?.id || null,
+      lifecycle: canonical?.lifecycle || null,
       timing: { assembledMs: Math.max(0, Date.now() - startedAt) }
     };
     decision.id = `daily-decision-${operatingDate}-${stableHash({
@@ -379,7 +396,8 @@
       schedule: schedule.sessions.map((session) => [session.id, session.state]),
       blockers: blockers.map((blocker) => blocker.code),
       action: actions.primary,
-      fuel: evidence.fuel.state
+      fuel: evidence.fuel.state,
+      canonical: canonical?.id || null
     })}`;
     return decision;
   }

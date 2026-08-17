@@ -30,6 +30,7 @@ const weeklyReplanning = read("assets/js/weekly-replanning.js");
 const transformationLedger = read("assets/js/transformation-ledger.js");
 const releaseStabilization = read("assets/js/release-stabilization.js");
 const accountEntry = read("assets/js/account-entry.js");
+const canonicalDailyCommand = read("assets/js/canonical-daily-command.js");
 const releaseStabilizationMigration = read("supabase/migrations/20260816234308_release_stabilization.sql");
 const dailyDecision = read("assets/js/daily-decision.js");
 const dailyDecisionIntegrity = read("assets/js/daily-decision-integrity.js");
@@ -303,6 +304,10 @@ check("account enrollment", accountEntry.includes('const VERSION = "ACCOUNT_ENTR
 check("monetization boundary", accountEntry.includes("appMetadata.account_access") && !accountEntry.includes("user_metadata.account_access") && app.includes("DominionAccountEntry.accountAccess(session.user)"), "future account access can be self-granted or is not connected");
 check("Daily Closeout in Today", read("assets/js/daily-coaching.js").includes('id: "closeout"') && read("assets/js/daily-coaching.js").includes("closeoutReady") && app.includes('closeoutComplete: readDailyCloseout()?.status === "SEALED"') && read("assets/js/daily-ritual.js").includes("queue.closeoutReady && !closeoutSealed"), "Daily Closeout is not the final Today commitment");
 check("account and closeout cache", worker.includes('/assets/js/account-entry.js?v=029a') && worker.includes("028f-029a") && app.includes('/sw.js?v=029a'), "account or Closeout shell is stale");
+check("canonical daily command", canonicalDailyCommand.includes('const VERSION = "029B.1"') && canonicalDailyCommand.includes("function buildCanonicalDailyCommand") && canonicalDailyCommand.includes('WEEK_COMMIT_REQUIRED') && canonicalDailyCommand.includes('SCHEDULE_PENDING'), "029B canonical program-week-day authority is incomplete");
+check("draft is not executable", canonicalDailyCommand.includes("draftSchedule") && canonicalDailyCommand.includes("executable: false") && app.includes("canonicalDailyCommand: currentCanonicalDailyCommand") && dailyDecisionIntegrity.includes("canonical?.blocked"), "a draft week can still leak into executable training");
+check("canonical cross-surface integration", app.includes("function buildCurrentCanonicalDailyCommand") && app.includes("DominionCanonicalDailyCommand.moduleState") && app.includes("schedulePending") && app.includes("Commit the coordinated week"), "Today, Train, Fuel, Recovery, Calendar, or Closeout can diverge from the committed day");
+check("canonical shell cache", html.includes('/assets/js/canonical-daily-command.js?v=029b') && worker.includes('/assets/js/canonical-daily-command.js?v=029b') && worker.includes("029a-029b") && app.includes('/sw.js?v=029b'), "029B assets are stale or uncached");
 check("cached intervention", worker.includes('/assets/js/atlas-intervention.js?v=022a'), "service worker is not caching the intervention engine");
 check("cached body progress", worker.includes('/assets/js/body-progress.js?v=022b'), "service worker is not caching the body progress engine");
 check("cached progress review", worker.includes('/assets/js/progress-review.js?v=022c'), "service worker is not caching the progress review engine");

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Policy Performance Acceleration
+
+- Caches the authenticated recruit ID once per query across 125 owner policies instead of recalculating it for every row.
+- Restricts those owner policies to signed-in recruits while preserving the same row ownership checks.
+- Uses an exact production-catalog safety count so policy drift aborts the transaction instead of partially rewriting access rules.
+- Leaves foreign-key and unused-index decisions for a separate evidence-led release.
+
 ## Unreleased - Production Security Hardening
 
 - Quarantines two empty legacy tables that were unnecessarily exposed through the Data API.

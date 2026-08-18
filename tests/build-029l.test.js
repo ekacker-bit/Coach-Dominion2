@@ -50,10 +50,11 @@ test("029L ships its current offline shell and CI gate", () => {
   assert.match(html, /trust-layer\.js\?v=028a-029l/);
   assert.match(worker, /trust-layer\.js\?v=028a-029l/);
   assert.match(worker, /029l-production-reliability/);
-  assert.match(app, /register\("\/sw\.js\?v=029l"/);
+  assert.match(app, /register\("\/sw\.js\?v=029[l-n]"/);
   assert.ok(
     /npm run test:029l/.test(workflow) ||
-    (/npm run test:029m/.test(workflow) && /"test:029m"[^\n]+npm run test:029l/.test(packageJson)),
+    (/npm run test:029m/.test(workflow) && /"test:029m"[^\n]+npm run test:029l/.test(packageJson)) ||
+    (/npm run test:029n/.test(workflow) && /"test:029n"[^\n]+npm run test:029m/.test(packageJson) && /"test:029m"[^\n]+npm run test:029l/.test(packageJson)),
     "CI must run the 029L gate directly or through its verified successor"
   );
 });

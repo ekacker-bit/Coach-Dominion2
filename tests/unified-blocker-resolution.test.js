@@ -38,11 +38,12 @@ function baseCommand() {
 
 test("a same-revision Contract difference becomes the highest-priority blocker", () => {
   const blocker = resolver.buildBlocker({ conflicts: [conflict("contract")], pendingWrites: 2 });
-  assert.equal(blocker.version, "025P.1");
-  assert.equal(blocker.priority, 100);
-  assert.equal(blocker.code, "CONTINUITY_CHOICE");
+  assert.equal(blocker.version, "029N.1");
+  assert.equal(blocker.priority, 200);
+  assert.equal(blocker.code, "CONTRACT_CONFLICT");
   assert.equal(blocker.title, "Choose the saved Contract");
   assert.equal(blocker.primary.action, "RESOLVE_CONTINUITY");
+  assert.equal(blocker.primary.label, "Compare and choose saved Contract");
   assert.equal(blocker.duration.label, "About 1 min");
   assert.equal(blocker.confidence.score, 100);
 });

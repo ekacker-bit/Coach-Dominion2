@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Contract Reconciliation Integrity
+
+- Makes a saved Contract conflict the first action everywhere and opens the comparison directly from Today.
+- Shows changed fields, source times, short hashes, downstream plan impact, and protected evidence before any choice is available.
+- Preserves immutable history by creating a new Contract revision when a device copy replaces the account canonical copy.
+- Records a durable reconciliation receipt and carries it through account truth so reloads and second sessions agree.
+- Pauses deterministic conflict retries, protects completed evidence, and freezes plan-derived execution, progression, adaptation, Calendar edits, and Fuel targets until the recruit chooses.
+- Keeps active-week and staged-week language distinct, leaves unassessed work unscored, fixes singular Review grammar, and makes the mobile sync count readable.
+
 ## Unreleased - Production Release Canary
 
 - Polls the public production URL after every main-branch release until the exact expected Git commit is actually serving.

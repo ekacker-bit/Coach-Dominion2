@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025P.1";
+  const VERSION = "029N.1";
   const DOMAIN_ORDER = Object.freeze(["contract", "strength", "running", "core", "nutrition", "calendar"]);
   const DOMAIN_LABELS = Object.freeze({
     contract: "Contract",
@@ -80,8 +80,9 @@
       state: "CONFLICT",
       stateLabel: "CHOICE REQUIRED",
       tone: "red",
-      priority: 100,
-      code: "CONTINUITY_CHOICE",
+      priority: first.domain === "contract" ? 200 : 100,
+      code: first.domain === "contract" ? "CONTRACT_CONFLICT" : "CONTINUITY_CHOICE",
+      affectedDomains: first.domain === "contract" ? ["strength", "running", "core", "recovery"] : [],
       domain: first.domain,
       label,
       title,
@@ -98,7 +99,7 @@
       stage: stageForDomain(first.domain),
       primary: {
         action: "RESOLVE_CONTINUITY",
-        label: first.domain === "contract" ? "FIX · CHOOSE SAVED CONTRACT" : `FIX · CHOOSE SAVED ${label.toUpperCase()}`,
+        label: first.domain === "contract" ? "Compare and choose saved Contract" : `Compare and choose saved ${label}`,
         section: "today",
         module: "continuity"
       }

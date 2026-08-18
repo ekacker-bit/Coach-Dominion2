@@ -10,7 +10,7 @@
   const ALL_DOMAINS = Object.freeze([...TRAINING_DOMAINS, "nutrition", "recovery"]);
   const COMPLETE_STATES = new Set(["COMPLETE", "COMPLETED", "SECURED", "FINALIZED", "DONE"]);
   const ACTIVE_STATES = new Set(["IN_PROGRESS", "PAUSED", "REVIEW"]);
-  const GLOBAL_BLOCKERS = new Set(["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "CONFLICT", "PAIN_SAFETY_HOLD"]);
+  const GLOBAL_BLOCKERS = new Set(["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "CONFLICT", "CONTRACT_CONFLICT", "PAIN_SAFETY_HOLD"]);
   const MOBILE_DESTINATIONS = Object.freeze({
     today: { section: "today" },
     train: { section: "performance", performanceView: "today_training" },
@@ -161,7 +161,7 @@
       reason: blocker.reason || "One approved source must govern today.",
       affectedDomains: affected,
       action: { ...(blocker.primary || blocker.action || {}), label: blocker.primary?.label || blocker.action?.label || "Resolve program", section: blocker.primary?.section || blocker.action?.section || "today" },
-      priority: 90
+      priority: Number(blocker.priority || (code === "CONTRACT_CONFLICT" ? 200 : 90))
     };
   }
 
@@ -249,6 +249,8 @@
 
   function selectActions({ schedule, authorization, blockers, readiness, evidence, recoveryDay }) {
     const secondary = [];
+    const contractConflict = blockers.find((blocker) => blocker.code === "CONTRACT_CONFLICT");
+    if (contractConflict) return { primary: repairAction(contractConflict), secondary: [] };
     const blockedScheduled = blockers.filter((blocker) => blocker.affectedDomains.some((domain) => schedule.scheduledDomains.includes(domain)));
     const executableSessions = schedule.sessions.filter((session) => !session.complete && authorization[session.module]?.authorized);
     if (!readiness.complete && schedule.sessions.some((session) => !session.complete)) {

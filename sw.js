@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l";
-// Current release marker: coach-dominion-029l-production-reliability
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n";
+// Current release marker: coach-dominion-029n-contract-reconciliation
+// Prior release marker: coach-dominion-029l-production-reliability
 // Prior release marker: coach-dominion-029h-beta-readiness
 // Prior release marker: coach-dominion-029g-final-beta-stabilization
 // Prior release marker: coach-dominion-029f-honest-connections
@@ -10,7 +11,7 @@ const APP_SHELL = [
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js?v=027d",
   "/assets/js/connected-evidence.js?v=027d",
@@ -96,16 +97,17 @@ const APP_SHELL = [
   "/assets/js/connected-health.js?v=029f",
   "/assets/js/canonical-daily-command.js?v=029b",
   "/assets/js/program-lifecycle.js?v=029e",
-  "/assets/js/daily-decision-integrity.js?v=027f-028f",
+  "/assets/js/daily-decision-integrity.js?v=027f-028f-029n",
   "/assets/js/mission-execution-spine.js?v=026b",
   "/assets/js/atlas-live-adaptation.js?v=026c-029g",
   "/assets/js/atlas-adaptive-horizon.js?v=026g",
   "/assets/js/atlas-adaptation-outcomes.js?v=026h",
   "/assets/js/weekly-advancement.js?v=026d",
-  "/assets/js/unified-blocker-resolution.js?v=025p",
+  "/assets/js/unified-blocker-resolution.js?v=025p-029n",
   "/assets/js/dominion-continuity.js?v=025n",
-  "/assets/js/dominion-account-truth.js?v=026i",
-  "/assets/js/account-persistence.js?v=029c-029g",
+  "/assets/js/contract-reconciliation.js?v=029n",
+  "/assets/js/dominion-account-truth.js?v=026i-029n",
+  "/assets/js/account-persistence.js?v=029c-029g-029n",
   "/assets/js/command-first-today.js?v=029d",
   "/assets/js/trust-layer.js?v=028a-029l",
   "/assets/js/beta-readiness-gate.js?v=029h",
@@ -119,7 +121,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n"
 ];
 
 self.addEventListener("install", (event) => {

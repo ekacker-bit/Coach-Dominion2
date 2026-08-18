@@ -89,7 +89,8 @@ let continuityState = {
   pendingWrites: 0,
   lastSyncedAt: null,
   lastError: null,
-  lastResolution: null
+  lastResolution: null,
+  previewedConflictKeys: []
 };
 const continuityRecordConflicts = new Map();
 let accountTruthSyncTimer = null;
@@ -482,6 +483,10 @@ async function flushContinuityPendingWrites() {
     const queue = readContinuityRetryQueue();
     continuityState.pendingWrites = queue.length;
     if (!queue.length) return true;
+    if (currentContinuityConflicts().some((item) => item.domain === "contract")) {
+      setContinuityMode("CONFLICT", { pendingWrites: queue.length });
+      return false;
+    }
     if (!session?.user?.id || navigator.onLine === false) {
       setContinuityMode("PENDING", { pendingWrites: queue.length });
       return false;
@@ -676,6 +681,7 @@ function scheduleAccountTruthQueueDrain() {
   window.clearTimeout(accountTruthRetryTimer);
   const queue = readAccountTruthQueue();
   if (!queue.length || !session?.user?.id || navigator.onLine === false) return;
+  if (currentContinuityConflicts().some((item) => item.domain === "contract")) return;
   const delay = typeof DominionAccountPersistence === "undefined"
     ? 1000
     : DominionAccountPersistence.nextDelay(queue);
@@ -731,7 +737,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
     evidence: {
       performance: performanceEntries,
       closeouts: readDailyCloseoutHistory(),
-      missionReceipts: accountTruthMissionEvidence()
+      missionReceipts: accountTruthMissionEvidence(),
+      reconciliationReceipts: readContractReconciliationReceipts()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -790,6 +797,9 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const missionEvidence = DominionAccountTruth.mergeCollection(accountTruthMissionEvidence(), evidence.missionReceipts, DominionAccountTruth.COLLECTION_LIMITS.missionReceipts);
     if (DominionAccountTruth.semanticFingerprint(missionEvidence) !== DominionAccountTruth.semanticFingerprint(accountTruthMissionEvidence())) restored += 1;
     saveClosedLoopLocal("HISTORY", "account-truth-mission-evidence", missionEvidence);
+    const reconciliationReceipts = DominionAccountTruth.mergeCollection(readContractReconciliationReceipts(), evidence.reconciliationReceipts, DominionAccountTruth.COLLECTION_LIMITS.reconciliationReceipts);
+    if (DominionAccountTruth.semanticFingerprint(reconciliationReceipts) !== DominionAccountTruth.semanticFingerprint(readContractReconciliationReceipts())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "contract-reconciliation", reconciliationReceipts);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -809,12 +819,20 @@ function applyAccountTruthSnapshot(snapshot = null) {
 function renderAccountTruthHealth() {
   if (typeof DominionAccountTruth === "undefined") return;
   const snapshot = accountTruthState.snapshot || readAccountTruthLocalSnapshot();
-  const report = DominionAccountTruth.healthReport({
+  let report = DominionAccountTruth.healthReport({
     ...accountTruthState,
     snapshot,
     pendingWrites: canonicalPendingWriteState().count,
     online: navigator.onLine !== false
   });
+  if (currentContinuityConflicts().some((item) => item.domain === "contract")) {
+    report = {
+      ...report,
+      status: "CONFLICT_REQUIRES_CHOICE",
+      tone: "red",
+      headline: "Resolve the saved Contract. Automatic account retries are paused."
+    };
+  }
   const root = document.getElementById("account-truth-health");
   if (root) root.dataset.truthTone = report.tone;
   setText("account-truth-status", report.status.replaceAll("_", " "));
@@ -822,7 +840,7 @@ function renderAccountTruthHealth() {
   setText("account-truth-program", snapshot?.programFingerprint ? "LOCKED" : "CHECKING");
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
-  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0);
+  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0);
   const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -1149,6 +1167,7 @@ async function syncDominionAccountTruth(options = {}) {
           continuityState.accountManifest = accountManifest;
           continuityState.manifestConflicts = unresolvedManifest;
           setContinuityMode("CONFLICT", { initialized: true });
+          accountTruthState = { ...accountTruthState, mode: "CONFLICT_REQUIRES_CHOICE", initialized: true, serverConfirmed: false, lastError: null };
           void reportSyncLifecycle("conflict_detected", { conflictCount: continuityRecordConflicts.size + unresolvedManifest.length });
           return false;
         }
@@ -1234,6 +1253,11 @@ async function syncDominionAccountTruth(options = {}) {
 
 function scheduleAccountTruthSync(delay = 900) {
   if (accountTruthState.applying || !accountTruthState.initialized) return;
+  if (currentContinuityConflicts().some((item) => item.domain === "contract")) {
+    accountTruthState = { ...accountTruthState, mode: "CONFLICT_REQUIRES_CHOICE", serverConfirmed: false, lastError: null };
+    renderAccountTruthHealth();
+    return;
+  }
   window.clearTimeout(accountTruthSyncTimer);
   accountTruthSyncTimer = window.setTimeout(() => syncDominionAccountTruth(), delay);
 }
@@ -1242,6 +1266,11 @@ async function flushAccountTruthPendingWrite(options = {}) {
   const queue = readAccountTruthQueue();
   if (!queue.length) return true;
   if (navigator.onLine === false || !session?.user?.id) return false;
+  if (currentContinuityConflicts().some((item) => item.domain === "contract")) {
+    accountTruthState = { ...accountTruthState, mode: "CONFLICT_REQUIRES_CHOICE", initialized: true, serverConfirmed: false, lastError: null };
+    renderAccountTruthHealth();
+    return false;
+  }
   const ready = typeof DominionAccountPersistence === "undefined"
     ? DominionAccountTruth.readyQueuedWrite(queue)
     : DominionAccountPersistence.ready(queue);
@@ -1995,6 +2024,62 @@ function currentContinuityConflicts() {
   return [...records, ...manifest];
 }
 
+function readContractReconciliationReceipts() {
+  const value = readClosedLoopState("HISTORY", "contract-reconciliation", []);
+  return Array.isArray(value) ? value : [];
+}
+
+function saveContractReconciliationReceipt(receipt) {
+  if (!receipt?.id) return null;
+  const receipts = [receipt, ...readContractReconciliationReceipts().filter((item) => item?.id !== receipt.id)].slice(0, 120);
+  saveClosedLoopLocal("HISTORY", "contract-reconciliation", receipts);
+  return receipt;
+}
+
+function continuityProtectedEvidenceCount() {
+  return performanceEntries.length
+    + readDailyCloseoutHistory().length
+    + accountTruthMissionEvidence().length;
+}
+
+function continuityConflictPreview(conflict) {
+  if (typeof DominionContractReconciliation === "undefined") return null;
+  return DominionContractReconciliation.buildPreview(conflict, {
+    protectedEvidenceCount: continuityProtectedEvidenceCount(),
+    previewed: (continuityState.previewedConflictKeys || []).includes(conflict.choiceKey)
+  });
+}
+
+function continuityCandidateTimestamp(value) {
+  if (!value) return "Time unavailable";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "Time unavailable" : parsed.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function continuityConflictPreviewMarkup(conflict) {
+  const preview = continuityConflictPreview(conflict);
+  if (!preview) return `<article><div><span>${escapeHtml(continuityDomainLabel(conflict.domain))}</span><strong>${escapeHtml(conflict.reason || "Saved contents differ.")}</strong></div><button type="button" data-continuity-action="preview" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Review differences</button></article>`;
+  if (!preview.previewed) return `<article class="continuity-conflict-card" data-previewed="false">
+    <header><div><span>${escapeHtml(continuityDomainLabel(conflict.domain))}</span><strong>${escapeHtml(preview.title)}</strong><small>${escapeHtml(preview.reason)}</small></div><span class="state-pill red">CHOICE REQUIRED</span></header>
+    <button type="button" data-continuity-action="preview" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Review differences</button>
+  </article>`;
+  const differences = preview.diffs.length
+    ? `<div class="continuity-diff-table" role="table" aria-label="Changed Contract fields"><div class="continuity-diff-head" role="row"><span>Field</span><span>This device</span><span>Account</span></div>${preview.diffs.map((diff) => `<div role="row"><strong>${escapeHtml(diff.label)}</strong><span>${escapeHtml(diff.deviceText)}</span><span>${escapeHtml(diff.accountText)}</span></div>`).join("")}</div>`
+    : `<p class="muted">The saved payloads differ outside the primary planning fields. Compare the source, time, and hash before choosing.</p>`;
+  const affectedPlans = preview.impact.plans.length ? preview.impact.plans.join(" · ") : "No plan rebuild expected";
+  return `<article class="continuity-conflict-card" data-previewed="true">
+    <header><div><span>${escapeHtml(continuityDomainLabel(conflict.domain))}</span><strong>${escapeHtml(preview.title)}</strong><small>${escapeHtml(preview.reason)}</small></div><span class="state-pill red">REVIEWED</span></header>
+    <div class="continuity-candidates">
+      <section><span>THIS DEVICE</span><strong>R${preview.device.revision || "—"} · ${escapeHtml(preview.device.shortHash)}</strong><small>${escapeHtml(continuityCandidateTimestamp(preview.device.updatedAt))}<br>${escapeHtml(String(preview.device.origin || "This browser"))}</small></section>
+      <section><span>ACCOUNT</span><strong>R${preview.account.revision || "—"} · ${escapeHtml(preview.account.shortHash)}</strong><small>${escapeHtml(continuityCandidateTimestamp(preview.account.updatedAt))}<br>${escapeHtml(String(preview.account.origin || "Saved account"))}</small></section>
+    </div>
+    ${differences}
+    <dl class="continuity-impact"><div><dt>Plans</dt><dd>${escapeHtml(affectedPlans)}</dd></div><div><dt>Calendar</dt><dd>${escapeHtml(preview.impact.calendar)}</dd></div><div><dt>Fuel</dt><dd>${escapeHtml(preview.impact.fuel)}</dd></div><div><dt>Evidence</dt><dd>${escapeHtml(preview.protectedEvidence)}</dd></div></dl>
+    <div class="continuity-choice-consequences"><p><strong>Keep this device:</strong> ${escapeHtml(preview.consequences.DEVICE)}</p><p><strong>Use account copy:</strong> ${escapeHtml(preview.consequences.ACCOUNT)}</p></div>
+    <div class="continuity-record-actions"><button type="button" data-continuity-action="resolve-device" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Keep this device</button><button type="button" class="ghost" data-continuity-action="resolve-account" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Use account copy</button></div>
+  </article>`;
+}
+
 function buildCurrentUnifiedBlocker() {
   if (typeof DominionUnifiedBlockerResolution === "undefined") return null;
   return DominionUnifiedBlockerResolution.buildBlocker({
@@ -2003,6 +2088,11 @@ function buildCurrentUnifiedBlocker() {
     lineage: continuityState.lineage,
     accountRevision: continuityState.accountRevision
   });
+}
+
+function contractConflictExecutionPolicy() {
+  if (typeof DominionContractReconciliation === "undefined") return { blocked: false, rawEvidenceAllowed: true, progressionAllowed: true };
+  return DominionContractReconciliation.executionPolicy(currentContinuityConflicts());
 }
 
 function unifiedBlockerBannerMarkup(blocker = buildCurrentUnifiedBlocker(), surface = "program") {
@@ -2108,17 +2198,25 @@ function renderDominionContinuity() {
     ? `${conflicts.length} approved revision${conflicts.length === 1 ? " differs" : "s differ"}. Choose only the copy that reflects your intent.`
     : "No same-revision conflicts detected.");
   const conflictList = document.getElementById("continuity-conflict-list");
-  if (conflictList) conflictList.innerHTML = conflicts.map((conflict) => `<article>
-    <div><span>${escapeHtml(continuityDomainLabel(conflict.domain))}</span><strong>${escapeHtml(conflict.reason || "The same approved revision has different contents.")}</strong><small>Nothing changes until you choose.</small></div>
-    <div><button type="button" data-continuity-action="resolve-device" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Keep this device</button><button type="button" class="ghost" data-continuity-action="resolve-account" data-continuity-key="${escapeHtml(conflict.choiceKey)}">Use account copy</button></div>
-  </article>`).join("");
+  if (conflictList) conflictList.innerHTML = conflicts.map(continuityConflictPreviewMarkup).join("");
+  const bulkActions = document.getElementById("continuity-bulk-actions");
+  if (bulkActions) {
+    const previews = conflicts.map(continuityConflictPreview).filter(Boolean);
+    bulkActions.hidden = conflicts.length < 2 || typeof DominionContractReconciliation === "undefined" || !DominionContractReconciliation.allPreviewed(previews);
+  }
   const pendingPanel = document.getElementById("continuity-pending-panel");
   if (pendingPanel) pendingPanel.hidden = pendingWrites === 0;
   setText("continuity-pending-detail", pendingWrites
-    ? `${pendingWrites} save${pendingWrites === 1 ? " is" : "s are"} protected on this device and will retry automatically.`
+    ? contractConflictExecutionPolicy().blocked
+      ? `${pendingWrites} save${pendingWrites === 1 ? " is" : "s are"} protected on this device. Automatic retries are paused until you choose the saved Contract.`
+      : `${pendingWrites} save${pendingWrites === 1 ? " is" : "s are"} protected on this device and will retry automatically.`
     : "Every program save reached your account.");
   const syncTime = continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
   setText("continuity-device-label", syncTime ? `Account verified ${syncTime}` : continuityState.accountRevision ? "Account ledger verified" : "Checking account continuity");
+  const contractPolicy = contractConflictExecutionPolicy();
+  const globalBlocker = document.getElementById("global-contract-blocker");
+  if (globalBlocker) globalBlocker.hidden = !contractPolicy.blocked;
+  document.body.dataset.contractConflict = contractPolicy.blocked ? "true" : "false";
   renderAccountTruthHealth();
 }
 
@@ -2217,6 +2315,14 @@ function refreshContinuityConsumers() {
   try { renderProgramCommand(); } catch (_) {}
   try { renderWeeklyOrchestrator(); } catch (_) {}
   try { renderTodayCommittedWeek(); } catch (_) {}
+  try { renderDailyCoachingLoop(); } catch (_) {}
+  try { renderDailyDecisionSurfaces(); } catch (_) {}
+  try { renderNutritionCommand(); } catch (_) {}
+  try { renderNutritionNextAction(); } catch (_) {}
+  try { renderTodayNutritionExecution(); } catch (_) {}
+  try { renderRecoveryReview(); } catch (_) {}
+  try { renderReviewHub(); } catch (_) {}
+  try { if (weeklyInspection) renderWeeklyJudgment(weeklyInspection, weeklyInspectionStorageMode); } catch (_) {}
   try { renderProgramTrends(); } catch (_) {}
   try { renderAtlasDecisionCenter(); } catch (_) {}
   try { scheduleOperatingTruthReconciliation(0); } catch (_) {}
@@ -2381,7 +2487,11 @@ async function completeContinuityResolution(preference) {
         synced,
         nextTitle: nextTruth?.title
       });
-  continuityState.lastResolution = { ...outcome, resolvedAt: new Date().toISOString() };
+  continuityState.lastResolution = {
+    ...(continuityState.lastResolution || {}),
+    ...outcome,
+    resolvedAt: continuityState.lastResolution?.resolvedAt || new Date().toISOString()
+  };
   if (!outcome.advance) {
     setContinuityMode("CONFLICT", { lastResolution: continuityState.lastResolution });
     return false;
@@ -2402,6 +2512,31 @@ async function repairDominionContinuity(preference, choiceKey = null) {
   const selected = choiceKey ? conflicts.filter((conflict) => conflict.choiceKey === choiceKey) : conflicts;
   if (!selected.length) return false;
   setContinuityMode("REPAIRING");
+  const contractConflicts = selected.filter((conflict) => conflict.domain === "contract");
+  const otherConflicts = selected.filter((conflict) => conflict.domain !== "contract");
+  if (contractConflicts.length && typeof DominionContractReconciliation !== "undefined") {
+    for (const conflict of contractConflicts) {
+      const resolution = DominionContractReconciliation.reconcileContract(conflict, preference, {
+        resolvedAt: new Date().toISOString(),
+        protectedEvidenceCount: continuityProtectedEvidenceCount()
+      });
+      saveRecruitContractLocal("APPROVED", resolution.canonical);
+      if (preference === "DEVICE") {
+        const saved = await persistRecruitContractState("APPROVED", resolution.canonical);
+        if (saved === false) throw Object.assign(new Error("The reconciled Contract could not be confirmed by your account."), { code: "SAVE_NOT_ACKNOWLEDGED" });
+      } else {
+        markContinuityRecordSynced("contract", "APPROVED", conflict.stateKey || "current", resolution.canonical, conflict.accountUpdatedAt);
+      }
+      saveContractReconciliationReceipt(resolution.receipt);
+      continuityState.lastResolution = {
+        status: "RECONCILED",
+        message: `Contract R${resolution.resultRevision} selected. Completed evidence is preserved.`,
+        receiptId: resolution.receipt.id,
+        resolvedAt: resolution.receipt.resolvedAt
+      };
+    }
+    saveContinuityManifestLocal(buildCurrentContinuityManifest());
+  }
   if (preference === "ACCOUNT") {
     const selectedRetryKeys = new Set(selected.map((conflict) => continuityRetryKey(
       conflict.domain,
@@ -2409,10 +2544,10 @@ async function repairDominionContinuity(preference, choiceKey = null) {
       conflict.stateKey || conflict.account?.stateKey || conflict.device?.stateKey || "current"
     )));
     saveContinuityRetryQueue(readContinuityRetryQueue().filter((item) => !selectedRetryKeys.has(item.key)));
-    selected.forEach(applyContinuityAccountRecord);
+    otherConflicts.forEach(applyContinuityAccountRecord);
   }
-  if (preference === "DEVICE") {
-    for (const conflict of selected) await persistContinuityConflictRecord(conflict);
+  if (preference === "DEVICE" && otherConflicts.length) {
+    for (const conflict of otherConflicts) await persistContinuityConflictRecord(conflict);
   }
   selected.forEach((conflict) => {
     if (conflict.origin === "RECORD") continuityRecordConflicts.delete(conflict.key);
@@ -2429,6 +2564,7 @@ async function repairDominionContinuity(preference, choiceKey = null) {
     setContinuityMode("CONFLICT", { lastResolution: outcome ? { ...outcome, resolvedAt: new Date().toISOString() } : null });
     return true;
   }
+  continuityState.previewedConflictKeys = [];
   return completeContinuityResolution(preference);
 }
 
@@ -7644,7 +7780,7 @@ function renderWeeklyOrchestrator() {
     <strong>${escapeHtml(moduleState.replaceAll("_", " "))}</strong>
     <small>${key === "nutrition" ? "Daily targets" : `${preview.actual?.[key] || 0}/${preview.expected?.[key] || 0} sessions`}</small>
   </article>`).join("");
-  const canEditCalendar = calendarView.mode === "STAGED" && preview.status === "DRAFT" && Boolean(savedDraft);
+  const canEditCalendar = !unifiedBlocker && calendarView.mode === "STAGED" && preview.status === "DRAFT" && Boolean(savedDraft);
   const calendarDayOptions = (preview.days || []).map((day) => ({ value: day.date, label: `${day.weekday} ${day.date.slice(5)}` }));
   const days = (preview.days || []).map((day) => {
     const dayOverride = currentDailyCalendarOverride(day.date);
@@ -7683,7 +7819,9 @@ function renderWeeklyOrchestrator() {
   const calendarHandoff = preview.calendarReconciliation
     || active?.calendarReconciliation
     || (latestHandoff?.weekStarts?.some((weekStart) => [preview.weekStart, active?.weekStart].includes(weekStart)) ? latestHandoff : null);
-  const controls = calendarView.mode === "STAGED" && preview.status === "DRAFT" && savedDraft
+  const controls = unifiedBlocker
+    ? `<button type="button" data-unified-blocker-action="RESOLVE_CONTINUITY">Compare and choose saved Contract</button>`
+    : calendarView.mode === "STAGED" && preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
   panel.innerHTML = `
@@ -8025,13 +8163,14 @@ function renderMissionExecutionSpine() {
   section.hidden = !spine?.total || hiddenBySetup;
   if (section.hidden) return;
   const current = spine.current;
-  setText("mission-spine-status", spine.complete ? "Mission secured" : current?.state === "PAUSED" ? "Resume protected" : current?.state === "IN_PROGRESS" ? "Work in progress" : "Next order ready");
+  const contractPolicy = contractConflictExecutionPolicy();
+  setText("mission-spine-status", contractPolicy.blocked ? "Mission protected" : spine.complete ? "Mission secured" : current?.state === "PAUSED" ? "Resume protected" : current?.state === "IN_PROGRESS" ? "Work in progress" : "Next order ready");
   currentPanel.innerHTML = current
     ? `<span>${escapeHtml(current.windowLabel)} · ${escapeHtml(current.module === "RUNNING" ? "CARDIO" : current.module)}</span><strong>${escapeHtml(current.title)}</strong><small>${escapeHtml(spine.primary.detail)}</small>`
     : `<span>COMPLETE</span><strong>Every mission action is secured</strong><small>Close the day when the evidence review is ready.</small>`;
   sequence.innerHTML = spine.assignments.map((item) => `<span class="${item.secured ? "secured" : item.held ? "held" : item.active ? "active" : item.blocked ? "blocked" : "ready"}" title="${escapeHtml(item.title)}"><i aria-hidden="true"></i>${escapeHtml(item.module === "RUNNING" ? "CARDIO" : item.module)}</span>`).join("");
   setText("mission-spine-progress", `${spine.secured} of ${spine.total} secured`);
-  setText("mission-spine-sync", spine.lastSavedAt ? `Resume point protected · ${new Date(spine.lastSavedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Progress saves with every mission action.");
+  setText("mission-spine-sync", contractPolicy.blocked ? "Completed evidence is preserved. New plan-derived work waits for your Contract choice." : spine.lastSavedAt ? `Resume point protected · ${new Date(spine.lastSavedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Progress saves with every mission action.");
 }
 
 async function runMissionExecutionSpinePrimary() {
@@ -8693,6 +8832,14 @@ function renderMissionExecution() {
   if (!section || !panel || !badge || typeof DominionMissionExecution === "undefined") return;
   const model = buildCurrentMissionCockpit();
   if (!model) return;
+  const contractPolicy = contractConflictExecutionPolicy();
+  if (contractPolicy.blocked) {
+    section.dataset.missionState = "PROTECTED";
+    badge.textContent = "CHOICE REQUIRED";
+    badge.className = "state-pill red";
+    panel.innerHTML = `<article class="mission-player protected"><div class="mission-player-command"><span>READ-ONLY PREVIEW</span><h3>Mission protected</h3><p>${escapeHtml(contractPolicy.detail)}</p></div><div class="mission-primary-actions"><button type="button" data-unified-blocker-action="RESOLVE_CONTINUITY">Compare and choose saved Contract</button></div><footer class="mission-evidence-strip"><small>Completed assignments and raw evidence remain authoritative.</small></footer></article>`;
+    return;
+  }
   const receipts = readMissionExecutionReceipts();
   const debriefs = readMissionDebriefs();
   const pendingDebrief = typeof DominionMissionDebrief === "undefined" ? null : DominionMissionDebrief.pendingDebrief({ cockpit: model, receipts, debriefs });
@@ -12764,7 +12911,7 @@ function registerMobileServiceWorker() {
   // Prior continuity shell sentinel retained for release audit: coach-dominion:service-worker-reload:025n
   // Prior daily-command shell sentinel retained for release audit: coach-dominion:service-worker-reload:025o
   // Prior daily-command sentinel retained for release audit: coach-dominion:service-worker-reload:025p
-  const reloadKey = "coach-dominion:service-worker-reload:026k";
+  const reloadKey = "coach-dominion:service-worker-reload:029n";
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -12804,7 +12951,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029f", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029g2", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029h", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029l", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029l", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -18322,11 +18470,11 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
   const repair = buildAtlasProgramRepairModel();
   const repairVisible = Boolean(!unifiedProgram && repair?.visible && readApprovedRecruitContract());
   const lifecycle = currentProgramLifecycle();
-  const displayStatus = lifecycle?.state || unifiedProgram?.status || (repairVisible ? repair.status : model.status);
-  const displayTone = lifecycle?.tone || unifiedProgram?.tone || (repairVisible ? atlasRepairStateTone(repair.status) : model.tone);
+  const displayStatus = unifiedProgram?.status || lifecycle?.state || (repairVisible ? repair.status : model.status);
+  const displayTone = unifiedProgram?.tone || lifecycle?.tone || (repairVisible ? atlasRepairStateTone(repair.status) : model.tone);
   const status = document.getElementById("program-command-status");
   if (status) {
-    status.textContent = lifecycle?.label || displayStatus.replaceAll("_", " ");
+    status.textContent = unifiedProgram ? "CHOICE REQUIRED" : lifecycle?.label || displayStatus.replaceAll("_", " ");
     status.className = `state-pill ${displayTone}`;
   }
   const targetDate = model.goal.targetDate ? `<span>By ${escapeHtml(model.goal.targetDate)}</span>` : "";
@@ -20664,8 +20812,9 @@ function renderNutritionCommand() {
   DominionNutritionCommand.buildNutritionCommand({ date, actual, targets, source, trainingDay, readiness });
   const fuel = buildCurrentFuelCommand();
   if (!fuel) return;
-  statusPill.textContent = fuel.status;
-  statusPill.className = `state-pill ${fuel.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(fuel.status) ? "yellow" : "neutral"}`;
+  const contractPolicy = contractConflictExecutionPolicy();
+  statusPill.textContent = contractPolicy.blocked ? "PROVISIONAL" : fuel.status;
+  statusPill.className = `state-pill ${contractPolicy.blocked ? "red" : fuel.status === "ON PLAN" ? "green" : ["EXECUTE", "REVIEW EVIDENCE"].includes(fuel.status) ? "yellow" : "neutral"}`;
   const metrics = fuel.metrics.map((metric) => {
     const remaining = metric.target === null
       ? "No target"
@@ -20706,7 +20855,10 @@ function renderNutritionCommand() {
       <div><span>${escapeHtml(fastingLive?.status || fasting.status)}</span><strong>${escapeHtml(fastingLive?.headline || fasting.headline)}</strong><p>${escapeHtml(fastingLive?.detail || fasting.detail)}</p></div>
       <div><span>${fastingLive?.countdown ? "COUNTDOWN" : "WINDOW"}</span><strong>${escapeHtml(fastingLive?.countdown || fasting.windowLabel || "Paused today")}</strong><small>${escapeHtml(fasting.targetPolicy)}</small></div>
     </section>` : "";
-  output.innerHTML = `${fastingBrief}${calendarBrief}<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
+  const contractNotice = contractPolicy.blocked
+    ? `<aside class="fuel-contract-provisional"><div><span>CONTRACT CHOICE REQUIRED</span><strong>Fuel targets are provisional</strong><p>Daily totals remain available to log. Choose the saved Contract before Atlas changes targets or guidance.</p></div><button type="button" data-unified-blocker-action="RESOLVE_CONTINUITY">Compare Contracts</button></aside>`
+    : "";
+  output.innerHTML = `${contractNotice}${fastingBrief}${calendarBrief}<div class="fuel-command-grid"><div class="fuel-metrics">${metrics}</div>${nextMeal}</div>`;
   renderFuelDayLedger(date);
   const evidence = document.getElementById("fuel-command-evidence");
   if (evidence) {
@@ -21699,6 +21851,32 @@ async function init() {
   }
 }
 
+function contractConflictPlanAction(target) {
+  if (!target?.closest || !contractConflictExecutionPolicy().blocked) return null;
+  return target.closest([
+    '[data-assignment-action="start"]',
+    '[data-assignment-action="resume"]',
+    '[data-running-action="start-run"]',
+    '[data-running-action="approve-progression"]',
+    '[data-running-action="generate-block"]',
+    '[data-running-action="approve-plan"]',
+    '[data-running-action="approve-block"]',
+    '[data-core-program-action="start-session"]',
+    '[data-core-program-action="approve-plan"]',
+    '[data-atlas-progression-action]',
+    '[data-atlas-week-action]',
+    '[data-strength-progression-action]',
+    '[data-programming-action="approve"]',
+    '[data-programming-action="approve-adjustment"]',
+    '[data-strength-block-action="approve"]',
+    '[data-strength-schedule-action="approve"]',
+    '[data-nutrition-baseline-action="approve"]',
+    '[data-adaptive-fueling-action="approve"]',
+    '[data-nutrition-review-action="approve"]',
+    '[data-fasting-action="approve"]'
+  ].join(","));
+}
+
 if (typeof document !== "undefined") {
   if (typeof DominionDailyDecision !== "undefined") DominionDailyDecision.installExperience(document);
   if (typeof DominionDailyDecisionIntegrity !== "undefined") DominionDailyDecisionIntegrity.installExperience(document);
@@ -21718,6 +21896,16 @@ if (typeof document !== "undefined") {
     setText("mobile-command-feedback", "Dominion is installed and ready from your Home Screen.");
     renderMobileInstallExperience();
   });
+  document.addEventListener("click", (event) => {
+    const blockedAction = contractConflictPlanAction(event.target);
+    if (!blockedAction) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    renderDominionContinuity();
+    const dialog = document.getElementById("continuity-repair-dialog");
+    if (dialog?.showModal && !dialog.open) dialog.showModal();
+    setText("continuity-repair-summary", "Mission protected. Compare the saved Contract copies before starting or changing plan-derived work.");
+  }, true);
   document.addEventListener("click", async (event) => {
     const trustAction = event.target.closest("[data-trust-action]");
     if (trustAction) {
@@ -21779,10 +21967,26 @@ if (typeof document !== "undefined") {
       await syncDominionContinuity();
       await flushAccountTruthPendingWrite({ force: true });
     }
-    if (action === "keep-device") await repairDominionContinuity("DEVICE");
-    if (action === "keep-account") await repairDominionContinuity("ACCOUNT");
-    if (action === "resolve-device") await repairDominionContinuity("DEVICE", button.dataset.continuityKey);
-    if (action === "resolve-account") await repairDominionContinuity("ACCOUNT", button.dataset.continuityKey);
+    if (action === "preview") {
+      continuityState.previewedConflictKeys = [...new Set([...(continuityState.previewedConflictKeys || []), button.dataset.continuityKey])];
+      renderDominionContinuity();
+      document.querySelector(`[data-continuity-key="${CSS.escape(button.dataset.continuityKey || "")}"][data-continuity-action="resolve-device"]`)?.focus();
+      return;
+    }
+    if (["keep-device", "keep-account", "resolve-device", "resolve-account"].includes(action)) {
+      button.disabled = true;
+      try {
+        const preference = ["keep-device", "resolve-device"].includes(action) ? "DEVICE" : "ACCOUNT";
+        const choiceKey = action.startsWith("resolve-") ? button.dataset.continuityKey : null;
+        await repairDominionContinuity(preference, choiceKey);
+      } catch (error) {
+        setContinuityMode("CONFLICT", { lastError: error?.message || "The Contract choice could not be confirmed." });
+        setText("continuity-repair-summary", error?.message || "The Contract choice could not be confirmed. Your evidence is still protected.");
+      } finally {
+        button.disabled = false;
+      }
+      return;
+    }
     if (action === "retry-pending") {
       await flushContinuityPendingWrites();
       await syncDominionContinuity();
@@ -25952,7 +26156,7 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
     : aggregate.scoreIsProvisional
-      ? `${evidenceSummary.headline || "Evidence is incomplete"}. ${evidenceSummary.unscoredDays} day${evidenceSummary.unscoredDays === 1 ? "" : "s"} remain unscored${missingLabels.length ? `; missing ${missingLabels.join(", ")}` : ""}. Scores describe assessed observations only.`
+      ? `${evidenceSummary.headline || "Evidence is incomplete"}. ${evidenceSummary.unscoredDays} day${evidenceSummary.unscoredDays === 1 ? " remains" : "s remain"} unscored${missingLabels.length ? `; missing ${missingLabels.join(", ")}` : ""}. Scores describe assessed observations only.`
       : "";
   setText("weekly-warning", warning);
   const finalizeButton = document.getElementById("finalize-week");

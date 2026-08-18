@@ -48,7 +48,7 @@
   }
 
   function activeWeekForDate(week = null, date = "") {
-    if (!week || upper(week.status || week.state) === "SUPERSEDED") return false;
+    if (!week || ["REPLACED", "SUPERSEDED"].includes(upper(week.status || week.state))) return false;
     const target = clean(date).slice(0, 10);
     return Boolean(target && clean(week.weekStart) <= target && target <= clean(week.weekEnd));
   }
@@ -71,6 +71,8 @@
     const today = input.today || {};
     const evidence = input.evidence || {};
     const closeout = input.closeout || null;
+    const stagedWeek = input.stagedWeek || null;
+    const transition = input.transition || {};
     const conflicts = whole(input.conflicts?.length || input.conflicts);
     const pendingWrites = whole(input.pendingWrites || account.pendingWrites);
     const accountMode = upper(account.status || account.mode);
@@ -79,22 +81,31 @@
     const programState = upper(program.state || program.status);
     const programCurrent = CURRENT_PROGRAM_STATES.has(programState);
     const weekCurrent = activeWeekForDate(week, date) && ["COMMITTED", "ACTIVE", "CURRENT", "APPROVED"].includes(upper(week?.status || week?.state || "COMMITTED"));
+    const protectedCurrentWeek = transition.protectedCurrentWeek === true && weekCurrent;
+    const operatingContractRevision = protectedCurrentWeek
+      ? whole(transition.operatingContractRevision || week?.contractRevision)
+      : contractRevision;
+    const operatingContractRef = protectedCurrentWeek
+      ? clean(transition.operatingContractRef || program.contractRef)
+      : contractRef;
+    const stagedWeekApplies = Boolean(stagedWeek) && !["REPLACED", "SUPERSEDED"].includes(upper(stagedWeek?.status || stagedWeek?.state));
     const todayCurrent = Boolean(today.id && today.committed !== false && today.weekCommitted !== false);
-    const planReferencesAgree = sameReference(program.contractRevision, contractRevision)
-      && sameReference(program.contractRef, contractRef);
-    const weekReferencesAgree = sameReference(week?.contractRevision, contractRevision)
+    const planReferencesAgree = sameReference(program.contractRevision, operatingContractRevision)
+      && sameReference(program.contractRef, operatingContractRef);
+    const weekReferencesAgree = sameReference(week?.contractRevision, operatingContractRevision)
       && sameReference(week?.programId, program.id);
-    const todayReferencesAgree = sameReference(today.contractRevision, contractRevision)
+    const stagedWeekReferencesAgree = !stagedWeekApplies || sameReference(stagedWeek?.contractRevision, contractRevision);
+    const todayReferencesAgree = sameReference(today.contractRevision, operatingContractRevision)
       && sameReference(today.programId, program.id)
       && sameReference(today.weekId, week?.id);
-    const evidenceReferencesAgree = sameReference(evidence.contractRevision, contractRevision)
+    const evidenceReferencesAgree = sameReference(evidence.contractRevision, operatingContractRevision)
       && sameReference(evidence.programId, program.id)
       && sameReference(evidence.weekId, week?.id)
       && sameReference(evidence.todayId, today.id);
     const closeoutReferencesAgree = !closeout || (
       sameReference(closeout.todayId, today.id)
       && sameReference(closeout.weekId, week?.id)
-      && sameReference(closeout.contractRevision, contractRevision)
+      && sameReference(closeout.contractRevision, operatingContractRevision)
     );
     const accountConfirmed = account.serverConfirmed === true
       && Boolean(account.lastVerifiedAt || account.confirmedMutationId || account.confirmedFingerprint);
@@ -122,15 +133,17 @@
     } else if (!planReferencesAgree) {
       stages.push(stageResult("program", "INCONSISTENT", "The active program points to a different Contract revision.", action("REBUILD_PROGRAM", "Reconcile program", "contract"), { code: "PROGRAM_CONTRACT_MISMATCH" }));
     } else {
-      stages.push(stageResult("program", "CURRENT", "Strength, Cardio, Core, and Fuel share the governing Contract."));
+      stages.push(stageResult("program", "CURRENT", protectedCurrentWeek ? `The active program remains protected through this week; the next week must use Contract R${contractRevision}.` : "Strength, Cardio, Core, and Fuel share the governing Contract.", null, { transition: protectedCurrentWeek }));
     }
 
     if (!weekCurrent) {
       stages.push(stageResult("calendar", "BLOCKED", "Today is not inside a committed operating week.", action("OPEN_CALENDAR", "Commit operating week", "calendar"), { code: "ACTIVE_WEEK_REQUIRED" }));
     } else if (!weekReferencesAgree) {
       stages.push(stageResult("calendar", "INCONSISTENT", "The operating week does not match the active program lineage.", action("OPEN_CALENDAR", "Repair Calendar", "calendar"), { code: "CALENDAR_LINEAGE_MISMATCH" }));
+    } else if (!stagedWeekReferencesAgree) {
+      stages.push(stageResult("calendar", "INCONSISTENT", `The next week is not linked to Contract R${contractRevision}.`, action("OPEN_CALENDAR", "Repair next week", "calendar"), { code: "STAGED_WEEK_CONTRACT_MISMATCH" }));
     } else {
-      stages.push(stageResult("calendar", "CURRENT", `${week.weekStart} through ${week.weekEnd} is the active committed week.`));
+      stages.push(stageResult("calendar", "CURRENT", protectedCurrentWeek ? `${week.weekStart} through ${week.weekEnd} remains protected on Contract R${operatingContractRevision}.` : `${week.weekStart} through ${week.weekEnd} is the active committed week.`, null, { transition: protectedCurrentWeek }));
     }
 
     if (!todayCurrent) {
@@ -138,7 +151,7 @@
     } else if (!todayReferencesAgree) {
       stages.push(stageResult("today", "INCONSISTENT", "Today points to a different Contract, program, or Calendar week.", action("REBUILD_TODAY", "Rebuild Today", "today"), { code: "TODAY_LINEAGE_MISMATCH" }));
     } else {
-      stages.push(stageResult("today", "CURRENT", "Today is authorized by the active program and operating week."));
+      stages.push(stageResult("today", "CURRENT", protectedCurrentWeek ? `Today remains authorized by the protected Contract R${operatingContractRevision} week.` : "Today is authorized by the active program and operating week.", null, { transition: protectedCurrentWeek }));
     }
 
     if (!evidenceReferencesAgree) {
@@ -163,6 +176,8 @@
     const lineage = {
       contractRevision,
       contractRef,
+      operatingContractRevision,
+      operatingContractRef,
       programId: clean(program.id),
       weekId: clean(week?.id),
       todayId: clean(today.id),
@@ -184,6 +199,7 @@
       primaryAction: firstProblem?.action || null,
       lineage: Object.freeze(lineage),
       pendingWrites,
+      protectedCurrentWeek,
       fingerprint
     });
   }

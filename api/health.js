@@ -4,14 +4,15 @@ module.exports = function handler(req, res) {
     ok: true,
     service: "coach-dominion",
     status: "ready",
-    release: "029O.1",
+    release: "030A.1",
     commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
     checks: {
       application: "available",
       trustTelemetry: "available",
       reliabilitySignals: "structured",
       productionCanary: "available",
-      betaJourney: "available"
+      betaJourney: "available",
+      realRecruitCertification: "required"
     }
   });
 };

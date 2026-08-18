@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Real Recruit Certification
+
+- Runs six complete recruit journeys and twenty-one canonical checkpoints on every release candidate.
+- Covers new setup, returning-account restore, Contract amendment handoff, offline recovery, daily proof and Closeout, and Atlas decisions.
+- Fails the release when saved evidence disappears, the wrong first action appears, or an unchanged second session no longer matches.
+- Protects the active prior-Contract week after an amendment while requiring the staged next week to use the new Contract.
+- Adds no new product dashboard; this is a stop-the-line release gate for the experience already promised.
+
 ## Unreleased - Beta Journey Certification
 
 - Certifies Account, Contract, program, Calendar, Today, evidence, and Daily Closeout as one end-to-end operating lineage.

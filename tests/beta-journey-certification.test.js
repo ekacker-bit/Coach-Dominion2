@@ -96,3 +96,28 @@ test("issues the same certification id in a second unchanged session", () => {
   assert.equal(first.fingerprint, second.fingerprint);
   assert.notEqual(first.certifiedAt, second.certifiedAt);
 });
+
+test("protects an active prior-Contract week after an amendment", () => {
+  const result = journey.evaluate(healthy({
+    contract: { exists: true, signed: true, id: "contract-1", revision: 13, hash: "contract:contract-1:r13" },
+    program: { id: "program-12", state: "ACTIVE", contractRevision: 12, contractRef: "contract:contract-1:r12" },
+    transition: { protectedCurrentWeek: true, operatingContractRevision: 12, operatingContractRef: "contract:contract-1:r12" },
+    stagedWeek: { id: "week-13", status: "DRAFT", weekStart: "2026-08-24", weekEnd: "2026-08-30", contractRevision: 13, programId: "program-13" }
+  }));
+  assert.equal(result.state, "CERTIFIED");
+  assert.equal(result.protectedCurrentWeek, true);
+  assert.equal(result.lineage.contractRevision, 13);
+  assert.equal(result.lineage.operatingContractRevision, 12);
+});
+
+test("rejects a staged week that ignores the amended Contract", () => {
+  const result = journey.evaluate(healthy({
+    contract: { exists: true, signed: true, id: "contract-1", revision: 13, hash: "contract:contract-1:r13" },
+    program: { id: "program-12", state: "ACTIVE", contractRevision: 12, contractRef: "contract:contract-1:r12" },
+    transition: { protectedCurrentWeek: true, operatingContractRevision: 12, operatingContractRef: "contract:contract-1:r12" },
+    stagedWeek: { id: "week-13", status: "DRAFT", weekStart: "2026-08-24", weekEnd: "2026-08-30", contractRevision: 12, programId: "program-12" }
+  }));
+  assert.equal(result.state, "INCONSISTENT");
+  assert.equal(result.firstProblem.code, "STAGED_WEEK_CONTRACT_MISMATCH");
+  assert.equal(result.primaryAction.code, "OPEN_CALENDAR");
+});

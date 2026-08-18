@@ -121,6 +121,7 @@ let trustLayerState = {
   startupIssues: [],
   running: false
 };
+let currentBetaJourneyCertification = null;
 const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
@@ -853,6 +854,74 @@ function renderAccountTruthHealth() {
   if (trustLayerState.report) renderTrustLayerHealth(trustLayerState.report);
 }
 
+function buildCurrentBetaJourneyCertification(context = {}) {
+  if (typeof DominionBetaJourneyCertification === "undefined") return null;
+  const date = todayISODate();
+  const contract = readApprovedRecruitContract();
+  const lifecycle = context.lifecycle || currentProgramLifecycle();
+  const week = context.week || readCommittedUnifiedWeek(date);
+  const canonical = context.canonical || (currentCanonicalDailyCommand?.date === date
+    ? currentCanonicalDailyCommand
+    : buildCurrentCanonicalDailyCommand(date));
+  const receipt = lifecycle?.receipt || readAtlasProgramReceipt();
+  const pending = canonicalPendingWriteState();
+  const accountHealth = context.accountHealth || accountTruthState;
+  const contractRevision = Number(contract?.revision || 0);
+  const contractRef = contract ? `contract:${contract.id || "approved"}:r${contractRevision}` : "";
+  const programId = week?.programId
+    || canonical?.program?.id
+    || (contract ? `atlas-program:${contract.id || "contract"}:r${contractRevision}` : "");
+  let signed = false;
+  try {
+    signed = Boolean(contract && typeof DominionContractExperience !== "undefined" && DominionContractExperience.signatureStatus(contract).valid);
+  } catch (_) {}
+  const evidenceItems = accountTruthMissionEvidence().filter((item) => {
+    const itemDate = String(item?.date || item?.sourceDate || item?.operatingDate || item?.createdAt || "").slice(0, 10);
+    return itemDate === date;
+  });
+  currentBetaJourneyCertification = DominionBetaJourneyCertification.evaluate({
+    date,
+    account: {
+      ...accountTruthState,
+      status: accountHealth.status || accountTruthState.mode,
+      pendingWrites: pending.count
+    },
+    conflicts: currentContinuityConflicts(),
+    pendingWrites: pending.count,
+    contract: {
+      exists: Boolean(contract),
+      signed,
+      id: contract?.id || null,
+      revision: contractRevision,
+      hash: contractRef
+    },
+    program: {
+      id: programId,
+      state: lifecycle?.state || canonical?.lifecycle?.program,
+      contractRevision: Number(receipt?.contractRevision || week?.contractRevision || 0),
+      contractRef
+    },
+    week: week ? {
+      ...week,
+      id: week.id || canonical?.week?.id || null,
+      programId: week.programId || canonical?.program?.id || programId,
+      contractRevision: Number(week.contractRevision || 0)
+    } : null,
+    today: canonical ? {
+      id: canonical.id,
+      date,
+      committed: canonical.day?.committed,
+      weekCommitted: canonical.week?.committed,
+      weekId: canonical.week?.id,
+      programId: canonical.program?.id || programId,
+      contractRevision
+    } : null,
+    evidence: { count: evidenceItems.length },
+    closeout: readDailyCloseout(date)
+  });
+  return currentBetaJourneyCertification;
+}
+
 function buildCurrentTrustLayerReport(options = {}) {
   if (typeof DominionTrustLayer === "undefined") return null;
   const manifest = continuityState.manifest || buildCurrentContinuityManifest();
@@ -886,36 +955,44 @@ function buildCurrentTrustLayerReport(options = {}) {
   const canonical = currentCanonicalDailyCommand?.date === date
     ? currentCanonicalDailyCommand
     : buildCurrentCanonicalDailyCommand(date);
+  const lifecycle = currentProgramLifecycle();
+  const activeWeek = readCommittedUnifiedWeek(date);
   const readiness = DominionBetaReadinessGate.evaluate({
     trustReport: report,
     account: { ...accountTruthState, status: accountHealth.status },
     pendingWrites: canonicalPendingWriteState().count,
     online: navigator.onLine !== false,
-    lifecycle: currentProgramLifecycle(),
-    activeWeek: readCommittedUnifiedWeek(date),
+    lifecycle,
+    activeWeek,
     canonicalCommand: canonical,
     adaptation: readAtlasLiveAdaptation(date)
   });
-  return { ...report, readiness };
+  const journey = buildCurrentBetaJourneyCertification({ accountHealth, canonical, lifecycle, week: activeWeek });
+  return { ...report, readiness, journey };
 }
 
 function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentTrustLayerReport()) {
   if (!report) return;
   trustLayerState.report = report;
   const readiness = report.readiness || null;
+  const journey = report.journey || null;
+  const journeyProblem = journey && ["ACTION_REQUIRED", "INCONSISTENT"].includes(journey.state);
+  const governing = journeyProblem ? journey : readiness;
   const root = document.getElementById("account-truth-health");
   if (root) {
-    root.dataset.truthTone = readiness?.tone || report.tone;
+    root.dataset.truthTone = governing?.tone || report.tone;
     root.dataset.readiness = readiness?.state || report.status;
+    root.dataset.journey = journey?.state || "CHECKING";
   }
-  setText("account-truth-status", readiness?.label || report.status.replaceAll("_", " "));
-  setText("account-truth-headline", readiness?.headline || report.headline);
-  setText("account-truth-program", readiness?.checks?.program || report.checks.program);
-  setText("account-truth-calendar", readiness?.checks?.calendar || report.checks.calendar);
-  setText("account-truth-today", readiness?.checks?.today || report.checks.today);
-  setText("account-truth-evidence", readiness?.checks?.evidence || report.checks.evidence);
+  const stage = (id) => journey?.stages?.find((item) => item.id === id)?.state || null;
+  setText("account-truth-status", governing?.label || report.status.replaceAll("_", " "));
+  setText("account-truth-headline", governing?.headline || report.headline);
+  setText("account-truth-program", stage("program") || readiness?.checks?.program || report.checks.program);
+  setText("account-truth-calendar", stage("calendar") || readiness?.checks?.calendar || report.checks.calendar);
+  setText("account-truth-today", stage("today") || readiness?.checks?.today || report.checks.today);
+  setText("account-truth-evidence", stage("evidence") || readiness?.checks?.evidence || report.checks.evidence);
   const action = document.getElementById("account-truth-action");
-  const primaryAction = readiness?.primaryAction || report.primaryAction;
+  const primaryAction = governing?.primaryAction || report.primaryAction;
   if (action) {
     action.hidden = !primaryAction;
     action.textContent = primaryAction?.label || "Review";
@@ -924,6 +1001,9 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   }
   document.body.dataset.trustLayer = report.status.toLowerCase().replaceAll("_", "-");
   document.body.dataset.betaReadiness = readiness?.state?.toLowerCase().replaceAll("_", "-") || "checking";
+  document.body.dataset.betaJourney = journey?.state?.toLowerCase().replaceAll("_", "-") || "checking";
+  const journeyReceipt = journey ? DominionBetaJourneyCertification.certificationReceipt(journey) : null;
+  document.body.dataset.betaJourneyReceipt = journeyReceipt?.id || "";
   renderReliabilitySupportCode();
 }
 
@@ -12952,7 +13032,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029g2", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029h", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029l", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -21911,7 +21992,7 @@ if (typeof document !== "undefined") {
     if (trustAction) {
       event.preventDefault();
       const action = trustAction.dataset.trustAction;
-      if (action === "CHOOSE_SAVED_COPY") {
+      if (["CHOOSE_SAVED_COPY", "RESOLVE_CONTINUITY"].includes(action)) {
         renderDominionContinuity();
         const repairDialog = document.getElementById("continuity-repair-dialog");
         if (repairDialog?.showModal && !repairDialog.open) repairDialog.showModal();

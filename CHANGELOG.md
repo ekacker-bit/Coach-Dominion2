@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Beta Journey Certification
+
+- Certifies Account, Contract, program, Calendar, Today, evidence, and Daily Closeout as one end-to-end operating lineage.
+- Names only the first broken link and routes the recruit to one repair action through the existing Account Health card.
+- Keeps protected account writes honest while an exact server receipt is pending; no healthy local work is discarded.
+- Produces a deterministic certification receipt so an unchanged second session proves the same journey.
+- Adds release and production gates for complete-journey regressions without adding another dashboard or exposing release language.
+
 ## Unreleased - Contract Reconciliation Integrity
 
 - Makes a saved Contract conflict the first action everywhere and opens the comparison directly from Today.

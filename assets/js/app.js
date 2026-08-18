@@ -866,8 +866,12 @@ function buildCurrentBetaJourneyCertification(context = {}) {
   const receipt = lifecycle?.receipt || readAtlasProgramReceipt();
   const pending = canonicalPendingWriteState();
   const accountHealth = context.accountHealth || accountTruthState;
+  const lineage = context.lineage || continuityState.lineage || null;
   const contractRevision = Number(contract?.revision || 0);
   const contractRef = contract ? `contract:${contract.id || "approved"}:r${contractRevision}` : "";
+  const protectedCurrentWeek = lineage?.modules?.calendar?.state === "PROTECTED_CURRENT_WEEK";
+  const operatingContractRevision = protectedCurrentWeek ? Number(week?.contractRevision || 0) : contractRevision;
+  const operatingContractRef = contract ? `contract:${week?.contractId || contract.id || "approved"}:r${operatingContractRevision}` : "";
   const programId = week?.programId
     || canonical?.program?.id
     || (contract ? `atlas-program:${contract.id || "contract"}:r${contractRevision}` : "");
@@ -899,7 +903,7 @@ function buildCurrentBetaJourneyCertification(context = {}) {
       id: programId,
       state: lifecycle?.state || canonical?.lifecycle?.program,
       contractRevision: Number(receipt?.contractRevision || week?.contractRevision || 0),
-      contractRef
+      contractRef: operatingContractRef || contractRef
     },
     week: week ? {
       ...week,
@@ -917,7 +921,13 @@ function buildCurrentBetaJourneyCertification(context = {}) {
       contractRevision
     } : null,
     evidence: { count: evidenceItems.length },
-    closeout: readDailyCloseout(date)
+    closeout: readDailyCloseout(date),
+    stagedWeek: lifecycle?.weekDraft || null,
+    transition: protectedCurrentWeek ? {
+      protectedCurrentWeek: true,
+      operatingContractRevision,
+      operatingContractRef
+    } : null
   });
   return currentBetaJourneyCertification;
 }
@@ -967,7 +977,7 @@ function buildCurrentTrustLayerReport(options = {}) {
     canonicalCommand: canonical,
     adaptation: readAtlasLiveAdaptation(date)
   });
-  const journey = buildCurrentBetaJourneyCertification({ accountHealth, canonical, lifecycle, week: activeWeek });
+  const journey = buildCurrentBetaJourneyCertification({ accountHealth, canonical, lifecycle, week: activeWeek, lineage });
   return { ...report, readiness, journey };
 }
 
@@ -13033,7 +13043,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029h", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029l", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

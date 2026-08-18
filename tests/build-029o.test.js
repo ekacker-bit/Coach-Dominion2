@@ -11,7 +11,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 test("Build 029O certifies the complete recruit journey through Account Health", () => {
   const html = read("app.html");
   const app = read("assets/js/app.js");
-  assert.match(html, /beta-journey-certification\.js\?v=029o/);
+  assert.match(html, /beta-journey-certification\.js\?v=029o(?:-030a)?/);
   assert.ok(html.indexOf("beta-journey-certification.js?v=029o") < html.indexOf("app.js?v="));
   assert.match(app, /function buildCurrentBetaJourneyCertification/);
   assert.match(app, /DominionBetaJourneyCertification\.evaluate/);
@@ -45,12 +45,12 @@ test("Build 029O is identifiable, cached, and production-gated", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const packageJson = read("package.json");
-  assert.match(html, /coach-dominion-release" content="029O\.1"/);
+  assert.match(html, /coach-dominion-release" content="(?:029O|030A)\.1"/);
   assert.match(worker, /029o-beta-journey-certification/);
-  assert.match(worker, /beta-journey-certification\.js\?v=029o/);
-  assert.match(health, /release: "029O\.1"/);
+  assert.match(worker, /beta-journey-certification\.js\?v=029o(?:-030a)?/);
+  assert.match(health, /release: "(?:029O|030A)\.1"/);
   assert.match(health, /betaJourney: "available"/);
-  assert.match(workflow, /npm run test:029o/);
-  assert.match(workflow, /--expected-release 029O\.1/);
+  assert.match(workflow, /npm run test:(?:029o|030a)/);
+  assert.match(workflow, /--expected-release (?:029O|030A)\.1/);
   assert.match(packageJson, /"test:029o"/);
 });

@@ -32,8 +32,9 @@ assert.match(app, /recordContinuityWrite\("nutrition"/);
 assert.match(app, /recordContinuityWrite\("calendar"/);
 assert.match(app, /await syncDominionContinuity\(\);/);
 assert.match(app, /sync_dominion_continuity_state/);
-assert.match(app, /repairDominionContinuity\("DEVICE"\)/);
-assert.match(app, /repairDominionContinuity\("ACCOUNT"\)/);
+assert.match(app, /async function repairDominionContinuity\(preference, choiceKey = null\)/);
+assert.match(app, /const preference = \["keep-device", "resolve-device"\]\.includes\(action\) \? "DEVICE" : "ACCOUNT"/);
+assert.match(app, /await repairDominionContinuity\(preference, choiceKey\)/);
 
 assert.match(migration, /create table if not exists public\.dominion_continuity_state/i);
 assert.match(migration, /revision bigint not null/i);

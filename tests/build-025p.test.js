@@ -14,8 +14,8 @@ const changelog = read("CHANGELOG.md");
 const pkg = JSON.parse(read("package.json"));
 
 test("Build 025P makes continuity the canonical highest-priority command", () => {
-  assert.match(engine, /const VERSION = "025P\.1"/);
-  assert.match(engine, /priority: 100/);
+  assert.match(engine, /const VERSION = "(?:025P|029N)\.1"/);
+  assert.match(engine, /priority: first\.domain === "contract" \? 200 : 100/);
   assert.match(engine, /CONTINUITY_CHOICE/);
   assert.match(app, /function buildCurrentUnifiedBlocker/);
   assert.match(app, /DominionUnifiedBlockerResolution\.applyToDailyCommand/);

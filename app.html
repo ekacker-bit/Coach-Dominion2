@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
-  <meta name="coach-dominion-release" content="030A.1">
+  <meta name="coach-dominion-release" content="030B.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -881,21 +881,48 @@
             <footer><span id="mission-spine-sync">Your progress is protected.</span><small id="mission-spine-progress">0 of 0 secured</small></footer>
           </aside>
 
-          <aside id="frictionless-execution" class="frictionless-execution" aria-labelledby="frictionless-execution-heading">
+          <aside id="frictionless-execution" class="frictionless-execution today-quick-log" aria-labelledby="frictionless-execution-heading" data-quick-log-state="READY">
             <header>
-              <div><span>QUICK LOG</span><strong id="frictionless-execution-heading">Open the work. Record it once.</strong></div>
-              <small id="frictionless-execution-progress">0 of 6 complete</small>
+              <div><span>QUICK LOG</span><strong id="frictionless-execution-heading">Today in 15 seconds</strong></div>
+              <small id="frictionless-execution-progress">Checking today</small>
             </header>
             <button id="frictionless-execution-resume" type="button" data-execution-module="" hidden></button>
-            <div id="frictionless-execution-modules" class="frictionless-execution-modules" aria-label="Daily logging shortcuts">
-              <button type="button" data-execution-module="strength" data-execution-state="READY"><strong>Strength</strong><small>Open</small></button>
-              <button type="button" data-execution-module="running" data-execution-state="READY"><strong>Run</strong><small>Open</small></button>
-              <button type="button" data-execution-module="core" data-execution-state="READY"><strong>Core</strong><small>Open</small></button>
-              <button type="button" data-execution-module="fuel" data-execution-state="READY"><strong>Fuel</strong><small>Open</small></button>
-              <button type="button" data-execution-module="recovery" data-execution-state="READY"><strong>Recover</strong><small>Open</small></button>
-              <button type="button" data-execution-module="closeout" data-execution-state="READY"><strong>Close</strong><small>Open</small></button>
-            </div>
-            <p id="frictionless-execution-feedback" role="status" aria-live="polite">Unfinished work is protected.</p>
+            <form id="today-quick-log-form" class="today-quick-log-form" autocomplete="off">
+              <fieldset class="today-quick-log-run">
+                <legend><span>RUN</span><strong id="today-quick-run-state">OPEN</strong></legend>
+                <label>Type<select name="runType"><option value="EASY">Easy</option><option value="LONG">Long</option><option value="TEMPO">Tempo</option><option value="INTERVAL">Intervals</option><option value="RECOVERY">Recovery</option><option value="RACE">Race</option></select></label>
+                <label>Distance<input name="runDistance" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="5.0"></label>
+                <label>Unit<select name="runUnit"><option value="mi">mi</option><option value="km">km</option></select></label>
+                <label>Minutes<input name="runMinutes" type="number" min="0.1" max="1440" step="0.1" inputmode="decimal" placeholder="42"></label>
+              </fieldset>
+              <fieldset class="today-quick-log-fuel">
+                <legend><span>FUEL</span><strong id="today-quick-fuel-state">OPEN</strong></legend>
+                <label>Calories<input name="calories" type="number" min="0" max="10000" step="1" inputmode="numeric" placeholder="2200"></label>
+                <label>Protein<input name="protein" type="number" min="0" max="1500" step="1" inputmode="numeric" placeholder="180"></label>
+                <label>Carbs<input name="carbs" type="number" min="0" max="1500" step="1" inputmode="numeric" placeholder="240"></label>
+                <label>Fat<input name="fat" type="number" min="0" max="1500" step="1" inputmode="numeric" placeholder="70"></label>
+              </fieldset>
+              <fieldset class="today-quick-log-close">
+                <legend><span>CLOSE</span><strong id="today-quick-close-state">LOCKED</strong></legend>
+                <label>Steps<input name="selfReportedSteps" type="number" min="0" max="250000" step="1" inputmode="numeric" placeholder="8500"></label>
+                <p id="today-quick-close-note">Steps save as a draft until today is ready to close.</p>
+              </fieldset>
+              <footer>
+                <p id="frictionless-execution-feedback" role="status" aria-live="polite">Drafts save automatically.</p>
+                <button id="today-quick-log-save" type="submit">Save today</button>
+              </footer>
+            </form>
+            <details class="today-quick-log-more">
+              <summary><span>More controls</span><small>Core, recovery, and full forms</small></summary>
+              <div id="frictionless-execution-modules" class="frictionless-execution-modules" aria-label="Daily logging shortcuts">
+                <button type="button" data-execution-module="strength" data-execution-state="READY"><strong>Strength</strong><small>Open</small></button>
+                <button type="button" data-execution-module="running" data-execution-state="READY"><strong>Run details</strong><small>Open</small></button>
+                <button type="button" data-execution-module="core" data-execution-state="READY"><strong>Core</strong><small>Open</small></button>
+                <button type="button" data-execution-module="fuel" data-execution-state="READY"><strong>Fuel details</strong><small>Open</small></button>
+                <button type="button" data-execution-module="recovery" data-execution-state="READY"><strong>Recovery</strong><small>Open</small></button>
+                <button type="button" data-execution-module="closeout" data-execution-state="READY"><strong>Full closeout</strong><small>Open</small></button>
+              </div>
+            </details>
           </aside>
 
           <aside id="atlas-live-adaptation" class="atlas-live-adaptation" hidden aria-live="polite">
@@ -2491,6 +2518,7 @@
 <script src="/assets/js/beta-readiness-gate.js?v=029h"></script>
 <script src="/assets/js/beta-journey-certification.js?v=029o-030a"></script>
 <script src="/assets/js/frictionless-execution.js?v=028b"></script>
+<script src="/assets/js/today-quick-log.js?v=030b"></script>
 <script src="/assets/js/account-entry.js?v=029a"></script>
 <script src="/assets/js/evidence-autopilot.js?v=026j"></script>
 <script src="/assets/js/dominion-campaign.js?v=026k-029g"></script>
@@ -2500,6 +2528,6 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b"></script>
 </body>
 </html>

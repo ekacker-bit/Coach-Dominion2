@@ -12714,13 +12714,221 @@ function renderFrictionlessExecution() {
       button.setAttribute("aria-disabled", "true");
     }
   });
-  resume.hidden = !dashboard.resume;
-  if (dashboard.resume) {
-    resume.dataset.executionModule = dashboard.resume.id;
-    resume.innerHTML = `<span>${escapeHtml(dashboard.resume.actionLabel)} ${escapeHtml(dashboard.resume.label)}</span><small>Saved ${escapeHtml(dashboard.resume.state.replaceAll("_", " "))}</small>`;
+  renderTodayQuickLog(dashboard);
+}
+
+function todayQuickLogValues() {
+  const form = document.getElementById("today-quick-log-form");
+  return form ? Object.fromEntries(new FormData(form).entries()) : {};
+}
+
+function todayQuickLogExistingRun() {
+  return performanceEntries.find((entry) => {
+    const date = String(entry?.performanceDate || entry?.performance_date || "").slice(0, 10);
+    return date === todayISODate() && String(entry?.domain || "").toLowerCase() === "running";
+  }) || null;
+}
+
+function todayQuickLogState(dashboard = currentFrictionlessExecution()) {
+  if (!dashboard || typeof DominionTodayQuickLog === "undefined") return null;
+  const byId = Object.fromEntries(dashboard.modules.map((item) => [item.id, item]));
+  const workoutItems = [byId.strength, byId.core].filter((item) => item?.applicable);
+  const workoutComplete = workoutItems.length > 0 && workoutItems.every((item) => item.complete);
+  const state = DominionTodayQuickLog.progress({
+    workoutApplicable: workoutItems.length > 0,
+    workoutComplete,
+    runApplicable: Boolean(byId.running?.applicable),
+    runComplete: Boolean(byId.running?.complete || todayQuickLogExistingRun()),
+    fuelComplete: Boolean(byId.fuel?.complete),
+    closeoutComplete: Boolean(byId.closeout?.complete)
+  });
+  const activeTraining = [byId.strength, byId.running, byId.core].find((item) => item?.active)
+    || [byId.strength, byId.running, byId.core].find((item) => item?.applicable && !item.complete)
+    || null;
+  const closeoutReady = Boolean(byId.closeout?.applicable && byId.closeout?.available && (byId.closeout.planned || byId.closeout.complete));
+  return { dashboard, byId, workoutItems, activeTraining, closeoutReady, ...state };
+}
+
+function prefillTodayQuickLog(force = false) {
+  const form = document.getElementById("today-quick-log-form");
+  if (!form || typeof DominionTodayQuickLog === "undefined") return;
+  const date = todayISODate();
+  if (!force && form.dataset.dirty === "true" && form.dataset.date === date) return;
+  const envelope = readFrictionlessExecutionEnvelope();
+  const runDraft = envelope.drafts?.running?.values || {};
+  const fuelDraft = envelope.drafts?.fuel?.values || {};
+  const closeoutDraft = envelope.drafts?.closeout?.values || {};
+  const fuel = buildFuelDayLedger(date).record || {};
+  const closeout = readDailyCloseout(date);
+  const totalRunMinutes = runDraft.durationMinutes || (
+    Number(runDraft.hours || 0) * 60
+    + Number(runDraft.minutes || 0)
+    + Number(runDraft.seconds || 0) / 60
+  );
+  const values = {
+    runType: runDraft.runType || "EASY",
+    runDistance: runDraft.distance || "",
+    runUnit: runDraft.unit || readRunningProfile().preferredUnit || "mi",
+    runMinutes: totalRunMinutes || "",
+    calories: fuelDraft.calories ?? fuel.calories ?? "",
+    protein: fuelDraft.protein ?? fuel.protein ?? "",
+    carbs: fuelDraft.carbs ?? fuel.carbs ?? "",
+    fat: fuelDraft.fat ?? fuel.fat ?? "",
+    selfReportedSteps: closeoutDraft.selfReportedSteps ?? closeout?.steps?.selfReported ?? ""
+  };
+  Object.entries(values).forEach(([name, value]) => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value;
+  });
+  form.dataset.date = date;
+  form.dataset.dirty = "false";
+}
+
+function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
+  const root = document.getElementById("frictionless-execution");
+  const resume = document.getElementById("frictionless-execution-resume");
+  const form = document.getElementById("today-quick-log-form");
+  if (!root || !resume || !form || typeof DominionTodayQuickLog === "undefined") return;
+  const model = todayQuickLogState(dashboard);
+  if (!model) return;
+  root.dataset.quickLogState = model.completed === model.total ? "COMPLETE" : "READY";
+  setText("frictionless-execution-progress", `${model.completed} of ${model.total} logged`);
+  const active = model.activeTraining;
+  resume.hidden = !active;
+  if (active) {
+    resume.dataset.executionModule = active.id;
+    resume.innerHTML = `<span>${escapeHtml(active.active ? "Resume" : "Open")} ${escapeHtml(active.label)}</span><small>${escapeHtml(active.detail || active.state.replaceAll("_", " "))}</small>`;
   } else {
     resume.dataset.executionModule = "";
     resume.textContent = "";
+  }
+  const runComplete = Boolean(model.byId.running?.complete || todayQuickLogExistingRun());
+  const fuelComplete = Boolean(model.byId.fuel?.complete);
+  const closeoutComplete = Boolean(model.byId.closeout?.complete);
+  setText("today-quick-run-state", runComplete ? "LOGGED" : model.byId.running?.applicable ? "PLANNED" : "OPTIONAL");
+  setText("today-quick-fuel-state", fuelComplete ? "LOGGED" : model.byId.fuel?.draft ? "DRAFT" : "OPEN");
+  setText("today-quick-close-state", closeoutComplete ? "SEALED" : model.closeoutReady ? "READY" : "LOCKED");
+  setText("today-quick-close-note", closeoutComplete
+    ? "Closeout is sealed. Use the full form to amend it."
+    : model.closeoutReady
+      ? "Steps will seal today’s closeout."
+      : "Steps save as a draft until today is ready to close.");
+  const runFieldset = form.querySelector(".today-quick-log-run");
+  const closeFieldset = form.querySelector(".today-quick-log-close");
+  if (runFieldset) runFieldset.disabled = runComplete;
+  if (closeFieldset) closeFieldset.disabled = closeoutComplete;
+  prefillTodayQuickLog();
+}
+
+function saveTodayQuickLogDraft() {
+  const form = document.getElementById("today-quick-log-form");
+  if (!form || typeof DominionTodayQuickLog === "undefined" || typeof DominionFrictionlessExecution === "undefined") return;
+  const sections = DominionTodayQuickLog.draftSections(todayQuickLogValues());
+  let envelope = readFrictionlessExecutionEnvelope();
+  Object.entries(sections).forEach(([module, values]) => {
+    const hasValues = DominionTodayQuickLog.hasAny(values);
+    envelope = DominionFrictionlessExecution.updateDraftEnvelope(envelope, module, hasValues ? values : null, {
+      date: todayISODate(),
+      now: new Date().toISOString(),
+      clear: !hasValues,
+      activate: false
+    });
+  });
+  saveClosedLoopLocal("EXECUTION_DRAFT", todayISODate(), envelope);
+  window.clearTimeout(frictionlessDraftTimer);
+  frictionlessDraftTimer = window.setTimeout(() => persistClosedLoopState("EXECUTION_DRAFT", todayISODate(), envelope), 500);
+  setText("frictionless-execution-feedback", navigator.onLine === false ? "Draft protected offline." : "Draft protected.");
+}
+
+function quickCloseoutInput(previous, selfReportedSteps) {
+  return {
+    date: todayISODate(),
+    selfReportedSteps,
+    connectedSteps: connectedStepsForCloseout(previous),
+    alcoholAbstained: closeoutResponseValue(previous?.discipline?.alcoholAbstained),
+    masturbationCount: previous?.discipline?.masturbationCount ?? "",
+    friedFoodAvoided: closeoutResponseValue(previous?.discipline?.friedFoodAvoided),
+    dessertDeclined: closeoutResponseValue(previous?.discipline?.dessertDeclined, previous?.discipline?.dessertNotApplicable),
+    processedFoodStatus: previous?.discipline?.processedFoodStatus === "UNANSWERED" ? "" : previous?.discipline?.processedFoodStatus || "",
+    processedFoods: (previous?.discipline?.processedFoods || []).join(", "),
+    win: previous?.reflection?.win || "",
+    adjustment: previous?.reflection?.adjustment || ""
+  };
+}
+
+async function submitTodayQuickLog(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = document.getElementById("today-quick-log-save");
+  if (!button || typeof DominionTodayQuickLog === "undefined") return;
+  const state = todayQuickLogState();
+  const validation = DominionTodayQuickLog.validate(todayQuickLogValues(), {
+    closeoutReady: state?.closeoutReady,
+    hasCloseout: Boolean(readDailyCloseout())
+  });
+  if (!validation.valid) {
+    const message = validation.empty ? "Add run, Fuel, or steps before saving." : validation.errors[0]?.message || "Check today’s log.";
+    setText("frictionless-execution-feedback", message);
+    const field = validation.errors[0]?.field ? form.elements.namedItem(validation.errors[0].field) : null;
+    field?.focus({ preventScroll: true });
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Saving…";
+  const saved = [];
+  const deferred = [];
+  try {
+    if (validation.sections.run) {
+      const input = {
+        date: todayISODate(),
+        runType: validation.run.runType,
+        distance: validation.run.distance,
+        unit: validation.run.unit,
+        hours: validation.run.hours,
+        minutes: validation.run.minutes,
+        seconds: validation.run.seconds,
+        countTowardToday: Boolean(currentRunningPrescription()?.session && !todayQuickLogExistingRun())
+      };
+      const createdAt = readFrictionlessExecutionEnvelope().drafts?.running?.updatedAt || new Date().toISOString();
+      const manualValidation = DominionManualRun.validate(input, { today: todayISODate() });
+      if (!manualValidation.valid) throw new Error(manualValidation.errors[0]?.message || "Run evidence is incomplete.");
+      const entry = DominionManualRun.buildPerformanceEntry(input, { today: todayISODate(), userId: session?.user?.id || null, createdAt });
+      const result = await persistPerformanceEvidenceEntry(entry);
+      await applyManualRunToToday(manualValidation.run, result.entry);
+      await clearFrictionlessDraft("running");
+      saved.push("run");
+    }
+    if (validation.sections.fuel) {
+      await persistFuelDayTotals({ date: todayISODate(), ...validation.fuel });
+      await clearFrictionlessDraft("fuel");
+      saved.push("Fuel");
+    }
+    if (validation.sections.closeout && validation.closeoutReady) {
+      const previous = readDailyCloseout();
+      const record = DominionDailyCloseout.buildCloseout(quickCloseoutInput(previous, validation.closeout.selfReportedSteps), { previous, now: new Date().toISOString() });
+      await saveDailyCloseoutState(record);
+      await applyCloseoutSteps(record);
+      await clearFrictionlessDraft("closeout");
+      await runAtlasAdaptiveHorizon();
+      await runAtlasAdaptationOutcomes();
+      saved.push("closeout");
+    } else if (validation.sections.closeout) {
+      deferred.push("steps draft");
+    }
+    form.dataset.dirty = "false";
+    renderPerformanceSection(performanceEntries, performanceStorageMode, performanceSaveState);
+    renderDailyCoachingLoop();
+    renderWeeklyCloseoutEvidence();
+    renderMobileCommand();
+    prefillTodayQuickLog(true);
+    renderFrictionlessExecution();
+    const secured = saved.length ? `${saved.join(", ")} secured` : "No completed item changed";
+    setText("frictionless-execution-feedback", `${secured}${deferred.length ? ` · ${deferred.join(", ")} protected until closeout unlocks` : ""}.`);
+  } catch (error) {
+    setText("frictionless-execution-feedback", `${saved.length ? `${saved.join(", ")} saved. ` : ""}${error?.message || "The remaining log could not be saved."}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save today";
   }
 }
 
@@ -13044,7 +13252,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029l", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030b", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -18201,7 +18410,25 @@ function buildCurrentActivationRepair(truth = buildCurrentOperatingTruth(), opti
     try { activation = DominionContractActivation.buildActivation(contractActivationInputs()); }
     catch (_) {}
   }
-  return DominionActivationRepair.buildRepairFlow(truth || {}, activation, options);
+  const model = DominionActivationRepair.buildRepairFlow(truth || {}, activation, options);
+  if (typeof DominionTodayQuickLog !== "undefined" && model?.visible && !options.timedOut) {
+    let lifecycle = null;
+    try { lifecycle = currentProgramLifecycle(); } catch (_) {}
+    const hardBlocker = lifecycle?.attention === "CHOICE REQUIRED"
+      ? "CONTRACT_CONFLICT"
+      : lifecycle?.attention === "REPAIR REQUIRED"
+        ? "PROGRAM_REPAIR_REQUIRED"
+        : "";
+    if (DominionTodayQuickLog.shouldSuppressSetup({
+      programState: lifecycle?.state,
+      hasCommittedWeek: Boolean(lifecycle?.week),
+      hardBlocker,
+      truthState: model.state
+    })) {
+      return { ...model, visible: false, operational: true, suppressedSetup: true };
+    }
+  }
+  return model;
 }
 
 function renderActivationRepair(truth = buildCurrentOperatingTruth(), options = {}) {
@@ -22767,6 +22994,11 @@ if (typeof document !== "undefined") {
       button.disabled = false;
     }
   });
+  document.getElementById("today-quick-log-form")?.addEventListener("input", (event) => {
+    event.currentTarget.dataset.dirty = "true";
+    saveTodayQuickLogDraft();
+  });
+  document.getElementById("today-quick-log-form")?.addEventListener("submit", submitTodayQuickLog);
   window.addEventListener("error", (event) => reportSafeRuntimeError("runtime", event.error || event.message));
   window.addEventListener("unhandledrejection", (event) => reportSafeRuntimeError("promise", event.reason));
   document.getElementById("mobile-more-dialog")?.addEventListener("click", async (event) => {

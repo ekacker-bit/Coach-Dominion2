@@ -902,3 +902,11 @@ This file records verified Coach Dominion release capabilities. The repository h
 - Added deterministic readiness and mission foundations in the browser application.
 - Added Supabase `daily_state` and `command_feed` schema migrations with validation, row-level security, and user-scoped policies.
 - Added authenticated persistence and retrieval of each user's current daily state.
+# Unreleased - Today in 15 Seconds
+
+- Replaces the Today shortcut grid with one compact run, Fuel, steps, and closeout form.
+- Keeps active training above reporting so an unfinished workout resumes in one action.
+- Saves unfinished inputs locally and to the recruit account, then restores them after reload or a connectivity loss.
+- Uses the existing Running, Fuel, Closeout, evidence, and adaptation records instead of creating parallel data.
+- Keeps Core, recovery, full workout controls, and optional discipline detail available behind one secondary disclosure.
+- Prevents an active recruit with a committed week from being routed back through stale setup unless a real conflict or repair blocker exists.

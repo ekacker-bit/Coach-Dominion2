@@ -122,6 +122,8 @@ let trustLayerState = {
   running: false
 };
 let currentBetaJourneyCertification = null;
+let currentJourneyContinuity = null;
+let journeyContinuitySaveTimer = null;
 const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
@@ -725,6 +727,42 @@ function accountTruthMissionEvidence() {
     : DominionAccountTruth.mergeCollection(sources, [], DominionAccountTruth.COLLECTION_LIMITS.missionReceipts);
 }
 
+function journeyEvidenceItemsForDate(value = todayISODate()) {
+  const date = String(value || todayISODate()).slice(0, 10);
+  const sources = [...performanceEntries, ...accountTruthMissionEvidence()];
+  const seen = new Set();
+  return sources.filter((item) => {
+    const itemDate = String(item?.performanceDate || item?.date || item?.sourceDate || item?.operatingDate || item?.recordedAt || item?.createdAt || "").slice(0, 10);
+    const id = String(item?.id || "");
+    if (itemDate !== date || !id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function readJourneyCertificationReceipts() {
+  const receipts = readClosedLoopState("HISTORY", "journey-certification", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
+function saveJourneyCertificationReceipt(receipt = null) {
+  if (!receipt?.id || typeof DominionJourneyContinuity === "undefined") return false;
+  const current = readJourneyCertificationReceipts();
+  if (current.some((item) => item?.id === receipt.id)) return false;
+  const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.journeyReceipts;
+  const next = DominionJourneyContinuity.appendReceipt(current, receipt, limit || 120);
+  saveClosedLoopLocal("HISTORY", "journey-certification", next);
+  return true;
+}
+
+function scheduleJourneyCertificationReceipt(report = null) {
+  if (!report?.shouldSave || !report?.candidate || journeyContinuitySaveTimer) return;
+  journeyContinuitySaveTimer = window.setTimeout(() => {
+    journeyContinuitySaveTimer = null;
+    saveJourneyCertificationReceipt(report.candidate);
+  }, 0);
+}
+
 function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest || buildCurrentContinuityManifest()) {
   if (typeof DominionAccountTruth === "undefined") return null;
   return DominionAccountTruth.buildSnapshot({
@@ -740,7 +778,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       performance: performanceEntries,
       closeouts: readDailyCloseoutHistory(),
       missionReceipts: accountTruthMissionEvidence(),
-      reconciliationReceipts: readContractReconciliationReceipts()
+      reconciliationReceipts: readContractReconciliationReceipts(),
+      journeyReceipts: readJourneyCertificationReceipts()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -802,6 +841,9 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const reconciliationReceipts = DominionAccountTruth.mergeCollection(readContractReconciliationReceipts(), evidence.reconciliationReceipts, DominionAccountTruth.COLLECTION_LIMITS.reconciliationReceipts);
     if (DominionAccountTruth.semanticFingerprint(reconciliationReceipts) !== DominionAccountTruth.semanticFingerprint(readContractReconciliationReceipts())) restored += 1;
     saveClosedLoopLocal("HISTORY", "contract-reconciliation", reconciliationReceipts);
+    const journeyReceipts = DominionAccountTruth.mergeCollection(readJourneyCertificationReceipts(), evidence.journeyReceipts, DominionAccountTruth.COLLECTION_LIMITS.journeyReceipts);
+    if (DominionAccountTruth.semanticFingerprint(journeyReceipts) !== DominionAccountTruth.semanticFingerprint(readJourneyCertificationReceipts())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "journey-certification", journeyReceipts);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -851,9 +893,10 @@ function renderAccountTruthHealth() {
   setText("account-truth-program", snapshot?.programFingerprint ? "LOCKED" : "CHECKING");
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
-  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0);
+  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0);
   const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
+  setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
   const verified = report.lastVerifiedAt ? new Date(report.lastVerifiedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "NOT YET";
   setText("account-truth-verified", verified);
@@ -889,11 +932,14 @@ function buildCurrentBetaJourneyCertification(context = {}) {
   try {
     signed = Boolean(contract && typeof DominionContractExperience !== "undefined" && DominionContractExperience.signatureStatus(contract).valid);
   } catch (_) {}
-  const evidenceItems = accountTruthMissionEvidence().filter((item) => {
-    const itemDate = String(item?.date || item?.sourceDate || item?.operatingDate || item?.createdAt || "").slice(0, 10);
-    return itemDate === date;
-  });
-  currentBetaJourneyCertification = DominionBetaJourneyCertification.evaluate({
+  const evidenceItems = journeyEvidenceItemsForDate(date);
+  const activeDay = readEffectiveUnifiedDay(date);
+  const activeAssignments = Array.isArray(activeDay?.activities) ? activeDay.activities : [];
+  const expectedAssignmentIds = activeAssignments.map((item, index) => String(item?.id || item?.activityId || `${date}:assignment:${index + 1}`)).sort();
+  const canonicalAssignmentIds = (canonical?.schedule?.sessions || []).map((item, index) => String(item?.id || `${date}:assignment:${index + 1}`)).sort();
+  const executionContext = buildCurrentExecutionContext(date);
+  const pendingBiometric = readClosedLoopState("BIOMETRIC_QUARANTINE", date, null);
+  const journey = DominionBetaJourneyCertification.evaluate({
     date,
     account: {
       ...accountTruthState,
@@ -902,6 +948,7 @@ function buildCurrentBetaJourneyCertification(context = {}) {
     },
     conflicts: currentContinuityConflicts(),
     pendingWrites: pending.count,
+    syncState: pending.state,
     contract: {
       exists: Boolean(contract),
       signed,
@@ -928,17 +975,54 @@ function buildCurrentBetaJourneyCertification(context = {}) {
       weekCommitted: canonical.week?.committed,
       weekId: canonical.week?.id,
       programId: canonical.program?.id || programId,
-      contractRevision
+      contractRevision: operatingContractRevision
     } : null,
-    evidence: { count: evidenceItems.length },
+    evidence: {
+      count: evidenceItems.length,
+      ids: evidenceItems.map((item) => item?.id).filter(Boolean),
+      contractRevision: operatingContractRevision,
+      programId,
+      weekId: week?.id || canonical?.week?.id || null,
+      todayId: canonical?.id || null
+    },
     closeout: readDailyCloseout(date),
     stagedWeek: lifecycle?.weekDraft || null,
+    executionContext,
+    assignmentAudit: {
+      matches: expectedAssignmentIds.length === canonicalAssignmentIds.length
+        && expectedAssignmentIds.every((id, index) => id === canonicalAssignmentIds[index]),
+      expectedAssignmentIds,
+      canonicalAssignmentIds
+    },
+    biometricReview: { pending: Boolean(pendingBiometric?.metric), metric: pendingBiometric?.metric || null },
     transition: protectedCurrentWeek ? {
       protectedCurrentWeek: true,
       operatingContractRevision,
       operatingContractRef
     } : null
   });
+  if (typeof DominionJourneyContinuity !== "undefined") {
+    const candidate = DominionJourneyContinuity.buildReceipt(journey, {
+      assignments: activeAssignments,
+      evidenceIds: evidenceItems.map((item) => item?.id).filter(Boolean),
+      closeout: readDailyCloseout(date),
+      biometricReview: Boolean(pendingBiometric?.metric)
+    });
+    currentJourneyContinuity = DominionJourneyContinuity.evaluate({
+      journey,
+      candidate,
+      localReceipts: readJourneyCertificationReceipts(),
+      accountReceipts: accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || [],
+      serverConfirmed: accountTruthState.serverConfirmed === true,
+      pendingWrites: pending.count,
+      syncState: pending.state,
+      online: navigator.onLine !== false
+    });
+    scheduleJourneyCertificationReceipt(currentJourneyContinuity);
+  } else {
+    currentJourneyContinuity = null;
+  }
+  currentBetaJourneyCertification = Object.freeze({ ...journey, continuity: currentJourneyContinuity });
   return currentBetaJourneyCertification;
 }
 
@@ -996,6 +1080,7 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   trustLayerState.report = report;
   const readiness = report.readiness || null;
   const journey = report.journey || null;
+  const journeyContinuity = journey?.continuity || currentJourneyContinuity || null;
   const journeyProblem = journey && ["ACTION_REQUIRED", "INCONSISTENT"].includes(journey.state);
   const governing = journeyProblem ? journey : readiness;
   const root = document.getElementById("account-truth-health");
@@ -1011,8 +1096,9 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   setText("account-truth-calendar", stage("calendar") || readiness?.checks?.calendar || report.checks.calendar);
   setText("account-truth-today", stage("today") || readiness?.checks?.today || report.checks.today);
   setText("account-truth-evidence", stage("evidence") || readiness?.checks?.evidence || report.checks.evidence);
+  setText("account-truth-continuity", journeyContinuity?.label || "CHECKING");
   const action = document.getElementById("account-truth-action");
-  const primaryAction = governing?.primaryAction || report.primaryAction;
+  const primaryAction = governing?.primaryAction || (journeyContinuity?.tone === "red" ? journeyContinuity.action : null) || report.primaryAction;
   if (action) {
     action.hidden = !primaryAction;
     action.textContent = primaryAction?.label || "Review";
@@ -13334,7 +13420,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030c", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030d", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -22467,7 +22553,7 @@ if (typeof document !== "undefined") {
     if (trustAction) {
       event.preventDefault();
       const action = trustAction.dataset.trustAction;
-      if (["CHOOSE_SAVED_COPY", "RESOLVE_CONTINUITY"].includes(action)) {
+      if (["CHOOSE_SAVED_COPY", "RESOLVE_CONTINUITY", "OPEN_ACCOUNT_HEALTH"].includes(action)) {
         renderDominionContinuity();
         const repairDialog = document.getElementById("continuity-repair-dialog");
         if (repairDialog?.showModal && !repairDialog.open) repairDialog.showModal();

@@ -121,3 +121,33 @@ test("rejects a staged week that ignores the amended Contract", () => {
   assert.equal(result.firstProblem.code, "STAGED_WEEK_CONTRACT_MISMATCH");
   assert.equal(result.primaryAction.code, "OPEN_CALENDAR");
 });
+
+test("uses canonical sync vocabulary without treating a protected retry as lost work", () => {
+  const offline = journey.evaluate(healthy({ account: { status: "OFFLINE_PROTECTED", serverConfirmed: false }, pendingWrites: 1, syncState: "offline_queued" }));
+  assert.equal(offline.state, "PROTECTED");
+  assert.equal(offline.stages.find((item) => item.id === "account").code, "OFFLINE_SAVE_QUEUED");
+
+  const repair = journey.evaluate(healthy({ syncState: "user_action_required" }));
+  assert.equal(repair.state, "ACTION_REQUIRED");
+  assert.equal(repair.firstProblem.code, "ACCOUNT_ACTION_REQUIRED");
+});
+
+test("blocks only a genuine active-date conflict", () => {
+  const result = journey.evaluate(healthy({ executionContext: { blocked: true } }));
+  assert.equal(result.state, "ACTION_REQUIRED");
+  assert.equal(result.firstProblem.id, "today");
+  assert.equal(result.firstProblem.code, "ACTIVE_DATE_CONFLICT");
+});
+
+test("requires Today and Quick Log to describe the same assignments", () => {
+  const result = journey.evaluate(healthy({ assignmentAudit: { matches: false } }));
+  assert.equal(result.state, "INCONSISTENT");
+  assert.equal(result.firstProblem.code, "ASSIGNMENT_SURFACE_MISMATCH");
+});
+
+test("quarantined biometrics stay outside coaching without blocking execution", () => {
+  const result = journey.evaluate(healthy({ biometricReview: { pending: true, metric: "weight" } }));
+  assert.equal(result.state, "CERTIFIED");
+  assert.equal(result.attention.length, 1);
+  assert.equal(result.attention[0].code, "BIOMETRIC_CONFIRMATION_REQUIRED");
+});

@@ -17,7 +17,7 @@ const pkg = JSON.parse(read("package.json"));
 const preview = read("tests/fixtures/account-truth-preview.html");
 
 test("Build 026I installs one versioned Account Truth engine before app bindings", () => {
-  assert.match(engine, /const VERSION = "(?:026I|029N)\.1"/);
+  assert.match(engine, /const VERSION = "(?:026I|029N|030D)\.1"/);
   assert.match(engine, /const TRUTH_DOMAINS/);
   assert.match(engine, /function reconcileSnapshots/);
   assert.ok(html.indexOf("dominion-account-truth.js?v=026i") < html.indexOf("app.js?v="));

@@ -441,7 +441,13 @@
     const duration = dailyDurationPolicy(contract, day.activities);
     day.activities = buildSessionSequence(contract, day.activities, duration);
     day.sessionSequence = day.activities.map((item) => ({
+      id: item.id,
+      assignmentId: item.assignmentId || item.id,
       activityId: item.id,
+      sessionId: item.sessionId || item.sourceId || null,
+      sourceId: item.sourceId || null,
+      planId: item.planId || null,
+      planRevision: Number(item.planRevision || 0) || null,
       module: item.module,
       title: item.title,
       type: item.type,
@@ -744,19 +750,30 @@
   function strengthScheduleFromWeek(week = {}) {
     const assignments = (week.days || []).flatMap((day) => day.activities
       .filter((item) => item.module === "STRENGTH")
-      .map((item, index) => ({
-        id: `${week.id}:${item.sourceId || item.id}`,
-        planId: item.planId,
-        planRevision: item.planRevision,
-        sessionId: item.sourceId,
-        sessionName: item.title,
-        sequence: item.sequence || index + 1,
-        requestedDayIndex: item.requestedDayIndex ?? day.dayIndex,
-        originalDate: day.date,
-        date: day.date,
-        placement: item.requestedDayIndex === day.dayIndex ? "PREFERRED" : "COORDINATED",
-        placementReason: item.requestedDayIndex === day.dayIndex ? "Placed on the Recruit Contract day." : "Shifted by the unified weekly coordinator."
-      })));
+      .map((item, index) => {
+        const assignmentId = String(item.assignmentId || item.id || `${week.id}:${item.sourceId || index + 1}`);
+        return {
+          id: assignmentId,
+          assignmentId,
+          activityId: item.id || assignmentId,
+          planId: item.planId,
+          planRevision: item.planRevision,
+          sessionId: item.sessionId || item.sourceId,
+          sessionName: item.title,
+          sequence: item.sequence || index + 1,
+          sessionOrder: item.sessionOrder || index + 1,
+          sessionWindow: item.sessionWindow || "TODAY",
+          sessionLabel: item.sessionLabel || item.sessionWindow || "TODAY",
+          trainingWindowId: item.trainingWindowId || null,
+          requestedDayIndex: item.requestedDayIndex ?? day.dayIndex,
+          originalDate: day.date,
+          date: day.date,
+          weekId: week.id || null,
+          weekRevision: Number(week.revision || 0),
+          placement: item.requestedDayIndex === day.dayIndex ? "PREFERRED" : "COORDINATED",
+          placementReason: item.requestedDayIndex === day.dayIndex ? "Placed on the Recruit Contract day." : "Shifted by the unified weekly coordinator."
+        };
+      }));
     const first = assignments[0] || {};
     return {
       version: VERSION,

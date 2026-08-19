@@ -333,6 +333,7 @@
       type: "MISSION_SESSION_EVIDENCE",
       date: input.date || execution.date,
       module,
+      assignmentId: execution.assignmentId || input.assignmentId || null,
       sessionId: execution.id || execution.sessionId || null,
       planId: execution.planId || execution.blockId || null,
       state: recordState(execution),

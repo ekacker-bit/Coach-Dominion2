@@ -8089,6 +8089,7 @@ function renderWeeklyOrchestrator() {
         ${(day.twoADay || item.tertiary) ? `<em>${escapeHtml(item.sessionLabel || item.sessionWindow || "SESSION")}</em>` : ""}
         <span>${escapeHtml(item.module)}${item.calendarEdited ? " · MOVED" : ""}</span><strong>${escapeHtml(item.title)}</strong><small>${item.estimatedMinutes ? `${item.estimatedMinutes} min` : escapeHtml(item.type)}</small>
         ${item.module === "STRENGTH" && item.planRevision ? `<small class="calendar-plan-revision">Plan R${item.planRevision}${item.revisionSource === "EARNED_PROGRESSION" ? " · synced" : ""}</small>` : ""}
+        ${calendarView.mode === "ACTIVE" && day.date === todayISODate() && item.module === "STRENGTH" ? `<button type="button" class="calendar-execution-link" data-calendar-execution-action="strength" data-calendar-assignment-id="${escapeHtml(item.assignmentId || item.id || item.activityId || "")}" data-calendar-session-id="${escapeHtml(item.sessionId || item.sourceId || "")}">Log assigned workout</button>` : ""}
         ${dayEditable ? `<label class="calendar-move-control">Move<select data-calendar-move-activity="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)}">${calendarDayOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === day.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>` : ""}
       </div>`).join("")
       : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
@@ -8320,7 +8321,7 @@ function renderTodayCommittedWeek() {
       const stateTone = decisionBlocked ? "red" : locked ? splitDayGateTone(splitDayGate) : execution.tone;
       return `<article class="today-session-card ${day?.twoADay ? "two-a-day-session" : ""} ${execution.complete ? "complete" : ""} ${locked || decisionBlocked ? "locked" : ""} ${decisionBlocked ? "daily-decision-blocked" : ""}">
         <span>${item.sessionOrder || index + 1}</span>
-        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
+        <div><div class="today-session-heading"><small>${escapeHtml(day?.twoADay ? item.sessionLabel : item.module)}</small><mark class="today-session-state ${stateTone}">${escapeHtml(stateLabel)}</mark></div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.module)} · ${item.estimatedMinutes ? `${item.estimatedMinutes} planned minutes` : escapeHtml(item.type)}</p>${item.separationBeforeMinutes ? `<p class="today-session-separation">4+ hours after the AM session · checkpoint required</p>` : ""}<button type="button" data-today-session-module="${escapeHtml(item.module.toLowerCase())}" data-today-session-order="${item.sessionOrder || index + 1}" data-today-assignment-id="${escapeHtml(item.assignmentId || item.id || item.activityId || "")}" data-today-session-id="${escapeHtml(item.sessionId || item.sourceId || "")}" ${disabled ? "disabled" : ""}>${escapeHtml(actionLabel)}</button></div>
       </article>`;
     }).join("")
     : `<article class="recovery"><span>✓</span><div><small>RECOVERY</small><strong>No assigned training</strong><p>Keep the recovery day protected.</p></div></article>`;
@@ -9005,6 +9006,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
     date: todayISODate(),
     module,
     execution,
+    assignmentId: execution.assignmentId || prescription?.assignmentId || receiptItem.assignmentId || receiptItem.id || null,
     windowId: receiptItem.trainingWindowId || receiptItem.windowId || null,
     windowLabel: receiptItem.windowLabel || receiptItem.sessionLabel || "TODAY",
     summary: missionExecutionSummary(module, execution, prescription)
@@ -11362,14 +11364,96 @@ function applyCurrentStrengthBlock(prescription) {
   return DominionStrengthBlock.applyBlockToPrescription(prescription, block, prescription.date || todayISODate());
 }
 
+function currentStrengthCalendarAssignment(value = todayISODate()) {
+  if (typeof DominionWeeklyOrchestrator === "undefined") return null;
+  const date = String(value || todayISODate()).slice(0, 10);
+  const week = readCommittedUnifiedWeek(date);
+  if (!week) return null;
+  const schedule = DominionWeeklyOrchestrator.strengthScheduleFromWeek(week);
+  const scheduled = typeof DominionStrengthSchedule === "undefined"
+    ? (schedule.assignments || []).find((item) => item.date === date)
+    : DominionStrengthSchedule.assignmentForDate(schedule, date);
+  if (!scheduled) return null;
+  const day = readEffectiveUnifiedDay(date);
+  const activity = (day?.activities || []).find((item) => String(item.module || "").toUpperCase() === "STRENGTH"
+    && (String(item.id || "") === String(scheduled.assignmentId || scheduled.id || "")
+      || String(item.sessionId || item.sourceId || "") === String(scheduled.sessionId || ""))) || null;
+  const assignmentId = String(activity?.assignmentId || activity?.id || scheduled.assignmentId || scheduled.id || "").trim();
+  if (!assignmentId) return null;
+  return {
+    ...scheduled,
+    id: assignmentId,
+    assignmentId,
+    activityId: activity?.id || scheduled.activityId || assignmentId,
+    sessionId: activity?.sessionId || activity?.sourceId || scheduled.sessionId || null,
+    sessionName: activity?.title || scheduled.sessionName || "Strength session",
+    sessionOrder: activity?.sessionOrder || scheduled.sessionOrder || 1,
+    sessionWindow: activity?.sessionWindow || scheduled.sessionWindow || "TODAY",
+    sessionLabel: activity?.sessionLabel || scheduled.sessionLabel || "TODAY",
+    trainingWindowId: activity?.trainingWindowId || scheduled.trainingWindowId || null,
+    weekId: week.id || scheduled.weekId || null,
+    weekRevision: Number(week.revision || scheduled.weekRevision || 0),
+    date
+  };
+}
+
+function linkStrengthPrescriptionToCalendar(prescription, assignment = currentStrengthCalendarAssignment()) {
+  if (!prescription || !assignment) return prescription;
+  if (assignment.sessionId && prescription.sessionId !== assignment.sessionId) {
+    return {
+      ...prescription,
+      state: "RECOVERY ONLY",
+      exercises: [],
+      adjustment: {
+        code: "CALENDAR_SESSION_MISMATCH",
+        detail: "Today’s committed Strength assignment no longer matches the approved plan. Reconcile the Calendar before logging."
+      }
+    };
+  }
+  return {
+    ...prescription,
+    assignmentId: assignment.assignmentId,
+    calendarAssignmentId: assignment.assignmentId,
+    calendarWeekId: assignment.weekId || null,
+    calendarRevision: Number(assignment.weekRevision || 0) || null,
+    trainingWindowId: assignment.trainingWindowId || null,
+    sessionWindow: assignment.sessionWindow || null,
+    sessionLabel: assignment.sessionLabel || null,
+    scheduleSource: "COMMITTED_CALENDAR"
+  };
+}
+
+function strengthExecutionMatchesPrescription(execution = null, prescription = null) {
+  if (!execution || !prescription) return false;
+  const sameSession = execution.planId === prescription.planId
+    && execution.sessionId === prescription.sessionId
+    && execution.date === prescription.date;
+  if (!sameSession) return false;
+  const expectedAssignmentId = prescription.assignmentId || prescription.calendarAssignmentId || null;
+  const actualAssignmentId = execution.assignmentId || execution.calendarAssignmentId || null;
+  return !expectedAssignmentId || !actualAssignmentId || expectedAssignmentId === actualAssignmentId;
+}
+
+function linkStrengthExecutionToCalendar(execution = {}, prescription = currentStrengthPrescription()) {
+  if (!execution || !prescription || !strengthExecutionMatchesPrescription(execution, prescription)) return execution;
+  return {
+    ...execution,
+    assignmentId: prescription.assignmentId || execution.assignmentId || null,
+    calendarAssignmentId: prescription.assignmentId || execution.calendarAssignmentId || null,
+    calendarWeekId: prescription.calendarWeekId || execution.calendarWeekId || null,
+    calendarRevision: prescription.calendarRevision || execution.calendarRevision || null,
+    trainingWindowId: prescription.trainingWindowId || execution.trainingWindowId || null,
+    sessionWindow: prescription.sessionWindow || execution.sessionWindow || null,
+    sessionLabel: prescription.sessionLabel || execution.sessionLabel || null,
+    sessionSnapshot: linkStrengthPrescriptionToCalendar(execution.sessionSnapshot || prescription, currentStrengthCalendarAssignment(prescription.date))
+  };
+}
+
 function currentStrengthPrescription() {
   if (typeof DominionStrengthTraining === "undefined") return null;
   const plan = readApprovedStrengthPlan();
   if (!plan) return DominionStrengthTraining.buildDailyPrescription({}, [], { today: todayISODate() });
   const existing = readStrengthExecution();
-  if (existing?.planId === plan.id && existing?.date === todayISODate() && existing.sessionSnapshot) {
-    return existing.sessionSnapshot;
-  }
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
   const readiness = morningVerificationReadiness({ ...dailyState, state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) });
   const schedule = readApprovedStrengthSchedule();
@@ -11388,7 +11472,7 @@ function currentStrengthPrescription() {
         profile: plan.profile
       });
     }
-    const assignment = DominionStrengthSchedule.assignmentForDate(schedule, todayISODate());
+    const assignment = currentStrengthCalendarAssignment();
     if (!assignment) {
       return applyCurrentStrengthBlock({
         version: DominionStrengthTraining.VERSION,
@@ -11403,15 +11487,21 @@ function currentStrengthPrescription() {
         profile: plan.profile
       });
     }
-    return applyCurrentStrengthBlock(DominionStrengthTraining.buildSessionPrescription(plan, assignment.sessionId, {
+    const scheduledPrescription = linkStrengthPrescriptionToCalendar(DominionStrengthTraining.buildSessionPrescription(plan, assignment.sessionId, {
       today: todayISODate(),
       readiness
-    }));
+    }), assignment);
+    if (existing?.sessionSnapshot && strengthExecutionMatchesPrescription(existing, scheduledPrescription)) {
+      return applyCurrentStrengthBlock(linkStrengthPrescriptionToCalendar(existing.sessionSnapshot, assignment));
+    }
+    return applyCurrentStrengthBlock(scheduledPrescription);
   }
-  return applyCurrentStrengthBlock(DominionStrengthTraining.buildDailyPrescription(plan, readStrengthHistory(), {
+  const fallbackPrescription = DominionStrengthTraining.buildDailyPrescription(plan, readStrengthHistory(), {
     today: todayISODate(),
     readiness
-  }));
+  });
+  if (existing?.sessionSnapshot && strengthExecutionMatchesPrescription(existing, fallbackPrescription)) return applyCurrentStrengthBlock(existing.sessionSnapshot);
+  return applyCurrentStrengthBlock(fallbackPrescription);
 }
 
 function buildCurrentProgrammingRecommendation() {
@@ -11500,11 +11590,15 @@ async function launchApprovedStrengthSession(sessionId) {
     let prescription = existing.sessionId === sessionId && existing.sessionSnapshot
       ? existing.sessionSnapshot
       : DominionStrengthTraining.buildSessionPrescription(plan, sessionId, { today: todayISODate(), readiness });
+    const calendarAssignment = currentStrengthCalendarAssignment();
     prescription = applyCurrentStrengthBlock({
       ...prescription,
-      launchSource: "APPROVED_PLAN",
-      scheduleOverride: { type: "RECRUIT_SELECTED_SESSION", selectedAt: now, calendarChanged: false }
+      launchSource: calendarAssignment?.sessionId === sessionId ? "COMMITTED_CALENDAR" : "APPROVED_PLAN",
+      scheduleOverride: calendarAssignment?.sessionId === sessionId
+        ? null
+        : { type: "RECRUIT_SELECTED_SESSION", selectedAt: now, calendarChanged: false }
     });
+    if (calendarAssignment?.sessionId === sessionId) prescription = linkStrengthPrescriptionToCalendar(prescription, calendarAssignment);
     if (!prescription?.exercises?.length || prescription.state === "RECOVERY ONLY") {
       setText("programming-feedback", prescription?.adjustment?.detail || "This workout cannot be started under today’s safety posture.");
       return false;
@@ -12493,8 +12587,9 @@ function readDailyAssignmentExecution() {
   if (typeof DominionStrengthTraining === "undefined") return { state: "READY", setLogs: {} };
   const existing = readStrengthExecution();
   const prescription = currentStrengthPrescription();
-  if (existing?.planId === prescription?.planId && existing?.sessionId === prescription?.sessionId && existing?.date === todayISODate()) {
-    return DominionStrengthTraining.recoverInterruptedExecution(existing, new Date().toISOString());
+  if (strengthExecutionMatchesPrescription(existing, prescription)) {
+    const linked = linkStrengthExecutionToCalendar(existing, prescription);
+    return DominionStrengthTraining.recoverInterruptedExecution(linked, new Date().toISOString());
   }
   return DominionStrengthTraining.executionForPrescription(prescription || { date: todayISODate(), exercises: [] });
 }
@@ -12690,6 +12785,13 @@ function buildCurrentDailyAssignment() {
     planRevision: prescription?.planRevision || null,
     adjustmentActivation: prescription?.adjustmentActivation || null,
     sessionId: prescription?.sessionId || null,
+    assignmentId: prescription?.assignmentId || null,
+    calendarAssignmentId: prescription?.calendarAssignmentId || prescription?.assignmentId || null,
+    calendarWeekId: prescription?.calendarWeekId || null,
+    calendarRevision: prescription?.calendarRevision || null,
+    trainingWindowId: prescription?.trainingWindowId || null,
+    sessionWindow: prescription?.sessionWindow || null,
+    sessionLabel: prescription?.sessionLabel || null,
     sessionName: prescription?.sessionName || null,
     block: prescription?.block || null,
     title: prescription?.sessionName ? `Today’s ${prescription.sessionName}` : assignment.title
@@ -13406,7 +13508,7 @@ function splitDayModuleAuthorization(module = "strength") {
   };
 }
 
-async function launchMobileModule(module = "strength") {
+async function launchMobileModule(module = "strength", options = {}) {
   const moduleState = dailyDecisionModuleState(module);
   if (!moduleState.executable) {
     setText("mobile-command-feedback", moduleState.detail || "This work is not authorized by today's committed schedule.");
@@ -13424,6 +13526,15 @@ async function launchMobileModule(module = "strength") {
     return false;
   }
   if (module === "strength") {
+    const calendarAssignment = currentStrengthCalendarAssignment();
+    const requestedAssignmentId = String(options.assignmentId || "");
+    const requestedSessionId = String(options.sessionId || "");
+    if ((requestedAssignmentId && requestedAssignmentId !== String(calendarAssignment?.assignmentId || ""))
+      || (requestedSessionId && requestedSessionId !== String(calendarAssignment?.sessionId || ""))) {
+      setText("mobile-command-feedback", "That Calendar order is no longer active. Today has been refreshed to the current assigned workout.");
+      renderTodayCommittedWeek();
+      return false;
+    }
     const assignment = buildCurrentDailyAssignment();
     let execution = readDailyAssignmentExecution();
     if (assignment?.state === "RECOVERY ONLY") {
@@ -13568,7 +13679,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030e", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030f", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -13583,7 +13694,11 @@ function attachStrengthCompletionReport(execution) {
 }
 
 async function saveDailyAssignmentExecution(execution) {
-  const payload = { ...execution, updatedAt: new Date().toISOString() };
+  const prescription = currentStrengthPrescription();
+  const linked = strengthExecutionMatchesPrescription(execution, prescription)
+    ? linkStrengthExecutionToCalendar(execution, prescription)
+    : execution;
+  const payload = { ...linked, updatedAt: new Date().toISOString() };
   saveStrengthStateLocal("EXECUTION", todayISODate(), payload);
   const synced = await persistStrengthTrainingState("EXECUTION", todayISODate(), payload);
   if (synced) acknowledgeMobileWrite("STRENGTH_EXECUTION", todayISODate());
@@ -23479,7 +23594,10 @@ if (typeof document !== "undefined") {
     }
     sessionButton.disabled = true;
     try {
-      await launchMobileModule(sessionButton.dataset.todaySessionModule || "strength");
+      await launchMobileModule(sessionButton.dataset.todaySessionModule || "strength", {
+        assignmentId: sessionButton.dataset.todayAssignmentId || null,
+        sessionId: sessionButton.dataset.todaySessionId || null
+      });
     } finally {
       renderTodayCommittedWeek();
     }
@@ -23844,6 +23962,14 @@ if (typeof document !== "undefined") {
       } catch (error) {
         setText("first-week-orientation-feedback", error?.message || "First Week Orientation could not advance.");
       }
+      return;
+    }
+    const calendarExecutionButton = event.target.closest("button[data-calendar-execution-action='strength']");
+    if (calendarExecutionButton) {
+      await launchMobileModule("strength", {
+        assignmentId: calendarExecutionButton.dataset.calendarAssignmentId || null,
+        sessionId: calendarExecutionButton.dataset.calendarSessionId || null
+      });
       return;
     }
     const weekButton = event.target.closest("button[data-weekly-orchestrator-action]");

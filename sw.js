@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1";
-// Current release marker: coach-dominion-030e-authoritative-startup
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1";
+// Current release marker: coach-dominion-030f-strength-calendar-execution
+// Prior release marker: coach-dominion-030e-authoritative-startup
 // Prior release marker: coach-dominion-030d-recruit-journey-certification
 // Prior release marker: coach-dominion-030c-daily-command-integrity
 // Prior release marker: coach-dominion-030b-today-in-15-seconds
@@ -23,7 +24,7 @@ const APP_SHELL = [
   "/assets/js/connected-evidence.js?v=027d",
   "/assets/js/nutrition-feed.js",
   "/assets/js/programming.js",
-  "/assets/js/strength-training.js?v=025g-025i-025j",
+  "/assets/js/strength-training.js?v=025g-025i-025j-030f",
   "/assets/js/strength-calendar-handoff.js?v=025k-025l",
   "/assets/js/strength-progression-trial.js?v=025l",
   "/assets/js/strength-schedule.js",
@@ -63,7 +64,7 @@ const APP_SHELL = [
   "/assets/js/atlas-intervention.js?v=022a",
   "/assets/js/recruit-contract.js?v=024a",
   "/assets/js/contract-experience.js",
-  "/assets/js/weekly-orchestrator.js?v=024d",
+  "/assets/js/weekly-orchestrator.js?v=024d-030f",
   "/assets/js/split-day-command.js",
   "/assets/js/contract-activation.js?v=024a",
   "/assets/js/atlas-program.js?v=024f2",
@@ -72,7 +73,7 @@ const APP_SHELL = [
   "/assets/js/program-command.js?v=024c",
   "/assets/js/atlas-adaptive-week.js?v=025a2",
   "/assets/js/atlas-week-autopilot.js?v=024n",
-  "/assets/js/mission-execution.js?v=025b",
+  "/assets/js/mission-execution.js?v=025b-030f",
   "/assets/js/manual-run.js?v=030e",
   "/assets/js/running-verdict.js?v=025r",
   "/assets/js/running-progression.js?v=025s",
@@ -101,7 +102,7 @@ const APP_SHELL = [
   "/assets/js/release-stabilization.js?v=028f",
   "/assets/js/final-beta-stabilization.js?v=029g",
   "/assets/js/connected-health.js?v=029f",
-  "/assets/js/canonical-daily-command.js?v=029b",
+  "/assets/js/canonical-daily-command.js?v=029b-030f",
   "/assets/js/program-lifecycle.js?v=029e",
   "/assets/js/daily-decision-integrity.js?v=027f-028f-029n-030c",
   "/assets/js/mission-execution-spine.js?v=026b",
@@ -136,7 +137,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f"
 ];
 
 self.addEventListener("install", (event) => {

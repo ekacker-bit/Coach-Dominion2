@@ -5039,6 +5039,7 @@ textarea { max-width: 100%; }
 .account-truth-health > p { margin: 0; color: var(--muted); font-size: 12px; }
 .account-truth-health dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--line); }
 .account-truth-health dl div { min-width: 0; padding: 11px 12px; background: #0b1014; }
+.account-truth-health dl div:last-child:nth-child(odd) { grid-column: span 2; }
 .account-truth-health dt { color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .account-truth-health dd { margin: 4px 0 0; overflow: hidden; color: var(--stone); font: 13px/1.15 var(--font-command); letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
 .continuity-repair-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }

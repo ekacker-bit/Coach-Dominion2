@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "029O.1";
+  const VERSION = "030D.1";
   const STAGES = Object.freeze([
     { id: "account", label: "Account" },
     { id: "contract", label: "Contract" },
@@ -73,9 +73,13 @@
     const closeout = input.closeout || null;
     const stagedWeek = input.stagedWeek || null;
     const transition = input.transition || {};
+    const executionContext = input.executionContext || {};
+    const assignmentAudit = input.assignmentAudit || {};
+    const biometricReview = input.biometricReview || null;
     const conflicts = whole(input.conflicts?.length || input.conflicts);
     const pendingWrites = whole(input.pendingWrites || account.pendingWrites);
     const accountMode = upper(account.status || account.mode);
+    const syncState = clean(input.syncState || account.syncState || "").toLowerCase();
     const contractRevision = whole(contract.revision);
     const contractRef = clean(contract.hash || contract.fingerprint || contract.id || contractRevision);
     const programState = upper(program.state || program.status);
@@ -111,11 +115,15 @@
       && Boolean(account.lastVerifiedAt || account.confirmedMutationId || account.confirmedFingerprint);
     const stages = [];
 
-    if (conflicts) {
+    if (conflicts || syncState === "conflict") {
       stages.push(stageResult("account", "BLOCKED", "Two approved saved states require one canonical choice.", action("RESOLVE_CONTINUITY", "Compare and choose saved Contract", "today"), { code: "CONTRACT_CONFLICT" }));
-    } else if (["AUTH_REQUIRED", "CONFLICT_REQUIRES_CHOICE", "VALIDATION_FAILURE"].includes(accountMode)) {
+    } else if (["AUTH_REQUIRED", "CONFLICT_REQUIRES_CHOICE", "VALIDATION_FAILURE"].includes(accountMode) || syncState === "user_action_required") {
       const auth = accountMode === "AUTH_REQUIRED";
-      stages.push(stageResult("account", "BLOCKED", auth ? "Sign in again to verify protected account work." : "Account state requires a deliberate repair.", action(auth ? "SIGN_IN" : "OPEN_ACCOUNT_HEALTH", auth ? "Sign in" : "Review Account Health", auth ? "app" : "more"), { code: accountMode }));
+      stages.push(stageResult("account", "BLOCKED", auth ? "Sign in again to verify protected account work." : "Account state requires a deliberate repair.", action(auth ? "SIGN_IN" : "OPEN_ACCOUNT_HEALTH", auth ? "Sign in" : "Review Account Health", auth ? "app" : "more"), { code: auth ? "AUTH_REQUIRED" : syncState === "user_action_required" ? "ACCOUNT_ACTION_REQUIRED" : accountMode }));
+    } else if (syncState === "failed") {
+      stages.push(stageResult("account", "BLOCKED", "The latest account save failed and needs review.", action("OPEN_ACCOUNT_HEALTH", "Review Account Health", "more"), { code: "ACCOUNT_SAVE_FAILED" }));
+    } else if (["offline_queued", "transient_retry"].includes(syncState)) {
+      stages.push(stageResult("account", "PROTECTED", syncState === "offline_queued" ? "The latest work is protected on this device until connectivity returns." : "The latest work is protected while the account retries a transient save.", null, { code: syncState === "offline_queued" ? "OFFLINE_SAVE_QUEUED" : "TRANSIENT_SAVE_RETRY" }));
     } else if (pendingWrites || !accountConfirmed) {
       stages.push(stageResult("account", pendingWrites ? "PROTECTED" : "VERIFYING", pendingWrites ? "The latest complete snapshot is protected and waiting for an exact server receipt." : "Waiting for an exact server receipt before certifying the journey.", null, { code: pendingWrites ? "ACCOUNT_SAVE_PENDING" : "ACCOUNT_RECEIPT_REQUIRED" }));
     } else {
@@ -146,10 +154,14 @@
       stages.push(stageResult("calendar", "CURRENT", protectedCurrentWeek ? `${week.weekStart} through ${week.weekEnd} remains protected on Contract R${operatingContractRevision}.` : `${week.weekStart} through ${week.weekEnd} is the active committed week.`, null, { transition: protectedCurrentWeek }));
     }
 
-    if (!todayCurrent) {
+    if (executionContext.blocked === true) {
+      stages.push(stageResult("today", "BLOCKED", "A genuine active-date conflict prevents today's command from being certified.", action("RESOLVE_CONTINUITY", "Review active-date conflict", "today"), { code: "ACTIVE_DATE_CONFLICT" }));
+    } else if (!todayCurrent) {
       stages.push(stageResult("today", "BLOCKED", "Today does not have one committed canonical command.", action("REBUILD_TODAY", "Restore Today", "today"), { code: "TODAY_REQUIRED" }));
     } else if (!todayReferencesAgree) {
       stages.push(stageResult("today", "INCONSISTENT", "Today points to a different Contract, program, or Calendar week.", action("REBUILD_TODAY", "Rebuild Today", "today"), { code: "TODAY_LINEAGE_MISMATCH" }));
+    } else if (assignmentAudit.matches === false) {
+      stages.push(stageResult("today", "INCONSISTENT", "Today and Quick Log do not describe the same active assignments.", action("REBUILD_TODAY", "Restore today's assignments", "today"), { code: "ASSIGNMENT_SURFACE_MISMATCH" }));
     } else {
       stages.push(stageResult("today", "CURRENT", protectedCurrentWeek ? `Today remains authorized by the protected Contract R${operatingContractRevision} week.` : "Today is authorized by the active program and operating week.", null, { transition: protectedCurrentWeek }));
     }
@@ -183,6 +195,9 @@
       todayId: clean(today.id),
       date
     };
+    const attention = biometricReview?.pending === true
+      ? Object.freeze([{ code: "BIOMETRIC_CONFIRMATION_REQUIRED", detail: "One biometric reading is quarantined and is not influencing coaching.", action: action("REVIEW_BIOMETRIC", "Review biometric", "today") }])
+      : Object.freeze([]);
     const fingerprint = stableHash({ state, lineage, stages: stages.map(({ id, state: stageState, code }) => ({ id, state: stageState, code })) });
     return Object.freeze({
       version: VERSION,
@@ -200,6 +215,8 @@
       lineage: Object.freeze(lineage),
       pendingWrites,
       protectedCurrentWeek,
+      syncState,
+      attention,
       fingerprint
     });
   }

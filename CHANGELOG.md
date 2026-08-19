@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Recruit Journey Continuity
+
+- Certifies the exact active Contract, program, Calendar week, Today assignments, evidence, and Closeout as one account-backed journey.
+- Preserves the active prior-Contract week during an amendment while requiring the next week to use the new Contract.
+- Stores a privacy-bounded continuity receipt in Account Truth so the same day can be verified after reload or on another device.
+- Refuses certification when Today and Quick Log disagree, saved evidence disappears, an active-date conflict exists, or account sync requires a deliberate repair.
+- Keeps offline and retrying work visibly protected, and keeps quarantined biometrics outside coaching without blocking valid execution.
+- Adds one concise Device continuity row to the existing Account Health surface; no new dashboard or database migration is required.
+
 ## Unreleased - Real Recruit Certification
 
 - Runs six complete recruit journeys and twenty-one canonical checkpoints on every release candidate.

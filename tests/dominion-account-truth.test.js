@@ -28,18 +28,19 @@ test("a completed orientation cannot be replaced by a newer incomplete copy", ()
 test("concurrent readiness, evidence, and coaching records merge without loss", () => {
   const device = snapshot({
     readiness: { history: [{ date: "2026-08-14", energy: 8 }] },
-    evidence: { performance: [{ id: "lift-1", recordedAt: "2026-08-14T09:00:00.000Z" }] },
+    evidence: { performance: [{ id: "lift-1", recordedAt: "2026-08-14T09:00:00.000Z" }], journeyReceipts: [{ id: "journey-phone", observedAt: "2026-08-14T09:30:00.000Z" }] },
     coaching: { horizons: [{ id: "horizon-1", updatedAt: "2026-08-14T08:00:00.000Z" }] }
   });
   const account = snapshot({
     readiness: { history: [{ date: "2026-08-13", energy: 6 }] },
-    evidence: { closeouts: [{ id: "close-1", date: "2026-08-13", sealedAt: "2026-08-13T22:00:00.000Z" }] },
+    evidence: { closeouts: [{ id: "close-1", date: "2026-08-13", sealedAt: "2026-08-13T22:00:00.000Z" }], journeyReceipts: [{ id: "journey-desktop", observedAt: "2026-08-13T22:15:00.000Z" }] },
     coaching: { outcomes: [{ id: "outcome-1", reviewedAt: "2026-08-14T07:00:00.000Z" }] }
   }, { deviceId: "account" });
   const merged = truth.reconcileSnapshots(device, account).snapshot;
   assert.equal(merged.domains.readiness.payload.history.length, 2);
   assert.equal(merged.domains.evidence.payload.performance.length, 1);
   assert.equal(merged.domains.evidence.payload.closeouts.length, 1);
+  assert.equal(merged.domains.evidence.payload.journeyReceipts.length, 2);
   assert.equal(merged.domains.coaching.payload.horizons.length, 1);
   assert.equal(merged.domains.coaching.payload.outcomes.length, 1);
 });

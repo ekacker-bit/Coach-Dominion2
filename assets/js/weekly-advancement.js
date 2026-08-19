@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionWeeklyAdvancement = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "030C.1";
+  const VERSION = "030E.1";
   const CLOSED_STANDARD_STATES = new Set(["RESOLVED", "DISMISSED", "EXCUSED"]);
 
   function finite(value) {
@@ -54,7 +54,7 @@
       const passed = present.length > 0 && present.every((item) => item.passed);
       const progress = present.length ? Math.round(present.reduce((sum, item) => sum + requirementRatio(item), 0) / present.length * 100) : 0;
       const firstFailure = present.find((item) => !item.passed) || null;
-      return { id, label, passed, progress, firstFailure };
+      return { id, label, passed, progress, firstFailure, passedCount: present.filter((item) => item.passed).length, totalCount: present.length };
     };
     return [
       gate("HISTORY", "Inspection history", [byKey.finalized_inspections]),
@@ -129,6 +129,7 @@
       nextRank,
       promotionStatus: eligibility.status || "BUILDING EVIDENCE",
       promotionProgress: clamp(progress),
+      promotionConditions: { passed: gates.filter((item) => item.passed).length, total: gates.length },
       primaryBlocker: firstGate ? firstGate.label : null,
       gates,
       nextAction,
@@ -163,7 +164,7 @@
       <section class="weekly-advancement" aria-labelledby="weekly-advancement-heading">
         <header><div><span>ADVANCEMENT</span><h3 id="weekly-advancement-heading"><strong id="rank-current">RECRUIT</strong><i aria-hidden="true">&rarr;</i><strong id="rank-next">CADET</strong></h3></div><span id="rank-state" class="state-pill neutral">BUILDING EVIDENCE</span></header>
         <div class="weekly-advancement-meter" aria-hidden="true"><span id="weekly-advancement-meter"></span></div>
-        <div class="weekly-advancement-copy"><strong id="weekly-advancement-percent">0%</strong><p id="weekly-advancement-detail">Finalize trustworthy weeks to begin advancement.</p></div>
+        <div class="weekly-advancement-copy"><strong id="weekly-advancement-percent">0 of 4 conditions met</strong><p id="weekly-advancement-detail">Finalize trustworthy weeks to begin advancement.</p></div>
         <div id="rank-requirements" class="weekly-advancement-gates"></div>
       </section>
       <section id="dominion-campaign-review" class="dominion-campaign-review" data-campaign-tone="neutral" aria-labelledby="dominion-campaign-review-heading" aria-live="polite">

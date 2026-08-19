@@ -29,6 +29,7 @@ test("manual run becomes canonical self-reported Performance evidence", () => {
     averageHeartRate: 151,
     elevationGain: 620,
     countTowardToday: true,
+    assignmentId: "run-long-2026-08-11",
     notes: "Steady finish"
   }, { userId: "recruit-1", today: "2026-08-11", createdAt: "2026-08-11T14:00:00.000Z" });
   assert.match(entry.id, /^manual-run-/);
@@ -38,6 +39,7 @@ test("manual run becomes canonical self-reported Performance evidence", () => {
   assert.equal(entry.evidenceStatus, "SELF REPORTED");
   assert.equal(entry.metrics.capture_method, "MANUAL_RUN_FORM");
   assert.equal(entry.metrics.count_toward_today, true);
+  assert.equal(entry.metrics.assignment_id, "run-long-2026-08-11");
   assert.equal(entry.metrics.average_heart_rate, 151);
 });
 

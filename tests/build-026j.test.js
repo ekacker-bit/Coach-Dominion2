@@ -49,7 +49,9 @@ test("Account Truth and Trends receive canonical proof", () => {
   assert.match(app, /\.\.\.readEvidenceAutopilotHistory\(\)/);
   assert.match(app, /function repairEvidenceAutopilotPerformance/);
   assert.match(app, /source_evidence_id/);
-  assert.match(app, /runStartupTask\("evidence autopilot"/);
+  assert.doesNotMatch(app, /runStartupTask\("evidence autopilot"/);
+  assert.match(app, /function scheduleEvidenceAutopilotReconciliation/);
+  assert.match(app, /DominionStartupAuthority\.permitsAccountWrite\(startupAuthorityState, "state_change"\)/);
 });
 
 test("Build 026J is cache-safe, documented, and regression-tested", () => {

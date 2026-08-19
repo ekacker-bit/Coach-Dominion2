@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025Q.1";
+  const VERSION = "030E.1";
   const RUN_TYPES = Object.freeze([
     { code: "EASY", label: "Easy run" },
     { code: "LONG", label: "Long run" },
@@ -73,7 +73,8 @@
       averageHeartRate: averageHeartRate === null ? null : Math.round(averageHeartRate),
       elevationGain: elevationGain === null ? null : Number(elevationGain.toFixed(1)),
       notes: String(input.notes || "").trim().slice(0, 500),
-      countTowardToday: Boolean(input.countTowardToday ?? input.count_toward_today)
+      countTowardToday: Boolean(input.countTowardToday ?? input.count_toward_today),
+      assignmentId: String(input.assignmentId || input.assignment_id || "").trim() || null
     };
   }
 
@@ -115,6 +116,7 @@
       sessionName: run.runTypeLabel,
       source: "MANUAL",
       evidenceStatus: "SELF REPORTED",
+      assignmentId: run.assignmentId,
       notes: run.notes,
       metrics: {
         distance: run.distance,
@@ -126,7 +128,8 @@
         average_heart_rate: run.averageHeartRate,
         elevation_gain: run.elevationGain,
         capture_method: "MANUAL_RUN_FORM",
-        count_toward_today: run.countTowardToday
+        count_toward_today: run.countTowardToday,
+        assignment_id: run.assignmentId
       },
       createdAt,
       updatedAt: createdAt

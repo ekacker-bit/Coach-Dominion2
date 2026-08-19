@@ -4,7 +4,7 @@ module.exports = function handler(req, res) {
     ok: true,
     service: "coach-dominion",
     status: "ready",
-    release: "030D.1",
+    release: "030E.1",
     commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
     checks: {
       application: "available",
@@ -16,7 +16,11 @@ module.exports = function handler(req, res) {
       todayQuickLog: "available",
       executionContext: "effective-date-aware",
       biometricIntegrity: "quarantined-until-confirmed",
-      journeyContinuity: "account-verified"
+      journeyContinuity: "account-verified",
+      authoritativeStartup: "hard-barrier",
+      assignmentEvidence: "assignment-linked",
+      calendarCommit: "immutable-receipt",
+      operationalDate: "timezone-aware"
     }
   });
 };

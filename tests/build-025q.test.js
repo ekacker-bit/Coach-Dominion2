@@ -26,7 +26,8 @@ assert.match(orientation, /function completionReceipt/);
 assert.match(app, /DominionFirstWeekOrientation\.selectCanonicalOrientation/);
 assert.match(app, /Week One will not be repeated/);
 
-assert.ok(html.indexOf("/assets/js/manual-run.js?v=025q") < html.indexOf("/assets/js/app.js"));
+assert.match(html, /\/assets\/js\/manual-run\.js\?v=(?:025q|030e)/);
+assert.ok(html.indexOf("/assets/js/manual-run.js") < html.indexOf("/assets/js/app.js"));
 assert.match(app, /id="manual-run-form"/);
 assert.match(app, /function applyManualRunToToday/);
 assert.match(app, /persistPerformanceEvidenceEntry/);
@@ -36,7 +37,7 @@ assert.match(manualRun, /capture_method: "MANUAL_RUN_FORM"/);
 assert.match(styles, /\.manual-run-card/);
 
 assert.match(html, /styles\.css\?v=.*025q/);
-assert.match(worker, /manual-run\.js\?v=025q/);
+assert.match(worker, /manual-run\.js\?v=(?:025q|030e)/);
 assert.match(worker, /first-week-orientation\.js\?v=025q/);
 assert.match(worker, /025p-025q/);
 assert.match(packageJson, /node tests\/manual-run\.test\.js/);

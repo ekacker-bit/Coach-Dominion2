@@ -28,7 +28,8 @@ test("completed 72-hour decisions close against readiness, execution, and closeo
   assert.match(app, /readMissionExecutionReceipts\(day\.date\)/);
   assert.match(app, /readDailyCloseout\(day\.date\)/);
   assert.match(app, /readinessHistory/);
-  assert.match(app, /runStartupTask\("Atlas adaptation outcomes", runAtlasAdaptationOutcomes/);
+  assert.doesNotMatch(app, /runStartupTask\("Atlas adaptation outcomes", runAtlasAdaptationOutcomes/);
+  assert.match(app, /await runAtlasAdaptationOutcomes\(\)/);
   assert.match(engine, /INSUFFICIENT_EVIDENCE/);
   assert.match(engine, /HELD_STANDARD/);
   assert.match(engine, /NEEDS_REVIEW/);

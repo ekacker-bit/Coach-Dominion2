@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Authoritative Startup and Execution Truth
+
+- Keeps the command center behind one protected restore barrier until account and verified device state reconcile and validate.
+- Uses the last verified device snapshot in explicit offline mode without writing fallback state back to the account.
+- Links run execution and evidence to the exact Calendar assignment so unrelated or incomplete runs cannot satisfy Today.
+- Gives future Calendar weeks immutable commit receipts that bind the Contract revision, Calendar revision, assignment IDs, timestamp, content hash, and account revision.
+- Unifies pending-save counts, uses timezone-safe operational dates, explains recovery decisions, and collapses completed Quick Log sections on mobile.
+
 ## Unreleased - Recruit Journey Continuity
 
 - Certifies the exact active Contract, program, Calendar week, Today assignments, evidence, and Closeout as one account-backed journey.

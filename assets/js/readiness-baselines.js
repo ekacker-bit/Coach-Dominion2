@@ -120,7 +120,7 @@
       return {
         ...base,
         rationale: hrvConcern
-          ? [...(base.rationale || []), "HRV is below baseline, but sleep, resting heart rate, and available evidence do not currently require a training adjustment."]
+          ? [...(base.rationale || []), "HRV is below baseline, but sleep, resting heart rate, energy, soreness, pain, and recent training load do not corroborate a recovery adjustment."]
           : base.rationale,
         baseline: profile,
         baselineAdjustment: "NONE"

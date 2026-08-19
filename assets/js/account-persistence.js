@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "029C.1";
+  const VERSION = "030C.1";
   const STABILIZATION_VERSION = "029N.1";
   const SCHEMA_VERSION = 1;
   const AUTH_DRAIN_EVENTS = Object.freeze(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
@@ -16,6 +16,24 @@
     VALIDATION_FAILURE: "VALIDATION_FAILURE",
     SYNCED: "SYNCED"
   });
+  const SYNC_STATES = Object.freeze({
+    SYNCED: "synced",
+    TRANSIENT_RETRY: "transient_retry",
+    OFFLINE_QUEUED: "offline_queued",
+    USER_ACTION_REQUIRED: "user_action_required",
+    CONFLICT: "conflict",
+    FAILED: "failed"
+  });
+
+  function canonicalSyncState(input = {}) {
+    const persistence = input.persistenceState || input.state || null;
+    if (persistence === PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE || input.conflict === true) return SYNC_STATES.CONFLICT;
+    if ([PERSISTENCE_STATES.AUTH_REQUIRED, PERSISTENCE_STATES.VALIDATION_FAILURE].includes(persistence) || input.userActionRequired === true) return SYNC_STATES.USER_ACTION_REQUIRED;
+    if (input.online === false && Number(input.pendingWrites || 0) > 0) return SYNC_STATES.OFFLINE_QUEUED;
+    if (persistence === PERSISTENCE_STATES.TRANSIENT_FAILURE || Number(input.pendingWrites || 0) > 0) return SYNC_STATES.TRANSIENT_RETRY;
+    if (input.failed === true) return SYNC_STATES.FAILED;
+    return SYNC_STATES.SYNCED;
+  }
 
   function classifyFailure(error = null, context = {}) {
     if (context.conflict === true || /conflict|same approved revision/i.test(String(error?.message || ""))) return PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE;
@@ -152,14 +170,15 @@
 
   function status(input = {}) {
     const pending = Number(input.pendingWrites || 0);
-    if (input.persistenceState === PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE) return { state: PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE, confirmed: false, label: "CHOICE NEEDED", detail: "Automatic retries are paused until you choose the saved Contract." };
-    if (input.persistenceState === PERSISTENCE_STATES.AUTH_REQUIRED) return { state: PERSISTENCE_STATES.AUTH_REQUIRED, confirmed: false, label: "SIGN IN", detail: "Sign in to resume protected account saves." };
-    if (input.persistenceState === PERSISTENCE_STATES.VALIDATION_FAILURE) return { state: PERSISTENCE_STATES.VALIDATION_FAILURE, confirmed: false, label: "REVIEW NEEDED", detail: "This save needs correction before it can continue." };
-    if (input.online === false) return { state: "OFFLINE_PROTECTED", confirmed: false, label: "SAVED HERE", detail: "Account sync resumes automatically." };
-    if (pending) return { state: "SAVE_QUEUED", confirmed: false, label: "SYNC PENDING", detail: `${pending} protected save${pending === 1 ? "" : "s"} waiting.` };
-    if (input.lastError) return { state: "RETRY_REQUIRED", confirmed: false, label: "RETRY NEEDED", detail: "The last account save was not confirmed." };
-    if (input.serverConfirmed === true && input.lastVerifiedAt) return { state: "ACCOUNT_SAVED", confirmed: true, label: "ACCOUNT SAVED", detail: "Confirmed by your account." };
-    return { state: "VERIFYING", confirmed: false, label: "VERIFYING", detail: "Waiting for an exact account receipt." };
+    const canonicalState = canonicalSyncState({ ...input, pendingWrites: pending });
+    if (input.persistenceState === PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE) return { state: PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE, canonicalState, confirmed: false, label: "CHOICE NEEDED", detail: "Automatic retries are paused until you choose the saved Contract." };
+    if (input.persistenceState === PERSISTENCE_STATES.AUTH_REQUIRED) return { state: PERSISTENCE_STATES.AUTH_REQUIRED, canonicalState, confirmed: false, label: "SIGN IN", detail: "Sign in to resume protected account saves." };
+    if (input.persistenceState === PERSISTENCE_STATES.VALIDATION_FAILURE) return { state: PERSISTENCE_STATES.VALIDATION_FAILURE, canonicalState, confirmed: false, label: "REVIEW NEEDED", detail: "This save needs correction before it can continue." };
+    if (input.online === false) return { state: "OFFLINE_PROTECTED", canonicalState, confirmed: false, label: "SAVED HERE", detail: "Account sync resumes automatically." };
+    if (pending) return { state: "SAVE_QUEUED", canonicalState, confirmed: false, label: "SYNC PENDING", detail: `${pending} protected save${pending === 1 ? "" : "s"} waiting.` };
+    if (input.lastError) return { state: "RETRY_REQUIRED", canonicalState: SYNC_STATES.FAILED, confirmed: false, label: "RETRY NEEDED", detail: "The last account save was not confirmed." };
+    if (input.serverConfirmed === true && input.lastVerifiedAt) return { state: "ACCOUNT_SAVED", canonicalState, confirmed: true, label: "ACCOUNT SAVED", detail: "Confirmed by your account." };
+    return { state: "VERIFYING", canonicalState, confirmed: false, label: "VERIFYING", detail: "Waiting for an exact account receipt." };
   }
 
   function shouldDrainForAuthEvent(event, session) {
@@ -175,11 +194,26 @@
 
   function pendingState(continuityQueue = [], accountQueue = []) {
     const entries = canonicalPendingEntries(continuityQueue, accountQueue);
+    const first = entries[0] || null;
+    const state = canonicalSyncState({
+      persistenceState: first?.persistenceState,
+      pendingWrites: entries.length,
+      online: first?.online !== false
+    });
+    const labels = {
+      [SYNC_STATES.SYNCED]: "Synced",
+      [SYNC_STATES.TRANSIENT_RETRY]: `Sync · ${entries.length}`,
+      [SYNC_STATES.OFFLINE_QUEUED]: `Offline · ${entries.length} saved`,
+      [SYNC_STATES.USER_ACTION_REQUIRED]: "Action needed",
+      [SYNC_STATES.CONFLICT]: "Choice needed",
+      [SYNC_STATES.FAILED]: "Sync failed"
+    };
     return {
       count: entries.length,
       entries,
-      state: entries.length ? "SYNC_PENDING" : "CURRENT",
-      label: entries.length ? `Sync ${entries.length}` : "Synced"
+      state,
+      label: labels[state],
+      detail: entries.length ? `${entries.length} protected item${entries.length === 1 ? "" : "s"} waiting.` : "Account is current."
     };
   }
 
@@ -199,6 +233,7 @@
     SCHEMA_VERSION,
     AUTH_DRAIN_EVENTS: [...AUTH_DRAIN_EVENTS],
     PERSISTENCE_STATES: { ...PERSISTENCE_STATES },
+    SYNC_STATES: { ...SYNC_STATES },
     stableSerialize,
     fingerprint,
     recordFingerprint,
@@ -213,6 +248,7 @@
     classifyFailure,
     shouldRetry,
     shouldDrainForAuthEvent,
+    canonicalSyncState,
     canonicalPendingEntries,
     pendingState,
     telemetry

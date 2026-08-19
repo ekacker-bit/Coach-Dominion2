@@ -12825,6 +12825,60 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
   .connected-account-health { grid-template-columns: 1fr; gap: 7px; }
 }
 
+/* 030C: effective-date authority, biometric confirmation, and compact command flow. */
+.execution-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 14px;
+  border: 1px solid rgba(212, 175, 55, .38);
+  background: rgba(212, 175, 55, .07);
+}
+.execution-context-banner[hidden] { display: none; }
+.execution-context-banner strong { color: var(--stone); font-size: 12px; }
+.execution-context-banner span { color: var(--muted); font-size: 10px; }
+html[data-today-hierarchy="029D.1"] #one-command[data-primary-command="true"] {
+  min-height: min(460px, calc(100svh - 150px));
+  align-content: start;
+}
+.today-quick-log-form fieldset[hidden] { display: none; }
+.biometric-confirmation-dialog {
+  width: min(540px, calc(100vw - 28px));
+  padding: 0;
+  border: 1px solid rgba(212, 175, 55, .55);
+  background: #0b0e0f;
+  color: var(--stone);
+}
+.biometric-confirmation-dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(4px); }
+.biometric-confirmation-dialog form { display: grid; gap: 15px; padding: clamp(20px, 4vw, 32px); }
+.biometric-confirmation-dialog h2,
+.biometric-confirmation-dialog p { margin: 0; }
+.biometric-confirmation-dialog h2 { font: clamp(30px, 6vw, 46px)/.95 var(--font-command); }
+.biometric-confirmation-dialog p { color: var(--muted); line-height: 1.5; }
+.biometric-confirmation-dialog dl { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 0; background: var(--line); }
+.biometric-confirmation-dialog dl div { display: grid; gap: 5px; padding: 14px; background: var(--panel3); }
+.biometric-confirmation-dialog dt { color: var(--dim); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.biometric-confirmation-dialog dd { margin: 0; font: 22px/1 var(--font-command); }
+.biometric-confirmation-dialog label { display: grid; gap: 7px; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.biometric-confirmation-dialog footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+@media (max-width: 720px) {
+  html[data-today-hierarchy="029D.1"] #one-command[data-primary-command="true"] { min-height: auto; }
+  .execution-context-banner { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .today-quick-log { max-width: 100%; overflow: hidden; }
+  .today-quick-log-form,
+  .today-quick-log-form fieldset { min-width: 0; }
+  .biometric-confirmation-dialog footer { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 390px) {
+  .today-quick-log-run,
+  .today-quick-log-fuel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .today-quick-log-form input,
+  .today-quick-log-form select { min-width: 0; width: 100%; }
+}
+
 /* Build 029G: final beta stabilization */
 .calendar-week-switch {
   display: inline-flex;

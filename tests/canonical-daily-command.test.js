@@ -137,3 +137,24 @@ test("029B lifecycle vocabulary covers completion and supersession", () => {
   assert.equal(canonical.weekLifecycle({ ...week, status: "REPLACED" }, null, date), "SUPERSEDED");
   assert.deepEqual(Object.values(canonical.LIFECYCLE), ["DRAFT", "READY_TO_COMMIT", "ACTIVE", "COMPLETED", "SUPERSEDED"]);
 });
+
+test("030C executes only the active Tempo, Core, and Fuel assignment", () => {
+  const operatingDate = "2026-08-18";
+  const activeWeek = { ...week, contractRevision: 12 };
+  const day = {
+    date: operatingDate,
+    activities: [
+      { id: "tempo-development", module: "RUNNING", type: "TEMPO", title: "Tempo development", estimatedMinutes: 47 },
+      { id: "core-2-1", module: "CORE", title: "Core 2.1", estimatedMinutes: 20 }
+    ],
+    nutrition: { calories: 2480, protein: 180 }
+  };
+  const command = canonical.build({ date: operatingDate, committedWeek: activeWeek, committedDay: day, contract: { revision: 14 } });
+  assert.deepEqual(command.schedule.sessions.map((item) => [item.module, item.title, item.estimatedMinutes]), [
+    ["running", "Tempo development", 47],
+    ["core", "Core 2.1", 20]
+  ]);
+  assert.equal(command.schedule.scheduledDomains.includes("strength"), false);
+  assert.equal(command.primaryAction.label, "Start Tempo development");
+  assert.equal(command.fuelContext.target.calories, 2480);
+});

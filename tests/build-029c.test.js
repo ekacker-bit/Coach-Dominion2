@@ -13,7 +13,7 @@ const migration = read("supabase/migrations/20260817113359_account_persistence_r
 test("029C persistence authority loads before the application", () => {
   assert.match(html, /account-persistence\.js\?v=029c/);
   assert.ok(html.indexOf("account-persistence.js?v=029c") < html.indexOf("app.js?v="));
-  assert.match(read("assets/js/account-persistence.js"), /const VERSION = "029C\.1"/);
+  assert.match(read("assets/js/account-persistence.js"), /const VERSION = "(?:029C|030C)\.1"/);
 });
 
 test("account saves require an exact server receipt", () => {

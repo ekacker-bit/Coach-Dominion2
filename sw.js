@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b";
-// Current release marker: coach-dominion-030b-today-in-15-seconds
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c";
+// Current release marker: coach-dominion-030c-daily-command-integrity
+// Prior release marker: coach-dominion-030b-today-in-15-seconds
 // Prior release marker: coach-dominion-030a-real-recruit-certification
 // Prior release marker: coach-dominion-029o-beta-journey-certification
 // Prior release marker: coach-dominion-029n-contract-reconciliation
@@ -14,7 +15,7 @@ const APP_SHELL = [
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js?v=027d",
   "/assets/js/connected-evidence.js?v=027d",
@@ -30,7 +31,7 @@ const APP_SHELL = [
   "/assets/js/recovery.js",
   "/assets/js/daily-coaching.js",
   "/assets/js/daily-assignment.js",
-  "/assets/js/readiness-baselines.js",
+  "/assets/js/readiness-baselines.js?v=030c",
   "/assets/js/weekly-plan.js",
   "/assets/js/nutrition-command.js",
   "/assets/js/adaptive-fueling.js",
@@ -89,7 +90,7 @@ const APP_SHELL = [
   "/assets/js/mobile-command.js?v=022g",
   "/assets/js/experience-shell.js",
   "/assets/js/daily-ritual.js?v=022f",
-  "/assets/js/operating-truth.js?v=025h",
+  "/assets/js/operating-truth.js?v=025h-030c",
   "/assets/js/activation-repair.js?v=024f",
   "/assets/js/one-command.js",
   "/assets/js/atlas-daily-command.js?v=025o-028c",
@@ -100,23 +101,25 @@ const APP_SHELL = [
   "/assets/js/connected-health.js?v=029f",
   "/assets/js/canonical-daily-command.js?v=029b",
   "/assets/js/program-lifecycle.js?v=029e",
-  "/assets/js/daily-decision-integrity.js?v=027f-028f-029n",
+  "/assets/js/daily-decision-integrity.js?v=027f-028f-029n-030c",
   "/assets/js/mission-execution-spine.js?v=026b",
   "/assets/js/atlas-live-adaptation.js?v=026c-029g",
   "/assets/js/atlas-adaptive-horizon.js?v=026g",
   "/assets/js/atlas-adaptation-outcomes.js?v=026h",
-  "/assets/js/weekly-advancement.js?v=026d",
+  "/assets/js/weekly-advancement.js?v=026d-030c",
   "/assets/js/unified-blocker-resolution.js?v=025p-029n",
   "/assets/js/dominion-continuity.js?v=025n",
   "/assets/js/contract-reconciliation.js?v=029n",
   "/assets/js/dominion-account-truth.js?v=026i-029n",
-  "/assets/js/account-persistence.js?v=029c-029g-029n",
+  "/assets/js/account-persistence.js?v=029c-029g-029n-030c",
   "/assets/js/command-first-today.js?v=029d",
   "/assets/js/trust-layer.js?v=028a-029l",
   "/assets/js/beta-readiness-gate.js?v=029h",
   "/assets/js/beta-journey-certification.js?v=029o-030a",
   "/assets/js/frictionless-execution.js?v=028b",
   "/assets/js/today-quick-log.js?v=030b",
+  "/assets/js/execution-context.js?v=030c",
+  "/assets/js/biometric-integrity.js?v=030c",
   "/assets/js/account-entry.js?v=029a",
   "/assets/js/evidence-autopilot.js?v=026j",
   "/assets/js/dominion-campaign.js?v=026k-029g",
@@ -126,7 +129,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c"
 ];
 
 self.addEventListener("install", (event) => {

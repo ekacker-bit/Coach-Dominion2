@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
-  <meta name="coach-dominion-release" content="030B.1">
+  <meta name="coach-dominion-release" content="030C.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A">
@@ -845,6 +845,10 @@
         </nav>
 
         <section id="one-command" class="card one-command today-mission" aria-labelledby="one-command-heading" data-command-mode="EXECUTE">
+          <aside id="execution-context-banner" class="execution-context-banner" hidden aria-live="polite">
+            <strong id="execution-context-primary">Today executes the active assignment.</strong>
+            <span id="execution-context-secondary"></span>
+          </aside>
           <header class="one-command-header today-mission-header">
             <div>
               <div id="one-command-eyebrow" class="kicker">TODAY // MISSION</div>
@@ -2408,6 +2412,23 @@
       <button type="button" class="ghost mobile-more-signout" data-mobile-more-action="signout">Sign out</button>
     </div>
   </dialog>
+  <dialog id="biometric-confirmation-dialog" class="biometric-confirmation-dialog" aria-labelledby="biometric-confirmation-title">
+    <form method="dialog">
+      <div class="kicker">CHECK THIS READING</div>
+      <h2 id="biometric-confirmation-title">Confirm your morning biometric</h2>
+      <p id="biometric-confirmation-detail">This reading is far from your recent baseline, so it is not influencing coaching yet.</p>
+      <dl>
+        <div><dt>Entered</dt><dd id="biometric-confirmation-entered">—</dd></div>
+        <div><dt>Recent baseline</dt><dd id="biometric-confirmation-baseline">—</dd></div>
+      </dl>
+      <label>Correct value<input id="biometric-corrected-value" type="number" inputmode="decimal" step="0.1"></label>
+      <p id="biometric-confirmation-feedback" role="status" aria-live="polite"></p>
+      <footer>
+        <button type="button" data-biometric-action="CORRECT">Save corrected value</button>
+        <button type="button" class="ghost" data-biometric-action="CONFIRM">Confirm entered value</button>
+      </footer>
+    </form>
+  </dialog>
   <nav id="mobile-command-dock" class="mobile-command-bar" aria-label="Mobile command bar">
     <a data-mobile-nav="today" href="#today" data-decision-count="0">Today</a>
     <a data-mobile-nav="train" href="#performance">Train</a>
@@ -2430,7 +2451,7 @@
 <script src="/assets/js/recovery.js"></script>
 <script src="/assets/js/daily-coaching.js"></script>
 <script src="/assets/js/daily-assignment.js"></script>
-<script src="/assets/js/readiness-baselines.js"></script>
+<script src="/assets/js/readiness-baselines.js?v=030c"></script>
 <script src="/assets/js/weekly-plan.js"></script>
 <script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/adaptive-fueling.js"></script>
@@ -2491,7 +2512,7 @@
 <script src="/assets/js/mobile-command.js?v=022g"></script>
 <script src="/assets/js/experience-shell.js"></script>
 <script src="/assets/js/daily-ritual.js?v=022f"></script>
-<script src="/assets/js/operating-truth.js?v=025h"></script>
+<script src="/assets/js/operating-truth.js?v=025h-030c"></script>
 <script src="/assets/js/activation-repair.js?v=024f"></script>
 <script src="/assets/js/one-command.js?v=021n"></script>
 <script src="/assets/js/atlas-daily-command.js?v=025o-028c"></script>
@@ -2500,19 +2521,21 @@
 <script src="/assets/js/release-stabilization.js?v=028f"></script>
 <script src="/assets/js/final-beta-stabilization.js?v=029g"></script>
 <script src="/assets/js/connected-health.js?v=029f"></script>
+<script src="/assets/js/execution-context.js?v=030c"></script>
+<script src="/assets/js/biometric-integrity.js?v=030c"></script>
 <script src="/assets/js/canonical-daily-command.js?v=029b"></script>
 <script src="/assets/js/program-lifecycle.js?v=029e"></script>
-<script src="/assets/js/daily-decision-integrity.js?v=027f-028f-029n"></script>
+<script src="/assets/js/daily-decision-integrity.js?v=027f-028f-029n-030c"></script>
 <script src="/assets/js/mission-execution-spine.js?v=026b"></script>
 <script src="/assets/js/atlas-live-adaptation.js?v=026c-029g"></script>
 <script src="/assets/js/atlas-adaptive-horizon.js?v=026g"></script>
 <script src="/assets/js/atlas-adaptation-outcomes.js?v=026h"></script>
-<script src="/assets/js/weekly-advancement.js?v=026d"></script>
+<script src="/assets/js/weekly-advancement.js?v=026d-030c"></script>
 <script src="/assets/js/unified-blocker-resolution.js?v=025p-029n"></script>
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <script src="/assets/js/contract-reconciliation.js?v=029n"></script>
 <script src="/assets/js/dominion-account-truth.js?v=026i-029n"></script>
-<script src="/assets/js/account-persistence.js?v=029c-029g-029n"></script>
+<script src="/assets/js/account-persistence.js?v=029c-029g-029n-030c"></script>
 <script src="/assets/js/command-first-today.js?v=029d"></script>
 <script src="/assets/js/trust-layer.js?v=028a-029l"></script>
 <script src="/assets/js/beta-readiness-gate.js?v=029h"></script>
@@ -2528,6 +2551,6 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c"></script>
 </body>
 </html>

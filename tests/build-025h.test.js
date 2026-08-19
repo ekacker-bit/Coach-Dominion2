@@ -10,7 +10,7 @@ const truth = read("assets/js/operating-truth.js");
 const worker = read("sw.js");
 const changelog = read("CHANGELOG.md");
 
-assert.match(truth, /const VERSION = "025H\.1"/);
+assert.match(truth, /const VERSION = "(?:025H|030C)\.1"/);
 assert.match(truth, /const activeExecution = modules\.find/);
 assert.match(truth, /Resume \$\{activeExecution\.detail \|\| activeExecution\.label\}/);
 assert.match(truth, /finish the live session before repairing future programming/);

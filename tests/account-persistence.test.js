@@ -108,3 +108,12 @@ test("deterministic failures pause instead of retrying forever", () => {
   assert.equal(paused[0].persistenceState, states.CONFLICT_REQUIRES_CHOICE);
   assert.equal(Persistence.ready(paused, { now: "2026-08-18T12:00:00.000Z" }), null);
 });
+
+test("030C exposes one canonical sync vocabulary and pauses user action", () => {
+  const sync = Persistence.SYNC_STATES;
+  assert.deepEqual(Object.values(sync), ["synced", "transient_retry", "offline_queued", "user_action_required", "conflict", "failed"]);
+  assert.equal(Persistence.canonicalSyncState({ pendingWrites: 0 }), "synced");
+  assert.equal(Persistence.canonicalSyncState({ pendingWrites: 1, online: false }), "offline_queued");
+  assert.equal(Persistence.canonicalSyncState({ persistenceState: Persistence.PERSISTENCE_STATES.AUTH_REQUIRED, pendingWrites: 1 }), "user_action_required");
+  assert.equal(Persistence.pendingState([], [{ ...envelope(), persistenceState: Persistence.PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE }]).state, "conflict");
+});

@@ -3,10 +3,11 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionWeeklyAdvancement = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "026D.1";
+  const VERSION = "030C.1";
   const CLOSED_STANDARD_STATES = new Set(["RESOLVED", "DISMISSED", "EXCUSED"]);
 
   function finite(value) {
+    if (value === null || value === undefined || value === "") return null;
     return Number.isFinite(Number(value)) ? Number(value) : null;
   }
 
@@ -155,8 +156,8 @@
       <p id="weekly-warning" class="status" aria-live="polite"></p>
       <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
       <div id="weekly-proof-grid" class="weekly-proof-grid" aria-label="Weekly proof">
-        <article><span>EXECUTION</span><strong id="weekly-score">UNSCORED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>
-        <article><span>EVIDENCE</span><strong id="weekly-coverage">0%</strong><small id="weekly-evidence-proof">Waiting for evidence</small></article>
+        <article><span>EXECUTION</span><strong id="weekly-score">NOT EVALUATED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>
+        <article><span>EVIDENCE</span><strong id="weekly-coverage">COVERAGE INCOMPLETE</strong><small id="weekly-evidence-proof">Waiting for evidence</small></article>
         <article><span>STANDARDS</span><strong id="weekly-standards-state">CHECKING</strong><small id="weekly-standards-proof">Open cases block advancement</small></article>
       </div>
       <section class="weekly-advancement" aria-labelledby="weekly-advancement-heading">

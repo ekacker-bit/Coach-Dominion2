@@ -45,7 +45,7 @@ test("Build 025N asks for a choice only on a genuine same-revision divergence", 
 test("Build 025N retains and retries failed account writes across every canonical program domain", () => {
   assert.match(app, /function enqueueContinuityRetry/);
   assert.match(app, /function flushContinuityPendingWrites/);
-  assert.match(app, /saved program writes/);
+  assert.match(app, /function canonicalPendingWriteDetail/);
   for (const domain of ["contract", "strength", "running", "core", "nutrition", "calendar"]) {
     assert.match(app, new RegExp(`logAccountPersistenceFailure\\("${domain}"`));
     assert.match(app, new RegExp(`acknowledgeContinuityRetry\\("${domain}"`));

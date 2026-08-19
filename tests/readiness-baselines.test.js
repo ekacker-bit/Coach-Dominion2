@@ -102,7 +102,7 @@ assert.strictEqual(median([4, 2, 1, 3]), 2.5);
   assert.strictEqual(profile.metrics.heart_rate_variability.signal.status, "SEVERE");
   const hrvOnly = evaluatePersonalizedReadiness(green, profile);
   assert.strictEqual(hrvOnly.state, "GREEN", "HRV alone is not used as a punitive readiness trigger");
-  assert.match(hrvOnly.rationale.join(" "), /do not currently require a training adjustment/i, "green HRV concern explains why no adjustment was made");
+  assert.match(hrvOnly.rationale.join(" "), /do not corroborate a recovery adjustment/i, "green HRV concern explains why the other signals did not change training");
 }
 
 {

@@ -149,6 +149,11 @@ let campaignVerdictState = {
   lastSavedRemotely: false,
   lastError: null
 };
+let startupAuthorityState = typeof DominionStartupAuthority === "undefined"
+  ? { phase: "AUTHENTICATING", actionable: false, validated: false, readOnly: true }
+  : DominionStartupAuthority.initial();
+let startupAccountLedger = null;
+let startupAccountError = null;
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -551,11 +556,13 @@ function writeContinuityRecordMeta(domain, stateType, stateKey, payload, options
 
 function recordContinuityWrite(domain, stateType, stateKey, payload) {
   const value = writeContinuityRecordMeta(domain, stateType, stateKey, payload, { updatedAt: new Date().toISOString(), source: "DEVICE" });
-  if (continuityState.initialized) {
+  const startupPermitsWrite = typeof DominionStartupAuthority === "undefined"
+    || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change");
+  if (continuityState.initialized && startupPermitsWrite) {
     scheduleContinuitySync();
     scheduleAccountTruthSync();
   }
-  if (!evidenceAutopilotState.reconciling) scheduleEvidenceAutopilotReconciliation();
+  if (startupPermitsWrite && !evidenceAutopilotState.reconciling) scheduleEvidenceAutopilotReconciliation();
   return value;
 }
 
@@ -619,6 +626,16 @@ function canonicalPendingWriteState() {
     state: entries.length ? "SYNC_PENDING" : "CURRENT",
     label: entries.length ? `Sync · ${entries.length}` : "Synced"
   };
+}
+
+function canonicalPendingWriteDetail(pending = canonicalPendingWriteState()) {
+  if (!pending.count) return "Account is current.";
+  const first = pending.entries?.[0] || {};
+  const operation = String(first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ").toLowerCase();
+  const queuedAt = Date.parse(first.queuedAt || first.createdAt || first.clientUpdatedAt || "");
+  const ageMinutes = Number.isFinite(queuedAt) ? Math.max(0, Math.floor((Date.now() - queuedAt) / 60000)) : null;
+  const age = ageMinutes === null ? "" : ageMinutes < 1 ? " · queued now" : ` · waiting ${ageMinutes} min`;
+  return `${pending.count} protected change${pending.count === 1 ? "" : "s"} waiting · ${operation}${age}.`;
 }
 
 function currentReliabilityContext() {
@@ -693,6 +710,8 @@ function scheduleAccountTruthQueueDrain() {
 }
 
 function queueAccountTruthWrite(write, error = null) {
+  if (typeof DominionStartupAuthority !== "undefined"
+    && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "account_write")) return readAccountTruthQueue();
   if (!write || typeof DominionAccountTruth === "undefined") return [];
   const envelope = write.snapshot && write.manifest
     ? buildAccountTruthWriteEnvelope(write.manifest, write.snapshot, write.expectedRevision, write)
@@ -757,10 +776,39 @@ function saveJourneyCertificationReceipt(receipt = null) {
 
 function scheduleJourneyCertificationReceipt(report = null) {
   if (!report?.shouldSave || !report?.candidate || journeyContinuitySaveTimer) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
   journeyContinuitySaveTimer = window.setTimeout(() => {
     journeyContinuitySaveTimer = null;
     saveJourneyCertificationReceipt(report.candidate);
   }, 0);
+}
+
+function readCalendarCommitReceipts() {
+  const receipts = readClosedLoopState("HISTORY", "calendar-commit-receipts", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
+function saveCalendarCommitReceipt(receipt = null) {
+  if (!receipt?.id) return [];
+  const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
+  const next = [receipt, ...readCalendarCommitReceipts().filter((item) => item?.id !== receipt.id)]
+    .sort((left, right) => String(right.committedAt || "").localeCompare(String(left.committedAt || "")))
+    .slice(0, limit || 120);
+  saveClosedLoopLocal("HISTORY", "calendar-commit-receipts", next);
+  return next;
+}
+
+function matchingCalendarCommitReceipt(week = null) {
+  if (!week?.weekStart || typeof DominionCalendarCommitAuthority === "undefined") return null;
+  const receipt = DominionCalendarCommitAuthority.latestForWeek(readCalendarCommitReceipts(), week.weekStart);
+  if (!receipt) return null;
+  return DominionCalendarCommitAuthority.matches(receipt, {
+    contractRevision: String(week.contractRevision || readApprovedRecruitContract()?.revision || 0).replace(/^R/i, ""),
+    weekStart: week.weekStart,
+    calendarRevision: Number(week.revision || 0),
+    assignmentIds: DominionCalendarCommitAuthority.assignmentIds(week),
+    accountRevision: receipt.accountRevision
+  }) ? receipt : null;
 }
 
 function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest || buildCurrentContinuityManifest()) {
@@ -779,7 +827,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       closeouts: readDailyCloseoutHistory(),
       missionReceipts: accountTruthMissionEvidence(),
       reconciliationReceipts: readContractReconciliationReceipts(),
-      journeyReceipts: readJourneyCertificationReceipts()
+      journeyReceipts: readJourneyCertificationReceipts(),
+      calendarCommitReceipts: readCalendarCommitReceipts()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -844,6 +893,9 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const journeyReceipts = DominionAccountTruth.mergeCollection(readJourneyCertificationReceipts(), evidence.journeyReceipts, DominionAccountTruth.COLLECTION_LIMITS.journeyReceipts);
     if (DominionAccountTruth.semanticFingerprint(journeyReceipts) !== DominionAccountTruth.semanticFingerprint(readJourneyCertificationReceipts())) restored += 1;
     saveClosedLoopLocal("HISTORY", "journey-certification", journeyReceipts);
+    const calendarCommitReceipts = DominionAccountTruth.mergeCollection(readCalendarCommitReceipts(), evidence.calendarCommitReceipts, DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts);
+    if (DominionAccountTruth.semanticFingerprint(calendarCommitReceipts) !== DominionAccountTruth.semanticFingerprint(readCalendarCommitReceipts())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "calendar-commit-receipts", calendarCommitReceipts);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -893,7 +945,7 @@ function renderAccountTruthHealth() {
   setText("account-truth-program", snapshot?.programFingerprint ? "LOCKED" : "CHECKING");
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
-  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0);
+  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
   const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
@@ -1327,6 +1379,8 @@ function confirmAccountTruthReceipt(receipt, envelope, restored = 0) {
 async function syncDominionAccountTruth(options = {}) {
   if (accountTruthSyncPromise) return accountTruthSyncPromise;
   if (!session?.user?.id || typeof DominionAccountTruth === "undefined" || typeof DominionContinuity === "undefined") return false;
+  if (typeof DominionStartupAuthority !== "undefined"
+    && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, options.reason || (options.force ? "forced" : "scheduled"))) return false;
   accountTruthSyncPromise = (async () => {
     void reportSyncLifecycle("sync_started", { reason: options.reason || (options.force ? "forced" : "scheduled") });
     const localManifest = continuityState.manifest || buildCurrentContinuityManifest();
@@ -1438,6 +1492,8 @@ async function syncDominionAccountTruth(options = {}) {
 }
 
 function scheduleAccountTruthSync(delay = 900) {
+  if (typeof DominionStartupAuthority !== "undefined"
+    && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "scheduled")) return;
   if (accountTruthState.applying || !accountTruthState.initialized) return;
   if (currentExecutionConflicts().some((item) => item.domain === "contract")) {
     accountTruthState = { ...accountTruthState, mode: "CONFLICT_REQUIRES_CHOICE", serverConfirmed: false, lastError: null };
@@ -1706,6 +1762,7 @@ async function reconcileEvidenceAutopilot(options = {}) {
 
 function scheduleEvidenceAutopilotReconciliation(delay = 180) {
   if (typeof window === "undefined" || typeof DominionEvidenceAutopilot === "undefined" || evidenceAutopilotState.reconciling) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
   window.clearTimeout(evidenceAutopilotTimer);
   evidenceAutopilotTimer = window.setTimeout(() => reconcileEvidenceAutopilot({ persist: true }), delay);
 }
@@ -1882,6 +1939,7 @@ async function reconcileDominionCampaign(options = {}) {
 
 function scheduleDominionCampaignReconciliation(delay = 260) {
   if (typeof window === "undefined" || typeof DominionCampaign === "undefined" || dominionCampaignState.reconciling) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
   window.clearTimeout(dominionCampaignTimer);
   dominionCampaignTimer = window.setTimeout(() => reconcileDominionCampaign({ persist: true }), delay);
 }
@@ -2361,8 +2419,9 @@ function renderDominionContinuity() {
   }
   const pendingState = canonicalPendingWriteState();
   setText("continuity-status-label", pendingState.count ? pendingState.label : presentation.label);
-  setText("continuity-status-detail", presentation.detail);
-  setText("continuity-repair-summary", presentation.detail);
+  const canonicalDetail = pendingState.count ? canonicalPendingWriteDetail(pendingState) : presentation.detail;
+  setText("continuity-status-detail", canonicalDetail);
+  setText("continuity-repair-summary", canonicalDetail);
   setText("continuity-lineage-summary", lineage.headline);
   const grid = document.getElementById("continuity-canonical-grid");
   if (grid && manifest) {
@@ -2395,7 +2454,7 @@ function renderDominionContinuity() {
   setText("continuity-pending-detail", pendingWrites
     ? contractConflictExecutionPolicy().blocked
       ? `${pendingWrites} save${pendingWrites === 1 ? " is" : "s are"} protected on this device. Automatic retries are paused until you choose the saved Contract.`
-      : `${pendingWrites} save${pendingWrites === 1 ? " is" : "s are"} protected on this device and will retry automatically.`
+      : canonicalPendingWriteDetail(pendingState)
     : "Every program save reached your account.");
   const syncTime = continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
   setText("continuity-device-label", syncTime ? `Account verified ${syncTime}` : continuityState.accountRevision ? "Account ledger verified" : "Checking account continuity");
@@ -3484,7 +3543,11 @@ function buildStandardsPersistencePayload(item = {}) {
 }
 
 function todayISODate() {
-  return new Date().toLocaleDateString("en-CA");
+  if (typeof DominionOperationalTime === "undefined") return new Date().toLocaleDateString("en-CA");
+  const configuredZone = session?.user?.user_metadata?.time_zone
+    || session?.user?.user_metadata?.timezone
+    || window.localStorage.getItem("coach-dominion:time-zone");
+  return DominionOperationalTime.dateInZone(new Date(), DominionOperationalTime.resolveZone(configuredZone));
 }
 
 const READINESS_EVIDENCE_WEIGHTS = {
@@ -4411,16 +4474,31 @@ function setLoading(isLoading) {
   const content = document.getElementById("app-content");
   const loading = document.getElementById("loading");
   if (content) {
-    content.hidden = false;
+    content.hidden = Boolean(isLoading);
     content.setAttribute("aria-busy", isLoading ? "true" : "false");
   }
   if (loading) loading.hidden = !isLoading;
   document.body.dataset.appLoading = isLoading ? "true" : "false";
 }
 
+function setStartupAuthority(state = startupAuthorityState) {
+  startupAuthorityState = state;
+  const actionable = typeof DominionStartupAuthority === "undefined"
+    ? Boolean(state?.actionable)
+    : DominionStartupAuthority.permitsAction(state);
+  document.body.dataset.startupAuthority = String(state?.phase || "BLOCKED").toLowerCase();
+  document.body.dataset.startupMode = String(state?.mode || "PROTECTED_LOADING").toLowerCase();
+  setText("startup-loading-title", actionable ? "Program restored" : state?.phase === "BLOCKED" ? "Program restore paused" : "Restoring your protected program…");
+  setText("startup-loading-detail", state?.message || "Verifying your account, device copy, calendar, and evidence before anything becomes actionable.");
+  const retry = document.getElementById("startup-retry");
+  if (retry) retry.hidden = state?.phase !== "BLOCKED";
+  setLoading(!actionable);
+  if (actionable && state?.phase === "DEGRADED") setStatus("Offline mode: using your last verified device copy. Account changes are paused.");
+  return state;
+}
+
 function revealMobileShell() {
   if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
-  setLoading(false);
   document.body.dataset.mobileHydration = "progressive";
 }
 
@@ -7872,14 +7950,30 @@ async function commitUnifiedWeekDraft(options = {}) {
   await persistWeeklyOrchestrationState("HISTORY", "current", nextHistory);
   await persistStrengthTrainingState("SCHEDULE", `unified-${approved.weekStart}`, strengthSchedule);
   await clearWeeklyOrchestrationDraft();
+  const calendarCommitReceipt = typeof DominionCalendarCommitAuthority === "undefined" ? null : DominionCalendarCommitAuthority.create({
+    contractRevision: String(approved.contractRevision || contract?.revision || 0).replace(/^R/i, ""),
+    weekStart: approved.weekStart,
+    calendarRevision: Number(approved.revision || 0),
+    assignmentIds: DominionCalendarCommitAuthority.assignmentIds(approved),
+    accountRevision: Number(continuityState.accountRevision || accountTruthState.accountRevision || 0),
+    committedAt: approvedAt
+  });
+  if (calendarCommitReceipt) {
+    const calendarCommitHistory = saveCalendarCommitReceipt(calendarCommitReceipt);
+    await persistClosedLoopState("HISTORY", "calendar-commit-receipts", calendarCommitHistory);
+  }
   const executionReceipt = {
+    ...(calendarCommitReceipt || {}),
     id: `execution-context-${approved.weekStart}-r${approved.revision}`,
-    version: "030C.1",
+    version: "030E.1",
     status: "FUTURE_PROGRAM_COMMITTED",
     committedAt: approvedAt,
-    contractRevision: Number(approved.contractRevision || contract?.revision || 0),
+    contractRevision: String(approved.contractRevision || contract?.revision || 0).replace(/^R/i, ""),
     weekStart: approved.weekStart,
     weekEnd: approved.weekEnd,
+    assignmentIds: calendarCommitReceipt?.assignmentIds || [],
+    contentHash: calendarCommitReceipt?.contentHash || null,
+    accountRevision: calendarCommitReceipt?.accountRevision || Number(continuityState.accountRevision || 0),
     protectedCurrentWeek: readCommittedUnifiedWeek(todayISODate())?.weekStart || null
   };
   const previousExecutionReceipts = readClosedLoopState("HISTORY", "execution-context-commit", []);
@@ -7963,6 +8057,10 @@ function renderWeeklyOrchestrator() {
     : DominionFinalBetaStabilization.weekView({ activeWeek: active, stagedWeek, requested: requestedView });
   const preview = calendarView.week || buildUnifiedWeekDraft(targetWeekStart);
   if (!preview) return;
+  const calendarCommitReceipt = matchingCalendarCommitReceipt(preview);
+  const stagedCommitState = calendarView.mode === "STAGED" && preview.status !== "DRAFT"
+    ? calendarCommitReceipt ? "COMMITTED" : "COMMIT PENDING"
+    : null;
   const autopilot = buildCurrentAtlasWeekAutopilot({ draft: savedDraft, futureWeek: future });
   const displayState = autopilot?.status === "COMMITTED" && preview.atlasAdaptiveWeek?.status === "APPROVED"
     ? "ADAPTED"
@@ -8035,14 +8133,15 @@ function renderWeeklyOrchestrator() {
     ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
     ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "calendar")}
     ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
-    <div class="weekly-orchestrator-controls"><label>${calendarView.mode === "ACTIVE" ? "Active week" : "Staged week"}<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}" ${calendarView.mode === "ACTIVE" ? "readonly" : ""}></label><div><span>State</span><strong>${calendarView.mode === "ACTIVE" ? "Active · protected" : "Next · editable"}</strong></div></div>
+    <div class="weekly-orchestrator-controls"><label>${calendarView.mode === "ACTIVE" ? "Active week" : "Staged week"}<input id="weekly-orchestrator-week-start" type="date" value="${escapeHtml(preview.weekStart)}" ${calendarView.mode === "ACTIVE" ? "readonly" : ""}></label><div><span>State</span><strong>${calendarView.mode === "ACTIVE" ? "Active · protected" : stagedCommitState || "Next · editable"}</strong></div></div>
+    ${calendarCommitReceipt ? `<article class="calendar-commit-receipt"><span>WEEK COMMIT</span><strong>Contract R${escapeHtml(String(calendarCommitReceipt.contractRevision))} · Calendar R${escapeHtml(String(calendarCommitReceipt.calendarRevision))}</strong><small>${calendarCommitReceipt.assignmentIds.length} assignments · ${escapeHtml(calendarCommitReceipt.contentHash)}</small></article>` : ""}
     <div class="weekly-orchestrator-module-grid">${modules}</div>
     <div class="weekly-orchestrator-summary"><div><span>Training days</span><strong>${preview.trainingDays}</strong></div><div><span>Recovery days</span><strong>${preview.recoveryDays}</strong></div><div><span>Two-a-Days</span><strong>${preview.twoADaysEnabled ? `${preview.twoADayCount || 0} SCHEDULED` : "OFF"}</strong></div><div class="${blocking.length ? "has-blockers" : ""}"><span>Blockers</span><strong>${preview.blockingConflictCount || 0}</strong></div><div><span>Coaching notes</span><strong>${preview.advisoryCount || 0}</strong></div></div>
     ${!preview.twoADaysEnabled && preview.days?.some((day) => day.twoADayAuthorizationRequired) ? `<div class="weekly-orchestrator-alert"><strong>Two-a-Days are off in the signed Contract.</strong><p>These stacked days exceed 120 minutes, but they cannot become AM/PM Two-a-Days until you deliberately amend and re-sign the Contract.</p><button type="button" class="ghost" data-weekly-orchestrator-action="amend-two-a-days">Review Two-a-Days</button></div>` : ""}
     ${blocking.length ? `<section id="calendar-blockers" class="calendar-blockers" aria-labelledby="calendar-blockers-heading"><header><div><span class="kicker">COMMITMENT BLOCKED</span><strong id="calendar-blockers-heading">${atlasRepairableBlockers.length ? "Atlas can complete the program" : `Clear ${blocking.length} blocker${blocking.length === 1 ? "" : "s"}`}</strong></div><span>${blocking.length}</span></header>${atlasRepairableBlockers.length ? `<button type="button" class="calendar-repair-primary" data-weekly-orchestrator-action="repair-program">Complete my program</button>` : ""}<div>${blocking.map((item) => { const meta = weeklyOrchestrationBlockerMeta(item); return `<article><div><span>${escapeHtml(meta.label)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span><p>${escapeHtml(item.detail)}</p></div>${atlasRepairableBlockers.includes(item) ? `<small>Atlas repair</small>` : `<a href="#${escapeHtml(meta.section)}" data-section="${escapeHtml(meta.section)}">${escapeHtml(meta.action)}</a>`}</article>`; }).join("")}</div></section>` : ""}
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
-    <div class="weekly-orchestrator-actions"><p>${calendarView.mode === "ACTIVE" ? "This is the week Today executes. Build or edit the staged week without changing it." : escapeHtml(preview.message || "Review the complete week before commitment.")}${calendarView.mode === "STAGED" && existingSameWeek && savedDraft ? " This will create a deliberate same-week revision." : ""}</p><div>${calendarView.mode === "STAGED" && savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
+    <div class="weekly-orchestrator-actions"><p>${calendarView.mode === "ACTIVE" ? "This is the week Today executes. Build or edit the staged week without changing it." : escapeHtml(preview.message || "Review the complete week before commitment.")}${calendarView.mode === "STAGED" && existingSameWeek && savedDraft ? " This creates a future-week revision; the current week stays protected." : ""}</p><div>${calendarView.mode === "STAGED" && savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
 }
 
 function buildCurrentExecutionContext(value = todayISODate()) {
@@ -9125,7 +9224,7 @@ function renderMissionExecution() {
   panel.innerHTML = `<div class="mission-progress"><span style="width:${model.percent}%"></span></div>
     <div class="mission-window-grid">${windows || `<article class="mission-window ready"><header><span>TODAY</span><strong>NO ORDER</strong></header></article>`}</div>
     ${player}
-    <footer class="mission-evidence-strip"><div><span>Session evidence</span><strong>${model.completed}/${model.total || 0} secured</strong></div><div><span>Debriefs</span><strong>${debriefs.length}</strong></div><small>Execution, recovery, safety, and Atlas evidence reconcile here once.</small></footer>`;
+    <footer class="mission-evidence-strip"><div><span>Assignments verified</span><strong>${model.completed} of ${model.total || 0}</strong></div><div><span>Debriefs</span><strong>${debriefs.length}</strong></div><small>Execution, recovery, safety, and Atlas evidence reconcile here once.</small></footer>`;
   startStrengthRestCountdown();
 }
 
@@ -9172,6 +9271,7 @@ async function startMissionSession(module = "STRENGTH") {
     const plan = readApprovedRunningPlan();
     const execution = {
       ...DominionMissionExecution.startRunningExecution(prescription, readRunningExecution(), new Date().toISOString()),
+      assignmentId: currentRunningCalendarAssignment()?.assignmentId || prescription.session.id || null,
       blockId: plan?.blockId || null,
       blockRevision: plan?.blockRevision || null,
       weekStart: plan?.weekStart || null
@@ -9194,7 +9294,10 @@ async function resumeMissionSession(module = "STRENGTH") {
     const execution = DominionStrengthTraining.resumeWorkout(readDailyAssignmentExecution(), new Date().toISOString());
     await saveDailyAssignmentExecution(execution);
   } else if (code === "RUNNING") {
-    const execution = DominionMissionExecution.resumeRunningExecution(readRunningExecution() || {}, new Date().toISOString());
+    const execution = {
+      ...DominionMissionExecution.resumeRunningExecution(readRunningExecution() || {}, new Date().toISOString()),
+      assignmentId: readRunningExecution()?.assignmentId || currentRunningCalendarAssignment()?.assignmentId || null
+    };
     window.localStorage.setItem(runningExecutionStorageKey(), JSON.stringify(execution));
     await persistRunningState("EXECUTION", todayISODate(), execution);
   }
@@ -9746,6 +9849,9 @@ function buildCurrentCampaignCommissioning(overrides = {}) {
     : false;
   const orientation = contract ? currentRecruitOrientation(contract) : null;
   const programReceipt = overrides.programReceipt || readAtlasProgramReceipt();
+  const committedWeek = campaignCommissioningWeek(programReceipt);
+  const currentWeekLegacy = committedWeek?.weekStart && committedWeek.weekStart <= todayISODate();
+  const calendarCommitReceipt = matchingCalendarCommitReceipt(committedWeek);
   let programPackage = overrides.programPackage || null;
   let preflight = overrides.preflight || null;
   const receiptMatches = contract && DominionCampaignCommissioning.programActive(programReceipt, contract);
@@ -9767,7 +9873,8 @@ function buildCurrentCampaignCommissioning(overrides = {}) {
     programPackage,
     preflight,
     programReceipt,
-    committedWeek: campaignCommissioningWeek(programReceipt),
+    committedWeek: committedWeek && (currentWeekLegacy || calendarCommitReceipt) ? committedWeek : null,
+    calendarCommitReceipt,
     receipt: overrides.receipt || readCampaignCommissioningReceipt(),
     baseline: campaignCommissioningBaseline()
   });
@@ -9807,7 +9914,6 @@ function renderCampaignCommissioning(model = buildCurrentCampaignCommissioning()
   const progress = document.getElementById("campaign-commissioning-progress");
   const steps = document.getElementById("campaign-commissioning-steps");
   if (!root || !panel || !badge || !steps || !model) return null;
-  ensureCampaignCommissioningReceipt(model);
   root.dataset.commissioningTone = model.tone || "neutral";
   badge.textContent = model.status === "READY_TO_LAUNCH" ? "READY" : model.status.replaceAll("_", " ");
   badge.className = `state-pill ${campaignCommissioningTone(model.status)}`;
@@ -12886,11 +12992,41 @@ function todayQuickLogValues() {
   return form ? Object.fromEntries(new FormData(form).entries()) : {};
 }
 
+function currentRunningCalendarAssignment(date = todayISODate()) {
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const activity = readEffectiveUnifiedDay(targetDate)?.activities?.find((item) => {
+    const module = String(item?.module || item?.domain || "").toUpperCase();
+    const type = String(item?.type || item?.status || "").toUpperCase();
+    return module === "RUNNING" && !["REST", "REST_DAY", "PAIN_HOLD"].includes(type);
+  });
+  const prescription = targetDate === todayISODate() ? currentRunningPrescription() : null;
+  const source = activity || null;
+  if (!source) return null;
+  const assignmentId = String(source.assignmentId || source.assignment_id || source.id || source.sessionId || "").trim();
+  if (!assignmentId) return null;
+  return {
+    ...source,
+    id: assignmentId,
+    assignmentId,
+    date: targetDate,
+    module: "RUNNING",
+    title: source.title || prescription?.session?.title || source.type || "Run"
+  };
+}
+
+function currentRunningAssignmentState(date = todayISODate()) {
+  if (typeof DominionAssignmentEvidenceState === "undefined") return null;
+  const assignment = currentRunningCalendarAssignment(date);
+  if (!assignment) return null;
+  return DominionAssignmentEvidenceState.resolve({
+    assignment,
+    execution: date === todayISODate() ? readRunningExecution() : null,
+    evidence: performanceEntries
+  });
+}
+
 function todayQuickLogExistingRun() {
-  return performanceEntries.find((entry) => {
-    const date = String(entry?.performanceDate || entry?.performance_date || "").slice(0, 10);
-    return date === todayISODate() && String(entry?.domain || "").toLowerCase() === "running";
-  }) || null;
+  return currentRunningAssignmentState()?.evidence?.[0] || null;
 }
 
 function todayQuickLogState(dashboard = currentFrictionlessExecution()) {
@@ -12902,7 +13038,7 @@ function todayQuickLogState(dashboard = currentFrictionlessExecution()) {
     workoutApplicable: workoutItems.length > 0,
     workoutComplete,
     runApplicable: Boolean(byId.running?.applicable),
-    runComplete: Boolean(byId.running?.complete || todayQuickLogExistingRun()),
+    runComplete: Boolean(currentRunningAssignmentState()?.complete),
     fuelComplete: Boolean(byId.fuel?.complete),
     closeoutComplete: Boolean(byId.closeout?.complete)
   });
@@ -12956,7 +13092,7 @@ function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
   const model = todayQuickLogState(dashboard);
   if (!model) return;
   root.dataset.quickLogState = model.completed === model.total ? "COMPLETE" : "READY";
-  setText("frictionless-execution-progress", `${model.completed} of ${model.total} logged`);
+  setText("frictionless-execution-progress", `Entries saved: ${model.completed} of ${model.total}`);
   const active = model.activeTraining;
   resume.hidden = !active;
   if (active) {
@@ -12966,10 +13102,11 @@ function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
     resume.dataset.executionModule = "";
     resume.textContent = "";
   }
-  const runComplete = Boolean(model.byId.running?.complete || todayQuickLogExistingRun());
+  const runningTruth = currentRunningAssignmentState();
+  const runComplete = Boolean(runningTruth?.complete);
   const fuelComplete = Boolean(model.byId.fuel?.complete);
   const closeoutComplete = Boolean(model.byId.closeout?.complete);
-  setText("today-quick-run-state", runComplete ? "LOGGED" : model.byId.running?.applicable ? "PLANNED" : "OPTIONAL");
+  setText("today-quick-run-state", runComplete ? "LOGGED" : runningTruth?.state === "in_progress" ? "IN PROGRESS" : runningTruth?.state === "draft_evidence" ? "FINISH LOG" : model.byId.running?.applicable ? "PLANNED" : "OPTIONAL");
   setText("today-quick-fuel-state", fuelComplete ? "LOGGED" : model.byId.fuel?.draft ? "DRAFT" : "OPEN");
   setText("today-quick-close-state", closeoutComplete ? "SEALED" : model.closeoutReady ? "READY" : "LOCKED");
   setText("today-quick-close-note", closeoutComplete
@@ -12978,12 +13115,22 @@ function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
       ? "Steps will seal today’s closeout."
       : "Steps save as a draft until today is ready to close.");
   const runFieldset = form.querySelector(".today-quick-log-run");
+  const fuelFieldset = form.querySelector(".today-quick-log-fuel");
   const closeFieldset = form.querySelector(".today-quick-log-close");
   if (runFieldset) {
-    runFieldset.hidden = !model.byId.running?.applicable;
+    runFieldset.hidden = !model.byId.running?.applicable || runComplete;
     runFieldset.disabled = runComplete;
   }
-  if (closeFieldset) closeFieldset.disabled = closeoutComplete;
+  if (fuelFieldset) {
+    fuelFieldset.hidden = fuelComplete;
+    fuelFieldset.disabled = fuelComplete;
+  }
+  if (closeFieldset) {
+    closeFieldset.hidden = closeoutComplete;
+    closeFieldset.disabled = closeoutComplete;
+  }
+  const saveButton = document.getElementById("today-quick-log-save");
+  if (saveButton) saveButton.hidden = model.completed === model.total;
   prefillTodayQuickLog();
 }
 
@@ -13054,7 +13201,8 @@ async function submitTodayQuickLog(event) {
         hours: validation.run.hours,
         minutes: validation.run.minutes,
         seconds: validation.run.seconds,
-        countTowardToday: Boolean(state?.byId.running?.applicable && !todayQuickLogExistingRun())
+        countTowardToday: Boolean(state?.byId.running?.applicable && !todayQuickLogExistingRun()),
+        assignmentId: currentRunningCalendarAssignment()?.assignmentId || null
       };
       const createdAt = readFrictionlessExecutionEnvelope().drafts?.running?.updatedAt || new Date().toISOString();
       const manualValidation = DominionManualRun.validate(input, { today: todayISODate() });
@@ -13420,7 +13568,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030d", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030e", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -16406,7 +16554,8 @@ function buildCurrentClosedLoopInput() {
   const manualNutrition = typeof readManualNutrition === "function" ? readManualNutrition(date) : null;
   const performanceToday = performanceEntries.filter((entry) => entry.performanceDate === date);
   const strengthEvidence = performanceToday.filter((entry) => entry.domain === "strength");
-  const runningEvidence = performanceToday.filter((entry) => entry.domain === "running");
+  const runningAssignmentTruth = currentRunningAssignmentState(date);
+  const runningEvidence = runningAssignmentTruth?.evidence || [];
   const coreEvidence = performanceToday.filter((entry) => entry.domain === "core");
   const recordSaved = Boolean(dailyCompliance?.compliance_date === date);
   const recoveryRequired = true;
@@ -16418,8 +16567,7 @@ function buildCurrentClosedLoopInput() {
   const trainingComplete = assignment?.fitbod?.state === "COMPLETE"
     || assignmentExecution.state === "COMPLETE"
     || (trainingPlanned && strengthEvidence.length > 0);
-  const runningComplete = runningExecution?.state === "COMPLETE"
-    || (runningPlanned && runningEvidence.length > 0);
+  const runningComplete = Boolean(runningPlanned && runningAssignmentTruth?.complete);
   const coreComplete = coreExecution?.state === "COMPLETE"
     || (corePlanned && coreEvidence.length > 0);
   const fuelingComplete = Boolean(fuelingPlanned && (nutritionDay || manualNutrition?.date === date));
@@ -17758,9 +17906,13 @@ function renderRunningCommand(entries = performanceEntries) {
 async function applyManualRunToToday(run = {}, entry = {}) {
   if (run.performanceDate !== todayISODate() || !run.countTowardToday) return { applied: false, reason: "EVIDENCE_ONLY" };
   if (typeof DominionMissionExecution === "undefined") return { applied: false, reason: "EXECUTION_UNAVAILABLE" };
+  if (typeof DominionAssignmentEvidenceState !== "undefined" && !DominionAssignmentEvidenceState.validRunEvidence(entry)) return { applied: false, reason: "INCOMPLETE_EVIDENCE" };
+  const calendarAssignment = currentRunningCalendarAssignment();
+  if (!calendarAssignment?.assignmentId || String(run.assignmentId || "") !== calendarAssignment.assignmentId) return { applied: false, reason: "UNLINKED_ASSIGNMENT" };
   const prescription = currentRunningPrescription();
   if (!prescription?.session || ["REST_DAY", "PAIN_HOLD"].includes(prescription.status)) return { applied: false, reason: "NO_ASSIGNMENT" };
   const existing = readRunningExecution();
+  if (existing?.assignmentId && existing.assignmentId !== calendarAssignment.assignmentId) return { applied: false, reason: "ASSIGNMENT_MISMATCH" };
   if (["COMPLETE", "PARTIAL", "STOPPED", "PAIN_HOLD"].includes(existing?.state)) return { applied: false, reason: "ALREADY_CLOSED" };
   const completedAt = new Date().toISOString();
   const startedAt = new Date(Date.parse(completedAt) - (Number(run.durationSeconds || 0) * 1000)).toISOString();
@@ -17775,6 +17927,7 @@ async function applyManualRunToToday(run = {}, entry = {}) {
   const verdict = typeof DominionRunningVerdict === "undefined" ? null : DominionRunningVerdict.buildVerdict(prescription, actual, execution);
   execution = {
     ...(verdict ? DominionRunningVerdict.applyActual(execution, actual, verdict, completedAt) : execution),
+    assignmentId: calendarAssignment.assignmentId,
     manualEntryId: entry.id,
     evidenceSource: "MANUAL_RUN_FORM",
     updatedAt: completedAt
@@ -22378,14 +22531,98 @@ async function runStartupTask(label, task, issues = []) {
     console.info(`[startup:${label}] Optional surface used protected local state.`, {
       message: error?.message || "Unknown startup error"
     });
-    void reportSyncLifecycle("startup_recovery", { surface: label, code: error?.code || "LOCAL_FALLBACK" });
+    if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "startup_recovery")) {
+      void reportSyncLifecycle("startup_recovery", { surface: label, code: error?.code || "LOCAL_FALLBACK" });
+    }
     return null;
   }
 }
 
+async function readStartupAccountLedger() {
+  if (typeof DominionStartupAuthority !== "undefined") {
+    startupAuthorityState = DominionStartupAuthority.transition(startupAuthorityState, DominionStartupAuthority.PHASES.ACCOUNT_LOADING);
+    setStartupAuthority(startupAuthorityState);
+  }
+  try {
+    startupAccountLedger = navigator.onLine === false ? null : await loadAccountTruthLedger();
+    startupAccountError = navigator.onLine === false ? Object.assign(new Error("Account unavailable while offline."), { code: "OFFLINE" }) : null;
+  } catch (error) {
+    startupAccountLedger = null;
+    startupAccountError = error;
+  }
+  return startupAccountLedger;
+}
+
+function reconcileStartupAccountState() {
+  if (typeof DominionStartupAuthority === "undefined" || typeof DominionAccountTruth === "undefined") {
+    return { phase: "READY", actionable: true, validated: true, readOnly: false, mode: "AUTHORITATIVE", message: "Your protected program is ready." };
+  }
+  const verifiedDeviceSnapshot = readAccountTruthLocalSnapshot();
+  const localManifest = startupAccountLedger?.manifest || continuityState.manifest || buildCurrentContinuityManifest();
+  const currentDeviceSnapshot = buildCurrentAccountTruthSnapshot(localManifest);
+  const accountSnapshot = startupAccountLedger?.truth_snapshot || null;
+  startupAuthorityState = DominionStartupAuthority.transition(startupAuthorityState, DominionStartupAuthority.PHASES.RECONCILING, {
+    accountAvailable: !startupAccountError,
+    deviceVerified: Boolean(verifiedDeviceSnapshot?.fingerprint)
+  });
+  let reconciledSnapshot = null;
+  if (!startupAccountError) {
+    reconciledSnapshot = accountSnapshot
+      ? DominionAccountTruth.reconcileSnapshots(currentDeviceSnapshot, accountSnapshot, {
+        userId: session?.user?.id || null,
+        deviceId: continuityDeviceId(),
+        programFingerprint: localManifest?.fingerprint || null
+      }).snapshot
+      : currentDeviceSnapshot;
+  } else if (verifiedDeviceSnapshot?.fingerprint) {
+    reconciledSnapshot = verifiedDeviceSnapshot;
+  }
+  if (reconciledSnapshot?.fingerprint) {
+    applyAccountTruthSnapshot(reconciledSnapshot);
+    saveAccountTruthLocalSnapshot(reconciledSnapshot);
+  }
+  if (!startupAccountError) {
+    continuityState.accountRevision = Number(startupAccountLedger?.revision || continuityState.accountRevision || 0);
+    continuityState.accountManifest = startupAccountLedger?.manifest || continuityState.accountManifest;
+    accountTruthState = {
+      ...accountTruthState,
+      mode: accountSnapshot?.fingerprint === reconciledSnapshot?.fingerprint ? "VERIFIED" : "RECONCILED_READ_ONLY",
+      initialized: true,
+      accountRevision: continuityState.accountRevision,
+      truthSchemaVersion: Number(startupAccountLedger?.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION || 0),
+      snapshot: reconciledSnapshot,
+      accountSnapshot,
+      pendingWrites: canonicalPendingWriteState().count,
+      lastVerifiedAt: startupAccountLedger?.last_acknowledged_at || startupAccountLedger?.last_verified_at || startupAccountLedger?.updated_at || null,
+      serverConfirmed: Boolean(accountSnapshot?.fingerprint && accountSnapshot.fingerprint === reconciledSnapshot?.fingerprint),
+      lastError: null
+    };
+  } else {
+    accountTruthState = {
+      ...accountTruthState,
+      mode: reconciledSnapshot ? "OFFLINE_VERIFIED_DEVICE" : "RESTORE_BLOCKED",
+      initialized: Boolean(reconciledSnapshot),
+      snapshot: reconciledSnapshot,
+      accountSnapshot: null,
+      serverConfirmed: false,
+      lastError: startupAccountError?.message || "Account restore unavailable"
+    };
+  }
+  startupAuthorityState = DominionStartupAuthority.transition(startupAuthorityState, DominionStartupAuthority.PHASES.VALIDATING);
+  return DominionStartupAuthority.reconcile({
+    accountAvailable: !startupAccountError,
+    accountSnapshot: accountSnapshot || currentDeviceSnapshot,
+    deviceSnapshot: verifiedDeviceSnapshot,
+    deviceVerified: Boolean(verifiedDeviceSnapshot?.fingerprint),
+    reconciledSnapshot,
+    validation: { valid: Boolean(reconciledSnapshot?.fingerprint) },
+    errorCode: startupAccountError?.code || "ACCOUNT_UNAVAILABLE"
+  });
+}
+
 async function init() {
   try {
-    setLoading(true);
+    setStartupAuthority(startupAuthorityState);
     applyProductPolish();
     const supabase = await getClient();
     const { data, error } = await supabase.auth.getSession();
@@ -22402,6 +22639,7 @@ async function init() {
       document.body.dataset.accountEntitled = access.entitled ? "true" : "false";
     }
     setText("identity", "Signed in as " + session.user.email);
+    await readStartupAccountLedger();
     const startupIssues = [];
     await runStartupTask("preferences", async () => {
       loadTrendPreferences();
@@ -22411,7 +22649,6 @@ async function init() {
       organizeWorkspaceSections();
       restoreSectionFromHash();
     }, startupIssues);
-    await runStartupTask("pending mobile writes", flushMobilePendingWrites, startupIssues);
     await runStartupTask("daily state", loadDailyState, startupIssues);
     await runStartupTask("command feed", async () => {
       try { await loadCommandFeed(); }
@@ -22432,22 +22669,12 @@ async function init() {
     await runStartupTask("progress photos", loadBodyProgressPhotos, startupIssues);
     await runStartupTask("Strength", loadStrengthTrainingState, startupIssues);
     await runStartupTask("Calendar", loadWeeklyOrchestrationState, startupIssues);
-    await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
-    await runStartupTask("Connected Evidence", () => reconcileConnectedEvidence({ persist: true, render: true }), startupIssues);
-    await runStartupTask("evidence autopilot", () => reconcileEvidenceAutopilot({ persist: true }), startupIssues);
-    await runStartupTask("Campaign", () => reconcileDominionCampaign({ persist: true }), startupIssues);
+    await runStartupTask("Connected Evidence", () => reconcileConnectedEvidence({ persist: false, render: false }), startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
-    await runStartupTask("saved program writes", flushContinuityPendingWrites, startupIssues);
-    await runStartupTask("account save", () => syncDominionAccountTruth({ reason: "startup" }), startupIssues);
-    await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: true }), startupIssues);
-    await runStartupTask("Atlas adaptive week", runAtlasAdaptiveWeek, startupIssues);
-    await runStartupTask("Atlas week autopilot", runAtlasWeekAutopilot, startupIssues);
-    await runStartupTask("Atlas adaptive horizon", runAtlasAdaptiveHorizon, startupIssues);
-    await runStartupTask("Atlas adaptation outcomes", runAtlasAdaptationOutcomes, startupIssues);
-    await runStartupTask("Recovery Command", runRecoveryCommand, startupIssues);
-    await runStartupTask("Campaign Verdict", () => reconcileCampaignVerdict({ persist: true }), startupIssues);
+    await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: false }), startupIssues);
+    const authoritativeStartup = reconcileStartupAccountState();
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
@@ -22472,7 +22699,11 @@ async function init() {
       const truth = buildCurrentOperatingTruth();
       if (truth) renderOneCommand(truth);
     }, startupIssues);
-    await runStartupTask("account health", () => runTrustLayer({ repair: true, startupIssues }), startupIssues);
+    await runStartupTask("account health", () => {
+      const report = buildCurrentTrustLayerReport({ startupIssues });
+      renderTrustLayerHealth(report);
+      return report;
+    }, startupIssues);
     document.body.dataset.mobileHydration = "ready";
     document.body.dataset.startupRecovery = startupIssues.length ? "recovered" : "clean";
     document.body.dataset.startupRecoveryCount = String(startupIssues.length);
@@ -22481,15 +22712,26 @@ async function init() {
         surfaces: startupIssues.map((issue) => issue.label)
       });
     }
-    setStatus("");
+    setStartupAuthority(authoritativeStartup);
+    if (authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY) {
+      const activatedCommand = await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
+      if (activatedCommand?.appliedAt) renderPlanCommandSurfaces();
+    }
+    if (authoritativeStartup.phase !== DominionStartupAuthority.PHASES.DEGRADED) setStatus("");
   } catch (error) {
     console.info("[startup:account-fallback] Account connection unavailable; local state remains protected.", { code: error?.code || "ACCOUNT_UNAVAILABLE" });
-    setStatus("Account connection is temporarily unavailable. Your saved work remains protected.");
+    const blocked = typeof DominionStartupAuthority === "undefined"
+      ? { phase: "BLOCKED", actionable: false, validated: false, message: "Your protected program could not be restored yet." }
+      : DominionStartupAuthority.transition(startupAuthorityState, DominionStartupAuthority.PHASES.BLOCKED, {
+        errorCode: error?.code || "STARTUP_FAILED",
+        message: "Your protected program could not be restored yet. Nothing was changed."
+      });
+    setStartupAuthority(blocked);
+    setStatus("Restore paused. Nothing was changed.");
   } finally {
-    setLoading(false);
     renderDominionExperienceShell();
     applyProductPolish();
-    scheduleOperatingTruthReconciliation();
+    if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) scheduleOperatingTruthReconciliation();
   }
 }
 
@@ -22549,6 +22791,13 @@ if (typeof document !== "undefined") {
     setText("continuity-repair-summary", "Mission protected. Compare the saved Contract copies before starting or changing plan-derived work.");
   }, true);
   document.addEventListener("click", async (event) => {
+    const startupAction = event.target.closest("[data-startup-action]");
+    if (startupAction) {
+      event.preventDefault();
+      startupAction.disabled = true;
+      window.location.reload();
+      return;
+    }
     const trustAction = event.target.closest("[data-trust-action]");
     if (trustAction) {
       event.preventDefault();
@@ -24418,7 +24667,12 @@ if (typeof document !== "undefined") {
       event.preventDefault();
       const button = document.getElementById("manual-run-submit");
       const formData = new FormData(event.target);
-      const input = { ...Object.fromEntries(formData.entries()), countTowardToday: formData.has("countTowardToday") };
+      const countTowardToday = formData.has("countTowardToday");
+      const input = {
+        ...Object.fromEntries(formData.entries()),
+        countTowardToday,
+        assignmentId: countTowardToday ? currentRunningCalendarAssignment()?.assignmentId || null : null
+      };
       const validation = typeof DominionManualRun !== "undefined"
         ? DominionManualRun.validate(input, { today: todayISODate() })
         : { valid: false, errors: [{ message: "Manual run capture is temporarily unavailable." }] };
@@ -26172,7 +26426,7 @@ function renderRankSection() {
   const judgment = DominionWeeklyAdvancement.buildWeeklyJudgment({ inspection: weeklyInspection || {}, eligibility, standards: standardsReviewState, currentRank, nextRank: nextRank?.displayName || null });
   setText("rank-current", currentRank);
   setText("rank-next", nextRank?.displayName || "—");
-  setText("weekly-advancement-percent", `${judgment.promotionProgress}%`);
+  setText("weekly-advancement-percent", `${judgment.promotionConditions?.passed || 0} of ${judgment.promotionConditions?.total || judgment.gates.length} conditions met`);
   setText("weekly-advancement-detail", judgment.primaryBlocker ? `${judgment.primaryBlocker} is the first gate between you and ${nextRank?.displayName || "the next rank"}.` : nextRank ? `Every gate for ${nextRank.displayName} is complete.` : "Highest rank secured.");
   const meter = document.getElementById("weekly-advancement-meter");
   if (meter) meter.style.width = `${judgment.promotionProgress}%`;
@@ -26182,7 +26436,7 @@ function renderRankSection() {
     rankStateBadge.className = `state-pill ${eligibility.status === "ELIGIBLE" ? "green" : eligibility.status === "PROGRESSING" ? "yellow" : eligibility.status === "BLOCKED" || eligibility.status === "CORRECTIVE PERIOD" ? "red" : "neutral"}`;
   }
   const requirements = document.getElementById("rank-requirements");
-  if (requirements) requirements.innerHTML = judgment.gates.map((gate) => `<article class="${gate.passed ? "passed" : "open"}"><i aria-hidden="true"></i><div><strong>${escapeHtml(gate.label)}</strong><small>${gate.passed ? "Secured" : `${gate.progress}% complete`}</small></div></article>`).join("");
+  if (requirements) requirements.innerHTML = judgment.gates.map((gate) => `<article class="${gate.passed ? "passed" : "open"}"><i aria-hidden="true"></i><div><strong>${escapeHtml(gate.label)}</strong><small>${gate.passed ? "Secured" : `${gate.passedCount || 0} of ${gate.totalCount || 0} conditions met`}</small></div></article>`).join("");
   const blockers = document.getElementById("rank-blockers");
   if (blockers) blockers.innerHTML = eligibility.blockers.length ? `<strong>What remains</strong><ul>${eligibility.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : '<strong>No promotion blockers remain.</strong>';
   const history = document.getElementById("rank-history");

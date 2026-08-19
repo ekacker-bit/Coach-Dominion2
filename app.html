@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
-  <meta name="coach-dominion-release" content="030D.1">
+  <meta name="coach-dominion-release" content="030E.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,10 +15,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body data-brand-system="021A">
+<body data-brand-system="021A" data-app-loading="true" data-startup-authority="authenticating" data-startup-mode="protected_loading">
   <a class="skip-link" href="#app-content">Skip to main workspace</a>
   <main class="war-room-shell" data-product-shell="019B">
     <header class="command-header">
@@ -98,7 +98,12 @@
     </section>
 
     <p class="status" id="status"></p>
-    <p class="muted loading" id="loading">Loading today's Daily State…</p>
+    <section class="startup-restore" id="loading" role="status" aria-live="polite">
+      <span class="startup-restore-mark" aria-hidden="true"></span>
+      <strong id="startup-loading-title">Restoring your protected program…</strong>
+      <p id="startup-loading-detail">Verifying your account, device copy, calendar, and evidence before anything becomes actionable.</p>
+      <button id="startup-retry" type="button" class="ghost" data-startup-action="retry" hidden>Retry restore</button>
+    </section>
 
     <dialog id="continuity-repair-dialog" class="continuity-repair-dialog" aria-labelledby="continuity-repair-heading">
       <!-- Program continuity -->
@@ -2452,7 +2457,7 @@
 <script src="/assets/js/recovery.js"></script>
 <script src="/assets/js/daily-coaching.js"></script>
 <script src="/assets/js/daily-assignment.js"></script>
-<script src="/assets/js/readiness-baselines.js?v=030c"></script>
+<script src="/assets/js/readiness-baselines.js?v=030e"></script>
 <script src="/assets/js/weekly-plan.js"></script>
 <script src="/assets/js/nutrition-command.js"></script>
 <script src="/assets/js/adaptive-fueling.js"></script>
@@ -2493,7 +2498,7 @@
 <script src="/assets/js/atlas-adaptive-week.js?v=025a2"></script>
 <script src="/assets/js/atlas-week-autopilot.js?v=024n"></script>
 <script src="/assets/js/mission-execution.js?v=025b"></script>
-<script src="/assets/js/manual-run.js?v=025q"></script>
+<script src="/assets/js/manual-run.js?v=030e"></script>
 <script src="/assets/js/running-verdict.js?v=025r"></script>
 <script src="/assets/js/running-progression.js?v=025s"></script>
 <script src="/assets/js/fuel-execution.js?v=025t"></script>
@@ -2531,17 +2536,21 @@
 <script src="/assets/js/atlas-live-adaptation.js?v=026c-029g"></script>
 <script src="/assets/js/atlas-adaptive-horizon.js?v=026g"></script>
 <script src="/assets/js/atlas-adaptation-outcomes.js?v=026h"></script>
-<script src="/assets/js/weekly-advancement.js?v=026d-030c"></script>
+<script src="/assets/js/weekly-advancement.js?v=026d-030c-030e"></script>
 <script src="/assets/js/unified-blocker-resolution.js?v=025p-029n"></script>
 <script src="/assets/js/dominion-continuity.js?v=025n"></script>
 <script src="/assets/js/contract-reconciliation.js?v=029n"></script>
-<script src="/assets/js/dominion-account-truth.js?v=026i-029n-030d"></script>
-<script src="/assets/js/account-persistence.js?v=029c-029g-029n-030c"></script>
+<script src="/assets/js/dominion-account-truth.js?v=026i-029n-030d-030e"></script>
+<script src="/assets/js/account-persistence.js?v=029c-029g-029n-030c-030e"></script>
 <script src="/assets/js/command-first-today.js?v=029d"></script>
 <script src="/assets/js/trust-layer.js?v=028a-029l"></script>
 <script src="/assets/js/beta-readiness-gate.js?v=029h"></script>
 <script src="/assets/js/beta-journey-certification.js?v=029o-030a-030d"></script>
 <script src="/assets/js/journey-continuity.js?v=030d"></script>
+<script src="/assets/js/startup-authority.js?v=030e"></script>
+<script src="/assets/js/assignment-evidence-state.js?v=030e"></script>
+<script src="/assets/js/calendar-commit-authority.js?v=030e"></script>
+<script src="/assets/js/operational-time.js?v=030e"></script>
 <script src="/assets/js/frictionless-execution.js?v=028b"></script>
 <script src="/assets/js/today-quick-log.js?v=030b"></script>
 <script src="/assets/js/account-entry.js?v=029a"></script>
@@ -2553,6 +2562,6 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e"></script>
 </body>
 </html>

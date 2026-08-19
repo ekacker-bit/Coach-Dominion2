@@ -12359,10 +12359,52 @@ body[data-daily-decision-status="FAILED"] #one-command { border-color: rgba(176,
 .connected-source-freshness [data-connection-state="DEMO"],
 .connected-source-freshness [data-connection-state="COMING_SOON"] { box-shadow: inset 0 3px 0 var(--dim); }
 
+body[data-app-loading="true"] .command-header,
+body[data-app-loading="true"] .mission-rail,
+body[data-app-loading="true"] .status-bar,
+body[data-app-loading="true"] #status,
 body[data-app-loading="true"] #mobile-command-dock,
-body[data-app-loading="true"] .command-header { opacity: 1; }
-body[data-app-loading="true"] #one-command,
-body[data-app-loading="true"] #daily-decision-support { min-height: 118px; }
+body[data-app-loading="true"] #app-content { display: none !important; }
+
+.startup-restore {
+  width: min(560px, calc(100% - 32px));
+  min-height: 250px;
+  margin: clamp(56px, 16vh, 150px) auto;
+  padding: 42px 32px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  text-align: center;
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.08), rgba(10, 10, 10, 0.98) 54%);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+}
+.startup-restore[hidden] { display: none !important; }
+.startup-restore-mark {
+  width: 38px;
+  height: 38px;
+  border: 3px solid rgba(212, 175, 55, 0.18);
+  border-top-color: var(--victory-gold);
+  border-radius: 50%;
+  animation: startup-restore-spin 0.9s linear infinite;
+}
+.startup-restore strong { font: clamp(28px, 5vw, 42px)/1 var(--font-command); letter-spacing: 0.035em; }
+.startup-restore p { max-width: 46ch; margin: 0; color: var(--muted); line-height: 1.55; }
+body[data-startup-authority="blocked"] .startup-restore-mark { animation: none; border-color: var(--red); }
+@keyframes startup-restore-spin { to { transform: rotate(360deg); } }
+
+.calendar-commit-receipt {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-left: 3px solid var(--green);
+  background: rgba(46, 139, 52, 0.08);
+}
+.calendar-commit-receipt > span { grid-row: 1 / 3; color: var(--green); font: 18px/1 var(--font-command); letter-spacing: 0.06em; }
+.calendar-commit-receipt small { color: var(--muted); }
 
 @media (max-width: 720px) {
   html[data-daily-decision-integrity="027F.1"] .scroll-anchor { scroll-margin-top: 106px; }
@@ -12824,6 +12866,16 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
   body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-copy h2 { font-size: 22px; }
   .weekly-orchestrator-day:focus-within .calendar-move-control { opacity: 1; pointer-events: auto; }
   .connected-account-health { grid-template-columns: 1fr; gap: 7px; }
+}
+
+/* 030E: the reconciliation barrier always outranks legacy responsive display rules. */
+body[data-app-loading="true"] .command-header,
+body[data-app-loading="true"] #dominion-mission-rail,
+body[data-app-loading="true"] .status-bar,
+body[data-app-loading="true"] #status,
+body[data-app-loading="true"] #mobile-command-dock,
+body[data-app-loading="true"] #app-content {
+  display: none !important;
 }
 
 /* 030C: effective-date authority, biometric confirmation, and compact command flow. */

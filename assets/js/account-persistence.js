@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030C.1";
+  const VERSION = "030E.1";
   const STABILIZATION_VERSION = "029N.1";
   const SCHEMA_VERSION = 1;
   const AUTH_DRAIN_EVENTS = Object.freeze(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
@@ -188,8 +188,17 @@
   function canonicalPendingEntries(continuityQueue = [], accountQueue = []) {
     const granular = Array.isArray(continuityQueue) ? continuityQueue.filter(Boolean) : [];
     const aggregate = Array.isArray(accountQueue) ? accountQueue.filter(Boolean) : [];
-    if (granular.length) return granular.map((item) => ({ ...item, queueSource: "CONTINUITY" }));
-    return aggregate.map((item) => ({ ...item, queueSource: "ACCOUNT_TRUTH" }));
+    const merged = new Map();
+    [
+      ...granular.map((item) => ({ ...item, queueSource: "CONTINUITY" })),
+      ...aggregate.map((item) => ({ ...item, queueSource: "ACCOUNT_TRUTH" }))
+    ].forEach((item, index) => {
+      const identity = String(item.mutationId || item.id || item.mutationFingerprint || item.fingerprint
+        || [item.domain, item.stateType, item.stateKey, item.clientUpdatedAt || item.updatedAt || index].join(":"));
+      const prior = merged.get(identity);
+      if (!prior || Date.parse(item.queuedAt || item.createdAt || 0) < Date.parse(prior.queuedAt || prior.createdAt || 0)) merged.set(identity, item);
+    });
+    return [...merged.values()].sort((left, right) => Date.parse(left.queuedAt || left.createdAt || 0) - Date.parse(right.queuedAt || right.createdAt || 0));
   }
 
   function pendingState(continuityQueue = [], accountQueue = []) {
@@ -213,7 +222,9 @@
       entries,
       state,
       label: labels[state],
-      detail: entries.length ? `${entries.length} protected item${entries.length === 1 ? "" : "s"} waiting.` : "Account is current."
+      detail: entries.length
+        ? `${entries.length} protected change${entries.length === 1 ? "" : "s"} waiting${first ? ` · ${String(first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ")}` : ""}.`
+        : "Account is current."
     };
   }
 

@@ -46,7 +46,9 @@ test("campaign state follows Contract, program, Calendar, proof, inspection, sta
   assert.match(app, /function dominionCampaignInput/);
   ["contract:", "programReceipt:", "weeks:", "receipts:", "inspections:", "standards:", "outcome:"].forEach((source) => assert.match(app, new RegExp(source)));
   assert.match(app, /scheduleDominionCampaignReconciliation/);
-  assert.match(app, /runStartupTask\("Campaign"/);
+  assert.doesNotMatch(app, /runStartupTask\("Campaign"/);
+  assert.match(app, /function scheduleDominionCampaignReconciliation/);
+  assert.match(app, /DominionStartupAuthority\.permitsAccountWrite\(startupAuthorityState, "state_change"\)/);
 });
 
 test("campaign continuity is account-backed and idempotent", () => {

@@ -59,7 +59,7 @@ test("030C uses one truthful sync and Review vocabulary", () => {
   assert.match(integrity, /score === null \? "Not evaluated"/);
   assert.match(integrity, /Coverage incomplete/);
   assert.match(integrity, /basis/);
-  assert.match(readiness, /sleep, resting heart rate, and available evidence do not currently require a training adjustment/);
+  assert.match(readiness, /sleep, resting heart rate, energy, soreness, pain, and recent training load do not corroborate a recovery adjustment/);
 });
 
 test("030C is identifiable, cached, gated, and does not expose release language", () => {
@@ -68,15 +68,15 @@ test("030C is identifiable, cached, gated, and does not expose release language"
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const packageJson = read("package.json");
-  assert.match(html, /coach-dominion-release" content="030[CD]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[CDE]\.1"/);
   assert.match(html, /execution-context\.js\?v=030c/);
   assert.match(html, /biometric-integrity\.js\?v=030c/);
-  assert.match(worker, /030c-daily-command-integrity/);
+  assert.match(worker, /030(?:c-daily-command-integrity|d-recruit-journey-certification|e-authoritative-startup)/);
   assert.match(worker, /execution-context\.js\?v=030c/);
   assert.match(worker, /biometric-integrity\.js\?v=030c/);
-  assert.match(health, /release: "030[CD]\.1"/);
-  assert.match(workflow, /npm run test:030[cd]/);
-  assert.match(workflow, /--expected-release 030[CD]\.1/);
+  assert.match(health, /release: "030[CDE]\.1"/);
+  assert.match(workflow, /npm run test:030[cde]/);
+  assert.match(workflow, /--expected-release 030[CDE]\.1/);
   assert.match(packageJson, /"test:030c"/);
   assert.doesNotMatch(html.replace(/<!--[\s\S]*?-->/g, ""), />\s*(?:BUILD|RELEASE)\s+030C/i);
 });

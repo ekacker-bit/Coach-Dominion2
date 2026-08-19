@@ -70,17 +70,25 @@
   function normalizeSessions(day = null) {
     if (!day || !Array.isArray(day.activities)) return [];
     const sequence = Array.isArray(day.sessionSequence) && day.sessionSequence.length ? day.sessionSequence : day.activities;
-    return sequence.map((item, index) => ({
-      id: item.id || `${domainName(item.module || item.domain)}-${index + 1}`,
-      module: domainName(item.module || item.domain || "training"),
-      title: item.title || item.label || "Training session",
-      window: upper(item.sessionWindow || item.sessionLabel || (day.twoADay ? index ? "PM" : "AM" : "TODAY")),
-      windowId: item.trainingWindowId || null,
-      order: Number(item.sessionOrder || index + 1),
-      estimatedMinutes: Number(item.estimatedMinutes || 0) || null,
-      tertiary: item.tertiary === true,
-      longRunUncapped: Boolean(day.longRunUncapped && domainName(item.module) === "running")
-    }));
+    return sequence.map((item, index) => {
+      const assignmentId = item.assignmentId || item.id || item.activityId || `${domainName(item.module || item.domain)}-${index + 1}`;
+      return {
+        id: assignmentId,
+        assignmentId,
+        activityId: item.activityId || item.id || assignmentId,
+        sessionId: item.sessionId || item.sourceId || null,
+        planId: item.planId || null,
+        planRevision: Number(item.planRevision || 0) || null,
+        module: domainName(item.module || item.domain || "training"),
+        title: item.title || item.label || "Training session",
+        window: upper(item.sessionWindow || item.sessionLabel || (day.twoADay ? index ? "PM" : "AM" : "TODAY")),
+        windowId: item.trainingWindowId || null,
+        order: Number(item.sessionOrder || index + 1),
+        estimatedMinutes: Number(item.estimatedMinutes || 0) || null,
+        tertiary: item.tertiary === true,
+        longRunUncapped: Boolean(day.longRunUncapped && domainName(item.module) === "running")
+      };
+    });
   }
 
   function draftDayForDate(draft = null, date = null) {

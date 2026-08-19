@@ -406,6 +406,13 @@
       id: `${prescription.planId || "plan"}:${prescription.sessionId || "session"}:${prescription.date || "date"}:attempt-${attempt}`,
       planId: prescription.planId || null,
       sessionId: prescription.sessionId || null,
+      assignmentId: prescription.assignmentId || prescription.calendarAssignmentId || null,
+      calendarAssignmentId: prescription.assignmentId || prescription.calendarAssignmentId || null,
+      calendarWeekId: prescription.calendarWeekId || null,
+      calendarRevision: Number(prescription.calendarRevision || 0) || null,
+      trainingWindowId: prescription.trainingWindowId || null,
+      sessionWindow: prescription.sessionWindow || null,
+      sessionLabel: prescription.sessionLabel || null,
       sessionName: prescription.sessionName || "Strength Session",
       date: prescription.date || new Date().toISOString().slice(0, 10),
       attempt,
@@ -509,6 +516,8 @@
       load: Number.isFinite(loadValue) && loadValue >= 0 ? loadValue : Number(exerciseItem.recommendedLoad || 0),
       unit: exerciseItem.unit || "lb",
       rpe: rpeValue !== null && Number.isFinite(rpeValue) ? Math.max(1, Math.min(10, Math.round(rpeValue * 2) / 2)) : null,
+      assignmentId: execution.assignmentId || null,
+      sessionId: execution.sessionId || null,
       completedAt
     });
     setLogs[exerciseId] = logs;

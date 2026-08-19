@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Strength Calendar Execution Integrity
+
+- Makes the active Calendar strength assignment the authority for Today and the set logger.
+- Preserves one assignment ID through the Calendar activity, workout execution, every recorded set, and completion evidence.
+- Rejects stale Calendar links and same-day workout snapshots that belong to a different assigned session.
+- Adds a direct “Log assigned workout” action to today’s active Calendar entry.
+
 ## Unreleased - Authoritative Startup and Execution Truth
 
 - Keeps the command center behind one protected restore barrier until account and verified device state reconcile and validate.

@@ -23,7 +23,7 @@ for (const step of ["contract", "plans", "week", "today", "evidence", "review"])
 
 assert.match(html, /data-truth-layer="019D"/);
 assert.match(html, /<div class="kicker">PROGRAM STATUS<\/div>/);
-assert.match(html, /src="\/assets\/js\/operating-truth\.js(?:\?v=025h)?"/);
+assert.match(html, /src="\/assets\/js\/operating-truth\.js(?:\?v=025h(?:-030c)?)?"/);
 assert.ok(html.indexOf("operating-truth.js") < html.indexOf("app.js"), "truth engine must load before app integration");
 
 assert.match(app, /function buildCurrentOperatingTruth/);

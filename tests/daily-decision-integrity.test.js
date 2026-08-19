@@ -119,8 +119,8 @@ test("one assessed day and five unscored days lead with coverage", () => {
     strongestDomains: ["strength"],
     weakestDomains: ["nutrition"]
   });
-  assert.equal(summary.headline, "1 of 6 elapsed days assessed");
-  assert.equal(summary.scoreText, "100% of assessed observations");
+  assert.equal(summary.headline, "Coverage incomplete · 1 of 6 elapsed days assessed");
+  assert.equal(summary.scoreText, "100% · 1 of 6 elapsed days assessed");
   assert.equal(summary.scoreEmphasis, false);
   assert.equal(summary.strongest, null);
   assert.equal(summary.weakest, null);

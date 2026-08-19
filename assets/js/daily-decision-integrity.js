@@ -442,12 +442,17 @@
     const normalizedCoverage = typeof DominionReleaseStabilization !== "undefined"
       ? DominionReleaseStabilization.percentValue(aggregate.evidenceCoverage)
       : Number(aggregate.evidenceCoverage || 0);
-    const normalizedScore = typeof DominionReleaseStabilization !== "undefined"
-      ? DominionReleaseStabilization.percentValue(aggregate.score)
-      : Number(aggregate.score);
+    const hasScore = aggregate.score !== null && aggregate.score !== undefined && aggregate.score !== "";
+    const normalizedScore = !hasScore
+      ? null
+      : typeof DominionReleaseStabilization !== "undefined"
+        ? DominionReleaseStabilization.percentValue(aggregate.score)
+        : Number(aggregate.score);
     const coverage = Math.max(0, Math.min(100, Math.round(normalizedCoverage || 0)));
     const score = Number.isFinite(normalizedScore) ? normalizedScore : null;
     const thinEvidence = assessedDays < 2 || coverage < 50;
+    const coverageIncomplete = unscoredDays > 0 || assessedDays < elapsedDays;
+    const basis = `${assessedDays} of ${elapsedDays} elapsed day${elapsedDays === 1 ? "" : "s"}`;
     return {
       elapsedDays,
       assessedDays,
@@ -455,8 +460,10 @@
       coverage,
       score,
       thinEvidence,
-      headline: `${assessedDays} of ${elapsedDays} elapsed day${elapsedDays === 1 ? "" : "s"} assessed`,
-      scoreText: score === null ? "Unscored" : `${Math.round(score)}% of assessed observations`,
+      coverageIncomplete,
+      basis,
+      headline: coverageIncomplete ? `Coverage incomplete · ${basis} assessed` : `${basis} assessed`,
+      scoreText: score === null ? "Not evaluated" : `${Math.round(score)}% · ${basis} assessed`,
       scoreEmphasis: !thinEvidence,
       strongest: thinEvidence ? null : aggregate.strongestDomains || [],
       weakest: thinEvidence ? null : aggregate.weakestDomains || []

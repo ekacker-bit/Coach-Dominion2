@@ -100,7 +100,9 @@ assert.strictEqual(median([4, 2, 1, 3]), 2.5);
   const current = { date: "2026-07-27", sleep: 8, resting_heart_rate: 50, heart_rate_variability: 30 };
   const profile = buildReadinessBaselineProfile(history(current.date, 14), current);
   assert.strictEqual(profile.metrics.heart_rate_variability.signal.status, "SEVERE");
-  assert.strictEqual(evaluatePersonalizedReadiness(green, profile).state, "GREEN", "HRV alone is not used as a punitive readiness trigger");
+  const hrvOnly = evaluatePersonalizedReadiness(green, profile);
+  assert.strictEqual(hrvOnly.state, "GREEN", "HRV alone is not used as a punitive readiness trigger");
+  assert.match(hrvOnly.rationale.join(" "), /do not currently require a training adjustment/i, "green HRV concern explains why no adjustment was made");
 }
 
 {

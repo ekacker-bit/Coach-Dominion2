@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025H.1";
+  const VERSION = "030C.1";
   const STAGES = Object.freeze([
     { id: "contract", label: "Contract" },
     { id: "plans", label: "Plans" },
@@ -99,7 +99,7 @@
         repair: "Relink the missing plan to the current Contract revision."
       });
     }
-    if (week.committed && contract.revision && Number(week.contractRevision || 0) !== Number(contract.revision)) {
+    if (week.committed && contract.revision && Number(week.contractRevision || 0) !== Number(contract.revision) && input.executionContext?.expectedVersionSplit !== true) {
       contradictions.push({
         code: "WEEK_CONTRACT_MISMATCH",
         severity: "BLOCKING",
@@ -210,7 +210,7 @@
       detail = `${planComplete} of ${planTotal || 4} required plans match Contract ${contract.revision || "current"}.`;
       next = action("PLAN", pending ? `Open ${pending.label}` : "Review plans", pending?.section || activation.next?.section || "contract", detail, pending?.id || null);
       completedStages = ["contract"];
-    } else if (!week.committed || ["READY_TO_BUILD", "WEEK_READY"].includes(upper(activation.status))) {
+    } else if (!week.committed) {
       state = "WEEK_REQUIRED";
       phase = "week";
       title = week.draft ? "Commit the coordinated week" : "Build the coordinated week";

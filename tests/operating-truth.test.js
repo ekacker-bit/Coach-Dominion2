@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const truth = require("../assets/js/operating-truth.js");
 
-assert.equal(truth.VERSION, "025H.1");
+assert.equal(truth.VERSION, "030C.1");
 
 const linkedModules = ["strength", "running", "core", "nutrition"].map((id) => ({
   id,

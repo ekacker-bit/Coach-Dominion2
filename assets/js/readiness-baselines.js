@@ -116,7 +116,15 @@
     const severeNonHrv = concerns.some((signal) => signal.severity >= 2 && signal.key !== "heart_rate_variability");
     const corroboratedSevereHrv = concerns.some((signal) => signal.severity >= 2 && signal.key === "heart_rate_variability") && concerns.length >= 2;
     if (!severeNonHrv && !corroboratedSevereHrv && concerns.length < 2) {
-      return { ...base, baseline: profile, baselineAdjustment: "NONE" };
+      const hrvConcern = concerns.find((signal) => signal.key === "heart_rate_variability");
+      return {
+        ...base,
+        rationale: hrvConcern
+          ? [...(base.rationale || []), "HRV is below baseline, but sleep, resting heart rate, and available evidence do not currently require a training adjustment."]
+          : base.rationale,
+        baseline: profile,
+        baselineAdjustment: "NONE"
+      };
     }
     const reasons = concerns.map((signal) => {
       const metric = profile.metrics[signal.key];

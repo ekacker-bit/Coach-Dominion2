@@ -25,9 +25,12 @@ test("startup verifies and repairs the full account chain without blocking optio
   assert.match(engine, /SYNC_ACCOUNT_STATE/);
   assert.match(engine, /REBUILD_TODAY/);
   assert.match(engine, /ACTION_REQUIRED/);
-  assert.match(app, /runStartupTask\("account health", \(\) => runTrustLayer\(\{ repair: true, startupIssues \}\)/);
+  assert.match(app, /runStartupTask\("account health", \(\) => \{[\s\S]*?buildCurrentTrustLayerReport\(\{ startupIssues \}\)[\s\S]*?renderTrustLayerHealth\(report\)/);
+  assert.doesNotMatch(app, /runStartupTask\("account health", \(\) => runTrustLayer/);
   assert.match(app, /await flushContinuityPendingWrites\(\)/);
-  assert.match(app, /await runStartupTask\("account save", \(\) => syncDominionAccountTruth\(\{ reason: "startup" \}\)/);
+  assert.doesNotMatch(app, /runStartupTask\("account save"/);
+  assert.doesNotMatch(app, /syncDominionAccountTruth\(\{ reason: "startup" \}\)/);
+  assert.ok(app.indexOf("setStartupAuthority(authoritativeStartup)") < app.indexOf('runStartupTask("scheduled plan command"'));
   assert.match(app, /renderOneCommand\(truth\)/);
   assert.match(app, /window\.addEventListener\("online"/);
   assert.match(app, /if \(!element\) return false/);

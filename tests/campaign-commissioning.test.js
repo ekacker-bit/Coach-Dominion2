@@ -105,3 +105,19 @@ test("commissioning receipts remain bound to one Contract revision", () => {
   assert.equal(commissioning.commissioningActive(receipt, contract()), true);
   assert.equal(commissioning.commissioningActive(receipt, contract({ revision: 5 })), false);
 });
+
+test("an unsigned amendment is named exactly and pauses new commissioning", () => {
+  const model = commissioning.buildCommissioning({
+    contract: contract({ revision: 14 }),
+    draftContract: { id: "contract-r15", revision: 15, status: "DRAFT" },
+    signatureValid: true,
+    orientation,
+    programPackage: readyPackage,
+    preflight: clearPreflight
+  });
+  assert.equal(model.status, "DRAFT_PENDING");
+  assert.equal(model.contractRevision, 14);
+  assert.equal(model.draftContractRevision, 15);
+  assert.match(model.message, /R14 signed · R15 draft open/);
+  assert.match(model.message, /paused until R15 is signed or discarded/);
+});

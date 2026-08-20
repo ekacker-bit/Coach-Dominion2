@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased - Beta State Integrity
+
+- Keeps the last signed Contract authoritative while a clearly labeled amendment draft remains unsigned and non-operational.
+- Makes one active Strength session win across Today, Calendar, Quick Log, and the Daily Record until it is finished or ended incomplete.
+- Separates active, signed-future, and draft plan readiness so regeneration counts agree without blocking the protected current week.
+- Links manual evidence to exact assignment and operational dates, deduplicates retry status, and adds progressive startup restore messages.
+
+## Unreleased - Unified Execution Ledger
+
+- Resolves Strength, Running, Core, and Fuel from one assignment-linked execution and evidence model.
+- Makes Calendar, Today, Quick Log, and Review consume the same canonical state and completion proof.
+- Rejects stale or unrelated evidence instead of allowing it to satisfy today’s committed order.
+- Produces a deterministic second-session fingerprint without adding another dashboard or database table.
+
 ## Unreleased - Strength Calendar Execution Integrity
 
 - Makes the active Calendar strength assignment the authority for Today and the set logger.

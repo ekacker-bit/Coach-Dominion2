@@ -117,3 +117,27 @@ test("030C exposes one canonical sync vocabulary and pauses user action", () => 
   assert.equal(Persistence.canonicalSyncState({ persistenceState: Persistence.PERSISTENCE_STATES.AUTH_REQUIRED, pendingWrites: 1 }), "user_action_required");
   assert.equal(Persistence.pendingState([], [{ ...envelope(), persistenceState: Persistence.PERSISTENCE_STATES.CONFLICT_REQUIRES_CHOICE }]).state, "conflict");
 });
+
+test("the same Nutrition mutation appears once across continuity and account truth", () => {
+  const payload = { status: "APPROVED", calories: 2400, protein: 190 };
+  const payloadHash = Persistence.fingerprint(payload);
+  const continuity = [{
+    id: "nutrition-write",
+    domain: "nutrition",
+    stateType: "BASELINE",
+    stateKey: "current",
+    payload,
+    fingerprint: payloadHash,
+    entity: "Nutrition",
+    reason: "Network unavailable",
+    queuedAt: "2026-08-20T12:00:00.000Z"
+  }];
+  const aggregate = [envelope({
+    manifest: { fingerprint: "program-a", modules: { nutrition: { fingerprint: payloadHash } } },
+    clientUpdatedAt: "2026-08-20T12:00:00.000Z"
+  })];
+  const pending = Persistence.pendingState(continuity, aggregate);
+  assert.equal(pending.count, 1);
+  assert.equal(pending.entries[0].entity, "Nutrition");
+  assert.match(pending.detail, /Network unavailable/i);
+});

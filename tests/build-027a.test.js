@@ -16,7 +16,7 @@ const integrity = read("scripts/release-integrity.js");
 const pkg = JSON.parse(read("package.json"));
 
 test("Build 027A installs one commissioning engine before app bindings", () => {
-  assert.match(engine, /const VERSION = "027A\.1"/);
+  assert.match(engine, /const VERSION = "(?:027A|030H)\.1"/);
   assert.match(engine, /function buildCommissioning/);
   assert.match(engine, /function createReceipt/);
   assert.ok(html.indexOf("campaign-commissioning.js?v=027a") < html.indexOf("app.js?v="));

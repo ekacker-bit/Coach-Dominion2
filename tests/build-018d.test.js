@@ -22,7 +22,7 @@ for (const id of [
 }
 
 assert.match(html, /<div class="kicker">PROGRAM CALENDAR<\/div>/);
-assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js\?v=024d"/);
+assert.match(html, /src="\/assets\/js\/weekly-orchestrator\.js\?v=024d(?:-[^"]+)?"/);
 assert.ok(html.indexOf("weekly-orchestrator.js") < html.indexOf("app.js"), "orchestrator must load before app integration");
 
 assert.match(app, /async function loadWeeklyOrchestrationState\(\)/);

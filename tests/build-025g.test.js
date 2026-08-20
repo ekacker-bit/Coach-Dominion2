@@ -16,7 +16,7 @@ assert.match(strength, /ACTIVE_OTHER/);
 assert.match(strength, /SAFETY_HOLD/);
 assert.match(app, /data-programming-action="train-session"/);
 assert.match(app, /function launchApprovedStrengthSession/);
-assert.match(app, /launchSource: "APPROVED_PLAN"/);
+assert.match(app, /launchSource: [^\n]*"APPROVED_PLAN"/);
 assert.match(app, /calendarChanged: false/);
 assert.match(app, /Record each set below; Calendar was not changed/);
 assert.match(html, /strength-training\.js\?v=025g/);

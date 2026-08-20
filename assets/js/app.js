@@ -10539,7 +10539,7 @@ function renderRecruitContract() {
         <div><span class="kicker">THE PATH FORWARD</span><h3 id="contract-momentum-heading">Turn the vow into the week.</h3></div>
         <ol>${journeyMarkup}</ol>
         <div class="contract-momentum-action">${nextButton}<button type="button" class="ghost" data-contract-experience-action="amend">Amend Contract</button></div>
-        <p class="contract-amendment-note">Amendments create a separate draft. This signed revision, its linked plans, and its operating week remain active until you approve and sign the replacement.</p>
+        <p class="contract-amendment-note">Amendments create a separate draft. Active module plans remain unchanged. This signed revision and its operating week remain authoritative until you approve and sign the replacement.</p>
       </section>
       <details class="contract-operating-terms"><summary><span>Operating terms</span><small>Schedule, module handoffs, and safeguards</small></summary><div>${operatingTerms}</div></details>
       <div class="contract-lifecycle-actions"><span class="muted">Need a clean restart?</span><button type="button" class="ghost danger" data-contract-lifecycle-action="delete-request">Delete previous Contract</button></div>`;

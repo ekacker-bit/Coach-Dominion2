@@ -48,3 +48,31 @@ test("race entry retains race classification", () => {
   assert.equal(entry.entryType, "RACE");
   assert.equal(entry.metrics.run_type, "RACE");
 });
+
+test("unplanned runs keep real occurrence time without satisfying an assignment", () => {
+  const entry = manualRun.buildPerformanceEntry({ date: "2026-08-19", runType: "EASY", distance: 3, minutes: 28 }, {
+    today: "2026-08-20",
+    occurredAt: "2026-08-19T23:45:00.000Z",
+    createdAt: "2026-08-20T01:00:00.000Z"
+  });
+  assert.equal(entry.operationalDate, "2026-08-19");
+  assert.equal(entry.occurredAt, "2026-08-19T23:45:00.000Z");
+  assert.equal(entry.evidenceKind, "UNPLANNED");
+  assert.equal(entry.unplanned, true);
+  assert.equal(entry.satisfiesAssignment, false);
+  assert.equal(entry.metrics.count_toward_today, false);
+});
+
+test("assigned run evidence only closes the matching operational date", () => {
+  const run = manualRun.normalize({
+    date: "2026-08-19",
+    scheduledDate: "2026-08-20",
+    assignmentId: "run-aug-20",
+    countTowardToday: true,
+    distance: 4,
+    minutes: 35
+  }, { today: "2026-08-20" });
+  assert.equal(run.unplanned, false);
+  assert.equal(run.satisfiesAssignment, false);
+  assert.equal(run.countTowardToday, false);
+});

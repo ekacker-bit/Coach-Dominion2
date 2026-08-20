@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "027A.1";
+  const VERSION = "030H.1";
   const STEP_DEFINITIONS = Object.freeze([
     { id: "contract", label: "Contract" },
     { id: "baseline", label: "Baseline" },
@@ -100,6 +100,7 @@
 
   function buildCommissioning(input = {}) {
     const contract = input.contract || null;
+    const draftContract = input.draftContract || null;
     const signed = Boolean(contract && upper(contract.status) === "APPROVED" && input.signatureValid !== false);
     const profile = recruitProfile(contract || {}, input.profile || {});
     const orientationComplete = upper(input.orientation?.status) === "COMPLETE";
@@ -118,8 +119,15 @@
     if (signed && activeProgram && committedWeek) {
       status = "ACTIVE";
       headline = "Campaign commissioned";
-      message = "The Contract, complete program, and opening calendar are active under one campaign order.";
+      message = draftContract
+        ? `R${contractRevision(contract)} signed · R${contractRevision(draftContract)} draft open. The active campaign stays under R${contractRevision(contract)} until the draft is signed or discarded.`
+        : `R${contractRevision(contract)} signed. The complete program and opening calendar are active under one campaign order.`;
       nextAction = { code: "OPEN_TODAY", label: "Open Today", target: "today" };
+    } else if (signed && draftContract) {
+      status = "DRAFT_PENDING";
+      headline = `Finish R${contractRevision(draftContract)} draft`;
+      message = `R${contractRevision(contract)} signed · R${contractRevision(draftContract)} draft open. Campaign setup is paused until R${contractRevision(draftContract)} is signed or discarded.`;
+      nextAction = { code: "EDIT_CONTRACT", label: `Finish R${contractRevision(draftContract)} draft`, target: "recruit-contract-editor" };
     } else if (signed && (!profile.complete || !orientationComplete)) {
       status = "BASELINE_REQUIRED";
       headline = "Establish the operating baseline";
@@ -151,7 +159,9 @@
     if (activeCommission && activeProgram && committedWeek) {
       status = "ACTIVE";
       headline = "Campaign commissioned";
-      message = "The Contract, complete program, and opening calendar are active under one campaign order.";
+      message = draftContract
+        ? `R${contractRevision(contract)} signed · R${contractRevision(draftContract)} draft open. The active campaign stays under R${contractRevision(contract)} until the draft is signed or discarded.`
+        : `R${contractRevision(contract)} signed. The complete program and opening calendar are active under one campaign order.`;
     }
 
     const state = {
@@ -163,7 +173,9 @@
     };
     const currentId = STEP_DEFINITIONS.find((item) => !state[item.id])?.id || "launch";
     const steps = STEP_DEFINITIONS.map((item) => stepState(item.id, state[item.id], item.id === currentId && !state[item.id], {
-      contract: signed ? `Contract ${contractRevision(contract)} signed` : "Signature required",
+      contract: signed
+        ? `R${contractRevision(contract)} signed${draftContract ? ` · R${contractRevision(draftContract)} draft open` : ""}`
+        : "Signature required",
       baseline: orientationComplete ? "Week One order secured" : "Profile and protocol",
       program: activeProgram ? "Complete program active" : packageReady ? "Prescription ready" : "Atlas package required",
       calendar: committedWeek ? "Opening week committed" : preflightReady ? "Opening week verified" : "Calendar verification required",
@@ -179,6 +191,7 @@
       message,
       contractId: contractId(contract || {}),
       contractRevision: contractRevision(contract || {}),
+      draftContractRevision: draftContract ? contractRevision(draftContract) : null,
       profile,
       baseline,
       blockers,

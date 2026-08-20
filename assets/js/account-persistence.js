@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030E.1";
+  const VERSION = "030H.1";
   const STABILIZATION_VERSION = "029N.1";
   const SCHEMA_VERSION = 1;
   const AUTH_DRAIN_EVENTS = Object.freeze(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
@@ -188,13 +188,34 @@
   function canonicalPendingEntries(continuityQueue = [], accountQueue = []) {
     const granular = Array.isArray(continuityQueue) ? continuityQueue.filter(Boolean) : [];
     const aggregate = Array.isArray(accountQueue) ? accountQueue.filter(Boolean) : [];
+    const normalizedGranular = granular.map((item) => {
+      const payloadHash = item.payloadHash || item.fingerprint || fingerprint(item.payload ?? item.snapshot ?? item);
+      return {
+        ...item,
+        queueSource: "CONTINUITY",
+        payloadHash,
+        entity: String(item.entity || item.domain || item.stateType || "account save"),
+        reason: String(item.reason || item.errorCode || item.persistenceState || "Account confirmation pending")
+      };
+    });
+    const granularHashes = new Set(normalizedGranular.map((item) => item.payloadHash).filter(Boolean));
+    const normalizedAggregate = aggregate.map((item) => ({
+      ...item,
+      queueSource: "ACCOUNT_TRUTH",
+      payloadHash: item.payloadHash || item.mutationFingerprint || item.truthFingerprint || fingerprint(item.snapshot ?? item.payload ?? item),
+      entity: String(item.entity || item.operation || "account truth"),
+      reason: String(item.reason || item.errorCode || item.persistenceState || "Account receipt pending")
+    })).filter((item) => {
+      const modules = Object.values(item.manifest?.modules || {});
+      const coveredHashes = modules.map((module) => module?.fingerprint || module?.semanticFingerprint || null).filter(Boolean);
+      return !coveredHashes.some((value) => granularHashes.has(value));
+    });
     const merged = new Map();
     [
-      ...granular.map((item) => ({ ...item, queueSource: "CONTINUITY" })),
-      ...aggregate.map((item) => ({ ...item, queueSource: "ACCOUNT_TRUTH" }))
+      ...normalizedGranular,
+      ...normalizedAggregate
     ].forEach((item, index) => {
-      const identity = String(item.mutationId || item.id || item.mutationFingerprint || item.fingerprint
-        || [item.domain, item.stateType, item.stateKey, item.clientUpdatedAt || item.updatedAt || index].join(":"));
+      const identity = [item.entity, item.stateType || item.operation || "write", item.stateKey || "current", item.payloadHash || item.mutationId || item.id || index].join(":");
       const prior = merged.get(identity);
       if (!prior || Date.parse(item.queuedAt || item.createdAt || 0) < Date.parse(prior.queuedAt || prior.createdAt || 0)) merged.set(identity, item);
     });
@@ -223,7 +244,7 @@
       state,
       label: labels[state],
       detail: entries.length
-        ? `${entries.length} protected change${entries.length === 1 ? "" : "s"} waiting${first ? ` · ${String(first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ")}` : ""}.`
+        ? `${entries.length} protected change${entries.length === 1 ? "" : "s"} waiting${first ? ` · ${String(first.entity || first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ")} · ${String(first.reason || "Account confirmation pending").replaceAll("_", " ")}` : ""}.`
         : "Account is current."
     };
   }

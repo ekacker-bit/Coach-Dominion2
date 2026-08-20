@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030E.1";
+  const VERSION = "030H.1";
   const RUN_TYPES = Object.freeze([
     { code: "EASY", label: "Easy run" },
     { code: "LONG", label: "Long run" },
@@ -60,9 +60,16 @@
     const rpe = numberOrNull(input.rpe);
     const averageHeartRate = numberOrNull(input.averageHeartRate ?? input.average_heart_rate);
     const elevationGain = numberOrNull(input.elevationGain ?? input.elevation_gain);
+    const operationalDate = dateIso(input.operationalDate || input.performanceDate || input.performance_date || input.date) || dateIso(options.today);
+    const assignmentId = String(input.assignmentId || input.assignment_id || "").trim() || null;
+    const scheduledDate = assignmentId ? dateIso(input.scheduledDate || input.scheduled_date) || operationalDate : null;
+    const satisfiesAssignment = Boolean(assignmentId && scheduledDate && operationalDate === scheduledDate);
     return {
       version: VERSION,
-      performanceDate: dateIso(input.performanceDate || input.performance_date || input.date) || dateIso(options.today),
+      performanceDate: operationalDate,
+      operationalDate,
+      scheduledDate,
+      occurredAt: input.occurredAt || input.occurred_at || options.occurredAt || options.createdAt || null,
       runType,
       runTypeLabel: RUN_TYPES.find((item) => item.code === runType)?.label || "Run",
       distance: distance === null ? null : Number(distance.toFixed(2)),
@@ -73,8 +80,10 @@
       averageHeartRate: averageHeartRate === null ? null : Math.round(averageHeartRate),
       elevationGain: elevationGain === null ? null : Number(elevationGain.toFixed(1)),
       notes: String(input.notes || "").trim().slice(0, 500),
-      countTowardToday: Boolean(input.countTowardToday ?? input.count_toward_today),
-      assignmentId: String(input.assignmentId || input.assignment_id || "").trim() || null
+      countTowardToday: satisfiesAssignment && Boolean(input.countTowardToday ?? input.count_toward_today ?? true),
+      assignmentId,
+      unplanned: !assignmentId,
+      satisfiesAssignment
     };
   }
 
@@ -109,6 +118,9 @@
       id: stableId(run, { ...options, createdAt }),
       userId: options.userId || null,
       performanceDate: run.performanceDate,
+      operationalDate: run.operationalDate,
+      scheduledDate: run.scheduledDate,
+      occurredAt: run.occurredAt || createdAt,
       domain: "running",
       entryType: run.runType === "RACE" ? "RACE" : "WORKOUT_SUMMARY",
       activityCode: `manual_${run.runType.toLowerCase()}`,
@@ -116,6 +128,9 @@
       sessionName: run.runTypeLabel,
       source: "MANUAL",
       evidenceStatus: "SELF REPORTED",
+      evidenceKind: run.unplanned ? "UNPLANNED" : "ASSIGNED",
+      unplanned: run.unplanned,
+      satisfiesAssignment: run.satisfiesAssignment,
       assignmentId: run.assignmentId,
       notes: run.notes,
       metrics: {
@@ -129,7 +144,11 @@
         elevation_gain: run.elevationGain,
         capture_method: "MANUAL_RUN_FORM",
         count_toward_today: run.countTowardToday,
-        assignment_id: run.assignmentId
+        assignment_id: run.assignmentId,
+        scheduled_date: run.scheduledDate,
+        operational_date: run.operationalDate,
+        occurred_at: run.occurredAt || createdAt,
+        unplanned: run.unplanned
       },
       createdAt,
       updatedAt: createdAt

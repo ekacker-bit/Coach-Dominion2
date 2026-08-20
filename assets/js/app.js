@@ -97,6 +97,7 @@ let accountTruthSyncTimer = null;
 let accountTruthRetryTimer = null;
 let accountTruthSyncPromise = null;
 let accountTruthAuthSubscription = null;
+let accountPersistenceWarningState = null;
 let accountTruthState = {
   mode: "CHECKING",
   initialized: false,
@@ -442,7 +443,12 @@ function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = nu
       stateKey,
       payload,
       fingerprint,
-      errorCode: error?.code || null
+      errorCode: error?.code || null,
+      entity: continuityDomainLabel(domain),
+      reason: error?.message || (error ? "Account confirmation failed" : "Account confirmation pending"),
+      persistenceState: typeof DominionAccountPersistence === "undefined"
+        ? null
+        : DominionAccountPersistence.classifyFailure(error, { authenticated: Boolean(session?.user?.id) })
     }, { now, failedAttempt: Boolean(error) });
     saveContinuityRetryQueue(next);
     if (!queue.some((item) => item.id === next.find((item) => item.key === key)?.id) || error) {
@@ -462,7 +468,12 @@ function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = nu
     queuedAt: existing?.queuedAt || now,
     lastAttemptAt: now,
     attempts: Number(existing?.attempts || 0) + 1,
-    errorCode: error?.code || null
+    errorCode: error?.code || null,
+    entity: continuityDomainLabel(domain),
+    reason: error?.message || (error ? "Account confirmation failed" : "Account confirmation pending"),
+    persistenceState: typeof DominionAccountPersistence === "undefined"
+      ? null
+      : DominionAccountPersistence.classifyFailure(error, { authenticated: Boolean(session?.user?.id) })
   };
   saveContinuityRetryQueue([...queue.filter((entry) => entry.key !== key), item]);
   if (continuityState.initialized && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: canonicalPendingWriteState().count });
@@ -556,13 +567,14 @@ function writeContinuityRecordMeta(domain, stateType, stateKey, payload, options
 
 function recordContinuityWrite(domain, stateType, stateKey, payload) {
   const value = writeContinuityRecordMeta(domain, stateType, stateKey, payload, { updatedAt: new Date().toISOString(), source: "DEVICE" });
+  const unsignedContractDraft = domain === "contract" && String(stateType || "").toUpperCase() === "DRAFT";
   const startupPermitsWrite = typeof DominionStartupAuthority === "undefined"
     || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change");
-  if (continuityState.initialized && startupPermitsWrite) {
+  if (continuityState.initialized && startupPermitsWrite && !unsignedContractDraft) {
     scheduleContinuitySync();
     scheduleAccountTruthSync();
   }
-  if (startupPermitsWrite && !evidenceAutopilotState.reconciling) scheduleEvidenceAutopilotReconciliation();
+  if (startupPermitsWrite && !unsignedContractDraft && !evidenceAutopilotState.reconciling) scheduleEvidenceAutopilotReconciliation();
   return value;
 }
 
@@ -631,11 +643,12 @@ function canonicalPendingWriteState() {
 function canonicalPendingWriteDetail(pending = canonicalPendingWriteState()) {
   if (!pending.count) return "Account is current.";
   const first = pending.entries?.[0] || {};
-  const operation = String(first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ").toLowerCase();
+  const operation = String(first.entity || first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ").toLowerCase();
+  const reason = String(first.reason || first.errorCode || "account confirmation pending").replaceAll("_", " ").toLowerCase();
   const queuedAt = Date.parse(first.queuedAt || first.createdAt || first.clientUpdatedAt || "");
   const ageMinutes = Number.isFinite(queuedAt) ? Math.max(0, Math.floor((Date.now() - queuedAt) / 60000)) : null;
   const age = ageMinutes === null ? "" : ageMinutes < 1 ? " · queued now" : ` · waiting ${ageMinutes} min`;
-  return `${pending.count} protected change${pending.count === 1 ? "" : "s"} waiting · ${operation}${age}.`;
+  return `${pending.count} protected change${pending.count === 1 ? "" : "s"} waiting · ${operation} · ${reason}${age}.`;
 }
 
 function currentReliabilityContext() {
@@ -1528,12 +1541,25 @@ async function flushAccountTruthPendingWrite(options = {}) {
 }
 
 async function drainAccountPersistence(options = {}) {
+  const cycleId = `${options.reason || "retry"}:${new Date().toISOString()}`;
   const continuitySaved = readContinuityRetryQueue().length ? await flushContinuityPendingWrites() : true;
   const accountSaved = readAccountTruthQueue().length
     ? await flushAccountTruthPendingWrite({ force: options.force === true })
     : true;
   if (!accountSaved) scheduleAccountTruthQueueDrain();
-  return continuitySaved && accountSaved;
+  const saved = continuitySaved && accountSaved;
+  if (!saved) {
+    const pending = canonicalPendingWriteState();
+    accountPersistenceWarningState = { cycleId, pending: pending.count };
+    console.warn("[account:persist] Protected writes will retry.", {
+      cycleId,
+      count: pending.count,
+      entries: (pending.entries || []).map((item) => ({ entity: item.entity || item.domain || item.stateType, reason: item.reason || item.errorCode || "Account confirmation pending" }))
+    });
+  } else {
+    accountPersistenceWarningState = null;
+  }
+  return saved;
 }
 
 function installAccountPersistenceRecovery(supabase) {
@@ -2205,7 +2231,7 @@ function buildCurrentContinuityManifest() {
     nutrition: { payload: activeNutritionBaseline(date), options: { stateType: "BASELINE", immutable: true } },
     calendar: { payload: latestCommittedContinuityWeek(), options: { stateType: "WEEK", immutable: true } },
     executions: [
-      { domain: "strength", payload: readStrengthExecution(), options: { stateType: "EXECUTION", stateKey: date } },
+      { domain: "strength", payload: readActiveStrengthExecution() || readStrengthExecution(), options: { stateType: "EXECUTION", stateKey: (typeof DominionBetaStateIntegrity === "undefined" ? null : DominionBetaStateIntegrity.executionDate(readActiveStrengthExecution() || {})) || date } },
       { domain: "running", payload: readRunningExecution(), options: { stateType: "EXECUTION", stateKey: date } },
       { domain: "core", payload: readCoreExecution(), options: { stateType: "EXECUTION", stateKey: date } }
     ],
@@ -2385,7 +2411,15 @@ function applyContinuityManifestModules(manifest = null, options = {}) {
 }
 
 function continuityLineageStateLabel(domain, state = {}, contractRevision = 0) {
-  if (state.state === "CURRENT") return domain === "contract" ? `R${contractRevision} · CURRENT` : `LINKED TO R${contractRevision}`;
+  if (state.state === "CURRENT") {
+    if (domain === "contract") {
+      const lifecycle = readRecruitContractLifecycle();
+      return lifecycle.draftContract
+        ? `R${lifecycle.activeSignedContractRevision} · SIGNED · R${lifecycle.draftContractRevision} · UNSIGNED DRAFT`
+        : `R${contractRevision} · SIGNED`;
+    }
+    return `LINKED TO R${contractRevision}`;
+  }
   if (state.state === "PROTECTED_CURRENT_WEEK") return `CURRENT WEEK · R${state.contractRevision || "-"}`;
   if (state.state === "NOT_REQUIRED") return "NOT IN CONTRACT";
   if (state.state === "STALE") return `UPDATE TO R${contractRevision}`;
@@ -2418,19 +2452,21 @@ function renderDominionContinuity() {
     button.setAttribute("aria-label", `Account sync status: ${presentation.label}. ${presentation.detail}`);
   }
   const pendingState = canonicalPendingWriteState();
-  setText("continuity-status-label", pendingState.count ? pendingState.label : presentation.label);
+  setText("continuity-status-label", pendingState.count ? `${pendingState.count} PENDING` : presentation.label);
   const canonicalDetail = pendingState.count ? canonicalPendingWriteDetail(pendingState) : presentation.detail;
   setText("continuity-status-detail", canonicalDetail);
   setText("continuity-repair-summary", canonicalDetail);
-  setText("continuity-lineage-summary", lineage.headline);
+  const draftCopy = contractRevisionStatusCopy();
+  setText("continuity-lineage-summary", draftCopy ? `${draftCopy.label}. ${draftCopy.detail}` : lineage.headline);
+  if (button) button.dataset.pendingCount = String(pendingState.count || 0);
   const grid = document.getElementById("continuity-canonical-grid");
   if (grid && manifest) {
     grid.innerHTML = DominionContinuity.CANONICAL_DOMAINS.map((domain) => {
       const state = lineage.modules?.[domain] || { state: "MISSING", required: true };
       const active = ["CURRENT", "PROTECTED_CURRENT_WEEK", "NOT_REQUIRED"].includes(state.state);
-      const detail = state.state === "PROTECTED_CURRENT_WEEK"
-        ? `Next week moves to Contract R${lineage.contractRevision}`
-        : state.state === "CURRENT" ? "Canonical account payload available"
+       const detail = state.state === "PROTECTED_CURRENT_WEEK"
+         ? `Next week moves to Contract R${lineage.contractRevision}`
+         : state.state === "CURRENT" ? domain === "contract" && draftCopy ? draftCopy.detail : "Canonical account payload available"
           : state.state === "NOT_REQUIRED" ? "No plan required"
             : state.state === "STALE" ? "Rebuild from the current Contract"
               : "Create or approve this plan";
@@ -4495,6 +4531,12 @@ function setStartupAuthority(state = startupAuthorityState) {
   setLoading(!actionable);
   if (actionable && state?.phase === "DEGRADED") setStatus("Offline mode: using your last verified device copy. Account changes are paused.");
   return state;
+}
+
+function setStartupRestoreProgress(message = "") {
+  if (!message) return;
+  setText("startup-loading-detail", message);
+  document.body.dataset.startupRestoreStep = message.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function revealMobileShell() {
@@ -7168,14 +7210,30 @@ function saveRecruitContractLocal(stateType, payload) {
   return payload;
 }
 
-function readRecruitContractDraft() {
+function readRecruitContractLifecycle() {
+  const approved = readRecruitContractState("APPROVED", null);
   const draft = readRecruitContractState("DRAFT", null);
-  return ["READY_FOR_APPROVAL", "REVIEW_REQUIRED"].includes(draft?.status) ? draft : null;
+  const history = readRecruitContractState("HISTORY", []);
+  if (typeof DominionBetaStateIntegrity !== "undefined") {
+    return DominionBetaStateIntegrity.resolveContractLifecycle({ approved, draft, history });
+  }
+  return {
+    activeSignedContract: approved?.status === "APPROVED" ? approved : null,
+    draftContract: ["READY_FOR_APPROVAL", "REVIEW_REQUIRED"].includes(draft?.status) ? draft : null,
+    activeSignedContractRevision: Number(approved?.revision || 0) || null,
+    draftContractRevision: Number(draft?.revision || 0) || null,
+    draftContractStatus: draft ? "UNSIGNED_DRAFT" : null,
+    draftEffectiveDate: draft?.effectiveDate || null,
+    supersededContractRevision: null
+  };
+}
+
+function readRecruitContractDraft() {
+  return readRecruitContractLifecycle().draftContract || null;
 }
 
 function readApprovedRecruitContract() {
-  const contract = readRecruitContractState("APPROVED", null);
-  return contract?.status === "APPROVED" ? contract : null;
+  return readRecruitContractLifecycle().activeSignedContract || null;
 }
 
 function readRecruitContractTombstone() {
@@ -7186,6 +7244,36 @@ function readRecruitContractTombstone() {
 function readRecruitContractHistory() {
   const history = readRecruitContractState("HISTORY", []);
   return Array.isArray(history) ? history : [];
+}
+
+function currentContractPlanRevisionStatus() {
+  if (typeof DominionBetaStateIntegrity === "undefined") return null;
+  const lifecycle = readRecruitContractLifecycle();
+  return DominionBetaStateIntegrity.resolvePlanRevisionStatus({
+    activeSignedContract: lifecycle.activeSignedContract,
+    draftContract: lifecycle.draftContract,
+    activeWeek: readCommittedUnifiedWeek(todayISODate()),
+    activePlans: {
+      strength: readApprovedStrengthPlan(),
+      running: readApprovedRunningBlock(),
+      core: readApprovedCorePlan(),
+      nutrition: activeNutritionBaseline(todayISODate())
+    }
+  });
+}
+
+function contractRevisionStatusCopy() {
+  const lifecycle = readRecruitContractLifecycle();
+  const plans = currentContractPlanRevisionStatus();
+  if (!lifecycle.draftContract) return null;
+  const active = lifecycle.activeSignedContractRevision ? `R${lifecycle.activeSignedContractRevision} signed` : "No signed Contract";
+  const draft = `R${lifecycle.draftContractRevision} draft open`;
+  const count = Number(plans?.draft?.requiredCount || 0);
+  return {
+    label: `${active} · ${draft}`,
+    detail: `${count} draft plan${count === 1 ? "" : "s"} will require regeneration after signature. Current-week execution continues under R${readCommittedUnifiedWeek(todayISODate())?.contractRevision || "the protected revision"}.`,
+    draftRequiredCount: count
+  };
 }
 
 async function persistRecruitContractState(stateType, payload) {
@@ -7636,13 +7724,6 @@ async function loadSplitDayCheckpointState(value = todayISODate()) {
 
 function logAccountPersistenceFailure(domain, stateType, stateKey, payload, error) {
   enqueueContinuityRetry(domain, stateType, stateKey, payload, error);
-  console.warn("[account:persist] Account write will retry.", {
-    domain,
-    stateType,
-    stateKey,
-    code: error?.code || null,
-    message: error?.message || "Account write failed."
-  });
 }
 
 async function persistWeeklyOrchestrationState(stateType, stateKey, payload) {
@@ -8124,8 +8205,10 @@ function renderWeeklyOrchestrator() {
     : calendarView.mode === "STAGED" && preview.status === "DRAFT" && savedDraft
     ? `<button type="button" data-weekly-orchestrator-action="${atlasProgramDraft && !activeProgramMatches ? "activate-program" : "commit"}" ${preview.approvalBlocked ? "disabled aria-describedby=\"calendar-blockers\"" : ""}>${atlasProgramDraft && !activeProgramMatches ? "Activate complete program" : "Commit Atlas week"}</button><button type="button" class="ghost" data-weekly-orchestrator-action="discard">Discard draft</button>`
     : `<button type="button" data-weekly-orchestrator-action="build">${future ? "Edit next week" : `Build ${active ? "next" : "this"} week`}</button>`;
+  const draftRevisionCopy = contractRevisionStatusCopy();
   panel.innerHTML = `
     ${unifiedBlockerBannerMarkup(unifiedBlocker, "calendar")}
+    ${draftRevisionCopy ? `<aside class="connected-notice" data-contract-draft-plan-count="${draftRevisionCopy.draftRequiredCount}"><strong>${escapeHtml(draftRevisionCopy.label)}</strong><p>${escapeHtml(draftRevisionCopy.detail)}</p><a href="#contract" data-section="contract">Finish R${escapeHtml(String(readRecruitContractLifecycle().draftContractRevision))} draft</a></aside>` : ""}
     <nav class="calendar-week-switch" aria-label="Calendar week view">
       <button type="button" data-weekly-orchestrator-action="view-active" aria-pressed="${calendarView.mode === "ACTIVE"}" ${active ? "" : "disabled"}>Active week</button>
       <button type="button" data-weekly-orchestrator-action="view-staged" aria-pressed="${calendarView.mode === "STAGED"}" ${stagedWeek ? "" : "disabled"}>Next week</button>
@@ -8143,6 +8226,31 @@ function renderWeeklyOrchestrator() {
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
     <div class="weekly-orchestrator-actions"><p>${calendarView.mode === "ACTIVE" ? "This is the week Today executes. Build or edit the staged week without changing it." : escapeHtml(preview.message || "Review the complete week before commitment.")}${calendarView.mode === "STAGED" && existingSameWeek && savedDraft ? " This creates a future-week revision; the current week stays protected." : ""}</p><div>${calendarView.mode === "STAGED" && savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
+}
+
+async function discardRecruitContractDraft() {
+  const lifecycle = readRecruitContractLifecycle();
+  const approvedSlot = readRecruitContractState("APPROVED", null);
+  await clearRecruitContractState("DRAFT");
+  if (approvedSlot && typeof DominionBetaStateIntegrity !== "undefined"
+    && DominionBetaStateIntegrity.pendingDraft(approvedSlot)) {
+    if (lifecycle.activeSignedContract) {
+      saveRecruitContractLocal("APPROVED", lifecycle.activeSignedContract);
+      await persistRecruitContractState("APPROVED", lifecycle.activeSignedContract);
+    } else {
+      window.localStorage.removeItem(recruitContractStorageKey("APPROVED"));
+      if (session?.user?.id) {
+        try {
+          const supabase = await getClient();
+          await supabase.from("recruit_contract_state").delete()
+            .eq("user_id", session.user.id)
+            .eq("state_type", "APPROVED")
+            .eq("state_key", "current");
+        } catch (_) {}
+      }
+    }
+  }
+  return lifecycle.activeSignedContract || null;
 }
 
 function buildCurrentExecutionContext(value = todayISODate()) {
@@ -8342,7 +8450,10 @@ function renderTodayCommittedWeek() {
 function todaySessionExecution(item = {}) {
   const module = String(item.module || "").toUpperCase();
   const record = todaySessionExecutionRecord(item);
-  let state = String(record?.state || "READY").toUpperCase();
+  const assignmentId = String(item.assignmentId || item.assignment_id || item.id || item.activityId || "").trim();
+  const ledger = buildCurrentExecutionLedger(todayISODate());
+  const ledgerEntry = ledger?.entries?.find((entry) => entry.assignmentId === assignmentId) || null;
+  let state = ledgerEntry ? executionLedgerUiState(ledgerEntry) : String(record?.state || "READY").toUpperCase();
   let held = false;
   if (module === "STRENGTH") {
     const assignment = buildCurrentDailyAssignment();
@@ -8354,7 +8465,7 @@ function todaySessionExecution(item = {}) {
     const prescription = currentCorePrescription();
     held = ["PAIN_HOLD", "RECOVERY_ONLY", "REMOVED"].includes(String(prescription?.status || "").toUpperCase());
   }
-  const complete = ["COMPLETE", "PARTIAL"].includes(state);
+  const complete = ledgerEntry ? ledgerEntry.complete : state === "COMPLETE";
   const active = ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(state);
   return {
     state,
@@ -9869,6 +9980,7 @@ function buildCurrentCampaignCommissioning(overrides = {}) {
   }
   return DominionCampaignCommissioning.buildCommissioning({
     contract,
+    draftContract: readRecruitContractDraft(),
     signatureValid,
     profile: orientation?.profile || {},
     orientation,
@@ -9891,7 +10003,7 @@ async function saveCampaignCommissioningReceipt(receipt) {
 function campaignCommissioningTone(status = "") {
   if (status === "ACTIVE") return "green";
   if (status === "BLOCKED") return "red";
-  if (status === "READY_TO_LAUNCH") return "yellow";
+  if (["READY_TO_LAUNCH", "DRAFT_PENDING"].includes(status)) return "yellow";
   return "neutral";
 }
 
@@ -9938,7 +10050,7 @@ function renderCampaignCommissioning(model = buildCurrentCampaignCommissioning()
     : "";
   panel.innerHTML = `<div class="campaign-commissioning-command">
     <div class="campaign-commissioning-copy"><span>${model.status === "ACTIVE" ? "COMMISSION COMPLETE" : model.status === "READY_TO_LAUNCH" ? "FINAL AUTHORIZATION" : "CURRENT ORDER"}</span><h4>${escapeHtml(model.headline)}</h4><p>${escapeHtml(model.message)}</p></div>
-    <dl><div><dt>Contract</dt><dd>${contract ? `R${escapeHtml(String(contract.revision || 1))}` : "REQUIRED"}</dd></div><div><dt>Baseline</dt><dd>${model.baseline.captured}/${model.baseline.total}</dd></div><div><dt>Program</dt><dd>${model.activeProgram ? "ACTIVE" : model.steps.find((item) => item.id === "program")?.complete ? "READY" : "BUILD"}</dd></div><div><dt>Opening week</dt><dd>${escapeHtml(openingWeekLabel)}</dd></div></dl>
+    <dl><div><dt>Contract</dt><dd>${contract ? `R${escapeHtml(String(contract.revision || 1))}${model.draftContractRevision ? ` signed · R${escapeHtml(String(model.draftContractRevision))} draft` : " signed"}` : "REQUIRED"}</dd></div><div><dt>Baseline</dt><dd>${model.baseline.captured}/${model.baseline.total}</dd></div><div><dt>Program</dt><dd>${model.activeProgram ? "ACTIVE" : model.steps.find((item) => item.id === "program")?.complete ? "READY" : "BUILD"}</dd></div><div><dt>Opening week</dt><dd>${escapeHtml(openingWeekLabel)}</dd></div></dl>
     ${blockers}
     ${activeProof}
     <details class="campaign-commissioning-baseline"><summary>Week One evidence <small>${model.baseline.captured}/${model.baseline.total} captured · never a hidden blocker</small></summary><ul>${baselineItems}</ul></details>
@@ -10256,6 +10368,7 @@ function renderRecruitContract() {
     ? DominionContractExperience.signatureStatus(approved).valid
     : false;
   const amendmentPending = Boolean(signed && draft);
+  const draftRevisionCopy = amendmentPending ? contractRevisionStatusCopy() : null;
   const orientation = signed ? currentRecruitOrientation(approved) : null;
   const orientationComplete = orientation?.status === "COMPLETE";
   const contractRoot = document.getElementById("contract");
@@ -10376,7 +10489,7 @@ function renderRecruitContract() {
   const amendmentDiff = amendmentPending ? contractAmendmentChangesMarkup(approved, draft) : "";
   const amendmentHandoff = amendmentPending
     ? `<section class="contract-amendment-handoff" aria-label="Unsigned Contract amendment">
-        <div><span class="kicker">UNSIGNED AMENDMENT</span><h3 id="contract-amendment-heading">${draft.twoADays ? "Two-a-Days are ON in the draft—not yet in force." : "Contract changes are saved—not yet in force."}</h3><p>Signed Contract ${approved.revision} still governs Today and the calendar until you sign the replacement.</p></div>
+        <div><span class="kicker">UNSIGNED DRAFT · R${escapeHtml(String(readRecruitContractLifecycle().draftContractRevision || "NEXT"))}</span><h3 id="contract-amendment-heading">${draft.twoADays ? "Two-a-Days are ON in the draft—not yet in force." : "Contract changes are saved—not yet in force."}</h3><p>${escapeHtml(draftRevisionCopy?.label || `R${approved.revision} signed`)}. ${escapeHtml(draftRevisionCopy?.detail || "The signed Contract still governs Today and the calendar until you sign the replacement.")}</p></div>
         <div class="contract-amendment-comparison">
           <article><span>SIGNED · R${approved.revision}</span><strong>${approved.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small>${approved.twoADays ? "Up to 240 min" : `${approved.sessionMinutes} min standard`}</small></article>
           <article><span>DRAFT REPLACEMENT</span><strong id="contract-amendment-draft-capacity">${draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small id="contract-amendment-draft-detail">${draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`}</small></article>
@@ -10457,7 +10570,7 @@ async function signRecruitContractFromCeremony() {
   let previousOrientation;
   try {
     const draft = readRecruitContractDraft();
-    previous = readRecruitContractState("APPROVED", null);
+    previous = readApprovedRecruitContract();
     previousOrientation = readRecruitOnboardingState();
     const approvalDraft = draft || (previous?.status === "APPROVED"
       ? DominionRecruitContract.buildRecruitContractAmendment(previous, {}, previousOrientation?.profile || {}, {
@@ -11192,6 +11305,23 @@ function readStrengthExecution() {
   return readStrengthState("EXECUTION", todayISODate(), null);
 }
 
+function readActiveStrengthExecution() {
+  const indexed = readStrengthState("EXECUTION", "active", null);
+  if (typeof DominionBetaStateIntegrity !== "undefined" && DominionBetaStateIntegrity.activeExecution(indexed || {})) return indexed;
+  const todayExecution = readStrengthExecution();
+  if (typeof DominionBetaStateIntegrity !== "undefined" && DominionBetaStateIntegrity.activeExecution(todayExecution || {})) return todayExecution;
+  return null;
+}
+
+function activeStrengthSessionResolution(assignments = [currentStrengthCalendarAssignment()].filter(Boolean)) {
+  if (typeof DominionBetaStateIntegrity === "undefined") return null;
+  return DominionBetaStateIntegrity.resolveActiveStrengthSession({
+    today: todayISODate(),
+    executions: [readActiveStrengthExecution(), readStrengthExecution()].filter(Boolean),
+    assignments
+  });
+}
+
 function readStrengthAdjustment() {
   return readStrengthState("ADJUSTMENT", "current", null);
 }
@@ -11341,6 +11471,18 @@ async function loadStrengthTrainingState() {
         await persistStrengthTrainingState(stateType, stateKey, selected.payload);
       }
     }
+    if (typeof DominionBetaStateIntegrity !== "undefined") {
+      const remoteExecutions = rows
+        .filter((item) => item.state_type === "EXECUTION" && item.payload)
+        .map((item) => ({ ...item.payload, date: item.payload.date || item.state_key }));
+      const resolved = DominionBetaStateIntegrity.resolveActiveStrengthSession({
+        today: todayISODate(),
+        executions: [readStrengthState("EXECUTION", "active", null), readStrengthExecution(), ...remoteExecutions].filter(Boolean),
+        assignments: [currentStrengthCalendarAssignment()].filter(Boolean)
+      });
+      if (resolved.activeExecution) saveStrengthStateLocal("EXECUTION", "active", resolved.activeExecution);
+      else window.localStorage.removeItem(strengthStateStorageKey("EXECUTION", "active"));
+    }
   } catch (_) {
     // Local state remains the explicit offline fallback.
   }
@@ -11453,6 +11595,8 @@ function currentStrengthPrescription() {
   if (typeof DominionStrengthTraining === "undefined") return null;
   const plan = readApprovedStrengthPlan();
   if (!plan) return DominionStrengthTraining.buildDailyPrescription({}, [], { today: todayISODate() });
+  const activeExecution = readActiveStrengthExecution();
+  if (activeExecution?.sessionSnapshot) return applyCurrentStrengthBlock(activeExecution.sessionSnapshot);
   const existing = readStrengthExecution();
   const readinessResult = dailyState ? evaluateOperationalReadiness(dailyState) : evaluateReadiness(null);
   const readiness = morningVerificationReadiness({ ...dailyState, state: readinessResult?.state || null, pain: Boolean(dailyState?.pain) });
@@ -12585,6 +12729,8 @@ function saveDailyExecutionQueueState(nextState = {}) {
 
 function readDailyAssignmentExecution() {
   if (typeof DominionStrengthTraining === "undefined") return { state: "READY", setLogs: {} };
+  const activeExecution = readActiveStrengthExecution();
+  if (activeExecution) return DominionStrengthTraining.recoverInterruptedExecution(activeExecution, new Date().toISOString());
   const existing = readStrengthExecution();
   const prescription = currentStrengthPrescription();
   if (strengthExecutionMatchesPrescription(existing, prescription)) {
@@ -13020,6 +13166,122 @@ function readFrictionlessExecutionEnvelope() {
   });
 }
 
+function currentExecutionLedgerAssignments(date = todayISODate()) {
+  if (typeof DominionUnifiedExecutionLedger === "undefined") return [];
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const day = readEffectiveUnifiedDay(targetDate);
+  const week = readCommittedUnifiedWeek(targetDate);
+  const assignments = (day?.activities || []).filter((item) => {
+    const module = DominionUnifiedExecutionLedger.domain(item.module || item.domain);
+    const state = String(item.status || item.state || item.type || "").toUpperCase();
+    return DominionUnifiedExecutionLedger.DOMAINS.includes(module) && module !== "nutrition" && !["REST", "REST_DAY", "PAIN_HOLD"].includes(state);
+  }).map((item) => {
+    const assignmentId = String(item.assignmentId || item.assignment_id || item.id || item.activityId || "").trim();
+    return {
+      ...item,
+      id: assignmentId || null,
+      assignmentId: assignmentId || null,
+      date: targetDate,
+      module: DominionUnifiedExecutionLedger.domain(item.module || item.domain).toUpperCase()
+    };
+  });
+  if (targetDate === todayISODate() && typeof DominionBetaStateIntegrity !== "undefined") {
+    const active = readActiveStrengthExecution();
+    const activeId = DominionBetaStateIntegrity.assignmentId(active || {});
+    if (active && activeId && !assignments.some((item) => String(item.assignmentId || "") === activeId)) {
+      assignments.unshift({
+        ...(active.sessionSnapshot || {}),
+        id: activeId,
+        assignmentId: activeId,
+        date: DominionBetaStateIntegrity.executionDate(active) || active.date || targetDate,
+        module: "STRENGTH",
+        title: active.sessionName || active.sessionSnapshot?.sessionName || "Strength session",
+        sessionOrder: -1,
+        status: "IN_PROGRESS"
+      });
+    }
+  }
+  if (day?.nutrition) {
+    const assignmentId = `${week?.id || week?.weekStart || "committed-week"}:r${Number(week?.revision || 1)}:${targetDate}:nutrition`;
+    assignments.push({
+      id: assignmentId,
+      assignmentId,
+      date: targetDate,
+      module: "NUTRITION",
+      title: "Fuel target",
+      type: "NUTRITION",
+      planId: week?.sourceRefs?.nutritionPlanId || null,
+      calendarWeekId: week?.id || null,
+      calendarRevision: Number(week?.revision || 1),
+      targets: { ...day.nutrition }
+    });
+  }
+  return assignments;
+}
+
+function attachExecutionLedgerIdentity(execution, assignment, module) {
+  if (!execution || !assignment) return null;
+  const existingId = typeof DominionBetaStateIntegrity === "undefined"
+    ? String(execution.assignmentId || execution.calendarAssignmentId || "").trim()
+    : DominionBetaStateIntegrity.assignmentId(execution);
+  return {
+    ...execution,
+    module: String(module || assignment.module || "").toUpperCase(),
+    assignmentId: existingId || assignment.assignmentId,
+    calendarAssignmentId: execution.calendarAssignmentId || existingId || assignment.assignmentId
+  };
+}
+
+function buildCurrentExecutionLedger(date = todayISODate()) {
+  if (typeof DominionUnifiedExecutionLedger === "undefined") return null;
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const assignments = currentExecutionLedgerAssignments(targetDate);
+  const assignmentFor = (module) => assignments.find((item) => DominionUnifiedExecutionLedger.domain(item.module) === module) || null;
+  const executions = [];
+  if (targetDate === todayISODate()) {
+    const strength = attachExecutionLedgerIdentity(readDailyAssignmentExecution(), assignmentFor("strength"), "STRENGTH");
+    const running = attachExecutionLedgerIdentity(readRunningExecution(), assignmentFor("running"), "RUNNING");
+    const core = attachExecutionLedgerIdentity(readCurrentCoreExecution(), assignmentFor("core"), "CORE");
+    [strength, running, core].filter(Boolean).forEach((item) => executions.push(item));
+  }
+  const evidence = [
+    ...performanceEntries.filter((item) => String(item.performanceDate || item.performance_date || item.date || "").slice(0, 10) === targetDate),
+    ...readMissionExecutionReceipts(targetDate)
+  ];
+  const nutritionAssignment = assignmentFor("nutrition");
+  const fuel = nutritionAssignment ? buildFuelDayLedger(targetDate) : null;
+  const fuelEvidence = fuel && typeof DominionFuelDayLedger !== "undefined" ? DominionFuelDayLedger.evidence(fuel) : null;
+  if (fuelEvidence) evidence.push({ ...fuelEvidence, module: "NUTRITION", assignmentId: nutritionAssignment.assignmentId });
+  const envelope = targetDate === todayISODate() ? readFrictionlessExecutionEnvelope() : { drafts: {} };
+  return DominionUnifiedExecutionLedger.buildLedger({
+    date: targetDate,
+    assignments,
+    executions,
+    evidence,
+    drafts: envelope.drafts || {}
+  });
+}
+
+function currentExecutionLedgerEntry(module = "", date = todayISODate()) {
+  const ledger = buildCurrentExecutionLedger(date);
+  return ledger && typeof DominionUnifiedExecutionLedger !== "undefined"
+    ? DominionUnifiedExecutionLedger.entryForModule(ledger, module)
+    : null;
+}
+
+function executionLedgerUiState(entry = null) {
+  if (!entry) return "NOT_APPLICABLE";
+  return ({
+    scheduled: "READY",
+    in_progress: "IN_PROGRESS",
+    draft_evidence: "REVIEW",
+    completed: "COMPLETE",
+    verified: "COMPLETE",
+    superseded: "NOT_APPLICABLE",
+    cancelled: "NOT_APPLICABLE"
+  })[entry.state] || "READY";
+}
+
 function currentFrictionlessExecution() {
   if (typeof DominionFrictionlessExecution === "undefined") return null;
   const envelope = readFrictionlessExecutionEnvelope();
@@ -13030,31 +13292,34 @@ function currentFrictionlessExecution() {
   const runningActivity = activityFor("running");
   const coreActivity = activityFor("core");
   const assignment = buildCurrentDailyAssignment();
-  const strength = readDailyAssignmentExecution() || {};
   const runningPrescription = currentRunningPrescription();
-  const running = readRunningExecution() || {};
   const corePrescription = currentCorePrescription();
-  const core = readCurrentCoreExecution() || {};
   const fuel = buildFuelDayLedger(todayISODate());
   const recovery = buildCurrentRecoveryCommand();
   const closeout = readDailyCloseout();
+  const executionLedger = buildCurrentExecutionLedger(todayISODate());
+  const ledgerEntry = (module) => typeof DominionUnifiedExecutionLedger === "undefined" ? null : DominionUnifiedExecutionLedger.entryForModule(executionLedger || {}, module);
+  const strengthLedger = ledgerEntry("strength");
+  const runningLedger = ledgerEntry("running");
+  const coreLedger = ledgerEntry("core");
+  const fuelLedger = ledgerEntry("nutrition");
   const recoveryDay = currentDailyDecision?.recoveryDay === true || Boolean(day && activities.length === 0);
   const recoveryComplete = recovery?.status === "COMPLETE" || readDailyExecutionQueueState().recoveryComplete === true;
   const requiredTrainingComplete = [
-    strengthActivity ? ["COMPLETE", "COMPLETED"].includes(String(strength.state || "").toUpperCase()) : true,
-    runningActivity ? ["COMPLETE", "COMPLETED"].includes(String(running.state || "").toUpperCase()) || Boolean(todayQuickLogExistingRun()) : true,
-    coreActivity ? ["COMPLETE", "COMPLETED"].includes(String(core.state || "").toUpperCase()) : true
+    strengthActivity ? Boolean(strengthLedger?.complete) : true,
+    runningActivity ? Boolean(runningLedger?.complete) : true,
+    coreActivity ? Boolean(coreLedger?.complete) : true
   ].every(Boolean);
-  const fuelRequired = Boolean(day?.nutrition);
-  const closeoutAvailable = recoveryDay ? recoveryComplete || Boolean(closeout) : requiredTrainingComplete && (!fuelRequired || fuel.primaryComplete);
+  const fuelRequired = Boolean(fuelLedger);
+  const closeoutAvailable = recoveryDay ? recoveryComplete || Boolean(closeout) : requiredTrainingComplete && (!fuelRequired || fuelLedger.complete);
   return DominionFrictionlessExecution.buildDashboard({
     date: todayISODate(),
     lastModule: envelope.activeModule,
     modules: {
-      strength: { planned: Boolean(strengthActivity), available: Boolean(strengthActivity) && assignment?.state !== "RECOVERY ONLY", state: strengthActivity ? strength.state || "READY" : "NOT_APPLICABLE", updatedAt: strength.updatedAt, detail: strengthActivity?.title || assignment?.title || "Not assigned today" },
-      running: { planned: Boolean(runningActivity), available: Boolean(runningActivity) && !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: runningActivity ? running.state || "READY" : "NOT_APPLICABLE", updatedAt: running.updatedAt, draft: envelope.drafts?.running, detail: runningActivity?.title || "Not assigned today" },
-      core: { planned: Boolean(coreActivity), available: Boolean(coreActivity) && !["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()), state: coreActivity ? core.state || corePrescription?.status || "READY" : "NOT_APPLICABLE", updatedAt: core.updatedAt, detail: coreActivity?.title || "Not assigned today" },
-      fuel: { planned: fuelRequired, available: fuelRequired, state: fuel.status, complete: fuel.primaryComplete, draft: envelope.drafts?.fuel, updatedAt: fuel.record?.updatedAt, detail: day?.nutrition ? fuel.message : "No Fuel target assigned today" },
+      strength: { planned: Boolean(strengthLedger), available: Boolean(strengthLedger) && assignment?.state !== "RECOVERY ONLY", state: executionLedgerUiState(strengthLedger), complete: Boolean(strengthLedger?.complete), updatedAt: strengthLedger?.execution?.updatedAt, detail: strengthLedger?.assignment?.title || strengthLedger?.assignment?.sessionName || strengthActivity?.title || assignment?.title || "Not assigned today" },
+      running: { planned: Boolean(runningLedger), available: Boolean(runningLedger) && !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: executionLedgerUiState(runningLedger), complete: Boolean(runningLedger?.complete), updatedAt: runningLedger?.execution?.updatedAt, draft: envelope.drafts?.running, detail: runningActivity?.title || "Not assigned today" },
+      core: { planned: Boolean(coreLedger), available: Boolean(coreLedger) && !["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()), state: executionLedgerUiState(coreLedger), complete: Boolean(coreLedger?.complete), updatedAt: coreLedger?.execution?.updatedAt, detail: coreActivity?.title || "Not assigned today" },
+      fuel: { planned: fuelRequired, available: fuelRequired, state: executionLedgerUiState(fuelLedger), complete: Boolean(fuelLedger?.complete), draft: envelope.drafts?.fuel, updatedAt: fuel.record?.updatedAt, detail: day?.nutrition ? fuel.message : "No Fuel target assigned today" },
       recovery: { planned: recoveryDay, available: recoveryDay && Boolean(recovery), state: recoveryDay ? recovery?.status || "READY" : "NOT_APPLICABLE", complete: recoveryDay && recovery?.status === "COMPLETE", updatedAt: recovery?.completedAt || recovery?.generatedAt, detail: recoveryDay ? recovery?.headline || "Recovery order" : "Not assigned today" },
       closeout: { planned: true, available: closeoutAvailable || Boolean(closeout), state: closeout?.status || "WAITING", complete: closeout?.status === "SEALED", draft: envelope.drafts?.closeout, updatedAt: closeout?.updatedAt, detail: closeoutAvailable ? closeout ? "Daily proof sealed" : "Close the day" : "Complete today’s required evidence first" }
     }
@@ -13128,7 +13393,7 @@ function currentRunningAssignmentState(date = todayISODate()) {
 }
 
 function todayQuickLogExistingRun() {
-  return currentRunningAssignmentState()?.evidence?.[0] || null;
+  return currentExecutionLedgerEntry("running")?.evidence?.[0] || null;
 }
 
 function todayQuickLogState(dashboard = currentFrictionlessExecution()) {
@@ -13140,15 +13405,24 @@ function todayQuickLogState(dashboard = currentFrictionlessExecution()) {
     workoutApplicable: workoutItems.length > 0,
     workoutComplete,
     runApplicable: Boolean(byId.running?.applicable),
-    runComplete: Boolean(currentRunningAssignmentState()?.complete),
+    runComplete: Boolean(currentExecutionLedgerEntry("running")?.complete),
     fuelComplete: Boolean(byId.fuel?.complete),
     closeoutComplete: Boolean(byId.closeout?.complete)
   });
+  const ledger = buildCurrentExecutionLedger(todayISODate());
+  const ledgerNextModule = ledger?.next?.module || null;
   const activeTraining = [byId.strength, byId.running, byId.core].find((item) => item?.active)
+    || (ledgerNextModule && ["strength", "running", "core"].includes(ledgerNextModule) ? byId[ledgerNextModule] : null)
     || [byId.strength, byId.running, byId.core].find((item) => item?.applicable && !item.complete)
     || null;
   const closeoutReady = Boolean(byId.closeout?.applicable && byId.closeout?.available && (byId.closeout.planned || byId.closeout.complete));
-  return { dashboard, byId, workoutItems, activeTraining, closeoutReady, ...state };
+  const countedLabels = [
+    workoutItems.length ? workoutItems.map((item) => item.label).join(" + ") : null,
+    byId.running?.applicable ? "Run" : null,
+    byId.fuel?.applicable ? "Fuel" : null,
+    byId.closeout?.applicable ? "Closeout" : null
+  ].filter(Boolean);
+  return { dashboard, byId, workoutItems, activeTraining, closeoutReady, countedLabels, ...state };
 }
 
 function prefillTodayQuickLog(force = false) {
@@ -13194,7 +13468,7 @@ function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
   const model = todayQuickLogState(dashboard);
   if (!model) return;
   root.dataset.quickLogState = model.completed === model.total ? "COMPLETE" : "READY";
-  setText("frictionless-execution-progress", `Entries saved: ${model.completed} of ${model.total}`);
+  setText("frictionless-execution-progress", `Entries saved: ${model.completed} of ${model.total}${model.countedLabels.length ? ` · ${model.countedLabels.join(" · ")}` : ""}`);
   const active = model.activeTraining;
   resume.hidden = !active;
   if (active) {
@@ -13204,7 +13478,7 @@ function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
     resume.dataset.executionModule = "";
     resume.textContent = "";
   }
-  const runningTruth = currentRunningAssignmentState();
+  const runningTruth = currentExecutionLedgerEntry("running");
   const runComplete = Boolean(runningTruth?.complete);
   const fuelComplete = Boolean(model.byId.fuel?.complete);
   const closeoutComplete = Boolean(model.byId.closeout?.complete);
@@ -13304,7 +13578,8 @@ async function submitTodayQuickLog(event) {
         minutes: validation.run.minutes,
         seconds: validation.run.seconds,
         countTowardToday: Boolean(state?.byId.running?.applicable && !todayQuickLogExistingRun()),
-        assignmentId: currentRunningCalendarAssignment()?.assignmentId || null
+        assignmentId: currentRunningCalendarAssignment()?.assignmentId || null,
+        scheduledDate: currentRunningCalendarAssignment()?.date || null
       };
       const createdAt = readFrictionlessExecutionEnvelope().drafts?.running?.updatedAt || new Date().toISOString();
       const manualValidation = DominionManualRun.validate(input, { today: todayISODate() });
@@ -13509,6 +13784,26 @@ function splitDayModuleAuthorization(module = "strength") {
 }
 
 async function launchMobileModule(module = "strength", options = {}) {
+  if (module === "strength") {
+    const activeResolution = activeStrengthSessionResolution();
+    if (activeResolution?.activeExecution) {
+      let active = activeResolution.activeExecution;
+      if (String(active.state || "").toUpperCase() === "PAUSED") {
+        active = DominionStrengthTraining.resumeWorkout(active, new Date().toISOString());
+        await saveDailyAssignmentExecution(active);
+      }
+      setActiveSection("today");
+      window.history.replaceState(null, "", "#today");
+      const detail = document.querySelector(".today-workout-detail");
+      if (detail) detail.open = true;
+      renderDailyAssignment();
+      setText("mobile-command-feedback", activeResolution.requiresResolution
+        ? `${activeResolution.primaryAction.label}. ${activeResolution.waitingLabel} waits until this session is finished or ended incomplete.`
+        : activeResolution.primaryAction.label);
+      detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    }
+  }
   const moduleState = dailyDecisionModuleState(module);
   if (!moduleState.executable) {
     setText("mobile-command-feedback", moduleState.detail || "This work is not authorized by today's committed schedule.");
@@ -13679,7 +13974,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030f", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030h", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -13699,10 +13994,16 @@ async function saveDailyAssignmentExecution(execution) {
     ? linkStrengthExecutionToCalendar(execution, prescription)
     : execution;
   const payload = { ...linked, updatedAt: new Date().toISOString() };
-  saveStrengthStateLocal("EXECUTION", todayISODate(), payload);
-  const synced = await persistStrengthTrainingState("EXECUTION", todayISODate(), payload);
-  if (synced) acknowledgeMobileWrite("STRENGTH_EXECUTION", todayISODate());
-  else enqueueMobileWrite("STRENGTH_EXECUTION", todayISODate(), payload);
+  const executionDate = typeof DominionBetaStateIntegrity === "undefined"
+    ? String(payload.date || todayISODate()).slice(0, 10)
+    : DominionBetaStateIntegrity.executionDate(payload) || todayISODate();
+  saveStrengthStateLocal("EXECUTION", executionDate, payload);
+  const terminal = typeof DominionStrengthTraining !== "undefined" && DominionStrengthTraining.isTerminal(payload.state);
+  if (terminal) window.localStorage.removeItem(strengthStateStorageKey("EXECUTION", "active"));
+  else saveStrengthStateLocal("EXECUTION", "active", payload);
+  const synced = await persistStrengthTrainingState("EXECUTION", executionDate, payload);
+  if (synced) acknowledgeMobileWrite("STRENGTH_EXECUTION", executionDate);
+  else enqueueMobileWrite("STRENGTH_EXECUTION", executionDate, payload);
   renderMobileCommand();
   return payload;
 }
@@ -13876,7 +14177,7 @@ function renderDailyAssignment() {
     return;
   }
   const dailyStrength = dailyDecisionModuleState("strength");
-  if (dailyStrength.status === "BLOCKED") {
+  if (dailyStrength.status === "BLOCKED" && !readActiveStrengthExecution()) {
     setText("daily-assignment-state", "BLOCKED");
     const blockedBadge = document.getElementById("daily-assignment-state");
     if (blockedBadge) blockedBadge.className = "state-pill red";
@@ -13988,9 +14289,9 @@ function renderDailyAssignment() {
     <label><span>Session notes (optional)</span><textarea data-strength-review-notes rows="3" placeholder="Technique, energy, constraints, or context">${escapeHtml(execution.reviewNotes || "")}</textarea></label>
   </section>` : "";
   const primaryActions = execution.state === "IN_PROGRESS"
-    ? `<button type="button" data-assignment-action="finish">Review workout</button><button type="button" class="ghost" data-assignment-action="pause">Pause</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+    ? `<button type="button" data-assignment-action="finish">Review workout</button><button type="button" class="ghost" data-assignment-action="pause">Pause</button><button type="button" class="ghost danger-action" data-assignment-action="stop">End incomplete session</button>`
     : execution.state === "PAUSED"
-      ? `<button type="button" data-assignment-action="resume">Resume workout</button><button type="button" class="ghost" data-assignment-action="finish">Review workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">Stop workout</button>`
+      ? `<button type="button" data-assignment-action="resume">Resume workout</button><button type="button" class="ghost" data-assignment-action="finish">Review workout</button><button type="button" class="ghost danger-action" data-assignment-action="stop">End incomplete session</button>`
       : execution.state === "REVIEW"
         ? `<button type="button" data-assignment-action="finalize">Finalize session</button><button type="button" class="ghost" data-assignment-action="resume">Back to workout</button>`
         : terminal
@@ -16413,8 +16714,11 @@ function dailyDecisionScheduleSummary(decision = currentDailyDecision) {
   if (!decision.schedule.available) return { state: "No committed schedule", detail: "Open Calendar to commit the operating day." };
   if (decision.schedule.recoveryDay) return { state: "Recovery day", detail: "No training is authorized today." };
   const sessions = decision.schedule.sessions;
+  const windowSummary = typeof DominionBetaStateIntegrity === "undefined"
+    ? { count: sessions.length, label: `${sessions.length} training window${sessions.length === 1 ? "" : "s"}` }
+    : DominionBetaStateIntegrity.countTrainingWindows(sessions);
   return {
-    state: `${sessions.length} training window${sessions.length === 1 ? "" : "s"}${decision.blockedDomains?.length ? " · one plan needs attention" : ""}`,
+    state: `${windowSummary.label}${decision.blockedDomains?.length ? " · one plan needs attention" : ""}`,
     detail: sessions.map((item) => `${item.window}: ${item.title}${item.complete ? " · complete" : item.longRunUncapped ? " - open duration" : item.estimatedMinutes ? ` - ${item.estimatedMinutes} min` : ""}`).join(" | ")
   };
 }
@@ -16422,11 +16726,12 @@ function dailyDecisionScheduleSummary(decision = currentDailyDecision) {
 function renderDailyDecisionSurfaces(decision = currentDailyDecision) {
   if (!decision) return;
   const executionContext = buildCurrentExecutionContext(todayISODate());
+  const draftRevisionCopy = contractRevisionStatusCopy();
   const executionBanner = document.getElementById("execution-context-banner");
   if (executionBanner) {
-    executionBanner.hidden = !executionContext?.expectedVersionSplit;
-    setText("execution-context-primary", executionContext?.today?.label || "Today executes the active assignment.");
-    setText("execution-context-secondary", executionContext?.today?.secondary || "");
+    executionBanner.hidden = !executionContext?.expectedVersionSplit && !draftRevisionCopy;
+    setText("execution-context-primary", draftRevisionCopy?.label || executionContext?.today?.label || "Today executes the active assignment.");
+    setText("execution-context-secondary", draftRevisionCopy?.detail || executionContext?.today?.secondary || "");
   }
   document.body.dataset.dailyDecisionStatus = decision.status;
   document.body.dataset.dailyDecisionBlocker = decision.blocker?.code || "NONE";
@@ -18839,10 +19144,12 @@ function buildCurrentOperatingTruth() {
     loop = loopInput ? DominionClosedLoop.buildLoopState(loopInput) : null;
   } catch (_) {}
   const actual = loopInput?.actual || {};
-  const strengthExecution = readDailyAssignmentExecution();
-  const runningExecution = readRunningExecution();
-  const coreExecution = readCurrentCoreExecution();
-  const nutritionActual = actual.fueling || {};
+  const executionLedger = buildCurrentExecutionLedger(date);
+  const ledgerEntry = (domain) => typeof DominionUnifiedExecutionLedger === "undefined" ? null : DominionUnifiedExecutionLedger.entryForModule(executionLedger || {}, domain);
+  const strengthLedger = ledgerEntry("strength");
+  const runningLedger = ledgerEntry("running");
+  const coreLedger = ledgerEntry("core");
+  const nutritionLedger = ledgerEntry("nutrition");
   const recoveryActual = actual.recovery || {};
   const recordActual = actual.record || {};
   const strengthPrescription = currentStrengthPrescription();
@@ -18861,19 +19168,19 @@ function buildCurrentOperatingTruth() {
     detail: options.detail || ""
   });
   const modules = [
-    module("strength", "Strength", scheduledModules.has("STRENGTH"), strengthExecution?.state, actual.training, {
+    module("strength", "Strength", scheduledModules.has("STRENGTH"), executionLedgerUiState(strengthLedger), { evidenceCount: strengthLedger?.evidence?.length || 0, complete: strengthLedger?.complete }, {
       protected: strengthPrescription?.state === "RECOVERY ONLY",
       detail: strengthPrescription?.sessionName || "Committed strength assignment"
     }),
-    module("running", "Run", scheduledModules.has("RUNNING"), runningExecution?.state, actual.running, {
+    module("running", "Run", scheduledModules.has("RUNNING"), executionLedgerUiState(runningLedger), { evidenceCount: runningLedger?.evidence?.length || 0, complete: runningLedger?.complete }, {
       protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(runningPrescription?.status || "").toUpperCase()),
       detail: runningPrescription?.session?.type || "Committed run assignment"
     }),
-    module("core", "Core", scheduledModules.has("CORE"), coreExecution?.state, actual.core, {
+    module("core", "Core", scheduledModules.has("CORE"), executionLedgerUiState(coreLedger), { evidenceCount: coreLedger?.evidence?.length || 0, complete: coreLedger?.complete }, {
       protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()),
       detail: corePrescription?.session?.title || "Committed core assignment"
     }),
-    module("nutrition", "Fuel", Boolean(day?.nutrition), nutritionActual.complete ? "COMPLETE" : "READY", nutritionActual, {
+    module("nutrition", "Fuel", Boolean(day?.nutrition), executionLedgerUiState(nutritionLedger), { evidenceCount: nutritionLedger?.evidence?.length || 0, complete: nutritionLedger?.complete }, {
       detail: day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "No committed fuel target"
     }),
     module("recovery", "Recovery", Boolean(week), recoveryActual.complete ? "COMPLETE" : "READY", recoveryActual, {
@@ -18911,6 +19218,13 @@ function buildCurrentOperatingTruth() {
     }
   });
   if (executionContext) currentOperatingTruth.executionContext = executionContext;
+  if (executionLedger) currentOperatingTruth.executionLedger = {
+    version: executionLedger.version,
+    fingerprint: executionLedger.fingerprint,
+    consistent: executionLedger.consistency.consistent,
+    completed: executionLedger.completed,
+    total: executionLedger.total
+  };
   return currentOperatingTruth;
 }
 
@@ -19404,7 +19718,9 @@ function renderProgramCommand(truth = currentOperatingTruth || buildCurrentOpera
     : "";
   const weekDate = model.week.start ? `${escapeHtml(model.week.start)}${model.week.end ? ` – ${escapeHtml(model.week.end)}` : ""}` : "Not committed";
   const executionContext = model.executionContext || buildCurrentExecutionContext(todayISODate());
+  const draftRevisionCopy = contractRevisionStatusCopy();
   panel.innerHTML = `
+    ${draftRevisionCopy ? `<aside class="execution-context-banner contract-draft-status" data-draft-plan-count="${draftRevisionCopy.draftRequiredCount}"><strong>${escapeHtml(draftRevisionCopy.label)}</strong><span>${escapeHtml(draftRevisionCopy.detail)}</span><button type="button" class="ghost" data-program-route="contract">Finish R${escapeHtml(String(readRecruitContractLifecycle().draftContractRevision))} draft</button></aside>` : ""}
     ${executionContext?.expectedVersionSplit ? `<aside class="execution-context-banner"><strong>${escapeHtml(executionContext.program)}</strong><span>Today remains governed by the active week. The amendment affects the staged week only.</span></aside>` : ""}
     <section class="program-command-goal">
       <div><span>THE OUTCOME</span><h3>${escapeHtml(model.goal.target)}</h3><p>${escapeHtml(model.goal.label)}</p></div>
@@ -22754,6 +23070,7 @@ async function init() {
       document.body.dataset.accountEntitled = access.entitled ? "true" : "false";
     }
     setText("identity", "Signed in as " + session.user.email);
+    setStartupRestoreProgress("Restoring account snapshot.");
     await readStartupAccountLedger();
     const startupIssues = [];
     await runStartupTask("preferences", async () => {
@@ -22774,12 +23091,14 @@ async function init() {
     const weeklyDate = document.getElementById("weekly-date");
     if (weeklyDate) weeklyDate.value = todayISODate();
     await runStartupTask("weekly inspection", loadWeeklyInspection, startupIssues);
+    setStartupRestoreProgress("Verifying protected week.");
     await runStartupTask("Recruit Contract", loadRecruitContractState, startupIssues);
     await runStartupTask("Week One orientation", loadRecruitOnboardingState, startupIssues);
     await runStartupTask("Fuel", loadNutritionState, startupIssues);
     await runStartupTask("Cardio", loadRunningState, startupIssues);
     await runStartupTask("Core", loadCoreProgramState, startupIssues);
     await runStartupTask("coaching loop", loadClosedLoopState, startupIssues);
+    setStartupRestoreProgress("Restoring active evidence.");
     await runStartupTask("performance evidence", loadPerformanceEntries, startupIssues);
     await runStartupTask("progress photos", loadBodyProgressPhotos, startupIssues);
     await runStartupTask("Strength", loadStrengthTrainingState, startupIssues);
@@ -22790,6 +23109,7 @@ async function init() {
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: false }), startupIssues);
     const authoritativeStartup = reconcileStartupAccountState();
+    setStartupRestoreProgress("Preparing Today.");
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
@@ -24169,39 +24489,29 @@ if (typeof document !== "undefined") {
       return;
     }
     if (action === "restore") {
-      await clearRecruitContractState("DRAFT");
+      const restored = await discardRecruitContractDraft();
       recruitContractSetupStep = 0;
       const editor = document.getElementById("recruit-contract-editor");
       if (editor) editor.open = !readApprovedRecruitContract();
       renderRecruitContract();
-      setText("recruit-contract-feedback", readApprovedRecruitContract()
-        ? "Approved contract restored. No module plan changed."
+      setText("recruit-contract-feedback", restored
+        ? `Unsigned draft discarded. Signed Contract R${restored.revision} still governs; no plan, Calendar receipt, or evidence changed.`
         : "Draft cleared. No approved contract exists yet.");
       return;
     }
     if (action === "approve") {
       try {
         const draft = readRecruitContractDraft();
-        const previous = readRecruitContractState("APPROVED", null);
-        const approved = DominionRecruitContract.approveRecruitContract(draft || {}, previous, {
-          today: todayISODate(),
-          approvedAt: new Date().toISOString()
-        });
-        const history = [approved, ...readRecruitContractHistory().filter((item) => item.id !== approved.id)].slice(0, 24);
-        saveRecruitContractLocal("APPROVED", approved);
-        saveRecruitContractLocal("HISTORY", history);
-        const synced = await persistRecruitContractState("APPROVED", approved);
-        await persistRecruitContractState("HISTORY", history);
-        await clearRecruitContractState("DRAFT");
-        await refreshUnifiedWeekDraftForPlans();
+        if (!draft) throw new Error("Complete the amendment draft before signing it.");
         const editor = document.getElementById("recruit-contract-editor");
-        if (editor) editor.open = false;
+        recruitContractSetupStep = 4;
+        if (editor) editor.open = true;
         renderRecruitContract();
-        renderActivationGuide();
-        renderTodayStandardsDuty();
-        setText("recruit-contract-feedback", `Recruit Contract revision ${approved.revision} approved${synced ? " and saved to your account" : " on this device"}. Active module plans remain unchanged.`);
+        routeRecruitContractReview(draft, {
+          readyMessage: `R${readRecruitContractLifecycle().draftContractRevision || "next"} remains an unsigned draft. Sign it to authorize future programming; the current program is unchanged.`
+        });
       } catch (error) {
-        setText("recruit-contract-feedback", error?.message || "The Recruit Contract could not be approved.");
+        setText("recruit-contract-feedback", error?.message || "The Contract draft could not be opened for signature.");
       }
       return;
     }
@@ -24797,7 +25107,8 @@ if (typeof document !== "undefined") {
       const input = {
         ...Object.fromEntries(formData.entries()),
         countTowardToday,
-        assignmentId: countTowardToday ? currentRunningCalendarAssignment()?.assignmentId || null : null
+        assignmentId: countTowardToday ? currentRunningCalendarAssignment()?.assignmentId || null : null,
+        scheduledDate: countTowardToday ? currentRunningCalendarAssignment()?.date || null : null
       };
       const validation = typeof DominionManualRun !== "undefined"
         ? DominionManualRun.validate(input, { today: todayISODate() })
@@ -26782,6 +27093,21 @@ function applyMissionComplianceDefaults(domains) {
   return domains;
 }
 
+function applyAssignedComplianceDefaults(domains) {
+  if (!domains?.strength) return domains;
+  const resolution = activeStrengthSessionResolution();
+  const strengthEntry = currentExecutionLedgerEntry("strength");
+  if (!domains.strength.target) {
+    domains.strength.target = resolution?.dailyRecordTarget
+      || (strengthEntry?.assignmentId ? `${strengthEntry.assignment?.title || strengthEntry.assignment?.sessionName || "Strength session"} · Assignment ${strengthEntry.assignmentId}` : "");
+  }
+  const runningEntry = currentExecutionLedgerEntry("running");
+  if (domains.cardio && !domains.cardio.target && runningEntry?.assignmentId) {
+    domains.cardio.target = `${runningEntry.assignment?.title || "Run"} · Assignment ${runningEntry.assignmentId}`;
+  }
+  return domains;
+}
+
 function readComplianceForm() {
   const form = document.getElementById("compliance-form");
   const values = new FormData(form);
@@ -26832,7 +27158,7 @@ function setComplianceDirtyState(nextState = null) {
 }
 
 function setComplianceDefaultsFromState(record) {
-  const domains = applyMissionComplianceDefaults(complianceDomainsFromRecord(record));
+  const domains = applyAssignedComplianceDefaults(applyMissionComplianceDefaults(complianceDomainsFromRecord(record)));
   COMPLIANCE_DOMAINS.forEach((key) => {
     const fieldset = document.querySelector(`[data-domain="${key}"]`);
     if (fieldset) fieldset.classList.toggle("collapsed", false);

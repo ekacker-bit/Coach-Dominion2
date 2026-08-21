@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Closed-Loop Coaching
+
+- Turns the sealed Daily Closeout and canonical execution ledger into one explainable next-day verdict: advance, maintain, reduce, or recover.
+- Applies accepted changes to Today, the Calendar explanation, and the next eligible prescription without rewriting the committed program.
+- Holds safety-driven recovery automatically while requiring deliberate acceptance for progression or volume reductions.
+- Keeps Fuel unchanged, preserves active sessions, and stores the decision with the account so reloads see the same coaching call.
+
 ## Unreleased - Beta State Integrity
 
 - Keeps the last signed Contract authoritative while a clearly labeled amendment draft remains unsigned and non-operational.

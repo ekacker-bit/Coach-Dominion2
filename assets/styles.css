@@ -12868,6 +12868,62 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
   .connected-account-health { grid-template-columns: 1fr; gap: 7px; }
 }
 
+/* Build 030I: one word-light Closeout verdict that governs the next operating day. */
+.atlas-closed-loop-verdict {
+  margin: 14px 0;
+  padding: 16px;
+  display: grid;
+  gap: 11px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--victory-gold);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, .08), rgba(10, 10, 10, .82) 54%);
+}
+.atlas-closed-loop-verdict.green { border-left-color: #64a875; }
+.atlas-closed-loop-verdict.yellow { border-left-color: var(--victory-gold); }
+.atlas-closed-loop-verdict.red { border-left-color: #c14a45; }
+.atlas-closed-loop-verdict > header { display: flex; justify-content: space-between; align-items: start; gap: 14px; }
+.atlas-closed-loop-verdict > header span,
+.atlas-closed-loop-signals small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.atlas-closed-loop-verdict > header h3 { margin: 3px 0 0; font-size: clamp(25px, 4vw, 36px); }
+.atlas-closed-loop-verdict > header em {
+  padding: 6px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+.atlas-closed-loop-verdict > p { margin: 0; color: var(--muted); line-height: 1.45; }
+.atlas-closed-loop-impact { color: var(--text); font-size: 15px; line-height: 1.45; }
+.atlas-closed-loop-signals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.atlas-closed-loop-signals > span { min-width: 0; padding: 10px; display: grid; gap: 4px; border-right: 1px solid var(--line); }
+.atlas-closed-loop-signals > span:last-child { border-right: 0; }
+.atlas-closed-loop-signals strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-closed-loop-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.atlas-closed-loop-resolution { padding-top: 8px; border-top: 1px solid var(--line); color: var(--text) !important; font-weight: 800; }
+#atlas-closed-loop-today[hidden],
+#atlas-closeout-verdict[hidden] { display: none !important; }
+
+@media (max-width: 560px) {
+  .atlas-closed-loop-verdict { padding: 13px 12px; }
+  .atlas-closed-loop-verdict > header { align-items: center; }
+  .atlas-closed-loop-signals { grid-template-columns: 1fr; }
+  .atlas-closed-loop-signals > span { grid-template-columns: 92px minmax(0, 1fr); align-items: center; border-right: 0; border-bottom: 1px solid var(--line); }
+  .atlas-closed-loop-signals > span:last-child { border-bottom: 0; }
+  .atlas-closed-loop-actions { display: grid; }
+  .atlas-closed-loop-actions button { width: 100%; }
+}
+
 /* 030E: the reconciliation barrier always outranks legacy responsive display rules. */
 body[data-app-loading="true"] .command-header,
 body[data-app-loading="true"] #dominion-mission-rail,

@@ -7624,15 +7624,18 @@ function readEffectiveUnifiedDay(value = todayISODate()) {
   const horizonDay = typeof DominionAtlasAdaptiveHorizon === "undefined"
     ? day
     : DominionAtlasAdaptiveHorizon.applyToDay(day, proposal, adaptiveHorizonContext(date));
+  const closedLoopDay = typeof DominionAtlasClosedLoop === "undefined"
+    ? horizonDay
+    : DominionAtlasClosedLoop.applyToDay(horizonDay, activeAtlasClosedLoopDecision(date), date);
   const liveProposal = typeof DominionAtlasLiveAdaptation === "undefined" ? null : readAtlasLiveAdaptation(date);
   const liveState = typeof DominionFinalBetaStabilization === "undefined"
     ? liveProposal?.status
     : DominionFinalBetaStabilization.adaptationState(liveProposal);
-  if (["PROPOSED", "HELD", "NEEDS_CONTEXT", "ADAPTATION_PROPOSED", "ADAPTATION_DECLINED"].includes(liveState)) return horizonDay;
-  if (typeof DominionRecoveryCommand === "undefined") return horizonDay;
+  if (["PROPOSED", "HELD", "NEEDS_CONTEXT", "ADAPTATION_PROPOSED", "ADAPTATION_DECLINED"].includes(liveState)) return closedLoopDay;
+  if (typeof DominionRecoveryCommand === "undefined") return closedLoopDay;
   const recoveryCommand = buildCurrentRecoveryCommand(date);
-  if (["AMBER", "RED"].includes(recoveryCommand?.posture) && liveProposal?.status !== "APPROVED") return horizonDay;
-  return DominionRecoveryCommand.applyToDay(horizonDay, recoveryCommand, recoveryCommandContext(date));
+  if (["AMBER", "RED"].includes(recoveryCommand?.posture) && liveProposal?.status !== "APPROVED") return closedLoopDay;
+  return DominionRecoveryCommand.applyToDay(closedLoopDay, recoveryCommand, recoveryCommandContext(date));
 }
 
 function buildCurrentCanonicalDailyCommand(value = todayISODate()) {
@@ -11489,12 +11492,14 @@ async function loadStrengthTrainingState() {
 }
 
 function applyCurrentStrengthBlock(prescription) {
-  if (typeof DominionStrengthBlock === "undefined" || !prescription) return prescription;
+  if (!prescription) return prescription;
+  let result = prescription;
+  if (typeof DominionStrengthBlock === "undefined") return applyAtlasClosedLoopToStrengthPrescription(result);
   const block = readActiveStrengthBlock();
-  if (!block) return prescription;
+  if (!block) return applyAtlasClosedLoopToStrengthPrescription(result);
   const plan = readApprovedStrengthPlan();
   if (!plan || block.planId !== plan.id || Number(block.planRevision || 1) !== Number(plan.revision || 1)) {
-    return {
+    result = {
       ...prescription,
       block: {
         status: "STALE",
@@ -11502,8 +11507,10 @@ function applyCurrentStrengthBlock(prescription) {
         label: "Block revision review required"
       }
     };
+  } else {
+    result = DominionStrengthBlock.applyBlockToPrescription(prescription, block, prescription.date || todayISODate());
   }
-  return DominionStrengthBlock.applyBlockToPrescription(prescription, block, prescription.date || todayISODate());
+  return applyAtlasClosedLoopToStrengthPrescription(result);
 }
 
 function currentStrengthCalendarAssignment(value = todayISODate()) {
@@ -13974,7 +13981,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030h", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030i", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14468,6 +14475,7 @@ function renderDailyCoachingLoop() {
   renderCoreToday();
   renderTodayRecoveryExecution();
   renderAtlasAdaptationOutcome();
+  renderAtlasClosedLoopDecision();
   const panel = document.getElementById("daily-orders-panel");
   const phases = document.getElementById("daily-loop-phases");
   if (!panel || !phases) return;
@@ -14546,6 +14554,168 @@ function readDailyCloseout(date = todayISODate()) {
 function readDailyCloseoutHistory() {
   const history = readClosedLoopState("HISTORY", "daily-closeout", []);
   return Array.isArray(history) ? history : [];
+}
+
+function readAtlasClosedLoopHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-closed-loop", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readAtlasClosedLoopDecision(date = todayISODate()) {
+  return readClosedLoopState("DAILY_VERDICT", String(date || todayISODate()).slice(0, 10), null);
+}
+
+function activeAtlasClosedLoopDecision(date = todayISODate()) {
+  if (typeof DominionAtlasClosedLoop === "undefined") return null;
+  return DominionAtlasClosedLoop.decisionForDate(readAtlasClosedLoopHistory(), String(date || todayISODate()).slice(0, 10));
+}
+
+function atlasClosedLoopEffort(date = todayISODate()) {
+  const execution = readActiveStrengthExecution() || readStrengthExecution();
+  if (execution?.date === date) {
+    const work = Object.values(execution.setLogs || {}).flat().filter((item) => String(item.kind || "WORK").toUpperCase() !== "WARMUP" && Number.isFinite(Number(item.rpe)));
+    if (work.length) return Math.round(work.reduce((sum, item) => sum + Number(item.rpe), 0) / work.length * 10) / 10;
+  }
+  const debriefs = readClosedLoopState("HISTORY", "mission-debrief", []);
+  const debrief = Array.isArray(debriefs) ? debriefs.find((item) => item.date === date) : null;
+  return Number.isFinite(Number(debrief?.effort)) ? Number(debrief.effort) : null;
+}
+
+function buildAtlasClosedLoopDecision(closeout = readDailyCloseout()) {
+  if (typeof DominionAtlasClosedLoop === "undefined" || !closeout?.date) return null;
+  const date = closeout.date;
+  const ledger = buildCurrentExecutionLedger(date);
+  const state = dailyState?.date === date ? dailyState : readinessHistory.find((item) => item.date === date) || null;
+  let readiness = { state: "UNKNOWN", pain: Boolean(state?.pain) };
+  if (state) {
+    try { readiness = { ...readiness, state: evaluateOperationalReadiness(state).state }; }
+    catch (_) {}
+  }
+  const contract = readApprovedRecruitContract();
+  const week = readCommittedUnifiedWeek(date);
+  return DominionAtlasClosedLoop.buildDecision({
+    date,
+    closeout,
+    ledger,
+    readiness,
+    effort: atlasClosedLoopEffort(date),
+    contractRevision: Number(contract?.revision || 0),
+    weekRevision: Number(week?.revision || 0),
+    previous: readAtlasClosedLoopDecision(date),
+    generatedAt: new Date().toISOString()
+  });
+}
+
+async function saveAtlasClosedLoopDecision(record = null) {
+  if (!record?.date) return false;
+  const history = [record, ...readAtlasClosedLoopHistory().filter((item) => item.date !== record.date)]
+    .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")))
+    .slice(0, 120);
+  saveClosedLoopLocal("DAILY_VERDICT", record.date, record);
+  saveClosedLoopLocal("HISTORY", "atlas-closed-loop", history);
+  const [currentSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("DAILY_VERDICT", record.date, record),
+    persistClosedLoopState("HISTORY", "atlas-closed-loop", history)
+  ]);
+  return currentSaved && historySaved;
+}
+
+async function reconcileAtlasClosedLoopDecision(closeout = readDailyCloseout()) {
+  const decision = buildAtlasClosedLoopDecision(closeout);
+  if (!decision) return null;
+  await saveAtlasClosedLoopDecision(decision);
+  return decision;
+}
+
+function atlasClosedLoopMarkup(decision = null, context = "today") {
+  if (!decision) return `<div class="performance-empty">Close today to receive the next coaching call.</div>`;
+  const proposed = decision.status === "PROPOSED";
+  const status = decision.status === "ACTIVE" ? "ACTIVE" : decision.status.replaceAll("_", " ");
+  const signals = (decision.signals || []).slice(0, 3).map((item) => `<span><small>${escapeHtml(item.label)}</small><strong>${escapeHtml(item.value)}</strong></span>`).join("");
+  const actions = proposed
+    ? `<div class="atlas-closed-loop-actions"><button type="button" data-atlas-closed-loop-action="ACCEPT" data-decision-date="${escapeHtml(decision.date)}">Accept for ${escapeHtml(decision.effectiveDate.slice(5))}</button><button type="button" class="ghost" data-atlas-closed-loop-action="KEEP" data-decision-date="${escapeHtml(decision.date)}">Keep current plan</button></div>`
+    : decision.status === "APPROVED"
+      ? `<p class="atlas-closed-loop-resolution">Approved for ${escapeHtml(decision.effectiveDate)}.</p>`
+      : decision.status === "HELD"
+        ? `<p class="atlas-closed-loop-resolution">Current plan preserved.</p>`
+        : decision.status === "BLOCKED"
+          ? `<p class="atlas-closed-loop-resolution">No change applied.</p>`
+          : `<p class="atlas-closed-loop-resolution">${decision.safetyOverride ? "Safety hold active." : "No approval needed."}</p>`;
+  return `<article class="atlas-closed-loop-verdict ${escapeHtml(decision.tone || "neutral")}" data-verdict="${escapeHtml(decision.verdict || decision.status)}">
+    <header><div><span>${context === "closeout" ? "TOMORROW" : decision.effectiveDate === todayISODate() ? "TODAY'S ADJUSTMENT" : "NEXT COACHING CALL"}</span><h3>${escapeHtml(decision.headline)}</h3></div><em>${escapeHtml(status)}</em></header>
+    <p>${escapeHtml(decision.reason)}</p>
+    <strong class="atlas-closed-loop-impact">${escapeHtml(decision.impact)}</strong>
+    ${signals ? `<div class="atlas-closed-loop-signals">${signals}</div>` : ""}
+    ${actions}
+  </article>`;
+}
+
+function renderAtlasClosedLoopDecision() {
+  const sourceDecision = readAtlasClosedLoopDecision(todayISODate());
+  const activeDecision = activeAtlasClosedLoopDecision(todayISODate());
+  const closeoutHost = document.getElementById("atlas-closeout-verdict");
+  const todayHost = document.getElementById("atlas-closed-loop-today");
+  if (closeoutHost) {
+    closeoutHost.hidden = !sourceDecision;
+    closeoutHost.innerHTML = sourceDecision ? atlasClosedLoopMarkup(sourceDecision, "closeout") : "";
+  }
+  if (todayHost) {
+    const decision = activeDecision || sourceDecision;
+    todayHost.hidden = !decision;
+    todayHost.innerHTML = decision ? atlasClosedLoopMarkup(decision, "today") : "";
+  }
+}
+
+async function resolveAtlasClosedLoopDecision(date = todayISODate(), resolution = "KEEP") {
+  if (typeof DominionAtlasClosedLoop === "undefined") return null;
+  const current = readAtlasClosedLoopDecision(date);
+  if (!current) return null;
+  const resolved = DominionAtlasClosedLoop.resolveDecision(current, resolution, { resolvedAt: new Date().toISOString() });
+  await saveAtlasClosedLoopDecision(resolved);
+  renderAtlasClosedLoopDecision();
+  renderWeeklyOrchestrator();
+  renderTodayCommittedWeek();
+  renderDailyAssignment();
+  renderCoreToday();
+  renderRunningCommand();
+  scheduleOperatingTruthReconciliation(50);
+  return resolved;
+}
+
+function applyAtlasClosedLoopToStrengthPrescription(prescription = null, date = todayISODate()) {
+  if (!prescription || typeof DominionAtlasClosedLoop === "undefined") return prescription;
+  const active = readActiveStrengthExecution();
+  if (active?.date === date && ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(active.state) && !prescription.atlasClosedLoop) return prescription;
+  const decision = activeAtlasClosedLoopDecision(date);
+  if (decision?.verdict === "ADVANCE" && dailyState?.date === date) {
+    try { if (evaluateOperationalReadiness(dailyState).state !== "GREEN") return prescription; }
+    catch (_) { return prescription; }
+  }
+  return DominionAtlasClosedLoop.applyToStrength(prescription, decision, date);
+}
+
+function applyAtlasClosedLoopToRunningPrescription(prescription = null, date = todayISODate()) {
+  if (!prescription || typeof DominionAtlasClosedLoop === "undefined") return prescription;
+  const execution = readRunningExecution();
+  if (execution?.date === date && ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state) && !prescription.atlasClosedLoop) return prescription;
+  const decision = activeAtlasClosedLoopDecision(date);
+  if (decision?.verdict === "ADVANCE" && dailyState?.date === date) {
+    try { if (evaluateOperationalReadiness(dailyState).state !== "GREEN") return prescription; }
+    catch (_) { return prescription; }
+  }
+  return DominionAtlasClosedLoop.applyToRunning(prescription, decision, date);
+}
+
+function applyAtlasClosedLoopToCorePrescription(prescription = null, date = todayISODate()) {
+  if (!prescription || typeof DominionAtlasClosedLoop === "undefined") return prescription;
+  const execution = readCurrentCoreExecution();
+  if (execution?.date === date && ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(execution.state) && !prescription.atlasClosedLoop) return prescription;
+  const decision = activeAtlasClosedLoopDecision(date);
+  if (decision?.verdict === "ADVANCE" && dailyState?.date === date) {
+    try { if (evaluateOperationalReadiness(dailyState).state !== "GREEN") return prescription; }
+    catch (_) { return prescription; }
+  }
+  return DominionAtlasClosedLoop.applyToCore(prescription, decision, date);
 }
 
 function connectedStepsForCloseout(closeout = readDailyCloseout()) {
@@ -14679,6 +14849,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
     receipt.innerHTML = closeout ? `<div><span>FINAL STEPS</span><strong>${Number(closeout.steps.effective || 0).toLocaleString()}</strong></div><div><span>DISCIPLINE</span><strong>${closeout.discipline.score === null ? "UNSCORED" : `${closeout.discipline.score}%`}</strong></div><div><span>COVERAGE</span><strong>${closeout.discipline.answered}/5</strong></div><p>Sealed ${escapeHtml(new Date(closeout.updatedAt).toLocaleString())}. You can amend this closeout without creating a duplicate day.</p>` : "";
   }
   updateDailyCloseoutPreview();
+  renderAtlasClosedLoopDecision();
 }
 
 async function submitDailyCloseout(event) {
@@ -14693,16 +14864,18 @@ async function submitDailyCloseout(event) {
     const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(), { previous, now: new Date().toISOString() });
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
+    const verdict = await reconcileAtlasClosedLoopDecision(record);
     await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
     const form = document.getElementById("daily-closeout-form");
     if (form) form.dataset.dirty = "false";
     renderDailyCoachingLoop();
+    renderAtlasClosedLoopDecision();
     renderWeeklyCloseoutEvidence();
     const panel = document.getElementById("daily-closeout-panel");
     if (panel) panel.open = true;
-    setText("daily-closeout-feedback", `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. Use Seal the Day to finish.`);
+    setText("daily-closeout-feedback", `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${verdict?.headline || "Tomorrow's coaching call is ready"}.`);
     document.getElementById("daily-ritual-action")?.focus({ preventScroll: true });
   } catch (error) {
     setText("daily-closeout-feedback", error.message || "The closeout could not be saved.");
@@ -14806,6 +14979,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "outcome-plan"],
       ["CLOSEOUT", todayISODate()],
       ["HISTORY", "daily-closeout"],
+      ["DAILY_VERDICT", todayISODate()],
+      ["HISTORY", "atlas-closed-loop"],
       ["EVIDENCE", `mission:${todayISODate()}`],
       ["DEBRIEF", `mission:${todayISODate()}`],
       ["HISTORY", "mission-debrief"],
@@ -14863,6 +15038,11 @@ async function loadClosedLoopState() {
         if (!local || remoteTimestamp >= localTimestamp) saveClosedLoopLocal(row.state_type, row.state_key, row.payload);
       });
     await ensureMorningVerification({ persist: true });
+    const verdictWritePermitted = typeof DominionStartupAuthority === "undefined"
+      || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change");
+    if (verdictWritePermitted && readDailyCloseout()?.status === "SEALED") {
+      await reconcileAtlasClosedLoopDecision(readDailyCloseout());
+    }
     restoreFrictionlessDraftForms();
     renderFrictionlessExecution();
     renderDailyCoachingLoop();
@@ -16219,6 +16399,10 @@ function currentDailyCalendarOverride(date = todayISODate()) {
     ? null
     : DominionRecoveryCommand.calendarOverride(recoveryCommand, recoveryCommandContext(date));
   if (recovery) return recovery;
+  const closedLoop = typeof DominionAtlasClosedLoop === "undefined"
+    ? null
+    : DominionAtlasClosedLoop.calendarOverride(activeAtlasClosedLoopDecision(date), date);
+  if (closedLoop) return closedLoop;
   const response = readAtlasDailyCommandResponse(date);
   if (response?.status === "ACTIVE" && response.date === date) return response.calendarOverride;
   const horizon = activeAtlasAdaptiveHorizon(date);
@@ -16939,9 +17123,10 @@ function currentRunningPrescription() {
     today: todayISODate(),
     readiness: morningVerificationReadiness({ ...(dailyState || {}), state: readinessResult?.state || null })
   });
-  return typeof DominionAdaptiveCoaching === "undefined"
+  const adapted = typeof DominionAdaptiveCoaching === "undefined"
     ? prescription
     : DominionAdaptiveCoaching.adaptRunningPrescription(prescription, readActiveAdaptiveDirective(), todayISODate());
+  return applyAtlasClosedLoopToRunningPrescription(adapted);
 }
 
 function buildCurrentClosedLoopInput() {
@@ -18025,9 +18210,10 @@ function currentCorePrescription() {
     readCoreHistory(),
     { today: todayISODate(), readiness: coreReadinessState() }
   );
-  return typeof DominionAdaptiveCoaching === "undefined"
+  const adapted = typeof DominionAdaptiveCoaching === "undefined"
     ? prescription
     : DominionAdaptiveCoaching.adaptCorePrescription(prescription, readActiveAdaptiveDirective(), todayISODate());
+  return applyAtlasClosedLoopToCorePrescription(adapted);
 }
 
 function coreGoalLabel(goal = "") {
@@ -25668,6 +25854,21 @@ if (typeof document !== "undefined") {
       renderRecoveryReview();
       renderDailyCoachingLoop();
       setText("recovery-feedback", "Recovery plan approved locally. Todayâ€™s mission was not changed.");
+    }
+  });
+  document.addEventListener("click", async (event) => {
+    const decisionButton = event.target.closest("button[data-atlas-closed-loop-action]");
+    if (!decisionButton) return;
+    const decisionDate = decisionButton.dataset.decisionDate || todayISODate();
+    const action = decisionButton.dataset.atlasClosedLoopAction;
+    decisionButton.disabled = true;
+    try {
+      const resolved = await resolveAtlasClosedLoopDecision(decisionDate, action);
+      setText("daily-closeout-feedback", resolved?.status === "APPROVED"
+        ? `Accepted for ${resolved.effectiveDate}. Today and Calendar now use the same bounded adjustment.`
+        : "Current plan preserved. The coaching call remains in history.");
+    } finally {
+      decisionButton.disabled = false;
     }
   });
   document.addEventListener("click", async (event) => {

@@ -12,7 +12,7 @@ test("Build 029N makes reconciliation the governing action", () => {
   const html = read("app.html");
   const app = read("assets/js/app.js");
   const blocker = read("assets/js/unified-blocker-resolution.js");
-  assert.match(html, /coach-dominion-release" content="(?:029[NO]|030[ABCDEFGH])\.1"/);
+  assert.match(html, /coach-dominion-release" content="(?:029[NO]|030[ABCDEFGHI])\.1"/);
   assert.match(html, /contract-reconciliation\.js\?v=029n/);
   assert.ok(html.indexOf("contract-reconciliation.js?v=029n") < html.indexOf("app.js?v="));
   assert.match(blocker, /code: first\.domain === "contract" \? "CONTRACT_CONFLICT"/);
@@ -52,6 +52,6 @@ test("Build 029N is responsive, cached, and release-gated", () => {
   assert.match(css, /\.global-contract-blocker/);
   assert.match(worker, /contract-reconciliation\.js\?v=029n/);
   assert.match(worker, /029n-contract-reconciliation/);
-  assert.match(workflow, /npm run test:(?:029[no]|030[abcdefgh])/i);
-  assert.match(workflow, /--expected-release (?:029[NO]|030[ABCDEFGH])\.1/);
+  assert.match(workflow, /npm run test:(?:029[no]|030[abcdefghi])/i);
+  assert.match(workflow, /--expected-release (?:029[NO]|030[ABCDEFGHI])\.1/);
 });

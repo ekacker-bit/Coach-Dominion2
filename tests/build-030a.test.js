@@ -47,12 +47,12 @@ test("Build 030A is identifiable and required by release CI", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const packageJson = read("package.json");
-  assert.match(html, /coach-dominion-release" content="030[ABCDEFGHIJ]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[ABCDEFGHIJK]\.1"/);
   assert.doesNotMatch(html.replace(/<!--[\s\S]*?-->/g, ""), />\s*(?:BUILD|RELEASE)\s+030A/i);
   assert.match(worker, /030a-real-recruit-certification/);
-  assert.match(health, /release: "030[ABCDEFGHIJ]\.1"/);
+  assert.match(health, /release: "030[ABCDEFGHIJK]\.1"/);
   assert.match(health, /realRecruitCertification: "required"/);
-  assert.match(workflow, /npm run test:030[abcdefghij]/);
-  assert.match(workflow, /--expected-release 030[ABCDEFGHIJ]\.1/);
+  assert.match(workflow, /npm run test:030[abcdefghijk]/);
+  assert.match(workflow, /--expected-release 030[ABCDEFGHIJK]\.1/);
   assert.match(packageJson, /"test:030a"/);
 });

@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionWeeklyAdvancement = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "030E.1";
+  const VERSION = "030K.1";
   const CLOSED_STANDARD_STATES = new Set(["RESOLVED", "DISMISSED", "EXCUSED"]);
 
   function finite(value) {
@@ -155,6 +155,10 @@
       </header>
       <div class="weekly-judgment-controls"><label>Week containing <input id="weekly-date" type="date"></label><button id="inspect-week" type="button" class="ghost">Check week</button></div>
       <p id="weekly-warning" class="status" aria-live="polite"></p>
+      <section id="atlas-weekly-reconciliation" class="atlas-weekly-reconciliation" data-weekly-tone="neutral" aria-labelledby="atlas-weekly-reconciliation-heading" aria-live="polite">
+        <header><div><span>ATLAS WEEKLY RESULT</span><h3 id="atlas-weekly-reconciliation-heading">The week is still being earned</h3></div><strong>CHECKING</strong></header>
+        <p>Atlas is reconciling execution, evidence, standards, and coaching outcomes.</p>
+      </section>
       <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
       <div id="weekly-proof-grid" class="weekly-proof-grid" aria-label="Weekly proof">
         <article><span>EXECUTION</span><strong id="weekly-score">NOT EVALUATED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>

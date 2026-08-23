@@ -18,7 +18,7 @@ test("030E installs a hard protected startup barrier", () => {
   assert.doesNotMatch(app, /function revealMobileShell\(\)[\s\S]{0,180}setLoading\(false\)/);
   assert.doesNotMatch(app, /syncDominionAccountTruth\(\{ reason: "startup" \}\)/);
   assert.ok(app.indexOf("setStartupAuthority(authoritativeStartup)") < app.indexOf('runStartupTask("scheduled plan command", activateDuePlanCommand'));
-  assert.match(app, /permitsAccountWrite\(startupAuthorityState, "state_change"\)\) scheduleOperatingTruthReconciliation/);
+  assert.match(app, /permitsAccountWrite\(startupAuthorityState, "state_change"\)[\s\S]{0,180}scheduleOperatingTruthReconciliation/);
 });
 
 test("030E binds run evidence to one canonical assignment", () => {

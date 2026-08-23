@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030E.1";
+  const VERSION = "030J.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -16,6 +16,8 @@
     horizons: 120,
     outcomes: 120,
     decisions: 120,
+    dailyVerdicts: 120,
+    proofs: 120,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -168,7 +170,9 @@
     if (domain === "coaching") return {
       horizons: mergeCollection(value.horizons || [], [], COLLECTION_LIMITS.horizons),
       outcomes: mergeCollection(value.outcomes || [], [], COLLECTION_LIMITS.outcomes),
-      decisions: mergeCollection(value.decisions || [], [], COLLECTION_LIMITS.decisions)
+      decisions: mergeCollection(value.decisions || [], [], COLLECTION_LIMITS.decisions),
+      dailyVerdicts: mergeCollection(value.dailyVerdicts || [], [], COLLECTION_LIMITS.dailyVerdicts),
+      proofs: mergeCollection(value.proofs || [], [], COLLECTION_LIMITS.proofs)
     };
     return clone(value || {});
   }
@@ -233,7 +237,9 @@
     if (domain === "coaching") return {
       horizons: mergeCollection(device.horizons, account.horizons, COLLECTION_LIMITS.horizons),
       outcomes: mergeCollection(device.outcomes, account.outcomes, COLLECTION_LIMITS.outcomes),
-      decisions: mergeCollection(device.decisions, account.decisions, COLLECTION_LIMITS.decisions)
+      decisions: mergeCollection(device.decisions, account.decisions, COLLECTION_LIMITS.decisions),
+      dailyVerdicts: mergeCollection(device.dailyVerdicts, account.dailyVerdicts, COLLECTION_LIMITS.dailyVerdicts),
+      proofs: mergeCollection(device.proofs, account.proofs, COLLECTION_LIMITS.proofs)
     };
     return chooseNewer(device, account);
   }

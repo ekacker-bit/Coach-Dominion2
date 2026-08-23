@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Atlas Decision Proof
+
+- Gives every daily Atlas adjustment a short, measurable definition of success.
+- Evaluates the effective day against protected readiness, assignment-linked execution, and the sealed Closeout.
+- Records worked, mixed, missed, or evidence-thin outcomes in Account Truth and summarizes them compactly in Trends.
+- Holds new non-safety changes while the prior adjustment is still settling, preventing coaching whiplash.
+
 ## Unreleased - Closed-Loop Coaching
 
 - Turns the sealed Daily Closeout and canonical execution ledger into one explainable next-day verdict: advance, maintain, reduce, or recover.

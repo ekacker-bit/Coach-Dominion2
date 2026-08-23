@@ -13116,3 +13116,57 @@ html[data-today-hierarchy="029D.1"] #today-more-context > summary { min-height: 
   html[data-today-hierarchy="029D.1"] #one-command .today-mission-facts > div { padding: 9px 7px; }
   html[data-today-hierarchy="029D.1"] #daily-state-summary:not([hidden]) dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Build 030K: one reconciled weekly result, one next-week commitment. */
+.atlas-weekly-reconciliation {
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--victory-gold) 35%, var(--line));
+  background: linear-gradient(135deg, rgba(212, 175, 55, .08), rgba(10, 10, 10, .1) 42%), var(--panel2);
+}
+.atlas-weekly-reconciliation > header,
+.atlas-weekly-reconciliation > p { display: none; }
+.atlas-weekly-reconciliation-card { padding: 20px; }
+.atlas-weekly-reconciliation-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.atlas-weekly-reconciliation-card > header span,
+.atlas-weekly-reconciliation-lines span,
+.trend-weekly-result span,
+.weekly-position-signal span { color: var(--victory-gold); font: 700 10px/1.2 var(--font-command); letter-spacing: .12em; text-transform: uppercase; }
+.atlas-weekly-reconciliation-card > header h3 { margin: 6px 0 0; font-size: clamp(26px, 4vw, 42px); }
+.atlas-weekly-reconciliation-card > header > strong { padding: 8px 10px; border: 1px solid var(--line); color: var(--stone); font: 700 12px/1 var(--font-command); letter-spacing: .08em; white-space: nowrap; }
+.atlas-weekly-reconciliation-card.green > header > strong { border-color: rgba(46, 155, 95, .55); color: #73d9a2; }
+.atlas-weekly-reconciliation-card.yellow > header > strong { border-color: rgba(212, 175, 55, .55); color: var(--victory-gold); }
+.atlas-weekly-reconciliation-card.red > header > strong { border-color: rgba(190, 65, 65, .6); color: #ef8d8d; }
+.atlas-weekly-reconciliation-lines { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 0; border-block: 1px solid var(--line); }
+.atlas-weekly-reconciliation-lines p { display: grid; align-content: start; gap: 8px; min-height: 108px; margin: 0; padding: 16px; color: var(--stone); line-height: 1.5; }
+.atlas-weekly-reconciliation-lines p + p { border-left: 1px solid var(--line); }
+.atlas-weekly-reconciliation-proof { display: flex; flex-wrap: wrap; gap: 8px; }
+.atlas-weekly-reconciliation-proof span { padding: 7px 9px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; letter-spacing: .06em; }
+.atlas-weekly-reconciliation-proof b { color: var(--stone); }
+.atlas-weekly-reconciliation-card footer { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.atlas-weekly-reconciliation-card footer small { max-width: 620px; color: var(--muted); }
+.atlas-weekly-reconciliation-receipt { padding: 10px 12px; border: 1px solid var(--line); color: var(--muted); font: 700 11px/1 var(--font-command); letter-spacing: .08em; text-transform: uppercase; }
+.atlas-weekly-reconciliation-empty { padding: 18px; color: var(--muted); }
+.trend-weekly-result,
+.weekly-position-signal { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, .18); }
+.trend-weekly-result[hidden] { display: none !important; }
+.trend-weekly-result strong,
+.weekly-position-signal strong { color: var(--stone); font: 700 16px/1 var(--font-command); letter-spacing: .05em; }
+.trend-weekly-result small { margin-left: auto; color: var(--muted); }
+.weekly-position-signal strong[data-position="AHEAD"],
+.weekly-position-signal strong[data-position="ON_TRACK"] { color: #73d9a2; }
+.weekly-position-signal strong[data-position="SLIPPING"] { color: var(--victory-gold); }
+.weekly-position-signal strong[data-position="BLOCKED"] { color: #ef8d8d; }
+
+@media (max-width: 720px) {
+  .atlas-weekly-reconciliation-card { padding: 16px; }
+  .atlas-weekly-reconciliation-card > header { display: grid; }
+  .atlas-weekly-reconciliation-card > header > strong { justify-self: start; }
+  .atlas-weekly-reconciliation-lines { grid-template-columns: 1fr; }
+  .atlas-weekly-reconciliation-lines p { min-height: 0; padding-inline: 0; }
+  .atlas-weekly-reconciliation-lines p + p { border-left: 0; border-top: 1px solid var(--line); }
+  .atlas-weekly-reconciliation-card footer,
+  .trend-weekly-result,
+  .weekly-position-signal { align-items: flex-start; flex-direction: column; }
+  .atlas-weekly-reconciliation-card footer button { width: 100%; }
+  .trend-weekly-result small { margin-left: 0; }
+}

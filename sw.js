@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1-030g1-030h1-030i1-030j1";
-// Current release marker: coach-dominion-030j-atlas-decision-proof
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1-030g1-030h1-030i1-030j1-030k1";
+// Current release marker: coach-dominion-030k-atlas-weekly-reconciliation
+// Prior release marker: coach-dominion-030j-atlas-decision-proof
 // Prior release marker: coach-dominion-030i-closed-loop-coaching
 // Prior release marker: coach-dominion-030h-beta-state-integrity
 // Prior release marker: coach-dominion-030g-unified-execution-ledger
@@ -22,7 +23,7 @@ const APP_SHELL = [
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js?v=027d",
   "/assets/js/connected-evidence.js?v=027d",
@@ -113,11 +114,11 @@ const APP_SHELL = [
   "/assets/js/atlas-live-adaptation.js?v=026c-029g",
   "/assets/js/atlas-adaptive-horizon.js?v=026g",
   "/assets/js/atlas-adaptation-outcomes.js?v=026h",
-  "/assets/js/weekly-advancement.js?v=026d-030c-030e",
+  "/assets/js/weekly-advancement.js?v=026d-030c-030e-030k",
   "/assets/js/unified-blocker-resolution.js?v=025p-029n",
   "/assets/js/dominion-continuity.js?v=025n",
   "/assets/js/contract-reconciliation.js?v=029n",
-  "/assets/js/dominion-account-truth.js?v=026i-029n-030d-030e-030j",
+  "/assets/js/dominion-account-truth.js?v=026i-029n-030d-030e-030j-030k",
   "/assets/js/account-persistence.js?v=029c-029g-029n-030c-030e",
   "/assets/js/command-first-today.js?v=029d",
   "/assets/js/trust-layer.js?v=028a-029l",
@@ -130,6 +131,7 @@ const APP_SHELL = [
   "/assets/js/beta-state-integrity.js?v=030h",
   "/assets/js/atlas-closed-loop.js?v=030i",
   "/assets/js/atlas-decision-proof.js?v=030j",
+  "/assets/js/atlas-weekly-reconciliation.js?v=030k",
   "/assets/js/calendar-commit-authority.js?v=030e",
   "/assets/js/operational-time.js?v=030e",
   "/assets/js/frictionless-execution.js?v=028b",
@@ -145,7 +147,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k"
 ];
 
 self.addEventListener("install", (event) => {

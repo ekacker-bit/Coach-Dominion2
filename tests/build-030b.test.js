@@ -56,11 +56,11 @@ test("Build 030B is identifiable, cached, and production gated", () => {
   const packageJson = read("package.json");
   assert.match(read("assets/js/today-quick-log.js"), /const VERSION = "030B\.1"/);
   assert.match(html, /today-quick-log\.js\?v=030b/);
-  assert.match(html, /coach-dominion-release" content="030[BCDEFGHIJ]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[BCDEFGHIJK]\.1"/);
   assert.match(worker, /030(?:b-today-in-15-seconds|c-daily-command-integrity|d-recruit-journey-certification|e-authoritative-startup)/);
   assert.match(worker, /today-quick-log\.js\?v=030b/);
-  assert.match(health, /release: "030[BCDEFGHIJ]\.1"/);
-  assert.match(workflow, /npm run test:030[bcdefghij]/);
-  assert.match(workflow, /--expected-release 030[BCDEFGHIJ]\.1/);
+  assert.match(health, /release: "030[BCDEFGHIJK]\.1"/);
+  assert.match(workflow, /npm run test:030[bcdefghijk]/);
+  assert.match(workflow, /--expected-release 030[BCDEFGHIJK]\.1/);
   assert.match(packageJson, /"test:030b"/);
 });

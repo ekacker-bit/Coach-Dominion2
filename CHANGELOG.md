@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Atlas Weekly Reconciliation
+
+- Reconciles each finalized inspection with readiness, execution, Fuel, Closeout, standards, and daily Atlas outcome proof.
+- Keeps missing evidence unscored and blocks next-week changes when Contract, program, calendar, or inspection lineage disagrees.
+- Gives the recruit one concise Worked / Broke / Next verdict and one protected “Commit next week” action.
+- Reuses the same weekly position across Review, Trends, Campaign, and Rank while saving the result to account continuity.
+
 ## Unreleased - Atlas Decision Proof
 
 - Gives every daily Atlas adjustment a short, measurable definition of success.

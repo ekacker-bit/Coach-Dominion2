@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030J.1";
+  const VERSION = "030K.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -18,6 +18,7 @@
     decisions: 120,
     dailyVerdicts: 120,
     proofs: 120,
+    weeklyReconciliations: 52,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -172,7 +173,8 @@
       outcomes: mergeCollection(value.outcomes || [], [], COLLECTION_LIMITS.outcomes),
       decisions: mergeCollection(value.decisions || [], [], COLLECTION_LIMITS.decisions),
       dailyVerdicts: mergeCollection(value.dailyVerdicts || [], [], COLLECTION_LIMITS.dailyVerdicts),
-      proofs: mergeCollection(value.proofs || [], [], COLLECTION_LIMITS.proofs)
+      proofs: mergeCollection(value.proofs || [], [], COLLECTION_LIMITS.proofs),
+      weeklyReconciliations: mergeCollection(value.weeklyReconciliations || [], [], COLLECTION_LIMITS.weeklyReconciliations)
     };
     return clone(value || {});
   }
@@ -239,7 +241,8 @@
       outcomes: mergeCollection(device.outcomes, account.outcomes, COLLECTION_LIMITS.outcomes),
       decisions: mergeCollection(device.decisions, account.decisions, COLLECTION_LIMITS.decisions),
       dailyVerdicts: mergeCollection(device.dailyVerdicts, account.dailyVerdicts, COLLECTION_LIMITS.dailyVerdicts),
-      proofs: mergeCollection(device.proofs, account.proofs, COLLECTION_LIMITS.proofs)
+      proofs: mergeCollection(device.proofs, account.proofs, COLLECTION_LIMITS.proofs),
+      weeklyReconciliations: mergeCollection(device.weeklyReconciliations, account.weeklyReconciliations, COLLECTION_LIMITS.weeklyReconciliations)
     };
     return chooseNewer(device, account);
   }

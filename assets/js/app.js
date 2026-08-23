@@ -75,6 +75,7 @@ let currentAdaptationOutcome = null;
 let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
+let currentAtlasWeeklyReconciliation = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -848,7 +849,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       outcomes: readAtlasAdaptationOutcomeHistory(),
       decisions: readAtlasDecisionHistory(),
       dailyVerdicts: readAtlasClosedLoopHistory(),
-      proofs: readAtlasDecisionProofHistory()
+      proofs: readAtlasDecisionProofHistory(),
+      weeklyReconciliations: readAtlasWeeklyReconciliationHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -916,16 +918,19 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
     const dailyVerdicts = DominionAccountTruth.mergeCollection(readAtlasClosedLoopHistory(), coaching.dailyVerdicts, DominionAccountTruth.COLLECTION_LIMITS.dailyVerdicts);
     const proofs = DominionAccountTruth.mergeCollection(readAtlasDecisionProofHistory(), coaching.proofs, DominionAccountTruth.COLLECTION_LIMITS.proofs);
+    const weeklyReconciliations = DominionAccountTruth.mergeCollection(readAtlasWeeklyReconciliationHistory(), coaching.weeklyReconciliations, DominionAccountTruth.COLLECTION_LIMITS.weeklyReconciliations);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(dailyVerdicts) !== DominionAccountTruth.semanticFingerprint(readAtlasClosedLoopHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(proofs) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionProofHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(weeklyReconciliations) !== DominionAccountTruth.semanticFingerprint(readAtlasWeeklyReconciliationHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
     saveClosedLoopLocal("HISTORY", "atlas-closed-loop", dailyVerdicts);
     saveClosedLoopLocal("HISTORY", "atlas-decision-proof", proofs);
+    saveClosedLoopLocal("HISTORY", "atlas-weekly-reconciliation", weeklyReconciliations);
   } finally {
     accountTruthState.applying = false;
   }
@@ -967,7 +972,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -13989,7 +13994,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030j", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030k", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14578,6 +14583,17 @@ function readAtlasDecisionProof(decisionId = "") {
   return readAtlasDecisionProofHistory().find((item) => item?.decisionId === decisionId) || null;
 }
 
+function readAtlasWeeklyReconciliationHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-weekly-reconciliation", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readAtlasWeeklyReconciliation(weekStart = "") {
+  const key = String(weekStart || "").slice(0, 10);
+  if (key) return readAtlasWeeklyReconciliationHistory().find((item) => item?.weekStart === key) || null;
+  return readClosedLoopState("WEEKLY_RECONCILIATION", "current", null);
+}
+
 function readAtlasClosedLoopDecision(date = todayISODate()) {
   return readClosedLoopState("DAILY_VERDICT", String(date || todayISODate()).slice(0, 10), null);
 }
@@ -14780,6 +14796,165 @@ function renderAtlasDecisionProofTrends() {
     ["Evidence thin", summary.counts.INSUFFICIENT_EVIDENCE]
   ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${value}</strong></article>`).join("");
   setText("trend-coaching-results-latest", summary.latest ? `${summary.latest.headline}. ${summary.latest.lesson}` : "Close the day to start measuring Atlas decisions.");
+  renderAtlasWeeklyReconciliationSignals();
+}
+
+function buildAtlasWeeklyProposalForInspection(inspection = weeklyInspection) {
+  if (!inspection?.weekStartDate || typeof DominionAtlasAdaptiveWeek === "undefined") return null;
+  const activeWeek = readCommittedUnifiedWeekByStart(inspection.weekStartDate);
+  const contract = readApprovedRecruitContract();
+  if (!activeWeek || !contract) return null;
+  const readiness = readinessHistory.filter((item) => {
+    const date = String(item?.date || "").slice(0, 10);
+    return date >= activeWeek.weekStart && date <= activeWeek.weekEnd;
+  });
+  const prior = readAtlasAdaptiveWeekHistory().find((item) => item?.activeWeekStart === activeWeek.weekStart || item?.targetWeekStart === addClosedLoopDays(activeWeek.weekStart, 7)) || null;
+  return DominionAtlasAdaptiveWeek.buildProposal({
+    today: inspection.weekEndDate || activeWeek.weekEnd,
+    contract,
+    activeWeek,
+    planCoverage: adaptivePlanCoverage(),
+    readinessHistory: readiness,
+    evidence: buildAtlasAdaptiveWeekEvidence(activeWeek, contract),
+    performance: buildAtlasAdaptiveWeekPerformance(activeWeek),
+    priorProposal: prior,
+    generatedAt: inspection.finalizedAt || new Date().toISOString()
+  });
+}
+
+function buildAtlasWeeklyReconciliationContext(inspection = weeklyInspection) {
+  if (!inspection?.weekStartDate || typeof DominionAtlasWeeklyReconciliation === "undefined") return null;
+  const activeWeek = readCommittedUnifiedWeekByStart(inspection.weekStartDate);
+  const contract = readApprovedRecruitContract();
+  const proposal = buildAtlasWeeklyProposalForInspection(inspection);
+  const fuelSummary = typeof DominionFuelClosedLoop === "undefined"
+    ? null
+    : DominionFuelClosedLoop.summarizeWeek(readFuelClosedLoopLedger(), { start: activeWeek?.weekStart, end: activeWeek?.weekEnd });
+  const command = proposal && typeof DominionAtlasWeeklyCommand !== "undefined"
+    ? DominionAtlasWeeklyCommand.buildCommand({ proposal, runningProgression: buildCurrentRunningProgression(), fuelSummary })
+    : null;
+  const targetWeekStart = proposal?.targetWeekStart || DominionAtlasWeeklyReconciliation.addDays(inspection.weekEndDate, 1);
+  const committedTarget = readCommittedUnifiedWeekByStart(targetWeekStart);
+  const proposedWeek = committedTarget || (proposal ? weeklyReplanningPreviewWeek(proposal) : null);
+  return {
+    inspection,
+    activeWeek,
+    contract,
+    proposal,
+    command,
+    proposedWeek,
+    programReceipt: readAtlasProgramReceipt(),
+    campaign: currentDominionCampaign || buildCurrentDominionCampaign(),
+    proofs: readAtlasDecisionProofHistory(),
+    decisions: readAtlasClosedLoopHistory(),
+    closeouts: readDailyCloseoutHistory(),
+    standards: standardsReviewState || [],
+    prior: readAtlasWeeklyReconciliation(inspection.weekStartDate),
+    generatedAt: inspection.finalizedAt || new Date().toISOString()
+  };
+}
+
+function buildAtlasWeeklyReconciliation(inspection = weeklyInspection) {
+  const context = buildAtlasWeeklyReconciliationContext(inspection);
+  if (!context) return null;
+  currentAtlasWeeklyReconciliation = DominionAtlasWeeklyReconciliation.buildReconciliation(context);
+  return currentAtlasWeeklyReconciliation;
+}
+
+async function saveAtlasWeeklyReconciliation(record = null, options = {}) {
+  if (!record?.id || typeof DominionAtlasWeeklyReconciliation === "undefined") return false;
+  const history = DominionAtlasWeeklyReconciliation.upsertHistory(readAtlasWeeklyReconciliationHistory(), record, 52);
+  saveClosedLoopLocal("WEEKLY_RECONCILIATION", "current", record);
+  saveClosedLoopLocal("HISTORY", "atlas-weekly-reconciliation", history);
+  currentAtlasWeeklyReconciliation = record;
+  if (options.persist === false) return true;
+  const [currentSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("WEEKLY_RECONCILIATION", "current", record),
+    persistClosedLoopState("HISTORY", "atlas-weekly-reconciliation", history)
+  ]);
+  return currentSaved && historySaved;
+}
+
+function atlasWeeklyReconciliationMarkup(record = null) {
+  if (!record?.verdict) return '<div class="atlas-weekly-reconciliation-empty">Finalize this week to unlock the next-week decision.</div>';
+  const { packet, verdict } = record;
+  const counts = packet.proofCounts || {};
+  const action = verdict.action?.code === "COMMIT_NEXT_WEEK"
+    ? '<button type="button" data-weekly-reconciliation-action="commit">Commit next week</button>'
+    : `<span class="atlas-weekly-reconciliation-receipt">${escapeHtml(verdict.action?.label || "Evidence forming")}</span>`;
+  return `<article class="atlas-weekly-reconciliation-card ${escapeHtml(verdict.tone || "neutral")}" data-position="${escapeHtml(verdict.position || "PROVISIONAL")}">
+    <header><div><span>WEEKLY RESULT</span><h3>${escapeHtml(verdict.headline)}</h3></div><strong>${escapeHtml(String(verdict.position || "PROVISIONAL").replaceAll("_", " "))}</strong></header>
+    <div class="atlas-weekly-reconciliation-lines">
+      <p><span>WORKED</span>${escapeHtml(verdict.worked)}</p>
+      <p><span>BROKE</span>${escapeHtml(verdict.broke)}</p>
+      <p><span>NEXT</span>${escapeHtml(verdict.next)}</p>
+    </div>
+    <div class="atlas-weekly-reconciliation-proof" aria-label="Weekly Atlas proof"><span>WORKED <b>${Number(counts.WORKED || 0)}</b></span><span>MIXED <b>${Number(counts.MIXED || 0)}</b></span><span>MISSED <b>${Number(counts.MISSED || 0)}</b></span><span>UNSCORED <b>${Number(counts.INSUFFICIENT_EVIDENCE || packet.unscoredDays || 0)}</b></span></div>
+    <footer>${action}<small>${escapeHtml(verdict.safeguard)}</small></footer>
+  </article>`;
+}
+
+function renderAtlasWeeklyReconciliation(inspection = weeklyInspection) {
+  const root = document.getElementById("atlas-weekly-reconciliation");
+  if (!root || typeof DominionAtlasWeeklyReconciliation === "undefined") return null;
+  const record = buildAtlasWeeklyReconciliation(inspection);
+  root.hidden = false;
+  root.innerHTML = atlasWeeklyReconciliationMarkup(record);
+  renderAtlasWeeklyReconciliationSignals(record);
+  return record;
+}
+
+function renderAtlasWeeklyReconciliationSignals(record = null) {
+  const current = record || currentAtlasWeeklyReconciliation || readAtlasWeeklyReconciliationHistory()[0] || null;
+  const summary = typeof DominionAtlasWeeklyReconciliation === "undefined"
+    ? null
+    : DominionAtlasWeeklyReconciliation.summarize(readAtlasWeeklyReconciliationHistory());
+  const trend = document.getElementById("trend-weekly-result");
+  if (trend) {
+    trend.hidden = !summary?.weeks;
+    trend.innerHTML = summary?.weeks ? `<span>WEEKLY POSITION</span><strong>${escapeHtml(String(summary.latest?.verdict?.position || "UNSCORED").replaceAll("_", " "))}</strong><small>${summary.weeks} finalized week${summary.weeks === 1 ? "" : "s"} reconciled</small>` : "";
+  }
+  ["dominion-campaign-weekly-position", "rank-weekly-position"].forEach((id) => {
+    const host = document.getElementById(id);
+    if (!host) return;
+    host.textContent = current?.verdict?.position ? String(current.verdict.position).replaceAll("_", " ") : "EVIDENCE FORMING";
+    host.dataset.position = current?.verdict?.position || "PROVISIONAL";
+  });
+}
+
+async function commitAtlasWeeklyReconciliation(inspection = weeklyInspection) {
+  if (typeof DominionAtlasWeeklyReconciliation === "undefined" || typeof DominionAtlasAdaptiveWeek === "undefined" || typeof DominionAtlasWeeklyCommand === "undefined") return null;
+  const context = buildAtlasWeeklyReconciliationContext(inspection);
+  let reconciliation = context ? DominionAtlasWeeklyReconciliation.buildReconciliation(context) : null;
+  if (!reconciliation?.verdict?.commitReady) throw new Error(reconciliation?.verdict?.action?.label || "The reconciled week is not ready to commit.");
+  const decidedAt = new Date().toISOString();
+  const proposal = context.proposal;
+  const command = context.command;
+  const commandDecision = command.status === "PROPOSED" ? DominionAtlasWeeklyCommand.approveCommand(command, decidedAt) : command;
+  const approvedProposal = proposal.status === "PROPOSED" ? DominionAtlasAdaptiveWeek.approveProposal(proposal, decidedAt) : proposal;
+  if (!approvedProposal) throw new Error("Atlas could not approve the next-week prescription.");
+  const decision = DominionAtlasWeeklyCommand.attachToDecision(approvedProposal, commandDecision);
+  await saveAtlasAdaptiveWeekRecord(decision);
+  let draft = readUnifiedWeekDraft();
+  if (draft?.weekStart !== reconciliation.verdict.targetWeekStart) draft = buildUnifiedWeekDraft(reconciliation.verdict.targetWeekStart);
+  if (!draft) throw new Error("Atlas could not create the coordinated next-week calendar.");
+  if (decision.status === "APPROVED" && !DominionAtlasAdaptiveWeek.draftMatchesDecision(draft, decision)) {
+    draft = DominionAtlasAdaptiveWeek.applyToDraft(draft, decision, { appliedAt: decidedAt });
+  }
+  saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
+  await persistWeeklyOrchestrationState("DRAFT", "current", draft);
+  if (draft.approvalBlocked || Number(draft.blockingConflictCount || 0) > 0) throw new Error("Resolve the named calendar blocker before commitment.");
+  const committedWeek = await commitUnifiedWeekDraft({ adaptation: decision, deferRender: true });
+  if (!committedWeek) throw new Error("The next week was not committed.");
+  reconciliation = DominionAtlasWeeklyReconciliation.attachCommit(reconciliation, committedWeek, decidedAt);
+  const synced = await saveAtlasWeeklyReconciliation(reconciliation);
+  refreshProgramActivationSurfaces();
+  renderWeeklyInspection(inspection, weeklyInspectionStorageMode);
+  renderAtlasWeeklyReconciliationSignals(reconciliation);
+  renderRankSection();
+  renderDominionCampaign();
+  await drainAccountPersistence({ reason: "atlas_weekly_reconciliation_committed", force: true });
+  return { reconciliation, committedWeek, synced };
 }
 
 async function resolveAtlasClosedLoopDecision(date = todayISODate(), resolution = "KEEP") {
@@ -15099,6 +15274,8 @@ async function loadClosedLoopState() {
       ["DAILY_VERDICT", todayISODate()],
       ["HISTORY", "atlas-closed-loop"],
       ["HISTORY", "atlas-decision-proof"],
+      ["WEEKLY_RECONCILIATION", "current"],
+      ["HISTORY", "atlas-weekly-reconciliation"],
       ["EVIDENCE", `mission:${todayISODate()}`],
       ["DEBRIEF", `mission:${todayISODate()}`],
       ["HISTORY", "mission-debrief"],
@@ -25370,6 +25547,19 @@ if (typeof document !== "undefined") {
     finally { if (submit) submit.disabled = false; }
   });
   document.getElementById("inspection")?.addEventListener("click", async (event) => {
+    const reconciliationButton = event.target.closest("button[data-weekly-reconciliation-action]");
+    if (reconciliationButton) {
+      reconciliationButton.disabled = true;
+      try {
+        const result = await commitAtlasWeeklyReconciliation(weeklyInspection);
+        setText("weekly-warning", `Next week committed for ${result.committedWeek.weekStart}${result.synced ? " and saved to your account" : " on this device"}.`);
+      } catch (error) {
+        setText("weekly-warning", error?.message || "Atlas could not commit the reconciled week.");
+      } finally {
+        reconciliationButton.disabled = false;
+      }
+      return;
+    }
     const button = event.target.closest("button[data-atlas-week-action]");
     if (!button) return;
     button.disabled = true;
@@ -27831,6 +28021,7 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   if (evidenceList) evidenceList.innerHTML = (aggregate.dailyEvidence || []).map((day) => `<article class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><strong>${escapeHtml(day.date)}</strong><span>${day.periodState === "FUTURE" ? "Future" : `${day.assessedCount}/5 recorded`}</span></article>`).join("");
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderWeeklyAdaptationOutcomes({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
+  renderAtlasWeeklyReconciliation(aggregate);
   const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
@@ -28011,14 +28202,21 @@ async function finalizeWeeklyInspection() {
   try {
     const finalized = finalizeWeeklyInspectionSnapshot(weeklyInspection);
     const payload = weeklyPersistencePayload(finalized, finalized.finalizedAt);
+    let finalizedAggregate = finalized;
     try {
       const supabase = await getClient();
       const { data, error } = await supabase.from("weekly_inspections").upsert(payload, { onConflict: "user_id,week_start_date" }).select("*").single();
       if (error) throw error;
-      renderWeeklyInspection(aggregateFromStoredInspection(data), "SUPABASE");
+      finalizedAggregate = aggregateFromStoredInspection(data);
+      renderWeeklyInspection(finalizedAggregate, "SUPABASE");
     } catch (_) {
       saveLocalWeeklyInspection(payload);
       renderWeeklyInspection(finalized, "LOCAL");
+    }
+    const reconciliation = buildAtlasWeeklyReconciliation(finalizedAggregate);
+    if (reconciliation) {
+      await saveAtlasWeeklyReconciliation(reconciliation);
+      renderAtlasWeeklyReconciliation(finalizedAggregate);
     }
     await loadTrendsAnalytics();
   } catch (error) {

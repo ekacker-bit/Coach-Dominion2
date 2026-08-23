@@ -49,14 +49,14 @@ test("030D release identity, shell, and production gate advance together", () =>
   const styles = read("assets/styles.css");
   const workflow = read(".github/workflows/release-integrity.yml");
   const packageJson = read("package.json");
-  assert.match(html, /coach-dominion-release" content="030[DEFGHI]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[DEFGHIJ]\.1"/);
   assert.match(html, /id="account-truth-continuity"/);
   assert.match(styles, /account-truth-health dl div:last-child:nth-child\(odd\)/);
   assert.match(html, /journey-continuity\.js\?v=030d/);
   assert.match(worker, /030(?:d-recruit-journey-certification|e-authoritative-startup)/);
   assert.match(worker, /journey-continuity\.js\?v=030d/);
-  assert.match(health, /release: "030[DEFGHI]\.1"/);
-  assert.match(workflow, /npm run test:030[defghi]/);
-  assert.match(workflow, /--expected-release 030[DEFGHI]\.1/);
+  assert.match(health, /release: "030[DEFGHIJ]\.1"/);
+  assert.match(workflow, /npm run test:030[defghij]/);
+  assert.match(workflow, /--expected-release 030[DEFGHIJ]\.1/);
   assert.match(packageJson, /"test:030d"/);
 });

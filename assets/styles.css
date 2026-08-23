@@ -12905,12 +12905,59 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
 }
 .atlas-closed-loop-verdict > p { margin: 0; color: var(--muted); line-height: 1.45; }
 .atlas-closed-loop-impact { color: var(--text); font-size: 15px; line-height: 1.45; }
+.atlas-closed-loop-expectation {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(212, 175, 55, .56);
+  background: rgba(212, 175, 55, .06);
+  color: var(--text) !important;
+  font-size: 13px;
+}
+.atlas-closed-loop-expectation span,
+.atlas-decision-proof-inline > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
 .atlas-closed-loop-signals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .atlas-closed-loop-signals > span { min-width: 0; padding: 10px; display: grid; gap: 4px; border-right: 1px solid var(--line); }
 .atlas-closed-loop-signals > span:last-child { border-right: 0; }
 .atlas-closed-loop-signals strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .atlas-closed-loop-actions { display: flex; gap: 9px; flex-wrap: wrap; }
 .atlas-closed-loop-resolution { padding-top: 8px; border-top: 1px solid var(--line); color: var(--text) !important; font-weight: 800; }
+.atlas-decision-proof-inline {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .025);
+}
+.atlas-decision-proof-inline strong { color: var(--stone); font: 15px/1 var(--font-command); letter-spacing: .04em; }
+.atlas-decision-proof-inline small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.atlas-decision-proof-inline.green { border-left: 3px solid #64a875; }
+.atlas-decision-proof-inline.yellow { border-left: 3px solid var(--victory-gold); }
+.atlas-decision-proof-inline.red { border-left: 3px solid #c14a45; }
+.trend-coaching-results {
+  margin: 16px 0;
+  padding: 15px;
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(120deg, rgba(212, 175, 55, .06), rgba(10, 10, 10, .7));
+}
+.trend-coaching-results[hidden] { display: none !important; }
+.trend-coaching-results > header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.trend-coaching-results > header span,
+.trend-coaching-results article span { color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.trend-coaching-results > header h3 { margin: 3px 0 0; font-size: 24px; }
+.trend-coaching-results > header > strong { color: var(--victory-gold); font: 28px/1 var(--font-command); }
+#trend-coaching-results-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 12px; background: var(--line); }
+#trend-coaching-results-grid article { display: grid; gap: 5px; padding: 10px 12px; background: var(--panel3); }
+#trend-coaching-results-grid article strong { color: var(--stone); font: 22px/1 var(--font-command); }
+#trend-coaching-results-latest { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 #atlas-closed-loop-today[hidden],
 #atlas-closeout-verdict[hidden] { display: none !important; }
 
@@ -12922,6 +12969,9 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
   .atlas-closed-loop-signals > span:last-child { border-bottom: 0; }
   .atlas-closed-loop-actions { display: grid; }
   .atlas-closed-loop-actions button { width: 100%; }
+  .atlas-decision-proof-inline { grid-template-columns: auto 1fr; }
+  .atlas-decision-proof-inline small { grid-column: 1 / -1; white-space: normal; }
+  #trend-coaching-results-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* 030E: the reconciliation barrier always outranks legacy responsive display rules. */

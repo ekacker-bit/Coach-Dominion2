@@ -846,7 +846,9 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
       outcomes: readAtlasAdaptationOutcomeHistory(),
-      decisions: readAtlasDecisionHistory()
+      decisions: readAtlasDecisionHistory(),
+      dailyVerdicts: readAtlasClosedLoopHistory(),
+      proofs: readAtlasDecisionProofHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -912,12 +914,18 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
+    const dailyVerdicts = DominionAccountTruth.mergeCollection(readAtlasClosedLoopHistory(), coaching.dailyVerdicts, DominionAccountTruth.COLLECTION_LIMITS.dailyVerdicts);
+    const proofs = DominionAccountTruth.mergeCollection(readAtlasDecisionProofHistory(), coaching.proofs, DominionAccountTruth.COLLECTION_LIMITS.proofs);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(dailyVerdicts) !== DominionAccountTruth.semanticFingerprint(readAtlasClosedLoopHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(proofs) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionProofHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
+    saveClosedLoopLocal("HISTORY", "atlas-closed-loop", dailyVerdicts);
+    saveClosedLoopLocal("HISTORY", "atlas-decision-proof", proofs);
   } finally {
     accountTruthState.applying = false;
   }
@@ -959,7 +967,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -13981,7 +13989,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030i", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030j", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14561,6 +14569,15 @@ function readAtlasClosedLoopHistory() {
   return Array.isArray(history) ? history : [];
 }
 
+function readAtlasDecisionProofHistory() {
+  const history = readClosedLoopState("HISTORY", "atlas-decision-proof", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readAtlasDecisionProof(decisionId = "") {
+  return readAtlasDecisionProofHistory().find((item) => item?.decisionId === decisionId) || null;
+}
+
 function readAtlasClosedLoopDecision(date = todayISODate()) {
   return readClosedLoopState("DAILY_VERDICT", String(date || todayISODate()).slice(0, 10), null);
 }
@@ -14593,7 +14610,8 @@ function buildAtlasClosedLoopDecision(closeout = readDailyCloseout()) {
   }
   const contract = readApprovedRecruitContract();
   const week = readCommittedUnifiedWeek(date);
-  return DominionAtlasClosedLoop.buildDecision({
+  const previous = readAtlasClosedLoopDecision(date);
+  const decision = DominionAtlasClosedLoop.buildDecision({
     date,
     closeout,
     ledger,
@@ -14601,9 +14619,16 @@ function buildAtlasClosedLoopDecision(closeout = readDailyCloseout()) {
     effort: atlasClosedLoopEffort(date),
     contractRevision: Number(contract?.revision || 0),
     weekRevision: Number(week?.revision || 0),
-    previous: readAtlasClosedLoopDecision(date),
+    previous,
     generatedAt: new Date().toISOString()
   });
+  if (typeof DominionAtlasDecisionProof === "undefined") return decision;
+  return DominionAtlasDecisionProof.applyCooldown(
+    DominionAtlasDecisionProof.attachExpectation(decision),
+    readAtlasClosedLoopHistory(),
+    readAtlasDecisionProofHistory(),
+    previous
+  );
 }
 
 async function saveAtlasClosedLoopDecision(record = null) {
@@ -14627,7 +14652,78 @@ async function reconcileAtlasClosedLoopDecision(closeout = readDailyCloseout()) 
   return decision;
 }
 
-function atlasClosedLoopMarkup(decision = null, context = "today") {
+function atlasDecisionProofReadiness(date = todayISODate()) {
+  const state = dailyState?.date === date ? dailyState : readinessHistory.find((item) => item?.date === date) || null;
+  if (!state) return { state: "UNKNOWN", pain: false };
+  let status = "UNKNOWN";
+  try { status = evaluateOperationalReadiness(state).state; }
+  catch (_) {}
+  return { state: status, pain: Boolean(state.pain) };
+}
+
+function buildAtlasDecisionProof(decision = null) {
+  if (!decision || typeof DominionAtlasDecisionProof === "undefined") return null;
+  const date = decision.effectiveDate;
+  return DominionAtlasDecisionProof.buildProof({
+    decision,
+    baselineReadiness: decision.readiness,
+    effectiveReadiness: atlasDecisionProofReadiness(date),
+    ledger: buildCurrentExecutionLedger(date),
+    closeout: readDailyCloseout(date),
+    priorProof: readAtlasDecisionProof(decision.id),
+    today: todayISODate(),
+    evaluatedAt: new Date().toISOString()
+  });
+}
+
+async function saveAtlasDecisionProofHistory(history = [], options = {}) {
+  const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.proofs;
+  const next = history
+    .filter((item) => item?.decisionId && item?.status === "EVALUATED")
+    .sort((left, right) => String(right.evaluatedAt || right.updatedAt || "").localeCompare(String(left.evaluatedAt || left.updatedAt || "")))
+    .slice(0, limit || 120);
+  saveClosedLoopLocal("HISTORY", "atlas-decision-proof", next);
+  if (options.persist === false) return true;
+  return persistClosedLoopState("HISTORY", "atlas-decision-proof", next);
+}
+
+async function reconcileAtlasDecisionProofs(options = {}) {
+  if (typeof DominionAtlasDecisionProof === "undefined") return [];
+  const today = todayISODate();
+  const previous = readAtlasDecisionProofHistory();
+  const byDecision = new Map(previous.map((item) => [item.decisionId, item]));
+  readAtlasClosedLoopHistory()
+    .filter((decision) => ["ACTIVE", "APPROVED"].includes(String(decision?.status || "").toUpperCase()))
+    .filter((decision) => String(decision?.effectiveDate || "") <= today)
+    .forEach((decision) => {
+      const proof = buildAtlasDecisionProof(decision);
+      if (proof?.status === "EVALUATED") byDecision.set(decision.id, proof);
+    });
+  const next = [...byDecision.values()];
+  const changed = JSON.stringify(next.map((item) => [item.decisionId, item.fingerprint]).sort()) !== JSON.stringify(previous.map((item) => [item.decisionId, item.fingerprint]).sort());
+  if (changed) await saveAtlasDecisionProofHistory(next, options);
+  renderAtlasClosedLoopDecision();
+  renderAtlasDecisionProofTrends();
+  return next;
+}
+
+let atlasDecisionProofTimer = null;
+function scheduleAtlasDecisionProofReconciliation(delay = 80) {
+  if (atlasDecisionProofTimer) window.clearTimeout(atlasDecisionProofTimer);
+  atlasDecisionProofTimer = window.setTimeout(async () => {
+    atlasDecisionProofTimer = null;
+    const persist = typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change");
+    await reconcileAtlasDecisionProofs({ persist });
+  }, Math.max(0, Number(delay || 0)));
+}
+
+function atlasDecisionProofInline(proof = null) {
+  if (!proof) return "";
+  const label = proof.code === "INSUFFICIENT_EVIDENCE" ? "EVIDENCE THIN" : proof.code;
+  return `<div class="atlas-decision-proof-inline ${escapeHtml(proof.tone || "neutral")}"><span>LAST COACHING CALL</span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(proof.summary)}</small></div>`;
+}
+
+function atlasClosedLoopMarkup(decision = null, context = "today", proof = null) {
   if (!decision) return `<div class="performance-empty">Close today to receive the next coaching call.</div>`;
   const proposed = decision.status === "PROPOSED";
   const status = decision.status === "ACTIVE" ? "ACTIVE" : decision.status.replaceAll("_", " ");
@@ -14645,7 +14741,9 @@ function atlasClosedLoopMarkup(decision = null, context = "today") {
     <header><div><span>${context === "closeout" ? "TOMORROW" : decision.effectiveDate === todayISODate() ? "TODAY'S ADJUSTMENT" : "NEXT COACHING CALL"}</span><h3>${escapeHtml(decision.headline)}</h3></div><em>${escapeHtml(status)}</em></header>
     <p>${escapeHtml(decision.reason)}</p>
     <strong class="atlas-closed-loop-impact">${escapeHtml(decision.impact)}</strong>
+    ${decision.expectation?.text ? `<p class="atlas-closed-loop-expectation"><span>${escapeHtml(decision.expectation.label || "Success looks like")}</span>${escapeHtml(decision.expectation.text)}</p>` : ""}
     ${signals ? `<div class="atlas-closed-loop-signals">${signals}</div>` : ""}
+    ${atlasDecisionProofInline(proof)}
     ${actions}
   </article>`;
 }
@@ -14655,15 +14753,33 @@ function renderAtlasClosedLoopDecision() {
   const activeDecision = activeAtlasClosedLoopDecision(todayISODate());
   const closeoutHost = document.getElementById("atlas-closeout-verdict");
   const todayHost = document.getElementById("atlas-closed-loop-today");
+  const latestProof = typeof DominionAtlasDecisionProof === "undefined" ? null : DominionAtlasDecisionProof.latestProof(readAtlasDecisionProofHistory());
   if (closeoutHost) {
     closeoutHost.hidden = !sourceDecision;
-    closeoutHost.innerHTML = sourceDecision ? atlasClosedLoopMarkup(sourceDecision, "closeout") : "";
+    closeoutHost.innerHTML = sourceDecision ? atlasClosedLoopMarkup(sourceDecision, "closeout", latestProof) : "";
   }
   if (todayHost) {
     const decision = activeDecision || sourceDecision;
     todayHost.hidden = !decision;
-    todayHost.innerHTML = decision ? atlasClosedLoopMarkup(decision, "today") : "";
+    todayHost.innerHTML = decision ? atlasClosedLoopMarkup(decision, "today", latestProof) : "";
   }
+}
+
+function renderAtlasDecisionProofTrends() {
+  const root = document.getElementById("trend-coaching-results");
+  if (!root || typeof DominionAtlasDecisionProof === "undefined") return;
+  const summary = DominionAtlasDecisionProof.summarize(readAtlasDecisionProofHistory(), { today: todayISODate(), rangeDays: trendRangeDays || 28 });
+  root.hidden = false;
+  setText("trend-coaching-results-heading", summary.evaluated ? `${summary.verifiedPercent}% verifiable` : "Build the proof");
+  setText("trend-coaching-results-rate", `${summary.verified}/${summary.evaluated}`);
+  const grid = document.getElementById("trend-coaching-results-grid");
+  if (grid) grid.innerHTML = [
+    ["Worked", summary.counts.WORKED],
+    ["Mixed", summary.counts.MIXED],
+    ["Missed", summary.counts.MISSED],
+    ["Evidence thin", summary.counts.INSUFFICIENT_EVIDENCE]
+  ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${value}</strong></article>`).join("");
+  setText("trend-coaching-results-latest", summary.latest ? `${summary.latest.headline}. ${summary.latest.lesson}` : "Close the day to start measuring Atlas decisions.");
 }
 
 async function resolveAtlasClosedLoopDecision(date = todayISODate(), resolution = "KEEP") {
@@ -14865,6 +14981,7 @@ async function submitDailyCloseout(event) {
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
     const verdict = await reconcileAtlasClosedLoopDecision(record);
+    await reconcileAtlasDecisionProofs({ persist: true });
     await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
@@ -14981,6 +15098,7 @@ async function loadClosedLoopState() {
       ["HISTORY", "daily-closeout"],
       ["DAILY_VERDICT", todayISODate()],
       ["HISTORY", "atlas-closed-loop"],
+      ["HISTORY", "atlas-decision-proof"],
       ["EVIDENCE", `mission:${todayISODate()}`],
       ["DEBRIEF", `mission:${todayISODate()}`],
       ["HISTORY", "mission-debrief"],
@@ -23352,7 +23470,10 @@ async function init() {
   } finally {
     renderDominionExperienceShell();
     applyProductPolish();
-    if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) scheduleOperatingTruthReconciliation();
+    if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) {
+      scheduleOperatingTruthReconciliation();
+      scheduleAtlasDecisionProofReconciliation();
+    }
   }
 }
 
@@ -29634,6 +29755,7 @@ function refreshTransformationLedger() {
 
 function renderProgramTrends(model, domainTrends, trajectory, storageMode) {
   trendDashboardModel = model;
+  renderAtlasDecisionProofTrends();
   setText("trend-command-signal", model.coaching.signal);
   setText("trend-command-detail", model.coaching.detail);
   const action = document.getElementById("trend-command-action");

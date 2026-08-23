@@ -76,6 +76,7 @@ let currentProgramCommand = null;
 let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
 let currentAtlasWeeklyReconciliation = null;
+let currentWeeklyRolloverCertification = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -850,7 +851,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       decisions: readAtlasDecisionHistory(),
       dailyVerdicts: readAtlasClosedLoopHistory(),
       proofs: readAtlasDecisionProofHistory(),
-      weeklyReconciliations: readAtlasWeeklyReconciliationHistory()
+      weeklyReconciliations: readAtlasWeeklyReconciliationHistory(),
+      weeklyRollovers: readWeeklyRolloverHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -919,18 +921,21 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const dailyVerdicts = DominionAccountTruth.mergeCollection(readAtlasClosedLoopHistory(), coaching.dailyVerdicts, DominionAccountTruth.COLLECTION_LIMITS.dailyVerdicts);
     const proofs = DominionAccountTruth.mergeCollection(readAtlasDecisionProofHistory(), coaching.proofs, DominionAccountTruth.COLLECTION_LIMITS.proofs);
     const weeklyReconciliations = DominionAccountTruth.mergeCollection(readAtlasWeeklyReconciliationHistory(), coaching.weeklyReconciliations, DominionAccountTruth.COLLECTION_LIMITS.weeklyReconciliations);
+    const weeklyRollovers = DominionAccountTruth.mergeCollection(readWeeklyRolloverHistory(), coaching.weeklyRollovers, DominionAccountTruth.COLLECTION_LIMITS.weeklyRollovers);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(dailyVerdicts) !== DominionAccountTruth.semanticFingerprint(readAtlasClosedLoopHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(proofs) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionProofHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(weeklyReconciliations) !== DominionAccountTruth.semanticFingerprint(readAtlasWeeklyReconciliationHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(weeklyRollovers) !== DominionAccountTruth.semanticFingerprint(readWeeklyRolloverHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
     saveClosedLoopLocal("HISTORY", "atlas-closed-loop", dailyVerdicts);
     saveClosedLoopLocal("HISTORY", "atlas-decision-proof", proofs);
     saveClosedLoopLocal("HISTORY", "atlas-weekly-reconciliation", weeklyReconciliations);
+    saveClosedLoopLocal("HISTORY", "weekly-rollover-certification", weeklyRollovers);
   } finally {
     accountTruthState.applying = false;
   }
@@ -972,7 +977,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -7600,7 +7605,8 @@ function refreshProgramActivationSurfaces() {
     ["daily assignment", renderDailyAssignment],
     ["Train", renderPerformanceSection],
     ["Core", renderCoreProgramming],
-    ["Fuel", renderNutritionCommand]
+    ["Fuel", renderNutritionCommand],
+    ["weekly rollover", renderWeeklyRolloverCertification]
   ];
   renderers.forEach(([surface, renderer]) => {
     try { renderer(); }
@@ -8155,6 +8161,8 @@ function renderWeeklyOrchestrator() {
   const preview = calendarView.week || buildUnifiedWeekDraft(targetWeekStart);
   if (!preview) return;
   const calendarCommitReceipt = matchingCalendarCommitReceipt(preview);
+  const weeklyRollover = buildCurrentWeeklyRolloverCertification();
+  const weeklyRolloverMarkup = weeklyRolloverCertificationMarkup(weeklyRollover, "calendar");
   const stagedCommitState = calendarView.mode === "STAGED" && preview.status !== "DRAFT"
     ? calendarCommitReceipt ? "COMMITTED" : "COMMIT PENDING"
     : null;
@@ -8230,6 +8238,7 @@ function renderWeeklyOrchestrator() {
       <button type="button" data-weekly-orchestrator-action="view-staged" aria-pressed="${calendarView.mode === "STAGED"}" ${stagedWeek ? "" : "disabled"}>Next week</button>
     </nav>
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>${escapeHtml(executionContext?.expectedVersionSplit ? executionContext.program : "Contract or module edits stage the next week. Today keeps following this approved calendar.")}</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
+    ${weeklyRolloverMarkup}
     ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
     ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "calendar")}
     ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
@@ -8457,6 +8466,10 @@ function renderTodayCommittedWeek() {
     : "";
   const bridge = day?.twoADay ? `<aside class="two-a-day-bridge ${splitDayGateTone(splitDayGate)}"><div><span>BETWEEN AM + PM · ${escapeHtml(splitDayGateLabel(splitDayGate))}</span><strong>${splitDayGate.status === "CLEARED" ? "PM session is cleared" : splitDayGate.status === "HELD" ? "Safety overrides the PM session" : splitDayGate.status === "RECOVERING" ? `Recovery window active · ${splitDayGate.minutesRemaining} min remaining` : splitDayGate.status === "CHECKPOINT_REQUIRED" ? "Complete the midday recheck" : "Complete the AM session before the recovery window"}</strong><p>${currentFuel ? "Today’s nutrition evidence is logged; confirm the between-session refuel below." : "Log fuel, rehydrate, and reassess before the PM exposure."}</p></div><button type="button" class="ghost" data-two-a-day-action="fuel">${currentFuel ? "Update fuel" : "Log fuel"}</button>${splitDayCheckpointForm(splitDayGate, day, week)}</aside>` : "";
   panel.innerHTML = `<div class="today-committed-week-meta"><div><span>Week</span><strong>${escapeHtml(week.weekStart)} to ${escapeHtml(week.weekEnd)}</strong></div><div><span>Revision</span><strong>${week.revision || 1}</strong></div><div><span>Day format</span><strong>${day?.longRunUncapped ? `${day?.twoADay ? "AM/PM · " : ""}LONG RUN · TIME UNCAPPED` : day?.twoADay ? `TWO-A-DAY · AM/PM · ${day.estimatedMinutes}/240 MIN` : day?.twoADayAuthorizationRequired ? `COMBINED · TWO-A-DAYS OFF` : day?.twoADayCandidate ? `COMBINED · ${day.estimatedMinutes} MIN` : "STANDARD"}</strong></div><div><span>Fuel</span><strong>${day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "Baseline required"}</strong></div></div><div class="today-committed-assignments">${assignments}</div>${bridge}`;
+  const weeklyRollover = buildCurrentWeeklyRolloverCertification();
+  if (weeklyRollover?.status === "ACTIVE" || (weeklyRollover?.status === "BLOCKED" && weeklyRollover?.targetWeekStart === week.weekStart)) {
+    panel.insertAdjacentHTML("afterbegin", weeklyRolloverCertificationMarkup(weeklyRollover, "today"));
+  }
   if (dailyBlocker) panel.insertAdjacentHTML("afterbegin", dailyBlocker);
   if (dayOverride) panel.insertAdjacentHTML("afterbegin", `<aside class="atlas-calendar-override today"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>`);
   const todayHandoff = strengthCalendarHandoffMarkup(week.calendarReconciliation, "today");
@@ -13994,7 +14007,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030k", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030l", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14594,6 +14607,90 @@ function readAtlasWeeklyReconciliation(weekStart = "") {
   return readClosedLoopState("WEEKLY_RECONCILIATION", "current", null);
 }
 
+function readWeeklyRolloverHistory() {
+  const history = readClosedLoopState("HISTORY", "weekly-rollover-certification", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readWeeklyRolloverReceipt(targetWeekStart = "") {
+  const target = String(targetWeekStart || "").slice(0, 10);
+  if (target) return readWeeklyRolloverHistory().find((item) => item?.targetWeekStart === target) || null;
+  return readClosedLoopState("WEEKLY_ROLLOVER", "current", null);
+}
+
+function buildCurrentWeeklyRolloverCertification(options = {}) {
+  if (typeof DominionWeeklyRolloverCertification === "undefined") return null;
+  const reconciliation = options.reconciliation
+    || currentAtlasWeeklyReconciliation
+    || readAtlasWeeklyReconciliation()
+    || readAtlasWeeklyReconciliationHistory()[0]
+    || null;
+  if (!reconciliation?.id) {
+    currentWeeklyRolloverCertification = null;
+    return null;
+  }
+  const sourceWeek = options.sourceWeek
+    || readUnifiedWeekHistory().find((week) => week?.id === reconciliation?.packet?.activeWeekId)
+    || readCommittedUnifiedWeekByStart(reconciliation?.packet?.weekStart)
+    || null;
+  const targetWeekStart = reconciliation?.verdict?.targetWeekStart || reconciliation?.commitReceipt?.targetWeekStart || "";
+  const targetWeek = options.targetWeek || readCommittedUnifiedWeekByStart(targetWeekStart);
+  const currentDate = String(options.currentDate || todayISODate()).slice(0, 10);
+  const priorReceipt = options.priorReceipt || readWeeklyRolloverReceipt(targetWeekStart);
+  const result = DominionWeeklyRolloverCertification.evaluate({
+    reconciliation,
+    sourceWeek,
+    targetWeek,
+    calendarReceipt: options.calendarReceipt || matchingCalendarCommitReceipt(targetWeek),
+    weeks: readUnifiedWeekHistory(),
+    currentDate,
+    resolvedWeek: readCommittedUnifiedWeek(currentDate),
+    canonicalCommand: targetWeek && currentDate >= targetWeek.weekStart && currentDate <= targetWeek.weekEnd
+      ? buildCurrentCanonicalDailyCommand(currentDate)
+      : null,
+    priorReceipt
+  });
+  currentWeeklyRolloverCertification = result;
+  return result;
+}
+
+async function saveWeeklyRolloverCertification(result = null, options = {}) {
+  const receipt = result?.receipt || result;
+  if (!receipt?.id || typeof DominionWeeklyRolloverCertification === "undefined") return false;
+  const history = DominionWeeklyRolloverCertification.upsertHistory(readWeeklyRolloverHistory(), receipt, 52);
+  saveClosedLoopLocal("WEEKLY_ROLLOVER", "current", receipt);
+  saveClosedLoopLocal("HISTORY", "weekly-rollover-certification", history);
+  if (options.persist === false) return true;
+  const [currentSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("WEEKLY_ROLLOVER", "current", receipt),
+    persistClosedLoopState("HISTORY", "weekly-rollover-certification", history)
+  ]);
+  return currentSaved && historySaved;
+}
+
+async function reconcileWeeklyRolloverCertification(options = {}) {
+  const result = buildCurrentWeeklyRolloverCertification(options);
+  if (result?.valid && result.receipt && (result.shouldSave || options.force === true)) {
+    await saveWeeklyRolloverCertification(result, { persist: options.persist !== false });
+    currentWeeklyRolloverCertification = buildCurrentWeeklyRolloverCertification(options);
+  }
+  return currentWeeklyRolloverCertification || result;
+}
+
+function weeklyRolloverCertificationMarkup(result = null, mode = "review") {
+  if (!result) return "";
+  if (!result.valid) return `<aside class="weekly-rollover-certification blocked ${escapeHtml(mode)}" data-rollover-state="BLOCKED"><div><span>WEEK HANDOFF</span><strong>${escapeHtml(result.headline)}</strong><small>${escapeHtml(result.detail)}</small></div><a href="#${escapeHtml(result.repair?.action?.section || "review")}" data-section="${escapeHtml(result.repair?.action?.section || "review")}">${escapeHtml(result.repair?.action?.label || "Repair handoff")}</a></aside>`;
+  if (mode !== "review") return `<aside class="weekly-rollover-certification compact ${escapeHtml(result.status.toLowerCase())} ${escapeHtml(mode)}" data-rollover-state="${escapeHtml(result.status)}"><div><span>WEEK HANDOFF · ${escapeHtml(result.status)}</span><strong>${escapeHtml(result.headline)}</strong><small>${escapeHtml(result.detail)}</small></div><b>R${escapeHtml(String(result.receipt?.targetWeekRevision || 0))}</b></aside>`;
+  const changes = (result.changes?.changes || []).slice(0, 3).map((item) => `<li><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(String(item.before))} → ${escapeHtml(String(item.after))}</strong></li>`).join("");
+  return `<aside class="weekly-rollover-certification review ${escapeHtml(result.status.toLowerCase())}" data-rollover-state="${escapeHtml(result.status)}"><header><div><span>WEEK HANDOFF · ${escapeHtml(result.status)}</span><strong>${escapeHtml(result.headline)}</strong></div><b>R${escapeHtml(String(result.receipt?.targetWeekRevision || 0))}</b></header><ul>${changes}</ul><footer><p><span>WHY</span>${escapeHtml(result.why)}</p><p><span>EFFECTIVE</span>${escapeHtml(result.effectiveDate)}</p></footer></aside>`;
+}
+
+function renderWeeklyRolloverCertification() {
+  const result = buildCurrentWeeklyRolloverCertification();
+  document.body.dataset.weeklyRollover = result?.status?.toLowerCase() || "unavailable";
+  return result;
+}
+
 function readAtlasClosedLoopDecision(date = todayISODate()) {
   return readClosedLoopState("DAILY_VERDICT", String(date || todayISODate()).slice(0, 10), null);
 }
@@ -14882,6 +14979,10 @@ function atlasWeeklyReconciliationMarkup(record = null) {
   const action = verdict.action?.code === "COMMIT_NEXT_WEEK"
     ? '<button type="button" data-weekly-reconciliation-action="commit">Commit next week</button>'
     : `<span class="atlas-weekly-reconciliation-receipt">${escapeHtml(verdict.action?.label || "Evidence forming")}</span>`;
+  const committedTarget = readCommittedUnifiedWeekByStart(verdict.targetWeekStart);
+  const rolloverMarkup = record.commitReceipt || committedTarget
+    ? weeklyRolloverCertificationMarkup(buildCurrentWeeklyRolloverCertification({ reconciliation: record, targetWeek: committedTarget }), "review")
+    : "";
   return `<article class="atlas-weekly-reconciliation-card ${escapeHtml(verdict.tone || "neutral")}" data-position="${escapeHtml(verdict.position || "PROVISIONAL")}">
     <header><div><span>WEEKLY RESULT</span><h3>${escapeHtml(verdict.headline)}</h3></div><strong>${escapeHtml(String(verdict.position || "PROVISIONAL").replaceAll("_", " "))}</strong></header>
     <div class="atlas-weekly-reconciliation-lines">
@@ -14891,7 +14992,7 @@ function atlasWeeklyReconciliationMarkup(record = null) {
     </div>
     <div class="atlas-weekly-reconciliation-proof" aria-label="Weekly Atlas proof"><span>WORKED <b>${Number(counts.WORKED || 0)}</b></span><span>MIXED <b>${Number(counts.MIXED || 0)}</b></span><span>MISSED <b>${Number(counts.MISSED || 0)}</b></span><span>UNSCORED <b>${Number(counts.INSUFFICIENT_EVIDENCE || packet.unscoredDays || 0)}</b></span></div>
     <footer>${action}<small>${escapeHtml(verdict.safeguard)}</small></footer>
-  </article>`;
+  </article>${rolloverMarkup}`;
 }
 
 function renderAtlasWeeklyReconciliation(inspection = weeklyInspection) {
@@ -14948,13 +15049,14 @@ async function commitAtlasWeeklyReconciliation(inspection = weeklyInspection) {
   if (!committedWeek) throw new Error("The next week was not committed.");
   reconciliation = DominionAtlasWeeklyReconciliation.attachCommit(reconciliation, committedWeek, decidedAt);
   const synced = await saveAtlasWeeklyReconciliation(reconciliation);
+  const rollover = await reconcileWeeklyRolloverCertification({ reconciliation, sourceWeek: context.activeWeek, targetWeek: committedWeek, force: true });
   refreshProgramActivationSurfaces();
   renderWeeklyInspection(inspection, weeklyInspectionStorageMode);
   renderAtlasWeeklyReconciliationSignals(reconciliation);
   renderRankSection();
   renderDominionCampaign();
   await drainAccountPersistence({ reason: "atlas_weekly_reconciliation_committed", force: true });
-  return { reconciliation, committedWeek, synced };
+  return { reconciliation, committedWeek, rollover, synced };
 }
 
 async function resolveAtlasClosedLoopDecision(date = todayISODate(), resolution = "KEEP") {
@@ -15276,6 +15378,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "atlas-decision-proof"],
       ["WEEKLY_RECONCILIATION", "current"],
       ["HISTORY", "atlas-weekly-reconciliation"],
+      ["WEEKLY_ROLLOVER", "current"],
+      ["HISTORY", "weekly-rollover-certification"],
       ["EVIDENCE", `mission:${todayISODate()}`],
       ["DEBRIEF", `mission:${todayISODate()}`],
       ["HISTORY", "mission-debrief"],
@@ -23584,6 +23688,7 @@ async function init() {
     await runStartupTask("progress photos", loadBodyProgressPhotos, startupIssues);
     await runStartupTask("Strength", loadStrengthTrainingState, startupIssues);
     await runStartupTask("Calendar", loadWeeklyOrchestrationState, startupIssues);
+    await runStartupTask("weekly rollover", () => reconcileWeeklyRolloverCertification({ persist: true }), startupIssues);
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
     await runStartupTask("Connected Evidence", () => reconcileConnectedEvidence({ persist: false, render: false }), startupIssues);

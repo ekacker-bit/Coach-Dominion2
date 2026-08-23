@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Weekly Rollover Certification
+
+- Certifies one immutable handoff from the finalized inspection to the exact next-week Calendar revision.
+- Keeps the current week protected until the effective date and makes Monday open the first assignment from that same committed week.
+- Restores an interrupted commit only when Contract, program, Calendar, and assignment lineage all agree; otherwise it names one repair.
+- Shows one short before / after / why / effective-date receipt in Review and compact confirmation in Calendar and Today.
+
 ## Unreleased - Atlas Weekly Reconciliation
 
 - Reconciles each finalized inspection with readiness, execution, Fuel, Closeout, standards, and daily Atlas outcome proof.

@@ -4,7 +4,7 @@ module.exports = function handler(req, res) {
     ok: true,
     service: "coach-dominion",
     status: "ready",
-    release: "030K.1",
+    release: "030L.1",
     commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
     checks: {
       application: "available",
@@ -17,6 +17,7 @@ module.exports = function handler(req, res) {
       closedLoopCoaching: "evidence-to-next-day",
       decisionProof: "outcome-verified",
       weeklyReconciliation: "finalized-evidence-to-committed-week",
+      weeklyRollover: "commit-to-monday-certified",
       betaJourney: "available",
       realRecruitCertification: "required",
       todayQuickLog: "available",

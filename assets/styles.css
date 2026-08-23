@@ -13170,3 +13170,44 @@ html[data-today-hierarchy="029D.1"] #today-more-context > summary { min-height: 
   .atlas-weekly-reconciliation-card footer button { width: 100%; }
   .trend-weekly-result small { margin-left: 0; }
 }
+
+/* Build 030L: certify the handoff from finalized evidence to Monday execution. */
+.weekly-rollover-certification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(46, 155, 95, .38);
+  background: linear-gradient(110deg, rgba(46, 155, 95, .09), rgba(10, 10, 10, .12) 58%), var(--panel3);
+}
+.weekly-rollover-certification.blocked { border-color: rgba(190, 65, 65, .55); background: rgba(95, 25, 25, .12); }
+.weekly-rollover-certification > div { display: grid; gap: 4px; min-width: 0; }
+.weekly-rollover-certification span,
+.weekly-rollover-certification footer p span { color: var(--victory-gold); font: 700 10px/1.2 var(--font-command); letter-spacing: .12em; text-transform: uppercase; }
+.weekly-rollover-certification strong { color: var(--stone); font-size: 16px; }
+.weekly-rollover-certification small { color: var(--muted); line-height: 1.4; }
+.weekly-rollover-certification > b,
+.weekly-rollover-certification header > b { color: #73d9a2; font: 700 13px/1 var(--font-command); letter-spacing: .08em; }
+.weekly-rollover-certification > a { flex: 0 0 auto; }
+.weekly-rollover-certification.review { display: grid; gap: 14px; margin: 14px 20px 20px; }
+.weekly-rollover-certification.review header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.weekly-rollover-certification.review header > div { display: grid; gap: 5px; }
+.weekly-rollover-certification.review ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 1px; list-style: none; background: var(--line); }
+.weekly-rollover-certification.review li { display: grid; gap: 6px; padding: 11px 12px; background: var(--panel2); }
+.weekly-rollover-certification.review li strong { font-size: 13px; }
+.weekly-rollover-certification.review footer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; margin: 0; }
+.weekly-rollover-certification.review footer p { display: grid; gap: 4px; margin: 0; color: var(--stone); line-height: 1.45; }
+.weekly-rollover-certification.today { margin-top: 0; }
+
+@media (max-width: 720px) {
+  .weekly-rollover-certification,
+  .weekly-rollover-certification.review,
+  .weekly-rollover-certification.review header,
+  .weekly-rollover-certification.review footer { align-items: flex-start; grid-template-columns: 1fr; }
+  .weekly-rollover-certification { display: grid; }
+  .weekly-rollover-certification.review { margin: 10px 14px 14px; }
+  .weekly-rollover-certification.review ul { grid-template-columns: 1fr; width: 100%; }
+  .weekly-rollover-certification > a { width: 100%; text-align: center; }
+}

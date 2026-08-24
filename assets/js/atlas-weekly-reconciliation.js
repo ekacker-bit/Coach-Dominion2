@@ -101,6 +101,13 @@
     const lineageIssues = [];
     if (activeWeek && (dateIso(activeWeek.weekStart) !== weekStart || dateIso(activeWeek.weekEnd) !== weekEnd)) lineageIssues.push("ACTIVE_WEEK_MISMATCH");
     const contractRevision = Number(activeWeek?.contractRevision || input.contract?.revision || 0);
+    const executionCertification = input.executionCertification || inspection.weekExecutionCertification || null;
+    if (executionCertification) {
+      if (dateIso(executionCertification.weekStart) !== weekStart) lineageIssues.push("EXECUTION_WEEK_MISMATCH");
+      if (activeWeek && Number(executionCertification.weekRevision || 0) !== Number(activeWeek.revision || 0)) lineageIssues.push("EXECUTION_REVISION_MISMATCH");
+      if (contractRevision && Number(executionCertification.contractRevision || 0) !== contractRevision) lineageIssues.push("EXECUTION_CONTRACT_MISMATCH");
+      if (finalizedAt && upper(executionCertification.status) !== "CERTIFIED") lineageIssues.push("EXECUTION_NOT_CERTIFIED");
+    }
     const proposedWeek = input.proposedWeek || null;
     if (proposedWeek && contractRevision && Number(proposedWeek.contractRevision || 0) !== contractRevision) lineageIssues.push("CONTRACT_REVISION_MISMATCH");
     const counts = proofCounts(proofs);
@@ -130,6 +137,8 @@
       activeWeekRevision: Number(activeWeek?.revision || 0),
       contractRevision,
       proposedWeekId: proposedWeek?.id || null,
+      executionCertificationId: executionCertification?.id || null,
+      executionCertificationFingerprint: executionCertification?.fingerprint || null,
       lineageIssues
     };
     const fingerprint = stableHash(fingerprintBasis);
@@ -158,6 +167,9 @@
       decisionCount: decisions.length,
       closeoutCount: closeouts.length,
       openStandardsCount: standards.length,
+      executionCertificationId: executionCertification?.id || null,
+      executionCertificationFingerprint: executionCertification?.fingerprint || null,
+      executionMetrics: executionCertification?.metrics || null,
       strongestDomains: (inspection.strongestDomains || [inspection.strongestDomain || inspectionValue(inspection, "strongestDomain", "strongest_domain")]).filter(Boolean).map(friendlyDomain),
       weakestDomains: (inspection.weakestDomains || [inspection.weakestDomain || inspectionValue(inspection, "weakestDomain", "weakest_domain")]).filter(Boolean).map(friendlyDomain),
       lineage: { consistent: lineageIssues.length === 0, issues: lineageIssues },

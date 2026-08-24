@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionWeeklyAdvancement = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "030K.1";
+  const VERSION = "030M.1";
   const CLOSED_STANDARD_STATES = new Set(["RESOLVED", "DISMISSED", "EXCUSED"]);
 
   function finite(value) {
@@ -160,6 +160,7 @@
         <p>Atlas is reconciling execution, evidence, standards, and coaching outcomes.</p>
       </section>
       <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
+      <section id="week-execution-certification" class="week-execution-certification-host" aria-label="Week execution certification" aria-live="polite"></section>
       <div id="weekly-proof-grid" class="weekly-proof-grid" aria-label="Weekly proof">
         <article><span>EXECUTION</span><strong id="weekly-score">NOT EVALUATED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>
         <article><span>EVIDENCE</span><strong id="weekly-coverage">COVERAGE INCOMPLETE</strong><small id="weekly-evidence-proof">Waiting for evidence</small></article>

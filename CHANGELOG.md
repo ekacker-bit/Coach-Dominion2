@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Week Execution Certification
+
+- Gives every committed Strength, Running, Core, and Fuel assignment one truthful weekly outcome: complete, partial, missed, replaced, or unresolved.
+- Lets a sealed Daily Closeout prove a miss while keeping absent evidence unresolved instead of silently treating it as failure.
+- Locks one assignment-linked receipt into the finalized Inspection, Account Truth, and the Atlas weekly result without double-counting connected and manual proof.
+- Shows a word-light execution summary in Review with compact context in Calendar and near week close on Today, plus exactly one repair when certification is blocked.
+
 ## Unreleased - Weekly Rollover Certification
 
 - Certifies one immutable handoff from the finalized inspection to the exact next-week Calendar revision.

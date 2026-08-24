@@ -77,6 +77,7 @@ let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
 let currentAtlasWeeklyReconciliation = null;
 let currentWeeklyRolloverCertification = null;
+let currentWeekExecutionCertification = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -852,7 +853,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       dailyVerdicts: readAtlasClosedLoopHistory(),
       proofs: readAtlasDecisionProofHistory(),
       weeklyReconciliations: readAtlasWeeklyReconciliationHistory(),
-      weeklyRollovers: readWeeklyRolloverHistory()
+      weeklyRollovers: readWeeklyRolloverHistory(),
+      weeklyExecutions: readWeekExecutionCertificationHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -922,6 +924,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const proofs = DominionAccountTruth.mergeCollection(readAtlasDecisionProofHistory(), coaching.proofs, DominionAccountTruth.COLLECTION_LIMITS.proofs);
     const weeklyReconciliations = DominionAccountTruth.mergeCollection(readAtlasWeeklyReconciliationHistory(), coaching.weeklyReconciliations, DominionAccountTruth.COLLECTION_LIMITS.weeklyReconciliations);
     const weeklyRollovers = DominionAccountTruth.mergeCollection(readWeeklyRolloverHistory(), coaching.weeklyRollovers, DominionAccountTruth.COLLECTION_LIMITS.weeklyRollovers);
+    const weeklyExecutions = DominionAccountTruth.mergeCollection(readWeekExecutionCertificationHistory(), coaching.weeklyExecutions, DominionAccountTruth.COLLECTION_LIMITS.weeklyExecutions);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
@@ -929,6 +932,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     if (DominionAccountTruth.semanticFingerprint(proofs) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionProofHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(weeklyReconciliations) !== DominionAccountTruth.semanticFingerprint(readAtlasWeeklyReconciliationHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(weeklyRollovers) !== DominionAccountTruth.semanticFingerprint(readWeeklyRolloverHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(weeklyExecutions) !== DominionAccountTruth.semanticFingerprint(readWeekExecutionCertificationHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
@@ -936,6 +940,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     saveClosedLoopLocal("HISTORY", "atlas-decision-proof", proofs);
     saveClosedLoopLocal("HISTORY", "atlas-weekly-reconciliation", weeklyReconciliations);
     saveClosedLoopLocal("HISTORY", "weekly-rollover-certification", weeklyRollovers);
+    saveClosedLoopLocal("HISTORY", "week-execution-certification", weeklyExecutions);
   } finally {
     accountTruthState.applying = false;
   }
@@ -8163,6 +8168,8 @@ function renderWeeklyOrchestrator() {
   const calendarCommitReceipt = matchingCalendarCommitReceipt(preview);
   const weeklyRollover = buildCurrentWeeklyRolloverCertification();
   const weeklyRolloverMarkup = weeklyRolloverCertificationMarkup(weeklyRollover, "calendar");
+  const weekExecution = active ? buildWeekExecutionCertification({ weekStartDate: active.weekStart, weekEndDate: active.weekEnd }, { week: active }) : null;
+  const weekExecutionMarkup = active ? weekExecutionCertificationMarkup(weekExecution, "calendar") : "";
   const stagedCommitState = calendarView.mode === "STAGED" && preview.status !== "DRAFT"
     ? calendarCommitReceipt ? "COMMITTED" : "COMMIT PENDING"
     : null;
@@ -8239,6 +8246,7 @@ function renderWeeklyOrchestrator() {
     </nav>
     ${active ? `<article class="weekly-orchestrator-active"><div><span class="kicker">CURRENT WEEK PROTECTED</span><strong>${escapeHtml(active.weekStart)} to ${escapeHtml(active.weekEnd)}</strong><p>${escapeHtml(executionContext?.expectedVersionSplit ? executionContext.program : "Contract or module edits stage the next week. Today keeps following this approved calendar.")}</p></div><span class="state-pill green">ACTIVE</span></article>` : ""}
     ${weeklyRolloverMarkup}
+    ${weekExecutionMarkup}
     ${strengthCalendarHandoffMarkup(calendarHandoff, "calendar")}
     ${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "calendar")}
     ${["ATLAS_PROGRAM", "ATLAS_ADAPTIVE_WEEK"].includes(preview.generatedBy) ? `<article class="atlas-calendar-source ${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "adaptive" : ""}"><div><span>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "ATLAS ADAPTIVE WEEK" : "ATLAS PROGRAM CALENDAR"}</span><strong>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? escapeHtml(String(preview.atlasAdaptiveWeek.code || "ADAPTED").replaceAll("_", " ")) : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Next week ready" : "Built from the complete plan"}</strong><p>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "Recruit-approved changes are bounded to this week. The active week and base plans remain protected." : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "Atlas rolled the unchanged active program forward. Edit only if your real-world schedule changed." : "Strength, Cardio, Core, Fuel, recovery, and the signed time commitment were scheduled together."}</p></div><small>${preview.atlasAdaptiveWeek?.status === "APPROVED" ? "APPROVED" : preview.atlasWeekAutopilot?.status === "AUTO_COMMITTED" ? "AUTO-COMMITTED" : `Contract R${escapeHtml(String(preview.contractRevision || contract.revision))}`}</small></article>` : ""}
@@ -8469,6 +8477,11 @@ function renderTodayCommittedWeek() {
   const weeklyRollover = buildCurrentWeeklyRolloverCertification();
   if (weeklyRollover?.status === "ACTIVE" || (weeklyRollover?.status === "BLOCKED" && weeklyRollover?.targetWeekStart === week.weekStart)) {
     panel.insertAdjacentHTML("afterbegin", weeklyRolloverCertificationMarkup(weeklyRollover, "today"));
+  }
+  const weekExecution = buildWeekExecutionCertification({ weekStartDate: week.weekStart, weekEndDate: week.weekEnd }, { week });
+  const closeOfWeek = todayISODate() >= addClosedLoopDays(week.weekEnd, -1);
+  if (weekExecution?.status === "BLOCKED" || closeOfWeek) {
+    panel.insertAdjacentHTML("afterbegin", weekExecutionCertificationMarkup(weekExecution, "today"));
   }
   if (dailyBlocker) panel.insertAdjacentHTML("afterbegin", dailyBlocker);
   if (dayOverride) panel.insertAdjacentHTML("afterbegin", `<aside class="atlas-calendar-override today"><span>ATLAS DAY ADJUSTMENT</span><strong>${escapeHtml(dayOverride.label)}</strong><small>${escapeHtml(dayOverride.detail)}</small></aside>`);
@@ -14007,7 +14020,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030l", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030m", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14607,6 +14620,116 @@ function readAtlasWeeklyReconciliation(weekStart = "") {
   return readClosedLoopState("WEEKLY_RECONCILIATION", "current", null);
 }
 
+function readWeekExecutionCertificationHistory() {
+  const history = readClosedLoopState("HISTORY", "week-execution-certification", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readWeekExecutionCertification(weekStart = "") {
+  const key = String(weekStart || "").slice(0, 10);
+  if (key) return readWeekExecutionCertificationHistory().find((item) => item?.weekStart === key) || null;
+  return readClosedLoopState("WEEK_EXECUTION_CERTIFICATION", "current", null);
+}
+
+function buildWeekExecutionCertification(inspection = weeklyInspection, options = {}) {
+  if (typeof DominionWeekExecutionCertification === "undefined") return null;
+  const weekStart = String(inspection?.weekStartDate || inspection?.weekStart || "").slice(0, 10);
+  const week = options.week || readCommittedUnifiedWeekByStart(weekStart);
+  if (!week?.weekStart) {
+    currentWeekExecutionCertification = null;
+    return null;
+  }
+  const priorReceipt = options.priorReceipt
+    || inspection?.weekExecutionCertification
+    || readWeekExecutionCertification(week.weekStart);
+  const input = {
+    week,
+    ledgers: Array.from({ length: 7 }, (_, index) => buildCurrentExecutionLedger(addClosedLoopDays(week.weekStart, index))),
+    closeouts: readDailyCloseoutHistory(),
+    readiness: [dailyState, ...readinessHistory].filter(Boolean),
+    priorReceipt,
+    currentDate: options.currentDate || todayISODate(),
+    finalizedAt: options.finalizedAt || inspection?.finalizedAt || null
+  };
+  const result = options.finalize || inspection?.finalizedAt || priorReceipt?.locked
+    ? DominionWeekExecutionCertification.certify(input)
+    : DominionWeekExecutionCertification.evaluate(input);
+  currentWeekExecutionCertification = result;
+  return result;
+}
+
+async function saveWeekExecutionCertification(receipt = null, options = {}) {
+  if (!receipt?.id || receipt.status !== "CERTIFIED" || typeof DominionWeekExecutionCertification === "undefined") return false;
+  const history = DominionWeekExecutionCertification.upsertHistory(readWeekExecutionCertificationHistory(), receipt, 52);
+  saveClosedLoopLocal("WEEK_EXECUTION_CERTIFICATION", "current", receipt);
+  saveClosedLoopLocal("HISTORY", "week-execution-certification", history);
+  currentWeekExecutionCertification = receipt;
+  if (options.persist === false) return true;
+  const [currentSaved, historySaved] = await Promise.all([
+    persistClosedLoopState("WEEK_EXECUTION_CERTIFICATION", "current", receipt),
+    persistClosedLoopState("HISTORY", "week-execution-certification", history)
+  ]);
+  return currentSaved && historySaved;
+}
+
+async function reconcileWeekExecutionCertification(options = {}) {
+  const inspection = options.inspection || weeklyInspection;
+  if (!inspection?.finalizedAt) return buildWeekExecutionCertification(inspection, options);
+  const receipt = buildWeekExecutionCertification(inspection, { ...options, finalize: true, finalizedAt: inspection.finalizedAt });
+  if (receipt?.status === "CERTIFIED" && !receipt.lateEvidence) {
+    const saved = readWeekExecutionCertification(receipt.weekStart);
+    if (!saved || saved.fingerprint === receipt.fingerprint) await saveWeekExecutionCertification(receipt, { persist: options.persist !== false });
+  }
+  return receipt;
+}
+
+function weekExecutionCertificationMarkup(receipt = null, mode = "review") {
+  if (!receipt) return '<div class="week-execution-certification-empty">Commit a Calendar week to certify its execution.</div>';
+  const blocked = receipt.status === "BLOCKED";
+  const certified = receipt.status === "CERTIFIED";
+  const collecting = receipt.status === "COLLECTING";
+  const metrics = receipt.metrics || {};
+  const state = certified ? "SEALED" : blocked ? "OPEN" : collecting ? "BUILDING" : "READY";
+  const headline = certified ? "Week execution certified" : blocked ? "One result needs closure" : collecting ? "Week execution in progress" : "Week execution is ready to seal";
+  const detail = certified
+    ? `${metrics.trainingSessionsExecuted || 0} of ${metrics.trainingSessionsPlanned || 0} training assignments executed. Evidence is locked to this Calendar revision.`
+    : blocked
+      ? receipt.repair?.detail || "Resolve the named item before finalizing the week."
+      : collecting ? "Completed work is counted now. Future assignments remain pending." : "Every scheduled assignment has an honest result.";
+  const repair = blocked && receipt.repair
+    ? `<a href="#${escapeHtml(receipt.repair.section || "inspection")}" data-section="${escapeHtml(receipt.repair.section || "inspection")}">${escapeHtml(receipt.repair.label)}</a>`
+    : "";
+  if (mode !== "review") {
+    return `<aside class="week-execution-certification compact ${blocked ? "blocked" : certified ? "certified" : collecting ? "collecting" : "ready"} ${escapeHtml(mode)}" data-week-execution-state="${state}"><div><span>WEEK EXECUTION · ${state}</span><strong>${escapeHtml(headline)}</strong><small>${metrics.trainingSessionsExecuted || 0}/${metrics.trainingSessionsPlanned || 0} training · ${metrics.closeoutDays || 0}/7 Closeouts</small></div>${repair || `<b>${collecting ? "LIVE" : `${metrics.unresolvedAssignments || 0} OPEN`}</b>`}</aside>`;
+  }
+  const facts = [
+    ["Training", `${metrics.trainingSessionsExecuted || 0}/${metrics.trainingSessionsPlanned || 0}`],
+    ["Strength", `${metrics.strengthSets || 0} sets`],
+    ["Running", `${metrics.runningMiles || 0} mi`],
+    ["Core", `${metrics.coreMinutes || 0} min`],
+    ["Fuel", `${metrics.fuelDaysLogged || 0} days`]
+  ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+  const outcome = `${receipt.counts?.COMPLETED || 0} complete · ${receipt.counts?.PARTIAL || 0} partial · ${receipt.counts?.MISSED || 0} missed${receipt.counts?.REPLACED ? ` · ${receipt.counts.REPLACED} replaced` : ""}`;
+  const late = receipt.lateEvidence ? '<p class="week-execution-late">Later evidence was detected. The signed weekly receipt remains unchanged.</p>' : "";
+  return `<article class="week-execution-certification review ${blocked ? "blocked" : certified ? "certified" : collecting ? "collecting" : "ready"}" data-week-execution-state="${state}">
+    <header><div><span>WEEK EXECUTION</span><h3>${escapeHtml(headline)}</h3></div><strong>${state}</strong></header>
+    <p>${escapeHtml(detail)}</p>
+    <div class="week-execution-facts">${facts}</div>
+    <footer><span>${escapeHtml(outcome)}</span><small>Roll Call ${metrics.rollCallDays || 0}/7 · Closeout ${metrics.closeoutDays || 0}/7 · Recovery ${metrics.recoveryDays || 0} days</small>${repair}</footer>
+    ${late}
+  </article>`;
+}
+
+function renderWeekExecutionCertification(inspection = weeklyInspection) {
+  const root = document.getElementById("week-execution-certification");
+  if (!root) return null;
+  const receipt = buildWeekExecutionCertification(inspection);
+  root.hidden = false;
+  root.innerHTML = weekExecutionCertificationMarkup(receipt, "review");
+  document.body.dataset.weekExecution = receipt?.status?.toLowerCase() || "unavailable";
+  return receipt;
+}
+
 function readWeeklyRolloverHistory() {
   const history = readClosedLoopState("HISTORY", "weekly-rollover-certification", []);
   return Array.isArray(history) ? history : [];
@@ -14946,6 +15069,9 @@ function buildAtlasWeeklyReconciliationContext(inspection = weeklyInspection) {
     decisions: readAtlasClosedLoopHistory(),
     closeouts: readDailyCloseoutHistory(),
     standards: standardsReviewState || [],
+    executionCertification: inspection.weekExecutionCertification
+      || readWeekExecutionCertification(inspection.weekStartDate)
+      || buildWeekExecutionCertification(inspection),
     prior: readAtlasWeeklyReconciliation(inspection.weekStartDate),
     generatedAt: inspection.finalizedAt || new Date().toISOString()
   };
@@ -15267,6 +15393,7 @@ async function submitDailyCloseout(event) {
     renderDailyCoachingLoop();
     renderAtlasClosedLoopDecision();
     renderWeeklyCloseoutEvidence();
+    renderWeekExecutionCertification();
     const panel = document.getElementById("daily-closeout-panel");
     if (panel) panel.open = true;
     setText("daily-closeout-feedback", `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${verdict?.headline || "Tomorrow's coaching call is ready"}.`);
@@ -15378,6 +15505,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "atlas-decision-proof"],
       ["WEEKLY_RECONCILIATION", "current"],
       ["HISTORY", "atlas-weekly-reconciliation"],
+      ["WEEK_EXECUTION_CERTIFICATION", "current"],
+      ["HISTORY", "week-execution-certification"],
       ["WEEKLY_ROLLOVER", "current"],
       ["HISTORY", "weekly-rollover-certification"],
       ["EVIDENCE", `mission:${todayISODate()}`],
@@ -23688,6 +23817,11 @@ async function init() {
     await runStartupTask("progress photos", loadBodyProgressPhotos, startupIssues);
     await runStartupTask("Strength", loadStrengthTrainingState, startupIssues);
     await runStartupTask("Calendar", loadWeeklyOrchestrationState, startupIssues);
+    await runStartupTask("week execution", async () => {
+      const receipt = await reconcileWeekExecutionCertification({ persist: true });
+      if (weeklyInspection) renderWeeklyJudgment(weeklyInspection, weeklyInspectionStorageMode);
+      return receipt;
+    }, startupIssues);
     await runStartupTask("weekly rollover", () => reconcileWeeklyRolloverCertification({ persist: true }), startupIssues);
     await runStartupTask("Two-a-Day checkpoint", loadSplitDayCheckpointState, startupIssues);
     await runStartupTask("Connected Dominion", loadConnectedDominion, startupIssues);
@@ -28124,12 +28258,18 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   }).join("");
   const evidenceList = document.getElementById("weekly-evidence");
   if (evidenceList) evidenceList.innerHTML = (aggregate.dailyEvidence || []).map((day) => `<article class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><strong>${escapeHtml(day.date)}</strong><span>${day.periodState === "FUTURE" ? "Future" : `${day.assessedCount}/5 recorded`}</span></article>`).join("");
+  const executionCertification = renderWeekExecutionCertification(aggregate);
+  const executionReady = finalized || executionCertification?.canFinalize === true || executionCertification?.status === "CERTIFIED";
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderWeeklyAdaptationOutcomes({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderAtlasWeeklyReconciliation(aggregate);
   const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
+    : !executionCertification
+      ? "A committed Calendar week is required before this inspection can be finalized."
+      : executionCertification.status === "BLOCKED"
+        ? `${executionCertification.repair?.label || "Resolve week execution"}. ${executionCertification.repair?.detail || "One assignment still needs an honest result."}`
     : aggregate.scoreIsProvisional
       ? `${evidenceSummary.headline || "Evidence is incomplete"}. ${evidenceSummary.unscoredDays} day${evidenceSummary.unscoredDays === 1 ? " remains" : "s remain"} unscored${missingLabels.length ? `; missing ${missingLabels.join(", ")}` : ""}. Scores describe assessed observations only.`
       : "";
@@ -28137,9 +28277,9 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const finalizeButton = document.getElementById("finalize-week");
   if (finalizeButton) {
     finalizeButton.hidden = finalized;
-    finalizeButton.disabled = !aggregate.canFinalize;
+    finalizeButton.disabled = !aggregate.canFinalize || !executionReady;
     finalizeButton.classList.toggle("is-unavailable", finalizeButton.disabled);
-    finalizeButton.textContent = aggregate.canFinalize ? "Finalize week" : "Week not ready";
+    finalizeButton.textContent = aggregate.canFinalize && executionReady ? "Finalize week" : executionCertification?.status === "BLOCKED" ? "Resolve week first" : "Week not ready";
     finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
   }
   setText("weekly-next-action-title", judgment.nextAction.label);
@@ -28300,12 +28440,24 @@ async function finalizeWeeklyInspection() {
     setText("weekly-warning", !weeklyInspection.weekComplete ? "Finalization is available after the inspection week ends." : "Finalization requires sufficient evidence across every required domain.");
     return;
   }
+  const executionPreview = buildWeekExecutionCertification(weeklyInspection);
+  if (!executionPreview?.canFinalize) {
+    renderWeekExecutionCertification(weeklyInspection);
+    setText("weekly-warning", executionPreview?.repair
+      ? `${executionPreview.repair.label}. ${executionPreview.repair.detail}`
+      : "A committed Calendar week and its assignment evidence are required before finalization.");
+    return;
+  }
   const confirmed = window.confirm(`${finalizeState.readOnlyMessage}\n\nFinalize this inspection now?`);
   if (!confirmed) return;
   const button = document.getElementById("finalize-week");
   button.disabled = true;
   try {
-    const finalized = finalizeWeeklyInspectionSnapshot(weeklyInspection);
+    const finalizedAt = new Date().toISOString();
+    const executionCertification = buildWeekExecutionCertification(weeklyInspection, { finalize: true, finalizedAt });
+    if (executionCertification?.status !== "CERTIFIED") throw new Error(executionCertification?.repair?.detail || "Week execution could not be certified.");
+    const finalized = finalizeWeeklyInspectionSnapshot(weeklyInspection, finalizedAt);
+    finalized.weekExecutionCertification = executionCertification;
     const payload = weeklyPersistencePayload(finalized, finalized.finalizedAt);
     let finalizedAggregate = finalized;
     try {
@@ -28318,6 +28470,7 @@ async function finalizeWeeklyInspection() {
       saveLocalWeeklyInspection(payload);
       renderWeeklyInspection(finalized, "LOCAL");
     }
+    await saveWeekExecutionCertification(executionCertification);
     const reconciliation = buildAtlasWeeklyReconciliation(finalizedAggregate);
     if (reconciliation) {
       await saveAtlasWeeklyReconciliation(reconciliation);

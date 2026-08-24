@@ -118,6 +118,27 @@ test("030K ties every result to exact Contract, program, week, and source versio
   assert.equal(result.packet.lineage.consistent, true);
 });
 
+test("030M carries the exact weekly execution seal into reconciliation lineage", () => {
+  const executionCertification = {
+    id: "week-execution:2026-08-17:r3:proof",
+    status: "CERTIFIED",
+    weekStart,
+    weekRevision: 3,
+    contractRevision: 9,
+    fingerprint: "execution-proof",
+    metrics: { trainingSessionsPlanned: 5, trainingSessionsExecuted: 4 }
+  };
+  const result = engine.buildReconciliation(base({ executionCertification }));
+  assert.equal(result.packet.executionCertificationId, executionCertification.id);
+  assert.equal(result.packet.executionCertificationFingerprint, "execution-proof");
+  assert.deepEqual(result.packet.executionMetrics, executionCertification.metrics);
+  assert.equal(result.packet.lineage.consistent, true);
+
+  const mismatch = engine.buildReconciliation(base({ executionCertification: { ...executionCertification, weekRevision: 2 } }));
+  assert.equal(mismatch.status, "BLOCKED");
+  assert.deepEqual(mismatch.packet.lineage.issues, ["EXECUTION_REVISION_MISMATCH"]);
+});
+
 test("030K blocks a next-week draft from another Contract revision", () => {
   const result = engine.buildReconciliation(base({ proposedWeek: proposedWeek({ contractRevision: 8 }) }));
   assert.equal(result.status, "BLOCKED");

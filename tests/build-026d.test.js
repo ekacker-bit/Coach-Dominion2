@@ -14,7 +14,7 @@ const changelog = read("CHANGELOG.md");
 const pkg = JSON.parse(read("package.json"));
 
 test("Build 026D installs one Weekly Judgment before app bindings", () => {
-  assert.match(engine, /const VERSION = "(?:026D|030C|030E|030K|030M|030N)\.1"/);
+  assert.match(engine, /const VERSION = "(?:026D|030C|030E|030K|030M|030N|030O)\.1"/);
   assert.ok(html.indexOf("weekly-advancement.js?v=026d") < html.indexOf("app.js?v="));
   assert.match(app, /DominionWeeklyAdvancement\.installExperience\(document\)/);
   assert.match(engine, /Did you earn the week\?/);

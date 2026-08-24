@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.DominionWeeklyAdvancement = api;
 }(typeof self !== "undefined" ? self : this, function () {
-  const VERSION = "030N.1";
+  const VERSION = "030O.1";
   const CLOSED_STANDARD_STATES = new Set(["RESOLVED", "DISMISSED", "EXCUSED"]);
 
   function finite(value) {
@@ -172,6 +172,7 @@
         <div class="weekly-advancement-copy"><strong id="weekly-advancement-percent">0 of 4 conditions met</strong><p id="weekly-advancement-detail">Finalize trustworthy weeks to begin advancement.</p></div>
         <div id="rank-requirements" class="weekly-advancement-gates"></div>
         <div id="rank-advancement-certification" class="rank-advancement-certification" data-rank-proof="checking" aria-live="polite"></div>
+        <div id="rank-advancement-handoff" class="rank-advancement-handoff-host" data-rank-handoff="none" aria-live="polite"></div>
       </section>
       <section id="dominion-campaign-review" class="dominion-campaign-review" data-campaign-tone="neutral" aria-labelledby="dominion-campaign-review-heading" aria-live="polite">
         <div><span id="dominion-campaign-review-phase">CAMPAIGN // CHECKING</span><h3 id="dominion-campaign-review-heading">Twelve-week campaign</h3><p id="dominion-campaign-review-detail">Atlas is connecting this judgment to the declared outcome.</p></div>

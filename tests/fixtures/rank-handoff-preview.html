@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Advancement handoff preview</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=030o">
+  <style>
+    body { min-height: 100vh; margin: 0; background: #0a0a0a; }
+    main { width: min(760px, calc(100% - 28px)); margin: 40px auto; }
+    .preview-shell { padding: clamp(18px, 4vw, 34px); border: 1px solid #343434; background: #111; }
+    .preview-shell > span { color: #d4af37; font: 700 11px/1.2 var(--font-command); letter-spacing: .12em; }
+    .preview-shell > h1 { margin: 8px 0 8px; color: #e6e6e4; font: clamp(34px, 7vw, 58px)/.95 var(--font-command); }
+    .preview-shell > p { max-width: 54ch; margin: 0 0 22px; color: #a9adb3; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="preview-shell">
+      <span>ADVANCEMENT</span>
+      <h1>The week became rank.</h1>
+      <p>The proof is locked. Accept the rank and carry the next standard forward.</p>
+      <div class="rank-advancement-handoff-host" data-rank-handoff="pending">
+        <section class="rank-advancement-handoff pending">
+          <div class="rank-advancement-insignia" aria-hidden="true">CA</div>
+          <div>
+            <span>RANK SECURED</span>
+            <strong>CADET earned</strong>
+            <p>Maintain discipline and consecutive qualifying weeks.</p>
+            <button type="button">Accept Cadet</button>
+          </div>
+        </section>
+      </div>
+      <div class="rank-advancement-handoff-host" data-rank-handoff="acknowledged">
+        <section class="rank-advancement-handoff acknowledged">
+          <div class="rank-advancement-insignia" aria-hidden="true">CA</div>
+          <div>
+            <span>RANK ACCEPTED</span>
+            <strong>CADET</strong>
+            <small>Next standard: OPERATOR</small>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

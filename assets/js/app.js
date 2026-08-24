@@ -855,7 +855,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       weeklyReconciliations: readAtlasWeeklyReconciliationHistory(),
       weeklyRollovers: readWeeklyRolloverHistory(),
       weeklyExecutions: readWeekExecutionCertificationHistory(),
-      rankAdvancements: readRankAdvancementHistory()
+      rankAdvancements: readRankAdvancementHistory(),
+      rankHandoffs: readRankAdvancementHandoffHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -927,6 +928,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const weeklyRollovers = DominionAccountTruth.mergeCollection(readWeeklyRolloverHistory(), coaching.weeklyRollovers, DominionAccountTruth.COLLECTION_LIMITS.weeklyRollovers);
     const weeklyExecutions = DominionAccountTruth.mergeCollection(readWeekExecutionCertificationHistory(), coaching.weeklyExecutions, DominionAccountTruth.COLLECTION_LIMITS.weeklyExecutions);
     const rankAdvancements = DominionAccountTruth.mergeCollection(readRankAdvancementHistory(), coaching.rankAdvancements, DominionAccountTruth.COLLECTION_LIMITS.rankAdvancements);
+    const rankHandoffs = DominionAccountTruth.mergeCollection(readRankAdvancementHandoffHistory(), coaching.rankHandoffs, DominionAccountTruth.COLLECTION_LIMITS.rankHandoffs);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
@@ -936,6 +938,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     if (DominionAccountTruth.semanticFingerprint(weeklyRollovers) !== DominionAccountTruth.semanticFingerprint(readWeeklyRolloverHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(weeklyExecutions) !== DominionAccountTruth.semanticFingerprint(readWeekExecutionCertificationHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(rankAdvancements) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(rankHandoffs) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHandoffHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
@@ -945,6 +948,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     saveClosedLoopLocal("HISTORY", "weekly-rollover-certification", weeklyRollovers);
     saveClosedLoopLocal("HISTORY", "week-execution-certification", weeklyExecutions);
     saveClosedLoopLocal("HISTORY", "rank-advancement-certification", rankAdvancements);
+    saveClosedLoopLocal("HISTORY", "rank-advancement-handoff", rankHandoffs);
     promotionHistory = rankAdvancements;
     if (typeof DominionRankAdvancementCertification !== "undefined") {
       const advancementState = DominionRankAdvancementCertification.validateHistory(rankAdvancements, rankStatus.currentRank || "RECRUIT");
@@ -994,7 +998,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -14032,7 +14036,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030n", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030o", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14645,6 +14649,11 @@ function readWeekExecutionCertification(weekStart = "") {
 
 function readRankAdvancementHistory() {
   const history = readClosedLoopState("HISTORY", "rank-advancement-certification", []);
+  return Array.isArray(history) ? history : [];
+}
+
+function readRankAdvancementHandoffHistory() {
+  const history = readClosedLoopState("HISTORY", "rank-advancement-handoff", []);
   return Array.isArray(history) ? history : [];
 }
 
@@ -25803,6 +25812,28 @@ if (typeof document !== "undefined") {
     finally { if (submit) submit.disabled = false; }
   });
   document.getElementById("inspection")?.addEventListener("click", async (event) => {
+    const handoffButton = event.target.closest('button[data-rank-handoff-action="acknowledge"]');
+    if (handoffButton) {
+      const preview = buildRankAdvancementHandoff();
+      if (preview?.status !== "PENDING") {
+        renderRankSection();
+        return;
+      }
+      if (!window.confirm(`Accept the earned ${String(preview.rank || "rank").replaceAll("_", " ")} rank and its next standard?`)) return;
+      handoffButton.disabled = true;
+      const receipt = buildRankAdvancementHandoff({ acknowledge: true, acknowledgedAt: new Date().toISOString() });
+      if (receipt?.status !== "ACKNOWLEDGED") {
+        handoffButton.disabled = false;
+        setText("rank-promotion-feedback", "The rank handoff could not be secured. Nothing changed.");
+        return;
+      }
+      const limit = typeof DominionAccountTruth === "undefined" ? 12 : DominionAccountTruth.COLLECTION_LIMITS.rankHandoffs;
+      const history = DominionRankAdvancementHandoff.upsertHistory(readRankAdvancementHandoffHistory(), receipt, limit || 12);
+      const synced = await saveRankAdvancementHandoffHistory(history);
+      setText("rank-promotion-feedback", `${String(receipt.rank || "Rank").replaceAll("_", " ")} accepted${synced ? " and saved to your account" : " on this device"}.`);
+      renderRankSection();
+      return;
+    }
     const reconciliationButton = event.target.closest("button[data-weekly-reconciliation-action]");
     if (reconciliationButton) {
       reconciliationButton.disabled = true;
@@ -27624,6 +27655,32 @@ async function savePromotionHistory(items = [], options = {}) {
   }
 }
 
+async function saveRankAdvancementHandoffHistory(items = [], options = {}) {
+  const history = Array.isArray(items) ? items : [];
+  saveClosedLoopLocal("HISTORY", "rank-advancement-handoff", history);
+  if (options.persist === false) return true;
+  return persistClosedLoopState("HISTORY", "rank-advancement-handoff", history);
+}
+
+function buildRankAdvancementHandoff(options = {}) {
+  if (typeof DominionRankAdvancementHandoff === "undefined") return null;
+  const input = {
+    certifications: promotionHistory,
+    handoffs: readRankAdvancementHandoffHistory(),
+    rankCatalog: getRankCatalog(),
+    acknowledgedAt: options.acknowledgedAt
+  };
+  return options.acknowledge ? DominionRankAdvancementHandoff.acknowledge(input) : DominionRankAdvancementHandoff.assess(input);
+}
+
+function rankAdvancementHandoffMarkup(handoff = null) {
+  if (!handoff?.visible) return "";
+  const rank = String(handoff.rank || "RANK").replaceAll("_", " ");
+  const next = handoff.nextRank ? String(handoff.nextRank).replaceAll("_", " ") : null;
+  if (handoff.status === "ACKNOWLEDGED") return `<section class="rank-advancement-handoff acknowledged"><div class="rank-advancement-insignia" aria-hidden="true">${escapeHtml(rank.slice(0, 2))}</div><div><span>RANK ACCEPTED</span><strong>${escapeHtml(rank)}</strong><small>${escapeHtml(next ? `Next standard: ${next}` : "Highest rank secured. Hold the standard.")}</small></div></section>`;
+  return `<section class="rank-advancement-handoff pending"><div class="rank-advancement-insignia" aria-hidden="true">${escapeHtml(rank.slice(0, 2))}</div><div><span>RANK SECURED</span><strong>${escapeHtml(rank)} earned</strong><p>${escapeHtml(handoff.nextStandard || "Accept the rank and continue earning the standard.")}</p><button type="button" data-rank-handoff-action="acknowledge">Accept ${escapeHtml(rank)}</button></div></section>`;
+}
+
 function rankCertificationInspections() {
   const byWeek = new Map(canonicalFinalizedInspections(inspectionHistory).map((item) => [item.weekStartDate, item]));
   if (weeklyInspection?.finalizedAt && weeklyInspection?.weekStartDate) byWeek.set(weeklyInspection.weekStartDate, normalizeInspectionForAnalytics(weeklyInspection));
@@ -27681,6 +27738,7 @@ function renderRankSection() {
   };
   const judgment = DominionWeeklyAdvancement.buildWeeklyJudgment({ inspection: weeklyInspection || {}, eligibility, standards: standardsReviewState, currentRank, nextRank: nextRank?.displayName || null });
   const advancementCertification = buildRankAdvancementCertification({ currentRank, targetRank: nextRank?.code });
+  const advancementHandoff = buildRankAdvancementHandoff();
   setText("rank-current", currentRank);
   setText("rank-next", nextRank?.displayName || "—");
   setText("weekly-advancement-percent", `${judgment.promotionConditions?.passed || 0} of ${judgment.promotionConditions?.total || judgment.gates.length} conditions met`);
@@ -27703,12 +27761,19 @@ function renderRankSection() {
     certificationHost.dataset.rankProof = String(advancementCertification?.status || "unavailable").toLowerCase();
     certificationHost.innerHTML = rankAdvancementCertificationMarkup(advancementCertification);
   }
+  const handoffHost = document.getElementById("rank-advancement-handoff");
+  if (handoffHost) {
+    handoffHost.dataset.rankHandoff = String(advancementHandoff?.status || "none").toLowerCase();
+    handoffHost.innerHTML = rankAdvancementHandoffMarkup(advancementHandoff);
+    handoffHost.hidden = !advancementHandoff?.visible;
+  }
   const promote = document.getElementById("finalize-promotion");
   if (promote) {
     promote.hidden = advancementCertification?.status !== "READY" || !nextRank;
     promote.disabled = false;
   }
   document.body.dataset.rankAdvancement = String(advancementCertification?.status || "unavailable").toLowerCase();
+  document.body.dataset.rankHandoff = String(advancementHandoff?.status || "none").toLowerCase();
   return;
   const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
   const review = generateAtlasPromotionReview({

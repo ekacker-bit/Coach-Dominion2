@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Advancement Handoff
+
+- Turns each locked promotion into one concise earned-rank moment with a deliberate acknowledgment.
+- Preserves the certification unchanged while locking a separate handoff receipt to the recruit account.
+- Names the next rank and its governing standard immediately after acceptance, without adding another dashboard.
+- Restores the accepted rank handoff across reloads and devices and keeps the highest-rank state explicit.
+
 ## Unreleased - Rank Advancement Certification
 
 - Replaces browser-only promotion authority with one locked, account-backed advancement receipt.

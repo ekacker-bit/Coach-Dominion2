@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030N.1";
+  const VERSION = "030O.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -22,6 +22,7 @@
     weeklyRollovers: 52,
     weeklyExecutions: 52,
     rankAdvancements: 12,
+    rankHandoffs: 12,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -74,7 +75,7 @@
     const keys = [
       "updatedAt", "updated_at", "completedAt", "completed_at", "recordedAt", "recorded_at",
       "createdAt", "created_at", "resolvedAt", "resolved_at", "reviewedAt", "reviewed_at",
-      "approvedAt", "approved_at", "signedAt", "signed_at", "date", "performanceDate"
+      "approvedAt", "approved_at", "signedAt", "signed_at", "acknowledgedAt", "acknowledged_at", "date", "performanceDate"
     ];
     return Math.max(0, ...keys.map((key) => parsedTime(value?.[key])));
   }
@@ -180,7 +181,8 @@
       weeklyReconciliations: mergeCollection(value.weeklyReconciliations || [], [], COLLECTION_LIMITS.weeklyReconciliations),
       weeklyRollovers: mergeCollection(value.weeklyRollovers || [], [], COLLECTION_LIMITS.weeklyRollovers),
       weeklyExecutions: mergeCollection(value.weeklyExecutions || [], [], COLLECTION_LIMITS.weeklyExecutions),
-      rankAdvancements: mergeCollection(value.rankAdvancements || [], [], COLLECTION_LIMITS.rankAdvancements)
+      rankAdvancements: mergeCollection(value.rankAdvancements || [], [], COLLECTION_LIMITS.rankAdvancements),
+      rankHandoffs: mergeCollection(value.rankHandoffs || [], [], COLLECTION_LIMITS.rankHandoffs)
     };
     return clone(value || {});
   }
@@ -251,7 +253,8 @@
       weeklyReconciliations: mergeCollection(device.weeklyReconciliations, account.weeklyReconciliations, COLLECTION_LIMITS.weeklyReconciliations),
       weeklyRollovers: mergeCollection(device.weeklyRollovers, account.weeklyRollovers, COLLECTION_LIMITS.weeklyRollovers),
       weeklyExecutions: mergeCollection(device.weeklyExecutions, account.weeklyExecutions, COLLECTION_LIMITS.weeklyExecutions),
-      rankAdvancements: mergeCollection(device.rankAdvancements, account.rankAdvancements, COLLECTION_LIMITS.rankAdvancements)
+      rankAdvancements: mergeCollection(device.rankAdvancements, account.rankAdvancements, COLLECTION_LIMITS.rankAdvancements),
+      rankHandoffs: mergeCollection(device.rankHandoffs, account.rankHandoffs, COLLECTION_LIMITS.rankHandoffs)
     };
     return chooseNewer(device, account);
   }

@@ -854,7 +854,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       proofs: readAtlasDecisionProofHistory(),
       weeklyReconciliations: readAtlasWeeklyReconciliationHistory(),
       weeklyRollovers: readWeeklyRolloverHistory(),
-      weeklyExecutions: readWeekExecutionCertificationHistory()
+      weeklyExecutions: readWeekExecutionCertificationHistory(),
+      rankAdvancements: readRankAdvancementHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -925,6 +926,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const weeklyReconciliations = DominionAccountTruth.mergeCollection(readAtlasWeeklyReconciliationHistory(), coaching.weeklyReconciliations, DominionAccountTruth.COLLECTION_LIMITS.weeklyReconciliations);
     const weeklyRollovers = DominionAccountTruth.mergeCollection(readWeeklyRolloverHistory(), coaching.weeklyRollovers, DominionAccountTruth.COLLECTION_LIMITS.weeklyRollovers);
     const weeklyExecutions = DominionAccountTruth.mergeCollection(readWeekExecutionCertificationHistory(), coaching.weeklyExecutions, DominionAccountTruth.COLLECTION_LIMITS.weeklyExecutions);
+    const rankAdvancements = DominionAccountTruth.mergeCollection(readRankAdvancementHistory(), coaching.rankAdvancements, DominionAccountTruth.COLLECTION_LIMITS.rankAdvancements);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
@@ -933,6 +935,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     if (DominionAccountTruth.semanticFingerprint(weeklyReconciliations) !== DominionAccountTruth.semanticFingerprint(readAtlasWeeklyReconciliationHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(weeklyRollovers) !== DominionAccountTruth.semanticFingerprint(readWeeklyRolloverHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(weeklyExecutions) !== DominionAccountTruth.semanticFingerprint(readWeekExecutionCertificationHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(rankAdvancements) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
@@ -941,6 +944,15 @@ function applyAccountTruthSnapshot(snapshot = null) {
     saveClosedLoopLocal("HISTORY", "atlas-weekly-reconciliation", weeklyReconciliations);
     saveClosedLoopLocal("HISTORY", "weekly-rollover-certification", weeklyRollovers);
     saveClosedLoopLocal("HISTORY", "week-execution-certification", weeklyExecutions);
+    saveClosedLoopLocal("HISTORY", "rank-advancement-certification", rankAdvancements);
+    promotionHistory = rankAdvancements;
+    if (typeof DominionRankAdvancementCertification !== "undefined") {
+      const advancementState = DominionRankAdvancementCertification.validateHistory(rankAdvancements, rankStatus.currentRank || "RECRUIT");
+      if (advancementState.valid && advancementState.count) {
+        rankStatus = { ...rankStatus, currentRank: advancementState.currentRank, promotionState: "PROMOTED", updatedAt: rankAdvancements[0]?.certifiedAt || rankStatus.updatedAt || null };
+        saveRankStatus();
+      }
+    }
   } finally {
     accountTruthState.applying = false;
   }
@@ -982,7 +994,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -14020,7 +14032,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030m", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030n", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14629,6 +14641,11 @@ function readWeekExecutionCertification(weekStart = "") {
   const key = String(weekStart || "").slice(0, 10);
   if (key) return readWeekExecutionCertificationHistory().find((item) => item?.weekStart === key) || null;
   return readClosedLoopState("WEEK_EXECUTION_CERTIFICATION", "current", null);
+}
+
+function readRankAdvancementHistory() {
+  const history = readClosedLoopState("HISTORY", "rank-advancement-certification", []);
+  return Array.isArray(history) ? history : [];
 }
 
 function buildWeekExecutionCertification(inspection = weeklyInspection, options = {}) {
@@ -27072,35 +27089,35 @@ if (typeof document !== "undefined") {
     });
   }
   if (finalizePromotionButton) {
-    finalizePromotionButton.addEventListener("click", () => {
+    finalizePromotionButton.addEventListener("click", async () => {
       const nextRank = getNextRankDefinition(rankStatus.currentRank || "RECRUIT");
       if (!nextRank) return;
-      const promotionInput = buildCanonicalPromotionInput(rankStatus.currentRank || "RECRUIT", nextRank.code);
-      const eligibility = evaluatePromotionEligibility(promotionInput, nextRank.code);
-      if (eligibility.status !== "ELIGIBLE") {
-        setText("rank-promotion-feedback", "Promotion is locked until every advancement gate is secured.");
+      const preview = buildRankAdvancementCertification({ currentRank: rankStatus.currentRank || "RECRUIT", targetRank: nextRank.code });
+      if (preview?.status !== "READY") {
+        setText("rank-promotion-feedback", preview?.repair?.detail || "Promotion is locked until every advancement gate is secured.");
         renderRankSection();
         return;
       }
       if (!window.confirm(`Authorize promotion from ${rankStatus.currentRank || "RECRUIT"} to ${nextRank.displayName}?`)) return;
-      const snapshot = finalizePromotionSnapshot({
-        currentRank: rankStatus.currentRank || "RECRUIT",
-        nextRank: nextRank.code,
-        status: "ELIGIBLE",
-        effectiveDate: todayISODate(),
-        promotionAuthorized: true,
-        qualificationSnapshot: buildPromotionEvidence({ ...promotionInput, nextRank: nextRank.code })
-      }, true);
+      finalizePromotionButton.disabled = true;
+      const snapshot = buildRankAdvancementCertification({ currentRank: rankStatus.currentRank || "RECRUIT", targetRank: nextRank.code, certify: true, certifiedAt: new Date().toISOString() });
+      if (snapshot?.status !== "CERTIFIED") {
+        finalizePromotionButton.disabled = false;
+        setText("rank-promotion-feedback", snapshot?.repair?.detail || "Advancement proof could not be certified. Nothing changed.");
+        renderRankSection();
+        return;
+      }
       rankStatus = {
         ...rankStatus,
-        currentRank: snapshot.currentRank,
+        currentRank: snapshot.newRank,
         promotionState: snapshot.promotionState,
-        updatedAt: new Date().toISOString()
+        updatedAt: snapshot.certifiedAt
       };
-      promotionHistory = [{ ...snapshot, createdAt: new Date().toISOString() }, ...promotionHistory];
+      const advancementLimit = typeof DominionAccountTruth === "undefined" ? 12 : DominionAccountTruth.COLLECTION_LIMITS.rankAdvancements;
+      promotionHistory = DominionRankAdvancementCertification.upsertHistory(promotionHistory, snapshot, advancementLimit || 12);
       saveRankStatus();
-      savePromotionHistory(promotionHistory);
-      setText("rank-promotion-feedback", `${snapshot.currentRank} earned. The next rank now requires a new body of work.`);
+      await savePromotionHistory(promotionHistory);
+      setText("rank-promotion-feedback", `${snapshot.newRank} earned. The proof is locked to your account.`);
       renderWeeklyJudgment(weeklyInspection || {}, weeklyInspectionStorageMode);
     });
   }
@@ -27579,21 +27596,72 @@ function loadPromotionHistory() {
   try {
     const stored = window.localStorage.getItem(promotionHistoryStorageKey());
     const parsed = stored ? JSON.parse(stored) : [];
-    promotionHistory = Array.isArray(parsed) ? parsed : [];
+    const legacy = Array.isArray(parsed) ? parsed : [];
+    const certified = readRankAdvancementHistory();
+    promotionHistory = typeof DominionRankAdvancementCertification === "undefined"
+      ? certified.length ? certified : legacy
+      : certified.reduce((history, item) => DominionRankAdvancementCertification.upsertHistory(history, item, 12), legacy.filter((item) => item?.locked && item?.status === "CERTIFIED"));
+    if (typeof DominionRankAdvancementCertification !== "undefined" && promotionHistory.length) {
+      const advancementState = DominionRankAdvancementCertification.validateHistory(promotionHistory, rankStatus.currentRank || "RECRUIT");
+      if (advancementState.valid && advancementState.count) rankStatus = { ...rankStatus, currentRank: advancementState.currentRank, promotionState: "PROMOTED" };
+    }
     return promotionHistory;
   } catch (_) {
     return promotionHistory;
   }
 }
 
-function savePromotionHistory(items = []) {
-  if (typeof window === "undefined" || !window.localStorage) return;
+async function savePromotionHistory(items = [], options = {}) {
+  if (typeof window === "undefined" || !window.localStorage) return false;
   try {
     promotionHistory = Array.isArray(items) ? items : [];
     window.localStorage.setItem(promotionHistoryStorageKey(), JSON.stringify(promotionHistory));
+    saveClosedLoopLocal("HISTORY", "rank-advancement-certification", promotionHistory);
+    if (options.persist === false) return true;
+    return persistClosedLoopState("HISTORY", "rank-advancement-certification", promotionHistory);
   } catch (_) {
-    // Ignore local persistence failure.
+    return false;
   }
+}
+
+function rankCertificationInspections() {
+  const byWeek = new Map(canonicalFinalizedInspections(inspectionHistory).map((item) => [item.weekStartDate, item]));
+  if (weeklyInspection?.finalizedAt && weeklyInspection?.weekStartDate) byWeek.set(weeklyInspection.weekStartDate, normalizeInspectionForAnalytics(weeklyInspection));
+  return [...byWeek.values()].sort((left, right) => String(left.weekStartDate || "").localeCompare(String(right.weekStartDate || "")));
+}
+
+function buildRankAdvancementCertification(options = {}) {
+  if (typeof DominionRankAdvancementCertification === "undefined") return null;
+  const currentRank = options.currentRank || rankStatus.currentRank || "RECRUIT";
+  const nextRank = getNextRankDefinition(currentRank);
+  const targetRank = options.targetRank || nextRank?.code;
+  if (!targetRank) return { version: DominionRankAdvancementCertification.VERSION, status: "COMPLETE", currentRank, targetRank: null, repair: null };
+  const promotionInput = buildCanonicalPromotionInput(currentRank, targetRank);
+  const eligibility = evaluatePromotionEligibility(promotionInput, targetRank);
+  const input = {
+    currentRank,
+    targetRank,
+    eligibility,
+    inspections: rankCertificationInspections(),
+    executionCertifications: readWeekExecutionCertificationHistory(),
+    standards: standardsReviewState || [],
+    history: promotionHistory,
+    certifiedAt: options.certifiedAt
+  };
+  return options.certify ? DominionRankAdvancementCertification.certify(input) : DominionRankAdvancementCertification.assess(input);
+}
+
+function rankAdvancementCertificationMarkup(certification = null) {
+  if (!certification) return "";
+  if (certification.status === "COMPLETE") return '<div class="rank-advancement-proof secured"><span>ADVANCEMENT PROOF</span><strong>Highest rank secured</strong><small>Your certified rank history remains locked to the account.</small></div>';
+  const ready = certification.status === "READY";
+  const latest = certification.proof?.latestExecution;
+  const status = ready ? "READY" : certification.status === "CERTIFIED" ? "LOCKED" : "BUILDING";
+  const title = ready ? `${certification.targetRank} proof complete` : certification.repair?.label || `${certification.targetRank} is still being earned`;
+  const detail = ready
+    ? `${certification.qualifyingWeeks} finalized week${certification.qualifyingWeeks === 1 ? "" : "s"} · latest execution certified ${latest?.weekStart || ""}`
+    : certification.repair?.detail || "Finalize trustworthy weeks to complete the proof.";
+  return `<div class="rank-advancement-proof ${ready ? "ready" : "building"}"><span>ADVANCEMENT PROOF</span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></div>`;
 }
 
 function renderRankSection() {
@@ -27612,6 +27680,7 @@ function renderRankSection() {
     consecutiveQualifyingWeeksRequired: 0
   };
   const judgment = DominionWeeklyAdvancement.buildWeeklyJudgment({ inspection: weeklyInspection || {}, eligibility, standards: standardsReviewState, currentRank, nextRank: nextRank?.displayName || null });
+  const advancementCertification = buildRankAdvancementCertification({ currentRank, targetRank: nextRank?.code });
   setText("rank-current", currentRank);
   setText("rank-next", nextRank?.displayName || "—");
   setText("weekly-advancement-percent", `${judgment.promotionConditions?.passed || 0} of ${judgment.promotionConditions?.total || judgment.gates.length} conditions met`);
@@ -27628,9 +27697,18 @@ function renderRankSection() {
   const blockers = document.getElementById("rank-blockers");
   if (blockers) blockers.innerHTML = eligibility.blockers.length ? `<strong>What remains</strong><ul>${eligibility.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : '<strong>No promotion blockers remain.</strong>';
   const history = document.getElementById("rank-history");
-  if (history) history.innerHTML = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${escapeHtml(item.priorRank || "RECRUIT")} → ${escapeHtml(item.currentRank || "CADET")}</strong><span>${escapeHtml(item.promotionState || "PROMOTED")}</span></div><p>${escapeHtml(item.effectiveDate || "")}</p></li>`).join("") : '<li class="feed-empty">No finalized promotions yet.</li>';
+  if (history) history.innerHTML = promotionHistory.length ? promotionHistory.map((item) => `<li class="feed-event info"><div class="feed-meta"><strong>${escapeHtml(item.priorRank || item.currentRank || "RECRUIT")} → ${escapeHtml(item.newRank || item.targetRank || "CADET")}</strong><span>${escapeHtml(item.locked ? "CERTIFIED" : item.promotionState || "PROMOTED")}</span></div><p>${escapeHtml(item.effectiveDate || "")}</p></li>`).join("") : '<li class="feed-empty">No certified promotions yet.</li>';
+  const certificationHost = document.getElementById("rank-advancement-certification");
+  if (certificationHost) {
+    certificationHost.dataset.rankProof = String(advancementCertification?.status || "unavailable").toLowerCase();
+    certificationHost.innerHTML = rankAdvancementCertificationMarkup(advancementCertification);
+  }
   const promote = document.getElementById("finalize-promotion");
-  if (promote) promote.hidden = eligibility.status !== "ELIGIBLE" || !nextRank;
+  if (promote) {
+    promote.hidden = advancementCertification?.status !== "READY" || !nextRank;
+    promote.disabled = false;
+  }
+  document.body.dataset.rankAdvancement = String(advancementCertification?.status || "unavailable").toLowerCase();
   return;
   const evidence = buildPromotionEvidence({ ...promotionInput, nextRank: nextRank?.code || "CADET" });
   const review = generateAtlasPromotionReview({

@@ -33,11 +33,11 @@ test("030F is cache-busted and production gated", () => {
   const app = read("assets/js/app.js");
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
-  assert.match(html, /coach-dominion-release" content="030[FGHIJKLM]\.1/);
+  assert.match(html, /coach-dominion-release" content="030[FGHIJKLMN]\.1/);
   assert.match(worker, /030f-strength-calendar-execution/);
-  assert.match(app, /register\("\/sw\.js\?v=030[fghijklm]"/);
-  assert.match(health, /release: "030[FGHIJKLM]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[fghijklmn]"/);
+  assert.match(health, /release: "030[FGHIJKLMN]\.1"/);
   assert.match(health, /strengthAssignment: "calendar-linked"/);
-  assert.match(workflow, /npm run test:030[fghijklm]/);
-  assert.match(workflow, /--expected-release 030[FGHIJKLM]\.1/);
+  assert.match(workflow, /npm run test:030[fghijklmn]/);
+  assert.match(workflow, /--expected-release 030[FGHIJKLMN]\.1/);
 });

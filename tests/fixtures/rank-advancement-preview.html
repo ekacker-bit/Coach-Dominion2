@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rank advancement preview</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=030n">
+  <style>
+    body { min-height: 100vh; padding: 36px 18px; background: var(--bg); }
+    .preview-shell { width: min(940px, 100%); margin: 0 auto; }
+    .preview-brand { margin-bottom: 22px; color: var(--victory-gold); font: 700 12px/1 var(--font-command); letter-spacing: .14em; }
+    @media (max-width: 720px) { body { padding: 14px 10px 36px; } }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    <div class="preview-brand">COACH DOMINION · REVIEW</div>
+    <section class="card weekly-inspection weekly-judgment scroll-anchor">
+      <header class="weekly-judgment-header">
+        <div><span>WEEKLY JUDGMENT</span><h2>Did you earn the week?</h2><p>Execution. Evidence. Standards. Nothing else counts.</p></div>
+        <span class="state-pill green">EARNED</span>
+      </header>
+      <section class="weekly-verdict" data-judgment="EARNED">
+        <div><span>AUG 17 — AUG 23</span><h3>Qualifying week earned</h3><p>This week advances the record. Sustained execution earns the next rank.</p></div><strong>EARNED</strong>
+      </section>
+      <section class="weekly-advancement">
+        <header><div><span>ADVANCEMENT</span><h3><strong>RECRUIT</strong><i aria-hidden="true">→</i><strong>CADET</strong></h3></div><span class="state-pill green">ELIGIBLE</span></header>
+        <div class="weekly-advancement-meter"><span style="width:100%"></span></div>
+        <div class="weekly-advancement-copy"><strong>4 of 4 conditions met</strong><p>Every gate for Cadet is complete.</p></div>
+        <div class="weekly-advancement-gates">
+          <article class="passed"><i></i><div><strong>Inspection history</strong><small>Secured</small></div></article>
+          <article class="passed"><i></i><div><strong>Execution standard</strong><small>Secured</small></div></article>
+          <article class="passed"><i></i><div><strong>Evidence standard</strong><small>Secured</small></div></article>
+          <article class="passed"><i></i><div><strong>Standards record</strong><small>Secured</small></div></article>
+        </div>
+        <div class="rank-advancement-certification" data-rank-proof="ready">
+          <div class="rank-advancement-proof ready"><span>ADVANCEMENT PROOF</span><strong>CADET proof complete</strong><small>2 finalized weeks · latest execution certified Aug 17</small></div>
+        </div>
+      </section>
+      <div class="weekly-judgment-actions"><button type="button">Authorize promotion</button><p role="status"></p></div>
+      <details class="weekly-promotion-history"><summary>Promotion history</summary><ul class="feed"><li class="feed-empty">No certified promotions yet.</li></ul></details>
+    </section>
+  </main>
+</body>
+</html>

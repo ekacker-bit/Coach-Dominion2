@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Rank Advancement Certification
+
+- Replaces browser-only promotion authority with one locked, account-backed advancement receipt.
+- Requires the exact one-rank transition, finalized inspection history, the latest certified weekly execution seal, and a clear standards record.
+- Prevents skipped ranks, replayed evidence, and late edits from silently rewriting an earned promotion.
+- Keeps Review word-light: four gates, one proof state, one action, and a certified history that survives reload and another device.
+
 ## Unreleased - Week Execution Certification
 
 - Gives every committed Strength, Running, Core, and Fuel assignment one truthful weekly outcome: complete, partial, missed, replaced, or unresolved.

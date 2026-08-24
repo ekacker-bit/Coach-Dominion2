@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030M.1";
+  const VERSION = "030N.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -21,6 +21,7 @@
     weeklyReconciliations: 52,
     weeklyRollovers: 52,
     weeklyExecutions: 52,
+    rankAdvancements: 12,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -178,7 +179,8 @@
       proofs: mergeCollection(value.proofs || [], [], COLLECTION_LIMITS.proofs),
       weeklyReconciliations: mergeCollection(value.weeklyReconciliations || [], [], COLLECTION_LIMITS.weeklyReconciliations),
       weeklyRollovers: mergeCollection(value.weeklyRollovers || [], [], COLLECTION_LIMITS.weeklyRollovers),
-      weeklyExecutions: mergeCollection(value.weeklyExecutions || [], [], COLLECTION_LIMITS.weeklyExecutions)
+      weeklyExecutions: mergeCollection(value.weeklyExecutions || [], [], COLLECTION_LIMITS.weeklyExecutions),
+      rankAdvancements: mergeCollection(value.rankAdvancements || [], [], COLLECTION_LIMITS.rankAdvancements)
     };
     return clone(value || {});
   }
@@ -248,7 +250,8 @@
       proofs: mergeCollection(device.proofs, account.proofs, COLLECTION_LIMITS.proofs),
       weeklyReconciliations: mergeCollection(device.weeklyReconciliations, account.weeklyReconciliations, COLLECTION_LIMITS.weeklyReconciliations),
       weeklyRollovers: mergeCollection(device.weeklyRollovers, account.weeklyRollovers, COLLECTION_LIMITS.weeklyRollovers),
-      weeklyExecutions: mergeCollection(device.weeklyExecutions, account.weeklyExecutions, COLLECTION_LIMITS.weeklyExecutions)
+      weeklyExecutions: mergeCollection(device.weeklyExecutions, account.weeklyExecutions, COLLECTION_LIMITS.weeklyExecutions),
+      rankAdvancements: mergeCollection(device.rankAdvancements, account.rankAdvancements, COLLECTION_LIMITS.rankAdvancements)
     };
     return chooseNewer(device, account);
   }

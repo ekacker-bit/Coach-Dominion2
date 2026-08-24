@@ -14,7 +14,7 @@ const changelog = read("CHANGELOG.md");
 const pkg = JSON.parse(read("package.json"));
 
 test("Build 026D installs one Weekly Judgment before app bindings", () => {
-  assert.match(engine, /const VERSION = "(?:026D|030C|030E|030K|030M)\.1"/);
+  assert.match(engine, /const VERSION = "(?:026D|030C|030E|030K|030M|030N)\.1"/);
   assert.ok(html.indexOf("weekly-advancement.js?v=026d") < html.indexOf("app.js?v="));
   assert.match(app, /DominionWeeklyAdvancement\.installExperience\(document\)/);
   assert.match(engine, /Did you earn the week\?/);
@@ -30,10 +30,12 @@ test("Rank routes into Inspection and is no longer a competing destination", () 
 });
 
 test("Promotion is rechecked at authorization time and history persists", () => {
-  assert.match(app, /const eligibility = evaluatePromotionEligibility\(promotionInput, nextRank\.code\)/);
-  assert.match(app, /if \(eligibility\.status !== "ELIGIBLE"\)/);
+  assert.match(app, /const preview = buildRankAdvancementCertification\(\{ currentRank: rankStatus\.currentRank \|\| "RECRUIT", targetRank: nextRank\.code \}\)/);
+  assert.match(app, /if \(preview\?\.status !== "READY"\)/);
   assert.match(app, /Promotion is locked until every advancement gate is secured/);
-  assert.match(app, /savePromotionHistory\(promotionHistory\)/);
+  assert.match(app, /const snapshot = buildRankAdvancementCertification\([^;]+certify: true/);
+  assert.match(app, /DominionRankAdvancementCertification\.upsertHistory\(promotionHistory, snapshot/);
+  assert.match(app, /await savePromotionHistory\(promotionHistory\)/);
   assert.match(app, /renderWeeklyJudgment\(weeklyInspection \|\| \{\}, weeklyInspectionStorageMode\)/);
 });
 

@@ -13258,3 +13258,30 @@ html[data-today-hierarchy="029D.1"] #today-more-context > summary { min-height: 
   .week-execution-certification.review > footer > a { width: 100%; margin-left: 0; text-align: center; }
   .week-execution-certification.compact > a { width: 100%; text-align: center; }
 }
+
+/* Rank advancement certification: promotion is an account-backed proof, not a browser-only click. */
+.rank-advancement-certification { margin-top: 14px; }
+.rank-advancement-proof {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, .16);
+}
+.rank-advancement-proof > span {
+  grid-column: 1 / -1;
+  color: var(--victory-gold);
+  font: 700 10px/1.2 var(--font-command);
+  letter-spacing: .12em;
+}
+.rank-advancement-proof > strong { color: var(--stone); font-size: 15px; }
+.rank-advancement-proof > small { color: var(--muted); text-align: right; line-height: 1.4; }
+.rank-advancement-proof.ready,
+.rank-advancement-proof.secured { border-color: rgba(46, 155, 95, .48); box-shadow: inset 3px 0 0 rgba(46, 155, 95, .72); }
+.rank-advancement-proof.building { border-color: rgba(212, 175, 55, .34); }
+
+@media (max-width: 720px) {
+  .rank-advancement-proof { grid-template-columns: 1fr; padding: 13px 14px; }
+  .rank-advancement-proof > small { text-align: left; }
+}

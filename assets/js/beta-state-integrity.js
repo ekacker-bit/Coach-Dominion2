@@ -5,11 +5,18 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030H.1";
+  const VERSION = "030P.1";
   const OATH_VERSION = "DOMINION_OATH_019A";
   const ACTIVE_EXECUTION_STATES = new Set(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const TERMINAL_EXECUTION_STATES = new Set(["COMPLETE", "COMPLETED", "PARTIAL", "STOPPED", "CANCELLED", "CANCELED"]);
   const PLAN_DOMAINS = Object.freeze(["strength", "running", "core", "nutrition"]);
+  const CONTRACT_OPERATING_FIELDS = Object.freeze([
+    "age", "heightCm", "heightUnit", "heightValue", "weightKg", "weightUnit", "weightValue",
+    "gender", "trainingYears", "athleteType", "primaryGoal", "target", "targetDate",
+    "trainingDaysPerWeek", "strengthDaysPerWeek", "runningDaysPerWeek", "coreDaysPerWeek",
+    "sessionMinutes", "twoADays", "equipment", "experience", "runningGoal", "preferredUnit",
+    "declaredWeeklyDistance", "nutritionCommitment", "effectiveDate"
+  ]);
 
   function text(value = "") { return String(value ?? "").trim(); }
   function upper(value = "") { return text(value).toUpperCase().replace(/[\s-]+/g, "_"); }
@@ -88,6 +95,15 @@
 
   function activeExecution(value = {}) { return ACTIVE_EXECUTION_STATES.has(upper(value.state || value.status)); }
 
+  function contractOperatingState(contract = {}) {
+    return Object.fromEntries(CONTRACT_OPERATING_FIELDS.map((key) => [key, contract?.[key] ?? contract?.athleteProfile?.[key] ?? null]));
+  }
+
+  function sameOperatingContract(left = null, right = null) {
+    if (!left || !right) return false;
+    return JSON.stringify(contractOperatingState(left)) === JSON.stringify(contractOperatingState(right));
+  }
+
   function resolveActiveStrengthSession(input = {}) {
     const today = date(input.today) || new Date().toISOString().slice(0, 10);
     const executions = (Array.isArray(input.executions) ? input.executions : []).filter(Boolean)
@@ -106,6 +122,14 @@
     const scheduledId = todayAssignment ? assignmentId(todayAssignment, { allowId: true }) : null;
     const waitingAssignment = active && todayAssignment && activeId !== scheduledId ? todayAssignment : null;
     const duplicateActiveIds = executions.filter(activeExecution).map((item) => assignmentId(item) || item.id).filter(Boolean);
+    const signedContractRevisionId = text(input.signedContract?.id || input.signedContractId) || null;
+    const committedWeekId = text(input.committedWeek?.id || input.committedWeekId || todayAssignment?.weekId) || null;
+    const evidence = (Array.isArray(input.evidence) ? input.evidence : []).find((item) => assignmentId(item) === activeId) || null;
+    const lifecycleState = active ? upper(active.state || active.status) : todayAssignment ? "READY" : "UNSCHEDULED";
+    const choices = active && waitingAssignment ? [
+      { code: "RESUME_HISTORICAL", label: `Resume unfinished ${sessionLabel(active)} from ${executionDate(active)}` },
+      { code: "START_TODAY", label: `Start today ${sessionLabel(waitingAssignment)}` }
+    ] : [];
     return Object.freeze({
       version: VERSION,
       today,
@@ -120,15 +144,27 @@
       canStartScheduled: !active,
       requiresResolution: Boolean(active && waitingAssignment),
       duplicateActiveSessionIds: duplicateActiveIds.length > 1 ? duplicateActiveIds.slice(1) : [],
+      signedContractRevisionId,
+      signedContractRevision: Number(input.signedContract?.revision || input.signedContractRevision || 0) || null,
+      committedWeekId,
+      calendarAssignmentId: activeId || scheduledId || null,
+      activeSessionId: active ? text(active.id || active.sessionId || activeId) : null,
+      scheduledLocalDate: active ? executionDate(active) : date(todayAssignment?.date),
+      sessionName: active ? sessionLabel(active) : todayAssignment ? sessionLabel(todayAssignment) : null,
+      lifecycleState,
+      evidenceId: text(active?.evidenceId || evidence?.id) || null,
+      choices,
       primaryAction: active
         ? { code: "RESUME", label: `Resume ${sessionLabel(active)}` }
         : todayAssignment
           ? { code: "START", label: `Start ${sessionLabel(todayAssignment)}` }
           : null,
-      secondaryAction: active ? { code: "END_INCOMPLETE", label: "End incomplete session" } : null,
-      dailyRecordTarget: active
-        ? `${sessionLabel(active)} · Assignment ${activeId}`
-        : todayAssignment ? `${sessionLabel(todayAssignment)} · Assignment ${scheduledId}` : ""
+      secondaryAction: active && waitingAssignment
+        ? { code: "START_TODAY", label: `Start today ${sessionLabel(waitingAssignment)}` }
+        : active ? { code: "END_INCOMPLETE", label: "End incomplete session" } : null,
+      dailyRecordTarget: todayAssignment
+        ? `${sessionLabel(todayAssignment)} · Assignment ${scheduledId}`
+        : active ? `${sessionLabel(active)} · Assignment ${activeId}` : ""
     });
   }
 
@@ -167,8 +203,9 @@
     const activeSignedContract = input.activeSignedContract || null;
     const draftContract = input.draftContract || null;
     const activePlans = revisionPlanStates(input.activePlans || {}, activeSignedContract);
+    const noOperatingChanges = sameOperatingContract(activeSignedContract, draftContract);
     const draftPlans = revisionPlanStates(input.draftPlans || input.activePlans || {}, draftContract);
-    const draftRequired = draftContract ? Object.values(draftPlans).filter((item) => !item.ready) : [];
+    const draftRequired = draftContract && !noOperatingChanges ? Object.values(draftPlans).filter((item) => !item.ready) : [];
     const activeWeek = input.activeWeek || null;
     return Object.freeze({
       version: VERSION,
@@ -180,7 +217,8 @@
       signedFuture: Object.freeze({ contractRevision: activeSignedContract ? revision(activeSignedContract) : null, plans: activePlans }),
       draft: Object.freeze({
         contractRevision: draftContract ? revision(draftContract) : null,
-        status: !draftContract ? "NO_DRAFT" : draftRequired.length ? "DRAFT_INCOMPLETE" : "DRAFT_READY",
+        status: !draftContract ? "NO_DRAFT" : noOperatingChanges ? "NO_OPERATING_CHANGES" : draftRequired.length ? "DRAFT_INCOMPLETE" : "DRAFT_READY",
+        noOperatingChanges,
         plans: draftPlans,
         requiresRegenerationAfterSignature: draftRequired.map((item) => item.domain),
         requiredCount: draftRequired.length
@@ -230,6 +268,8 @@
     assignmentId,
     executionDate,
     activeExecution,
+    contractOperatingState,
+    sameOperatingContract,
     resolveActiveStrengthSession,
     endIncompleteSession,
     resolvePlanRevisionStatus,

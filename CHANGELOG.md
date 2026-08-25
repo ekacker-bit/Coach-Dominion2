@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Public Beta Integrity Repair
+
+- Aligns every Fuel persistence type with the database, safely normalizes legacy rows, and deduplicates retries until the exact payload is confirmed.
+- Keeps the last signed Contract and its committed week authoritative while unsigned or unchanged amendment drafts remain non-operational and discardable.
+- Resolves one Strength execution identity across Today, Calendar, Quick Log, Daily Record, evidence, and restore; historical conflicts require an explicit choice.
+- Makes Review denominators, campaign and Contract dates, missing Quick Log items, restore progress, and mobile recovery controls concise and truthful.
+- Adds an eight-case desktop/mobile authority matrix covering Contract revision, week, assignment, session, evidence, lifecycle, pending state, and displayed name.
+
 ## Unreleased - Advancement Handoff
 
 - Turns each locked promotion into one concise earned-rank moment with a deliberate acknowledgment.

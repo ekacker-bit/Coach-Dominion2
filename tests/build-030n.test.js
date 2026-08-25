@@ -18,15 +18,15 @@ const packageJson = JSON.parse(read("package.json"));
 const preview = read("tests/fixtures/rank-advancement-preview.html");
 
 test("030N is cache-busted and guarded by the production release gate", () => {
-  assert.match(html, /coach-dominion-release" content="030[NO]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[NOP]\.1"/);
   assert.match(html, /rank-advancement-certification\.js\?v=030n/);
   assert.ok(html.indexOf("rank-advancement-certification.js?v=030n") < html.indexOf("app.js?v="));
   assert.match(worker, /rank-advancement-certification\.js\?v=030n/);
-  assert.match(app, /register\("\/sw\.js\?v=030[no]"/);
-  assert.match(health, /release: "030[NO]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[nop]"/);
+  assert.match(health, /release: "030[NOP]\.1"/);
   assert.match(health, /rankAdvancement: "finalized-proof-certified"/);
-  assert.match(workflow, /npm run test:030[no]/);
-  assert.match(workflow, /--expected-release 030[NO]\.1/);
+  assert.match(workflow, /npm run test:030[nop]/);
+  assert.match(workflow, /--expected-release 030[NOP]\.1/);
   assert.match(packageJson.scripts["test:030n"], /rank-advancement-certification\.test\.js/);
 });
 
@@ -42,7 +42,7 @@ test("030N requires exact weekly proof and one valid rank transition", () => {
 });
 
 test("030N makes certified history account truth and the authority for rank", () => {
-  assert.match(account, /const VERSION = "030[NO]\.1"/);
+  assert.match(account, /const VERSION = "030[NOP]\.1"/);
   assert.match(account, /rankAdvancements: 12/);
   assert.match(account, /mergeCollection\(value\.rankAdvancements/);
   assert.match(account, /mergeCollection\(device\.rankAdvancements, account\.rankAdvancements/);
@@ -53,7 +53,7 @@ test("030N makes certified history account truth and the authority for rank", ()
 });
 
 test("030N replaces browser-only promotion with one compact proof and action", () => {
-  assert.match(weekly, /const VERSION = "030[NO]\.1"/);
+  assert.match(weekly, /const VERSION = "030[NOP]\.1"/);
   assert.match(weekly, /id="rank-advancement-certification"/);
   assert.match(app, /function buildRankAdvancementCertification/);
   assert.match(app, /preview\?\.status !== "READY"/);

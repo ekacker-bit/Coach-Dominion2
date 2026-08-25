@@ -158,6 +158,7 @@ let startupAuthorityState = typeof DominionStartupAuthority === "undefined"
   : DominionStartupAuthority.initial();
 let startupAccountLedger = null;
 let startupAccountError = null;
+let startupRestoreWatchTimers = [];
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -415,7 +416,17 @@ function continuityRetryStorageKey() {
 function readContinuityRetryQueue() {
   try {
     const value = JSON.parse(window.localStorage.getItem(continuityRetryStorageKey()) || "[]");
-    return Array.isArray(value) ? value.filter((item) => item?.domain && item?.stateType && item?.stateKey && item.payload !== undefined) : [];
+    const valid = Array.isArray(value) ? value.filter((item) => item?.domain && item?.stateType && item?.stateKey && item.payload !== undefined) : [];
+    return valid.map((item) => {
+      if (item.domain !== "nutrition" || typeof DominionNutritionStateContract === "undefined") return item;
+      const stateType = DominionNutritionStateContract.normalizeStateType(item.stateType);
+      if (!stateType) return null;
+      return {
+        ...item,
+        stateType,
+        key: continuityRetryKey("nutrition", stateType, item.stateKey, item.payload)
+      };
+    }).filter(Boolean);
   } catch (_) {
     return [];
   }
@@ -428,15 +439,27 @@ function saveContinuityRetryQueue(items = []) {
   return queue;
 }
 
-function continuityRetryKey(domain, stateType, stateKey) {
+function continuityRetryKey(domain, stateType, stateKey, payload = undefined) {
+  if (domain === "nutrition" && payload !== undefined && typeof DominionNutritionStateContract !== "undefined") {
+    const identity = DominionNutritionStateContract.writeIdentity({
+      userId: session?.user?.id || "local",
+      stateType,
+      stateKey,
+      payload
+    });
+    if (identity) return `${domain}:${identity.key}`;
+  }
   return `${domain}:${stateType}:${stateKey}`;
 }
 
 function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = null) {
   if (payload === undefined || payload === null) return null;
   const queue = readContinuityRetryQueue();
-  const key = continuityRetryKey(domain, stateType, stateKey);
+  const key = continuityRetryKey(domain, stateType, stateKey, payload);
   const now = new Date().toISOString();
+  const fuelFailure = domain === "nutrition" && error && typeof DominionNutritionStateContract !== "undefined"
+    ? DominionNutritionStateContract.classifyFailure(error)
+    : null;
   if (typeof DominionReleaseStabilization !== "undefined") {
     const fingerprint = typeof DominionContinuity === "undefined" ? DominionReleaseStabilization.fingerprint(payload) : DominionContinuity.semanticFingerprint(payload, { sortRootArray: stateType === "HISTORY" });
     const next = DominionReleaseStabilization.enqueue(queue, {
@@ -446,12 +469,13 @@ function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = nu
       stateKey,
       payload,
       fingerprint,
-      errorCode: error?.code || null,
+      errorCode: fuelFailure?.errorCode || error?.code || null,
       entity: continuityDomainLabel(domain),
-      reason: error?.message || (error ? "Account confirmation failed" : "Account confirmation pending"),
-      persistenceState: typeof DominionAccountPersistence === "undefined"
+      reason: fuelFailure?.userMessage || error?.message || (error ? "Account confirmation failed" : "Account confirmation pending"),
+      category: fuelFailure?.category || null,
+      persistenceState: fuelFailure?.persistenceState || (typeof DominionAccountPersistence === "undefined"
         ? null
-        : DominionAccountPersistence.classifyFailure(error, { authenticated: Boolean(session?.user?.id) })
+        : DominionAccountPersistence.classifyFailure(error, { authenticated: Boolean(session?.user?.id) }))
     }, { now, failedAttempt: Boolean(error) });
     saveContinuityRetryQueue(next);
     if (!queue.some((item) => item.id === next.find((item) => item.key === key)?.id) || error) {
@@ -471,20 +495,21 @@ function enqueueContinuityRetry(domain, stateType, stateKey, payload, error = nu
     queuedAt: existing?.queuedAt || now,
     lastAttemptAt: now,
     attempts: Number(existing?.attempts || 0) + 1,
-    errorCode: error?.code || null,
+    errorCode: fuelFailure?.errorCode || error?.code || null,
     entity: continuityDomainLabel(domain),
-    reason: error?.message || (error ? "Account confirmation failed" : "Account confirmation pending"),
-    persistenceState: typeof DominionAccountPersistence === "undefined"
+    reason: fuelFailure?.userMessage || error?.message || (error ? "Account confirmation failed" : "Account confirmation pending"),
+    category: fuelFailure?.category || null,
+    persistenceState: fuelFailure?.persistenceState || (typeof DominionAccountPersistence === "undefined"
       ? null
-      : DominionAccountPersistence.classifyFailure(error, { authenticated: Boolean(session?.user?.id) })
+      : DominionAccountPersistence.classifyFailure(error, { authenticated: Boolean(session?.user?.id) }))
   };
   saveContinuityRetryQueue([...queue.filter((entry) => entry.key !== key), item]);
   if (continuityState.initialized && continuityState.mode !== "CONFLICT") setContinuityMode("PENDING", { pendingWrites: canonicalPendingWriteState().count });
   return item;
 }
 
-function acknowledgeContinuityRetry(domain, stateType, stateKey) {
-  const key = continuityRetryKey(domain, stateType, stateKey);
+function acknowledgeContinuityRetry(domain, stateType, stateKey, payload = undefined) {
+  const key = continuityRetryKey(domain, stateType, stateKey, payload);
   return saveContinuityRetryQueue(readContinuityRetryQueue().filter((item) => item.key !== key));
 }
 
@@ -494,7 +519,7 @@ async function persistContinuityRetryItem(item = {}) {
   if (item.domain === "strength") return persistStrengthTrainingState(item.stateType, item.stateKey, item.payload);
   if (item.domain === "running") return persistRunningState(item.stateType, item.stateKey, item.payload);
   if (item.domain === "core") return persistCoreProgramState(item.stateType, item.stateKey, item.payload);
-  if (item.domain === "nutrition") return persistNutritionState(item.stateType, item.stateKey, item.payload);
+  if (item.domain === "nutrition") return persistNutritionState(item.stateType, item.stateKey, item.payload, { force: true, retry: true });
   if (item.domain === "calendar") return persistWeeklyOrchestrationState(item.stateType, item.stateKey, item.payload);
   return false;
 }
@@ -521,7 +546,7 @@ async function flushContinuityPendingWrites() {
         void reportSyncLifecycle("queue_retry", { domain: item.domain, attempts: item.attempts });
         const saved = await persistContinuityRetryItem(item);
         if (saved !== false) {
-          acknowledgeContinuityRetry(item.domain, item.stateType, item.stateKey);
+          acknowledgeContinuityRetry(item.domain, item.stateType, item.stateKey, item.payload);
           void reportSyncLifecycle("retry_succeeded", { domain: item.domain, attempts: item.attempts });
         } else {
           enqueueContinuityRetry(item.domain, item.stateType, item.stateKey, item.payload, { code: "SAVE_NOT_ACKNOWLEDGED" });
@@ -560,6 +585,9 @@ function writeContinuityRecordMeta(domain, stateType, stateKey, payload, options
     stateType,
     stateKey,
     fingerprint: DominionContinuity.fingerprint(payload),
+    payloadHash: domain === "nutrition" && typeof DominionNutritionStateContract !== "undefined"
+      ? DominionNutritionStateContract.fingerprint(payload)
+      : previous.payloadHash || null,
     updatedAt: options.updatedAt || previous.updatedAt || new Date().toISOString(),
     syncedAt: options.syncedAt || previous.syncedAt || null,
     source: options.source || previous.source || "DEVICE"
@@ -646,6 +674,9 @@ function canonicalPendingWriteState() {
 function canonicalPendingWriteDetail(pending = canonicalPendingWriteState()) {
   if (!pending.count) return "Account is current.";
   const first = pending.entries?.[0] || {};
+  if (first.domain === "nutrition" || first.category === "FUEL_SAVE_RETRY" || first.category === "FUEL_SCHEMA_RETRY") {
+    return `Fuel save needs retry · ${pending.count} protected change${pending.count === 1 ? "" : "s"} waiting.`;
+  }
   const operation = String(first.entity || first.operation || first.domain || first.stateType || "account save").replaceAll("_", " ").toLowerCase();
   const reason = String(first.reason || first.errorCode || "account confirmation pending").replaceAll("_", " ").toLowerCase();
   const queuedAt = Date.parse(first.queuedAt || first.createdAt || first.clientUpdatedAt || "");
@@ -1890,6 +1921,11 @@ function dominionCampaignConditionValue(condition = {}) {
 function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
   if (!campaign || typeof DominionCampaign === "undefined") return;
   currentDominionCampaign = campaign;
+  const campaignContract = readApprovedRecruitContract();
+  const contractTargetDate = String(campaignContract?.targetDate || "").slice(0, 10);
+  const campaignClockCopy = contractTargetDate && contractTargetDate !== campaign.endDate
+    ? `Campaign closes ${campaign.endDate}; Contract target remains ${contractTargetDate}.`
+    : `Campaign closes ${campaign.endDate}.`;
   const metrics = typeof DominionFinalBetaStabilization === "undefined"
     ? {
         campaignElapsed: Math.max(0, Math.min(100, Math.round(Number(campaign.elapsedDays || 0) / Math.max(1, Number(campaign.totalWeeks || 12) * 7) * 100))),
@@ -1909,7 +1945,7 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
       ? "Sign the Dominion Contract to define the outcome and campaign clock."
       : campaign.status === "PROGRAM_REQUIRED"
         ? "The Contract is signed. Commission the baseline, complete program, and opening Calendar to begin the 12-week operation."
-        : `${campaign.objective?.goal || "DOMINION"} · ${campaign.startDate} to ${campaign.endDate}`);
+        : `${campaign.objective?.goal || "DOMINION"} · ${campaignClockCopy}`);
     setText("dominion-campaign-forecast", campaign.forecast?.label || "CHECKING");
     const progress = document.getElementById("dominion-campaign-progress");
     if (progress) progress.style.width = `${metrics.campaignElapsed}%`;
@@ -1957,7 +1993,7 @@ function renderDominionCampaign(campaign = buildCurrentDominionCampaign()) {
     review.dataset.campaignTone = tone;
     setText("dominion-campaign-review-phase", campaign.currentWeek ? `CAMPAIGN // WEEK ${campaign.currentWeek} // ${campaign.phase?.label?.toUpperCase() || "ACTIVE"}` : "CAMPAIGN // NOT STARTED");
     setText("dominion-campaign-review-heading", campaign.objective?.target || "Twelve-week campaign");
-    setText("dominion-campaign-review-detail", campaign.status === "ACTIVE" ? `${metrics.qualifyingWeeks} qualifying weeks · ${metrics.assessedExecutionScore === null ? "Execution unscored" : `${metrics.assessedExecutionScore}% assessed execution`} · ${metrics.evidenceCoverage}% evidence coverage.` : order.detail);
+    setText("dominion-campaign-review-detail", campaign.status === "ACTIVE" ? `${metrics.qualifyingWeeks} qualifying weeks · ${metrics.assessedExecutionScore === null ? "Execution unscored" : `${metrics.assessedExecutionScore}% assessed execution`} · ${metrics.evidenceCoverage}% evidence coverage. ${campaignClockCopy}` : order.detail);
     setText("dominion-campaign-review-forecast", campaign.forecast?.label || "CHECKING");
     setText("dominion-campaign-review-progress", `${metrics.campaignElapsed}% campaign elapsed`);
   }
@@ -4576,6 +4612,32 @@ function setStartupRestoreProgress(message = "") {
   if (!message) return;
   setText("startup-loading-detail", message);
   document.body.dataset.startupRestoreStep = message.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function beginStartupRestoreWatch() {
+  startupRestoreWatchTimers.forEach((timer) => window.clearTimeout(timer));
+  startupRestoreWatchTimers = [
+    window.setTimeout(() => {
+      if (typeof DominionStartupAuthority === "undefined" || !DominionStartupAuthority.permitsAction(startupAuthorityState)) {
+        document.body.dataset.startupRestorePace = "extended";
+        setStartupRestoreProgress("Still verifying your signed program and saved evidence…");
+      }
+    }, 4000),
+    window.setTimeout(() => {
+      if (typeof DominionStartupAuthority === "undefined" || !DominionStartupAuthority.permitsAction(startupAuthorityState)) {
+        document.body.dataset.startupRestorePace = "retry-available";
+        setStartupRestoreProgress("Restore is taking longer than expected. Your work is protected; retry safely if needed.");
+        const retry = document.getElementById("startup-retry");
+        if (retry) retry.hidden = false;
+      }
+    }, 8000)
+  ];
+}
+
+function endStartupRestoreWatch() {
+  startupRestoreWatchTimers.forEach((timer) => window.clearTimeout(timer));
+  startupRestoreWatchTimers = [];
+  document.body.dataset.startupRestorePace = "complete";
 }
 
 function revealMobileShell() {
@@ -7308,10 +7370,14 @@ function contractRevisionStatusCopy() {
   const active = lifecycle.activeSignedContractRevision ? `R${lifecycle.activeSignedContractRevision} signed` : "No signed Contract";
   const draft = `R${lifecycle.draftContractRevision} draft open`;
   const count = Number(plans?.draft?.requiredCount || 0);
+  const noOperatingChanges = plans?.draft?.noOperatingChanges === true;
   return {
     label: `${active} · ${draft}`,
-    detail: `${count} draft plan${count === 1 ? "" : "s"} will require regeneration after signature. Current-week execution continues under R${readCommittedUnifiedWeek(todayISODate())?.contractRevision || "the protected revision"}.`,
-    draftRequiredCount: count
+    detail: noOperatingChanges
+      ? `No operating changes detected. Discard this draft without changing the signed R${lifecycle.activeSignedContractRevision || "—"} program.`
+      : `${count} plan${count === 1 ? "" : "s"} will update after R${lifecycle.draftContractRevision} is signed. Current-week execution continues under R${readCommittedUnifiedWeek(todayISODate())?.contractRevision || "the protected revision"}.`,
+    draftRequiredCount: count,
+    noOperatingChanges
   };
 }
 
@@ -7643,11 +7709,17 @@ function refreshProgramActivationSurfaces() {
 
 function readCommittedUnifiedWeek(value = todayISODate()) {
   if (typeof DominionWeeklyOrchestrator === "undefined") return null;
-  return DominionWeeklyOrchestrator.weekForDate(readUnifiedWeekHistory(), value);
+  const signedRevision = Number(readRecruitContractLifecycle().activeSignedContractRevision || 0);
+  const authoritative = readUnifiedWeekHistory().filter((week) => week?.status !== "REPLACED"
+    && (!signedRevision || Number(week.contractRevision || 0) <= signedRevision));
+  return DominionWeeklyOrchestrator.weekForDate(authoritative, value);
 }
 
 function readCommittedUnifiedWeekByStart(weekStart = "") {
-  return readUnifiedWeekHistory().find((item) => item?.status !== "REPLACED" && item.weekStart === weekStart) || null;
+  const signedRevision = Number(readRecruitContractLifecycle().activeSignedContractRevision || 0);
+  return readUnifiedWeekHistory().find((item) => item?.status !== "REPLACED"
+    && item.weekStart === weekStart
+    && (!signedRevision || Number(item.contractRevision || 0) <= signedRevision)) || null;
 }
 
 function readCommittedUnifiedDay(value = todayISODate()) {
@@ -8179,8 +8251,23 @@ function renderWeeklyOrchestrator() {
   const calendarView = typeof DominionFinalBetaStabilization === "undefined"
     ? { mode: active ? "ACTIVE" : stagedWeek ? "STAGED" : "EMPTY", week: active || stagedWeek }
     : DominionFinalBetaStabilization.weekView({ activeWeek: active, stagedWeek, requested: requestedView });
-  const preview = calendarView.week || buildUnifiedWeekDraft(targetWeekStart);
-  if (!preview) return;
+  let preview = calendarView.week || null;
+  if (!preview) {
+    try {
+      preview = buildUnifiedWeekDraft(targetWeekStart);
+    } catch (_) {
+      preview = null;
+    }
+  }
+  if (!preview) {
+    status.textContent = active ? "ACTIVE · RECOVERY NEEDED" : "CALENDAR RECOVERY";
+    status.className = "state-pill yellow";
+    panel.innerHTML = active
+      ? `<div class="performance-empty"><strong>Signed week protected.</strong><br>Calendar display needs recovery; Today still follows the committed assignments.</div>`
+      : `<div class="performance-empty"><strong>Signed Contract found.</strong><br>Atlas could not rebuild the calendar preview. Retry without re-signing.</div>`;
+    setText("weekly-orchestrator-feedback", "Your signed Contract remains authoritative. No draft replaced it.");
+    return;
+  }
   const calendarCommitReceipt = matchingCalendarCommitReceipt(preview);
   const weeklyRollover = buildCurrentWeeklyRolloverCertification();
   const weeklyRolloverMarkup = weeklyRolloverCertificationMarkup(weeklyRollover, "calendar");
@@ -8255,7 +8342,7 @@ function renderWeeklyOrchestrator() {
   const draftRevisionCopy = contractRevisionStatusCopy();
   panel.innerHTML = `
     ${unifiedBlockerBannerMarkup(unifiedBlocker, "calendar")}
-    ${draftRevisionCopy ? `<aside class="connected-notice" data-contract-draft-plan-count="${draftRevisionCopy.draftRequiredCount}"><strong>${escapeHtml(draftRevisionCopy.label)}</strong><p>${escapeHtml(draftRevisionCopy.detail)}</p><a href="#contract" data-section="contract">Finish R${escapeHtml(String(readRecruitContractLifecycle().draftContractRevision))} draft</a></aside>` : ""}
+    ${draftRevisionCopy ? `<aside class="connected-notice" data-contract-draft-plan-count="${draftRevisionCopy.draftRequiredCount}"><strong>${escapeHtml(draftRevisionCopy.label)}</strong><p>${escapeHtml(draftRevisionCopy.detail)}</p>${draftRevisionCopy.noOperatingChanges ? `<button type="button" class="ghost" data-contract-experience-action="discard-draft">Discard unchanged draft</button>` : `<a href="#contract" data-section="contract">Review R${escapeHtml(String(readRecruitContractLifecycle().draftContractRevision))} draft</a>`}</aside>` : ""}
     <nav class="calendar-week-switch" aria-label="Calendar week view">
       <button type="button" data-weekly-orchestrator-action="view-active" aria-pressed="${calendarView.mode === "ACTIVE"}" ${active ? "" : "disabled"}>Active week</button>
       <button type="button" data-weekly-orchestrator-action="view-staged" aria-pressed="${calendarView.mode === "STAGED"}" ${stagedWeek ? "" : "disabled"}>Next week</button>
@@ -10552,7 +10639,9 @@ function renderRecruitContract() {
           <article><span>SIGNED · R${approved.revision}</span><strong>${approved.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small>${approved.twoADays ? "Up to 240 min" : `${approved.sessionMinutes} min standard`}</small></article>
           <article><span>DRAFT REPLACEMENT</span><strong id="contract-amendment-draft-capacity">${draft.twoADays ? "TWO-A-DAYS ON" : "TWO-A-DAYS OFF"}</strong><small id="contract-amendment-draft-detail">${draft.twoADays ? "AM/PM · up to 240 min" : `${draft.sessionMinutes} min standard`}</small></article>
         </div>
-        <button type="button" data-contract-experience-action="review-amendment">Review & sign replacement</button>
+        ${draftRevisionCopy?.noOperatingChanges
+          ? `<button type="button" data-contract-experience-action="discard-draft">Discard unchanged draft</button>`
+          : `<button type="button" data-contract-experience-action="review-amendment">Review & sign replacement</button>`}
         ${amendmentDiff}
       </section>`
     : "";
@@ -11373,11 +11462,24 @@ function readActiveStrengthExecution() {
 
 function activeStrengthSessionResolution(assignments = [currentStrengthCalendarAssignment()].filter(Boolean)) {
   if (typeof DominionBetaStateIntegrity === "undefined") return null;
-  return DominionBetaStateIntegrity.resolveActiveStrengthSession({
+  const committedWeek = readCommittedUnifiedWeek(todayISODate());
+  const resolved = DominionBetaStateIntegrity.resolveActiveStrengthSession({
     today: todayISODate(),
-    executions: [readActiveStrengthExecution(), readStrengthExecution()].filter(Boolean),
-    assignments
+    executions: [readActiveStrengthExecution(), readStrengthExecution(), ...readStrengthHistory()].filter(Boolean),
+    assignments,
+    signedContract: readApprovedRecruitContract(),
+    committedWeek,
+    evidence: performanceEntries
   });
+  if (typeof document !== "undefined" && document.body) {
+    document.body.dataset.signedContractRevisionId = resolved.signedContractRevisionId || "";
+    document.body.dataset.committedWeekId = resolved.committedWeekId || "";
+    document.body.dataset.calendarAssignmentId = resolved.calendarAssignmentId || "";
+    document.body.dataset.activeSessionId = resolved.activeSessionId || "";
+    document.body.dataset.executionEvidenceId = resolved.evidenceId || "";
+    document.body.dataset.executionLifecycle = resolved.lifecycleState || "";
+  }
+  return resolved;
 }
 
 function readStrengthAdjustment() {
@@ -11536,7 +11638,10 @@ async function loadStrengthTrainingState() {
       const resolved = DominionBetaStateIntegrity.resolveActiveStrengthSession({
         today: todayISODate(),
         executions: [readStrengthState("EXECUTION", "active", null), readStrengthExecution(), ...remoteExecutions].filter(Boolean),
-        assignments: [currentStrengthCalendarAssignment()].filter(Boolean)
+        assignments: [currentStrengthCalendarAssignment()].filter(Boolean),
+        signedContract: readApprovedRecruitContract(),
+        committedWeek: readCommittedUnifiedWeek(todayISODate()),
+        evidence: performanceEntries
       });
       if (resolved.activeExecution) saveStrengthStateLocal("EXECUTION", "active", resolved.activeExecution);
       else window.localStorage.removeItem(strengthStateStorageKey("EXECUTION", "active"));
@@ -13465,10 +13570,13 @@ function todayQuickLogState(dashboard = currentFrictionlessExecution()) {
   const workoutComplete = workoutItems.length > 0 && workoutItems.every((item) => item.complete);
   const state = DominionTodayQuickLog.progress({
     workoutApplicable: workoutItems.length > 0,
+    workoutLabel: workoutItems.length ? workoutItems.map((item) => item.label).join(" + ") : "Strength/Core",
     workoutComplete,
     runApplicable: Boolean(byId.running?.applicable),
     runComplete: Boolean(currentExecutionLedgerEntry("running")?.complete),
+    fuelApplicable: Boolean(byId.fuel?.applicable),
     fuelComplete: Boolean(byId.fuel?.complete),
+    closeoutApplicable: Boolean(byId.closeout?.applicable),
     closeoutComplete: Boolean(byId.closeout?.complete)
   });
   const ledger = buildCurrentExecutionLedger(todayISODate());
@@ -13530,7 +13638,9 @@ function renderTodayQuickLog(dashboard = currentFrictionlessExecution()) {
   const model = todayQuickLogState(dashboard);
   if (!model) return;
   root.dataset.quickLogState = model.completed === model.total ? "COMPLETE" : "READY";
-  setText("frictionless-execution-progress", `Entries saved: ${model.completed} of ${model.total}${model.countedLabels.length ? ` · ${model.countedLabels.join(" · ")}` : ""}`);
+  setText("frictionless-execution-progress", model.completed === model.total
+    ? `Entries saved: ${model.completed} of ${model.total}`
+    : `Entries saved: ${model.completed} of ${model.total} · Next: ${model.missingLabels.join(" · ")}`);
   const active = model.activeTraining;
   resume.hidden = !active;
   if (active) {
@@ -14036,7 +14146,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030o", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030p", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14233,11 +14343,25 @@ function startStrengthRestCountdown() {
 function renderDailyAssignment() {
   const panel = document.getElementById("daily-assignment-panel");
   if (!panel) return;
-  const assignment = buildCurrentDailyAssignment();
-  if (!assignment) {
+  const scheduledAssignment = buildCurrentDailyAssignment();
+  if (!scheduledAssignment) {
     panel.innerHTML = `<div class="performance-empty">Daily assignment engine unavailable.</div>`;
     return;
   }
+  const activeResolution = activeStrengthSessionResolution();
+  const historicalSnapshot = activeResolution?.requiresResolution ? activeResolution.activeExecution?.sessionSnapshot : null;
+  const assignment = historicalSnapshot ? {
+    ...scheduledAssignment,
+    ...historicalSnapshot,
+    sessionName: historicalSnapshot.sessionName || historicalSnapshot.title || activeResolution.activeSessionLabel,
+    title: historicalSnapshot.title || historicalSnapshot.sessionName || activeResolution.activeSessionLabel,
+    exercises: historicalSnapshot.exercises || [],
+    warmup: historicalSnapshot.warmup || scheduledAssignment.warmup || [],
+    recoveryActions: historicalSnapshot.recoveryActions || scheduledAssignment.recoveryActions || [],
+    fitbod: scheduledAssignment.fitbod,
+    readinessDelta: scheduledAssignment.readinessDelta,
+    historicalExecution: true
+  } : scheduledAssignment;
   const dailyStrength = dailyDecisionModuleState("strength");
   if (dailyStrength.status === "BLOCKED" && !readActiveStrengthExecution()) {
     setText("daily-assignment-state", "BLOCKED");
@@ -14271,6 +14395,15 @@ function renderDailyAssignment() {
   const activeMinutes = liveState ? DominionStrengthTraining.activeDurationMinutes(execution, new Date().toISOString()) : null;
   const restActive = execution.restUntil && Date.parse(execution.restUntil) > Date.now();
   const blockContext = assignment.block?.status === "ACTIVE" ? assignment.block : null;
+  const conflictMarkup = activeResolution?.requiresResolution ? `<article class="strength-session-conflict" data-session-resolution="required">
+    <span class="kicker">CHOOSE THE SESSION</span>
+    <h3>${escapeHtml(activeResolution.activeSessionLabel)} from ${escapeHtml(activeResolution.activeOperationalDate)} is unfinished</h3>
+    <p>Today schedules ${escapeHtml(activeResolution.waitingLabel)}. Evidence will never be merged, replaced, or re-dated.</p>
+    <div class="daily-orders-actions">
+      <button type="button" data-assignment-action="reconcile-resume">Resume unfinished ${escapeHtml(activeResolution.activeSessionLabel)}</button>
+      <button type="button" class="ghost" data-assignment-action="reconcile-start-today">Start today ${escapeHtml(activeResolution.waitingLabel)}</button>
+    </div>
+  </article>` : "";
   const playerMarkup = liveState ? `<section class="strength-live-player">
     <header><div><span class="kicker">LIVE WORKOUT</span><h3>${escapeHtml(activeExercise?.name || "Review the session")}</h3><p>${activeExercise ? `Next work set ${strengthWorkLogs(execution, activeExercise.id).length + 1} of ${activeExercise.sets}` : "All planned work is accounted for. Review before finalizing."}</p></div><span class="state-pill yellow">${escapeHtml(execution.state)}</span></header>
     <div class="strength-player-progress"><span style="width:${progressPercent}%"></span></div>
@@ -14359,7 +14492,7 @@ function renderDailyAssignment() {
         : terminal
           ? `${["STOPPED", "PARTIAL"].includes(execution.state) ? `<button type="button" data-assignment-action="restart">Restart as attempt ${(execution.attempt || 1) + 1}</button>` : ""}<button type="button" disabled>Workout ${escapeHtml(execution.state.toLowerCase())}</button>`
           : `<button type="button" data-assignment-action="start" ${!assignment.exercises.length || fitbodComplete ? "disabled" : ""}>Start workout</button>`;
-  panel.innerHTML = `${playerMarkup}${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "today")}<div class="daily-assignment-summary">
+  panel.innerHTML = `${conflictMarkup}${playerMarkup}${strengthProgressionTrialMarkup(readStrengthProgressionTrial(), "today")}<div class="daily-assignment-summary">
       <div><span>Session</span><strong>${escapeHtml(assignment.sessionName || assignment.title)}</strong></div><div><span>Planned duration</span><strong>~${assignment.estimatedMinutes} min</strong></div><div><span>Exercises</span><strong>${assignment.exercises.length}</strong></div><div><span>Plan</span><strong>${assignment.planRevision ? `R${assignment.planRevision}` : "—"}</strong>${assignment.adjustmentActivation ? `<small>Earned targets active</small>` : ""}</div><div><span>Fitbod</span><strong>${escapeHtml(assignment.fitbod.state)}</strong></div>${blockContext ? `<div><span>Training block</span><strong>${escapeHtml(blockContext.label)}</strong></div>` : ""}
     </div>
     ${blockContext ? `<article class="connected-notice"><strong>${escapeHtml(blockContext.phase?.label || "Block phase")}:</strong> ${escapeHtml(blockContext.phase?.detail || "")} ${escapeHtml(blockContext.loadRule || "")}</article>` : ""}
@@ -21980,38 +22113,64 @@ function reviewFastingVerdictChange(protocol) {
   setText("intermittent-fasting-feedback", "Atlas loaded the suggested protocol. Complete the safety review, then review and approve the change. Nothing changed automatically.");
 }
 
-async function persistNutritionState(stateType, stateKey, payload) {
-  recordContinuityWrite("nutrition", stateType, stateKey, payload);
+async function persistNutritionState(stateType, stateKey, payload, options = {}) {
+  const normalizedType = typeof DominionNutritionStateContract === "undefined"
+    ? stateType
+    : DominionNutritionStateContract.normalizeStateType(stateType);
+  if (!normalizedType) {
+    setText("nutrition-feedback", "Fuel save needs retry.");
+    return false;
+  }
+  const persistence = typeof DominionNutritionStateContract === "undefined"
+    ? { persist: true }
+    : DominionNutritionStateContract.shouldPersist({
+        userId: session?.user?.id || "local",
+        stateType: normalizedType,
+        stateKey,
+        payload,
+        meta: readContinuityRecordMeta("nutrition", normalizedType, stateKey),
+        pending: readContinuityRetryQueue().filter((item) => item.domain === "nutrition"),
+        force: options.force === true
+      });
+  if (!persistence.persist) return persistence.reason === "ALREADY_CONFIRMED";
+  recordContinuityWrite("nutrition", normalizedType, stateKey, payload);
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
     const { error } = await supabase.from("nutrition_state").upsert({
       user_id: session.user.id,
-      state_type: stateType,
+      state_type: normalizedType,
       state_key: stateKey,
       payload,
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,state_type,state_key" });
     if (error) throw error;
-    markContinuityRecordSynced("nutrition", stateType, stateKey, payload);
-    acknowledgeContinuityRetry("nutrition", stateType, stateKey);
-    if (stateType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
+    markContinuityRecordSynced("nutrition", normalizedType, stateKey, payload);
+    acknowledgeContinuityRetry("nutrition", normalizedType, stateKey, payload);
+    if (normalizedType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
     return true;
   } catch (error) {
-    logAccountPersistenceFailure("nutrition", stateType, stateKey, payload, error);
-    if (stateType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
+    const failure = typeof DominionNutritionStateContract === "undefined" ? error : {
+      ...error,
+      ...DominionNutritionStateContract.classifyFailure(error),
+      message: "Fuel save needs retry"
+    };
+    logAccountPersistenceFailure("nutrition", normalizedType, stateKey, payload, failure);
+    if (normalizedType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
     return false;
   }
 }
 
 async function clearNutritionStateType(stateType) {
+  const normalizedType = typeof DominionNutritionStateContract === "undefined" ? stateType : DominionNutritionStateContract.normalizeStateType(stateType);
+  if (!normalizedType) return false;
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
     const { error } = await supabase.from("nutrition_state")
       .delete()
       .eq("user_id", session.user.id)
-      .eq("state_type", stateType);
+      .eq("state_type", normalizedType);
     if (error) throw error;
     return true;
   } catch (_) {
@@ -22020,40 +22179,45 @@ async function clearNutritionStateType(stateType) {
 }
 
 function applyNutritionStateRow(row) {
+  const stateType = typeof DominionNutritionStateContract === "undefined"
+    ? row?.state_type
+    : DominionNutritionStateContract.normalizeStateType(row?.state_type);
+  if (!stateType) return;
   const payload = row?.payload || {};
-  if (row.state_type === "BASELINE_HISTORY" && Array.isArray(payload.items)) {
+  if (stateType === "BASELINE_HISTORY" && Array.isArray(payload.items)) {
     window.localStorage.setItem(nutritionBaselineStorageKey(), JSON.stringify(payload.items));
   }
-  if (row.state_type === "ADAPTIVE_GOAL" && ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].includes(payload.goal)) {
+  if (stateType === "ADAPTIVE_GOAL" && ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].includes(payload.goal)) {
     window.localStorage.setItem(adaptiveFuelingGoalStorageKey(), payload.goal);
   }
-  if (row.state_type === "ADAPTIVE_APPROVAL" && payload.goal) {
+  if (stateType === "ADAPTIVE_APPROVAL" && payload.goal) {
     window.localStorage.setItem(adaptiveFuelingStorageKey(payload.goal), JSON.stringify(payload));
   }
-  if (row.state_type === "MEAL_WINDOW" && ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(payload.window)) {
+  if (stateType === "MEAL_WINDOW" && ["UNSCHEDULED", "MORNING", "MIDDAY", "EVENING"].includes(payload.window)) {
     window.localStorage.setItem(mealTrainingWindowStorageKey(), payload.window);
   }
-  if (row.state_type === "FASTING_PROTOCOL" && ["APPROVED", "OFF"].includes(payload.status)) {
+  if (stateType === "FASTING_PROTOCOL" && ["APPROVED", "OFF"].includes(payload.status)) {
     window.localStorage.setItem(fastingProtocolStorageKey(), JSON.stringify(payload));
   }
-  if (row.state_type === "FASTING_EXECUTION" && (Array.isArray(payload.history) || payload.active)) {
+  if (stateType === "FASTING_EXECUTION" && (Array.isArray(payload.history) || payload.active)) {
     writeFastingExecutionLedger(payload);
   }
-  if (row.state_type === "MEAL_EXECUTION" && (Array.isArray(payload.history) || payload.current || payload.preferences)) {
+  if (stateType === "MEAL_EXECUTION" && (Array.isArray(payload.history) || payload.current || payload.preferences)) {
     writeMealExecutionLedger(payload);
   }
-  if (row.state_type === "FUEL_CLOSED_LOOP" && (Array.isArray(payload.feedback) || Array.isArray(payload.closeouts))) {
+  if (stateType === "FUEL_CLOSED_LOOP" && (Array.isArray(payload.feedback) || Array.isArray(payload.closeouts))) {
     writeFuelClosedLoopLedger(payload);
   }
-  if (row.state_type === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
+  if (stateType === "REVIEW_HISTORY" && Array.isArray(payload.items)) {
     window.localStorage.setItem(nutritionReviewStorageKey(), JSON.stringify(payload.items));
   }
-  if (row.state_type === "MANUAL_DAY" && payload.date) {
+  if (stateType === "MANUAL_DAY" && payload.date) {
     window.localStorage.setItem(nutritionManualStorageKey(payload.date), JSON.stringify(payload));
   }
 }
 
 function readNutritionStatePayload(stateType, stateKey = "current") {
+  stateType = typeof DominionNutritionStateContract === "undefined" ? stateType : DominionNutritionStateContract.normalizeStateType(stateType);
   if (stateType === "BASELINE_HISTORY") return { items: readNutritionBaselineHistory() };
   if (stateType === "ADAPTIVE_GOAL") return { goal: readAdaptiveFuelingGoal() };
   if (stateType === "ADAPTIVE_APPROVAL") return readApprovedAdaptiveFueling(stateKey);
@@ -22079,7 +22243,7 @@ async function loadNutritionState() {
       .eq("user_id", session.user.id)
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    const rows = data || [];
+    const rows = typeof DominionNutritionStateContract === "undefined" ? (data || []) : DominionNutritionStateContract.normalizeRows(data || []);
     for (const row of rows) {
       const localPayload = readNutritionStatePayload(row.state_type, row.state_key);
       const selected = resolveContinuityPayload("nutrition", row.state_type, row.state_key, localPayload, row);
@@ -23793,6 +23957,7 @@ function reconcileStartupAccountState() {
 
 async function init() {
   try {
+    beginStartupRestoreWatch();
     setStartupAuthority(startupAuthorityState);
     applyProductPolish();
     const supabase = await getClient();
@@ -23894,12 +24059,14 @@ async function init() {
       });
     }
     setStartupAuthority(authoritativeStartup);
+    endStartupRestoreWatch();
     if (authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY) {
       const activatedCommand = await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
       if (activatedCommand?.appliedAt) renderPlanCommandSurfaces();
     }
     if (authoritativeStartup.phase !== DominionStartupAuthority.PHASES.DEGRADED) setStatus("");
   } catch (error) {
+    endStartupRestoreWatch();
     console.info("[startup:account-fallback] Account connection unavailable; local state remains protected.", { code: error?.code || "ACCOUNT_UNAVAILABLE" });
     const blocked = typeof DominionStartupAuthority === "undefined"
       ? { phase: "BLOCKED", actionable: false, validated: false, message: "Your protected program could not be restored yet." }
@@ -24876,6 +25043,15 @@ if (typeof document !== "undefined") {
         routeRecruitContractReview(draft, {
           readyMessage: `Contract ${readApprovedRecruitContract()?.revision || "current"} is still active. Sign the replacement below to update the calendar.`
         });
+        return;
+      }
+      if (action === "discard-draft") {
+        const restored = await discardRecruitContractDraft();
+        renderRecruitContract();
+        renderWeeklyOrchestrator();
+        setText("recruit-contract-feedback", restored
+          ? `Unchanged draft discarded. Signed Contract R${restored.revision} still governs.`
+          : "Draft discarded.");
         return;
       }
       if (action === "sign-request") {
@@ -26751,6 +26927,32 @@ if (typeof document !== "undefined") {
     const action = button.dataset.assignmentAction;
     const assignment = buildCurrentDailyAssignment();
     let execution = readDailyAssignmentExecution();
+    if (action === "reconcile-resume") {
+      if (String(execution.state || "").toUpperCase() === "PAUSED") {
+        execution = DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString());
+        await saveDailyAssignmentExecution(execution);
+      }
+      setText("daily-assignment-feedback", `Resuming ${execution.sessionSnapshot?.sessionName || execution.sessionSnapshot?.title || "the unfinished session"}. Today's assignment remains untouched.`);
+      renderDailyAssignment();
+      return;
+    }
+    if (action === "reconcile-start-today") {
+      const active = readActiveStrengthExecution();
+      if (!active || !assignment?.exercises?.length) return;
+      if (!window.confirm(`End ${active.sessionSnapshot?.sessionName || active.sessionSnapshot?.title || "the unfinished session"} as incomplete and start today's ${assignment.sessionName || assignment.title}? Prior evidence will be preserved.`)) return;
+      const stopped = DominionBetaStateIntegrity.endIncompleteSession(active, {
+        endedAt: new Date().toISOString(),
+        reason: "Ended by recruit before starting today's committed assignment"
+      });
+      await saveDailyAssignmentExecution(stopped);
+      await preserveStrengthWorkout(stopped);
+      let todayExecution = DominionStrengthTraining.executionForPrescription(currentStrengthPrescription() || { date: todayISODate(), exercises: [] });
+      todayExecution = DominionStrengthTraining.startWorkout(todayExecution, currentStrengthPrescription(), new Date().toISOString());
+      await saveDailyAssignmentExecution(todayExecution);
+      setText("daily-assignment-feedback", `${assignment.sessionName || assignment.title} started. The older attempt remains preserved as incomplete.`);
+      renderDailyAssignment();
+      return;
+    }
     if (["retain-trial", "repeat-trial", "rollback-trial"].includes(action)) {
       if (action === "rollback-trial" && !window.confirm("Restore the pre-trial targets in a new plan revision? The workout evidence will remain intact.")) return;
       try {
@@ -27989,15 +28191,27 @@ function applyMissionComplianceDefaults(domains) {
 
 function applyAssignedComplianceDefaults(domains) {
   if (!domains?.strength) return domains;
-  const resolution = activeStrengthSessionResolution();
+  const day = readCommittedUnifiedDay(todayISODate());
+  const activities = Array.isArray(day?.activities) ? day.activities : [];
+  const assigned = (module) => activities.filter((item) => String(item.module || "").toUpperCase() === module);
+  const target = (item, fallback) => `${item?.title || fallback}${item?.assignmentId || item?.id ? ` · Assignment ${item.assignmentId || item.id}` : ""}`;
+  const strengthAssignments = assigned("STRENGTH");
+  const coreAssignments = assigned("CORE");
   const strengthEntry = currentExecutionLedgerEntry("strength");
   if (!domains.strength.target) {
-    domains.strength.target = resolution?.dailyRecordTarget
+    domains.strength.target = [...strengthAssignments.map((item) => target(item, "Strength session")), ...coreAssignments.map((item) => target(item, "Core session"))].join("; ")
       || (strengthEntry?.assignmentId ? `${strengthEntry.assignment?.title || strengthEntry.assignment?.sessionName || "Strength session"} · Assignment ${strengthEntry.assignmentId}` : "");
   }
   const runningEntry = currentExecutionLedgerEntry("running");
-  if (domains.cardio && !domains.cardio.target && runningEntry?.assignmentId) {
-    domains.cardio.target = `${runningEntry.assignment?.title || "Run"} · Assignment ${runningEntry.assignmentId}`;
+  const runningAssignment = assigned("RUNNING")[0];
+  if (domains.cardio && !domains.cardio.target) {
+    domains.cardio.target = runningAssignment ? target(runningAssignment, "Run") : runningEntry?.assignmentId ? `${runningEntry.assignment?.title || "Run"} · Assignment ${runningEntry.assignmentId}` : "";
+  }
+  if (domains.nutrition && !domains.nutrition.target && day?.nutrition) {
+    domains.nutrition.target = `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein`;
+  }
+  if (domains.recovery && !domains.recovery.target && day) {
+    domains.recovery.target = day.recovery?.title || day.recoveryTitle || (activities.length ? "Complete today's recovery order" : "Recovery day");
   }
   return domains;
 }

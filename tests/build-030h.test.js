@@ -14,7 +14,7 @@ test("030H separates signed Contract authority from an unsigned draft", () => {
   assert.match(engine, /draftEffectiveDate/);
   assert.match(engine, /supersededContractRevision/);
   assert.match(app, /function discardRecruitContractDraft/);
-  assert.match(app, /Finish R\$\{escapeHtml/);
+  assert.match(app, /Review R\$\{escapeHtml/);
 });
 
 test("030H gives every strength route one canonical active session", () => {
@@ -47,11 +47,11 @@ test("030H is cache-busted and release gated", () => {
   const app = read("assets/js/app.js");
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
-  assert.match(html, /coach-dominion-release" content="030[HIJKLMNO]\.1/);
-  assert.match(html, /beta-state-integrity\.js\?v=030h/);
+  assert.match(html, /coach-dominion-release" content="030[HIJKLMNOP]\.1/);
+  assert.match(html, /beta-state-integrity\.js\?v=030[hp]/);
   assert.match(worker, /030h-beta-state-integrity/);
-  assert.match(app, /register\("\/sw\.js\?v=030[hijklmno]"/);
-  assert.match(health, /release: "030[HIJKLMNO]\.1"/);
-  assert.match(workflow, /npm run test:030[hijklmno]/);
-  assert.match(workflow, /--expected-release 030[HIJKLMNO]\.1/);
+  assert.match(app, /register\("\/sw\.js\?v=030[hijklmnop]"/);
+  assert.match(health, /release: "030[HIJKLMNOP]\.1"/);
+  assert.match(workflow, /npm run test:030[hijklmnop]/);
+  assert.match(workflow, /--expected-release 030[HIJKLMNOP]\.1/);
 });

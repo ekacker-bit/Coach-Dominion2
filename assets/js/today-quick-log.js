@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030B.1";
+  const VERSION = "030P.1";
   const SETUP_STATES = new Set(["CONTRACT_REQUIRED", "SIGNATURE_REQUIRED", "PLANS_REQUIRED", "WEEK_REQUIRED"]);
 
   function text(value = "") {
@@ -97,13 +97,14 @@
 
   function progress(input = {}) {
     const items = [
-      { id: "workout", applicable: input.workoutApplicable !== false, complete: input.workoutComplete === true },
-      { id: "run", applicable: input.runApplicable === true, complete: input.runComplete === true },
-      { id: "fuel", applicable: true, complete: input.fuelComplete === true },
-      { id: "closeout", applicable: true, complete: input.closeoutComplete === true }
+      { id: "workout", label: text(input.workoutLabel || "Strength/Core"), applicable: input.workoutApplicable !== false, complete: input.workoutComplete === true },
+      { id: "run", label: "Run", applicable: input.runApplicable === true, complete: input.runComplete === true },
+      { id: "fuel", label: "Fuel", applicable: input.fuelApplicable !== false, complete: input.fuelComplete === true },
+      { id: "closeout", label: "Closeout", applicable: input.closeoutApplicable !== false, complete: input.closeoutComplete === true }
     ].filter((item) => item.applicable);
     const completed = items.filter((item) => item.complete).length;
-    return { completed, total: items.length, percent: items.length ? Math.round(completed / items.length * 100) : 0 };
+    const missing = items.filter((item) => !item.complete);
+    return { items, missing, missingLabels: missing.map((item) => item.label), completed, total: items.length, percent: items.length ? Math.round(completed / items.length * 100) : 0 };
   }
 
   function resumeAction(input = {}) {

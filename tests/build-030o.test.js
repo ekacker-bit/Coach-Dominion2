@@ -18,17 +18,17 @@ const workflow = read(".github/workflows/release-integrity.yml");
 const packageJson = JSON.parse(read("package.json"));
 const preview = read("tests/fixtures/rank-handoff-preview.html");
 
-test("030O is cache-busted and guarded by production release integrity", () => {
-  assert.match(html, /coach-dominion-release" content="030O\.1"/);
+test("030O remains cache-busted and guarded by the current production release", () => {
+  assert.match(html, /coach-dominion-release" content="030[OP]\.1"/);
   assert.match(html, /rank-advancement-handoff\.js\?v=030o/);
   assert.ok(html.indexOf("rank-advancement-handoff.js?v=030o") < html.indexOf("app.js?v="));
   assert.match(worker, /030o-advancement-handoff/);
   assert.match(worker, /rank-advancement-handoff\.js\?v=030o/);
-  assert.match(app, /register\("\/sw\.js\?v=030o"/);
-  assert.match(health, /release: "030O\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[op]"/);
+  assert.match(health, /release: "030[OP]\.1"/);
   assert.match(health, /rankHandoff: "earned-rank-acknowledged"/);
-  assert.match(workflow, /npm run test:030o/);
-  assert.match(workflow, /--expected-release 030O\.1/);
+  assert.match(workflow, /npm run test:030[op]/);
+  assert.match(workflow, /--expected-release 030[OP]\.1/);
   assert.match(packageJson.scripts["test:030o"], /rank-advancement-handoff\.test\.js/);
 });
 

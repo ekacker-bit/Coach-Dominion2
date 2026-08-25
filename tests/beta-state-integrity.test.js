@@ -67,8 +67,8 @@ test("an older Lower A execution wins every route until it is closed", () => {
   assert.equal(active.requiresResolution, true);
   assert.equal(active.canStartScheduled, false);
   assert.equal(active.primaryAction.label, "Resume Lower A");
-  assert.equal(active.secondaryAction.label, "End incomplete session");
-  assert.match(active.dailyRecordTarget, /assignment-lower-a/);
+  assert.equal(active.secondaryAction.label, "Start today Upper A");
+  assert.match(active.dailyRecordTarget, /assignment-upper-a/);
   const stopped = Integrity.endIncompleteSession(lower, { endedAt: "2026-08-20T15:00:00.000Z" });
   const next = Integrity.resolveActiveStrengthSession({ today: "2026-08-20", executions: [stopped], assignments: [upper] });
   assert.equal(next.activeExecution, null);
@@ -83,7 +83,8 @@ test("plan status and evidence are revision and assignment specific", () => {
   const status = Integrity.resolvePlanRevisionStatus({ activeSignedContract: r14, draftContract: r15, activePlans: plans, draftPlans: plans, activeWeek: { contractRevision: 12 } });
   assert.equal(status.activeWeek.plans.core.ready, true);
   assert.equal(status.draft.plans.core.ready, false);
-  assert.equal(status.draft.requiredCount, 4);
+  assert.equal(status.draft.status, "NO_OPERATING_CHANGES");
+  assert.equal(status.draft.requiredCount, 0);
   const assigned = Integrity.linkEvidenceToAssignment({ assignment: { id: "run-1", date: "2026-08-20" }, operationalDate: "2026-08-20", occurredAt: "2026-08-20T13:00:00.000Z" });
   const unplanned = Integrity.linkEvidenceToAssignment({ operationalDate: "2026-08-20" });
   assert.equal(assigned.satisfiesAssignment, true);

@@ -12868,6 +12868,38 @@ body:not([data-dominion-section="today"]) .dominion-mission-rail .shell-mission-
   .connected-account-health { grid-template-columns: 1fr; gap: 7px; }
 }
 
+/* Build 030P: public-beta state integrity and word-light recovery controls. */
+.strength-session-conflict {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 15px;
+  border: 1px solid rgba(212, 175, 55, .55);
+  border-left: 4px solid var(--victory-gold);
+  background: linear-gradient(135deg, rgba(212, 175, 55, .09), rgba(8, 11, 12, .92));
+}
+.strength-session-conflict h3 { margin: 3px 0 0; }
+.strength-session-conflict p { margin: 0; color: var(--muted); line-height: 1.45; }
+.strength-session-conflict > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
+.strength-session-conflict button { min-height: 42px; }
+.weekly-score-basis {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.connected-notice [data-contract-experience-action="discard-draft"] { margin-top: 8px; }
+
+@media (max-width: 430px) {
+  .strength-session-conflict { padding: 12px; }
+  .strength-session-conflict > div:last-child { display: grid; grid-template-columns: 1fr; }
+  .strength-session-conflict button { width: 100%; }
+  .today-quick-log-form fieldset { overflow: hidden; }
+  .today-quick-log-run,
+  .today-quick-log-fuel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .today-quick-log-form footer p { overflow-wrap: anywhere; }
+}
+
 /* Build 030I: one word-light Closeout verdict that governs the next operating day. */
 .atlas-closed-loop-verdict {
   margin: 14px 0;

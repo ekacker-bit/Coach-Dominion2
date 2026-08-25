@@ -64,5 +64,8 @@ test("daily reporting progress counts only applicable work", () => {
     runApplicable: false, runComplete: false,
     fuelComplete: true, closeoutComplete: false
   });
-  assert.deepEqual(result, { completed: 2, total: 3, percent: 67 });
+  assert.equal(result.completed, 2);
+  assert.equal(result.total, 3);
+  assert.equal(result.percent, 67);
+  assert.deepEqual(result.missingLabels, ["Closeout"]);
 });

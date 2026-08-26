@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Execution Authority Reconciliation
+
+- Makes the signed active week—not a stale workout index or activation receipt—the source of truth for Today, Calendar, Train, and Review.
+- Archives Strength attempts at least seven days behind the active week as incomplete while preserving their set logs and account-backed history.
+- Keeps recent unfinished sessions as an explicit recruit choice instead of silently merging or replacing evidence.
+- Removes unchanged Contract drafts only after the account confirms the filtered deletion, then refreshes every authority surface together.
+- Ends startup in a truthful Ready, Protected, or Action Required state instead of leaving Account Health on a permanent checking message.
+
 ## Unreleased - Calendar Restore Repair
 
 - Keeps the committed active week visible even when optional rollover or legacy coaching context cannot be evaluated.

@@ -13353,3 +13353,21 @@ html[data-today-hierarchy="029D.1"] #today-more-context > summary { min-height: 
   .rank-advancement-insignia { width: 44px; height: 44px; font-size: 19px; }
   .rank-advancement-handoff button { width: 100%; }
 }
+
+/* Execution authority: the signed week owns Today; historical attempts remain evidence. */
+.strength-session-authority {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 13px 15px;
+  border: 1px solid rgba(46, 155, 95, .48);
+  background: linear-gradient(110deg, rgba(46, 155, 95, .1), rgba(10, 10, 10, .14) 65%), var(--panel3);
+  box-shadow: inset 3px 0 0 rgba(46, 155, 95, .75);
+}
+.strength-session-authority > span {
+  color: #73d9a2;
+  font: 700 10px/1.2 var(--font-command);
+  letter-spacing: .12em;
+}
+.strength-session-authority > strong { color: var(--stone); font-size: 16px; }
+.strength-session-authority > small { color: var(--muted); line-height: 1.45; }

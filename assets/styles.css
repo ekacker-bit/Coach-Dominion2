@@ -3240,6 +3240,26 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
 .daily-loop-certification strong { color: var(--text); font: 30px/1 var(--font-command); letter-spacing: .03em; text-transform: uppercase; }
 .daily-loop-certification p { margin: 0; color: var(--text); line-height: 1.45; }
 .daily-loop-certification small { color: var(--muted); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.next-day-command-handoff {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(212, 175, 55, .42);
+  border-left: 4px solid var(--victory-gold);
+  border-radius: 8px;
+  background: linear-gradient(120deg, rgba(212, 175, 55, .11), rgba(12, 20, 17, .94) 48%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .2);
+}
+.next-day-command-handoff[hidden] { display: none !important; }
+.next-day-command-handoff header { display: grid; grid-template-columns: 1fr auto; gap: 3px 16px; align-items: center; }
+.next-day-command-handoff header span { grid-column: 1; color: var(--victory-gold); font: 800 .75rem/1.1 var(--font-body); letter-spacing: .16em; }
+.next-day-command-handoff header strong { grid-column: 1; color: var(--stone); font: 700 clamp(1.3rem, 2.3vw, 1.8rem)/1.05 var(--font-body); }
+.next-day-command-handoff header em { grid-column: 2; grid-row: 1 / span 2; padding: 7px 10px; border: 1px solid rgba(230, 230, 228, .22); color: #b9c1c9; font: normal 800 .68rem/1 var(--font-body); letter-spacing: .1em; }
+.next-day-command-handoff p { margin: 12px 0 8px; color: var(--stone); font-size: 1rem; }
+.next-day-command-handoff small { display: flex; gap: 9px; color: var(--muted); line-height: 1.45; }
+.next-day-command-handoff small b { flex: 0 0 auto; color: var(--victory-gold); font-size: .7rem; letter-spacing: .12em; }
+.next-day-command-actions { display: flex; gap: 10px; margin-top: 14px; }
+.next-day-command-handoff[data-handoff-state="certified"] { border-color: rgba(46, 180, 104, .5); border-left-color: var(--green); background: linear-gradient(120deg, rgba(46, 180, 104, .11), rgba(12, 20, 17, .94) 48%); }
+.next-day-command-handoff[data-handoff-state="action_required"] { border-color: rgba(205, 75, 75, .62); border-left-color: var(--red); }
 .daily-closeout-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .daily-closeout-actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .daily-closeout-actions button { flex: 0 0 auto; min-height: 48px; }
@@ -3293,6 +3313,13 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
   .daily-loop-certification { grid-template-columns: 1fr; gap: 8px; padding: 14px 12px; }
   .daily-loop-certification strong { font-size: 26px; }
   .daily-loop-certification small { white-space: normal; }
+  .next-day-command-handoff { margin-bottom: 14px; padding: 16px; }
+  .next-day-command-handoff header { grid-template-columns: 1fr; }
+  .next-day-command-handoff header em { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 5px; }
+  .next-day-command-handoff small { display: block; }
+  .next-day-command-handoff small b { display: block; margin-bottom: 4px; }
+  .next-day-command-actions { flex-direction: column; }
+  .next-day-command-actions button { width: 100%; }
   .daily-closeout-actions { display: grid; }
   .daily-closeout-actions button { width: 100%; }
   .weekly-closeout-evidence { padding: 14px 12px; }

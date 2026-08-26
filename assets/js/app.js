@@ -79,6 +79,7 @@ let currentAtlasWeeklyReconciliation = null;
 let currentWeeklyRolloverCertification = null;
 let currentWeekExecutionCertification = null;
 let currentDailyLoopCertification = null;
+let currentNextDayCommandHandoff = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -841,6 +842,11 @@ function readDailyLoopCertificationHistory() {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readNextDayCommandHandoffHistory() {
+  const receipts = readClosedLoopState("HISTORY", "next-day-command-handoff", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
 function saveCalendarCommitReceipt(receipt = null) {
   if (!receipt?.id) return [];
   const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
@@ -894,7 +900,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       weeklyRollovers: readWeeklyRolloverHistory(),
       weeklyExecutions: readWeekExecutionCertificationHistory(),
       rankAdvancements: readRankAdvancementHistory(),
-      rankHandoffs: readRankAdvancementHandoffHistory()
+      rankHandoffs: readRankAdvancementHandoffHistory(),
+      nextDayHandoffs: readNextDayCommandHandoffHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -970,6 +977,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const weeklyExecutions = DominionAccountTruth.mergeCollection(readWeekExecutionCertificationHistory(), coaching.weeklyExecutions, DominionAccountTruth.COLLECTION_LIMITS.weeklyExecutions);
     const rankAdvancements = DominionAccountTruth.mergeCollection(readRankAdvancementHistory(), coaching.rankAdvancements, DominionAccountTruth.COLLECTION_LIMITS.rankAdvancements);
     const rankHandoffs = DominionAccountTruth.mergeCollection(readRankAdvancementHandoffHistory(), coaching.rankHandoffs, DominionAccountTruth.COLLECTION_LIMITS.rankHandoffs);
+    const nextDayHandoffs = DominionAccountTruth.mergeCollection(readNextDayCommandHandoffHistory(), coaching.nextDayHandoffs, DominionAccountTruth.COLLECTION_LIMITS.nextDayHandoffs);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
@@ -980,6 +988,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     if (DominionAccountTruth.semanticFingerprint(weeklyExecutions) !== DominionAccountTruth.semanticFingerprint(readWeekExecutionCertificationHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(rankAdvancements) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(rankHandoffs) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHandoffHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(nextDayHandoffs) !== DominionAccountTruth.semanticFingerprint(readNextDayCommandHandoffHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
@@ -990,6 +999,7 @@ function applyAccountTruthSnapshot(snapshot = null) {
     saveClosedLoopLocal("HISTORY", "week-execution-certification", weeklyExecutions);
     saveClosedLoopLocal("HISTORY", "rank-advancement-certification", rankAdvancements);
     saveClosedLoopLocal("HISTORY", "rank-advancement-handoff", rankHandoffs);
+    saveClosedLoopLocal("HISTORY", "next-day-command-handoff", nextDayHandoffs);
     promotionHistory = rankAdvancements;
     if (typeof DominionRankAdvancementCertification !== "undefined") {
       const advancementState = DominionRankAdvancementCertification.validateHistory(rankAdvancements, rankStatus.currentRank || "RECRUIT");
@@ -1039,7 +1049,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0) + (evidence.dailyLoopReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0) + (coaching.nextDayHandoffs?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -11689,7 +11699,7 @@ async function reconcileStrengthExecutionAuthority(options = {}) {
   const receipt = Object.freeze({
     id: `execution-authority-${today}-${String(archived[0]?.executionId || "historical").replace(/[^a-z0-9_-]+/gi, "-")}`,
     type: "EXECUTION_AUTHORITY_RECONCILIATION",
-    version: "030S.1",
+    version: "030T.1",
     status: "RECONCILED",
     reconciledAt,
     signedContractId: resolution.signedContractRevisionId,
@@ -14374,7 +14384,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030s", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030t", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15413,6 +15423,155 @@ function renderDailyLoopCertification(result = currentDailyLoopCertification || 
   return result;
 }
 
+function atlasClosedLoopDecisionForTargetDate(date = todayISODate()) {
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  return readAtlasClosedLoopHistory()
+    .filter((item) => String(item?.effectiveDate || "").slice(0, 10) === targetDate)
+    .sort((left, right) => String(right.updatedAt || right.resolvedAt || right.generatedAt || "").localeCompare(String(left.updatedAt || left.resolvedAt || left.generatedAt || "")))[0] || null;
+}
+
+function certifiedDailyLoopReceiptForDecision(decision = null) {
+  if (!decision?.id) return null;
+  return readDailyLoopCertificationHistory()
+    .filter((item) => item?.type === "DAILY_LOOP_CERTIFICATION" && item?.status === "CERTIFIED" && item?.decision?.id === decision.id)
+    .sort((left, right) => String(right.accountConfirmedAt || right.securedAt || "").localeCompare(String(left.accountConfirmedAt || left.securedAt || "")))[0] || null;
+}
+
+function nextDayCommandSurfaceAssignments(date = todayISODate()) {
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const assignments = currentExecutionLedgerAssignments(targetDate);
+  const canonical = targetDate === todayISODate()
+    ? (currentCanonicalDailyCommand?.date === targetDate ? currentCanonicalDailyCommand : buildCurrentCanonicalDailyCommand(targetDate))
+    : buildCurrentCanonicalDailyCommand(targetDate);
+  const nutrition = assignments.filter((item) => String(item.module || "").toLowerCase() === "nutrition");
+  const training = assignments.filter((item) => ["strength", "running", "core"].includes(String(item.module || "").toLowerCase()));
+  const today = [...(canonical?.schedule?.sessions || []), ...nutrition];
+  return {
+    assignments,
+    surfaces: {
+      calendar: assignments,
+      today,
+      train: training,
+      quickLog: assignments.filter((item) => ["running", "nutrition"].includes(String(item.module || "").toLowerCase())),
+      fuel: nutrition
+    }
+  };
+}
+
+function buildCurrentNextDayCommandHandoff(date = todayISODate(), options = {}) {
+  if (typeof DominionNextDayCommandHandoff === "undefined") return null;
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const decision = options.decision || atlasClosedLoopDecisionForTargetDate(targetDate);
+  const sourceReceipt = options.sourceReceipt || certifiedDailyLoopReceiptForDecision(decision);
+  const week = options.week || readCommittedUnifiedWeek(targetDate);
+  const canonical = options.canonical || (currentCanonicalDailyCommand?.date === targetDate ? currentCanonicalDailyCommand : buildCurrentCanonicalDailyCommand(targetDate));
+  const surfaceState = options.surfaceState || nextDayCommandSurfaceAssignments(targetDate);
+  const accountReceipts = options.accountReceipts
+    || accountTruthState.accountSnapshot?.domains?.coaching?.payload?.nextDayHandoffs
+    || [];
+  return DominionNextDayCommandHandoff.evaluate({
+    targetDate,
+    decision,
+    sourceReceipt,
+    sourceWeekId: sourceReceipt?.lineage?.weekId || null,
+    contractRevision: Number(week?.contractRevision || readApprovedRecruitContract()?.revision || 0),
+    weekId: week?.id || week?.weekStart || null,
+    weekRevision: Number(week?.revision || 0),
+    canonical,
+    assignments: surfaceState.assignments,
+    surfaceAssignments: surfaceState.surfaces,
+    accountReceipts,
+    serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null
+  });
+}
+
+async function persistNextDayCommandHandoffHistory(history = []) {
+  if (!session?.user?.id || !Array.isArray(history) || !history[0]?.id) return { confirmed: false, row: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: "HISTORY",
+      state_key: "next-day-command-handoff",
+      payload: history,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("state_type,state_key,payload,updated_at")
+      .single();
+    if (error) throw error;
+    const confirmed = data?.state_type === "HISTORY"
+      && data?.state_key === "next-day-command-handoff"
+      && Array.isArray(data?.payload)
+      && data.payload.some((item) => item?.id === history[0].id);
+    return { confirmed, row: data || null };
+  } catch (error) {
+    return { confirmed: false, row: null, error };
+  }
+}
+
+async function reconcileNextDayCommandHandoff(options = {}) {
+  if (typeof DominionNextDayCommandHandoff === "undefined") return null;
+  const date = String(options.date || todayISODate()).slice(0, 10);
+  let result = buildCurrentNextDayCommandHandoff(date, options);
+  if (!result) return null;
+  if (result.receipt) {
+    const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.nextDayHandoffs;
+    let history = DominionNextDayCommandHandoff.upsertHistory(readNextDayCommandHandoffHistory(), result.receipt, limit || 120);
+    saveClosedLoopLocal("HISTORY", "next-day-command-handoff", history);
+    if (options.persist !== false) {
+      const confirmation = await persistNextDayCommandHandoffHistory(history);
+      if (confirmation.confirmed) {
+        result = buildCurrentNextDayCommandHandoff(date, {
+          ...options,
+          accountReceipts: [result.receipt, ...(options.accountReceipts || [])],
+          serverConfirmed: true,
+          accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString()
+        });
+        history = DominionNextDayCommandHandoff.upsertHistory(history, result.receipt, limit || 120);
+        saveClosedLoopLocal("HISTORY", "next-day-command-handoff", history);
+        await persistNextDayCommandHandoffHistory(history);
+      }
+    }
+  }
+  if (date === todayISODate()) {
+    currentNextDayCommandHandoff = result;
+    renderNextDayCommandHandoff(result);
+  }
+  return result;
+}
+
+function renderNextDayCommandHandoff(result = currentNextDayCommandHandoff || buildCurrentNextDayCommandHandoff()) {
+  const root = document.getElementById("next-day-command-handoff");
+  if (!root) return result;
+  currentNextDayCommandHandoff = result;
+  const visible = Boolean(result?.decision?.id || result?.source?.id || result?.state === "ACTION_REQUIRED");
+  root.hidden = !visible;
+  if (!visible) return result;
+  const review = result.state === "REVIEW_REQUIRED";
+  const actions = review
+    ? `<div class="next-day-command-actions"><button type="button" data-atlas-closed-loop-action="ACCEPT" data-decision-date="${escapeHtml(result.decision.sourceDate || "")}">Use Atlas call</button><button type="button" class="ghost" data-atlas-closed-loop-action="KEEP" data-decision-date="${escapeHtml(result.decision.sourceDate || "")}">Keep current plan</button></div>`
+    : result.view.action === "OPEN_ACCOUNT_HEALTH"
+      ? '<button type="button" class="ghost" data-section="connected">Check account</button>'
+      : "";
+  root.dataset.handoffState = String(result.state || "WAITING").toLowerCase();
+  root.innerHTML = `<header><span>${escapeHtml(result.view.eyebrow)}</span><strong>${escapeHtml(result.view.headline)}</strong><em>${escapeHtml(result.state.replaceAll("_", " "))}</em></header><p>${escapeHtml(result.view.detail)}</p><small><b>WHY</b>${escapeHtml(result.view.why)}</small>${actions}`;
+  const receiptId = result.receipt?.id || result.candidateReceiptId || "";
+  ["today", "calendar", "performance", "nutrition"].forEach((id) => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.dataset.nextDayCommand = String(result.state || "WAITING").toLowerCase();
+    if (receiptId) node.dataset.nextDayHandoffId = receiptId;
+  });
+  const quickLog = document.getElementById("today-quick-log-form");
+  if (quickLog) {
+    quickLog.dataset.nextDayCommand = String(result.state || "WAITING").toLowerCase();
+    if (receiptId) quickLog.dataset.nextDayHandoffId = receiptId;
+  }
+  document.body.dataset.nextDayCommand = String(result.state || "WAITING").toLowerCase();
+  return result;
+}
+
 function atlasDecisionProofReadiness(date = todayISODate()) {
   const state = dailyState?.date === date ? dailyState : readinessHistory.find((item) => item?.date === date) || null;
   if (!state) return { state: "UNKNOWN", pain: false };
@@ -15521,8 +15680,9 @@ function renderAtlasClosedLoopDecision() {
   }
   if (todayHost) {
     const decision = activeDecision || sourceDecision;
-    todayHost.hidden = !decision;
-    todayHost.innerHTML = decision ? atlasClosedLoopMarkup(decision, "today", latestProof) : "";
+    const handoffOwnsToday = currentNextDayCommandHandoff?.targetDate === todayISODate() && Boolean(currentNextDayCommandHandoff?.decision?.id);
+    todayHost.hidden = !decision || handoffOwnsToday;
+    todayHost.innerHTML = decision && !handoffOwnsToday ? atlasClosedLoopMarkup(decision, "today", latestProof) : "";
   }
 }
 
@@ -15716,6 +15876,7 @@ async function resolveAtlasClosedLoopDecision(date = todayISODate(), resolution 
   if (!current) return null;
   const resolved = DominionAtlasClosedLoop.resolveDecision(current, resolution, { resolvedAt: new Date().toISOString() });
   await saveAtlasClosedLoopDecision(resolved);
+  await reconcileNextDayCommandHandoff({ date: resolved.effectiveDate, decision: resolved, persist: true });
   renderAtlasClosedLoopDecision();
   renderWeeklyOrchestrator();
   renderTodayCommittedWeek();
@@ -15895,6 +16056,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   updateDailyCloseoutPreview();
   renderAtlasClosedLoopDecision();
   renderDailyLoopCertification();
+  renderNextDayCommandHandoff();
 }
 
 async function submitDailyCloseout(event) {
@@ -15912,6 +16074,9 @@ async function submitDailyCloseout(event) {
     const verdict = await reconcileAtlasClosedLoopDecision(record);
     await reconcileAtlasDecisionProofs({ persist: true });
     const dailyLoop = await reconcileDailyLoopCertification({ closeout: record, decision: verdict, persist: true });
+    if (dailyLoop?.receipt && verdict?.effectiveDate) {
+      await reconcileNextDayCommandHandoff({ date: verdict.effectiveDate, decision: verdict, sourceReceipt: dailyLoop.receipt, persist: true });
+    }
     await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
@@ -16030,6 +16195,7 @@ async function loadClosedLoopState() {
       ["CLOSEOUT", todayISODate()],
       ["HISTORY", "daily-closeout"],
       ["HISTORY", "daily-loop-certification"],
+      ["HISTORY", "next-day-command-handoff"],
       ["DAILY_VERDICT", todayISODate()],
       ["HISTORY", "atlas-closed-loop"],
       ["HISTORY", "atlas-decision-proof"],
@@ -24415,11 +24581,15 @@ async function init() {
     await runStartupTask("daily loop certification", () => reconcileDailyLoopCertification({
       persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
     }), startupIssues);
+    await runStartupTask("next-day command", () => reconcileNextDayCommandHandoff({
+      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
+    }), startupIssues);
     setStartupRestoreProgress("Preparing Today.");
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
       ["Today calendar", renderTodayCommittedWeek],
+      ["next-day command", renderNextDayCommandHandoff],
       ["activation guide", renderActivationGuide],
       ["standards duty", renderTodayStandardsDuty],
       ["rank", renderRankSection],

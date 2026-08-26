@@ -18,16 +18,16 @@ const workflow = read(".github/workflows/release-integrity.yml");
 const packageJson = JSON.parse(read("package.json"));
 
 test("030M exposes one production-gated release and caches the certification engine", () => {
-  assert.match(html, /coach-dominion-release" content="030[MNOP]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[MNOPQ]\.1"/);
   assert.match(html, /week-execution-certification\.js\?v=030m/);
   assert.ok(html.indexOf("week-execution-certification.js?v=030m") < html.indexOf("app.js?v="));
   assert.match(worker, /030m-week-execution-certification/);
   assert.match(worker, /week-execution-certification\.js\?v=030m/);
-  assert.match(app, /register\("\/sw\.js\?v=030[mnop]"/);
-  assert.match(health, /release: "030[MNOP]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[mnopq]"/);
+  assert.match(health, /release: "030[MNOPQ]\.1"/);
   assert.match(health, /weekExecution: "assignment-outcomes-certified"/);
-  assert.match(workflow, /npm run test:030[mnop]/);
-  assert.match(workflow, /--expected-release 030[MNOP]\.1/);
+  assert.match(workflow, /npm run test:030[mnopq]/);
+  assert.match(workflow, /--expected-release 030[MNOPQ]\.1/);
   assert.match(packageJson.scripts["test:030m"], /week-execution-certification\.test\.js/);
 });
 
@@ -59,7 +59,7 @@ test("030M certification is part of weekly finalization, not an after-the-fact d
 });
 
 test("030M survives reload through Account Truth without a new persistence silo", () => {
-  assert.match(account, /const VERSION = "030[MNOP]\.1"/);
+  assert.match(account, /const VERSION = "030[MNOPQ]\.1"/);
   assert.match(account, /weeklyExecutions: 52/);
   assert.match(account, /mergeCollection\(value\.weeklyExecutions/);
   assert.match(account, /mergeCollection\(device\.weeklyExecutions, account\.weeklyExecutions/);
@@ -72,7 +72,7 @@ test("030M survives reload through Account Truth without a new persistence silo"
 
 test("030M stays compact across Review, Calendar, Today, and phone layouts", () => {
   assert.match(html, /id="week-execution-certification"/);
-  assert.match(weeklyExperience, /const VERSION = "030[MNOP]\.1"/);
+  assert.match(weeklyExperience, /const VERSION = "030[MNOPQ]\.1"/);
   assert.match(weeklyExperience, /id="week-execution-certification"/);
   assert.match(html, /weekly-advancement\.js\?v=026d-030c-030e-030k-030m(?:-030n)?(?:-030o)?/);
   assert.match(worker, /weekly-advancement\.js\?v=026d-030c-030e-030k-030m(?:-030n)?(?:-030o)?/);

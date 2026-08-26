@@ -11,10 +11,10 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 test("Build 029M exposes one matching release identity", () => {
   const health = read("api/health.js");
   const html = read("app.html");
-  assert.match(health, /release:\s*"(?:029[MNO]|030[ABCDEFGHIJKLMNOP])\.1"/);
+  assert.match(health, /release:\s*"(?:029[MNO]|030[ABCDEFGHIJKLMNOPQ])\.1"/);
   assert.match(health, /VERCEL_GIT_COMMIT_SHA/);
   assert.match(health, /productionCanary:\s*"available"/);
-  assert.match(html, /<meta name="coach-dominion-release" content="(?:029[MNO]|030[ABCDEFGHIJKLMNOP])\.1">/);
+  assert.match(html, /<meta name="coach-dominion-release" content="(?:029[MNO]|030[ABCDEFGHIJKLMNOPQ])\.1">/);
 });
 
 test("Build 029M gates main with a bounded production canary", () => {
@@ -24,10 +24,10 @@ test("Build 029M gates main with a bounded production canary", () => {
   assert.match(workflow, /needs: verify/);
   assert.match(workflow, /timeout-minutes: 8/);
   assert.match(workflow, /https:\/\/coach-dominion2\.vercel\.app/);
-  assert.match(workflow, /--expected-release (?:029[MNO]|030[ABCDEFGHIJKLMNOP])\.1/);
+  assert.match(workflow, /--expected-release (?:029[MNO]|030[ABCDEFGHIJKLMNOPQ])\.1/);
   assert.match(workflow, /--expected-commit \$\{\{ github\.sha \}\}/);
   assert.match(workflow, /--attempts 30/);
-  assert.match(workflow, /npm run test:(?:029[MNO]|030[ABCDEFGHIJKLMNOP])/i);
+  assert.match(workflow, /npm run test:(?:029[MNO]|030[ABCDEFGHIJKLMNOPQ])/i);
 });
 
 test("Build 029M verifies the full live reliability path without personal data", () => {

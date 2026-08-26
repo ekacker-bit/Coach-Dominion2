@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Calendar Restore Repair
+
+- Keeps the committed active week visible even when optional rollover or legacy coaching context cannot be evaluated.
+- Opens a simplified, actionable Calendar from protected assignments instead of leaving the recruit on a permanent loading card.
+- Makes optional startup failures name the affected surface and underlying message without exposing account or health data.
+- Adds a safe retry path while preserving the signed Contract, active week, assignment identity, and saved evidence unchanged.
+
 ## Unreleased - Public Beta Integrity Repair
 
 - Aligns every Fuel persistence type with the database, safely normalizes legacy rows, and deduplicates retries until the exact payload is confirmed.

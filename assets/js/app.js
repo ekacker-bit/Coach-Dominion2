@@ -4614,6 +4614,22 @@ function setStartupRestoreProgress(message = "") {
   document.body.dataset.startupRestoreStep = message.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function finalizeStartupRecoverySummary(issues = [], state = startupAuthorityState) {
+  const readyPhase = String(state?.phase || "").toUpperCase() === "READY";
+  if (!readyPhase) return false;
+  const status = document.getElementById("account-truth-status");
+  const headline = document.getElementById("account-truth-headline");
+  const stillChecking = /checking|verifying|restoring/i.test(`${status?.textContent || ""} ${headline?.textContent || ""}`);
+  if (!stillChecking) return false;
+  const recovered = Array.isArray(issues) && issues.length > 0;
+  if (status) status.textContent = recovered ? "PROTECTED" : "READY";
+  if (headline) headline.textContent = recovered
+    ? "Saved program loaded. Optional context will retry without blocking your Calendar."
+    : "Saved program loaded.";
+  document.body.dataset.startupSummary = recovered ? "protected-recovery" : "ready";
+  return true;
+}
+
 function beginStartupRestoreWatch() {
   startupRestoreWatchTimers.forEach((timer) => window.clearTimeout(timer));
   startupRestoreWatchTimers = [
@@ -8212,7 +8228,7 @@ function weeklyOrchestrationBlockerMeta(item = {}) {
   return { label: "Calendar blocker", action: "Review", section: "calendar" };
 }
 
-function renderWeeklyOrchestrator() {
+function renderWeeklyOrchestratorContent() {
   const panel = document.getElementById("weekly-orchestrator-panel");
   const status = document.getElementById("weekly-orchestrator-status");
   if (!panel || !status || typeof DominionWeeklyOrchestrator === "undefined") return;
@@ -8362,6 +8378,74 @@ function renderWeeklyOrchestrator() {
     ${!blocking.length && advisories.length ? `<details class="weekly-orchestrator-alert"><summary>${advisories.length} coaching note${advisories.length === 1 ? "" : "s"}</summary><ul>${advisories.map((item) => `<li>${escapeHtml(item.detail)}</li>`).join("")}</ul></details>` : ""}
     <div class="weekly-orchestrator-week" aria-label="Complete coordinated week">${days}</div>
     <div class="weekly-orchestrator-actions"><p>${calendarView.mode === "ACTIVE" ? "This is the week Today executes. Build or edit the staged week without changing it." : escapeHtml(preview.message || "Review the complete week before commitment.")}${calendarView.mode === "STAGED" && existingSameWeek && savedDraft ? " This creates a future-week revision; the current week stays protected." : ""}</p><div>${calendarView.mode === "STAGED" && savedDraft ? `<button type="button" class="ghost" data-weekly-orchestrator-action="rebuild">Rebuild draft</button>` : ""}${controls}</div></div>`;
+  document.body.dataset.calendarRender = "ready";
+}
+
+function calendarRecoveryWeek() {
+  try {
+    const active = readCommittedUnifiedWeek(todayISODate());
+    if (active) return active;
+  } catch (_) {}
+  try {
+    const history = readUnifiedWeekHistory();
+    const today = todayISODate();
+    return history.find((week) => week?.status !== "REPLACED" && week?.weekStart <= today && week?.weekEnd >= today)
+      || history.find((week) => week?.status === "COMMITTED")
+      || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function calendarRecoveryMarkup(week = null) {
+  if (!week) {
+    return `<div class="performance-empty calendar-render-recovery"><strong>Calendar needs another check.</strong><br>Your signed Contract and saved plans were not changed.<div><button type="button" data-weekly-orchestrator-action="retry-render">Try Calendar again</button></div></div>`;
+  }
+  const days = Array.isArray(week.days) ? week.days : [];
+  const schedule = days.map((day) => {
+    const activities = Array.isArray(day?.activities) ? day.activities : [];
+    const assignments = activities.length
+      ? activities.map((item) => {
+        const module = String(item?.module || "TRAINING").toUpperCase();
+        const logAction = String(day?.date || "") === todayISODate() && module === "STRENGTH"
+          ? `<button type="button" class="calendar-execution-link" data-calendar-execution-action="strength" data-calendar-assignment-id="${escapeHtml(String(item?.assignmentId || item?.id || item?.activityId || ""))}" data-calendar-session-id="${escapeHtml(String(item?.sessionId || item?.sourceId || ""))}">Log assigned workout</button>`
+          : "";
+        return `<div class="weekly-orchestrator-activity ${escapeHtml(module.toLowerCase())}"><span>${escapeHtml(module)}</span><strong>${escapeHtml(String(item?.title || "Assigned session"))}</strong><small>${Number(item?.estimatedMinutes) > 0 ? `${escapeHtml(String(item.estimatedMinutes))} min` : "Scheduled"}</small>${logAction}</div>`;
+      }).join("")
+      : `<div class="weekly-orchestrator-recovery"><strong>Recovery</strong><small>No assigned training</small></div>`;
+    const date = String(day?.date || "");
+    const label = String(day?.weekday || date || "Day");
+    return `<article class="weekly-orchestrator-day recovery-view"><header><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(date.slice(5) || "—")}</strong></div></header><div>${assignments}</div></article>`;
+  }).join("");
+  return `<article class="weekly-orchestrator-active calendar-render-recovery"><div><span class="kicker">ACTIVE WEEK PROTECTED</span><strong>${escapeHtml(String(week.weekStart || ""))} to ${escapeHtml(String(week.weekEnd || ""))}</strong><p>Your saved assignments are available below. Extra coaching context will return after the next successful check.</p></div><span class="state-pill green">ACTIVE</span></article><div class="weekly-orchestrator-week" aria-label="Protected active week">${schedule}</div><div class="weekly-orchestrator-actions"><p>No Contract, plan, or assignment was replaced.</p><div><button type="button" data-weekly-orchestrator-action="retry-render">Try full Calendar</button></div></div>`;
+}
+
+function renderWeeklyOrchestratorRecovery(error = null) {
+  const panel = document.getElementById("weekly-orchestrator-panel");
+  const status = document.getElementById("weekly-orchestrator-status");
+  if (!panel || !status) return null;
+  const week = calendarRecoveryWeek();
+  status.textContent = week ? "ACTIVE · LIMITED VIEW" : "CALENDAR RECOVERY";
+  status.className = "state-pill yellow";
+  panel.innerHTML = calendarRecoveryMarkup(week);
+  document.body.dataset.calendarRender = "recovered";
+  setText("weekly-orchestrator-feedback", week
+    ? "Your active week is protected. Calendar opened a simplified view while the extra context recovers."
+    : "Calendar needs another check. Your signed program remains protected.");
+  const detail = String(error?.message || "Calendar render could not be completed").replace(/[\r\n]+/g, " ").slice(0, 180);
+  console.info(`[calendar:render-recovery] ${detail}`);
+  reportSafeRuntimeError("calendar_render", error);
+  return week;
+}
+
+function renderWeeklyOrchestrator() {
+  try {
+    const result = renderWeeklyOrchestratorContent();
+    if (!document.body.dataset.calendarRender) document.body.dataset.calendarRender = "ready";
+    return result;
+  } catch (error) {
+    return renderWeeklyOrchestratorRecovery(error);
+  }
 }
 
 async function discardRecruitContractDraft() {
@@ -14146,7 +14230,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030p", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030q", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -14902,38 +14986,54 @@ function readWeeklyRolloverReceipt(targetWeekStart = "") {
 
 function buildCurrentWeeklyRolloverCertification(options = {}) {
   if (typeof DominionWeeklyRolloverCertification === "undefined") return null;
-  const reconciliation = options.reconciliation
-    || currentAtlasWeeklyReconciliation
-    || readAtlasWeeklyReconciliation()
-    || readAtlasWeeklyReconciliationHistory()[0]
-    || null;
-  if (!reconciliation?.id) {
-    currentWeeklyRolloverCertification = null;
-    return null;
+  try {
+    const reconciliation = options.reconciliation
+      || currentAtlasWeeklyReconciliation
+      || readAtlasWeeklyReconciliation()
+      || readAtlasWeeklyReconciliationHistory()[0]
+      || null;
+    if (!reconciliation?.id) {
+      currentWeeklyRolloverCertification = null;
+      return null;
+    }
+    const sourceWeek = options.sourceWeek
+      || readUnifiedWeekHistory().find((week) => week?.id === reconciliation?.packet?.activeWeekId)
+      || readCommittedUnifiedWeekByStart(reconciliation?.packet?.weekStart)
+      || null;
+    const targetWeekStart = reconciliation?.verdict?.targetWeekStart || reconciliation?.commitReceipt?.targetWeekStart || "";
+    const targetWeek = options.targetWeek || readCommittedUnifiedWeekByStart(targetWeekStart);
+    const currentDate = String(options.currentDate || todayISODate()).slice(0, 10);
+    const priorReceipt = options.priorReceipt || readWeeklyRolloverReceipt(targetWeekStart);
+    const result = DominionWeeklyRolloverCertification.evaluate({
+      reconciliation,
+      sourceWeek,
+      targetWeek,
+      calendarReceipt: options.calendarReceipt || matchingCalendarCommitReceipt(targetWeek),
+      weeks: readUnifiedWeekHistory(),
+      currentDate,
+      resolvedWeek: readCommittedUnifiedWeek(currentDate),
+      canonicalCommand: targetWeek && currentDate >= targetWeek.weekStart && currentDate <= targetWeek.weekEnd
+        ? buildCurrentCanonicalDailyCommand(currentDate)
+        : null,
+      priorReceipt
+    });
+    currentWeeklyRolloverCertification = result;
+    return result;
+  } catch (error) {
+    const detail = String(error?.message || "Week handoff could not be verified").replace(/[\r\n]+/g, " ").slice(0, 180);
+    currentWeeklyRolloverCertification = {
+      valid: false,
+      status: "BLOCKED",
+      code: "ROLLOVER_RECOVERY_REQUIRED",
+      headline: "Week handoff needs review",
+      detail: "Your active Calendar remains protected. Review the prior week when you are ready.",
+      repair: { action: { label: "Open Review", section: "inspection" } }
+    };
+    document.body.dataset.weeklyRollover = "recovered";
+    console.info(`[weekly-rollover:recovery] ${detail}`);
+    reportSafeRuntimeError("weekly_rollover", error);
+    return currentWeeklyRolloverCertification;
   }
-  const sourceWeek = options.sourceWeek
-    || readUnifiedWeekHistory().find((week) => week?.id === reconciliation?.packet?.activeWeekId)
-    || readCommittedUnifiedWeekByStart(reconciliation?.packet?.weekStart)
-    || null;
-  const targetWeekStart = reconciliation?.verdict?.targetWeekStart || reconciliation?.commitReceipt?.targetWeekStart || "";
-  const targetWeek = options.targetWeek || readCommittedUnifiedWeekByStart(targetWeekStart);
-  const currentDate = String(options.currentDate || todayISODate()).slice(0, 10);
-  const priorReceipt = options.priorReceipt || readWeeklyRolloverReceipt(targetWeekStart);
-  const result = DominionWeeklyRolloverCertification.evaluate({
-    reconciliation,
-    sourceWeek,
-    targetWeek,
-    calendarReceipt: options.calendarReceipt || matchingCalendarCommitReceipt(targetWeek),
-    weeks: readUnifiedWeekHistory(),
-    currentDate,
-    resolvedWeek: readCommittedUnifiedWeek(currentDate),
-    canonicalCommand: targetWeek && currentDate >= targetWeek.weekStart && currentDate <= targetWeek.weekEnd
-      ? buildCurrentCanonicalDailyCommand(currentDate)
-      : null,
-    priorReceipt
-  });
-  currentWeeklyRolloverCertification = result;
-  return result;
 }
 
 async function saveWeeklyRolloverCertification(result = null, options = {}) {
@@ -14961,10 +15061,11 @@ async function reconcileWeeklyRolloverCertification(options = {}) {
 
 function weeklyRolloverCertificationMarkup(result = null, mode = "review") {
   if (!result) return "";
+  const status = String(result.status || (result.valid ? "READY" : "BLOCKED")).toUpperCase();
   if (!result.valid) return `<aside class="weekly-rollover-certification blocked ${escapeHtml(mode)}" data-rollover-state="BLOCKED"><div><span>WEEK HANDOFF</span><strong>${escapeHtml(result.headline)}</strong><small>${escapeHtml(result.detail)}</small></div><a href="#${escapeHtml(result.repair?.action?.section || "review")}" data-section="${escapeHtml(result.repair?.action?.section || "review")}">${escapeHtml(result.repair?.action?.label || "Repair handoff")}</a></aside>`;
-  if (mode !== "review") return `<aside class="weekly-rollover-certification compact ${escapeHtml(result.status.toLowerCase())} ${escapeHtml(mode)}" data-rollover-state="${escapeHtml(result.status)}"><div><span>WEEK HANDOFF · ${escapeHtml(result.status)}</span><strong>${escapeHtml(result.headline)}</strong><small>${escapeHtml(result.detail)}</small></div><b>R${escapeHtml(String(result.receipt?.targetWeekRevision || 0))}</b></aside>`;
+  if (mode !== "review") return `<aside class="weekly-rollover-certification compact ${escapeHtml(status.toLowerCase())} ${escapeHtml(mode)}" data-rollover-state="${escapeHtml(status)}"><div><span>WEEK HANDOFF · ${escapeHtml(status)}</span><strong>${escapeHtml(result.headline)}</strong><small>${escapeHtml(result.detail)}</small></div><b>R${escapeHtml(String(result.receipt?.targetWeekRevision || 0))}</b></aside>`;
   const changes = (result.changes?.changes || []).slice(0, 3).map((item) => `<li><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(String(item.before))} → ${escapeHtml(String(item.after))}</strong></li>`).join("");
-  return `<aside class="weekly-rollover-certification review ${escapeHtml(result.status.toLowerCase())}" data-rollover-state="${escapeHtml(result.status)}"><header><div><span>WEEK HANDOFF · ${escapeHtml(result.status)}</span><strong>${escapeHtml(result.headline)}</strong></div><b>R${escapeHtml(String(result.receipt?.targetWeekRevision || 0))}</b></header><ul>${changes}</ul><footer><p><span>WHY</span>${escapeHtml(result.why)}</p><p><span>EFFECTIVE</span>${escapeHtml(result.effectiveDate)}</p></footer></aside>`;
+  return `<aside class="weekly-rollover-certification review ${escapeHtml(status.toLowerCase())}" data-rollover-state="${escapeHtml(status)}"><header><div><span>WEEK HANDOFF · ${escapeHtml(status)}</span><strong>${escapeHtml(result.headline)}</strong></div><b>R${escapeHtml(String(result.receipt?.targetWeekRevision || 0))}</b></header><ul>${changes}</ul><footer><p><span>WHY</span>${escapeHtml(result.why)}</p><p><span>EFFECTIVE</span>${escapeHtml(result.effectiveDate)}</p></footer></aside>`;
 }
 
 function renderWeeklyRolloverCertification() {
@@ -23862,10 +23963,9 @@ async function runStartupTask(label, task, issues = []) {
   try {
     return await task();
   } catch (error) {
-    issues.push({ label, message: error?.message || "Unknown startup error" });
-    console.info(`[startup:${label}] Optional surface used protected local state.`, {
-      message: error?.message || "Unknown startup error"
-    });
+    const detail = String(error?.message || "Unknown startup error").replace(/[\r\n]+/g, " ").slice(0, 180);
+    issues.push({ label, message: detail });
+    console.info(`[startup:${label}] Optional surface used protected local state: ${detail}`);
     if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "startup_recovery")) {
       void reportSyncLifecycle("startup_recovery", { surface: label, code: error?.code || "LOCAL_FALLBACK" });
     }
@@ -24059,6 +24159,7 @@ async function init() {
       });
     }
     setStartupAuthority(authoritativeStartup);
+    finalizeStartupRecoverySummary(startupIssues, authoritativeStartup);
     endStartupRestoreWatch();
     if (authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY) {
       const activatedCommand = await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
@@ -25220,6 +25321,14 @@ if (typeof document !== "undefined") {
     const weekButton = event.target.closest("button[data-weekly-orchestrator-action]");
     if (weekButton && typeof DominionWeeklyOrchestrator !== "undefined") {
       const action = weekButton.dataset.weeklyOrchestratorAction;
+      if (action === "retry-render") {
+        delete document.body.dataset.calendarRender;
+        renderWeeklyOrchestrator();
+        if (document.body.dataset.calendarRender === "ready") {
+          setText("weekly-orchestrator-feedback", "Calendar restored from your protected active week.");
+        }
+        return;
+      }
       if (action === "view-active" || action === "view-staged") {
         document.body.dataset.calendarWeekView = action === "view-staged" ? "STAGED" : "ACTIVE";
         renderWeeklyOrchestrator();

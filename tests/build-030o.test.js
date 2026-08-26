@@ -19,16 +19,16 @@ const packageJson = JSON.parse(read("package.json"));
 const preview = read("tests/fixtures/rank-handoff-preview.html");
 
 test("030O remains cache-busted and guarded by the current production release", () => {
-  assert.match(html, /coach-dominion-release" content="030[OPQRS]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[OPQRST]\.1"/);
   assert.match(html, /rank-advancement-handoff\.js\?v=030o/);
   assert.ok(html.indexOf("rank-advancement-handoff.js?v=030o") < html.indexOf("app.js?v="));
   assert.match(worker, /030o-advancement-handoff/);
   assert.match(worker, /rank-advancement-handoff\.js\?v=030o/);
-  assert.match(app, /register\("\/sw\.js\?v=030[opqrs]"/);
-  assert.match(health, /release: "030[OPQRS]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[opqrst]"/);
+  assert.match(health, /release: "030[OPQRST]\.1"/);
   assert.match(health, /rankHandoff: "earned-rank-acknowledged"/);
-  assert.match(workflow, /npm run test:030[opqrs]/);
-  assert.match(workflow, /--expected-release 030[OPQRS]\.1/);
+  assert.match(workflow, /npm run test:030[opqrst]/);
+  assert.match(workflow, /--expected-release 030[OPQRST]\.1/);
   assert.match(packageJson.scripts["test:030o"], /rank-advancement-handoff\.test\.js/);
 });
 

@@ -23,6 +23,7 @@
     weeklyExecutions: 52,
     rankAdvancements: 12,
     rankHandoffs: 12,
+    nextDayHandoffs: 120,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -184,7 +185,8 @@
       weeklyRollovers: mergeCollection(value.weeklyRollovers || [], [], COLLECTION_LIMITS.weeklyRollovers),
       weeklyExecutions: mergeCollection(value.weeklyExecutions || [], [], COLLECTION_LIMITS.weeklyExecutions),
       rankAdvancements: mergeCollection(value.rankAdvancements || [], [], COLLECTION_LIMITS.rankAdvancements),
-      rankHandoffs: mergeCollection(value.rankHandoffs || [], [], COLLECTION_LIMITS.rankHandoffs)
+      rankHandoffs: mergeCollection(value.rankHandoffs || [], [], COLLECTION_LIMITS.rankHandoffs),
+      nextDayHandoffs: mergeCollection(value.nextDayHandoffs || [], [], COLLECTION_LIMITS.nextDayHandoffs)
     };
     return clone(value || {});
   }
@@ -257,7 +259,8 @@
       weeklyRollovers: mergeCollection(device.weeklyRollovers, account.weeklyRollovers, COLLECTION_LIMITS.weeklyRollovers),
       weeklyExecutions: mergeCollection(device.weeklyExecutions, account.weeklyExecutions, COLLECTION_LIMITS.weeklyExecutions),
       rankAdvancements: mergeCollection(device.rankAdvancements, account.rankAdvancements, COLLECTION_LIMITS.rankAdvancements),
-      rankHandoffs: mergeCollection(device.rankHandoffs, account.rankHandoffs, COLLECTION_LIMITS.rankHandoffs)
+      rankHandoffs: mergeCollection(device.rankHandoffs, account.rankHandoffs, COLLECTION_LIMITS.rankHandoffs),
+      nextDayHandoffs: mergeCollection(device.nextDayHandoffs, account.nextDayHandoffs, COLLECTION_LIMITS.nextDayHandoffs)
     };
     return chooseNewer(device, account);
   }

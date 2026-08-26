@@ -45,12 +45,12 @@ test("Build 029O is identifiable, cached, and production-gated", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const packageJson = read("package.json");
-  assert.match(html, /coach-dominion-release" content="(?:029O|030[ABCDEFGHIJKLMNOPQRS])\.1"/);
+  assert.match(html, /coach-dominion-release" content="(?:029O|030[ABCDEFGHIJKLMNOPQRST])\.1"/);
   assert.match(worker, /029o-beta-journey-certification/);
   assert.match(worker, /beta-journey-certification\.js\?v=029o(?:-030a)?(?:-030d)?/);
-  assert.match(health, /release: "(?:029O|030[ABCDEFGHIJKLMNOPQRS])\.1"/);
+  assert.match(health, /release: "(?:029O|030[ABCDEFGHIJKLMNOPQRST])\.1"/);
   assert.match(health, /betaJourney: "available"/);
-  assert.match(workflow, /npm run test:(?:029o|030[abcdefghijklmnopqrs])/);
-  assert.match(workflow, /--expected-release (?:029O|030[ABCDEFGHIJKLMNOPQRS])\.1/);
+  assert.match(workflow, /npm run test:(?:029o|030[abcdefghijklmnopqrst])/);
+  assert.match(workflow, /--expected-release (?:029O|030[ABCDEFGHIJKLMNOPQRST])\.1/);
   assert.match(packageJson, /"test:029o"/);
 });

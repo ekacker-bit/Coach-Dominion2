@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Next-Day Command Handoff
+
+- Turns a certified closeout and Atlas decision into one deterministic next-day command shared by Calendar, Today, Train, Quick Log, and Fuel.
+- Requires one clear choice before a proposed reduction or advance can alter the committed day.
+- Keeps a newer signed Contract or committed week in command instead of letting stale coaching rewrite current authority.
+- Confirms the exact handoff receipt in Account Truth so the same command restores on another session or device.
+- Keeps the visible Today message concise: the plan holds, recovery governs, or one action is required.
+
 ## Unreleased - Real Recruit Daily Loop Certification
 
 - Certifies one complete day from the signed Contract and committed week through Calendar, Today, Train, Quick Log, Daily Closeout, and Atlas's next-day decision.

@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030P.1";
+  const VERSION = "030R.1";
   const OATH_VERSION = "DOMINION_OATH_019A";
   const ACTIVE_EXECUTION_STATES = new Set(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const TERMINAL_EXECUTION_STATES = new Set(["COMPLETE", "COMPLETED", "PARTIAL", "STOPPED", "CANCELLED", "CANCELED"]);
@@ -89,6 +89,19 @@
     return date(value.operationalDate || value.date || value.startedAt || value.createdAt || value.updatedAt);
   }
 
+  function dayDistance(left = "", right = "") {
+    const start = Date.parse(`${date(left) || ""}T00:00:00Z`);
+    const end = Date.parse(`${date(right) || ""}T00:00:00Z`);
+    return Number.isFinite(start) && Number.isFinite(end) ? Math.round((end - start) / 86400000) : null;
+  }
+
+  function weekBounds(week = {}) {
+    return Object.freeze({
+      start: date(week.weekStart || week.week_start),
+      end: date(week.weekEnd || week.week_end)
+    });
+  }
+
   function sessionLabel(value = {}) {
     return text(value.sessionName || value.title || value.sessionSnapshot?.sessionName || value.sessionSnapshot?.title || value.sessionId || "Strength session");
   }
@@ -104,24 +117,79 @@
     return JSON.stringify(contractOperatingState(left)) === JSON.stringify(contractOperatingState(right));
   }
 
+  function resolveOperatingProgramAuthority(input = {}) {
+    const today = date(input.today) || new Date().toISOString().slice(0, 10);
+    const signedContract = input.signedContract || null;
+    const activeWeek = input.activeWeek || input.committedWeek || null;
+    const receipt = input.receipt || input.activationReceipt || null;
+    const signedRevision = revision(signedContract);
+    const weekRevision = revision(activeWeek);
+    const receiptRevision = revision(receipt);
+    const bounds = weekBounds(activeWeek || {});
+    const weekCoversToday = Boolean(bounds.start && bounds.end && bounds.start <= today && today <= bounds.end);
+    const signedWeek = Boolean(weekCoversToday && weekRevision && (!signedRevision || weekRevision <= signedRevision));
+    const contractRevision = signedWeek ? weekRevision : receiptRevision || signedRevision || weekRevision || null;
+    const programId = text((signedWeek ? activeWeek?.programId : receipt?.programId)
+      || activeWeek?.programId || receipt?.programId || input.programId) || null;
+    return Object.freeze({
+      version: VERSION,
+      today,
+      signedRevision: signedRevision || null,
+      weekRevision: weekRevision || null,
+      receiptRevision: receiptRevision || null,
+      contractRevision,
+      programId,
+      signedWeekAuthoritative: signedWeek,
+      receiptDeferred: Boolean(signedWeek && receiptRevision && receiptRevision !== weekRevision),
+      source: signedWeek ? "SIGNED_ACTIVE_WEEK" : receiptRevision ? "ACTIVATION_RECEIPT" : signedRevision ? "SIGNED_CONTRACT" : "NONE"
+    });
+  }
+
   function resolveActiveStrengthSession(input = {}) {
     const today = date(input.today) || new Date().toISOString().slice(0, 10);
+    const staleAfterDays = Math.max(1, Number(input.staleAfterDays || 7));
     const executions = (Array.isArray(input.executions) ? input.executions : []).filter(Boolean)
       .filter((item, index, values) => {
         const key = assignmentId(item) || item.id || `${executionDate(item)}:${sessionLabel(item)}`;
         return values.findIndex((candidate) => (assignmentId(candidate) || candidate.id || `${executionDate(candidate)}:${sessionLabel(candidate)}`) === key) === index;
       });
     const scheduled = (Array.isArray(input.assignments) ? input.assignments : []).filter(Boolean);
-    const active = executions.filter(activeExecution).sort((left, right) => {
+    const todayAssignment = scheduled.find((item) => date(item.date) === today)
+      || (scheduled.some((item) => date(item.date)) ? null : scheduled[0])
+      || null;
+    const scheduledId = todayAssignment ? assignmentId(todayAssignment, { allowId: true }) : null;
+    const bounds = weekBounds(input.committedWeek || {});
+    const activeCandidates = executions.filter(activeExecution).sort((left, right) => {
       const leftDate = executionDate(left) || "9999-12-31";
       const rightDate = executionDate(right) || "9999-12-31";
       return leftDate.localeCompare(rightDate) || (Date.parse(left.startedAt || left.updatedAt || 0) - Date.parse(right.startedAt || right.updatedAt || 0));
-    })[0] || null;
-    const todayAssignment = scheduled.find((item) => date(item.date) === today) || scheduled[0] || null;
+    });
+    const currentAssignmentExecution = activeCandidates.find((item) => scheduledId && assignmentId(item) === scheduledId) || null;
+    const currentWeekExecution = activeCandidates.find((item) => {
+      const value = executionDate(item);
+      return value && bounds.start && bounds.end && bounds.start <= value && value <= bounds.end;
+    }) || null;
+    const selectedActive = currentAssignmentExecution || currentWeekExecution || activeCandidates[0] || null;
+    const retirementCandidates = activeCandidates.filter((item) => {
+      const value = executionDate(item);
+      const age = dayDistance(value, today);
+      return Boolean(bounds.start && value && value < bounds.start && age !== null && age >= staleAfterDays);
+    }).map((item) => Object.freeze({
+      execution: item,
+      executionId: text(item.id || item.sessionId || assignmentId(item)) || null,
+      assignmentId: assignmentId(item) || null,
+      sessionName: sessionLabel(item),
+      operationalDate: executionDate(item),
+      ageDays: dayDistance(executionDate(item), today),
+      action: "ARCHIVE_INCOMPLETE",
+      reason: "Historical session predates the signed active week"
+    }));
+    const selectedRetiresAutomatically = retirementCandidates.some((item) => item.execution === selectedActive);
+    const active = selectedRetiresAutomatically ? null : selectedActive;
+    const historicalExecution = selectedRetiresAutomatically ? selectedActive : null;
     const activeId = active ? assignmentId(active) || `legacy-strength:${active.id || executionDate(active) || "active"}` : null;
-    const scheduledId = todayAssignment ? assignmentId(todayAssignment, { allowId: true }) : null;
     const waitingAssignment = active && todayAssignment && activeId !== scheduledId ? todayAssignment : null;
-    const duplicateActiveIds = executions.filter(activeExecution).map((item) => assignmentId(item) || item.id).filter(Boolean);
+    const duplicateActiveIds = activeCandidates.map((item) => assignmentId(item) || item.id).filter(Boolean);
     const signedContractRevisionId = text(input.signedContract?.id || input.signedContractId) || null;
     const committedWeekId = text(input.committedWeek?.id || input.committedWeekId || todayAssignment?.weekId) || null;
     const evidence = (Array.isArray(input.evidence) ? input.evidence : []).find((item) => assignmentId(item) === activeId) || null;
@@ -134,6 +202,9 @@
       version: VERSION,
       today,
       activeExecution: active,
+      historicalExecution,
+      retirementCandidates: Object.freeze(retirementCandidates),
+      authority: active ? "ACTIVE_EXECUTION" : todayAssignment ? "SIGNED_WEEK_ASSIGNMENT" : "UNSCHEDULED",
       activeAssignmentId: activeId,
       activeSessionLabel: active ? sessionLabel(active) : null,
       activeOperationalDate: active ? executionDate(active) : null,
@@ -270,6 +341,7 @@
     activeExecution,
     contractOperatingState,
     sameOperatingContract,
+    resolveOperatingProgramAuthority,
     resolveActiveStrengthSession,
     endIncompleteSession,
     resolvePlanRevisionStatus,

@@ -15,15 +15,15 @@ test("030P is cache-busted, offline-cached, and production gated", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = JSON.parse(read("package.json"));
-  assert.match(html, /coach-dominion-release" content="030[PQ]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[PQR]\.1"/);
   assert.match(html, /nutrition-state-contract\.js\?v=030p/);
   assert.ok(html.indexOf("nutrition-state-contract.js?v=030p") < html.indexOf("app.js?v="));
   assert.match(worker, /030p-public-beta-integrity-repair/);
   assert.match(worker, /nutrition-state-contract\.js\?v=030p/);
-  assert.match(app, /register\("\/sw\.js\?v=030[pq]"/);
-  assert.match(health, /release: "030[PQ]\.1"/);
-  assert.match(workflow, /npm run test:030[pq]/);
-  assert.match(workflow, /--expected-release 030[PQ]\.1/);
+  assert.match(app, /register\("\/sw\.js\?v=030[pqr]"/);
+  assert.match(health, /release: "030[PQR]\.1"/);
+  assert.match(workflow, /npm run test:030[pqr]/);
+  assert.match(workflow, /--expected-release 030[PQR]\.1/);
   assert.match(pkg.scripts["test:030p"], /public-beta-integrity\.test\.js/);
 });
 

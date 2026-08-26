@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Real Recruit Daily Loop Certification
+
+- Certifies one complete day from the signed Contract and committed week through Calendar, Today, Train, Quick Log, Daily Closeout, and Atlas's next-day decision.
+- Stops the line when those surfaces disagree, while preserving partial and missed work honestly instead of inventing completion.
+- Locks a deterministic day receipt locally, then upgrades it to account-certified only after the exact payload is confirmed by the database.
+- Restores the same receipt through Account Truth on another session or device and keeps the visible result concise: Day secured, protected, or action required.
+- Adds a seven-scenario release gate and desktop/mobile visual fixture covering open, sealed, divergent, protected, certified, and restored daily loops.
+
 ## Unreleased - Execution Authority Reconciliation
 
 - Makes the signed active week—not a stale workout index or activation receipt—the source of truth for Today, Calendar, Train, and Review.

@@ -3221,6 +3221,25 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
 .daily-closeout-receipt > div { display: grid; gap: 4px; }
 .daily-closeout-receipt strong { color: var(--text); font-size: 18px; }
 .daily-closeout-receipt p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 11px; }
+.daily-loop-certification {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(170px, .7fr) minmax(0, 1.3fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(212, 175, 55, .34);
+  border-left: 4px solid var(--victory-gold);
+  border-radius: 8px;
+  background: linear-gradient(110deg, rgba(212, 175, 55, .11), rgba(10, 10, 10, .46));
+}
+.daily-loop-certification[hidden] { display: none !important; }
+.daily-loop-certification[data-daily-loop-state="certified"] { border-color: rgba(114, 169, 127, .48); border-left-color: var(--ascent-green); background: linear-gradient(110deg, rgba(46, 75, 52, .26), rgba(10, 10, 10, .46)); }
+.daily-loop-certification[data-daily-loop-state="action_required"] { border-color: rgba(164, 58, 54, .48); border-left-color: var(--red); }
+.daily-loop-certification > div { display: grid; gap: 3px; }
+.daily-loop-certification span { color: var(--gold); font: 800 10px var(--font-body); letter-spacing: .12em; }
+.daily-loop-certification strong { color: var(--text); font: 30px/1 var(--font-command); letter-spacing: .03em; text-transform: uppercase; }
+.daily-loop-certification p { margin: 0; color: var(--text); line-height: 1.45; }
+.daily-loop-certification small { color: var(--muted); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .daily-closeout-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .daily-closeout-actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .daily-closeout-actions button { flex: 0 0 auto; min-height: 48px; }
@@ -3271,6 +3290,9 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
   .daily-closeout-discipline legend small { display: block; margin: 3px 0 0; }
   .daily-closeout-receipt { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .daily-closeout-receipt strong { font-size: 15px; }
+  .daily-loop-certification { grid-template-columns: 1fr; gap: 8px; padding: 14px 12px; }
+  .daily-loop-certification strong { font-size: 26px; }
+  .daily-loop-certification small { white-space: normal; }
   .daily-closeout-actions { display: grid; }
   .daily-closeout-actions button { width: 100%; }
   .weekly-closeout-evidence { padding: 14px 12px; }

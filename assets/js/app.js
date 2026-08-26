@@ -78,6 +78,7 @@ let currentAtlasAdaptiveWeek = null;
 let currentAtlasWeeklyReconciliation = null;
 let currentWeeklyRolloverCertification = null;
 let currentWeekExecutionCertification = null;
+let currentDailyLoopCertification = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -835,6 +836,11 @@ function readCalendarCommitReceipts() {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readDailyLoopCertificationHistory() {
+  const receipts = readClosedLoopState("HISTORY", "daily-loop-certification", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
 function saveCalendarCommitReceipt(receipt = null) {
   if (!receipt?.id) return [];
   const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
@@ -875,7 +881,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       missionReceipts: accountTruthMissionEvidence(),
       reconciliationReceipts: readContractReconciliationReceipts(),
       journeyReceipts: readJourneyCertificationReceipts(),
-      calendarCommitReceipts: readCalendarCommitReceipts()
+      calendarCommitReceipts: readCalendarCommitReceipts(),
+      dailyLoopReceipts: readDailyLoopCertificationHistory()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -950,6 +957,9 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const calendarCommitReceipts = DominionAccountTruth.mergeCollection(readCalendarCommitReceipts(), evidence.calendarCommitReceipts, DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts);
     if (DominionAccountTruth.semanticFingerprint(calendarCommitReceipts) !== DominionAccountTruth.semanticFingerprint(readCalendarCommitReceipts())) restored += 1;
     saveClosedLoopLocal("HISTORY", "calendar-commit-receipts", calendarCommitReceipts);
+    const dailyLoopReceipts = DominionAccountTruth.mergeCollection(readDailyLoopCertificationHistory(), evidence.dailyLoopReceipts, DominionAccountTruth.COLLECTION_LIMITS.dailyLoopReceipts);
+    if (DominionAccountTruth.semanticFingerprint(dailyLoopReceipts) !== DominionAccountTruth.semanticFingerprint(readDailyLoopCertificationHistory())) restored += 1;
+    saveClosedLoopLocal("HISTORY", "daily-loop-certification", dailyLoopReceipts);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -1028,7 +1038,7 @@ function renderAccountTruthHealth() {
   setText("account-truth-program", snapshot?.programFingerprint ? "LOCKED" : "CHECKING");
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
-  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0);
+  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0) + (evidence.dailyLoopReceipts?.length || 0);
   const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
@@ -11679,7 +11689,7 @@ async function reconcileStrengthExecutionAuthority(options = {}) {
   const receipt = Object.freeze({
     id: `execution-authority-${today}-${String(archived[0]?.executionId || "historical").replace(/[^a-z0-9_-]+/gi, "-")}`,
     type: "EXECUTION_AUTHORITY_RECONCILIATION",
-    version: "030R.1",
+    version: "030S.1",
     status: "RECONCILED",
     reconciledAt,
     signedContractId: resolution.signedContractRevisionId,
@@ -14364,7 +14374,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030r", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030s", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15288,6 +15298,121 @@ async function reconcileAtlasClosedLoopDecision(closeout = readDailyCloseout()) 
   return decision;
 }
 
+function dailyLoopSurfaceAssignments(date = todayISODate(), ledger = buildCurrentExecutionLedger(date)) {
+  if (!ledger || typeof DominionDailyLoopCertification === "undefined") return {};
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const applicable = (ledger.entries || []).filter((entry) => !["superseded", "cancelled"].includes(String(entry.state || "").toLowerCase()));
+  const expected = applicable.map((entry) => ({ assignmentId: entry.assignmentId }));
+  const calendar = currentExecutionLedgerAssignments(targetDate);
+  const canonical = targetDate === todayISODate()
+    ? (currentCanonicalDailyCommand?.date === targetDate ? currentCanonicalDailyCommand : buildCurrentCanonicalDailyCommand(targetDate))
+    : null;
+  const today = [...(canonical?.schedule?.sessions || [])];
+  applicable.filter((entry) => entry.module === "nutrition" && !today.some((item) => String(item.assignmentId || item.id || "") === entry.assignmentId))
+    .forEach((entry) => today.push({ assignmentId: entry.assignmentId }));
+  return {
+    calendar,
+    today,
+    train: expected,
+    quickLog: expected
+  };
+}
+
+function buildCurrentDailyLoopCertification(date = todayISODate(), options = {}) {
+  if (typeof DominionDailyLoopCertification === "undefined") return null;
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const ledger = options.ledger || buildCurrentExecutionLedger(targetDate);
+  const week = options.week || readCommittedUnifiedWeek(targetDate);
+  const canonical = options.canonical || (targetDate === todayISODate()
+    ? (currentCanonicalDailyCommand?.date === targetDate ? currentCanonicalDailyCommand : buildCurrentCanonicalDailyCommand(targetDate))
+    : null);
+  const accountReceipts = options.accountReceipts
+    || accountTruthState.accountSnapshot?.domains?.evidence?.payload?.dailyLoopReceipts
+    || [];
+  return DominionDailyLoopCertification.evaluate({
+    date: targetDate,
+    contractRevision: Number(week?.contractRevision || readApprovedRecruitContract()?.revision || 0),
+    weekId: week?.id || week?.weekStart || null,
+    todayId: canonical?.id || null,
+    ledger,
+    closeout: options.closeout || readDailyCloseout(targetDate),
+    decision: options.decision || readAtlasClosedLoopDecision(targetDate),
+    surfaceAssignments: options.surfaceAssignments || dailyLoopSurfaceAssignments(targetDate, ledger),
+    accountReceipts,
+    serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null
+  });
+}
+
+async function persistDailyLoopCertificationHistory(history = []) {
+  if (!session?.user?.id || !Array.isArray(history) || !history[0]?.id) return { confirmed: false, row: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: "HISTORY",
+      state_key: "daily-loop-certification",
+      payload: history,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("state_type,state_key,payload,updated_at")
+      .single();
+    if (error) throw error;
+    const confirmed = data?.state_type === "HISTORY"
+      && data?.state_key === "daily-loop-certification"
+      && Array.isArray(data?.payload)
+      && data.payload.some((item) => item?.id === history[0].id);
+    return { confirmed, row: data || null };
+  } catch (error) {
+    return { confirmed: false, row: null, error };
+  }
+}
+
+async function reconcileDailyLoopCertification(options = {}) {
+  if (typeof DominionDailyLoopCertification === "undefined") return null;
+  const date = String(options.date || options.closeout?.date || todayISODate()).slice(0, 10);
+  let result = buildCurrentDailyLoopCertification(date, options);
+  if (!result) return null;
+  if (result.receipt) {
+    const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.dailyLoopReceipts;
+    let history = DominionDailyLoopCertification.upsertHistory(readDailyLoopCertificationHistory(), result.receipt, limit || 120);
+    saveClosedLoopLocal("HISTORY", "daily-loop-certification", history);
+    if (options.persist !== false) {
+      const confirmation = await persistDailyLoopCertificationHistory(history);
+      if (confirmation.confirmed) {
+        result = buildCurrentDailyLoopCertification(date, {
+          ...options,
+          accountReceipts: [result.receipt, ...(options.accountReceipts || [])],
+          serverConfirmed: true,
+          accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString()
+        });
+        history = DominionDailyLoopCertification.upsertHistory(history, result.receipt, limit || 120);
+        saveClosedLoopLocal("HISTORY", "daily-loop-certification", history);
+        await persistDailyLoopCertificationHistory(history);
+      }
+    }
+  }
+  currentDailyLoopCertification = result;
+  renderDailyLoopCertification(result);
+  return result;
+}
+
+function renderDailyLoopCertification(result = currentDailyLoopCertification || buildCurrentDailyLoopCertification()) {
+  const root = document.getElementById("daily-loop-certification");
+  if (!root) return result;
+  currentDailyLoopCertification = result;
+  const show = Boolean(result?.closeout?.sealed || result?.state === "ACTION_REQUIRED");
+  root.hidden = !show;
+  if (!show) return result;
+  const receiptCode = result.receipt?.id ? result.receipt.id.slice(-8).toUpperCase() : null;
+  const accountCopy = result.state === "CERTIFIED" ? "Account receipt confirmed" : result.state === "PROTECTED" ? "Account confirmation queued" : "Evidence remains protected";
+  root.dataset.dailyLoopState = String(result.state || "OPEN").toLowerCase();
+  root.innerHTML = `<div><span>${escapeHtml(result.state === "CERTIFIED" ? "DAY SECURED" : result.state.replaceAll("_", " "))}</span><strong>${escapeHtml(result.view.headline)}</strong></div><p>${escapeHtml(result.view.detail)}</p><small>${escapeHtml(accountCopy)}${receiptCode ? ` · ${escapeHtml(receiptCode)}` : ""}</small>`;
+  document.body.dataset.dailyLoopCertification = String(result.state || "OPEN").toLowerCase();
+  if (result.receipt?.id) document.body.dataset.dailyLoopReceipt = result.receipt.id;
+  return result;
+}
+
 function atlasDecisionProofReadiness(date = todayISODate()) {
   const state = dailyState?.date === date ? dailyState : readinessHistory.find((item) => item?.date === date) || null;
   if (!state) return { state: "UNKNOWN", pain: false };
@@ -15769,6 +15894,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   }
   updateDailyCloseoutPreview();
   renderAtlasClosedLoopDecision();
+  renderDailyLoopCertification();
 }
 
 async function submitDailyCloseout(event) {
@@ -15785,6 +15911,7 @@ async function submitDailyCloseout(event) {
     const stepsSynced = await applyCloseoutSteps(record);
     const verdict = await reconcileAtlasClosedLoopDecision(record);
     await reconcileAtlasDecisionProofs({ persist: true });
+    const dailyLoop = await reconcileDailyLoopCertification({ closeout: record, decision: verdict, persist: true });
     await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
@@ -15796,7 +15923,9 @@ async function submitDailyCloseout(event) {
     renderWeekExecutionCertification();
     const panel = document.getElementById("daily-closeout-panel");
     if (panel) panel.open = true;
-    setText("daily-closeout-feedback", `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${verdict?.headline || "Tomorrow's coaching call is ready"}.`);
+    setText("daily-closeout-feedback", dailyLoop?.view?.headline === "Day secured"
+      ? `${dailyLoop.view.headline}. ${dailyLoop.view.detail}`
+      : `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${dailyLoop?.view?.detail || verdict?.headline || "Tomorrow's coaching call is ready"}.`);
     document.getElementById("daily-ritual-action")?.focus({ preventScroll: true });
   } catch (error) {
     setText("daily-closeout-feedback", error.message || "The closeout could not be saved.");
@@ -15900,6 +16029,7 @@ async function loadClosedLoopState() {
       ["HISTORY", "outcome-plan"],
       ["CLOSEOUT", todayISODate()],
       ["HISTORY", "daily-closeout"],
+      ["HISTORY", "daily-loop-certification"],
       ["DAILY_VERDICT", todayISODate()],
       ["HISTORY", "atlas-closed-loop"],
       ["HISTORY", "atlas-decision-proof"],
@@ -24282,6 +24412,9 @@ async function init() {
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: false }), startupIssues);
     const authoritativeStartup = reconcileStartupAccountState();
+    await runStartupTask("daily loop certification", () => reconcileDailyLoopCertification({
+      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
+    }), startupIssues);
     setStartupRestoreProgress("Preparing Today.");
     const finalRenders = [
       ["Contract view", renderRecruitContract],

@@ -26,7 +26,8 @@
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
-    calendarCommitReceipts: 120
+    calendarCommitReceipts: 120,
+    dailyLoopReceipts: 120
   });
   const VOLATILE_KEYS = new Set([
     "capturedAt", "captured_at", "savedAt", "saved_at", "syncedAt", "synced_at",
@@ -170,7 +171,8 @@
       missionReceipts: mergeCollection(value.missionReceipts || [], [], COLLECTION_LIMITS.missionReceipts),
       reconciliationReceipts: mergeCollection(value.reconciliationReceipts || [], [], COLLECTION_LIMITS.reconciliationReceipts),
       journeyReceipts: mergeCollection(value.journeyReceipts || [], [], COLLECTION_LIMITS.journeyReceipts),
-      calendarCommitReceipts: mergeCollection(value.calendarCommitReceipts || [], [], COLLECTION_LIMITS.calendarCommitReceipts)
+      calendarCommitReceipts: mergeCollection(value.calendarCommitReceipts || [], [], COLLECTION_LIMITS.calendarCommitReceipts),
+      dailyLoopReceipts: mergeCollection(value.dailyLoopReceipts || [], [], COLLECTION_LIMITS.dailyLoopReceipts)
     };
     if (domain === "coaching") return {
       horizons: mergeCollection(value.horizons || [], [], COLLECTION_LIMITS.horizons),
@@ -242,7 +244,8 @@
       missionReceipts: mergeCollection(device.missionReceipts, account.missionReceipts, COLLECTION_LIMITS.missionReceipts),
       reconciliationReceipts: mergeCollection(device.reconciliationReceipts, account.reconciliationReceipts, COLLECTION_LIMITS.reconciliationReceipts),
       journeyReceipts: mergeCollection(device.journeyReceipts, account.journeyReceipts, COLLECTION_LIMITS.journeyReceipts),
-      calendarCommitReceipts: mergeCollection(device.calendarCommitReceipts, account.calendarCommitReceipts, COLLECTION_LIMITS.calendarCommitReceipts)
+      calendarCommitReceipts: mergeCollection(device.calendarCommitReceipts, account.calendarCommitReceipts, COLLECTION_LIMITS.calendarCommitReceipts),
+      dailyLoopReceipts: mergeCollection(device.dailyLoopReceipts, account.dailyLoopReceipts, COLLECTION_LIMITS.dailyLoopReceipts)
     };
     if (domain === "coaching") return {
       horizons: mergeCollection(device.horizons, account.horizons, COLLECTION_LIMITS.horizons),

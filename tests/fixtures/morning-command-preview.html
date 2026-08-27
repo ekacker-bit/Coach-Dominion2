@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Morning Command Preview</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=030u">
+  <style>
+    body{min-height:100vh;padding:32px;background:#0a0a0a}
+    .preview{max-width:860px;margin:auto;display:grid;gap:22px}
+    .preview>h1{margin:0;color:#e6e6e4}
+    .preview>p{margin:0 0 12px;color:#9ea5ae}
+    @media(max-width:720px){body{padding:14px}.preview{gap:16px}}
+  </style>
+</head>
+<body>
+  <main class="preview">
+    <h1>Today</h1>
+    <p>One active command. One direct path to execution.</p>
+    <section class="morning-command-activation" data-activation-state="certified">
+      <header><span>TODAY’S COMMAND</span><strong>Lower A</strong><em>CERTIFIED</em></header>
+      <p>This is the assignment authorized for execution now.</p>
+      <small>Certified from yesterday’s protected close.</small>
+      <div class="morning-command-actions"><button type="button">Open Lower A</button></div>
+    </section>
+    <section class="morning-command-activation" data-activation-state="decision_required">
+      <header><span>ONE DECISION</span><strong>What happens to Tempo?</strong><em>DECISION REQUIRED</em></header>
+      <p>Choose once. Nothing carries into today silently.</p>
+      <small>Yesterday · paused</small>
+      <div class="morning-command-actions">
+        <div class="morning-command-prior-actions">
+          <button type="button">Resume</button>
+          <button type="button" class="ghost">Reschedule</button>
+          <button type="button" class="ghost danger">Close incomplete</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

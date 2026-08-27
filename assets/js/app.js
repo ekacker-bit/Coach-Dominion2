@@ -80,6 +80,7 @@ let currentWeeklyRolloverCertification = null;
 let currentWeekExecutionCertification = null;
 let currentDailyLoopCertification = null;
 let currentNextDayCommandHandoff = null;
+let currentMorningCommandActivation = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -847,6 +848,16 @@ function readNextDayCommandHandoffHistory() {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readMorningCommandActivationHistory() {
+  const receipts = readClosedLoopState("HISTORY", "morning-command-activation", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
+function readMorningCommandResolutionHistory() {
+  const receipts = readClosedLoopState("HISTORY", "morning-command-resolution", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
 function saveCalendarCommitReceipt(receipt = null) {
   if (!receipt?.id) return [];
   const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
@@ -901,7 +912,9 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       weeklyExecutions: readWeekExecutionCertificationHistory(),
       rankAdvancements: readRankAdvancementHistory(),
       rankHandoffs: readRankAdvancementHandoffHistory(),
-      nextDayHandoffs: readNextDayCommandHandoffHistory()
+      nextDayHandoffs: readNextDayCommandHandoffHistory(),
+      morningActivations: readMorningCommandActivationHistory(),
+      morningResolutions: readMorningCommandResolutionHistory()
     }
   }, {
     userId: session?.user?.id || null,
@@ -978,6 +991,8 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const rankAdvancements = DominionAccountTruth.mergeCollection(readRankAdvancementHistory(), coaching.rankAdvancements, DominionAccountTruth.COLLECTION_LIMITS.rankAdvancements);
     const rankHandoffs = DominionAccountTruth.mergeCollection(readRankAdvancementHandoffHistory(), coaching.rankHandoffs, DominionAccountTruth.COLLECTION_LIMITS.rankHandoffs);
     const nextDayHandoffs = DominionAccountTruth.mergeCollection(readNextDayCommandHandoffHistory(), coaching.nextDayHandoffs, DominionAccountTruth.COLLECTION_LIMITS.nextDayHandoffs);
+    const morningActivations = DominionAccountTruth.mergeCollection(readMorningCommandActivationHistory(), coaching.morningActivations, DominionAccountTruth.COLLECTION_LIMITS.morningActivations);
+    const morningResolutions = DominionAccountTruth.mergeCollection(readMorningCommandResolutionHistory(), coaching.morningResolutions, DominionAccountTruth.COLLECTION_LIMITS.morningResolutions);
     if (DominionAccountTruth.semanticFingerprint(horizons) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptiveHorizonHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(outcomes) !== DominionAccountTruth.semanticFingerprint(readAtlasAdaptationOutcomeHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(decisions) !== DominionAccountTruth.semanticFingerprint(readAtlasDecisionHistory())) restored += 1;
@@ -989,6 +1004,8 @@ function applyAccountTruthSnapshot(snapshot = null) {
     if (DominionAccountTruth.semanticFingerprint(rankAdvancements) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(rankHandoffs) !== DominionAccountTruth.semanticFingerprint(readRankAdvancementHandoffHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(nextDayHandoffs) !== DominionAccountTruth.semanticFingerprint(readNextDayCommandHandoffHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(morningActivations) !== DominionAccountTruth.semanticFingerprint(readMorningCommandActivationHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(morningResolutions) !== DominionAccountTruth.semanticFingerprint(readMorningCommandResolutionHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "atlas-adaptive-horizon", horizons);
     saveClosedLoopLocal("HISTORY", "atlas-adaptation-outcomes", outcomes);
     saveClosedLoopLocal("HISTORY", "atlas-decision-center", decisions);
@@ -1000,6 +1017,8 @@ function applyAccountTruthSnapshot(snapshot = null) {
     saveClosedLoopLocal("HISTORY", "rank-advancement-certification", rankAdvancements);
     saveClosedLoopLocal("HISTORY", "rank-advancement-handoff", rankHandoffs);
     saveClosedLoopLocal("HISTORY", "next-day-command-handoff", nextDayHandoffs);
+    saveClosedLoopLocal("HISTORY", "morning-command-activation", morningActivations);
+    saveClosedLoopLocal("HISTORY", "morning-command-resolution", morningResolutions);
     promotionHistory = rankAdvancements;
     if (typeof DominionRankAdvancementCertification !== "undefined") {
       const advancementState = DominionRankAdvancementCertification.validateHistory(rankAdvancements, rankStatus.currentRank || "RECRUIT");
@@ -1049,7 +1068,7 @@ function renderAccountTruthHealth() {
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
   const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0) + (evidence.dailyLoopReceipts?.length || 0);
-  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0) + (coaching.nextDayHandoffs?.length || 0);
+  const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0) + (coaching.nextDayHandoffs?.length || 0) + (coaching.morningActivations?.length || 0) + (coaching.morningResolutions?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
   setText("account-truth-coaching", `${coachingCount} SAVED`);
@@ -11699,7 +11718,7 @@ async function reconcileStrengthExecutionAuthority(options = {}) {
   const receipt = Object.freeze({
     id: `execution-authority-${today}-${String(archived[0]?.executionId || "historical").replace(/[^a-z0-9_-]+/gi, "-")}`,
     type: "EXECUTION_AUTHORITY_RECONCILIATION",
-    version: "030T.1",
+    version: "030U.1",
     status: "RECONCILED",
     reconciledAt,
     signedContractId: resolution.signedContractRevisionId,
@@ -14384,7 +14403,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030t", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030u", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15545,7 +15564,8 @@ function renderNextDayCommandHandoff(result = currentNextDayCommandHandoff || bu
   const root = document.getElementById("next-day-command-handoff");
   if (!root) return result;
   currentNextDayCommandHandoff = result;
-  const visible = Boolean(result?.decision?.id || result?.source?.id || result?.state === "ACTION_REQUIRED");
+  const activationOwnsToday = currentMorningCommandActivation?.targetDate === todayISODate() && currentMorningCommandActivation?.source?.valid === true;
+  const visible = !activationOwnsToday && Boolean(result?.decision?.id || result?.source?.id || result?.state === "ACTION_REQUIRED");
   root.hidden = !visible;
   if (!visible) return result;
   const review = result.state === "REVIEW_REQUIRED";
@@ -15570,6 +15590,236 @@ function renderNextDayCommandHandoff(result = currentNextDayCommandHandoff || bu
   }
   document.body.dataset.nextDayCommand = String(result.state || "WAITING").toLowerCase();
   return result;
+}
+
+function certifiedNextDayHandoffForDate(date = todayISODate()) {
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const account = accountTruthState.accountSnapshot?.domains?.coaching?.payload?.nextDayHandoffs || [];
+  return [currentNextDayCommandHandoff, ...readNextDayCommandHandoffHistory(), ...account]
+    .filter((item, index, values) => item?.id && values.findIndex((candidate) => candidate?.id === item.id) === index)
+    .find((item) => item?.targetDate === targetDate && item?.status === "CERTIFIED" && item?.accountConfirmedAt) || null;
+}
+
+function morningCommandPreviousExecutions() {
+  const strength = readActiveStrengthExecution();
+  const running = typeof readActiveRunningExecutions === "function" ? readActiveRunningExecutions() : [readRunningExecution()].filter(Boolean);
+  const core = typeof readActiveCoreExecutions === "function" ? readActiveCoreExecutions() : [readCurrentCoreExecution()].filter(Boolean);
+  return [
+    strength ? { ...strength, module: "strength" } : null,
+    ...running.map((item) => ({ ...item, module: "running" })),
+    ...core.map((item) => ({ ...item, module: "core" }))
+  ].filter(Boolean);
+}
+
+function buildCurrentMorningCommandActivation(date = todayISODate(), options = {}) {
+  if (typeof DominionMorningCommandActivation === "undefined") return null;
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const handoff = options.handoff || certifiedNextDayHandoffForDate(targetDate);
+  const week = options.week || readCommittedUnifiedWeek(targetDate);
+  const canonical = options.canonical || (currentCanonicalDailyCommand?.date === targetDate ? currentCanonicalDailyCommand : buildCurrentCanonicalDailyCommand(targetDate));
+  const assignments = options.assignments || currentExecutionLedgerAssignments(targetDate);
+  const coaching = accountTruthState.accountSnapshot?.domains?.coaching?.payload || {};
+  return DominionMorningCommandActivation.evaluate({
+    targetDate,
+    handoff,
+    contractRevision: Number(week?.contractRevision || readApprovedRecruitContract()?.revision || 0),
+    weekId: week?.id || week?.weekStart || null,
+    weekRevision: Number(week?.revision || 0),
+    canonical,
+    assignments,
+    previousExecutions: options.previousExecutions || morningCommandPreviousExecutions(),
+    resolutions: options.resolutions || readMorningCommandResolutionHistory(),
+    accountReceipts: options.accountReceipts || coaching.morningActivations || [],
+    serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null,
+    activatedAt: options.activatedAt || null
+  });
+}
+
+async function persistMorningCommandHistory(stateKey = "morning-command-activation", history = []) {
+  if (!session?.user?.id || !Array.isArray(history) || !history[0]?.id) return { confirmed: false, row: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: "HISTORY",
+      state_key: stateKey,
+      payload: history,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("state_type,state_key,payload,updated_at")
+      .single();
+    if (error) throw error;
+    const confirmed = data?.state_type === "HISTORY"
+      && data?.state_key === stateKey
+      && Array.isArray(data?.payload)
+      && data.payload.some((item) => item?.id === history[0].id);
+    return { confirmed, row: data || null };
+  } catch (error) {
+    logAccountPersistenceFailure("coaching", "HISTORY", stateKey, history, error);
+    return { confirmed: false, row: null, error };
+  }
+}
+
+async function reconcileMorningCommandActivation(options = {}) {
+  if (typeof DominionMorningCommandActivation === "undefined") return null;
+  const date = String(options.date || todayISODate()).slice(0, 10);
+  let result = buildCurrentMorningCommandActivation(date, options);
+  if (!result) return null;
+  if (result.receipt) {
+    const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.morningActivations;
+    let history = DominionMorningCommandActivation.upsertHistory(readMorningCommandActivationHistory(), result.receipt, limit || 120);
+    saveClosedLoopLocal("HISTORY", "morning-command-activation", history);
+    if (options.persist !== false) {
+      const confirmation = await persistMorningCommandHistory("morning-command-activation", history);
+      if (confirmation.confirmed) {
+        result = buildCurrentMorningCommandActivation(date, {
+          ...options,
+          accountReceipts: [result.receipt, ...(options.accountReceipts || [])],
+          serverConfirmed: true,
+          accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString(),
+          activatedAt: result.receipt.activatedAt || confirmation.row?.updated_at || new Date().toISOString()
+        });
+        history = DominionMorningCommandActivation.upsertHistory(history, result.receipt, limit || 120);
+        saveClosedLoopLocal("HISTORY", "morning-command-activation", history);
+        await persistMorningCommandHistory("morning-command-activation", history);
+      }
+    }
+  }
+  if (date === todayISODate()) {
+    currentMorningCommandActivation = result;
+    renderMorningCommandActivation(result);
+    renderNextDayCommandHandoff();
+  }
+  return result;
+}
+
+function renderMorningCommandActivation(result = currentMorningCommandActivation || buildCurrentMorningCommandActivation()) {
+  const root = document.getElementById("morning-command-activation");
+  if (!root) return result;
+  currentMorningCommandActivation = result;
+  const visible = Boolean(result?.source?.valid || result?.state === "ACTION_REQUIRED" || result?.state === "DECISION_REQUIRED");
+  root.hidden = !visible;
+  if (!visible) return result;
+  const selected = result.unfinished?.selected;
+  const actions = result.state === "DECISION_REQUIRED"
+    ? `<div class="morning-command-prior-actions"><button type="button" data-morning-prior-action="RESUME" data-execution-id="${escapeHtml(selected?.executionId || "")}">Resume</button><button type="button" class="ghost" data-morning-prior-action="RESCHEDULE" data-execution-id="${escapeHtml(selected?.executionId || "")}">Reschedule</button><button type="button" class="ghost danger" data-morning-prior-action="CLOSE_INCOMPLETE" data-execution-id="${escapeHtml(selected?.executionId || "")}">Close incomplete</button></div>`
+    : result.view.action === "OPEN_COMMAND"
+      ? `<button type="button" data-morning-command-action="OPEN_COMMAND">${escapeHtml(result.view.actionLabel || "Open command")}</button>`
+      : result.view.action === "OPEN_ACCOUNT_HEALTH"
+        ? '<button type="button" class="ghost" data-section="connected">Check account</button>'
+        : "";
+  const evidence = result.state === "DECISION_REQUIRED"
+    ? `${escapeHtml(selected?.operationalDate || "Prior day")} · ${escapeHtml(String(selected?.state || "unfinished").replaceAll("_", " "))}`
+    : result.receipt?.sourceHandoffId ? `Certified from ${escapeHtml(result.receipt.sourceHandoffId)}` : "Signed program protected";
+  root.dataset.activationState = String(result.state || "WAITING").toLowerCase();
+  root.innerHTML = `<header><span>${escapeHtml(result.view.eyebrow)}</span><strong>${escapeHtml(result.view.headline)}</strong><em>${escapeHtml(String(result.state || "WAITING").replaceAll("_", " "))}</em></header><p>${escapeHtml(result.view.detail)}</p><small>${evidence}</small><div class="morning-command-actions">${actions}</div><p id="morning-command-feedback" class="muted" role="status" aria-live="polite"></p>`;
+  const receiptId = result.receipt?.id || result.candidateReceiptId || "";
+  ["today", "calendar", "performance", "nutrition"].forEach((id) => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.dataset.morningCommand = String(result.state || "WAITING").toLowerCase();
+    if (receiptId) node.dataset.morningActivationId = receiptId;
+  });
+  document.body.dataset.morningCommand = String(result.state || "WAITING").toLowerCase();
+  return result;
+}
+
+async function stopMorningPriorExecution(selected = {}, action = "CLOSE_INCOMPLETE") {
+  const source = selected.raw || selected;
+  const endedAt = new Date().toISOString();
+  const reason = action === "RESCHEDULE"
+    ? "Released by recruit for deliberate rescheduling during morning activation"
+    : "Closed incomplete by recruit during morning activation";
+  const stopped = typeof DominionBetaStateIntegrity === "undefined"
+    ? { ...source, state: "STOPPED", endedIncomplete: true, reason, completedAt: endedAt, updatedAt: endedAt }
+    : { ...DominionBetaStateIntegrity.endIncompleteSession(source, { endedAt, reason }), morningResolution: action };
+  const sourceDate = selected.operationalDate || String(source.date || source.startedAt || todayISODate()).slice(0, 10);
+  if (selected.module === "strength") {
+    const saved = await saveDailyAssignmentExecution(stopped);
+    await preserveStrengthWorkout(saved, { proposeAdjustment: false });
+  } else if (selected.module === "running") {
+    window.localStorage.setItem(runningExecutionStorageKey(sourceDate), JSON.stringify(stopped));
+    await persistRunningState("EXECUTION", sourceDate, stopped);
+  } else if (selected.module === "core") {
+    saveCoreProgramLocal("EXECUTION", sourceDate, stopped);
+    const history = [stopped, ...readCoreHistory().filter((item) => item?.id !== stopped.id)].slice(0, 365);
+    saveCoreProgramLocal("HISTORY", "current", history);
+    await persistCoreProgramState("EXECUTION", sourceDate, stopped);
+    await persistCoreProgramState("HISTORY", "current", history);
+  }
+  return stopped;
+}
+
+async function resolveMorningPriorWork(action = "", executionId = "") {
+  if (typeof DominionMorningCommandActivation === "undefined") return null;
+  const current = buildCurrentMorningCommandActivation();
+  const selected = current?.unfinished?.selected;
+  if (!selected || selected.executionId !== executionId) throw new Error("That unfinished session is no longer the active conflict.");
+  const choice = String(action || "").toUpperCase();
+  if (!["RESUME", "RESCHEDULE", "CLOSE_INCOMPLETE"].includes(choice)) throw new Error("Choose how the unfinished session should be handled.");
+  if (["RESCHEDULE", "CLOSE_INCOMPLETE"].includes(choice)) await stopMorningPriorExecution(selected, choice);
+  let resolution = DominionMorningCommandActivation.resolutionReceipt(selected.raw || selected, choice, todayISODate(), { decidedAt: new Date().toISOString() });
+  const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.morningResolutions;
+  let history = DominionMorningCommandActivation.upsertHistory(readMorningCommandResolutionHistory(), resolution, limit || 120);
+  saveClosedLoopLocal("HISTORY", "morning-command-resolution", history);
+  const confirmation = await persistMorningCommandHistory("morning-command-resolution", history);
+  if (confirmation.confirmed) {
+    resolution = { ...resolution, accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString() };
+    history = DominionMorningCommandActivation.upsertHistory(history, resolution, limit || 120);
+    saveClosedLoopLocal("HISTORY", "morning-command-resolution", history);
+    await persistMorningCommandHistory("morning-command-resolution", history);
+  }
+  const result = await reconcileMorningCommandActivation({ resolutions: history, persist: true });
+  if (choice === "RESCHEDULE") {
+    setActiveSection("calendar");
+    window.history.replaceState(null, "", "#calendar");
+    setText("weekly-orchestrator-feedback", `${selected.title} was preserved as incomplete. Use the staged Calendar to place the work deliberately.`);
+  } else if (choice === "RESUME") {
+    await openMorningCommandTarget(result);
+  }
+  return result;
+}
+
+async function openMorningCommandTarget(result = currentMorningCommandActivation) {
+  const target = result?.target;
+  if (!target?.route?.module) return false;
+  if (target.carryover) {
+    if (target.module === "strength") {
+      let execution = readActiveStrengthExecution();
+      if (String(execution?.state || "").toUpperCase() === "PAUSED") {
+        execution = DominionStrengthTraining.resumeWorkout(execution, new Date().toISOString());
+        await saveDailyAssignmentExecution(execution);
+      }
+      setActiveSection("today");
+      openMissionSessionDetails("STRENGTH");
+      return true;
+    }
+    if (target.module === "running") {
+      let execution = readActiveRunningExecutions().find((item) => DominionMorningCommandActivation.executionId(item) === target.executionId) || readActiveRunningExecution();
+      const sourceDate = String(execution?.date || execution?.startedAt || todayISODate()).slice(0, 10);
+      if (String(execution?.state || "").toUpperCase() === "PAUSED") execution = DominionMissionExecution.resumeRunningExecution(execution, new Date().toISOString());
+      if (execution) {
+        window.localStorage.setItem(runningExecutionStorageKey(sourceDate), JSON.stringify(execution));
+        await persistRunningState("EXECUTION", sourceDate, execution);
+      }
+      setActiveSection("performance");
+      setPerformanceActiveView("running");
+      window.history.replaceState(null, "", "#performance");
+      renderRunningCommand();
+      document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    }
+    if (target.module === "core") {
+      setActiveSection("today");
+      const detail = document.getElementById("today-core-detail");
+      if (detail) detail.open = true;
+      renderCoreToday();
+      detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    }
+  }
+  return openFrictionlessLogger(target.module === "nutrition" ? "fuel" : target.module);
 }
 
 function atlasDecisionProofReadiness(date = todayISODate()) {
@@ -15877,6 +16127,7 @@ async function resolveAtlasClosedLoopDecision(date = todayISODate(), resolution 
   const resolved = DominionAtlasClosedLoop.resolveDecision(current, resolution, { resolvedAt: new Date().toISOString() });
   await saveAtlasClosedLoopDecision(resolved);
   await reconcileNextDayCommandHandoff({ date: resolved.effectiveDate, decision: resolved, persist: true });
+  if (resolved.effectiveDate === todayISODate()) await reconcileMorningCommandActivation({ date: resolved.effectiveDate, persist: true });
   renderAtlasClosedLoopDecision();
   renderWeeklyOrchestrator();
   renderTodayCommittedWeek();
@@ -16196,6 +16447,8 @@ async function loadClosedLoopState() {
       ["HISTORY", "daily-closeout"],
       ["HISTORY", "daily-loop-certification"],
       ["HISTORY", "next-day-command-handoff"],
+      ["HISTORY", "morning-command-activation"],
+      ["HISTORY", "morning-command-resolution"],
       ["DAILY_VERDICT", todayISODate()],
       ["HISTORY", "atlas-closed-loop"],
       ["HISTORY", "atlas-decision-proof"],
@@ -18911,12 +19164,30 @@ function readApprovedRunningReconciliation() {
   }
 }
 
-function runningExecutionStorageKey() {
-  return `coach-dominion:running-execution:${session?.user?.id || "local"}:${todayISODate()}`;
+function runningExecutionStorageKey(date = todayISODate()) {
+  return `coach-dominion:running-execution:${session?.user?.id || "local"}:${String(date || todayISODate()).slice(0, 10)}`;
 }
 
-function readRunningExecution() {
-  try { return JSON.parse(window.localStorage.getItem(runningExecutionStorageKey()) || "null"); } catch (_) { return null; }
+function readRunningExecution(date = todayISODate()) {
+  try { return JSON.parse(window.localStorage.getItem(runningExecutionStorageKey(date)) || "null"); } catch (_) { return null; }
+}
+
+function readActiveRunningExecutions() {
+  const prefix = `coach-dominion:running-execution:${session?.user?.id || "local"}:`;
+  const executions = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    try {
+      const execution = JSON.parse(window.localStorage.getItem(key) || "null");
+      if (["IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(execution?.state || execution?.status || "").toUpperCase())) executions.push(execution);
+    } catch (_) {}
+  }
+  return executions.sort((left, right) => String(left.date || left.startedAt || "").localeCompare(String(right.date || right.startedAt || "")));
+}
+
+function readActiveRunningExecution() {
+  return readActiveRunningExecutions()[0] || null;
 }
 
 function runningProgressionStorageKey() {
@@ -19012,6 +19283,10 @@ async function loadRunningState() {
     const { data, error } = await supabase.from("running_state").select("state_type,state_key,payload,updated_at").eq("user_id", session.user.id).order("updated_at", { ascending: false });
     if (error) throw error;
     const rows = data || [];
+    rows.filter((row) => row.state_type === "EXECUTION"
+      && row.state_key < todayISODate()
+      && ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(row.payload?.state || row.payload?.status || "").toUpperCase()))
+      .forEach((row) => window.localStorage.setItem(runningExecutionStorageKey(row.state_key), JSON.stringify(row.payload)));
     const profile = rows.find((row) => row.state_type === "PROFILE");
     const week = DominionRunning.weekStartIso(todayISODate());
     const plan = rows.find((row) => row.state_type === "PLAN" && row.state_key === week);
@@ -19081,6 +19356,24 @@ function readCoreExecution() {
   return readCoreProgramState("EXECUTION", todayISODate(), null);
 }
 
+function readActiveCoreExecutions() {
+  const prefix = `coach-dominion:core-program:${session?.user?.id || "local"}:execution:`;
+  const executions = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    try {
+      const execution = JSON.parse(window.localStorage.getItem(key) || "null");
+      if (["IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(execution?.state || execution?.status || "").toUpperCase())) executions.push(execution);
+    } catch (_) {}
+  }
+  return executions.sort((left, right) => String(left.date || left.startedAt || "").localeCompare(String(right.date || right.startedAt || "")));
+}
+
+function readActiveCoreExecution() {
+  return readActiveCoreExecutions()[0] || null;
+}
+
 function readCurrentCoreExecution() {
   const execution = readCoreExecution();
   const plan = readApprovedCorePlan();
@@ -19093,13 +19386,15 @@ function readCoreHistory() {
 }
 
 function coreContinuityStateRows() {
+  const activeExecutions = readActiveCoreExecutions().map((execution) => ["EXECUTION", String(execution.date || execution.startedAt || todayISODate()).slice(0, 10), execution]);
   return [
     ["PROFILE", "current", readCoreProgramState("PROFILE", "current", null)],
     ["DRAFT", "current", readCoreDraftPlan()],
     ["PLAN", "current", readApprovedCorePlan()],
     ["HISTORY", "current", readCoreHistory().slice(-365)],
-    ["EXECUTION", todayISODate(), readCoreExecution()]
-  ];
+    ["EXECUTION", todayISODate(), readCoreExecution()],
+    ...activeExecutions
+  ].filter((item, index, values) => values.findIndex((candidate) => candidate[0] === item[0] && candidate[1] === item[1]) === index);
 }
 
 function buildCoreContinuitySnapshot() {
@@ -19371,6 +19666,10 @@ async function loadCoreProgramState() {
     if (error) throw error;
     coreProgramRemoteMode = "PRIMARY";
     const rows = data || [];
+    rows.filter((row) => row.state_type === "EXECUTION"
+      && row.state_key < todayISODate()
+      && ["IN_PROGRESS", "PAUSED", "REVIEW"].includes(String(row.payload?.state || row.payload?.status || "").toUpperCase()))
+      .forEach((row) => saveCoreProgramLocal("EXECUTION", row.state_key, row.payload));
     const localStates = [
       ["PROFILE", "current", readCoreProgramState("PROFILE", "current", null)],
       ["DRAFT", "current", readCoreDraftPlan()],
@@ -24584,12 +24883,16 @@ async function init() {
     await runStartupTask("next-day command", () => reconcileNextDayCommandHandoff({
       persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
     }), startupIssues);
+    await runStartupTask("morning command", () => reconcileMorningCommandActivation({
+      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
+    }), startupIssues);
     setStartupRestoreProgress("Preparing Today.");
     const finalRenders = [
       ["Contract view", renderRecruitContract],
       ["Calendar view", renderWeeklyOrchestrator],
       ["Today calendar", renderTodayCommittedWeek],
       ["next-day command", renderNextDayCommandHandoff],
+      ["morning command", renderMorningCommandActivation],
       ["activation guide", renderActivationGuide],
       ["standards duty", renderTodayStandardsDuty],
       ["rank", renderRankSection],
@@ -27216,6 +27519,32 @@ if (typeof document !== "undefined") {
     }
   });
   document.addEventListener("click", async (event) => {
+    const priorButton = event.target.closest("button[data-morning-prior-action]");
+    if (priorButton) {
+      priorButton.disabled = true;
+      try {
+        const result = await resolveMorningPriorWork(priorButton.dataset.morningPriorAction, priorButton.dataset.executionId);
+        setText("morning-command-feedback", priorButton.dataset.morningPriorAction === "RESUME"
+          ? "The unfinished session is now the active command. Today’s scheduled assignment remains protected."
+          : priorButton.dataset.morningPriorAction === "RESCHEDULE"
+            ? "Prior evidence preserved. Calendar opened for deliberate placement."
+            : "Prior evidence preserved as incomplete. Today’s command is now clear.");
+        return result;
+      } catch (error) {
+        setText("morning-command-feedback", error?.message || "That prior-day decision could not be saved.");
+      } finally {
+        priorButton.disabled = false;
+      }
+      return;
+    }
+    const commandButton = event.target.closest("button[data-morning-command-action]");
+    if (commandButton) {
+      commandButton.disabled = true;
+      try { await openMorningCommandTarget(currentMorningCommandActivation); }
+      catch (error) { setText("morning-command-feedback", error?.message || "The active logger could not be opened."); }
+      finally { commandButton.disabled = false; }
+      return;
+    }
     const decisionButton = event.target.closest("button[data-atlas-closed-loop-action]");
     if (!decisionButton) return;
     const decisionDate = decisionButton.dataset.decisionDate || todayISODate();

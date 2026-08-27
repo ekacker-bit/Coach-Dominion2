@@ -15,16 +15,16 @@ test("030T is cache-busted and production gated", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = JSON.parse(read("package.json"));
-  assert.match(html, /coach-dominion-release" content="030T\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[TU]\.1"/);
   assert.match(html, /next-day-command-handoff\.js\?v=030t/);
-  assert.match(html, /app\.js\?v=[^"]*-030t/);
+  assert.match(html, /app\.js\?v=[^"]*-030t(?:-030u)?/);
   assert.match(worker, /030t-next-day-command-handoff/);
   assert.match(worker, /next-day-command-handoff\.js\?v=030t/);
-  assert.match(app, /register\("\/sw\.js\?v=030t"/);
-  assert.match(health, /release: "030T\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[tu]"/);
+  assert.match(health, /release: "030[TU]\.1"/);
   assert.match(health, /nextDayCommand: "certified-handoff"/);
-  assert.match(workflow, /npm run test:030t/);
-  assert.match(workflow, /--expected-release 030T\.1/);
+  assert.match(workflow, /npm run test:030[tu]/);
+  assert.match(workflow, /--expected-release 030[TU]\.1/);
   assert.match(pkg.scripts["test:030t"], /next-day-command-certification\.js/);
 });
 

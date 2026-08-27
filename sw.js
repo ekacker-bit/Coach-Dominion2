@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1-030g1-030h1-030i1-030j1-030k1-030l1-030m1-030n1-030o1-030p1-030q1-030r1-030s1-030t1";
-// Current release marker: coach-dominion-030t-next-day-command-handoff
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1-030g1-030h1-030i1-030j1-030k1-030l1-030m1-030n1-030o1-030p1-030q1-030r1-030s1-030t1-030u1";
+// Current release marker: coach-dominion-030u-morning-command-activation
+// Prior release marker: coach-dominion-030t-next-day-command-handoff
 // Prior release marker: coach-dominion-030s-real-recruit-daily-loop
 // Prior release marker: coach-dominion-030r-execution-authority-reconciliation
 // Prior release marker: coach-dominion-030q-calendar-restore-repair
@@ -31,7 +32,7 @@ const APP_SHELL = [
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js?v=027d",
   "/assets/js/connected-evidence.js?v=027d",
@@ -138,6 +139,7 @@ const APP_SHELL = [
   "/assets/js/unified-execution-ledger.js?v=030g",
   "/assets/js/daily-loop-certification.js?v=030s",
   "/assets/js/next-day-command-handoff.js?v=030t",
+  "/assets/js/morning-command-activation.js?v=030u",
   "/assets/js/week-execution-certification.js?v=030m",
   "/assets/js/rank-advancement-certification.js?v=030n",
   "/assets/js/rank-advancement-handoff.js?v=030o",
@@ -162,7 +164,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u"
 ];
 
 self.addEventListener("install", (event) => {

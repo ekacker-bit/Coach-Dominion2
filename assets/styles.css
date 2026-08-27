@@ -3260,6 +3260,34 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
 .next-day-command-actions { display: flex; gap: 10px; margin-top: 14px; }
 .next-day-command-handoff[data-handoff-state="certified"] { border-color: rgba(46, 180, 104, .5); border-left-color: var(--green); background: linear-gradient(120deg, rgba(46, 180, 104, .11), rgba(12, 20, 17, .94) 48%); }
 .next-day-command-handoff[data-handoff-state="action_required"] { border-color: rgba(205, 75, 75, .62); border-left-color: var(--red); }
+.morning-command-activation {
+  position: relative;
+  margin: 0 0 18px;
+  padding: 22px 24px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, .48);
+  border-left: 5px solid var(--victory-gold);
+  border-radius: 8px;
+  background: linear-gradient(118deg, rgba(212, 175, 55, .13), rgba(10, 10, 10, .96) 52%);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, .3);
+}
+.morning-command-activation::after { content: ""; position: absolute; inset: 0 0 auto auto; width: 150px; height: 3px; background: linear-gradient(90deg, transparent, var(--victory-gold)); }
+.morning-command-activation[hidden] { display: none !important; }
+.morning-command-activation header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 18px; align-items: center; }
+.morning-command-activation header span { grid-column: 1; color: var(--victory-gold); font: 800 .72rem/1 var(--font-body); letter-spacing: .18em; }
+.morning-command-activation header strong { grid-column: 1; color: var(--stone); font: 700 clamp(1.55rem, 3vw, 2.35rem)/1 var(--font-body); text-wrap: balance; }
+.morning-command-activation header em { grid-column: 2; grid-row: 1 / span 2; padding: 8px 11px; border: 1px solid rgba(230, 230, 228, .22); color: #c5cbd0; font: normal 800 .66rem/1 var(--font-body); letter-spacing: .11em; }
+.morning-command-activation > p { max-width: 68ch; margin: 13px 0 6px; color: var(--stone); font-size: 1rem; line-height: 1.45; }
+.morning-command-activation > small { display: block; color: var(--muted); font-size: .72rem; line-height: 1.4; }
+.morning-command-actions { margin-top: 16px; }
+.morning-command-actions > button { min-width: 190px; min-height: 48px; }
+.morning-command-prior-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.morning-command-prior-actions button { min-height: 48px; }
+.morning-command-prior-actions .danger { border-color: rgba(205, 75, 75, .48); color: #f1b8b5; }
+.morning-command-activation[data-activation-state="certified"] { border-color: rgba(46, 180, 104, .55); border-left-color: var(--green); background: linear-gradient(118deg, rgba(46, 180, 104, .14), rgba(10, 10, 10, .96) 52%); }
+.morning-command-activation[data-activation-state="decision_required"] { border-color: rgba(212, 175, 55, .72); }
+.morning-command-activation[data-activation-state="action_required"] { border-color: rgba(205, 75, 75, .7); border-left-color: var(--red); }
+#morning-command-feedback:empty { display: none; }
 .daily-closeout-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .daily-closeout-actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .daily-closeout-actions button { flex: 0 0 auto; min-height: 48px; }
@@ -3320,6 +3348,12 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
   .next-day-command-handoff small b { display: block; margin-bottom: 4px; }
   .next-day-command-actions { flex-direction: column; }
   .next-day-command-actions button { width: 100%; }
+  .morning-command-activation { margin-bottom: 14px; padding: 17px 15px; }
+  .morning-command-activation header { grid-template-columns: 1fr; }
+  .morning-command-activation header em { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 5px; }
+  .morning-command-prior-actions { grid-template-columns: 1fr; }
+  .morning-command-actions > button,
+  .morning-command-prior-actions button { width: 100%; min-width: 0; }
   .daily-closeout-actions { display: grid; }
   .daily-closeout-actions button { width: 100%; }
   .weekly-closeout-evidence { padding: 14px 12px; }

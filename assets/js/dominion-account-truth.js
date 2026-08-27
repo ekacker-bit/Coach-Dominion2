@@ -24,6 +24,8 @@
     rankAdvancements: 12,
     rankHandoffs: 12,
     nextDayHandoffs: 120,
+    morningActivations: 120,
+    morningResolutions: 120,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -186,7 +188,9 @@
       weeklyExecutions: mergeCollection(value.weeklyExecutions || [], [], COLLECTION_LIMITS.weeklyExecutions),
       rankAdvancements: mergeCollection(value.rankAdvancements || [], [], COLLECTION_LIMITS.rankAdvancements),
       rankHandoffs: mergeCollection(value.rankHandoffs || [], [], COLLECTION_LIMITS.rankHandoffs),
-      nextDayHandoffs: mergeCollection(value.nextDayHandoffs || [], [], COLLECTION_LIMITS.nextDayHandoffs)
+      nextDayHandoffs: mergeCollection(value.nextDayHandoffs || [], [], COLLECTION_LIMITS.nextDayHandoffs),
+      morningActivations: mergeCollection(value.morningActivations || [], [], COLLECTION_LIMITS.morningActivations),
+      morningResolutions: mergeCollection(value.morningResolutions || [], [], COLLECTION_LIMITS.morningResolutions)
     };
     return clone(value || {});
   }
@@ -260,7 +264,9 @@
       weeklyExecutions: mergeCollection(device.weeklyExecutions, account.weeklyExecutions, COLLECTION_LIMITS.weeklyExecutions),
       rankAdvancements: mergeCollection(device.rankAdvancements, account.rankAdvancements, COLLECTION_LIMITS.rankAdvancements),
       rankHandoffs: mergeCollection(device.rankHandoffs, account.rankHandoffs, COLLECTION_LIMITS.rankHandoffs),
-      nextDayHandoffs: mergeCollection(device.nextDayHandoffs, account.nextDayHandoffs, COLLECTION_LIMITS.nextDayHandoffs)
+      nextDayHandoffs: mergeCollection(device.nextDayHandoffs, account.nextDayHandoffs, COLLECTION_LIMITS.nextDayHandoffs),
+      morningActivations: mergeCollection(device.morningActivations, account.morningActivations, COLLECTION_LIMITS.morningActivations),
+      morningResolutions: mergeCollection(device.morningResolutions, account.morningResolutions, COLLECTION_LIMITS.morningResolutions)
     };
     return chooseNewer(device, account);
   }

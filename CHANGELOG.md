@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Morning Command Activation
+
+- Activates the certified next-day command only after the operational date rolls over and the exact account-backed handoff is available.
+- Keeps Today, Calendar, Train, Quick Log, and Fuel on one signed Contract, committed week, assignment, and execution identity.
+- Sends Strength, Running, Core, Fuel, and Recovery commands directly to their working logger instead of another summary surface.
+- Makes unfinished prior-day work an explicit Resume, Reschedule, or Close incomplete decision; no session carries forward silently.
+- Restores the same activation and resolution receipts across sessions and devices without rewriting the signed Contract or committed week.
+
 ## Unreleased - Next-Day Command Handoff
 
 - Turns a certified closeout and Atlas decision into one deterministic next-day command shared by Calendar, Today, Train, Quick Log, and Fuel.

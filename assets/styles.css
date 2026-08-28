@@ -5154,6 +5154,21 @@ textarea { max-width: 100%; }
 .account-truth-health dl div:last-child:nth-child(odd) { grid-column: span 2; }
 .account-truth-health dt { color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .account-truth-health dd { margin: 4px 0 0; overflow: hidden; color: var(--stone); font: 13px/1.15 var(--font-command); letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
+.recruit-loop-certification { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); background: #0b1014; }
+.recruit-loop-certification[hidden] { display: none; }
+.recruit-loop-certification > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.recruit-loop-certification > header div { display: grid; gap: 4px; }
+.recruit-loop-certification > header span { color: var(--victory-gold); font: 12px/1 var(--font-command); letter-spacing: .12em; }
+.recruit-loop-certification > header strong { color: var(--stone); font-size: 17px; }
+.recruit-loop-certification > header b { color: var(--stone); font: 12px/1 var(--font-command); letter-spacing: .08em; }
+.recruit-loop-certification > p, .recruit-loop-certification > small { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.recruit-loop-certification ol { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--line); }
+.recruit-loop-certification li { display: grid; grid-template-columns: minmax(100px, .7fr) minmax(88px, .4fr) minmax(180px, 1.6fr); gap: 10px; padding: 10px 12px; background: #0a0e11; }
+.recruit-loop-certification li span, .recruit-loop-certification li strong { color: var(--stone); font-size: 11px; }
+.recruit-loop-certification li strong { color: var(--victory-gold); font-family: var(--font-command); letter-spacing: .06em; }
+.recruit-loop-certification li[data-stage-status="verified"] strong { color: var(--ascent-green); }
+.recruit-loop-certification li[data-stage-status="broken"] strong { color: #df6b62; }
+.recruit-loop-certification li small { color: var(--muted); font-size: 10px; line-height: 1.4; }
 .continuity-repair-shell > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .global-contract-blocker { position: sticky; z-index: 85; top: 104px; display: flex; align-items: center; justify-content: space-between; gap: 18px; width: min(1180px, calc(100% - 32px)); margin: 12px auto 20px; padding: 12px 14px 12px 17px; border: 1px solid rgba(185, 68, 68, .72); border-left: 4px solid #b94444; background: rgba(21, 10, 11, .96); box-shadow: 0 12px 30px rgba(0, 0, 0, .34); }
 .global-contract-blocker[hidden] { display: none; }
@@ -5174,6 +5189,8 @@ textarea { max-width: 100%; }
   .continuity-canonical-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .account-truth-health dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .account-truth-health > header { align-items: stretch; flex-direction: column; gap: 8px; }
+  .recruit-loop-certification li { grid-template-columns: 1fr auto; }
+  .recruit-loop-certification li small { grid-column: 1 / -1; }
   .continuity-conflict-list article { grid-template-columns: 1fr; }
   .continuity-conflict-list article > div:last-child { display: grid; grid-template-columns: 1fr; }
   .continuity-conflict-card > header { flex-direction: column; }

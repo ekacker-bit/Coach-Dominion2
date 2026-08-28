@@ -15,20 +15,20 @@ const workflow = read(".github/workflows/release-integrity.yml");
 const packageJson = JSON.parse(read("package.json"));
 
 test("030L assets and release identity are production-gated", () => {
-  assert.match(html, /coach-dominion-release" content="030[LMNOPQRSTUV]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[LMNOPQRSTUVW]\.1"/);
   assert.match(html, /weekly-rollover-certification\.js\?v=030l/);
   assert.ok(html.indexOf("weekly-rollover-certification.js?v=030l") < html.indexOf("app.js?v="));
   assert.match(worker, /030l-weekly-rollover-certification/);
   assert.match(worker, /weekly-rollover-certification\.js\?v=030l/);
-  assert.match(health, /release: "030[LMNOPQRSTUV]\.1"/);
+  assert.match(health, /release: "030[LMNOPQRSTUVW]\.1"/);
   assert.match(health, /weeklyRollover: "commit-to-monday-certified"/);
-  assert.match(workflow, /npm run test:030[lmnopqrstuv]/);
-  assert.match(workflow, /--expected-release 030[LMNOPQRSTUV]\.1/);
+  assert.match(workflow, /npm run test:030[lmnopqrstuvw]/);
+  assert.match(workflow, /--expected-release 030[LMNOPQRSTUVW]\.1/);
   assert.match(packageJson.scripts["test:030l"], /weekly-rollover-certification\.test\.js/);
 });
 
 test("030L persists one receipt through closed-loop and Account Truth", () => {
-  assert.match(account, /const VERSION = "030[LMNOPQRSTUV]\.1"/);
+  assert.match(account, /const VERSION = "030[LMNOPQRSTUVW]\.1"/);
   assert.match(account, /weeklyRollovers: 52/);
   assert.match(account, /mergeCollection\(value\.weeklyRollovers/);
   assert.match(account, /mergeCollection\(device\.weeklyRollovers, account\.weeklyRollovers/);

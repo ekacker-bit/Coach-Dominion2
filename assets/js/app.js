@@ -82,6 +82,7 @@ let currentDailyLoopCertification = null;
 let currentNextDayCommandHandoff = null;
 let currentMorningCommandActivation = null;
 let currentCommandCompletionCertification = null;
+let currentRecruitLoopCertification = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -163,6 +164,9 @@ let startupAuthorityState = typeof DominionStartupAuthority === "undefined"
 let startupAccountLedger = null;
 let startupAccountError = null;
 let startupRestoreWatchTimers = [];
+let startupRestoreStartedAt = null;
+let startupRestoreDurationMs = 0;
+let startupRestoreIssues = [];
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -864,6 +868,11 @@ function readCommandCompletionHistory() {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readRecruitLoopCertificationHistory() {
+  const receipts = readClosedLoopState("HISTORY", "recruit-loop-certification", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
 function saveCalendarCommitReceipt(receipt = null) {
   if (!receipt?.id) return [];
   const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
@@ -906,7 +915,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       journeyReceipts: readJourneyCertificationReceipts(),
       calendarCommitReceipts: readCalendarCommitReceipts(),
       dailyLoopReceipts: readDailyLoopCertificationHistory(),
-      commandCompletions: readCommandCompletionHistory()
+      commandCompletions: readCommandCompletionHistory(),
+      recruitLoopCertifications: readRecruitLoopCertificationHistory()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -986,10 +996,13 @@ function applyAccountTruthSnapshot(snapshot = null) {
     saveClosedLoopLocal("HISTORY", "calendar-commit-receipts", calendarCommitReceipts);
     const dailyLoopReceipts = DominionAccountTruth.mergeCollection(readDailyLoopCertificationHistory(), evidence.dailyLoopReceipts, DominionAccountTruth.COLLECTION_LIMITS.dailyLoopReceipts);
     const commandCompletions = DominionAccountTruth.mergeCollection(readCommandCompletionHistory(), evidence.commandCompletions, DominionAccountTruth.COLLECTION_LIMITS.commandCompletions);
+    const recruitLoopCertifications = DominionAccountTruth.mergeCollection(readRecruitLoopCertificationHistory(), evidence.recruitLoopCertifications, DominionAccountTruth.COLLECTION_LIMITS.recruitLoopCertifications);
     if (DominionAccountTruth.semanticFingerprint(dailyLoopReceipts) !== DominionAccountTruth.semanticFingerprint(readDailyLoopCertificationHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(commandCompletions) !== DominionAccountTruth.semanticFingerprint(readCommandCompletionHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(recruitLoopCertifications) !== DominionAccountTruth.semanticFingerprint(readRecruitLoopCertificationHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "daily-loop-certification", dailyLoopReceipts);
     saveClosedLoopLocal("HISTORY", "command-completion-certification", commandCompletions);
+    saveClosedLoopLocal("HISTORY", "recruit-loop-certification", recruitLoopCertifications);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -4725,6 +4738,8 @@ async function refreshAuthoritySurfaces() {
 }
 
 function beginStartupRestoreWatch() {
+  startupRestoreStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+  startupRestoreDurationMs = 0;
   startupRestoreWatchTimers.forEach((timer) => window.clearTimeout(timer));
   startupRestoreWatchTimers = [
     window.setTimeout(() => {
@@ -4748,6 +4763,9 @@ function endStartupRestoreWatch() {
   startupRestoreWatchTimers.forEach((timer) => window.clearTimeout(timer));
   startupRestoreWatchTimers = [];
   document.body.dataset.startupRestorePace = "complete";
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  startupRestoreDurationMs = startupRestoreStartedAt === null ? 0 : Math.max(0, Math.round(now - startupRestoreStartedAt));
+  document.body.dataset.startupRestoreDurationMs = String(startupRestoreDurationMs);
 }
 
 function revealMobileShell() {
@@ -14441,7 +14459,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030v", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030w", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15892,6 +15910,120 @@ async function reconcileCommandCompletionCertification(options = {}) {
   currentCommandCompletionCertification = result;
   renderCommandCompletionCertification(result);
   if (options.render !== false) await refreshCommandCompletionSurfaces();
+  return result;
+}
+
+function recruitLoopCertificationInput(options = {}) {
+  if (typeof DominionRecruitLoopCertification === "undefined") return null;
+  const targetDate = String(options.targetDate || todayISODate()).slice(0, 10);
+  const week = options.week || readCommittedUnifiedWeek(targetDate);
+  const calendarReceipt = week ? matchingCalendarCommitReceipt(week) : null;
+  const accountEvidence = accountTruthState.accountSnapshot?.domains?.evidence?.payload || {};
+  return {
+    targetDate,
+    userId: session?.user?.id || null,
+    authority: {
+      contractRevision: Number(week?.contractRevision || readApprovedRecruitContract()?.revision || 0),
+      weekId: week?.id || week?.weekStart || null,
+      weekRevision: Number(week?.revision || 0),
+      calendarCommitId: calendarReceipt?.id || null
+    },
+    assignments: options.assignments || currentExecutionLedgerAssignments(targetDate),
+    dailyLoopReceipts: options.dailyLoopReceipts || readDailyLoopCertificationHistory(),
+    nextDayHandoffs: options.nextDayHandoffs || readNextDayCommandHandoffHistory(),
+    morningActivations: options.morningActivations || readMorningCommandActivationHistory(),
+    commandCompletions: options.commandCompletions || readCommandCompletionHistory(),
+    accountReceipts: options.accountReceipts || accountEvidence.recruitLoopCertifications || [],
+    serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    pendingWrites: options.pendingWrites ?? Math.max(Number(accountTruthState.pendingWrites || 0), Number(continuityState.pendingWrites || 0)),
+    accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null,
+    restoreDurationMs: options.restoreDurationMs ?? startupRestoreDurationMs,
+    startupIssues: options.startupIssues || startupRestoreIssues,
+    createdAt: options.createdAt || new Date().toISOString()
+  };
+}
+
+async function persistRecruitLoopCertificationHistory(history = []) {
+  if (!session?.user?.id || !Array.isArray(history) || !history[0]?.id) return { confirmed: false, row: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: "HISTORY",
+      state_key: "recruit-loop-certification",
+      payload: history,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("state_type,state_key,payload,updated_at")
+      .single();
+    if (error) throw error;
+    const confirmed = data?.state_type === "HISTORY"
+      && data?.state_key === "recruit-loop-certification"
+      && Array.isArray(data?.payload)
+      && data.payload.some((item) => item?.id === history[0].id && item?.fingerprint === history[0].fingerprint);
+    return { confirmed, row: data || null };
+  } catch (error) {
+    logAccountPersistenceFailure("coaching", "HISTORY", "recruit-loop-certification", history, error);
+    return { confirmed: false, row: null, error };
+  }
+}
+
+function recruitLoopInternalAccess() {
+  const query = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+  const role = String(session?.user?.app_metadata?.role || session?.user?.user_metadata?.role || "").toLowerCase();
+  return query?.get("certify") === "1" || ["admin", "staff", "coach"].includes(role);
+}
+
+function renderRecruitLoopCertification(result = currentRecruitLoopCertification) {
+  const root = document.getElementById("recruit-loop-certification");
+  if (!root || typeof DominionRecruitLoopCertification === "undefined") return result;
+  const visible = recruitLoopInternalAccess();
+  root.hidden = !visible;
+  const state = result?.state || "WAITING";
+  const receipt = result?.receipt || DominionRecruitLoopCertification.latestForDate(readRecruitLoopCertificationHistory(), todayISODate());
+  ["today", "calendar", "performance", "inspection"].forEach((id) => {
+    const surface = document.getElementById(id);
+    if (!surface) return;
+    surface.dataset.recruitLoopState = String(state).toLowerCase();
+    if (receipt?.id) surface.dataset.recruitLoopReceipt = receipt.id;
+  });
+  document.body.dataset.recruitLoopState = String(state).toLowerCase();
+  if (!visible) return result;
+  const stages = Array.isArray(result?.stages) ? result.stages : [];
+  const list = stages.map((item) => `<li data-stage-status="${escapeHtml(String(item.status).toLowerCase())}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(String(item.status).replaceAll("_", " "))}</strong><small>${escapeHtml(item.detail)}</small></li>`).join("");
+  root.dataset.certificationState = state.toLowerCase();
+  root.innerHTML = `<header><div><span>RECRUIT LOOP</span><strong>48-hour integrity check</strong></div><b>${escapeHtml(state.replaceAll("_", " "))}</b></header><p>Yesterday’s close, today’s assignment, execution, and account proof must form one chain.</p><ol>${list}</ol><small>${receipt?.accountConfirmedAt ? "Exact account receipt confirmed" : "No completion is invented while proof is pending"}</small>`;
+  return result;
+}
+
+async function reconcileRecruitLoopCertification(options = {}) {
+  if (typeof DominionRecruitLoopCertification === "undefined") return null;
+  let input = recruitLoopCertificationInput(options);
+  let result = DominionRecruitLoopCertification.evaluate(input || {});
+  if (result.receipt) {
+    const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.recruitLoopCertifications;
+    let history = DominionRecruitLoopCertification.upsertHistory(readRecruitLoopCertificationHistory(), result.receipt, limit || 120);
+    saveClosedLoopLocal("HISTORY", "recruit-loop-certification", history);
+    if (options.persist !== false) {
+      const confirmation = await persistRecruitLoopCertificationHistory(history);
+      if (confirmation.confirmed) {
+        input = recruitLoopCertificationInput({
+          ...options,
+          accountReceipts: [result.receipt, ...(input?.accountReceipts || [])],
+          serverConfirmed: true,
+          pendingWrites: 0,
+          accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString()
+        });
+        result = DominionRecruitLoopCertification.evaluate(input || {});
+        history = DominionRecruitLoopCertification.upsertHistory(history, result.receipt, limit || 120);
+        saveClosedLoopLocal("HISTORY", "recruit-loop-certification", history);
+        await persistRecruitLoopCertificationHistory(history);
+        scheduleAccountTruthSync(50);
+      }
+    }
+  }
+  currentRecruitLoopCertification = result;
+  renderRecruitLoopCertification(result);
   return result;
 }
 
@@ -25155,6 +25287,7 @@ async function init() {
     document.body.dataset.mobileHydration = "ready";
     document.body.dataset.startupRecovery = startupIssues.length ? "recovered" : "clean";
     document.body.dataset.startupRecoveryCount = String(startupIssues.length);
+    startupRestoreIssues = [...startupIssues];
     if (startupIssues.length) {
       console.warn("[startup:summary] Optional surfaces recovered with their saved local evidence.", {
         surfaces: startupIssues.map((issue) => issue.label)
@@ -25164,6 +25297,12 @@ async function init() {
     finalizeStartupRecoverySummary(startupIssues, authoritativeStartup);
     settleAccountHealthSurface(trustLayerState.report, startupIssues);
     endStartupRestoreWatch();
+    await runStartupTask("48-hour recruit loop", () => reconcileRecruitLoopCertification({
+      persist: typeof DominionStartupAuthority !== "undefined"
+        && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
+      restoreDurationMs: startupRestoreDurationMs,
+      startupIssues
+    }), startupIssues);
     if (authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY) {
       const activatedCommand = await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
       if (activatedCommand?.appliedAt) renderPlanCommandSurfaces();

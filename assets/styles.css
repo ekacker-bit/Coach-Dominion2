@@ -3288,6 +3288,29 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
 .morning-command-activation[data-activation-state="decision_required"] { border-color: rgba(212, 175, 55, .72); }
 .morning-command-activation[data-activation-state="action_required"] { border-color: rgba(205, 75, 75, .7); border-left-color: var(--red); }
 #morning-command-feedback:empty { display: none; }
+.command-completion-certification {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 18px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(46, 180, 104, .5);
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+  background: linear-gradient(118deg, rgba(46, 180, 104, .15), rgba(10, 10, 10, .97) 55%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .28);
+}
+.command-completion-certification[hidden] { display: none !important; }
+.command-completion-certification header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; }
+.command-completion-certification header span { color: var(--victory-gold); font: 800 .7rem/1 var(--font-body); letter-spacing: .16em; }
+.command-completion-certification header strong { grid-column: 1; color: var(--stone); font: 700 clamp(1.45rem, 3vw, 2rem)/1 var(--font-body); }
+.command-completion-certification header em { grid-column: 2; grid-row: 1 / span 2; padding: 7px 10px; border: 1px solid rgba(230, 230, 228, .2); color: #c5cbd0; font: normal 800 .64rem/1 var(--font-body); letter-spacing: .1em; }
+.command-completion-certification > p { grid-column: 1; max-width: 68ch; margin: 0; color: var(--stone); line-height: 1.45; }
+.command-completion-certification > button { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 170px; min-height: 46px; }
+.command-completion-certification > small { grid-column: 1 / -1; color: var(--muted); font-size: .7rem; }
+.command-completion-certification[data-completion-state="protected"] { border-color: rgba(212, 175, 55, .58); border-left-color: var(--victory-gold); }
+.command-completion-certification[data-completion-state="action_required"] { border-color: rgba(205, 75, 75, .7); border-left-color: var(--red); }
 .daily-closeout-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .daily-closeout-actions p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .daily-closeout-actions button { flex: 0 0 auto; min-height: 48px; }
@@ -3354,6 +3377,12 @@ html[data-adaptation-outcomes-ux="026H.1"] #atlas-adaptation-outcome { order: 5;
   .morning-command-prior-actions { grid-template-columns: 1fr; }
   .morning-command-actions > button,
   .morning-command-prior-actions button { width: 100%; min-width: 0; }
+  .command-completion-certification { grid-template-columns: 1fr; margin-bottom: 14px; padding: 16px 14px; }
+  .command-completion-certification header { grid-template-columns: 1fr; }
+  .command-completion-certification header em { grid-column: 1; grid-row: auto; justify-self: start; }
+  .command-completion-certification > p,
+  .command-completion-certification > button,
+  .command-completion-certification > small { grid-column: 1; grid-row: auto; width: 100%; min-width: 0; }
   .daily-closeout-actions { display: grid; }
   .daily-closeout-actions button { width: 100%; }
   .weekly-closeout-evidence { padding: 14px 12px; }

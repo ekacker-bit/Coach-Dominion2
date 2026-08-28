@@ -15,15 +15,15 @@ test("030Q is cache-busted and production gated", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = JSON.parse(read("package.json"));
-  assert.match(html, /coach-dominion-release" content="030[QRSTU]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[QRSTUV]\.1"/);
   assert.match(html, /app\.js\?v=[^"]*-030q/);
   assert.match(worker, /030q-calendar-restore-repair/);
   assert.match(worker, /app\.js\?v=[^"]*-030q/);
-  assert.match(app, /register\("\/sw\.js\?v=030[qrstu]"/);
-  assert.match(health, /release: "030[QRSTU]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[qrstuv]"/);
+  assert.match(health, /release: "030[QRSTUV]\.1"/);
   assert.match(health, /calendarRestore: "active-week-fail-safe"/);
-  assert.match(workflow, /npm run test:030[qrstu]/);
-  assert.match(workflow, /--expected-release 030[QRSTU]\.1/);
+  assert.match(workflow, /npm run test:030[qrstuv]/);
+  assert.match(workflow, /--expected-release 030[QRSTUV]\.1/);
   assert.match(pkg.scripts["test:030q"], /build-030q\.test\.js/);
 });
 

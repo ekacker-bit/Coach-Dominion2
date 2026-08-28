@@ -81,6 +81,7 @@ let currentWeekExecutionCertification = null;
 let currentDailyLoopCertification = null;
 let currentNextDayCommandHandoff = null;
 let currentMorningCommandActivation = null;
+let currentCommandCompletionCertification = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -858,6 +859,11 @@ function readMorningCommandResolutionHistory() {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readCommandCompletionHistory() {
+  const receipts = readClosedLoopState("HISTORY", "command-completion-certification", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
 function saveCalendarCommitReceipt(receipt = null) {
   if (!receipt?.id) return [];
   const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
@@ -899,7 +905,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       reconciliationReceipts: readContractReconciliationReceipts(),
       journeyReceipts: readJourneyCertificationReceipts(),
       calendarCommitReceipts: readCalendarCommitReceipts(),
-      dailyLoopReceipts: readDailyLoopCertificationHistory()
+      dailyLoopReceipts: readDailyLoopCertificationHistory(),
+      commandCompletions: readCommandCompletionHistory()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -978,8 +985,11 @@ function applyAccountTruthSnapshot(snapshot = null) {
     if (DominionAccountTruth.semanticFingerprint(calendarCommitReceipts) !== DominionAccountTruth.semanticFingerprint(readCalendarCommitReceipts())) restored += 1;
     saveClosedLoopLocal("HISTORY", "calendar-commit-receipts", calendarCommitReceipts);
     const dailyLoopReceipts = DominionAccountTruth.mergeCollection(readDailyLoopCertificationHistory(), evidence.dailyLoopReceipts, DominionAccountTruth.COLLECTION_LIMITS.dailyLoopReceipts);
+    const commandCompletions = DominionAccountTruth.mergeCollection(readCommandCompletionHistory(), evidence.commandCompletions, DominionAccountTruth.COLLECTION_LIMITS.commandCompletions);
     if (DominionAccountTruth.semanticFingerprint(dailyLoopReceipts) !== DominionAccountTruth.semanticFingerprint(readDailyLoopCertificationHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(commandCompletions) !== DominionAccountTruth.semanticFingerprint(readCommandCompletionHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "daily-loop-certification", dailyLoopReceipts);
+    saveClosedLoopLocal("HISTORY", "command-completion-certification", commandCompletions);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -1067,7 +1077,7 @@ function renderAccountTruthHealth() {
   setText("account-truth-program", snapshot?.programFingerprint ? "LOCKED" : "CHECKING");
   const evidence = snapshot?.domains?.evidence?.payload || {};
   const coaching = snapshot?.domains?.coaching?.payload || {};
-  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0) + (evidence.dailyLoopReceipts?.length || 0);
+  const evidenceCount = (evidence.performance?.length || 0) + (evidence.closeouts?.length || 0) + (evidence.missionReceipts?.length || 0) + (evidence.reconciliationReceipts?.length || 0) + (evidence.journeyReceipts?.length || 0) + (evidence.calendarCommitReceipts?.length || 0) + (evidence.dailyLoopReceipts?.length || 0) + (evidence.commandCompletions?.length || 0);
   const coachingCount = (coaching.horizons?.length || 0) + (coaching.outcomes?.length || 0) + (coaching.decisions?.length || 0) + (coaching.dailyVerdicts?.length || 0) + (coaching.proofs?.length || 0) + (coaching.weeklyReconciliations?.length || 0) + (coaching.weeklyRollovers?.length || 0) + (coaching.weeklyExecutions?.length || 0) + (coaching.rankAdvancements?.length || 0) + (coaching.rankHandoffs?.length || 0) + (coaching.nextDayHandoffs?.length || 0) + (coaching.morningActivations?.length || 0) + (coaching.morningResolutions?.length || 0);
   setText("account-truth-evidence", `${evidenceCount} SAVED`);
   setText("account-truth-continuity", currentJourneyContinuity?.label || "CHECKING");
@@ -1779,7 +1789,8 @@ function evidenceAutopilotMissionReceipts() {
   const history = readClosedLoopState("HISTORY", "account-truth-mission-evidence", []);
   return [
     ...(Array.isArray(history) ? history : []),
-    ...readMissionExecutionReceipts(todayISODate())
+    ...readMissionExecutionReceipts(todayISODate()),
+    ...readCommandCompletionHistory()
   ].filter((item) => item?.module && item?.summary && item?.id);
 }
 
@@ -9153,6 +9164,29 @@ async function completeMissionRecoveryTask(taskId = "") {
   }, new Date().toISOString());
   const synced = await saveMissionRecoveryOrderState(saved);
   const remaining = DominionMissionRecovery.nextTask(saved);
+  if (!remaining) {
+    const assignmentId = `recovery:${saved.date}:${saved.id}`;
+    const sourceReceipt = {
+      id: `mission-recovery:${saved.id}`,
+      date: saved.date || todayISODate(),
+      module: "RECOVERY",
+      assignmentId,
+      sourceRecordId: saved.id,
+      state: "COMPLETE",
+      completedAt: saved.completedAt || new Date().toISOString(),
+      summary: { completedTasks: (saved.tasks || []).filter((item) => item.status === "COMPLETE").length, recoveryOrderId: saved.id }
+    };
+    const assignments = [...currentExecutionLedgerAssignments(saved.date || todayISODate()), {
+      id: assignmentId,
+      assignmentId,
+      module: "RECOVERY",
+      title: "Recovery order",
+      sessionOrder: 999,
+      trainingWindowId: "recovery",
+      sessionLabel: "RECOVERY"
+    }];
+    await reconcileCommandCompletionCertification({ sourceReceipt, assignments, operationalDate: saved.date, persist: true });
+  }
   setText("mission-execution-feedback", remaining
     ? `${task.label} secured${synced ? " to your account" : " on this device; sync will retry"}. Next: ${remaining.label}.`
     : `Recovery order secured${synced ? " to your account" : " on this device; sync will retry"}.`);
@@ -9458,7 +9492,10 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
   await runAtlasAdaptiveHorizon();
   await runAtlasAdaptationOutcomes();
   renderAtlasAdaptiveHorizon();
-  setText("mission-execution-feedback", `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
+  const certification = await reconcileCommandCompletionCertification({ sourceReceipt: receipt, persist: true });
+  setText("mission-execution-feedback", certification?.state === "CERTIFIED"
+    ? `${certification.view?.headline || "Mission complete"}. ${certification.next?.label ? `Next: ${certification.next.label}.` : "Account receipt confirmed."}`
+    : `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
   return receipt;
 }
 
@@ -11718,7 +11755,7 @@ async function reconcileStrengthExecutionAuthority(options = {}) {
   const receipt = Object.freeze({
     id: `execution-authority-${today}-${String(archived[0]?.executionId || "historical").replace(/[^a-z0-9_-]+/gi, "-")}`,
     type: "EXECUTION_AUTHORITY_RECONCILIATION",
-    version: "030U.1",
+    version: "030V.1",
     status: "RECONCILED",
     reconciledAt,
     signedContractId: resolution.signedContractRevisionId,
@@ -13670,7 +13707,8 @@ function buildCurrentExecutionLedger(date = todayISODate()) {
   }
   const evidence = [
     ...performanceEntries.filter((item) => String(item.performanceDate || item.performance_date || item.date || "").slice(0, 10) === targetDate),
-    ...readMissionExecutionReceipts(targetDate)
+    ...readMissionExecutionReceipts(targetDate),
+    ...readCommandCompletionHistory().filter((item) => item?.operationalDate === targetDate)
   ];
   const nutritionAssignment = assignmentFor("nutrition");
   const fuel = nutritionAssignment ? buildFuelDayLedger(targetDate) : null;
@@ -14403,7 +14441,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030u", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030v", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15725,6 +15763,179 @@ function renderMorningCommandActivation(result = currentMorningCommandActivation
   return result;
 }
 
+function commandCompletionSource(date = todayISODate()) {
+  return readMissionExecutionReceipts(date)
+    .filter((item) => item?.id && item?.assignmentId)
+    .sort((left, right) => String(right.completedAt || right.createdAt || "").localeCompare(String(left.completedAt || left.createdAt || "")))[0] || null;
+}
+
+function commandCompletionInput(source = commandCompletionSource(), options = {}) {
+  if (!source || typeof DominionCommandCompletionCertification === "undefined") return null;
+  const operationalDate = String(options.operationalDate || source.date || todayISODate()).slice(0, 10);
+  const week = options.week || readCommittedUnifiedWeek(operationalDate);
+  const assignments = options.assignments || currentExecutionLedgerAssignments(operationalDate);
+  const calendarReceipt = week ? matchingCalendarCommitReceipt(week) : null;
+  const evidence = accountTruthState.accountSnapshot?.domains?.evidence?.payload || {};
+  return {
+    operationalDate,
+    source,
+    authority: {
+      contractRevision: Number(week?.contractRevision || readApprovedRecruitContract()?.revision || 0),
+      weekId: week?.id || week?.weekStart || null,
+      weekRevision: Number(week?.revision || 0),
+      calendarCommitId: calendarReceipt?.id || null
+    },
+    assignments,
+    history: options.history || readCommandCompletionHistory(),
+    accountReceipts: options.accountReceipts || evidence.commandCompletions || [],
+    serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null,
+    createdAt: options.createdAt || source.completedAt || new Date().toISOString()
+  };
+}
+
+async function persistCommandCompletionHistory(history = []) {
+  if (!session?.user?.id || !Array.isArray(history) || !history[0]?.id) return { confirmed: false, row: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: "HISTORY",
+      state_key: "command-completion-certification",
+      payload: history,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("state_type,state_key,payload,updated_at")
+      .single();
+    if (error) throw error;
+    const confirmed = data?.state_type === "HISTORY"
+      && data?.state_key === "command-completion-certification"
+      && Array.isArray(data?.payload)
+      && data.payload.some((item) => item?.id === history[0].id && item?.fingerprint === history[0].fingerprint);
+    return { confirmed, row: data || null };
+  } catch (error) {
+    logAccountPersistenceFailure("coaching", "HISTORY", "command-completion-certification", history, error);
+    return { confirmed: false, row: null, error };
+  }
+}
+
+function renderCommandCompletionCertification(result = currentCommandCompletionCertification) {
+  const root = document.getElementById("command-completion-certification");
+  if (!root || typeof DominionCommandCompletionCertification === "undefined") return result;
+  const latest = result?.receipt || DominionCommandCompletionCertification.latestForDate(readCommandCompletionHistory(), todayISODate());
+  const visible = Boolean(result?.state === "ACTION_REQUIRED" || latest?.operationalDate === todayISODate());
+  root.hidden = !visible;
+  if (!visible) return result;
+  const view = result?.view || {
+    eyebrow: latest?.completion?.state === "PAIN_HOLD" ? "SAFETY HOLD" : "MISSION COMPLETE",
+    headline: latest?.completion?.state === "PAIN_HOLD" ? "Session stopped" : "Mission complete",
+    detail: `${latest?.completion?.title || "Session"} secured. ${latest?.next?.label ? `Next: ${latest.next.label}.` : "Close the day."}`,
+    action: latest?.next?.type === "COMMAND" ? "OPEN_NEXT" : latest?.next?.type === "SAFETY" ? "OPEN_RECOVERY" : "OPEN_CLOSEOUT",
+    actionLabel: latest?.next?.label || "Close the day"
+  };
+  const state = result?.state || latest?.status || "CERTIFIED";
+  const next = result?.next || latest?.next || null;
+  root.dataset.completionState = String(state).toLowerCase();
+  root.innerHTML = `<header><span>${escapeHtml(view.eyebrow || "MISSION COMPLETE")}</span><strong>${escapeHtml(view.headline || "Mission complete")}</strong><em>${escapeHtml(String(state).replaceAll("_", " "))}</em></header><p>${escapeHtml(view.detail || "Completion secured.")}</p>${view.action ? `<button type="button" data-command-completion-action="${escapeHtml(view.action)}">${escapeHtml(view.actionLabel || "Continue")}</button>` : ""}<small>${latest?.accountConfirmedAt ? "Account receipt confirmed" : "Protected on this device; account confirmation is retrying"}</small>`;
+  ["today", "calendar", "performance", "inspection"].forEach((id) => {
+    const surface = document.getElementById(id);
+    if (!surface) return;
+    surface.dataset.completionState = String(state).toLowerCase();
+    if (latest?.id) surface.dataset.completionReceiptId = latest.id;
+    if (next?.assignmentId) surface.dataset.nextAssignmentId = next.assignmentId;
+  });
+  return result;
+}
+
+async function refreshCommandCompletionSurfaces() {
+  await saveCurrentMissionExecutionSpine();
+  renderMissionExecution();
+  renderTodayCommittedWeek();
+  renderWeeklyOrchestrator();
+  renderDailyCoachingLoop();
+  renderDailyCloseout();
+  renderPerformanceSection();
+  if (typeof reconcileEvidenceAutopilot === "function") await reconcileEvidenceAutopilot({ persist: true });
+}
+
+async function reconcileCommandCompletionCertification(options = {}) {
+  if (typeof DominionCommandCompletionCertification === "undefined") return null;
+  const source = options.sourceReceipt || commandCompletionSource(options.operationalDate || todayISODate());
+  if (!source) {
+    currentCommandCompletionCertification = null;
+    renderCommandCompletionCertification(null);
+    return null;
+  }
+  let input = commandCompletionInput(source, options);
+  let result = DominionCommandCompletionCertification.evaluate(input);
+  if (result.receipt) {
+    const limit = typeof DominionAccountTruth === "undefined" ? 365 : DominionAccountTruth.COLLECTION_LIMITS.commandCompletions;
+    let history = DominionCommandCompletionCertification.upsertHistory(readCommandCompletionHistory(), result.receipt, limit || 365);
+    saveClosedLoopLocal("HISTORY", "command-completion-certification", history);
+    if (options.persist !== false) {
+      const confirmation = await persistCommandCompletionHistory(history);
+      if (confirmation.confirmed) {
+        input = commandCompletionInput(source, {
+          ...options,
+          history,
+          accountReceipts: [result.receipt, ...(input.accountReceipts || [])],
+          serverConfirmed: true,
+          accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString()
+        });
+        result = DominionCommandCompletionCertification.evaluate(input);
+        history = DominionCommandCompletionCertification.upsertHistory(history, result.receipt, limit || 365);
+        saveClosedLoopLocal("HISTORY", "command-completion-certification", history);
+        await persistCommandCompletionHistory(history);
+      }
+    }
+  }
+  currentCommandCompletionCertification = result;
+  renderCommandCompletionCertification(result);
+  if (options.render !== false) await refreshCommandCompletionSurfaces();
+  return result;
+}
+
+function openCommandCompletionTarget(result = currentCommandCompletionCertification) {
+  const next = result?.next || result?.receipt?.next;
+  if (!next) return false;
+  if (next.type === "CLOSEOUT") {
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    const panel = document.getElementById("daily-closeout-panel");
+    if (panel) { panel.hidden = false; panel.open = true; }
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (next.type === "SAFETY" || next.module === "recovery") {
+    setActiveSection("today");
+    document.getElementById("today-recovery-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (next.module === "running") {
+    setActiveSection("performance");
+    setPerformanceActiveView("running");
+    window.history.replaceState(null, "", "#performance");
+    renderRunningCommand();
+    document.getElementById("running-command-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (next.module === "nutrition") {
+    setActiveSection("nutrition");
+    setNutritionActiveView("today");
+    window.history.replaceState(null, "", "#nutrition");
+    renderNutritionCommand();
+    document.getElementById("fuel-closed-loop-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (["strength", "core"].includes(next.module)) {
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    openMissionSessionDetails(next.module.toUpperCase());
+    return true;
+  }
+  return false;
+}
+
 async function stopMorningPriorExecution(selected = {}, action = "CLOSE_INCOMPLETE") {
   const source = selected.raw || selected;
   const endedAt = new Date().toISOString();
@@ -16449,6 +16660,7 @@ async function loadClosedLoopState() {
       ["HISTORY", "next-day-command-handoff"],
       ["HISTORY", "morning-command-activation"],
       ["HISTORY", "morning-command-resolution"],
+      ["HISTORY", "command-completion-certification"],
       ["DAILY_VERDICT", todayISODate()],
       ["HISTORY", "atlas-closed-loop"],
       ["HISTORY", "atlas-decision-proof"],
@@ -23709,6 +23921,23 @@ async function sealFuelDay(event) {
     const order = typeof DominionFuelExecution === "undefined" ? null : DominionFuelExecution.buildOrder({ execution: buildCurrentTodayNutritionExecution(), loop, calendarContext: buildCurrentFuelCalendarContext(), fastingContext: buildCurrentFastingContext() });
     const record = order ? DominionFuelExecution.attachVerdict(baseRecord, order) : baseRecord;
     const result = await saveFuelClosedLoopLedger({ ...ledger, closeouts: DominionFuelClosedLoop.mergeById(ledger.closeouts, record, 120) });
+    const assignment = currentExecutionLedgerAssignments(loop.date).find((item) => DominionUnifiedExecutionLedger.domain(item.module) === "nutrition") || null;
+    if (assignment?.assignmentId) {
+      await reconcileCommandCompletionCertification({
+        sourceReceipt: {
+          id: `fuel-closeout:${record.id || loop.date}`,
+          date: loop.date,
+          module: "NUTRITION",
+          assignmentId: assignment.assignmentId,
+          sourceRecordId: record.id || `fuel-${loop.date}`,
+          state: "SEALED",
+          completedAt: record.closedAt || record.updatedAt || new Date().toISOString(),
+          summary: loop.reconciliation?.metrics || {}
+        },
+        operationalDate: loop.date,
+        persist: true
+      });
+    }
     event.currentTarget.reset();
     event.currentTarget.hidden = true;
     renderNutritionCommand();
@@ -24886,6 +25115,10 @@ async function init() {
     await runStartupTask("morning command", () => reconcileMorningCommandActivation({
       persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
     }), startupIssues);
+    await runStartupTask("completion receipt", () => reconcileCommandCompletionCertification({
+      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
+      render: false
+    }), startupIssues);
     setStartupRestoreProgress("Preparing Today.");
     const finalRenders = [
       ["Contract view", renderRecruitContract],
@@ -24893,6 +25126,7 @@ async function init() {
       ["Today calendar", renderTodayCommittedWeek],
       ["next-day command", renderNextDayCommandHandoff],
       ["morning command", renderMorningCommandActivation],
+      ["completion receipt", renderCommandCompletionCertification],
       ["activation guide", renderActivationGuide],
       ["standards duty", renderTodayStandardsDuty],
       ["rank", renderRankSection],
@@ -27543,6 +27777,13 @@ if (typeof document !== "undefined") {
       try { await openMorningCommandTarget(currentMorningCommandActivation); }
       catch (error) { setText("morning-command-feedback", error?.message || "The active logger could not be opened."); }
       finally { commandButton.disabled = false; }
+      return;
+    }
+    const completionButton = event.target.closest("button[data-command-completion-action]");
+    if (completionButton) {
+      completionButton.disabled = true;
+      try { openCommandCompletionTarget(currentCommandCompletionCertification); }
+      finally { completionButton.disabled = false; }
       return;
     }
     const decisionButton = event.target.closest("button[data-atlas-closed-loop-action]");

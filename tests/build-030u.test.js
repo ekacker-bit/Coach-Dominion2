@@ -8,23 +8,23 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-test("030U is cache-busted and production gated", () => {
+test("030U remains cache-busted and protected by the current production gate", () => {
   const html = read("app.html");
   const worker = read("sw.js");
   const app = read("assets/js/app.js");
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = JSON.parse(read("package.json"));
-  assert.match(html, /coach-dominion-release" content="030U\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[UV]\.1"/);
   assert.match(html, /morning-command-activation\.js\?v=030u/);
-  assert.match(html, /app\.js\?v=[^"]*-030u/);
+  assert.match(html, /app\.js\?v=[^"]*-030u(?:-030v)?/);
   assert.match(worker, /030u-morning-command-activation/);
   assert.match(worker, /morning-command-activation\.js\?v=030u/);
-  assert.match(app, /register\("\/sw\.js\?v=030u"/);
-  assert.match(health, /release: "030U\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[uv]"/);
+  assert.match(health, /release: "030[UV]\.1"/);
   assert.match(health, /morningCommand: "overnight-account-certified"/);
-  assert.match(workflow, /npm run test:030u/);
-  assert.match(workflow, /--expected-release 030U\.1/);
+  assert.match(workflow, /npm run test:030[uv]/);
+  assert.match(workflow, /--expected-release 030[UV]\.1/);
   assert.match(pkg.scripts["test:030u"], /morning-command-certification\.js/);
 });
 

@@ -19,16 +19,16 @@ const packageJson = JSON.parse(read("package.json"));
 const preview = read("tests/fixtures/rank-handoff-preview.html");
 
 test("030O remains cache-busted and guarded by the current production release", () => {
-  assert.match(html, /coach-dominion-release" content="030[OPQRSTU]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[OPQRSTUV]\.1"/);
   assert.match(html, /rank-advancement-handoff\.js\?v=030o/);
   assert.ok(html.indexOf("rank-advancement-handoff.js?v=030o") < html.indexOf("app.js?v="));
   assert.match(worker, /030o-advancement-handoff/);
   assert.match(worker, /rank-advancement-handoff\.js\?v=030o/);
-  assert.match(app, /register\("\/sw\.js\?v=030[opqrstu]"/);
-  assert.match(health, /release: "030[OPQRSTU]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[opqrstuv]"/);
+  assert.match(health, /release: "030[OPQRSTUV]\.1"/);
   assert.match(health, /rankHandoff: "earned-rank-acknowledged"/);
-  assert.match(workflow, /npm run test:030[opqrstu]/);
-  assert.match(workflow, /--expected-release 030[OPQRSTU]\.1/);
+  assert.match(workflow, /npm run test:030[opqrstuv]/);
+  assert.match(workflow, /--expected-release 030[OPQRSTUV]\.1/);
   assert.match(packageJson.scripts["test:030o"], /rank-advancement-handoff\.test\.js/);
 });
 
@@ -43,7 +43,7 @@ test("030O keeps acknowledgment separate from immutable promotion proof", () => 
 });
 
 test("030O restores handoff receipts through Account Truth", () => {
-  assert.match(account, /const VERSION = "030O\.1"/);
+  assert.match(account, /const VERSION = "030[OPQRSTUV]\.1"/);
   assert.match(account, /rankHandoffs: 12/);
   assert.match(account, /mergeCollection\(value\.rankHandoffs/);
   assert.match(account, /mergeCollection\(device\.rankHandoffs, account\.rankHandoffs/);

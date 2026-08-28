@@ -15,16 +15,16 @@ test("030S remains cached and protected by the current production gate", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = JSON.parse(read("package.json"));
-  assert.match(html, /coach-dominion-release" content="030[STUV]\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[STUVW]\.1"/);
   assert.match(html, /daily-loop-certification\.js\?v=030s/);
   assert.match(html, /app\.js\?v=[^"]*-030s(?:-030t)?(?:-030u)?/);
   assert.match(worker, /030s-real-recruit-daily-loop/);
   assert.match(worker, /daily-loop-certification\.js\?v=030s/);
-  assert.match(app, /register\("\/sw\.js\?v=030[stuv]"/);
-  assert.match(health, /release: "030[STUV]\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[stuvw]"/);
+  assert.match(health, /release: "030[STUVW]\.1"/);
   assert.match(health, /dailyLoopCertification: "account-receipt-confirmed"/);
-  assert.match(workflow, /npm run test:030[stuv]/);
-  assert.match(workflow, /--expected-release 030[STUV]\.1/);
+  assert.match(workflow, /npm run test:030[stuvw]/);
+  assert.match(workflow, /--expected-release 030[STUVW]\.1/);
   assert.match(pkg.scripts["test:030s"], /real-daily-loop-certification\.js/);
 });
 

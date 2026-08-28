@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Real Recruit Loop Certification
+
+- Certifies the complete 48-hour recruit chain from signed Contract and committed week through Daily Closeout, next-day handoff, morning activation, and exact command completion.
+- Uses deterministic account receipts so another session or device restores the same certification instead of reconstructing a different answer.
+- Keeps pending writes protected, stops on stale authority or assignment drift, and surfaces slow startup restore as an advisory rather than inventing success.
+- Adds an internal-only seven-stage diagnostic while keeping release language and certification machinery out of the recruit experience.
+- Adds nine scenario gates plus desktop and mobile fixtures for certified, waiting, protected, broken, slow, and restored states.
+
 ## Unreleased - Command Completion Certification
 
 - Turns each finished Strength, Running, Core, Fuel, or Recovery command into one deterministic account-backed completion receipt.

@@ -15,16 +15,16 @@ test("030V is cache-busted and production gated", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = JSON.parse(read("package.json"));
-  assert.match(html, /coach-dominion-release" content="030V\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[VW]\.1"/);
   assert.match(html, /command-completion-certification\.js\?v=030v/);
-  assert.match(html, /app\.js\?v=[^"]*-030v/);
+  assert.match(html, /app\.js\?v=[^"]*-030v(?:-030w)?/);
   assert.match(worker, /030v-command-completion-certification/);
   assert.match(worker, /command-completion-certification\.js\?v=030v/);
-  assert.match(app, /register\("\/sw\.js\?v=030v"/);
-  assert.match(health, /release: "030V\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[vw]"/);
+  assert.match(health, /release: "030[VW]\.1"/);
   assert.match(health, /commandCompletion: "account-receipt-certified"/);
-  assert.match(workflow, /npm run test:030v/);
-  assert.match(workflow, /--expected-release 030V\.1/);
+  assert.match(workflow, /npm run test:030[vw]/);
+  assert.match(workflow, /--expected-release 030[VW]\.1/);
   assert.match(pkg.scripts["test:030v"], /command-completion-certification\.js/);
 });
 

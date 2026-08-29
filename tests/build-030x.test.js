@@ -13,16 +13,16 @@ test("030X is cache-busted and production gated", () => {
   const app = read("assets/js/app.js");
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
-  assert.match(html, /coach-dominion-release" content="030X\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[XY]\.1"/);
   assert.match(html, /recruit-continuity-recovery\.js\?v=030x/);
-  assert.match(html, /app\.js\?v=[^"]*-030x/);
+  assert.match(html, /app\.js\?v=[^"]*-030x(?:-030y)?/);
   assert.match(worker, /030x-recruit-continuity-recovery/);
   assert.match(worker, /recruit-continuity-recovery\.js\?v=030x/);
-  assert.match(app, /register\("\/sw\.js\?v=030x"/);
-  assert.match(health, /release: "030X\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[xy]"/);
+  assert.match(health, /release: "030[XY]\.1"/);
   assert.match(health, /continuityRecovery: "one-action-account-restored"/);
   assert.match(workflow, /npm run test:030x/);
-  assert.match(workflow, /--expected-release 030X\.1/);
+  assert.match(workflow, /--expected-release 030[XY]\.1/);
 });
 
 test("030X stores and restores the exact recovery receipt", () => {

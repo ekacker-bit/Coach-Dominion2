@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Today command fixture</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=030y">
+</head>
+<body>
+  <main id="app-content">
+    <section id="today" class="scroll-anchor" aria-labelledby="today-heading">
+      <header class="today-command-header"><div><div class="kicker">TODAY</div><h1 id="today-heading">Today</h1></div></header>
+      <section id="morning-command-activation" class="card"><h2>Morning activation</h2><p>Internal command receipt.</p></section>
+      <section id="one-command" class="card one-command today-mission" data-command-mode="EXECUTE">
+        <header class="one-command-header today-mission-header">
+          <div><div id="one-command-eyebrow" class="kicker">DO THIS NOW</div><h2 id="one-command-heading">Complete Lower A</h2><p id="one-command-detail">Open the assigned workout and record every working set.</p></div>
+          <span id="one-command-state" class="state-pill">READY</span>
+        </header>
+        <p id="today-mission-reason" class="today-mission-reason"><span>WHY</span><strong>It is the first unfinished assignment in your signed Calendar.</strong></p>
+        <div class="today-mission-facts" aria-label="Current order facts">
+          <div><span>Duration</span><strong id="today-mission-readiness">55 MIN</strong></div>
+          <div><span>Window</span><strong id="today-mission-schedule">NOW</strong></div>
+          <div><span>Progress</span><strong id="today-mission-evidence">1/4 DONE</strong></div>
+        </div>
+        <div class="one-command-actions today-mission-actions">
+          <button id="one-command-primary" type="button">Start Lower A</button>
+          <button id="atlas-command-adjust" type="button" class="ghost">This doesn't fit</button>
+          <p id="today-mission-after"><span>THEN</span><strong>Your assigned run becomes the next action.</strong></p>
+        </div>
+        <aside id="frictionless-execution" class="frictionless-execution"><h3>Quick log</h3><p>Supporting controls belong behind Details.</p></aside>
+      </section>
+      <section id="daily-ritual" class="daily-ritual"><button id="daily-ritual-action" type="button">Close today</button></section>
+      <details id="today-more-context" class="today-more-context">
+        <summary><span>More context</span><small>Calendar, evidence, rationale, and detailed controls</small></summary>
+        <div id="today-more-context-stack" class="today-more-context-stack"></div>
+      </details>
+      <section id="mission-execution" class="card"><h2>Execution details</h2><p>Assignment evidence and session controls.</p></section>
+    </section>
+  </main>
+  <script src="/assets/js/recruit-first-command-center.js?v=030y"></script>
+  <script>
+    const commandView = DominionRecruitFirstCommandCenter.build({
+      model: {
+        state: "MODULE_READY",
+        mode: "EXECUTE",
+        title: "Complete Lower A",
+        detail: "Open the assigned workout and record every working set.",
+        reason: "It is the first unfinished assignment in your signed Calendar.",
+        after: "Your assigned run becomes the next action.",
+        stateLabel: "READY",
+        secured: false,
+        closeoutReady: false,
+        primary: { action: "MODULE", label: "Start Lower A", module: "strength" },
+        progress: { complete: 1, total: 4 }
+      },
+      recovery: { state: "CLEAR" }
+    });
+    DominionRecruitFirstCommandCenter.apply(document);
+    DominionRecruitFirstCommandCenter.present(document, commandView);
+  </script>
+</body>
+</html>

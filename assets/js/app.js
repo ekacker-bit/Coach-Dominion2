@@ -14469,7 +14469,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030x", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030y", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -21742,6 +21742,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     return;
   }
   let model;
+  let recruitFirstView = null;
   try {
     const options = {
       online: typeof navigator === "undefined" ? true : navigator.onLine,
@@ -21764,8 +21765,23 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     }
     model = buildCurrentAtlasDailyCommand(truth, model) || model;
     model = applyRecruitContinuityRecoveryToModel(model);
+    if (typeof DominionRecruitFirstCommandCenter !== "undefined") {
+      let queue = null;
+      try { queue = buildCurrentDailyExecutionQueue(); }
+      catch (_) {}
+      recruitFirstView = DominionRecruitFirstCommandCenter.build({
+        model,
+        queue,
+        recovery: currentRecruitContinuityRecovery
+      });
+      model = recruitFirstView.model;
+    }
   } catch (_) {
     model = fallbackOneCommandModel(truth);
+    if (typeof DominionRecruitFirstCommandCenter !== "undefined") {
+      recruitFirstView = DominionRecruitFirstCommandCenter.build({ model, recovery: currentRecruitContinuityRecovery });
+      model = recruitFirstView.model;
+    }
   }
   currentAtlasDailyCommand = model;
   const resolutionReceipt = document.getElementById("unified-blocker-resolution-receipt");
@@ -21821,7 +21837,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     primary.dataset.oneCommandAssignment = currentRecruitContinuityRecovery?.order?.assignmentId || "";
   }
   const secondary = document.getElementById("one-command-secondary");
-  if (secondary) secondary.textContent = "Open decision context";
+  if (secondary) secondary.textContent = model.secondary?.label || "Why this?";
   setText("one-command-source", model.context.source);
   setText("one-command-evidence", model.context.evidence);
   const conflict = document.getElementById("one-command-conflict");
@@ -21844,6 +21860,13 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
   renderActivationRepair(truth);
   renderTodayFlow(model);
   renderDailyDecisionSurfaces(model.dailyDecision || currentDailyDecision);
+  if (typeof DominionRecruitFirstCommandCenter !== "undefined") {
+    DominionRecruitFirstCommandCenter.apply(document);
+    DominionRecruitFirstCommandCenter.present(document, recruitFirstView || DominionRecruitFirstCommandCenter.build({
+      model,
+      recovery: currentRecruitContinuityRecovery
+    }));
+  }
 }
 
 function buildCurrentProgramCommand(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
@@ -22434,6 +22457,9 @@ function organizeWorkspaceSections() {
 function stabilizeTodayCommandOrder() {
   // Legacy command-order marker retained for upgrade-path verification: today.dataset.commandOrder = "028F"
   // Legacy release-stabilization marker: today.dataset.commandOrder = "029A"
+  if (window.DominionRecruitFirstCommandCenter?.apply) {
+    return window.DominionRecruitFirstCommandCenter.apply(document);
+  }
   if (window.DominionCommandFirstToday?.apply) {
     return window.DominionCommandFirstToday.apply(document);
   }
@@ -26384,6 +26410,11 @@ if (typeof document !== "undefined") {
     } finally {
       button.disabled = false;
     }
+  });
+  document.getElementById("today-more-context")?.addEventListener("toggle", (event) => {
+    if (!event.isTrusted) return;
+    if (event.currentTarget.open) event.currentTarget.dataset.userOpened = "true";
+    else delete event.currentTarget.dataset.userOpened;
   });
   document.getElementById("today-quick-log-form")?.addEventListener("input", (event) => {
     event.currentTarget.dataset.dirty = "true";

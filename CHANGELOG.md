@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Recruit-First Command Center
+
+- Makes Today answer one question first: what the recruit should do now.
+- Preserves continuity recovery as the highest-priority command when saved work needs attention.
+- Moves supporting context and operating machinery behind one optional Details & history control.
+- Shows Closeout only when today's executable work is complete, then confirms the secured day.
+- Tightens the mobile command, copy, and action hierarchy without changing signed-plan authority or persistence.
+
 ## Unreleased - Recruit Continuity Recovery
 
 - Converts the first broken or incomplete recruit-loop stage into one plain-language action on Today.

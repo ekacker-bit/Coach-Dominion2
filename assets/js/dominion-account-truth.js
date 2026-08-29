@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030W.1";
+  const VERSION = "030X.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -28,6 +28,7 @@
     morningResolutions: 120,
     commandCompletions: 365,
     recruitLoopCertifications: 120,
+    continuityRecoveries: 120,
     constraints: 120,
     reconciliationReceipts: 120,
     journeyReceipts: 120,
@@ -179,7 +180,8 @@
       calendarCommitReceipts: mergeCollection(value.calendarCommitReceipts || [], [], COLLECTION_LIMITS.calendarCommitReceipts),
       dailyLoopReceipts: mergeCollection(value.dailyLoopReceipts || [], [], COLLECTION_LIMITS.dailyLoopReceipts),
       commandCompletions: mergeCollection(value.commandCompletions || [], [], COLLECTION_LIMITS.commandCompletions),
-      recruitLoopCertifications: mergeCollection(value.recruitLoopCertifications || [], [], COLLECTION_LIMITS.recruitLoopCertifications)
+      recruitLoopCertifications: mergeCollection(value.recruitLoopCertifications || [], [], COLLECTION_LIMITS.recruitLoopCertifications),
+      continuityRecoveries: mergeCollection(value.continuityRecoveries || [], [], COLLECTION_LIMITS.continuityRecoveries)
     };
     if (domain === "coaching") return {
       horizons: mergeCollection(value.horizons || [], [], COLLECTION_LIMITS.horizons),
@@ -257,7 +259,8 @@
       calendarCommitReceipts: mergeCollection(device.calendarCommitReceipts, account.calendarCommitReceipts, COLLECTION_LIMITS.calendarCommitReceipts),
       dailyLoopReceipts: mergeCollection(device.dailyLoopReceipts, account.dailyLoopReceipts, COLLECTION_LIMITS.dailyLoopReceipts),
       commandCompletions: mergeCollection(device.commandCompletions, account.commandCompletions, COLLECTION_LIMITS.commandCompletions),
-      recruitLoopCertifications: mergeCollection(device.recruitLoopCertifications, account.recruitLoopCertifications, COLLECTION_LIMITS.recruitLoopCertifications)
+      recruitLoopCertifications: mergeCollection(device.recruitLoopCertifications, account.recruitLoopCertifications, COLLECTION_LIMITS.recruitLoopCertifications),
+      continuityRecoveries: mergeCollection(device.continuityRecoveries, account.continuityRecoveries, COLLECTION_LIMITS.continuityRecoveries)
     };
     if (domain === "coaching") return {
       horizons: mergeCollection(device.horizons, account.horizons, COLLECTION_LIMITS.horizons),

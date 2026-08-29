@@ -20,7 +20,10 @@
 
   function text(value = "") { return String(value ?? "").trim(); }
   function upper(value = "") { return text(value).toUpperCase().replace(/[\s-]+/g, "_"); }
-  function revision(value = {}) { return Math.max(0, Number(value.revision || value.contractRevision || value.recruitContractRevision || 0)); }
+  function revision(value = {}) {
+    const source = value || {};
+    return Math.max(0, Number(source.revision || source.contractRevision || source.recruitContractRevision || 0));
+  }
   function date(value = "") { return /^\d{4}-\d{2}-\d{2}$/.test(text(value).slice(0, 10)) ? text(value).slice(0, 10) : null; }
 
   function validSignature(contract = {}) {

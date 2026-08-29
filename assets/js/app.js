@@ -83,6 +83,7 @@ let currentNextDayCommandHandoff = null;
 let currentMorningCommandActivation = null;
 let currentCommandCompletionCertification = null;
 let currentRecruitLoopCertification = null;
+let currentRecruitContinuityRecovery = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -873,6 +874,11 @@ function readRecruitLoopCertificationHistory() {
   return Array.isArray(receipts) ? receipts : [];
 }
 
+function readRecruitContinuityRecoveryHistory() {
+  const receipts = readClosedLoopState("HISTORY", "recruit-continuity-recovery", []);
+  return Array.isArray(receipts) ? receipts : [];
+}
+
 function saveCalendarCommitReceipt(receipt = null) {
   if (!receipt?.id) return [];
   const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.calendarCommitReceipts;
@@ -916,7 +922,8 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
       calendarCommitReceipts: readCalendarCommitReceipts(),
       dailyLoopReceipts: readDailyLoopCertificationHistory(),
       commandCompletions: readCommandCompletionHistory(),
-      recruitLoopCertifications: readRecruitLoopCertificationHistory()
+      recruitLoopCertifications: readRecruitLoopCertificationHistory(),
+      continuityRecoveries: readRecruitContinuityRecoveryHistory()
     },
     coaching: {
       horizons: readAtlasAdaptiveHorizonHistory(),
@@ -997,12 +1004,15 @@ function applyAccountTruthSnapshot(snapshot = null) {
     const dailyLoopReceipts = DominionAccountTruth.mergeCollection(readDailyLoopCertificationHistory(), evidence.dailyLoopReceipts, DominionAccountTruth.COLLECTION_LIMITS.dailyLoopReceipts);
     const commandCompletions = DominionAccountTruth.mergeCollection(readCommandCompletionHistory(), evidence.commandCompletions, DominionAccountTruth.COLLECTION_LIMITS.commandCompletions);
     const recruitLoopCertifications = DominionAccountTruth.mergeCollection(readRecruitLoopCertificationHistory(), evidence.recruitLoopCertifications, DominionAccountTruth.COLLECTION_LIMITS.recruitLoopCertifications);
+    const continuityRecoveries = DominionAccountTruth.mergeCollection(readRecruitContinuityRecoveryHistory(), evidence.continuityRecoveries, DominionAccountTruth.COLLECTION_LIMITS.continuityRecoveries);
     if (DominionAccountTruth.semanticFingerprint(dailyLoopReceipts) !== DominionAccountTruth.semanticFingerprint(readDailyLoopCertificationHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(commandCompletions) !== DominionAccountTruth.semanticFingerprint(readCommandCompletionHistory())) restored += 1;
     if (DominionAccountTruth.semanticFingerprint(recruitLoopCertifications) !== DominionAccountTruth.semanticFingerprint(readRecruitLoopCertificationHistory())) restored += 1;
+    if (DominionAccountTruth.semanticFingerprint(continuityRecoveries) !== DominionAccountTruth.semanticFingerprint(readRecruitContinuityRecoveryHistory())) restored += 1;
     saveClosedLoopLocal("HISTORY", "daily-loop-certification", dailyLoopReceipts);
     saveClosedLoopLocal("HISTORY", "command-completion-certification", commandCompletions);
     saveClosedLoopLocal("HISTORY", "recruit-loop-certification", recruitLoopCertifications);
+    saveClosedLoopLocal("HISTORY", "recruit-continuity-recovery", continuityRecoveries);
     const horizons = DominionAccountTruth.mergeCollection(readAtlasAdaptiveHorizonHistory(), coaching.horizons, DominionAccountTruth.COLLECTION_LIMITS.horizons);
     const outcomes = DominionAccountTruth.mergeCollection(readAtlasAdaptationOutcomeHistory(), coaching.outcomes, DominionAccountTruth.COLLECTION_LIMITS.outcomes);
     const decisions = DominionAccountTruth.mergeCollection(readAtlasDecisionHistory(), coaching.decisions, DominionAccountTruth.COLLECTION_LIMITS.decisions);
@@ -14459,7 +14469,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030w", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030x", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -16025,6 +16035,207 @@ async function reconcileRecruitLoopCertification(options = {}) {
   currentRecruitLoopCertification = result;
   renderRecruitLoopCertification(result);
   return result;
+}
+
+function recruitContinuityRecoveryInput(options = {}) {
+  const loop = options.loop || currentRecruitLoopCertification;
+  if (!loop || typeof DominionRecruitContinuityRecovery === "undefined") return null;
+  const loopInput = recruitLoopCertificationInput(options) || {};
+  let handoffCandidate = null;
+  let morningCandidate = null;
+  try { handoffCandidate = buildCurrentNextDayCommandHandoff(loop.targetDate || todayISODate()); } catch (_) {}
+  try { morningCandidate = buildCurrentMorningCommandActivation(loop.targetDate || todayISODate()); } catch (_) {}
+  const accountEvidence = accountTruthState.accountSnapshot?.domains?.evidence?.payload || {};
+  return {
+    targetDate: loop.targetDate || todayISODate(),
+    userId: session?.user?.id || null,
+    authority: loopInput.authority || {},
+    loop,
+    online: navigator.onLine !== false,
+    serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    pendingWrites: options.pendingWrites ?? canonicalPendingWriteState().count,
+    canRebuildHandoff: Boolean(handoffCandidate?.receipt && ["PROTECTED", "CERTIFIED"].includes(handoffCandidate.state)),
+    canActivateMorning: Boolean(morningCandidate?.receipt && ["PROTECTED", "CERTIFIED"].includes(morningCandidate.state)),
+    accountReceipts: options.accountReceipts || accountEvidence.continuityRecoveries || [],
+    accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null,
+    createdAt: options.createdAt || new Date().toISOString()
+  };
+}
+
+async function persistRecruitContinuityRecoveryHistory(history = []) {
+  if (!session?.user?.id || !Array.isArray(history) || !history[0]?.id) return { confirmed: false, row: null };
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("coaching_loop_state").upsert({
+      user_id: session.user.id,
+      state_type: "HISTORY",
+      state_key: "recruit-continuity-recovery",
+      payload: history,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("state_type,state_key,payload,updated_at")
+      .single();
+    if (error) throw error;
+    const confirmed = data?.state_type === "HISTORY"
+      && data?.state_key === "recruit-continuity-recovery"
+      && Array.isArray(data?.payload)
+      && data.payload.some((item) => item?.id === history[0].id && item?.fingerprint === history[0].fingerprint);
+    return { confirmed, row: data || null };
+  } catch (error) {
+    logAccountPersistenceFailure("coaching", "HISTORY", "recruit-continuity-recovery", history, error);
+    return { confirmed: false, row: null, error };
+  }
+}
+
+async function runAutomaticRecruitContinuityRecovery(result = currentRecruitContinuityRecovery) {
+  const code = result?.order?.code;
+  if (result?.order?.mode !== "AUTO" || navigator.onLine === false) return false;
+  if (code === "RETRY_PROTECTED_SAVE") return drainAccountPersistence({ reason: "recruit_recovery", force: true });
+  if (code === "REBUILD_HANDOFF") {
+    const handoff = await reconcileNextDayCommandHandoff({ date: result.targetDate, persist: true });
+    return Boolean(handoff?.receipt);
+  }
+  if (code === "ACTIVATE_TODAY") {
+    const activation = await reconcileMorningCommandActivation({ date: result.targetDate, persist: true });
+    return Boolean(activation?.receipt);
+  }
+  return false;
+}
+
+function renderRecruitContinuityRecovery(result = currentRecruitContinuityRecovery) {
+  currentRecruitContinuityRecovery = result;
+  const state = String(result?.state || "CLEAR").toLowerCase();
+  ["today", "calendar", "performance", "nutrition"].forEach((id) => {
+    const surface = document.getElementById(id);
+    if (!surface) return;
+    surface.dataset.continuityRecovery = state;
+    if (result?.receipt?.id) surface.dataset.continuityRecoveryReceipt = result.receipt.id;
+    else delete surface.dataset.continuityRecoveryReceipt;
+  });
+  document.body.dataset.continuityRecovery = state;
+  return result;
+}
+
+async function reconcileRecruitContinuityRecovery(options = {}) {
+  if (typeof DominionRecruitContinuityRecovery === "undefined" || !currentRecruitLoopCertification) return null;
+  let input = recruitContinuityRecoveryInput(options);
+  let result = DominionRecruitContinuityRecovery.evaluate(input || {});
+  if (options.automatic !== false && result.order?.mode === "AUTO") {
+    const repaired = await runAutomaticRecruitContinuityRecovery(result);
+    if (repaired) {
+      await reconcileRecruitLoopCertification({ persist: options.persist !== false, restoreDurationMs: startupRestoreDurationMs, startupIssues: startupRestoreIssues });
+      input = recruitContinuityRecoveryInput(options);
+      result = DominionRecruitContinuityRecovery.evaluate(input || {});
+    }
+  }
+  if (result.receipt) {
+    const limit = typeof DominionAccountTruth === "undefined" ? 120 : DominionAccountTruth.COLLECTION_LIMITS.continuityRecoveries;
+    let history = DominionRecruitContinuityRecovery.upsertHistory(readRecruitContinuityRecoveryHistory(), result.receipt, limit || 120);
+    saveClosedLoopLocal("HISTORY", "recruit-continuity-recovery", history);
+    if (options.persist !== false) {
+      const confirmation = await persistRecruitContinuityRecoveryHistory(history);
+      if (confirmation.confirmed) {
+        input = recruitContinuityRecoveryInput({
+          ...options,
+          accountReceipts: [result.receipt, ...(input?.accountReceipts || [])],
+          serverConfirmed: true,
+          pendingWrites: 0,
+          accountConfirmedAt: confirmation.row?.updated_at || new Date().toISOString()
+        });
+        result = DominionRecruitContinuityRecovery.evaluate(input || {});
+        history = DominionRecruitContinuityRecovery.upsertHistory(history, result.receipt, limit || 120);
+        saveClosedLoopLocal("HISTORY", "recruit-continuity-recovery", history);
+        await persistRecruitContinuityRecoveryHistory(history);
+        scheduleAccountTruthSync(50);
+      }
+    }
+  }
+  renderRecruitContinuityRecovery(result);
+  const truth = buildCurrentOperatingTruth();
+  if (truth) renderOneCommand(truth);
+  return result;
+}
+
+function applyRecruitContinuityRecoveryToModel(model = null, recovery = currentRecruitContinuityRecovery) {
+  const order = recovery?.order;
+  if (!model || !order || recovery.state === "CLEAR") return model;
+  const protectedState = recovery.state === "PROTECTED" || order.code === "RETRY_PROTECTED_SAVE";
+  return {
+    ...model,
+    mode: "RECOVERY",
+    priority: Math.max(100, Number(model.priority || 0)),
+    state: protectedState ? "PROTECTED" : "ACTION_REQUIRED",
+    stateLabel: protectedState ? "Protected" : "Next step",
+    secured: false,
+    eyebrow: protectedState ? "SAVED WORK" : "CONTINUE",
+    title: order.title,
+    detail: order.detail,
+    reason: order.detail,
+    decision: "Your signed program remains in control.",
+    after: order.code === "RESUME_ASSIGNMENT" ? "Completion will attach to this exact Calendar assignment." : "Today will advance when this step is confirmed.",
+    primary: {
+      label: order.label,
+      action: "CONTINUITY_RECOVERY",
+      section: order.section || "today",
+      module: order.module || ""
+    },
+    context: {
+      ...model.context,
+      source: "Your signed program",
+      evidence: order.assignmentId ? `Assignment ${order.assignmentId}` : "Saved account evidence",
+      conflict: recovery.state === "DECISION_REQUIRED" ? order.detail : null
+    }
+  };
+}
+
+function openRecruitContinuityRecoveryTarget(order = currentRecruitContinuityRecovery?.order) {
+  if (!order) return false;
+  if (order.code === "OPEN_CLOSEOUT") {
+    setActiveSection("today");
+    window.history.replaceState(null, "", "#today");
+    const panel = document.getElementById("daily-closeout-panel");
+    if (panel) { panel.hidden = false; panel.open = true; }
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (order.code === "OPEN_CONTRACT") {
+    setActiveSection("contract");
+    window.history.replaceState(null, "", "#contract");
+    document.getElementById("contract")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (order.code === "OPEN_CALENDAR") {
+    setActiveSection("calendar");
+    window.history.replaceState(null, "", "#calendar");
+    document.getElementById("calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  if (order.code === "RESUME_ASSIGNMENT") {
+    return openCommandCompletionTarget({ next: { type: "ASSIGNMENT", module: order.module, assignmentId: order.assignmentId, executionId: order.executionId } });
+  }
+  if (order.code === "SIGN_IN") {
+    document.getElementById("auth-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return true;
+  }
+  return false;
+}
+
+async function runRecruitContinuityRecoveryAction() {
+  const result = currentRecruitContinuityRecovery;
+  if (!result?.order) return false;
+  if (result.order.mode === "AUTO") {
+    await runAutomaticRecruitContinuityRecovery(result);
+    await reconcileRecruitLoopCertification({ persist: true, restoreDurationMs: startupRestoreDurationMs, startupIssues: startupRestoreIssues });
+    await reconcileRecruitContinuityRecovery({ persist: true, automatic: false });
+    return true;
+  }
+  if (result.order.code === "RETRY_PROTECTED_SAVE") {
+    await drainAccountPersistence({ reason: "recruit_recovery", force: true });
+    await reconcileRecruitLoopCertification({ persist: true, restoreDurationMs: startupRestoreDurationMs, startupIssues: startupRestoreIssues });
+    await reconcileRecruitContinuityRecovery({ persist: true, automatic: false });
+    return true;
+  }
+  return openRecruitContinuityRecoveryTarget(result.order);
 }
 
 function openCommandCompletionTarget(result = currentCommandCompletionCertification) {
@@ -21552,6 +21763,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
       };
     }
     model = buildCurrentAtlasDailyCommand(truth, model) || model;
+    model = applyRecruitContinuityRecoveryToModel(model);
   } catch (_) {
     model = fallbackOneCommandModel(truth);
   }
@@ -21606,6 +21818,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     primary.dataset.oneCommandAction = model.primary.action;
     primary.dataset.oneCommandSection = model.primary.section;
     primary.dataset.oneCommandModule = model.primary.module || "";
+    primary.dataset.oneCommandAssignment = currentRecruitContinuityRecovery?.order?.assignmentId || "";
   }
   const secondary = document.getElementById("one-command-secondary");
   if (secondary) secondary.textContent = "Open decision context";
@@ -22015,6 +22228,10 @@ async function runOneCommandAction(button) {
   const section = button?.dataset.oneCommandSection || "today";
   const moduleId = button?.dataset.oneCommandModule || "";
   recordAtlasDailyCommandEvent(currentAtlasDailyCommand || {}, "PRIMARY_ACTIVATED", { action }).catch(() => {});
+  if (action === "CONTINUITY_RECOVERY") {
+    await runRecruitContinuityRecoveryAction();
+    return;
+  }
   if (["RESOLVE_CONTINUITY", "RETRY_CONTINUITY"].includes(action)) {
     await runUnifiedBlockerAction(action);
     return;
@@ -25302,6 +25519,11 @@ async function init() {
         && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
       restoreDurationMs: startupRestoreDurationMs,
       startupIssues
+    }), startupIssues);
+    await runStartupTask("saved-work recovery", () => reconcileRecruitContinuityRecovery({
+      persist: typeof DominionStartupAuthority !== "undefined"
+        && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
+      automatic: true
     }), startupIssues);
     if (authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY) {
       const activatedCommand = await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);

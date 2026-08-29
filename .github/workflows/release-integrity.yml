@@ -20,7 +20,7 @@ jobs:
           npm run test:028a
           npm run test:028b
           npm run test:028c
-          npm run test:030w
+          npm run test:030x
 
   production-canary:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -36,4 +36,4 @@ jobs:
         with:
           node-version: 22
       - name: Verify the live production contract
-        run: node scripts/production-canary.js --base-url https://coach-dominion2.vercel.app --expected-release 030W.1 --expected-commit ${{ github.sha }} --attempts 30 --interval-ms 10000
+        run: node scripts/production-canary.js --base-url https://coach-dominion2.vercel.app --expected-release 030X.1 --expected-commit ${{ github.sha }} --attempts 30 --interval-ms 10000

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Recruit Continuity Recovery
+
+- Converts the first broken or incomplete recruit-loop stage into one plain-language action on Today.
+- Retries protected saves, rebuilds a handoff from certified evidence, and activates a certified morning command without needless prompts.
+- Resumes the exact Strength, Running, Core, or Fuel assignment linked to the signed Calendar instead of opening a generic module.
+- Stores a deterministic recovery receipt in Account Truth so reloads and second devices restore the same next action.
+- Never rewrites the signed Contract, silently chooses a different assignment, or invents completion evidence.
+
 ## Unreleased - Real Recruit Loop Certification
 
 - Certifies the complete 48-hour recruit chain from signed Contract and committed week through Daily Closeout, next-day handoff, morning activation, and exact command completion.

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased - Review Yesterday Repair
+
+- Routes the recovery action to yesterday's exact operating date instead of reopening today's closeout.
+- Keeps connected steps, assignment validation, readiness writes, and account receipts bound to the reviewed date.
+- Isolates today's unfinished closeout draft while yesterday is being reviewed, then refreshes the continuity chain after the prior day is secured.
+
 ## Unreleased - Field-Verified Command Closure
 
 - Makes the exact account-confirmed assignment receipt—not a browser-only completion flag—the authority for advancing Today.

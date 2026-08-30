@@ -84,6 +84,7 @@ let currentMorningCommandActivation = null;
 let currentCommandCompletionCertification = null;
 let currentRecruitLoopCertification = null;
 let currentRecruitContinuityRecovery = null;
+let dailyCloseoutOperatingDate = null;
 let operatingTruthReconcileTimer = null;
 let continuitySyncTimer = null;
 let continuityRetryFlushPromise = null;
@@ -9632,7 +9633,7 @@ function handleMissionHandoffAction(action = "NEXT") {
   if (code === "CLOSEOUT") {
     setActiveSection("today");
     window.history.replaceState(null, "", "#today");
-    document.getElementById("daily-closeout-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    openDailyCloseoutForDate(todayISODate());
   }
 }
 
@@ -14118,7 +14119,7 @@ function quickCloseoutInput(previous, selfReportedSteps) {
   return {
     date: todayISODate(),
     selfReportedSteps,
-    connectedSteps: connectedStepsForCloseout(previous),
+    connectedSteps: connectedStepsForCloseout(previous, todayISODate()),
     alcoholAbstained: closeoutResponseValue(previous?.discipline?.alcoholAbstained),
     masturbationCount: previous?.discipline?.masturbationCount ?? "",
     friedFoodAvoided: closeoutResponseValue(previous?.discipline?.friedFoodAvoided),
@@ -14331,16 +14332,13 @@ async function openFrictionlessLogger(module = "") {
     return true;
   }
   if (id === "closeout") {
-    const panel = document.getElementById("daily-closeout-panel");
-    if (!panel || panel.hidden) {
+    const opened = openDailyCloseoutForDate(todayISODate());
+    if (!opened) {
       document.getElementById("daily-ritual")?.scrollIntoView({ behavior: "smooth", block: "start" });
       setText("frictionless-execution-feedback", "Closeout unlocks after today’s required work is accounted for.");
       return false;
     }
-    panel.open = true;
     restoreFrictionlessDraftForms();
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    panel.querySelector('[name="selfReportedSteps"]')?.focus({ preventScroll: true });
     return true;
   }
   return false;
@@ -16288,10 +16286,7 @@ function openRecruitContinuityRecoveryTarget(order = currentRecruitContinuityRec
   if (order.code === "OPEN_CLOSEOUT") {
     setActiveSection("today");
     window.history.replaceState(null, "", "#today");
-    const panel = document.getElementById("daily-closeout-panel");
-    if (panel) { panel.hidden = false; panel.open = true; }
-    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
-    return true;
+    return openDailyCloseoutForDate(order.operatingDate || addClosedLoopDays(currentRecruitContinuityRecovery?.targetDate || todayISODate(), -1), { force: true });
   }
   if (order.code === "OPEN_CONTRACT") {
     setActiveSection("contract");
@@ -16339,10 +16334,7 @@ function openCommandCompletionTarget(result = currentCommandCompletionCertificat
   if (next.type === "CLOSEOUT") {
     setActiveSection("today");
     window.history.replaceState(null, "", "#today");
-    const panel = document.getElementById("daily-closeout-panel");
-    if (panel) { panel.hidden = false; panel.open = true; }
-    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
-    return true;
+    return openDailyCloseoutForDate(todayISODate());
   }
   if (next.type === "SAFETY" || next.module === "recovery") {
     setActiveSection("today");
@@ -16823,14 +16815,40 @@ function applyAtlasClosedLoopToCorePrescription(prescription = null, date = toda
   return DominionAtlasClosedLoop.applyToCore(prescription, decision, date);
 }
 
-function connectedStepsForCloseout(closeout = readDailyCloseout()) {
+function dailyCloseoutDate(value = dailyCloseoutOperatingDate) {
+  const today = todayISODate();
+  const candidate = String(value || today).slice(0, 10);
+  return [today, addClosedLoopDays(today, -1)].includes(candidate) ? candidate : today;
+}
+
+function openDailyCloseoutForDate(value = todayISODate(), options = {}) {
+  const operatingDate = dailyCloseoutDate(value);
+  dailyCloseoutOperatingDate = operatingDate;
+  const panel = document.getElementById("daily-closeout-panel");
+  const form = document.getElementById("daily-closeout-form");
+  if (!panel || !form) return false;
+  panel.dataset.forceDate = options.force === true ? operatingDate : "";
+  form.dataset.dirty = "false";
+  delete form.dataset.loadedRevision;
+  renderDailyCloseout(null, null, { operatingDate, force: options.force === true });
+  if (panel.hidden && options.force !== true) return false;
+  panel.hidden = false;
+  panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  form.elements.selfReportedSteps?.focus({ preventScroll: true });
+  return true;
+}
+
+function connectedStepsForCloseout(closeout = null, value = dailyCloseoutDate()) {
+  const operatingDate = dailyCloseoutDate(closeout?.date || value);
   if (closeout?.steps?.connected !== null && closeout?.steps?.connected !== undefined) return Number(closeout.steps.connected);
   try {
-    const health = appleHealthReadinessForDate();
+    const health = appleHealthReadinessForDate(operatingDate);
     if (Number.isFinite(Number(health?.steps))) return Number(health.steps);
   } catch (_) {}
-  const source = String(dailyState?.objective_metric_sources?.steps || "").toUpperCase();
-  return source === "SELF_REPORTED_CLOSEOUT" ? null : Number.isFinite(Number(dailyState?.steps)) ? Number(dailyState.steps) : null;
+  const state = dailyState?.date === operatingDate ? dailyState : readinessHistory.find((item) => item?.date === operatingDate) || null;
+  const source = String(state?.objective_metric_sources?.steps || "").toUpperCase();
+  return source === "SELF_REPORTED_CLOSEOUT" ? null : Number.isFinite(Number(state?.steps)) ? Number(state.steps) : null;
 }
 
 async function saveDailyCloseoutState(record) {
@@ -16856,8 +16874,10 @@ async function saveDailyCloseoutState(record) {
 }
 
 async function applyCloseoutSteps(record) {
-  if (!dailyState || record?.steps?.selfReported === null || record?.steps?.selfReported === undefined) return false;
-  const { deviceSavedAt, ...current } = dailyState;
+  if (record?.steps?.selfReported === null || record?.steps?.selfReported === undefined) return false;
+  const sourceState = dailyState?.date === record.date ? dailyState : readinessHistory.find((item) => item?.date === record.date) || null;
+  if (!sourceState) return false;
+  const { deviceSavedAt, ...current } = sourceState;
   const payload = {
     ...current,
     user_id: session?.user?.id || null,
@@ -16869,9 +16889,11 @@ async function applyCloseoutSteps(record) {
   payload.confidence = evaluateReadiness(payload).confidence;
   saveMobileDailyState(payload);
   enqueueMobileWrite("DAILY_STATE", payload.date, payload);
-  dailyState = payload;
   readinessHistory = [...readinessHistory.filter((item) => item.date !== payload.date), payload];
-  renderWarRoom(dailyState);
+  if (payload.date === todayISODate()) {
+    dailyState = payload;
+    renderWarRoom(dailyState);
+  }
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
@@ -16882,23 +16904,26 @@ async function applyCloseoutSteps(record) {
     if (error) throw error;
     acknowledgeMobileWrite("DAILY_STATE", payload.date);
     saveMobileDailyState(data);
-    dailyState = data;
     readinessHistory = [...readinessHistory.filter((item) => item.date !== data.date), data];
-    renderWarRoom(dailyState);
+    if (data.date === todayISODate()) {
+      dailyState = data;
+      renderWarRoom(dailyState);
+    }
     return true;
   } catch (_) {
     return false;
   }
 }
 
-function closeoutFormInput() {
+function closeoutFormInput(value = dailyCloseoutDate()) {
   const form = document.getElementById("daily-closeout-form");
   if (!form) return null;
+  const operatingDate = dailyCloseoutDate(value);
   const values = new FormData(form);
   return {
-    date: todayISODate(),
+    date: operatingDate,
     selfReportedSteps: values.get("selfReportedSteps"),
-    connectedSteps: connectedStepsForCloseout(),
+    connectedSteps: connectedStepsForCloseout(readDailyCloseout(operatingDate), operatingDate),
     alcoholAbstained: values.get("alcoholAbstained"),
     masturbationCount: values.get("masturbationCount"),
     friedFoodAvoided: values.get("friedFoodAvoided"),
@@ -16931,17 +16956,25 @@ function updateDailyCloseoutPreview() {
   }
 }
 
-function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual = null) {
+function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual = null, options = {}) {
   const panel = document.getElementById("daily-closeout-panel");
   const form = document.getElementById("daily-closeout-form");
   if (!panel || !form || typeof DominionDailyCloseout === "undefined") return;
-  const closeout = readDailyCloseout();
-  const eligible = Boolean(closeout) || fieldCommandDayTerminal(todayISODate());
+  const operatingDate = dailyCloseoutDate(options.operatingDate);
+  dailyCloseoutOperatingDate = operatingDate;
+  form.dataset.operatingDate = operatingDate;
+  const closeout = readDailyCloseout(operatingDate);
+  const forced = options.force === true || panel.dataset.forceDate === operatingDate;
+  const eligible = forced || Boolean(closeout) || fieldCommandDayTerminal(operatingDate);
   panel.hidden = !eligible;
   if (!eligible) return;
-  const connected = connectedStepsForCloseout(closeout);
+  const isToday = operatingDate === todayISODate();
+  setText("daily-closeout-date", isToday ? "TODAY" : "YESTERDAY");
+  setText("daily-closeout-title", isToday ? "Daily closeout" : "Yesterday closeout");
+  setText("daily-closeout-intro-copy", `Report ${isToday ? "today" : "yesterday"} once. Steps become the final self-report; discipline answers stay private.`);
+  const connected = connectedStepsForCloseout(closeout, operatingDate);
   setText("daily-closeout-connected", connected === null ? "No connected step evidence" : `${Number(connected).toLocaleString()} connected steps preserved for comparison`);
-  const revision = String(closeout?.revision || 0);
+  const revision = `${operatingDate}:${String(closeout?.revision || 0)}`;
   if (form.dataset.loadedRevision !== revision && form.dataset.dirty !== "true") {
     form.elements.selfReportedSteps.value = closeout?.steps?.selfReported ?? "";
     form.elements.alcoholAbstained.value = closeoutResponseValue(closeout?.discipline?.alcoholAbstained);
@@ -16958,7 +16991,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   if (list) list.hidden = form.elements.processedFoodStatus.value !== "LISTED";
   const save = document.getElementById("daily-closeout-save");
   if (save) save.textContent = closeout ? "Update Closeout" : "Seal Closeout";
-  setText("daily-closeout-summary", closeout ? `Sealed · revision ${closeout.revision}` : "About 60 seconds");
+  setText("daily-closeout-summary", closeout ? `${isToday ? "Today" : "Yesterday"} sealed · revision ${closeout.revision}` : `${isToday ? "Today" : "Yesterday"} · about 60 seconds`);
   const receipt = document.getElementById("daily-closeout-receipt");
   if (receipt) {
     receipt.hidden = !closeout;
@@ -16966,7 +16999,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   }
   updateDailyCloseoutPreview();
   renderAtlasClosedLoopDecision();
-  renderDailyLoopCertification();
+  renderDailyLoopCertification(buildCurrentDailyLoopCertification(operatingDate));
   renderNextDayCommandHandoff();
 }
 
@@ -16976,13 +17009,17 @@ async function submitDailyCloseout(event) {
   if (!button || typeof DominionDailyCloseout === "undefined") return;
   button.disabled = true;
   button.textContent = "Saving…";
-  setText("daily-closeout-feedback", "Saving one closeout for today…");
+  const operatingDate = dailyCloseoutDate();
+  const isToday = operatingDate === todayISODate();
+  setText("daily-closeout-feedback", `Saving ${isToday ? "today" : "yesterday"}…`);
   try {
-    const previous = readDailyCloseout();
-    if (!fieldCommandDayTerminal(todayISODate()) && !previous?.accountConfirmedAt) {
-      throw new Error("Finish and save every assigned item before closing the day.");
+    const previous = readDailyCloseout(operatingDate);
+    if (!fieldCommandDayTerminal(operatingDate) && !previous?.accountConfirmedAt) {
+      throw new Error(isToday
+        ? "Finish and save every assigned item before closing the day."
+        : "Finish and save every item assigned yesterday before closing the day.");
     }
-    const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(), { previous, now: new Date().toISOString() });
+    const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(operatingDate), { previous, now: new Date().toISOString() });
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
     const verdict = await reconcileAtlasClosedLoopDecision(record);
@@ -16993,7 +17030,7 @@ async function submitDailyCloseout(event) {
     if (accountSaved && dailyLoop?.state === "CERTIFIED" && dailyLoop?.receipt?.accountConfirmedAt && verdict?.effectiveDate) {
       await reconcileNextDayCommandHandoff({ date: verdict.effectiveDate, decision: verdict, sourceReceipt: dailyLoop.receipt, persist: true });
     }
-    await clearFrictionlessDraft("closeout");
+    if (isToday) await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
     const form = document.getElementById("daily-closeout-form");
@@ -17002,17 +17039,19 @@ async function submitDailyCloseout(event) {
     renderAtlasClosedLoopDecision();
     renderWeeklyCloseoutEvidence();
     renderWeekExecutionCertification();
+    await reconcileRecruitLoopCertification({ persist: true, restoreDurationMs: startupRestoreDurationMs, startupIssues: startupRestoreIssues });
+    await reconcileRecruitContinuityRecovery({ persist: true, automatic: false });
     const panel = document.getElementById("daily-closeout-panel");
     if (panel) panel.open = true;
     setText("daily-closeout-feedback", dailyLoop?.view?.headline === "Day secured"
       ? `${dailyLoop.view.headline}. ${dailyLoop.view.detail}`
-      : `Closeout sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${dailyLoop?.view?.detail || verdict?.headline || "Tomorrow's coaching call is ready"}.`);
+      : `${isToday ? "Closeout" : "Yesterday"} sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${dailyLoop?.view?.detail || verdict?.headline || "The next coaching call is ready"}.`);
     document.getElementById("daily-ritual-action")?.focus({ preventScroll: true });
   } catch (error) {
     setText("daily-closeout-feedback", error.message || "The closeout could not be saved.");
   } finally {
     button.disabled = false;
-    button.textContent = readDailyCloseout() ? "Update Closeout" : "Seal Closeout";
+    button.textContent = readDailyCloseout(operatingDate) ? "Update Closeout" : "Seal Closeout";
   }
 }
 
@@ -27171,7 +27210,7 @@ if (typeof document !== "undefined") {
   document.getElementById("daily-closeout-form")?.addEventListener("input", (event) => {
     event.currentTarget.dataset.dirty = "true";
     updateDailyCloseoutPreview();
-    scheduleFrictionlessDraft("closeout", event.currentTarget);
+    if (dailyCloseoutDate() === todayISODate()) scheduleFrictionlessDraft("closeout", event.currentTarget);
   });
   document.querySelector('#daily-closeout-form [name="processedFoodStatus"]')?.addEventListener("change", (event) => {
     const list = document.getElementById("daily-closeout-processed-list");
@@ -28443,21 +28482,13 @@ if (typeof document !== "undefined") {
       return;
     }
     if (action === "open_closeout") {
-      const panel = document.getElementById("daily-closeout-panel");
-      if (panel) {
-        panel.hidden = false;
-        panel.open = true;
-        panel.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      document.getElementById("daily-closeout-steps")?.focus({ preventScroll: true });
+      openDailyCloseoutForDate(todayISODate());
       return;
     }
     if (action === "close_review") {
       if (readDailyCloseout()?.status !== "SEALED") {
-        const panel = document.getElementById("daily-closeout-panel");
-        if (panel) { panel.hidden = false; panel.open = true; }
+        openDailyCloseoutForDate(todayISODate(), { force: true });
         setText("daily-closeout-feedback", "Complete the daily closeout before sealing the evidence review.");
-        document.getElementById("daily-closeout-steps")?.focus();
         return;
       }
       const state = buildCurrentClosedLoopState();
@@ -28650,13 +28681,7 @@ if (typeof document !== "undefined") {
     if (action === "open_closeout") {
       setActiveSection("today");
       window.history.replaceState(null, "", "#today");
-      const panel = document.getElementById("daily-closeout-panel");
-      if (panel) {
-        panel.hidden = false;
-        panel.open = true;
-        panel.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      document.getElementById("daily-closeout-steps")?.focus({ preventScroll: true });
+      openDailyCloseoutForDate(todayISODate());
     }
     if (action === "roll_call") {
       setActiveSection("today");

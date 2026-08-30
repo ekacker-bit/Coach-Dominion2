@@ -21,6 +21,13 @@
     const candidate = text(value).slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : null;
   }
+  function addDays(value = "", days = 0) {
+    const date = dateIso(value);
+    if (!date) return null;
+    const parsed = new Date(`${date}T12:00:00Z`);
+    parsed.setUTCDate(parsed.getUTCDate() + Number(days || 0));
+    return parsed.toISOString().slice(0, 10);
+  }
   function stableJson(value) {
     if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
     if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
@@ -84,6 +91,7 @@
       assignmentId: value.assignmentId || null,
       executionId: value.executionId || null,
       anchor: value.anchor || null,
+      operatingDate: dateIso(value.operatingDate),
       mutatesSignedAuthority: false,
       inventsCompletion: false
     };
@@ -157,7 +165,8 @@
         code: "OPEN_CLOSEOUT",
         label: "Review yesterday",
         title: "Close yesterday first",
-        detail: "Finish yesterday's closeout so today starts from complete evidence."
+        detail: "Finish yesterday's closeout so today starts from complete evidence.",
+        operatingDate: addDays(input.targetDate || loop.targetDate, -1)
       });
     }
     if (issue.key === "handoff") {
@@ -254,7 +263,8 @@
         section: recovery.section,
         module: recovery.module,
         assignmentId: recovery.assignmentId,
-        executionId: recovery.executionId
+        executionId: recovery.executionId,
+        operatingDate: recovery.operatingDate
       }
     };
     const fingerprint = `continuity-recovery-${stableHash(basis)}`;
@@ -323,5 +333,5 @@
       .sort((left, right) => receiptTime(right) - receiptTime(left) || text(left.id).localeCompare(text(right.id)))[0] || null;
   }
 
-  return Object.freeze({ VERSION, RECEIPT_TYPE, STATES: { ...STATES }, MODES: { ...MODES }, stableHash, recoveryOrder, buildReceipt, evaluate, upsertHistory, latestForDate });
+  return Object.freeze({ VERSION, RECEIPT_TYPE, STATES: { ...STATES }, MODES: { ...MODES }, stableHash, addDays, recoveryOrder, buildReceipt, evaluate, upsertHistory, latestForDate });
 });

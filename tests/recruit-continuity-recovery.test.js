@@ -77,6 +77,15 @@ test("certified prior evidence may rebuild handoff and activate today silently",
   assert.equal(morning.order.mode, recovery.MODES.AUTO);
 });
 
+test("missing prior closeout opens the exact prior operating date", () => {
+  const result = recovery.evaluate(input(withStage("priorDay", "WAITING")));
+  assert.equal(result.order.code, "OPEN_CLOSEOUT");
+  assert.equal(result.order.label, "Review yesterday");
+  assert.equal(result.order.operatingDate, "2026-08-27");
+  assert.equal(result.receipt.recovery.operatingDate, "2026-08-27");
+  assert.equal(recovery.addDays("2026-03-01", -1), "2026-02-28");
+});
+
 test("unfinished execution resumes the exact activated assignment", () => {
   const result = recovery.evaluate(input(withStage("execution", "WAITING")));
   assert.equal(result.state, recovery.STATES.ACTION_REQUIRED);

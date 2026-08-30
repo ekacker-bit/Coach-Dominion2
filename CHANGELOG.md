@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - Field-Verified Command Closure
+
+- Makes the exact account-confirmed assignment receipt—not a browser-only completion flag—the authority for advancing Today.
+- Keeps Today, Calendar, Train, and Fuel on the same next assignment after completion, reload, offline recovery, or a second-device restore.
+- Supports terminal Strength, Running, Core, Fuel, and Recovery outcomes without allowing stale or mismatched evidence to close the wrong assignment.
+- Unlocks Daily Closeout only after every signed assignment is terminal, then permits next-day handoff only after Closeout is confirmed to the account.
+- Adds deterministic cross-route and cross-device release gates while keeping certification language out of the recruit experience.
+
 ## Unreleased - Recruit-First Command Center
 
 - Makes Today answer one question first: what the recruit should do now.

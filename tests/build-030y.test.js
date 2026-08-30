@@ -13,18 +13,18 @@ test("030Y is cache-busted and production gated", () => {
   const app = read("assets/js/app.js");
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
-  assert.match(html, /coach-dominion-release" content="030Y\.1"/);
+  assert.match(html, /coach-dominion-release" content="030[YZ]\.1"/);
   assert.match(html, /recruit-first-command-center\.js\?v=030y/);
   assert.ok(html.indexOf("recruit-first-command-center.js?v=030y") < html.indexOf("app.js?v="));
   assert.match(html, /styles\.css\?v=[^"]*-030y/);
   assert.match(html, /app\.js\?v=[^"]*-030y/);
   assert.match(worker, /030y-recruit-first-command-center/);
   assert.match(worker, /recruit-first-command-center\.js\?v=030y/);
-  assert.match(app, /register\("\/sw\.js\?v=030y"/);
-  assert.match(health, /release: "030Y\.1"/);
+  assert.match(app, /register\("\/sw\.js\?v=030[yz]"/);
+  assert.match(health, /release: "030[YZ]\.1"/);
   assert.match(health, /recruitFirstCommand: "one-visible-action"/);
   assert.match(workflow, /npm run test:030y/);
-  assert.match(workflow, /--expected-release 030Y\.1/);
+  assert.match(workflow, /--expected-release 030[YZ]\.1/);
 });
 
 test("030Y uses the canonical model and preserves 030X recovery authority", () => {

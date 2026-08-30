@@ -16,7 +16,7 @@
     CANCELLED: "cancelled"
   });
   const DOMAINS = Object.freeze(["strength", "running", "core", "nutrition"]);
-  const TERMINAL = new Set(["COMPLETE", "COMPLETED", "SECURED", "LOGGED", "SEALED"]);
+  const TERMINAL = new Set(["COMPLETE", "COMPLETED", "SECURED", "LOGGED", "SEALED", "PARTIAL", "STOPPED", "PAIN_HOLD"]);
   const ACTIVE = new Set(["IN_PROGRESS", "PAUSED"]);
   const DRAFT = new Set(["REVIEW", "PARTIAL", "STOPPED", "INCOMPLETE", "DRAFT"]);
   const VERIFIED = new Set(["VERIFIED", "SECURED", "CONNECTED_VERIFIED"]);
@@ -61,7 +61,20 @@
     return values.some((value) => finite(value) > 0)
       || Object.values(execution.completedExercises || execution.logs || execution.exerciseLogs || execution.setLogs || {}).some((value) => Array.isArray(value) ? value.length > 0 : Boolean(value));
   }
-  function metrics(value = {}) { return value.metrics || value.actual || value.totals || value; }
+  function metrics(value = {}) { return value.metrics || value.actual || value.totals || value.summary || value; }
+  function commandClosure(value = {}) {
+    return value?.type === "COMMAND_COMPLETION_CERTIFICATION" || value?.sourceType === "COMMAND_COMPLETION_RECEIPT";
+  }
+  function accountConfirmedEvidence(value = {}) {
+    if (commandClosure(value)) {
+      return value?.status === "CERTIFIED"
+        && value?.verificationStatus === "VERIFIED"
+        && Boolean(value?.accountConfirmedAt)
+        && value?.closure?.sourceEvidenceConfirmed !== false;
+    }
+    return Boolean(value?.accountConfirmedAt)
+      || VERIFIED.has(upper(value.evidenceStatus || value.verificationStatus || value.status));
+  }
   function validRunningEvidence(value = {}) {
     const values = metrics(value);
     const distance = finite(values.distance ?? values.distance_miles ?? values.distance_km);
@@ -82,6 +95,7 @@
   }
   function validEvidence(module, value = {}) {
     const code = domain(module || domainOf(value));
+    if (commandClosure(value)) return TERMINAL.has(stateOf(value)) && accountConfirmedEvidence(value);
     if (code === "running") return validRunningEvidence(value);
     if (code === "nutrition") return validNutritionEvidence(value);
     if (code === "strength") return validStrengthEvidence(value);
@@ -89,7 +103,9 @@
     return TERMINAL.has(stateOf(value));
   }
   function evidenceVerified(value = {}) {
-    return VERIFIED.has(upper(value.evidenceStatus || value.verificationStatus || value.status));
+    return commandClosure(value)
+      ? accountConfirmedEvidence(value)
+      : VERIFIED.has(upper(value.evidenceStatus || value.verificationStatus || value.status));
   }
   function linkedEvidence(assignment = {}, evidence = []) {
     const expected = assignmentId(assignment);
@@ -130,7 +146,7 @@
     const executionMatches = Boolean(execution && id && assignmentId(execution) === id);
     const linked = linkedEvidence(assignment, input.evidence);
     const acceptedEvidence = linked.filter((item) => validEvidence(module, item));
-    const incompleteEvidence = linked.filter((item) => !validEvidence(module, item));
+    const incompleteEvidence = linked.filter((item) => !acceptedEvidence.includes(item));
     const executionState = executionMatches ? stateOf(execution) : "";
     const assignmentState = upper(assignment.status || assignment.state);
     const verified = acceptedEvidence.some(evidenceVerified);
@@ -251,6 +267,7 @@
     assignmentId,
     evidenceAssignmentId,
     validEvidence,
+    accountConfirmedEvidence,
     validRunningEvidence,
     validNutritionEvidence,
     linkedEvidence,

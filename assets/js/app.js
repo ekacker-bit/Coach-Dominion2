@@ -7908,7 +7908,7 @@ function buildCurrentCanonicalDailyCommand(value = todayISODate()) {
     committedWeek: week,
     committedDay: day,
     draftWeek: readUnifiedWeekDraft(),
-    dayComplete: closeout?.status === "SEALED",
+    dayComplete: closeout?.status === "SEALED" && Boolean(closeout?.accountConfirmedAt),
     executions: {
       strength: readDailyAssignmentExecution(),
       running: readRunningExecution(),
@@ -9193,7 +9193,7 @@ async function completeMissionRecoveryTask(taskId = "") {
   const synced = await saveMissionRecoveryOrderState(saved);
   const remaining = DominionMissionRecovery.nextTask(saved);
   if (!remaining) {
-    const assignmentId = `recovery:${saved.date}:${saved.id}`;
+    const assignmentId = fieldRecoveryAssignmentId(saved.date);
     const sourceReceipt = {
       id: `mission-recovery:${saved.id}`,
       date: saved.date || todayISODate(),
@@ -9213,7 +9213,14 @@ async function completeMissionRecoveryTask(taskId = "") {
       trainingWindowId: "recovery",
       sessionLabel: "RECOVERY"
     }];
-    await reconcileCommandCompletionCertification({ sourceReceipt, assignments, operationalDate: saved.date, persist: true });
+    await reconcileCommandCompletionCertification({
+      sourceReceipt: synced ? { ...sourceReceipt, verificationStatus: "VERIFIED", accountConfirmedAt: new Date().toISOString() } : sourceReceipt,
+      sourceAccountConfirmed: synced,
+      pendingWrites: synced ? 0 : 1,
+      assignments,
+      operationalDate: saved.date,
+      persist: true
+    });
   }
   setText("mission-execution-feedback", remaining
     ? `${task.label} secured${synced ? " to your account" : " on this device; sync will retry"}. Next: ${remaining.label}.`
@@ -9502,7 +9509,7 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
       receipts: existingReceipts
     })
     : item;
-  const receipt = DominionMissionExecution.buildEvidenceReceipt({
+  let receipt = DominionMissionExecution.buildEvidenceReceipt({
     date: todayISODate(),
     module,
     execution,
@@ -9511,16 +9518,31 @@ async function saveMissionExecutionReceipt(module, execution, item = {}, prescri
     windowLabel: receiptItem.windowLabel || receiptItem.sessionLabel || "TODAY",
     summary: missionExecutionSummary(module, execution, prescription)
   });
-  const receipts = [receipt, ...existingReceipts.filter((saved) => saved.id !== receipt.id)]
+  let receipts = [receipt, ...existingReceipts.filter((saved) => saved.id !== receipt.id)]
     .sort((left, right) => String(right.completedAt || "").localeCompare(String(left.completedAt || "")));
   saveClosedLoopLocal("EVIDENCE", `mission:${todayISODate()}`, receipts);
   const synced = await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
+  if (synced) {
+    receipt = {
+      ...receipt,
+      verificationStatus: "VERIFIED",
+      accountConfirmedAt: new Date().toISOString()
+    };
+    receipts = [receipt, ...receipts.filter((saved) => saved.id !== receipt.id)];
+    saveClosedLoopLocal("EVIDENCE", `mission:${todayISODate()}`, receipts);
+    await persistClosedLoopState("EVIDENCE", `mission:${todayISODate()}`, receipts);
+  }
   if (!options.skipPerformanceEvidence) await saveMissionPerformanceEvidence(receipt, receiptItem, execution);
   await saveCurrentMissionExecutionSpine();
   await runAtlasAdaptiveHorizon();
   await runAtlasAdaptationOutcomes();
   renderAtlasAdaptiveHorizon();
-  const certification = await reconcileCommandCompletionCertification({ sourceReceipt: receipt, persist: true });
+  const certification = await reconcileCommandCompletionCertification({
+    sourceReceipt: receipt,
+    sourceAccountConfirmed: synced,
+    pendingWrites: synced ? 0 : 1,
+    persist: true
+  });
   setText("mission-execution-feedback", certification?.state === "CERTIFIED"
     ? `${certification.view?.headline || "Mission complete"}. ${certification.next?.label ? `Next: ${certification.next.label}.` : "Account receipt confirmed."}`
     : `Evidence saved${synced ? " to your account" : " on this device; sync will retry"}.`);
@@ -13759,6 +13781,71 @@ function currentExecutionLedgerEntry(module = "", date = todayISODate()) {
     : null;
 }
 
+function fieldRecoveryAssignmentId(date = todayISODate()) {
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const order = currentMissionRecoveryOrder(targetDate);
+  return order?.id ? `recovery:${targetDate}:${order.id}` : `recovery:${targetDate}`;
+}
+
+function buildCurrentFieldCommandClosure(date = todayISODate()) {
+  if (typeof DominionFieldCommandClosure === "undefined") return null;
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  const week = readCommittedUnifiedWeek(targetDate);
+  const ledger = buildCurrentExecutionLedger(targetDate);
+  const day = readEffectiveUnifiedDay(targetDate);
+  const dayActivities = Array.isArray(day?.activities) ? day.activities : [];
+  const trainingModules = new Set(["STRENGTH", "RUNNING", "CORE"]);
+  const recoveryRequired = Boolean(day && !dayActivities.some((item) => trainingModules.has(String(item.module || item.domain || item.type || "").toUpperCase())));
+  const fieldLedger = recoveryRequired
+    ? {
+      ...ledger,
+      entries: [
+        {
+          assignmentId: fieldRecoveryAssignmentId(targetDate),
+          module: "recovery",
+          state: "scheduled",
+          assignment: { title: "Recovery order" }
+        },
+        ...(Array.isArray(ledger?.entries) ? ledger.entries : [])
+      ]
+    }
+    : ledger;
+  return DominionFieldCommandClosure.evaluate({
+    date: targetDate,
+    ledger: fieldLedger,
+    receipts: readCommandCompletionHistory(),
+    authority: {
+      contractRevision: Number(week?.contractRevision || readApprovedRecruitContract()?.revision || 0),
+      weekId: week?.id || week?.weekStart || null,
+      weekRevision: Number(week?.revision || 0)
+    }
+  });
+}
+
+function applyFieldCommandClosureSurfaces(result = buildCurrentFieldCommandClosure()) {
+  if (!result) return null;
+  const nextId = result.closeoutReady ? "CLOSEOUT" : result.next?.assignmentId || "";
+  ["today", "calendar", "performance", "nutrition"].forEach((id) => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.dataset.fieldClosure = result.fingerprint;
+    node.dataset.nextCommandAssignment = nextId;
+    node.dataset.fieldClosureState = String(result.state || "OPEN").toLowerCase();
+  });
+  return result;
+}
+
+function fieldCommandDayTerminal(date = todayISODate()) {
+  const result = buildCurrentFieldCommandClosure(date);
+  if (result?.total) return Boolean(result.closeoutReady);
+  const targetDate = String(date || todayISODate()).slice(0, 10);
+  return readCommandCompletionHistory().some((receipt) => receipt?.operationalDate === targetDate
+    && receipt?.module === "recovery"
+    && receipt?.status === "CERTIFIED"
+    && receipt?.verificationStatus === "VERIFIED"
+    && receipt?.accountConfirmedAt);
+}
+
 function executionLedgerUiState(entry = null) {
   if (!entry) return "NOT_APPLICABLE";
   return ({
@@ -13788,28 +13875,30 @@ function currentFrictionlessExecution() {
   const recovery = buildCurrentRecoveryCommand();
   const closeout = readDailyCloseout();
   const executionLedger = buildCurrentExecutionLedger(todayISODate());
+  const fieldClosure = buildCurrentFieldCommandClosure(todayISODate());
   const ledgerEntry = (module) => typeof DominionUnifiedExecutionLedger === "undefined" ? null : DominionUnifiedExecutionLedger.entryForModule(executionLedger || {}, module);
+  const closureTerminal = (module) => {
+    const assignments = fieldClosure?.assignments?.filter((item) => item.module === module) || [];
+    return assignments.length > 0 && assignments.every((item) => item.terminal);
+  };
+  const closureUiState = (module, entry) => closureTerminal(module)
+    ? "COMPLETE"
+    : ["completed", "verified"].includes(entry?.state) ? "REVIEW" : executionLedgerUiState(entry);
   const strengthLedger = ledgerEntry("strength");
   const runningLedger = ledgerEntry("running");
   const coreLedger = ledgerEntry("core");
   const fuelLedger = ledgerEntry("nutrition");
   const recoveryDay = currentDailyDecision?.recoveryDay === true || Boolean(day && activities.length === 0);
-  const recoveryComplete = recovery?.status === "COMPLETE" || readDailyExecutionQueueState().recoveryComplete === true;
-  const requiredTrainingComplete = [
-    strengthActivity ? Boolean(strengthLedger?.complete) : true,
-    runningActivity ? Boolean(runningLedger?.complete) : true,
-    coreActivity ? Boolean(coreLedger?.complete) : true
-  ].every(Boolean);
   const fuelRequired = Boolean(fuelLedger);
-  const closeoutAvailable = recoveryDay ? recoveryComplete || Boolean(closeout) : requiredTrainingComplete && (!fuelRequired || fuelLedger.complete);
+  const closeoutAvailable = fieldCommandDayTerminal(todayISODate());
   return DominionFrictionlessExecution.buildDashboard({
     date: todayISODate(),
     lastModule: envelope.activeModule,
     modules: {
-      strength: { planned: Boolean(strengthLedger), available: Boolean(strengthLedger) && assignment?.state !== "RECOVERY ONLY", state: executionLedgerUiState(strengthLedger), complete: Boolean(strengthLedger?.complete), updatedAt: strengthLedger?.execution?.updatedAt, detail: strengthLedger?.assignment?.title || strengthLedger?.assignment?.sessionName || strengthActivity?.title || assignment?.title || "Not assigned today" },
-      running: { planned: Boolean(runningLedger), available: Boolean(runningLedger) && !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: executionLedgerUiState(runningLedger), complete: Boolean(runningLedger?.complete), updatedAt: runningLedger?.execution?.updatedAt, draft: envelope.drafts?.running, detail: runningActivity?.title || "Not assigned today" },
-      core: { planned: Boolean(coreLedger), available: Boolean(coreLedger) && !["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()), state: executionLedgerUiState(coreLedger), complete: Boolean(coreLedger?.complete), updatedAt: coreLedger?.execution?.updatedAt, detail: coreActivity?.title || "Not assigned today" },
-      fuel: { planned: fuelRequired, available: fuelRequired, state: executionLedgerUiState(fuelLedger), complete: Boolean(fuelLedger?.complete), draft: envelope.drafts?.fuel, updatedAt: fuel.record?.updatedAt, detail: day?.nutrition ? fuel.message : "No Fuel target assigned today" },
+      strength: { planned: Boolean(strengthLedger), available: Boolean(strengthLedger) && assignment?.state !== "RECOVERY ONLY", state: closureUiState("strength", strengthLedger), complete: closureTerminal("strength"), updatedAt: strengthLedger?.execution?.updatedAt, detail: strengthLedger?.assignment?.title || strengthLedger?.assignment?.sessionName || strengthActivity?.title || assignment?.title || "Not assigned today" },
+      running: { planned: Boolean(runningLedger), available: Boolean(runningLedger) && !["PAIN_HOLD", "REST_DAY"].includes(runningPrescription?.status), state: closureUiState("running", runningLedger), complete: closureTerminal("running"), updatedAt: runningLedger?.execution?.updatedAt, draft: envelope.drafts?.running, detail: runningActivity?.title || "Not assigned today" },
+      core: { planned: Boolean(coreLedger), available: Boolean(coreLedger) && !["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()), state: closureUiState("core", coreLedger), complete: closureTerminal("core"), updatedAt: coreLedger?.execution?.updatedAt, detail: coreActivity?.title || "Not assigned today" },
+      fuel: { planned: fuelRequired, available: fuelRequired, state: closureUiState("nutrition", fuelLedger), complete: closureTerminal("nutrition"), draft: envelope.drafts?.fuel, updatedAt: fuel.record?.updatedAt, detail: day?.nutrition ? fuel.message : "No Fuel target assigned today" },
       recovery: { planned: recoveryDay, available: recoveryDay && Boolean(recovery), state: recoveryDay ? recovery?.status || "READY" : "NOT_APPLICABLE", complete: recoveryDay && recovery?.status === "COMPLETE", updatedAt: recovery?.completedAt || recovery?.generatedAt, detail: recoveryDay ? recovery?.headline || "Recovery order" : "Not assigned today" },
       closeout: { planned: true, available: closeoutAvailable || Boolean(closeout), state: closeout?.status || "WAITING", complete: closeout?.status === "SEALED", draft: envelope.drafts?.closeout, updatedAt: closeout?.updatedAt, detail: closeoutAvailable ? closeout ? "Daily proof sealed" : "Close the day" : "Complete today’s required evidence first" }
     }
@@ -14469,7 +14558,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030y", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=030z", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -15804,6 +15893,8 @@ function commandCompletionInput(source = commandCompletionSource(), options = {}
   const assignments = options.assignments || currentExecutionLedgerAssignments(operationalDate);
   const calendarReceipt = week ? matchingCalendarCommitReceipt(week) : null;
   const evidence = accountTruthState.accountSnapshot?.domains?.evidence?.payload || {};
+  const ledger = options.ledger || buildCurrentExecutionLedger(operationalDate);
+  const sourceAccountConfirmed = options.sourceAccountConfirmed === true || Boolean(source.accountConfirmedAt);
   return {
     operationalDate,
     source,
@@ -15814,9 +15905,12 @@ function commandCompletionInput(source = commandCompletionSource(), options = {}
       calendarCommitId: calendarReceipt?.id || null
     },
     assignments,
+    ledgerFingerprint: ledger?.fingerprint || null,
     history: options.history || readCommandCompletionHistory(),
     accountReceipts: options.accountReceipts || evidence.commandCompletions || [],
     serverConfirmed: options.serverConfirmed ?? accountTruthState.serverConfirmed,
+    sourceAccountConfirmed,
+    pendingWrites: options.pendingWrites ?? (sourceAccountConfirmed ? 0 : Math.max(1, Number(canonicalPendingWriteState()?.count || 0))),
     accountConfirmedAt: options.accountConfirmedAt || accountTruthState.lastVerifiedAt || null,
     createdAt: options.createdAt || source.completedAt || new Date().toISOString()
   };
@@ -15883,6 +15977,7 @@ async function refreshCommandCompletionSurfaces() {
   renderDailyCoachingLoop();
   renderDailyCloseout();
   renderPerformanceSection();
+  renderDominionExperienceShell();
   if (typeof reconcileEvidenceAutopilot === "function") await reconcileEvidenceAutopilot({ persist: true });
 }
 
@@ -16739,14 +16834,25 @@ function connectedStepsForCloseout(closeout = readDailyCloseout()) {
 }
 
 async function saveDailyCloseoutState(record) {
-  const history = [record, ...readDailyCloseoutHistory().filter((item) => item.id !== record.id)]
+  let history = [record, ...readDailyCloseoutHistory().filter((item) => item.id !== record.id)]
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
     .slice(0, 120);
   saveClosedLoopLocal("CLOSEOUT", record.date, record);
   saveClosedLoopLocal("HISTORY", "daily-closeout", history);
   const currentSaved = await persistClosedLoopState("CLOSEOUT", record.date, record);
   const historySaved = await persistClosedLoopState("HISTORY", "daily-closeout", history);
-  return currentSaved && historySaved;
+  if (!currentSaved || !historySaved) return false;
+  const confirmedAt = new Date().toISOString();
+  const confirmedRecord = { ...record, accountConfirmedAt: confirmedAt, verificationStatus: "VERIFIED" };
+  const confirmedHistory = [confirmedRecord, ...history.filter((item) => item.id !== record.id)];
+  const receiptSaved = await persistClosedLoopState("CLOSEOUT", confirmedRecord.date, confirmedRecord);
+  const receiptHistorySaved = await persistClosedLoopState("HISTORY", "daily-closeout", confirmedHistory);
+  if (!receiptSaved || !receiptHistorySaved) return false;
+  Object.assign(record, confirmedRecord);
+  history = confirmedHistory;
+  saveClosedLoopLocal("CLOSEOUT", record.date, record);
+  saveClosedLoopLocal("HISTORY", "daily-closeout", history);
+  return true;
 }
 
 async function applyCloseoutSteps(record) {
@@ -16830,7 +16936,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   const form = document.getElementById("daily-closeout-form");
   if (!panel || !form || typeof DominionDailyCloseout === "undefined") return;
   const closeout = readDailyCloseout();
-  const eligible = Boolean(closeout) || ["CLOSEOUT_READY", "READY_TO_SEAL", "LESSON_READY", "SEALED"].includes(ritual?.state);
+  const eligible = Boolean(closeout) || fieldCommandDayTerminal(todayISODate());
   panel.hidden = !eligible;
   if (!eligible) return;
   const connected = connectedStepsForCloseout(closeout);
@@ -16873,13 +16979,18 @@ async function submitDailyCloseout(event) {
   setText("daily-closeout-feedback", "Saving one closeout for today…");
   try {
     const previous = readDailyCloseout();
+    if (!fieldCommandDayTerminal(todayISODate()) && !previous?.accountConfirmedAt) {
+      throw new Error("Finish and save every assigned item before closing the day.");
+    }
     const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(), { previous, now: new Date().toISOString() });
     const accountSaved = await saveDailyCloseoutState(record);
     const stepsSynced = await applyCloseoutSteps(record);
     const verdict = await reconcileAtlasClosedLoopDecision(record);
     await reconcileAtlasDecisionProofs({ persist: true });
-    const dailyLoop = await reconcileDailyLoopCertification({ closeout: record, decision: verdict, persist: true });
-    if (dailyLoop?.receipt && verdict?.effectiveDate) {
+    const dailyLoop = accountSaved
+      ? await reconcileDailyLoopCertification({ closeout: record, decision: verdict, persist: true })
+      : null;
+    if (accountSaved && dailyLoop?.state === "CERTIFIED" && dailyLoop?.receipt?.accountConfirmedAt && verdict?.effectiveDate) {
       await reconcileNextDayCommandHandoff({ date: verdict.effectiveDate, decision: verdict, sourceReceipt: dailyLoop.receipt, persist: true });
     }
     await clearFrictionlessDraft("closeout");
@@ -17488,8 +17599,43 @@ async function completeRecoveryCommand() {
   const current = buildCurrentRecoveryCommand();
   if (!current?.id) throw new Error("Atlas has no current recovery order.");
   const completed = DominionRecoveryCommand.complete(current, { completedAt: new Date().toISOString(), source: "RECRUIT_CONFIRMED" });
-  await saveRecoveryCommand(completed, { render: false });
+  const synced = await saveRecoveryCommand(completed, { render: false });
   saveDailyExecutionQueueState({ recoveryComplete: true, recoveryCompletedAt: completed.completedAt });
+  const missionOrder = currentMissionRecoveryOrder(completed.date || todayISODate());
+  const missionTask = typeof DominionMissionRecovery === "undefined" ? null : DominionMissionRecovery.nextTask(missionOrder || {});
+  if (!missionTask) {
+    const operationalDate = completed.date || todayISODate();
+    const assignmentId = fieldRecoveryAssignmentId(operationalDate);
+    const sourceReceipt = {
+      id: `recovery-command:${completed.id}`,
+      date: operationalDate,
+      module: "RECOVERY",
+      assignmentId,
+      sourceRecordId: completed.id,
+      state: "COMPLETE",
+      completedAt: completed.completedAt || new Date().toISOString(),
+      verificationStatus: synced ? "VERIFIED" : "PENDING_ACCOUNT_RECEIPT",
+      accountConfirmedAt: synced ? completed.completedAt || new Date().toISOString() : null,
+      summary: { recoveryCommandId: completed.id }
+    };
+    const assignments = [...currentExecutionLedgerAssignments(operationalDate), {
+      id: assignmentId,
+      assignmentId,
+      module: "RECOVERY",
+      title: "Recovery order",
+      sessionOrder: 0,
+      trainingWindowId: "recovery",
+      sessionLabel: "RECOVERY"
+    }];
+    await reconcileCommandCompletionCertification({
+      sourceReceipt,
+      sourceAccountConfirmed: synced,
+      pendingWrites: synced ? 0 : 1,
+      assignments,
+      operationalDate,
+      persist: true
+    });
+  }
   renderDailyCoachingLoop();
   return completed;
 }
@@ -21409,7 +21555,15 @@ function buildCurrentOperatingTruth() {
   } catch (_) {}
   const actual = loopInput?.actual || {};
   const executionLedger = buildCurrentExecutionLedger(date);
+  const fieldClosure = buildCurrentFieldCommandClosure(date);
   const ledgerEntry = (domain) => typeof DominionUnifiedExecutionLedger === "undefined" ? null : DominionUnifiedExecutionLedger.entryForModule(executionLedger || {}, domain);
+  const closureTerminal = (domain) => {
+    const assignments = fieldClosure?.assignments?.filter((item) => item.module === domain) || [];
+    return assignments.length > 0 && assignments.every((item) => item.terminal);
+  };
+  const closureExecutionState = (domain, entry) => closureTerminal(domain)
+    ? "COMPLETE"
+    : ["completed", "verified"].includes(entry?.state) ? "REVIEW" : executionLedgerUiState(entry);
   const strengthLedger = ledgerEntry("strength");
   const runningLedger = ledgerEntry("running");
   const coreLedger = ledgerEntry("core");
@@ -21432,19 +21586,19 @@ function buildCurrentOperatingTruth() {
     detail: options.detail || ""
   });
   const modules = [
-    module("strength", "Strength", scheduledModules.has("STRENGTH"), executionLedgerUiState(strengthLedger), { evidenceCount: strengthLedger?.evidence?.length || 0, complete: strengthLedger?.complete }, {
+    module("strength", "Strength", scheduledModules.has("STRENGTH"), closureExecutionState("strength", strengthLedger), { evidenceCount: closureTerminal("strength") ? 1 : 0, complete: closureTerminal("strength") }, {
       protected: strengthPrescription?.state === "RECOVERY ONLY",
       detail: strengthPrescription?.sessionName || "Committed strength assignment"
     }),
-    module("running", "Run", scheduledModules.has("RUNNING"), executionLedgerUiState(runningLedger), { evidenceCount: runningLedger?.evidence?.length || 0, complete: runningLedger?.complete }, {
+    module("running", "Run", scheduledModules.has("RUNNING"), closureExecutionState("running", runningLedger), { evidenceCount: closureTerminal("running") ? 1 : 0, complete: closureTerminal("running") }, {
       protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(runningPrescription?.status || "").toUpperCase()),
       detail: runningPrescription?.session?.type || "Committed run assignment"
     }),
-    module("core", "Core", scheduledModules.has("CORE"), executionLedgerUiState(coreLedger), { evidenceCount: coreLedger?.evidence?.length || 0, complete: coreLedger?.complete }, {
+    module("core", "Core", scheduledModules.has("CORE"), closureExecutionState("core", coreLedger), { evidenceCount: closureTerminal("core") ? 1 : 0, complete: closureTerminal("core") }, {
       protected: ["PAIN_HOLD", "SAFETY_HOLD"].includes(String(corePrescription?.status || "").toUpperCase()),
       detail: corePrescription?.session?.title || "Committed core assignment"
     }),
-    module("nutrition", "Fuel", Boolean(day?.nutrition), executionLedgerUiState(nutritionLedger), { evidenceCount: nutritionLedger?.evidence?.length || 0, complete: nutritionLedger?.complete }, {
+    module("nutrition", "Fuel", Boolean(day?.nutrition), closureExecutionState("nutrition", nutritionLedger), { evidenceCount: closureTerminal("nutrition") ? 1 : 0, complete: closureTerminal("nutrition") }, {
       detail: day?.nutrition ? `${day.nutrition.calories || "—"} kcal · ${day.nutrition.protein || "—"}g protein` : "No committed fuel target"
     }),
     module("recovery", "Recovery", Boolean(week), recoveryActual.complete ? "COMPLETE" : "READY", recoveryActual, {
@@ -21488,6 +21642,12 @@ function buildCurrentOperatingTruth() {
     consistent: executionLedger.consistency.consistent,
     completed: executionLedger.completed,
     total: executionLedger.total
+  };
+  if (fieldClosure) currentOperatingTruth.fieldClosure = {
+    version: fieldClosure.version,
+    fingerprint: fieldClosure.fingerprint,
+    nextAssignmentId: fieldClosure.next?.assignmentId || null,
+    closeoutReady: fieldClosure.closeoutReady
   };
   return currentOperatingTruth;
 }
@@ -21784,6 +21944,7 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     }
   }
   currentAtlasDailyCommand = model;
+  const fieldClosure = applyFieldCommandClosureSurfaces(buildCurrentFieldCommandClosure());
   const resolutionReceipt = document.getElementById("unified-blocker-resolution-receipt");
   const lastResolution = continuityState.lastResolution;
   const resolutionAge = lastResolution?.resolvedAt ? Date.now() - new Date(lastResolution.resolvedAt).getTime() : Infinity;
@@ -21834,7 +21995,10 @@ function renderOneCommand(truth = buildCurrentOperatingTruth()) {
     primary.dataset.oneCommandAction = model.primary.action;
     primary.dataset.oneCommandSection = model.primary.section;
     primary.dataset.oneCommandModule = model.primary.module || "";
-    primary.dataset.oneCommandAssignment = currentRecruitContinuityRecovery?.order?.assignmentId || "";
+    primary.dataset.oneCommandAssignment = currentRecruitContinuityRecovery?.order?.assignmentId
+      || fieldClosure?.next?.assignmentId
+      || (fieldClosure?.closeoutReady ? "CLOSEOUT" : "");
+    primary.dataset.oneCommandFingerprint = fieldClosure?.nextFingerprint || "";
   }
   const secondary = document.getElementById("one-command-secondary");
   if (secondary) secondary.textContent = model.secondary?.label || "Why this?";
@@ -22886,6 +23050,34 @@ async function persistFuelDayTotals(input = {}, options = {}) {
   window.localStorage.setItem(nutritionManualStorageKey(date), JSON.stringify(record));
   enqueueMobileWrite("NUTRITION_MANUAL", date, record);
   const synced = await persistNutritionState("MANUAL_DAY", date, record);
+  const complete = [record.calories, record.protein, record.carbs, record.fat].every((value) => Number.isFinite(Number(value)) && Number(value) >= 0)
+    && Number(record.calories) > 0
+    && Number(record.protein) > 0;
+  const assignment = complete
+    ? currentExecutionLedgerAssignments(date).find((item) => DominionUnifiedExecutionLedger.domain(item.module) === "nutrition") || null
+    : null;
+  if (assignment?.assignmentId) {
+    const completedAt = record.updatedAt || new Date().toISOString();
+    await reconcileCommandCompletionCertification({
+      sourceReceipt: {
+        id: `fuel-total:${date}:${assignment.assignmentId}`,
+        date,
+        module: "NUTRITION",
+        assignmentId: assignment.assignmentId,
+        sourceRecordId: `manual-day:${date}`,
+        state: "LOGGED",
+        completedAt,
+        verificationStatus: synced ? "VERIFIED" : "PENDING_ACCOUNT_RECEIPT",
+        accountConfirmedAt: synced ? completedAt : null,
+        summary: { calories: record.calories, protein: record.protein, carbs: record.carbs, fat: record.fat }
+      },
+      operationalDate: date,
+      sourceAccountConfirmed: synced,
+      pendingWrites: synced ? 0 : 1,
+      persist: true,
+      render: date === todayISODate()
+    });
+  }
   if (options.render !== false) {
     renderNutritionCommand();
     if (date === todayISODate()) renderDailyCoachingLoop();
@@ -24307,9 +24499,13 @@ async function sealFuelDay(event) {
           sourceRecordId: record.id || `fuel-${loop.date}`,
           state: "SEALED",
           completedAt: record.closedAt || record.updatedAt || new Date().toISOString(),
+          verificationStatus: result.synced ? "VERIFIED" : "PENDING_ACCOUNT_RECEIPT",
+          accountConfirmedAt: result.synced ? record.closedAt || record.updatedAt || new Date().toISOString() : null,
           summary: loop.reconciliation?.metrics || {}
         },
         operationalDate: loop.date,
+        sourceAccountConfirmed: result.synced,
+        pendingWrites: result.synced ? 0 : 1,
         persist: true
       });
     }

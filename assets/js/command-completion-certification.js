@@ -119,6 +119,11 @@
       .filter((item) => item?.type === RECEIPT_TYPE && item.operationalDate === date)
       .sort((left, right) => receiptTime(right) - receiptTime(left))[0] || null;
   }
+  function accountConfirmedReceipt(value = {}) {
+    return value?.status === STATES.CERTIFIED
+      && value?.verificationStatus === "VERIFIED"
+      && Boolean(value?.accountConfirmedAt);
+  }
   function completedAssignmentIds(history = [], operationalDate = "", authority = {}) {
     const date = dateIso(operationalDate);
     return new Set((Array.isArray(history) ? history : [])
@@ -144,7 +149,7 @@
     const next = assignments.find((item) => !completed.has(item.assignmentId));
     if (next) {
       const window = next.windowLabel && !["TODAY", "SESSION 1"].includes(upper(next.windowLabel)) ? `${next.windowLabel} ` : "";
-      return {
+      const result = {
         type: "COMMAND",
         assignmentId: next.assignmentId,
         module: next.module,
@@ -155,8 +160,10 @@
         tertiary: next.tertiary,
         route: next.route
       };
+      return { ...result, fingerprint: `next-${stableHash(result)}` };
     }
-    return { type: "CLOSEOUT", module: "closeout", title: "Close the day", label: "Close the day", route: routeFor({ module: "closeout" }) };
+    const result = { type: "CLOSEOUT", module: "closeout", title: "Close the day", label: "Close the day", route: routeFor({ module: "closeout" }) };
+    return { ...result, fingerprint: `next-${stableHash(result)}` };
   }
   function completionView(receipt = {}, state = STATES.PROTECTED, next = null) {
     const complete = COMPLETE_STATES.has(receipt.completion?.state);
@@ -232,13 +239,25 @@
         assignmentFingerprint: `assignments-${stableHash(assignments.map((item) => ({ assignmentId: item.assignmentId, module: item.module, order: item.order, windowId: item.windowId })))}`
       },
       completion,
+      closure: {
+        assignmentId: completion.assignmentId,
+        module: completion.module,
+        terminalState: completion.state,
+        outcome: COMPLETE_STATES.has(completion.state) ? "COMPLETED" : completion.state === "PAIN_HOLD" ? "SAFETY_STOP" : "ENDED_INCOMPLETE",
+        sourceEvidenceConfirmed: false,
+        accountReceiptConfirmed: false,
+        ledgerFingerprintBefore: text(input.ledgerFingerprint) || null,
+        pendingWrites: Math.max(0, Number(input.pendingWrites || 0))
+      },
       summary: completion.summary,
       completedAt: completion.completedAt,
       createdAt: input.createdAt || completion.completedAt,
       accountConfirmedAt: null
     };
     receipt.next = nextCommand(assignments, input.history || [], receipt);
+    receipt.nextFingerprint = receipt.next.fingerprint;
     receipt.dayComplete = receipt.next.type === "CLOSEOUT";
+    receipt.closeoutReady = false;
     receipt.sessionComplete = COMPLETE_STATES.has(completion.state);
     return receipt;
   }
@@ -275,12 +294,29 @@
     }
     const candidate = buildCandidate({ ...input, operationalDate }, assignment || normalizeAssignment({ ...source, id: sourceAssignmentId, module: sourceModule }), assignments);
     const restored = exactAccountReceipt(candidate, input.accountReceipts || input.history || []);
-    const accountConfirmed = Boolean(input.serverConfirmed === true && restored);
+    const sourceConfirmed = input.sourceAccountConfirmed !== false
+      || Boolean(source.accountConfirmedAt)
+      || accountConfirmedReceipt(restored || {});
+    const pendingWrites = Math.max(0, Number(input.pendingWrites || 0));
+    const accountConfirmed = Boolean(input.serverConfirmed === true && restored && sourceConfirmed && pendingWrites === 0);
     const receipt = accountConfirmed
-      ? { ...candidate, status: STATES.CERTIFIED, verificationStatus: "VERIFIED", accountConfirmedAt: restored.accountConfirmedAt || input.accountConfirmedAt || new Date().toISOString() }
+      ? {
+        ...candidate,
+        status: STATES.CERTIFIED,
+        verificationStatus: "VERIFIED",
+        accountConfirmedAt: restored.accountConfirmedAt || input.accountConfirmedAt || new Date().toISOString(),
+        closure: {
+          ...candidate.closure,
+          sourceEvidenceConfirmed: true,
+          accountReceiptConfirmed: true,
+          pendingWrites: 0
+        }
+      }
       : candidate;
     receipt.next = nextCommand(assignments, input.history || [], receipt);
+    receipt.nextFingerprint = receipt.next.fingerprint;
     receipt.dayComplete = receipt.next.type === "CLOSEOUT";
+    receipt.closeoutReady = accountConfirmed && receipt.dayComplete;
     const state = accountConfirmed ? STATES.CERTIFIED : STATES.PROTECTED;
     return { version: VERSION, type: RECEIPT_TYPE, state, receipt, next: receipt.next, issues: [], view: completionView(receipt, state, receipt.next) };
   }
@@ -297,6 +333,7 @@
     routeFor,
     upsertHistory,
     latestForDate,
+    accountConfirmedReceipt,
     completedAssignmentIds,
     nextCommand,
     evaluate

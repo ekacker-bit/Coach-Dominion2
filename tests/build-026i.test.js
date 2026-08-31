@@ -39,7 +39,10 @@ test("profile, readiness, evidence, and coaching memory reconcile at startup", (
   assert.match(app, /outcomes: readAtlasAdaptationOutcomeHistory/);
   assert.doesNotMatch(app, /runStartupTask\("account save", \(\) => syncDominionAccountTruth/);
   assert.match(app, /startupAccountLedger = navigator\.onLine === false \? null : await loadAccountTruthLedger\(\)/);
-  assert.match(app, /const authoritativeStartup = reconcileStartupAccountState\(\)/);
+  assert.match(app, /const accountLedgerPromise = readStartupAccountLedger\(\)/);
+  assert.match(app, /DominionStartupAuthority\.verifiedDevicePreview/);
+  assert.ok(app.indexOf("DominionStartupAuthority.verifiedDevicePreview") < app.indexOf("await accountLedgerPromise"));
+  assert.match(app, /let authoritativeStartup = reconcileStartupAccountState\(\{ hydrationComplete: false \}\)/);
   assert.match(app, /function applyAccountTruthSnapshot/);
 });
 

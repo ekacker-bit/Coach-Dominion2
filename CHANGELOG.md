@@ -1,5 +1,14 @@
 # Changelog
 
+## 031A - Beta Integrity and UX Repair
+
+- Reveals a verified signed-program snapshot early in read-only mode while account hydration continues in the background, with bounded timeout and safe retry states.
+- Makes the signed Contract and committed week the only effective execution authority while keeping unchanged or unsigned amendments from mutating the active program.
+- Uses date-only, timezone-safe Review math so Monday, Sunday, future dates, and daylight-saving transitions cannot distort elapsed-day scoring.
+- Confirms Fuel writes against the exact account row before reporting success and protects unsynced edits without duplicating them during hydration.
+- Separates Account, Program, Evidence, and Connections health while giving secondary routes one compact daily-state strip instead of repeating the full Today context.
+- Adds one canonical next-week lifecycle from not generated through finalized, with deterministic integrity gates for startup, Contract, Fuel, Review, status, and responsive wiring.
+
 ## Unreleased - Review Yesterday Repair
 
 - Routes the recovery action to yesterday's exact operating date instead of reopening today's closeout.

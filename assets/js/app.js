@@ -169,6 +169,7 @@ let startupRestoreWatchTimers = [];
 let startupRestoreStartedAt = null;
 let startupRestoreDurationMs = 0;
 let startupRestoreIssues = [];
+let startupRestoreTimeline = {};
 
 const DAILY_STATE_COLUMNS = "date,energy,soreness,pain,sleep,weight,steps,resting_heart_rate,heart_rate_variability,objective_metric_sources,objective_metrics_updated_at,confidence,comments";
 const COMPLIANCE_DOMAINS = ["mission", "strength", "cardio", "recovery", "nutrition"];
@@ -2588,7 +2589,8 @@ function continuityLineageStateLabel(domain, state = {}, contractRevision = 0) {
 function renderDominionContinuity() {
   if (typeof DominionContinuity === "undefined") return;
   const manifest = continuityState.manifest || buildCurrentContinuityManifest();
-  const lineage = DominionContinuity.canonicalLineage(manifest || {}, { today: todayISODate() });
+  const effectiveIdentity = currentEffectiveProgramIdentity();
+  const lineage = DominionContinuity.canonicalLineage(manifest || {}, { today: todayISODate(), effectiveIdentity });
   const conflicts = currentContinuityConflicts();
   const pendingWrites = canonicalPendingWriteState().count;
   continuityState.lineage = lineage;
@@ -2624,7 +2626,7 @@ function renderDominionContinuity() {
       const state = lineage.modules?.[domain] || { state: "MISSING", required: true };
       const active = ["CURRENT", "PROTECTED_CURRENT_WEEK", "NOT_REQUIRED"].includes(state.state);
        const detail = state.state === "PROTECTED_CURRENT_WEEK"
-         ? `Next week moves to Contract R${lineage.contractRevision}`
+         ? lineage.draftHasMaterialChanges ? `Current week stays protected under signed R${effectiveIdentity?.signedContractRevision || lineage.contractRevision}` : "Committed week remains active"
          : state.state === "CURRENT" ? domain === "contract" && draftCopy ? draftCopy.detail : "Canonical account payload available"
           : state.state === "NOT_REQUIRED" ? "No plan required"
             : state.state === "STALE" ? "Rebuild from the current Contract"
@@ -2653,11 +2655,38 @@ function renderDominionContinuity() {
     : "Every program save reached your account.");
   const syncTime = continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
   setText("continuity-device-label", syncTime ? `Account verified ${syncTime}` : continuityState.accountRevision ? "Account ledger verified" : "Checking account continuity");
+  renderIntegrityStatusChannels({ lineage, presentation });
   const contractPolicy = contractConflictExecutionPolicy();
   const globalBlocker = document.getElementById("global-contract-blocker");
   if (globalBlocker) globalBlocker.hidden = !contractPolicy.blocked;
   document.body.dataset.contractConflict = contractPolicy.blocked ? "true" : "false";
   renderAccountTruthHealth();
+}
+
+function renderIntegrityStatusChannels(context = {}) {
+  const root = document.getElementById("integrity-status-channels");
+  if (!root || typeof DominionReleaseStabilization === "undefined") return;
+  const program = currentProgramLifecycle();
+  const evidenceState = document.getElementById("status-data")?.textContent || "CHECKING";
+  const latestConnection = connectedAccounts.find((item) => item.connectionStatus !== "DISCONNECTED") || null;
+  const channels = DominionReleaseStabilization.statusChannels({
+    account: {
+      conflicts: currentContinuityConflicts().length,
+      pending: canonicalPendingWriteState().count,
+      online: navigator.onLine !== false,
+      lastSavedAt: continuityState.lastSyncedAt ? new Date(continuityState.lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null
+    },
+    program: { state: program?.state || context.lineage?.status || "CHECKING", detail: context.lineage?.headline || "Signed Contract and committed week" },
+    evidence: { state: evidenceState, detail: "Daily evidence freshness" },
+    connection: {
+      status: latestConnection?.connectionStatus,
+      lastSuccessfulAt: latestConnection?.lastSuccessfulSyncAt,
+      evidenceCount: connectedImportedRecords.length,
+      failed: connectedLoadState.remoteLoadFailed === true,
+      detail: connectedAccounts.length ? `${connectedAccounts.length} source${connectedAccounts.length === 1 ? "" : "s"}` : "No source connected"
+    }
+  });
+  root.innerHTML = Object.values(channels).map((channel) => `<article class="integrity-status-channel ${escapeHtml(channel.tone)}"><span>${escapeHtml(channel.label)}</span><strong>${escapeHtml(channel.state)}</strong><small>${escapeHtml(channel.detail)}</small></article>`).join("");
 }
 
 function setContinuityMode(mode, options = {}) {
@@ -4285,6 +4314,14 @@ function deriveInspectionStatus(aggregate, finalized = false, threshold = WEEKLY
 }
 
 function inspectionAnalysisWindow(range, asOfDate = todayISODate()) {
+  if (typeof DominionWeekProgress !== "undefined") {
+    return DominionWeekProgress.resolve({
+      weekStartDate: range.weekStartDate,
+      weekEndDate: range.weekEndDate,
+      asOfDate,
+      timeZone: operationalTimeZone()
+    });
+  }
   const asOf = parseISODateUTC(asOfDate);
   const start = parseISODateUTC(range.weekStartDate);
   const end = parseISODateUTC(range.weekEndDate);
@@ -4683,6 +4720,8 @@ function setStartupAuthority(state = startupAuthorityState) {
     : DominionStartupAuthority.permitsAction(state);
   document.body.dataset.startupAuthority = String(state?.phase || "BLOCKED").toLowerCase();
   document.body.dataset.startupMode = String(state?.mode || "PROTECTED_LOADING").toLowerCase();
+  document.body.dataset.startupHydration = state?.backgroundHydration ? "true" : "false";
+  document.body.dataset.startupReadOnly = state?.readOnly ? "true" : "false";
   setText("startup-loading-title", actionable ? "Program restored" : state?.phase === "BLOCKED" ? "Program restore paused" : "Restoring your protected program…");
   setText("startup-loading-detail", state?.message || "Verifying your account, device copy, calendar, and evidence before anything becomes actionable.");
   const retry = document.getElementById("startup-retry");
@@ -4690,6 +4729,16 @@ function setStartupAuthority(state = startupAuthorityState) {
   setLoading(!actionable);
   if (actionable && state?.phase === "DEGRADED") setStatus("Offline mode: using your last verified device copy. Account changes are paused.");
   return state;
+}
+
+function markStartupRestorePhase(name = "phase") {
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  startupRestoreTimeline[name] = now;
+  if (startupRestoreStartedAt !== null) {
+    const elapsed = Math.max(0, Math.round(now - startupRestoreStartedAt));
+    document.body.dataset[`startup${name.replace(/(^|-)([a-z])/g, (_, __, letter) => letter.toUpperCase())}Ms`] = String(elapsed);
+    console.info("[startup:timing]", { phase: name, elapsedMs: elapsed });
+  }
 }
 
 function setStartupRestoreProgress(message = "") {
@@ -4751,6 +4800,7 @@ async function refreshAuthoritySurfaces() {
 function beginStartupRestoreWatch() {
   startupRestoreStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
   startupRestoreDurationMs = 0;
+  startupRestoreTimeline = { started: startupRestoreStartedAt };
   startupRestoreWatchTimers.forEach((timer) => window.clearTimeout(timer));
   startupRestoreWatchTimers = [
     window.setTimeout(() => {
@@ -4760,11 +4810,25 @@ function beginStartupRestoreWatch() {
       }
     }, 4000),
     window.setTimeout(() => {
-      if (typeof DominionStartupAuthority === "undefined" || !DominionStartupAuthority.permitsAction(startupAuthorityState)) {
-        document.body.dataset.startupRestorePace = "retry-available";
-        setStartupRestoreProgress("Restore is taking longer than expected. Your work is protected; retry safely if needed.");
+      if (typeof DominionStartupAuthority !== "undefined"
+        && DominionStartupAuthority.permitsAction(startupAuthorityState)
+        && startupAuthorityState.hydrationComplete !== true) {
+        document.body.dataset.startupRestorePace = "account-verification-delayed";
+        setStartupAuthority(DominionStartupAuthority.transition(startupAuthorityState, startupAuthorityState.phase, {
+          hydrationComplete: false,
+          readOnly: true,
+          message: "Your verified program remains available. Account confirmation is taking longer than expected."
+        }));
         const retry = document.getElementById("startup-retry");
         if (retry) retry.hidden = false;
+      } else if (typeof DominionStartupAuthority === "undefined" || !DominionStartupAuthority.permitsAction(startupAuthorityState)) {
+        const verifiedSnapshot = Boolean(readAccountTruthLocalSnapshot()?.fingerprint);
+        const bounded = typeof DominionStartupAuthority === "undefined"
+          ? { phase: "BLOCKED", actionable: false, validated: false, readOnly: true, message: "Restore took too long. Nothing changed. Retry when ready." }
+          : DominionStartupAuthority.timeout(startupAuthorityState, { verifiedSnapshot });
+        document.body.dataset.startupRestorePace = verifiedSnapshot ? "verified-device" : "retry-available";
+        setStartupAuthority(bounded);
+        markStartupRestorePhase("timeout");
       }
     }, 8000)
   ];
@@ -4777,6 +4841,11 @@ function endStartupRestoreWatch() {
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   startupRestoreDurationMs = startupRestoreStartedAt === null ? 0 : Math.max(0, Math.round(now - startupRestoreStartedAt));
   document.body.dataset.startupRestoreDurationMs = String(startupRestoreDurationMs);
+  if (typeof DominionStartupAuthority !== "undefined") {
+    const timing = DominionStartupAuthority.timing(startupRestoreStartedAt, startupRestoreTimeline, now);
+    if (timing.usableMs !== null) document.body.dataset.startupUsableMs = String(timing.usableMs);
+    document.body.dataset.startupHydrationMs = String(timing.hydrationMs || 0);
+  }
 }
 
 function revealMobileShell() {
@@ -7518,6 +7587,23 @@ function contractRevisionStatusCopy() {
     draftRequiredCount: count,
     noOperatingChanges
   };
+}
+
+function currentEffectiveProgramIdentity(date = todayISODate()) {
+  if (typeof DominionBetaStateIntegrity === "undefined") return null;
+  const lifecycle = readRecruitContractLifecycle();
+  const ledger = typeof DominionUnifiedExecutionLedger === "undefined" ? null : buildCurrentExecutionLedger(date);
+  const activeEntry = ledger?.next || ledger?.entries?.find((entry) => entry.state === "in_progress") || null;
+  return DominionBetaStateIntegrity.resolveEffectiveProgramIdentity({
+    today: date,
+    signedContract: lifecycle.activeSignedContract,
+    draftContract: lifecycle.draftContract,
+    activeWeek: readCommittedUnifiedWeek(date),
+    receipt: readAtlasProgramReceipt(),
+    assignment: activeEntry?.assignment || null,
+    execution: activeEntry?.execution || null,
+    evidence: activeEntry?.evidence || []
+  });
 }
 
 async function persistRecruitContractState(stateType, payload) {
@@ -14556,7 +14642,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029n", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=030z", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030z", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031a", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -22127,6 +22214,7 @@ function currentProgramLifecycle() {
   const week = readCommittedUnifiedWeek(todayISODate());
   const weekDraft = readUnifiedWeekDraft();
   const receipt = readAtlasProgramReceipt();
+  const effectiveIdentity = currentEffectiveProgramIdentity();
   let activation = null;
   let audit = null;
   try { activation = contract && typeof DominionContractActivation !== "undefined" ? DominionContractActivation.buildActivation(contractActivationInputs()) : null; } catch (_) {}
@@ -22155,7 +22243,7 @@ function currentProgramLifecycle() {
     committedWeek: week,
     weekEnd: week?.weekEnd,
     draftWeek: weekDraft,
-    amendmentDraft: Boolean(contract && draft),
+    amendmentDraft: effectiveIdentity?.draftHasMaterialChanges === true,
     canonicalState: canonical?.lifecycle?.program,
     receiptStatus: receipt?.status,
     conflict: conflicts.length > 0,
@@ -22172,6 +22260,14 @@ function currentProgramLifecycle() {
     canonical,
     executionContext,
     programAuthority,
+    effectiveIdentity,
+    nextWeek: DominionProgramLifecycle.deriveNextWeek({
+      today: todayISODate(),
+      draftWeek: weekDraft,
+      committedWeek: week,
+      receiptStatus: receipt?.status,
+      finalized: week?.status === "FINALIZED"
+    }),
     receiptRepairDeferred: Boolean(audit?.status === "REPAIR_REQUIRED" && signedWeekOperational)
   };
 }
@@ -22583,6 +22679,7 @@ function renderDominionExperienceShell() {
   document.title = `${section.label} | Coach Dominion`;
   document.body.dataset.dominionPhase = (truth?.state || mission.phase).toLowerCase().replaceAll("_", "-");
   document.body.dataset.dominionSection = activeSection;
+  renderSecondaryDailyState(truth);
   const lifecycle = currentProgramLifecycle();
   if (lifecycle) {
     document.body.dataset.programLifecycle = lifecycle.state.toLowerCase().replaceAll("_", "-");
@@ -23808,18 +23905,38 @@ async function persistNutritionState(stateType, stateKey, payload, options = {})
         force: options.force === true
       });
   if (!persistence.persist) return persistence.reason === "ALREADY_CONFIRMED";
+  const writeReason = options.reason || "state_change";
+  const canWriteAccount = typeof DominionStartupAuthority === "undefined"
+    || DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, writeReason);
+  if (!canWriteAccount && writeReason === "hydration") return false;
   recordContinuityWrite("nutrition", normalizedType, stateKey, payload);
+  if (!canWriteAccount) {
+    setText("nutrition-feedback", "Fuel is saved on this device while account verification finishes.");
+    return false;
+  }
   if (!session?.user?.id) return false;
   try {
     const supabase = await getClient();
-    const { error } = await supabase.from("nutrition_state").upsert({
+    const { data, error } = await supabase.from("nutrition_state").upsert({
       user_id: session.user.id,
       state_type: normalizedType,
       state_key: stateKey,
       payload,
       updated_at: new Date().toISOString()
-    }, { onConflict: "user_id,state_type,state_key" });
+    }, { onConflict: "user_id,state_type,state_key" })
+      .select("user_id,state_type,state_key,payload,updated_at")
+      .single();
     if (error) throw error;
+    if (typeof DominionNutritionStateContract !== "undefined") {
+      const receipt = DominionNutritionStateContract.confirmWrite({
+        userId: session.user.id,
+        stateType: normalizedType,
+        stateKey,
+        payload,
+        row: data
+      });
+      if (!receipt.confirmed) throw Object.assign(new Error("Fuel save was not acknowledged exactly."), { code: receipt.reason });
+    }
     markContinuityRecordSynced("nutrition", normalizedType, stateKey, payload);
     acknowledgeContinuityRetry("nutrition", normalizedType, stateKey, payload);
     if (normalizedType === "MANUAL_DAY") acknowledgeMobileWrite("NUTRITION_MANUAL", stateKey);
@@ -23834,6 +23951,30 @@ async function persistNutritionState(stateType, stateKey, payload, options = {})
     if (normalizedType === "MANUAL_DAY") enqueueMobileWrite("NUTRITION_MANUAL", stateKey, payload);
     return false;
   }
+}
+
+function renderSecondaryDailyState(truth = currentOperatingTruth || buildCurrentOperatingTruth()) {
+  const strip = document.getElementById("secondary-daily-state");
+  if (!strip) return;
+  const hasRollCall = dailyState?.date === todayISODate();
+  let readiness = hasRollCall ? "Ready" : "Roll Call due";
+  if (hasRollCall) {
+    try { readiness = String(evaluateOperationalReadiness(dailyState).state || "Ready").replaceAll("_", " "); }
+    catch (_) {}
+  }
+  const action = currentDailyDecision?.primaryAction || currentDailyDecision?.nextAction || truth?.action || {};
+  const blocker = currentDailyDecision?.blocker || truth?.contradictions?.find((item) => item.severity === "BLOCKING") || null;
+  setText("secondary-daily-state-status", readiness);
+  setText("secondary-daily-state-next", blocker ? "Action needed" : action.label || "Today remains available");
+  setText("secondary-daily-state-detail", blocker?.detail || blocker?.message || truth?.detail || "Readiness, authorization, and the next action are current.");
+  const link = document.getElementById("secondary-daily-state-action");
+  if (link) {
+    const section = action.section || "today";
+    link.href = action.href || `#${section}`;
+    link.dataset.section = section;
+    link.textContent = action.label || "Open Today";
+  }
+  if (activeSection === "today") strip.removeAttribute("open");
 }
 
 async function clearNutritionStateType(stateType) {
@@ -23923,7 +24064,7 @@ async function loadNutritionState() {
       const localPayload = readNutritionStatePayload(row.state_type, row.state_key);
       const selected = resolveContinuityPayload("nutrition", row.state_type, row.state_key, localPayload, row);
       if (selected.payload) applyNutritionStateRow({ ...row, payload: selected.payload });
-      if (selected.source === "DEVICE" && selected.payload) await persistNutritionState(row.state_type, row.state_key, selected.payload);
+      if (selected.source === "DEVICE" && selected.payload) await persistNutritionState(row.state_type, row.state_key, selected.payload, { reason: "hydration" });
     }
     const hasState = (type, key = null) => rows.some((row) => row.state_type === type && (key === null || row.state_key === key));
     const localBaselines = readNutritionBaselineHistory();
@@ -23935,33 +24076,33 @@ async function loadNutritionState() {
     const localMealExecution = readMealExecutionLedger();
     const localFuelClosedLoop = readFuelClosedLoopLedger();
     if (!hasState("BASELINE_HISTORY") && localBaselines.length) {
-      await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines });
+      await persistNutritionState("BASELINE_HISTORY", "current", { items: localBaselines }, { reason: "hydration" });
     }
     if (!hasState("REVIEW_HISTORY") && localReviews.length) {
-      await persistNutritionState("REVIEW_HISTORY", "current", { items: localReviews });
+      await persistNutritionState("REVIEW_HISTORY", "current", { items: localReviews }, { reason: "hydration" });
     }
     if (!hasState("ADAPTIVE_GOAL")) {
-      await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: localGoal });
+      await persistNutritionState("ADAPTIVE_GOAL", "current", { goal: localGoal }, { reason: "hydration" });
     }
     if (!hasState("MEAL_WINDOW")) {
-      await persistNutritionState("MEAL_WINDOW", "current", { window: localWindow });
+      await persistNutritionState("MEAL_WINDOW", "current", { window: localWindow }, { reason: "hydration" });
     }
     if (!hasState("FASTING_PROTOCOL") && localFastingProtocol) {
-      await persistNutritionState("FASTING_PROTOCOL", "current", localFastingProtocol);
+      await persistNutritionState("FASTING_PROTOCOL", "current", localFastingProtocol, { reason: "hydration" });
     }
     if (!hasState("FASTING_EXECUTION") && (localFastingExecution.active || localFastingExecution.history.length)) {
-      await persistNutritionState("FASTING_EXECUTION", "current", localFastingExecution);
+      await persistNutritionState("FASTING_EXECUTION", "current", localFastingExecution, { reason: "hydration" });
     }
     if (!hasState("MEAL_EXECUTION") && (localMealExecution.current || localMealExecution.history.length || localMealExecution.preferences)) {
-      await persistNutritionState("MEAL_EXECUTION", "current", localMealExecution);
+      await persistNutritionState("MEAL_EXECUTION", "current", localMealExecution, { reason: "hydration" });
     }
     if (!hasState("FUEL_CLOSED_LOOP") && (localFuelClosedLoop.feedback.length || localFuelClosedLoop.closeouts.length)) {
-      await persistNutritionState("FUEL_CLOSED_LOOP", "current", localFuelClosedLoop);
+      await persistNutritionState("FUEL_CLOSED_LOOP", "current", localFuelClosedLoop, { reason: "hydration" });
     }
     ["MAINTAIN", "PERFORMANCE", "FAT_LOSS"].forEach((goalName) => {
       const approval = readApprovedAdaptiveFueling(goalName);
       if (approval && !hasState("ADAPTIVE_APPROVAL", goalName)) {
-        persistNutritionState("ADAPTIVE_APPROVAL", goalName, approval);
+        persistNutritionState("ADAPTIVE_APPROVAL", goalName, approval, { reason: "hydration" });
       }
     });
     const manualPrefix = `coach-dominion:nutrition-manual:${connectedUserId()}:`;
@@ -23972,7 +24113,7 @@ async function loadNutritionState() {
       if (hasState("MANUAL_DAY", date)) continue;
       try {
         const record = JSON.parse(window.localStorage.getItem(key) || "null");
-        if (record?.date) persistNutritionState("MANUAL_DAY", date, record);
+        if (record?.date) persistNutritionState("MANUAL_DAY", date, record, { reason: "hydration" });
       } catch (_) {
         // Ignore malformed legacy local records.
       }
@@ -25583,7 +25724,7 @@ async function readStartupAccountLedger() {
   return startupAccountLedger;
 }
 
-function reconcileStartupAccountState() {
+function reconcileStartupAccountState(options = {}) {
   if (typeof DominionStartupAuthority === "undefined" || typeof DominionAccountTruth === "undefined") {
     return { phase: "READY", actionable: true, validated: true, readOnly: false, mode: "AUTHORITATIVE", message: "Your protected program is ready." };
   }
@@ -25646,6 +25787,7 @@ function reconcileStartupAccountState() {
     deviceVerified: Boolean(verifiedDeviceSnapshot?.fingerprint),
     reconciledSnapshot,
     validation: { valid: Boolean(reconciledSnapshot?.fingerprint) },
+    hydrationComplete: options.hydrationComplete !== false,
     errorCode: startupAccountError?.code || "ACCOUNT_UNAVAILABLE"
   });
 }
@@ -25663,6 +25805,7 @@ async function init() {
       return;
     }
     session = data.session;
+    markStartupRestorePhase("session");
     installAccountPersistenceRecovery(supabase);
     if (typeof DominionAccountEntry !== "undefined") {
       const access = DominionAccountEntry.accountAccess(session.user);
@@ -25671,8 +25814,39 @@ async function init() {
     }
     setText("identity", "Signed in as " + session.user.email);
     setStartupRestoreProgress("Restoring account snapshot.");
-    await readStartupAccountLedger();
     const startupIssues = [];
+    const accountLedgerPromise = readStartupAccountLedger();
+    const verifiedDeviceSnapshot = readAccountTruthLocalSnapshot();
+    let earlyStateRevealed = false;
+    const revealEarlySignedState = async () => {
+      restoreSectionFromHash();
+      await runStartupTask("early signed Contract", async () => renderRecruitContract(), startupIssues);
+      await runStartupTask("early committed Calendar", async () => renderWeeklyOrchestrator(), startupIssues);
+      await runStartupTask("early Today", async () => renderTodayCommittedWeek(), startupIssues);
+      await runStartupTask("early continuity", async () => renderDominionContinuity(), startupIssues);
+      renderDominionExperienceShell();
+      applyProductPolish();
+      if (!earlyStateRevealed) markStartupRestorePhase("usable");
+      earlyStateRevealed = true;
+    };
+    if (typeof DominionStartupAuthority !== "undefined" && verifiedDeviceSnapshot?.fingerprint) {
+      applyAccountTruthSnapshot(verifiedDeviceSnapshot);
+      saveAccountTruthLocalSnapshot(verifiedDeviceSnapshot);
+      startupAuthorityState = DominionStartupAuthority.verifiedDevicePreview(startupAuthorityState, {
+        deviceSnapshot: verifiedDeviceSnapshot,
+        deviceVerified: true
+      });
+      setStartupAuthority(startupAuthorityState);
+      markStartupRestorePhase("device-snapshot");
+      await revealEarlySignedState();
+    }
+    await accountLedgerPromise;
+    markStartupRestorePhase("account-ledger");
+    let authoritativeStartup = reconcileStartupAccountState({ hydrationComplete: false });
+    setStartupAuthority(authoritativeStartup);
+    if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAction(authoritativeStartup)) {
+      await revealEarlySignedState();
+    }
     await runStartupTask("preferences", async () => {
       loadTrendPreferences();
       loadStandardsReviewState();
@@ -25715,18 +25889,21 @@ async function init() {
     await runStartupTask("Connected Evidence", () => reconcileConnectedEvidence({ persist: false, render: false }), startupIssues);
     await runStartupTask("Trends", loadTrendsAnalytics, startupIssues);
     await runStartupTask("Fuel program receipt", () => reconcileAtlasNutritionReceiptState({ persist: false }), startupIssues);
-    const authoritativeStartup = reconcileStartupAccountState();
+    authoritativeStartup = reconcileStartupAccountState({ hydrationComplete: false });
+    if (typeof DominionStartupAuthority !== "undefined") authoritativeStartup = DominionStartupAuthority.completeHydration(authoritativeStartup);
+    setStartupAuthority(authoritativeStartup);
+    markStartupRestorePhase("hydrated");
     await runStartupTask("daily loop certification", () => reconcileDailyLoopCertification({
-      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
+      persist: typeof DominionStartupAuthority !== "undefined" && DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change")
     }), startupIssues);
     await runStartupTask("next-day command", () => reconcileNextDayCommandHandoff({
-      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
+      persist: typeof DominionStartupAuthority !== "undefined" && DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change")
     }), startupIssues);
     await runStartupTask("morning command", () => reconcileMorningCommandActivation({
-      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY
+      persist: typeof DominionStartupAuthority !== "undefined" && DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change")
     }), startupIssues);
     await runStartupTask("completion receipt", () => reconcileCommandCompletionCertification({
-      persist: typeof DominionStartupAuthority !== "undefined" && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
+      persist: typeof DominionStartupAuthority !== "undefined" && DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change"),
       render: false
     }), startupIssues);
     setStartupRestoreProgress("Preparing Today.");
@@ -25777,16 +25954,16 @@ async function init() {
     endStartupRestoreWatch();
     await runStartupTask("48-hour recruit loop", () => reconcileRecruitLoopCertification({
       persist: typeof DominionStartupAuthority !== "undefined"
-        && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
+        && DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change"),
       restoreDurationMs: startupRestoreDurationMs,
       startupIssues
     }), startupIssues);
     await runStartupTask("saved-work recovery", () => reconcileRecruitContinuityRecovery({
       persist: typeof DominionStartupAuthority !== "undefined"
-        && authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY,
+        && DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change"),
       automatic: true
     }), startupIssues);
-    if (authoritativeStartup.phase === DominionStartupAuthority.PHASES.READY) {
+    if (typeof DominionStartupAuthority === "undefined" || DominionStartupAuthority.permitsAccountWrite(authoritativeStartup, "state_change")) {
       const activatedCommand = await runStartupTask("scheduled plan command", activateDuePlanCommand, startupIssues);
       if (activatedCommand?.appliedAt) renderPlanCommandSurfaces();
     }

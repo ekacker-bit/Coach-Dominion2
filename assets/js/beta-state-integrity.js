@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030R.1";
+  const VERSION = "031A.1";
   const OATH_VERSION = "DOMINION_OATH_019A";
   const ACTIVE_EXECUTION_STATES = new Set(["IN_PROGRESS", "PAUSED", "REVIEW"]);
   const TERMINAL_EXECUTION_STATES = new Set(["COMPLETE", "COMPLETED", "PARTIAL", "STOPPED", "CANCELLED", "CANCELED"]);
@@ -146,6 +146,46 @@
       receiptDeferred: Boolean(signedWeek && receiptRevision && receiptRevision !== weekRevision),
       source: signedWeek ? "SIGNED_ACTIVE_WEEK" : receiptRevision ? "ACTIVATION_RECEIPT" : signedRevision ? "SIGNED_CONTRACT" : "NONE"
     });
+  }
+
+  function resolveEffectiveProgramIdentity(input = {}) {
+    const today = date(input.today) || new Date().toISOString().slice(0, 10);
+    const signedContract = input.signedContract || null;
+    const draftContract = input.draftContract || null;
+    const activeWeek = input.activeWeek || input.committedWeek || null;
+    const receipt = input.receipt || input.activationReceipt || null;
+    const authority = resolveOperatingProgramAuthority({ today, signedContract, activeWeek, receipt, programId: input.programId });
+    const draftHasMaterialChanges = Boolean(draftContract && signedContract && !sameOperatingContract(signedContract, draftContract));
+    const draftUnchanged = Boolean(draftContract && signedContract && !draftHasMaterialChanges);
+    const assignment = input.assignment || null;
+    const execution = input.execution || null;
+    const evidence = input.evidence || null;
+    const identity = {
+      version: VERSION,
+      source: authority.source,
+      today,
+      signedContract,
+      signedContractId: text(signedContract?.id) || null,
+      signedContractRevision: revision(signedContract) || null,
+      draftContractId: text(draftContract?.id) || null,
+      draftContractRevision: revision(draftContract) || null,
+      draftHasMaterialChanges,
+      draftUnchanged,
+      draftAuthoritative: false,
+      programId: authority.programId,
+      weekId: text(activeWeek?.id || activeWeek?.weekId) || null,
+      weekStart: date(activeWeek?.weekStart || activeWeek?.week_start),
+      weekEnd: date(activeWeek?.weekEnd || activeWeek?.week_end),
+      committedCalendarRevision: Number(activeWeek?.revision || activeWeek?.calendarRevision || receipt?.calendarRevision || 0) || null,
+      calendarReceiptId: text(receipt?.id || receipt?.receiptId) || null,
+      calendarReceiptHash: text(receipt?.hash || receipt?.fingerprint || receipt?.calendarHash) || null,
+      assignmentId: assignment ? assignmentId(assignment, { allowId: true }) || null : null,
+      sessionId: text(execution?.id || execution?.sessionId) || null,
+      operationalDate: executionDate(execution || assignment || {}) || today,
+      lifecycle: upper(activeWeek?.status || receipt?.status || (activeWeek ? "ACTIVE" : signedContract ? "SIGNED" : "UNAVAILABLE")),
+      evidenceIds: Object.freeze((Array.isArray(evidence) ? evidence : evidence ? [evidence] : []).map((item) => text(item?.id)).filter(Boolean))
+    };
+    return Object.freeze(identity);
   }
 
   function resolveActiveStrengthSession(input = {}) {
@@ -345,6 +385,7 @@
     contractOperatingState,
     sameOperatingContract,
     resolveOperatingProgramAuthority,
+    resolveEffectiveProgramIdentity,
     resolveActiveStrengthSession,
     endIncompleteSession,
     resolvePlanRevisionStatus,

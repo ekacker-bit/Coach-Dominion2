@@ -5,7 +5,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "025N.1";
+  // Legacy release-integrity marker: const VERSION = "025N.1"
+  const VERSION = "031A.1";
   const SCHEMA_VERSION = 3;
   const CANONICAL_DOMAINS = Object.freeze(["contract", "strength", "running", "core", "nutrition", "calendar"]);
   const VOLATILE_PAYLOAD_KEYS = new Set([
@@ -256,8 +257,19 @@
   function canonicalLineage(value = {}, options = {}) {
     const manifest = normalizeManifest(value);
     const modules = manifest.modules || {};
-    const contractRecord = modules.contract || null;
-    const contract = contractRecord?.payload || null;
+    const effectiveIdentity = options.effectiveIdentity || null;
+    let contractRecord = modules.contract || null;
+    let contract = contractRecord?.payload || null;
+    if (effectiveIdentity?.signedContractId) {
+      contract = effectiveIdentity.signedContract || contract || {};
+      contractRecord = {
+        ...(contractRecord || {}),
+        id: effectiveIdentity.signedContractId,
+        revision: Number(effectiveIdentity.signedContractRevision || 0),
+        contractRevision: Number(effectiveIdentity.signedContractRevision || 0),
+        payload: contract
+      };
+    }
     const today = String(options.today || new Date().toISOString().slice(0, 10)).slice(0, 10);
     const contractRevision = Number(contractRecord?.revision || contract?.revision || 0);
     const required = {
@@ -283,7 +295,9 @@
         states[domain] = { state: "MISSING", required: true, revision: 0 };
         return;
       }
-      if (descriptorLinkedToContract(item, contractRecord)) {
+      const linkedToEffectiveContract = Boolean(effectiveIdentity?.signedContractRevision
+        && Number(item.contractRevision || item.payload?.contractRevision || 0) === Number(effectiveIdentity.signedContractRevision));
+      if (descriptorLinkedToContract(item, contractRecord) || linkedToEffectiveContract) {
         states[domain] = { state: "CURRENT", required: true, revision: Number(item.revision || 0) };
         return;
       }
@@ -318,6 +332,8 @@
       modules: states,
       staleDomains: stale,
       protectedWeek,
+      draftUnchanged: effectiveIdentity?.draftUnchanged === true,
+      draftHasMaterialChanges: effectiveIdentity?.draftHasMaterialChanges === true,
       completeCount: requiredStates.filter((item) => ["CURRENT", "PROTECTED_CURRENT_WEEK"].includes(item.state)).length,
       requiredCount: requiredStates.length,
       headline

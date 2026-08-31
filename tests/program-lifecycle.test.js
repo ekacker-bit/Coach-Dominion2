@@ -12,7 +12,7 @@ const readyWeek = {
 };
 
 test("the program has exactly five user-facing lifecycle states", () => {
-  assert.equal(Lifecycle.VERSION, "029E.1");
+  assert.equal(Lifecycle.VERSION, "031A.1");
   assert.deepEqual(Object.values(Lifecycle.STATE), [
     "DRAFT",
     "READY_TO_COMMIT",

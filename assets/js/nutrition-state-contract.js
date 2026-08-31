@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030P.1";
+  const VERSION = "031A.1";
   const ALLOWED_STATE_TYPES = Object.freeze([
     "BASELINE_HISTORY",
     "ADAPTIVE_GOAL",
@@ -116,6 +116,21 @@
     });
   }
 
+  function confirmWrite(input = {}) {
+    const expected = writeIdentity(input);
+    const row = input.row || null;
+    if (!expected || !row) return Object.freeze({ confirmed: false, reason: "SAVE_NOT_ACKNOWLEDGED", identity: expected });
+    const actual = writeIdentity({
+      userId: row.user_id || row.userId,
+      stateType: row.state_type || row.stateType,
+      stateKey: row.state_key || row.stateKey,
+      payload: row.payload
+    });
+    const sameUser = text(row.user_id || row.userId) === text(input.userId);
+    const confirmed = Boolean(sameUser && actual?.key === expected.key);
+    return Object.freeze({ confirmed, reason: confirmed ? "CONFIRMED" : "SAVE_NOT_ACKNOWLEDGED", identity: expected, actual });
+  }
+
   return Object.freeze({
     VERSION,
     ALLOWED_STATE_TYPES: [...ALLOWED_STATE_TYPES],
@@ -126,6 +141,7 @@
     fingerprint,
     writeIdentity,
     shouldPersist,
+    confirmWrite,
     classifyFailure
   });
 });

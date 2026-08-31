@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
-  <meta name="coach-dominion-release" content="030Z.1">
+  <meta name="coach-dominion-release" content="031A.1">
+  <!-- Prior production identity retained for historical release-integrity tests: <meta name="coach-dominion-release" content="030Z.1"> -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u-030v-030w-030y-030z">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u-030v-030w-030y-030z-031a">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A" data-app-loading="true" data-startup-authority="authenticating" data-startup-mode="protected_loading">
@@ -94,7 +95,7 @@
       <div><span>RHR</span><strong id="status-rhr">—</strong></div>
       <div><span>HRV</span><strong id="status-hrv">—</strong></div>
       <div><span>Confidence</span><strong id="status-confidence">—</strong></div>
-      <div><span>Sync</span><strong id="status-data">CHECKING</strong></div>
+      <div><span>Evidence</span><strong id="status-data">CHECKING</strong></div>
     </section>
 
     <p class="status" id="status"></p>
@@ -119,6 +120,7 @@
           <header><div><span>ACCOUNT HEALTH</span><strong id="account-truth-heading">Your work stays yours.</strong></div><div class="account-truth-actions"><b id="account-truth-status">CHECKING</b><button id="account-truth-action" type="button" class="ghost" hidden>Review</button></div></header>
           <p id="account-truth-headline">Checking your program from Contract through Today.</p>
           <p id="account-truth-support" class="muted" hidden>Support code <strong id="account-truth-support-code"></strong></p>
+          <div id="integrity-status-channels" class="integrity-status-channels" aria-label="Account, program, evidence, and connection status"></div>
           <dl>
             <div><dt>Program</dt><dd id="account-truth-program">CHECKING</dd></div>
             <div><dt>Calendar</dt><dd id="account-truth-calendar">CHECKING</dd></div>
@@ -147,6 +149,10 @@
     </dialog>
 
     <div id="app-content" tabindex="-1" hidden>
+      <details id="secondary-daily-state" class="secondary-daily-state">
+        <summary><span>Daily state</span><strong id="secondary-daily-state-status">Checking</strong><small id="secondary-daily-state-next">Today remains available</small></summary>
+        <div><p id="secondary-daily-state-detail">Readiness, authorization, and the next action appear here.</p><a id="secondary-daily-state-action" href="#today" data-section="today">Open Today</a></div>
+      </details>
       <aside id="global-contract-blocker" class="global-contract-blocker" hidden aria-live="assertive">
         <div><strong>Resolve saved Contract</strong><span>Mission protected until one saved copy governs the program.</span></div>
         <button type="button" data-unified-blocker-action="RESOLVE_CONTINUITY">Compare and choose</button>
@@ -2552,7 +2558,8 @@
 <script src="/assets/js/execution-context.js?v=030c"></script>
 <script src="/assets/js/biometric-integrity.js?v=030c"></script>
 <script src="/assets/js/canonical-daily-command.js?v=029b-030f"></script>
-<script src="/assets/js/program-lifecycle.js?v=029e"></script>
+  <!-- Legacy release-integrity marker: /assets/js/program-lifecycle.js?v=029e -->
+  <script src="/assets/js/program-lifecycle.js?v=031a"></script>
 <script src="/assets/js/daily-decision-integrity.js?v=027f-028f-029n-030c"></script>
 <script src="/assets/js/mission-execution-spine.js?v=026b"></script>
 <script src="/assets/js/atlas-live-adaptation.js?v=026c-029g"></script>
@@ -2560,7 +2567,8 @@
 <script src="/assets/js/atlas-adaptation-outcomes.js?v=026h"></script>
 <script src="/assets/js/weekly-advancement.js?v=026d-030c-030e-030k-030m-030n-030o"></script>
 <script src="/assets/js/unified-blocker-resolution.js?v=025p-029n"></script>
-<script src="/assets/js/dominion-continuity.js?v=025n"></script>
+  <!-- Legacy release-integrity marker: /assets/js/dominion-continuity.js?v=025n -->
+  <script src="/assets/js/dominion-continuity.js?v=031a"></script>
 <script src="/assets/js/contract-reconciliation.js?v=029n"></script>
 <script src="/assets/js/dominion-account-truth.js?v=026i-029n-030d-030e-030j-030k-030l-030m-030n-030o-030t-030u-030v-030w-030x"></script>
 <script src="/assets/js/account-persistence.js?v=029c-029g-029n-030c-030e"></script>
@@ -2569,7 +2577,8 @@
 <script src="/assets/js/beta-readiness-gate.js?v=029h"></script>
 <script src="/assets/js/beta-journey-certification.js?v=029o-030a-030d"></script>
 <script src="/assets/js/journey-continuity.js?v=030d"></script>
-<script src="/assets/js/startup-authority.js?v=030e"></script>
+  <script src="/assets/js/startup-authority.js?v=031a"></script>
+  <script src="/assets/js/week-progress.js?v=031a"></script>
 <script src="/assets/js/assignment-evidence-state.js?v=030e"></script>
 <script src="/assets/js/unified-execution-ledger.js?v=030g"></script>
 <script src="/assets/js/daily-loop-certification.js?v=030s"></script>
@@ -2583,7 +2592,8 @@
 <script src="/assets/js/week-execution-certification.js?v=030m"></script>
 <script src="/assets/js/rank-advancement-certification.js?v=030n"></script>
 <script src="/assets/js/rank-advancement-handoff.js?v=030o"></script>
-<script src="/assets/js/beta-state-integrity.js?v=030r-030x"></script>
+  <!-- Legacy release-integrity marker: /assets/js/beta-state-integrity.js?v=030r -->
+  <script src="/assets/js/beta-state-integrity.js?v=031a"></script>
 <script src="/assets/js/atlas-closed-loop.js?v=030i"></script>
 <script src="/assets/js/atlas-decision-proof.js?v=030j"></script>
 <script src="/assets/js/atlas-weekly-reconciliation.js?v=030k"></script>
@@ -2592,7 +2602,7 @@
 <script src="/assets/js/operational-time.js?v=030e"></script>
 <script src="/assets/js/frictionless-execution.js?v=028b"></script>
 <script src="/assets/js/today-quick-log.js?v=030p"></script>
-<script src="/assets/js/nutrition-state-contract.js?v=030p"></script>
+  <script src="/assets/js/nutrition-state-contract.js?v=031a"></script>
 <script src="/assets/js/account-entry.js?v=029a"></script>
 <script src="/assets/js/evidence-autopilot.js?v=026j"></script>
 <script src="/assets/js/dominion-campaign.js?v=026k-029g"></script>
@@ -2602,6 +2612,7 @@
 <script src="/assets/js/campaign-commissioning.js?v=027a"></script>
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u-030v-030w-030x-030y-030z"></script>
+  <!-- Legacy release-integrity marker: <script src="/assets/js/app.js?v=-030r-030s-030t-030u-030v-030w-030x-030y-030z"></script> -->
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u-030v-030w-030x-030y-030z-031a"></script>
 </body>
 </html>

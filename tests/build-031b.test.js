@@ -16,7 +16,7 @@ test("031B ships one account-backed recruit journey authority", () => {
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
 
-  assert.match(html, /coach-dominion-release" content="031B\.1"/);
+  assert.match(html, /coach-dominion-release" content="031[BC]\.1"/);
   assert.match(html, /real-account-journey\.js\?v=031b/);
   assert.match(engine, /const VERSION = "031B\.1"/);
   assert.match(engine, /const RECEIPT_TYPE = "REAL_ACCOUNT_JOURNEY"/);
@@ -29,11 +29,11 @@ test("031B ships one account-backed recruit journey authority", () => {
   assert.match(app, /scheduleAccountTruthSync\(50\)/);
   assert.match(worker, /031b-real-account-journey/);
   assert.match(worker, /real-account-journey\.js\?v=031b/);
-  assert.match(app, /\/sw\.js\?v=031b/);
-  assert.match(health, /release: "031B\.1"/);
+  assert.match(app, /\/sw\.js\?v=031[bc]/);
+  assert.match(health, /release: "031[BC]\.1"/);
   assert.match(health, /realAccountJourney: "cross-session-account-verified"/);
   assert.match(workflow, /npm run test:031b/);
-  assert.match(workflow, /--expected-release 031B\.1/);
+  assert.match(workflow, /--expected-release 031[BC]\.1/);
 });
 
 test("031B keeps engineering and release labels out of recruit-visible markup", () => {

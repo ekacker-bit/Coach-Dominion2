@@ -1,5 +1,13 @@
 # Changelog
 
+## 031C - Recruit Proof Week
+
+- Extends the account-backed daily journey receipt into one seven-day chain tied to the signed Contract and committed week.
+- Shows a compact, word-light `Week N · X of 7 days secure` status on Today and Weekly Review without adding another dashboard.
+- Routes the first incomplete prior day to its exact closeout date; future and unknown days remain unscored.
+- Requires an account-confirmed seven-day receipt before Weekly Review can finalize or Atlas can commit the next week.
+- Adds deterministic cross-session, stale-authority, mobile-layout, release, cache, and production-canary gates.
+
 ## 031B - Real Recruit Journey Certification
 
 - Certifies one completed operating day only when the signed Contract, committed week, Calendar, Today, and active execution share the same assignment identity.

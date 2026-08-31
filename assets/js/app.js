@@ -137,6 +137,8 @@ let currentJourneyContinuity = null;
 let journeyContinuitySaveTimer = null;
 let currentRealAccountJourney = null;
 let realAccountJourneySaveTimer = null;
+let currentRecruitProofWeek = null;
+let recruitProofWeekSaveTimer = null;
 const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
@@ -857,6 +859,20 @@ function scheduleRealAccountJourneyReceipt(report = null) {
   }, 0);
 }
 
+function readRecruitProofWeekReceipts() {
+  if (typeof DominionRecruitProofWeek === "undefined") return [];
+  return readJourneyCertificationReceipts().filter((item) => item?.type === DominionRecruitProofWeek.RECEIPT_TYPE);
+}
+
+function scheduleRecruitProofWeekReceipt(report = null) {
+  if (!report?.shouldSave || !report?.candidate || recruitProofWeekSaveTimer) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
+  recruitProofWeekSaveTimer = window.setTimeout(() => {
+    recruitProofWeekSaveTimer = null;
+    if (saveJourneyCertificationReceipt(report.candidate)) scheduleAccountTruthSync(50);
+  }, 0);
+}
+
 function readCalendarCommitReceipts() {
   const receipts = readClosedLoopState("HISTORY", "calendar-commit-receipts", []);
   return Array.isArray(receipts) ? receipts : [];
@@ -1268,7 +1284,19 @@ function buildCurrentBetaJourneyCertification(context = {}) {
     operatingContractRevision,
     signed
   });
-  currentBetaJourneyCertification = Object.freeze({ ...journey, continuity: currentJourneyContinuity, realAccount: currentRealAccountJourney });
+  currentRecruitProofWeek = buildCurrentRecruitProofWeek({
+    date,
+    contract,
+    week,
+    operatingContractRevision,
+    realAccountJourney: currentRealAccountJourney
+  });
+  currentBetaJourneyCertification = Object.freeze({
+    ...journey,
+    continuity: currentJourneyContinuity,
+    realAccount: currentRealAccountJourney,
+    proofWeek: currentRecruitProofWeek
+  });
   return currentBetaJourneyCertification;
 }
 
@@ -1358,6 +1386,96 @@ function buildCurrentRealAccountJourney(context = {}) {
     document.body.dataset.realAccountJourney = String(report.state || "checking").toLowerCase().replaceAll("_", "-");
     document.body.dataset.realAccountJourneyReceipt = report.candidate?.id || "";
   }
+  return report;
+}
+
+function recruitProofWeekContractStart(contract = null) {
+  return String(
+    contract?.signature?.signedAt
+    || contract?.approvedAt
+    || contract?.createdAt
+    || contract?.startDate
+    || ""
+  ).slice(0, 10) || null;
+}
+
+function buildCurrentRecruitProofWeek(context = {}) {
+  if (typeof DominionRecruitProofWeek === "undefined") return null;
+  const date = String(context.date || todayISODate()).slice(0, 10);
+  const contract = context.contract || readApprovedRecruitContract();
+  const week = context.week || readCommittedUnifiedWeek(date);
+  if (!contract || !week?.weekStart || !week?.weekEnd) return null;
+  const pending = canonicalPendingWriteState();
+  const accountReceipts = accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || [];
+  const report = DominionRecruitProofWeek.evaluate({
+    authority: {
+      contractRevision: Number(context.operatingContractRevision || week.contractRevision || contract.revision || 0),
+      programId: week.programId || readAtlasProgramReceipt()?.programId || `contract-r${contract.revision || 0}`,
+      weekId: week.id || week.weekStart,
+      weekStartDate: week.weekStart,
+      weekEndDate: week.weekEnd
+    },
+    asOfDate: date,
+    contractStartDate: recruitProofWeekContractStart(contract),
+    liveDaily: {
+      date,
+      report: Object.prototype.hasOwnProperty.call(context, "realAccountJourney")
+        ? context.realAccountJourney
+        : currentRealAccountJourney
+    },
+    localReceipts: readJourneyCertificationReceipts(),
+    accountReceipts,
+    account: {
+      serverConfirmed: accountTruthState.serverConfirmed === true,
+      lastVerifiedAt: accountTruthState.lastVerifiedAt,
+      confirmedMutationId: accountTruthState.confirmedMutationId,
+      confirmedFingerprint: accountTruthState.confirmedFingerprint,
+      pendingWrites: pending.count,
+      online: navigator.onLine !== false
+    }
+  });
+  scheduleRecruitProofWeekReceipt(report);
+  if (document?.body) {
+    document.body.dataset.recruitProofWeek = String(report.state || "checking").toLowerCase().replaceAll("_", "-");
+    document.body.dataset.recruitProofWeekReceipt = report.candidate?.id || "";
+  }
+  return report;
+}
+
+function buildRecruitProofWeekForInspection(inspection = weeklyInspection) {
+  if (!inspection?.weekStartDate) return null;
+  const week = readCommittedUnifiedWeekByStart(inspection.weekStartDate);
+  if (!week) return null;
+  return buildCurrentRecruitProofWeek({
+    date: todayISODate() > week.weekEnd ? week.weekEnd : todayISODate(),
+    week,
+    contract: readApprovedRecruitContract(),
+    operatingContractRevision: Number(week.contractRevision || 0),
+    realAccountJourney: null
+  });
+}
+
+function recruitProofWeekMarkup(report = currentRecruitProofWeek) {
+  if (!report) return '<div class="recruit-proof-week-copy"><span>THIS WEEK</span><strong>Checking daily proof</strong><small>Your saved evidence is being restored.</small></div>';
+  const days = (report.days || []).map((day) => `<i data-proof-day="${escapeHtml(day.state.toLowerCase())}" title="${escapeHtml(`${day.date} · ${day.state.replaceAll("_", " ")}`)}"></i>`).join("");
+  const repair = report.repair
+    ? `<button type="button" data-recruit-proof-week-action="${escapeHtml(report.repair.code)}" data-recruit-proof-week-section="${escapeHtml(report.repair.section || "today")}" data-recruit-proof-week-date="${escapeHtml(report.repair.operatingDate || "")}">${escapeHtml(report.repair.label || "Review")}</button>`
+    : report.state === "VERIFIED"
+      ? '<span class="recruit-proof-week-seal">7 / 7</span>'
+      : '<a href="#today" data-section="today">Finish today</a>';
+  return `<div class="recruit-proof-week-copy"><span>${escapeHtml(report.weekLabel)}</span><strong>${escapeHtml(`${report.counts.secure} of 7 days secure`)}</strong><small>${escapeHtml(report.detail)}</small></div><div class="recruit-proof-week-days" aria-label="${escapeHtml(report.headline)}">${days}</div>${repair}`;
+}
+
+function renderRecruitProofWeek(report = currentRecruitProofWeek || buildCurrentRecruitProofWeek(), targets = ["recruit-proof-week-today", "recruit-proof-week-review"]) {
+  if (targets.includes("recruit-proof-week-today")) currentRecruitProofWeek = report;
+  targets.forEach((id) => {
+    const host = document.getElementById(id);
+    if (!host) return;
+    host.hidden = !report;
+    host.dataset.proofTone = report?.tone || "neutral";
+    host.dataset.proofState = report?.state || "CHECKING";
+    host.innerHTML = recruitProofWeekMarkup(report);
+  });
   return report;
 }
 
@@ -1453,6 +1571,7 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   document.body.dataset.betaJourney = journey?.state?.toLowerCase().replaceAll("_", "-") || "checking";
   const journeyReceipt = journey ? DominionBetaJourneyCertification.certificationReceipt(journey) : null;
   document.body.dataset.betaJourneyReceipt = journeyReceipt?.id || "";
+  renderRecruitProofWeek(journey?.proofWeek || currentRecruitProofWeek);
   renderReliabilitySupportCode();
 }
 
@@ -8466,6 +8585,17 @@ async function commitUnifiedWeekDraft(options = {}) {
   const draft = readUnifiedWeekDraft();
   if (!draft || typeof DominionWeeklyOrchestrator === "undefined") return null;
   const contract = readApprovedRecruitContract();
+  const activeWeek = readCommittedUnifiedWeek(todayISODate());
+  const isNextWeek = Boolean(activeWeek && draft.weekStart === addClosedLoopDays(activeWeek.weekStart, 7));
+  if (isNextWeek && typeof DominionRecruitProofWeek !== "undefined") {
+    const proofWeek = buildCurrentRecruitProofWeek({
+      date: todayISODate(),
+      week: activeWeek,
+      contract,
+      operatingContractRevision: Number(activeWeek.contractRevision || 0)
+    });
+    if (!proofWeek?.canAdvance) throw new Error(proofWeek?.repair?.detail || "Secure and finalize the current week before committing the next one.");
+  }
   const receipt = readAtlasProgramReceipt();
   const adaptation = options.adaptation || buildCurrentAtlasAdaptiveWeek();
   const autopilotCommit = typeof DominionAtlasWeekAutopilot !== "undefined"
@@ -14768,7 +14898,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030z", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031a", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -17030,7 +17161,10 @@ function applyAtlasClosedLoopToCorePrescription(prescription = null, date = toda
 function dailyCloseoutDate(value = dailyCloseoutOperatingDate) {
   const today = todayISODate();
   const candidate = String(value || today).slice(0, 10);
-  return [today, addClosedLoopDays(today, -1)].includes(candidate) ? candidate : today;
+  const yesterday = addClosedLoopDays(today, -1);
+  const activeWeek = readCommittedUnifiedWeek(today);
+  const withinElapsedActiveWeek = Boolean(activeWeek?.weekStart && candidate >= activeWeek.weekStart && candidate <= today);
+  return candidate === today || candidate === yesterday || withinElapsedActiveWeek ? candidate : today;
 }
 
 function openDailyCloseoutForDate(value = todayISODate(), options = {}) {
@@ -17181,9 +17315,12 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   panel.hidden = !eligible;
   if (!eligible) return;
   const isToday = operatingDate === todayISODate();
-  setText("daily-closeout-date", isToday ? "TODAY" : "YESTERDAY");
-  setText("daily-closeout-title", isToday ? "Daily closeout" : "Yesterday closeout");
-  setText("daily-closeout-intro-copy", `Report ${isToday ? "today" : "yesterday"} once. Steps become the final self-report; discipline answers stay private.`);
+  const isYesterday = operatingDate === addClosedLoopDays(todayISODate(), -1);
+  const dayLabel = isToday ? "TODAY" : isYesterday ? "YESTERDAY" : operatingDate;
+  const dayCopy = isToday ? "today" : isYesterday ? "yesterday" : operatingDate;
+  setText("daily-closeout-date", dayLabel);
+  setText("daily-closeout-title", isToday ? "Daily closeout" : isYesterday ? "Yesterday closeout" : `Close ${operatingDate}`);
+  setText("daily-closeout-intro-copy", `Report ${dayCopy} once. Steps become the final self-report; discipline answers stay private.`);
   const connected = connectedStepsForCloseout(closeout, operatingDate);
   setText("daily-closeout-connected", connected === null ? "No connected step evidence" : `${Number(connected).toLocaleString()} connected steps preserved for comparison`);
   const revision = `${operatingDate}:${String(closeout?.revision || 0)}`;
@@ -17203,7 +17340,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
   if (list) list.hidden = form.elements.processedFoodStatus.value !== "LISTED";
   const save = document.getElementById("daily-closeout-save");
   if (save) save.textContent = closeout ? "Update Closeout" : "Seal Closeout";
-  setText("daily-closeout-summary", closeout ? `${isToday ? "Today" : "Yesterday"} sealed · revision ${closeout.revision}` : `${isToday ? "Today" : "Yesterday"} · about 60 seconds`);
+  setText("daily-closeout-summary", closeout ? `${dayLabel} sealed · revision ${closeout.revision}` : `${dayLabel} · about 60 seconds`);
   const receipt = document.getElementById("daily-closeout-receipt");
   if (receipt) {
     receipt.hidden = !closeout;
@@ -17253,6 +17390,17 @@ async function submitDailyCloseout(event) {
     renderWeekExecutionCertification();
     await reconcileRecruitLoopCertification({ persist: true, restoreDurationMs: startupRestoreDurationMs, startupIssues: startupRestoreIssues });
     await reconcileRecruitContinuityRecovery({ persist: true, automatic: false });
+    const repairedJourney = buildCurrentRealAccountJourney({ date: operatingDate });
+    currentRealAccountJourney = operatingDate === todayISODate()
+      ? repairedJourney
+      : buildCurrentRealAccountJourney({ date: todayISODate() });
+    const proofWeek = buildCurrentRecruitProofWeek({
+      date: todayISODate(),
+      week: readCommittedUnifiedWeek(todayISODate()),
+      contract: readApprovedRecruitContract(),
+      realAccountJourney: currentRealAccountJourney
+    });
+    renderRecruitProofWeek(proofWeek);
     const panel = document.getElementById("daily-closeout-panel");
     if (panel) panel.open = true;
     setText("daily-closeout-feedback", dailyLoop?.view?.headline === "Day secured"
@@ -26177,6 +26325,22 @@ if (typeof document !== "undefined") {
       window.location.reload();
       return;
     }
+    const proofWeekAction = event.target.closest("[data-recruit-proof-week-action]");
+    if (proofWeekAction) {
+      event.preventDefault();
+      const action = proofWeekAction.dataset.recruitProofWeekAction;
+      const section = proofWeekAction.dataset.recruitProofWeekSection || "today";
+      if (action === "REVIEW_PRIOR_DAY") {
+        setActiveSection("today");
+        window.history.replaceState(null, "", "#today");
+        openDailyCloseoutForDate(proofWeekAction.dataset.recruitProofWeekDate, { force: true });
+      } else {
+        setActiveSection(section);
+        window.history.replaceState(null, "", `#${section}`);
+        document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
     const trustAction = event.target.closest("[data-trust-action]");
     if (trustAction) {
       event.preventDefault();
@@ -30623,6 +30787,8 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   weeklyInspection = aggregate;
   weeklyInspectionStorageMode = storageMode;
   if (!aggregate || typeof DominionWeeklyAdvancement === "undefined") return;
+  const proofWeek = buildRecruitProofWeekForInspection(aggregate);
+  renderRecruitProofWeek(proofWeek, ["recruit-proof-week-review"]);
   const evidenceSummary = typeof DominionDailyDecisionIntegrity !== "undefined"
     ? DominionDailyDecisionIntegrity.reviewSummary(aggregate)
     : {
@@ -30687,6 +30853,7 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   if (evidenceList) evidenceList.innerHTML = (aggregate.dailyEvidence || []).map((day) => `<article class="weekly-evidence-day ${day.periodState === "FUTURE" ? "future" : day.assessedCount ? "neutral" : "missing"}"><strong>${escapeHtml(day.date)}</strong><span>${day.periodState === "FUTURE" ? "Future" : `${day.assessedCount}/5 recorded`}</span></article>`).join("");
   const executionCertification = renderWeekExecutionCertification(aggregate);
   const executionReady = finalized || executionCertification?.canFinalize === true || executionCertification?.status === "CERTIFIED";
+  const proofReady = finalized || proofWeek?.canFinalize === true;
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderWeeklyAdaptationOutcomes({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderAtlasWeeklyReconciliation(aggregate);
@@ -30695,6 +30862,8 @@ function renderWeeklyJudgment(aggregate, storageMode) {
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
     : !executionCertification
       ? "A committed Calendar week is required before this inspection can be finalized."
+      : proofWeek?.repair
+        ? `${proofWeek.repair.label}. ${proofWeek.repair.detail}`
       : executionCertification.status === "BLOCKED"
         ? `${executionCertification.repair?.label || "Resolve week execution"}. ${executionCertification.repair?.detail || "One assignment still needs an honest result."}`
     : aggregate.scoreIsProvisional
@@ -30704,9 +30873,9 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const finalizeButton = document.getElementById("finalize-week");
   if (finalizeButton) {
     finalizeButton.hidden = finalized;
-    finalizeButton.disabled = !aggregate.canFinalize || !executionReady;
+    finalizeButton.disabled = !aggregate.canFinalize || !executionReady || !proofReady;
     finalizeButton.classList.toggle("is-unavailable", finalizeButton.disabled);
-    finalizeButton.textContent = aggregate.canFinalize && executionReady ? "Finalize week" : executionCertification?.status === "BLOCKED" ? "Resolve week first" : "Week not ready";
+    finalizeButton.textContent = aggregate.canFinalize && executionReady && proofReady ? "Finalize week" : proofWeek?.repair ? proofWeek.repair.label : executionCertification?.status === "BLOCKED" ? "Resolve week first" : "Week not ready";
     finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
   }
   setText("weekly-next-action-title", judgment.nextAction.label);
@@ -30865,6 +31034,14 @@ async function finalizeWeeklyInspection() {
   const finalizeState = deriveFinalizeConfirmationState(Boolean(weeklyInspection.finalizedAt), weeklyInspection.evidenceCoverage);
   if (!finalizeState.canFinalize || !weeklyInspection.canFinalize) {
     setText("weekly-warning", !weeklyInspection.weekComplete ? "Finalization is available after the inspection week ends." : "Finalization requires sufficient evidence across every required domain.");
+    return;
+  }
+  const proofWeek = buildRecruitProofWeekForInspection(weeklyInspection);
+  if (!proofWeek?.canFinalize) {
+    renderRecruitProofWeek(proofWeek, ["recruit-proof-week-review"]);
+    setText("weekly-warning", proofWeek?.repair
+      ? `${proofWeek.repair.label}. ${proofWeek.repair.detail}`
+      : proofWeek?.detail || "Confirm all seven daily receipts before finalizing the week.");
     return;
   }
   const executionPreview = buildWeekExecutionCertification(weeklyInspection);

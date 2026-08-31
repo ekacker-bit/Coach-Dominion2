@@ -155,6 +155,7 @@
       </header>
       <div class="weekly-judgment-controls"><label>Week containing <input id="weekly-date" type="date"></label><button id="inspect-week" type="button" class="ghost">Check week</button></div>
       <p id="weekly-warning" class="status" aria-live="polite"></p>
+      <section id="recruit-proof-week-review" class="recruit-proof-week recruit-proof-week-review" data-proof-tone="neutral" aria-label="This week's saved proof" aria-live="polite" hidden></section>
       <section id="atlas-weekly-reconciliation" class="atlas-weekly-reconciliation" data-weekly-tone="neutral" aria-labelledby="atlas-weekly-reconciliation-heading" aria-live="polite">
         <header><div><span>ATLAS WEEKLY RESULT</span><h3 id="atlas-weekly-reconciliation-heading">The week is still being earned</h3></div><strong>CHECKING</strong></header>
         <p>Atlas is reconciling execution, evidence, standards, and coaching outcomes.</p>

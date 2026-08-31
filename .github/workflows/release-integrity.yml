@@ -25,6 +25,7 @@ jobs:
           npm run test:030z
           npm run test:031a
           npm run test:031b
+          npm run test:031c
 
   production-canary:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -42,4 +43,5 @@ jobs:
       - name: Verify the live production contract
         # Prior canary identity retained for historical release-integrity tests: --expected-release 030Z.1
         # Prior canary identity retained for historical release-integrity tests: --expected-release 031A.1
-        run: node scripts/production-canary.js --base-url https://coach-dominion2.vercel.app --expected-release 031B.1 --expected-commit ${{ github.sha }} --attempts 30 --interval-ms 10000
+        # Prior canary identity retained for historical release-integrity tests: --expected-release 031B.1
+        run: node scripts/production-canary.js --base-url https://coach-dominion2.vercel.app --expected-release 031C.1 --expected-commit ${{ github.sha }} --attempts 30 --interval-ms 10000

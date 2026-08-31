@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const FuelState = require("../assets/js/nutrition-state-contract.js");
 
 test("Fuel client state types match the database contract", () => {
-  assert.equal(FuelState.VERSION, "030P.1");
+  assert.equal(FuelState.VERSION, "031A.1");
   assert.deepEqual(FuelState.ALLOWED_STATE_TYPES, [
     "BASELINE_HISTORY", "ADAPTIVE_GOAL", "ADAPTIVE_APPROVAL", "MEAL_WINDOW", "REVIEW_HISTORY",
     "MANUAL_DAY", "FASTING_PROTOCOL", "FASTING_EXECUTION", "MEAL_EXECUTION", "FUEL_CLOSED_LOOP"

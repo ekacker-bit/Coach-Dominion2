@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "028F.1";
+  const VERSION = "031A.1";
   const LIFECYCLE = Object.freeze({
     INCOMPLETE: "INCOMPLETE",
     READY: "READY",
@@ -178,6 +178,19 @@
     return { state: "ACCOUNT_SAVED", tone: "neutral", label: "ACCOUNT SAVED", detail: input.lastSavedAt ? `Saved ${input.lastSavedAt}` : "Current" };
   }
 
+  function statusChannels(input = {}) {
+    const account = syncSummary(input.account || {});
+    const programState = String(input.program?.state || input.program?.status || "CHECKING").toUpperCase();
+    const evidenceState = String(input.evidence?.state || input.evidence?.status || "CHECKING").toUpperCase();
+    const connection = connectionState(input.connection || {});
+    return Object.freeze({
+      account: Object.freeze({ label: "ACCOUNT DATA", state: account.label, detail: account.detail, tone: account.tone }),
+      program: Object.freeze({ label: "PROGRAM", state: programState.replaceAll("_", " "), detail: input.program?.detail || "Signed Contract and committed week", tone: ["READY", "ACTIVE"].includes(programState) ? "green" : programState === "CHECKING" ? "neutral" : "yellow" }),
+      evidence: Object.freeze({ label: "EVIDENCE", state: evidenceState.replaceAll("_", " "), detail: input.evidence?.detail || "Daily evidence freshness", tone: evidenceState === "CURRENT" ? "green" : evidenceState === "CHECKING" ? "neutral" : "yellow" }),
+      connection: Object.freeze({ label: "CONNECTIONS", state: connection.label.toUpperCase(), detail: input.connection?.detail || "Import source health", tone: connection.state === CONNECTION.CURRENT ? "green" : connection.state === CONNECTION.IMPORT_FAILED || connection.state === CONNECTION.CONFLICT ? "red" : "yellow" })
+    });
+  }
+
   return Object.freeze({
     VERSION,
     LIFECYCLE,
@@ -198,6 +211,7 @@
     lifecycleLabel,
     recoveryDay,
     connectionState,
-    syncSummary
+    syncSummary,
+    statusChannels
   });
 });

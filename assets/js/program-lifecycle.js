@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "029E.1";
+  const VERSION = "031A.1";
   const STATE = Object.freeze({
     DRAFT: "DRAFT",
     READY_TO_COMMIT: "READY_TO_COMMIT",
@@ -27,12 +27,21 @@
     [STATE.COMPLETED]: "green",
     [STATE.SUPERSEDED]: "neutral"
   });
+  const NEXT_WEEK_STATE = Object.freeze({
+    NOT_GENERATED: "NOT_GENERATED",
+    DRAFT: "DRAFT",
+    READY_TO_COMMIT: "READY_TO_COMMIT",
+    COMMITTED: "COMMITTED",
+    ACTIVE: "ACTIVE",
+    FINALIZED: "FINALIZED"
+  });
 
   function normalizedStatus(value) {
     return String(value || "").trim().toUpperCase().replaceAll(" ", "_");
   }
 
   function validDraftWeek(draft = {}) {
+    draft = draft || {};
     return Array.isArray(draft.days) && draft.days.length === 7 && draft.approvalBlocked !== true;
   }
 
@@ -96,15 +105,33 @@
     return states.length < 2 || new Set(states).size === 1;
   }
 
+  function deriveNextWeek(input = {}) {
+    const draft = input.draftWeek || null;
+    const committed = input.committedWeek || null;
+    const today = String(input.today || new Date().toISOString().slice(0, 10)).slice(0, 10);
+    const status = normalizedStatus(committed?.status || input.receiptStatus);
+    const active = Boolean(committed?.weekStart && committed?.weekEnd && committed.weekStart <= today && today <= committed.weekEnd && status !== "REPLACED");
+    const finalized = Boolean(input.finalized === true || ["FINALIZED", "COMPLETED"].includes(status));
+    const state = finalized ? NEXT_WEEK_STATE.FINALIZED
+      : active ? NEXT_WEEK_STATE.ACTIVE
+        : committed ? NEXT_WEEK_STATE.COMMITTED
+          : validDraftWeek(draft) && draft.approvalBlocked !== true ? NEXT_WEEK_STATE.READY_TO_COMMIT
+            : draft ? NEXT_WEEK_STATE.DRAFT
+              : NEXT_WEEK_STATE.NOT_GENERATED;
+    return Object.freeze({ state, label: state.replaceAll("_", " "), actionable: state === NEXT_WEEK_STATE.READY_TO_COMMIT });
+  }
+
   return Object.freeze({
     VERSION,
     STATE,
     LABEL,
     TONE,
+    NEXT_WEEK_STATE,
     normalizedStatus,
     validDraftWeek,
     derive,
     view,
-    consistent
+    consistent,
+    deriveNextWeek
   });
 });

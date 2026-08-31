@@ -4,7 +4,8 @@ module.exports = function handler(req, res) {
     ok: true,
     service: "coach-dominion",
     status: "ready",
-    release: "031B.1",
+    release: "031C.1",
+    // Prior production identity retained for historical release-integrity tests: release: "031B.1"
     // Prior production identity retained for historical release-integrity tests: release: "031A.1"
     // Prior production identity retained for historical release-integrity tests: release: "030Z.1"
     commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
@@ -47,7 +48,8 @@ module.exports = function handler(req, res) {
       calendarCommit: "immutable-receipt",
       operationalDate: "timezone-aware",
       betaIntegrityRepair: "signed-authority-restored",
-      realAccountJourney: "cross-session-account-verified"
+      realAccountJourney: "cross-session-account-verified",
+      recruitProofWeek: "seven-day-account-chain"
     }
   });
 };

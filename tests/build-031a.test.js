@@ -14,11 +14,11 @@ test("031A wires early protected restore, canonical identity, date-safe Review, 
   const worker = read("sw.js");
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
-  assert.match(html, /coach-dominion-release" content="031[AB]\.1"/);
-  assert.match(health, /release: "031[AB]\.1"/);
+  assert.match(html, /coach-dominion-release" content="031[ABC]\.1"/);
+  assert.match(health, /release: "031[ABC]\.1"/);
   assert.match(health, /betaIntegrityRepair: "signed-authority-restored"/);
   assert.match(workflow, /npm run test:031a/);
-  assert.match(workflow, /--expected-release 031[AB]\.1/);
+  assert.match(workflow, /--expected-release 031[ABC]\.1/);
   assert.match(html, /week-progress\.js\?v=031a/);
   assert.match(html, /id="secondary-daily-state"/);
   assert.match(html, /id="integrity-status-channels"/);

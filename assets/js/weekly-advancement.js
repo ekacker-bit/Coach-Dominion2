@@ -150,40 +150,45 @@
     section.dataset.weeklyAdvancement = VERSION;
     section.innerHTML = `
       <header class="weekly-judgment-header">
-        <div><span>WEEKLY JUDGMENT</span><h2 id="weekly-inspection-heading">Did you earn the week?</h2><p>Execution. Evidence. Standards. Nothing else counts.</p></div>
+        <div><span>WEEKLY REVIEW</span><h2 id="weekly-inspection-heading">Earn the week. Launch the next.</h2></div>
         <span id="weekly-status" class="state-pill neutral">CHECKING</span>
       </header>
-      <div class="weekly-judgment-controls"><label>Week containing <input id="weekly-date" type="date"></label><button id="inspect-week" type="button" class="ghost">Check week</button></div>
       <p id="weekly-warning" class="status" aria-live="polite"></p>
       <section id="recruit-proof-week-review" class="recruit-proof-week recruit-proof-week-review" data-proof-tone="neutral" aria-label="This week's saved proof" aria-live="polite" hidden></section>
-      <section id="atlas-weekly-reconciliation" class="atlas-weekly-reconciliation" data-weekly-tone="neutral" aria-labelledby="atlas-weekly-reconciliation-heading" aria-live="polite">
-        <header><div><span>ATLAS WEEKLY RESULT</span><h3 id="atlas-weekly-reconciliation-heading">The week is still being earned</h3></div><strong>CHECKING</strong></header>
-        <p>Atlas is reconciling execution, evidence, standards, and coaching outcomes.</p>
-      </section>
-      <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
-      <section id="week-execution-certification" class="week-execution-certification-host" aria-label="Week execution certification" aria-live="polite"></section>
-      <div id="weekly-proof-grid" class="weekly-proof-grid" aria-label="Weekly proof">
-        <article><span>EXECUTION</span><strong id="weekly-score">NOT EVALUATED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>
-        <article><span>EVIDENCE</span><strong id="weekly-coverage">COVERAGE INCOMPLETE</strong><small id="weekly-evidence-proof">Waiting for evidence</small></article>
-        <article><span>STANDARDS</span><strong id="weekly-standards-state">CHECKING</strong><small id="weekly-standards-proof">Open cases block advancement</small></article>
-      </div>
-      <section class="weekly-advancement" aria-labelledby="weekly-advancement-heading">
-        <header><div><span>ADVANCEMENT</span><h3 id="weekly-advancement-heading"><strong id="rank-current">RECRUIT</strong><i aria-hidden="true">&rarr;</i><strong id="rank-next">CADET</strong></h3></div><span id="rank-state" class="state-pill neutral">BUILDING EVIDENCE</span></header>
-        <div class="weekly-advancement-meter" aria-hidden="true"><span id="weekly-advancement-meter"></span></div>
-        <div class="weekly-advancement-copy"><strong id="weekly-advancement-percent">0 of 4 conditions met</strong><p id="weekly-advancement-detail">Finalize trustworthy weeks to begin advancement.</p></div>
-        <div id="rank-requirements" class="weekly-advancement-gates"></div>
-        <div id="rank-advancement-certification" class="rank-advancement-certification" data-rank-proof="checking" aria-live="polite"></div>
-        <div id="rank-advancement-handoff" class="rank-advancement-handoff-host" data-rank-handoff="none" aria-live="polite"></div>
-      </section>
-      <section id="dominion-campaign-review" class="dominion-campaign-review" data-campaign-tone="neutral" aria-labelledby="dominion-campaign-review-heading" aria-live="polite">
-        <div><span id="dominion-campaign-review-phase">CAMPAIGN // CHECKING</span><h3 id="dominion-campaign-review-heading">Twelve-week campaign</h3><p id="dominion-campaign-review-detail">Atlas is connecting this judgment to the declared outcome.</p></div>
-        <div class="dominion-campaign-review-read"><strong id="dominion-campaign-review-forecast">CHECKING</strong><small id="dominion-campaign-review-progress">Campaign not started</small><a href="#program" data-section="program">Open campaign</a></div>
-      </section>
-      <aside id="weekly-next-action" class="weekly-next-action"><div><span>NEXT ORDER</span><h3 id="weekly-next-action-title">Complete the record</h3><p id="weekly-next-action-detail">Record the week before asking it to prove anything.</p></div><a id="weekly-next-action-link" href="#record" data-section="record">Open Record</a></aside>
-      <div class="weekly-judgment-actions"><button id="finalize-week" type="button">Finalize week</button><button id="finalize-promotion" type="button" hidden>Authorize promotion</button><p id="rank-promotion-feedback" role="status" aria-live="polite"></p></div>
-      <details class="weekly-proof-detail"><summary>Inspect the proof</summary><div class="weekly-proof-meta"><span>Saved as <strong id="weekly-storage">NOT LOADED</strong></span><span>Evidence through <strong id="weekly-evidence-through">&mdash;</strong></span></div><div id="weekly-domain-scores" class="weekly-domain-scores"></div><div id="weekly-evidence" class="evidence-list"></div><div id="rank-blockers" class="weekly-proof-blockers"></div></details>
-      <details id="weekly-closeout-evidence" class="weekly-closeout-evidence"><summary>Daily closeout evidence</summary><div class="weekly-closeout-metrics"><div><span>Days sealed</span><strong id="weekly-closeout-days">0</strong></div><div><span>Average steps</span><strong id="weekly-closeout-steps">&mdash;</strong></div><div><span>Answers captured</span><strong id="weekly-closeout-coverage">0%</strong></div><div><span>Observed adherence</span><strong id="weekly-closeout-adherence">UNSCORED</strong></div></div><div id="weekly-closeout-days-list" class="weekly-closeout-days-list"><span>No daily closeouts in this week.</span></div></details>
-      <details class="weekly-promotion-history"><summary>Promotion history</summary><ul id="rank-history" class="feed"><li class="feed-empty">No promotions yet.</li></ul></details>`;
+      <section id="weekly-verdict-launch" class="weekly-verdict-launch" data-launch-tone="neutral" aria-label="Weekly verdict and next-week launch" aria-live="polite"></section>
+      <div class="weekly-judgment-actions weekly-verdict-primary-action"><button id="finalize-week" type="button">Finalize week</button><p id="rank-promotion-feedback" role="status" aria-live="polite"></p></div>
+      <details class="weekly-review-diagnostics">
+        <summary>Evidence &amp; rank</summary>
+        <div class="weekly-judgment-controls"><label>Week containing <input id="weekly-date" type="date"></label><button id="inspect-week" type="button" class="ghost">Check week</button></div>
+        <section id="atlas-weekly-reconciliation" class="atlas-weekly-reconciliation" data-weekly-tone="neutral" aria-labelledby="atlas-weekly-reconciliation-heading" aria-live="polite">
+          <header><div><span>ATLAS WEEKLY RESULT</span><h3 id="atlas-weekly-reconciliation-heading">The week is still being earned</h3></div><strong>CHECKING</strong></header>
+          <p>Atlas is reconciling execution, evidence, standards, and coaching outcomes.</p>
+        </section>
+        <section class="weekly-verdict" aria-live="polite"><div><span id="weekly-range">&mdash;</span><h3 id="weekly-judgment-headline">Building the judgment</h3><p id="weekly-judgment-detail">Checking this week&rsquo;s evidence.</p></div><strong id="weekly-judgment-state">BUILDING</strong></section>
+        <section id="week-execution-certification" class="week-execution-certification-host" aria-label="Week execution certification" aria-live="polite"></section>
+        <div id="weekly-proof-grid" class="weekly-proof-grid" aria-label="Weekly proof">
+          <article><span>EXECUTION</span><strong id="weekly-score">NOT EVALUATED</strong><small id="weekly-execution-proof">Waiting for evidence</small></article>
+          <article><span>EVIDENCE</span><strong id="weekly-coverage">COVERAGE INCOMPLETE</strong><small id="weekly-evidence-proof">Waiting for evidence</small></article>
+          <article><span>STANDARDS</span><strong id="weekly-standards-state">CHECKING</strong><small id="weekly-standards-proof">Open cases block advancement</small></article>
+        </div>
+        <section class="weekly-advancement" aria-labelledby="weekly-advancement-heading">
+          <header><div><span>RANK</span><h3 id="weekly-advancement-heading"><strong id="rank-current">RECRUIT</strong><i aria-hidden="true">&rarr;</i><strong id="rank-next">CADET</strong></h3></div><span id="rank-state" class="state-pill neutral">BUILDING EVIDENCE</span></header>
+          <div class="weekly-advancement-meter" aria-hidden="true"><span id="weekly-advancement-meter"></span></div>
+          <div class="weekly-advancement-copy"><strong id="weekly-advancement-percent">0 of 4 conditions met</strong><p id="weekly-advancement-detail">Finalize trustworthy weeks to begin advancement.</p></div>
+          <div id="rank-requirements" class="weekly-advancement-gates"></div>
+          <div id="rank-advancement-certification" class="rank-advancement-certification" data-rank-proof="checking" aria-live="polite"></div>
+          <div id="rank-advancement-handoff" class="rank-advancement-handoff-host" data-rank-handoff="none" aria-live="polite"></div>
+          <button id="finalize-promotion" type="button" hidden>Authorize promotion</button>
+        </section>
+        <section id="dominion-campaign-review" class="dominion-campaign-review" data-campaign-tone="neutral" aria-labelledby="dominion-campaign-review-heading" aria-live="polite">
+          <div><span id="dominion-campaign-review-phase">CAMPAIGN // CHECKING</span><h3 id="dominion-campaign-review-heading">Twelve-week campaign</h3><p id="dominion-campaign-review-detail">Atlas is connecting this judgment to the declared outcome.</p></div>
+          <div class="dominion-campaign-review-read"><strong id="dominion-campaign-review-forecast">CHECKING</strong><small id="dominion-campaign-review-progress">Campaign not started</small><a href="#program" data-section="program">Open campaign</a></div>
+        </section>
+        <aside id="weekly-next-action" class="weekly-next-action"><div><span>NEXT ORDER</span><h3 id="weekly-next-action-title">Complete the record</h3><p id="weekly-next-action-detail">Record the week before asking it to prove anything.</p></div><a id="weekly-next-action-link" href="#record" data-section="record">Open Record</a></aside>
+        <details class="weekly-proof-detail"><summary>Inspect the proof</summary><div class="weekly-proof-meta"><span>Saved as <strong id="weekly-storage">NOT LOADED</strong></span><span>Evidence through <strong id="weekly-evidence-through">&mdash;</strong></span></div><div id="weekly-domain-scores" class="weekly-domain-scores"></div><div id="weekly-evidence" class="evidence-list"></div><div id="rank-blockers" class="weekly-proof-blockers"></div></details>
+        <details id="weekly-closeout-evidence" class="weekly-closeout-evidence"><summary>Daily closeout evidence</summary><div class="weekly-closeout-metrics"><div><span>Days sealed</span><strong id="weekly-closeout-days">0</strong></div><div><span>Average steps</span><strong id="weekly-closeout-steps">&mdash;</strong></div><div><span>Answers captured</span><strong id="weekly-closeout-coverage">0%</strong></div><div><span>Observed adherence</span><strong id="weekly-closeout-adherence">UNSCORED</strong></div></div><div id="weekly-closeout-days-list" class="weekly-closeout-days-list"><span>No daily closeouts in this week.</span></div></details>
+        <details class="weekly-promotion-history"><summary>Promotion history</summary><ul id="rank-history" class="feed"><li class="feed-empty">No promotions yet.</li></ul></details>
+      </details>`;
     doc.getElementById("rank")?.remove();
     doc.querySelectorAll('a[data-section="rank"], a[href="#rank"]').forEach((link) => link.remove());
     return true;

@@ -1,5 +1,13 @@
 # Changelog
 
+## 031B - Real Recruit Journey Certification
+
+- Certifies one completed operating day only when the signed Contract, committed week, Calendar, Today, and active execution share the same assignment identity.
+- Requires exact account-confirmed receipts for every completed assignment, Fuel totals, and Daily Closeout before the day can be called secure.
+- Confirms that Review reads the same secured operating date and that the identical journey receipt restores from the account in a later session.
+- Protects pending or offline work without calling it complete, and routes genuine mismatches to the smallest relevant recruit action.
+- Adds deterministic release, cache, and production-canary gates without exposing certification or release language in the recruit experience.
+
 ## 031A - Beta Integrity and UX Repair
 
 - Reveals a verified signed-program snapshot early in read-only mode while account hydration continues in the background, with bounded timeout and safe retry states.

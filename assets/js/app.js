@@ -135,6 +135,8 @@ let trustLayerState = {
 let currentBetaJourneyCertification = null;
 let currentJourneyContinuity = null;
 let journeyContinuitySaveTimer = null;
+let currentRealAccountJourney = null;
+let realAccountJourneySaveTimer = null;
 const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
@@ -837,7 +839,21 @@ function scheduleJourneyCertificationReceipt(report = null) {
   if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
   journeyContinuitySaveTimer = window.setTimeout(() => {
     journeyContinuitySaveTimer = null;
-    saveJourneyCertificationReceipt(report.candidate);
+    if (saveJourneyCertificationReceipt(report.candidate)) scheduleAccountTruthSync(50);
+  }, 0);
+}
+
+function readRealAccountJourneyReceipts() {
+  if (typeof DominionRealAccountJourney === "undefined") return [];
+  return readJourneyCertificationReceipts().filter((item) => item?.type === DominionRealAccountJourney.RECEIPT_TYPE);
+}
+
+function scheduleRealAccountJourneyReceipt(report = null) {
+  if (!report?.shouldSave || !report?.candidate || realAccountJourneySaveTimer) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
+  realAccountJourneySaveTimer = window.setTimeout(() => {
+    realAccountJourneySaveTimer = null;
+    if (saveJourneyCertificationReceipt(report.candidate)) scheduleAccountTruthSync(50);
   }, 0);
 }
 
@@ -1241,8 +1257,108 @@ function buildCurrentBetaJourneyCertification(context = {}) {
   } else {
     currentJourneyContinuity = null;
   }
-  currentBetaJourneyCertification = Object.freeze({ ...journey, continuity: currentJourneyContinuity });
+  currentRealAccountJourney = buildCurrentRealAccountJourney({
+    date,
+    contract,
+    week,
+    canonical,
+    activeDay,
+    activeAssignments,
+    evidenceItems,
+    operatingContractRevision,
+    signed
+  });
+  currentBetaJourneyCertification = Object.freeze({ ...journey, continuity: currentJourneyContinuity, realAccount: currentRealAccountJourney });
   return currentBetaJourneyCertification;
+}
+
+function buildCurrentRealAccountJourney(context = {}) {
+  if (typeof DominionRealAccountJourney === "undefined") return null;
+  const date = String(context.date || todayISODate()).slice(0, 10);
+  const contract = context.contract || readApprovedRecruitContract();
+  const week = context.week || readCommittedUnifiedWeek(date);
+  const canonical = context.canonical || (currentCanonicalDailyCommand?.date === date ? currentCanonicalDailyCommand : buildCurrentCanonicalDailyCommand(date));
+  const activeDay = context.activeDay || readEffectiveUnifiedDay(date);
+  const calendarAssignments = context.activeAssignments || (Array.isArray(activeDay?.activities) ? activeDay.activities : []);
+  const ledger = buildCurrentExecutionLedger(date);
+  const assignments = (ledger?.entries || []).map((entry) => ({
+    ...(entry.assignment || {}),
+    id: entry.assignmentId,
+    assignmentId: entry.assignmentId,
+    module: String(entry.module || "").toUpperCase(),
+    status: entry.state,
+    required: !["superseded", "cancelled"].includes(String(entry.state || "").toLowerCase())
+  }));
+  const nutritionAssignment = assignments.find((item) => String(item.module || "").toUpperCase() === "NUTRITION") || null;
+  const withNutrition = (items = []) => nutritionAssignment && !items.some((item) => String(item?.id || item?.assignmentId || item?.activityId || "") === nutritionAssignment.assignmentId)
+    ? [...items, nutritionAssignment]
+    : [...items];
+  const todayAssignments = withNutrition(Array.isArray(canonical?.schedule?.sessions) ? canonical.schedule.sessions : []);
+  const calendarSurface = withNutrition(calendarAssignments);
+  const activeStrength = readActiveStrengthExecution();
+  const activeExecutionId = typeof DominionBetaStateIntegrity === "undefined"
+    ? String(activeStrength?.assignmentId || activeStrength?.calendarAssignmentId || "")
+    : DominionBetaStateIntegrity.assignmentId(activeStrength || {});
+  const completionReceipts = readCommandCompletionHistory().filter((item) => String(item?.operationalDate || item?.date || "").slice(0, 10) === date);
+  const evidenceItems = [
+    ...(context.evidenceItems || journeyEvidenceItemsForDate(date)),
+    ...completionReceipts
+  ];
+  const fuelReceipt = nutritionAssignment
+    ? completionReceipts.find((item) => String(item?.assignmentId || item?.calendarAssignmentId || "") === nutritionAssignment.assignmentId) || null
+    : null;
+  const fuelLedger = nutritionAssignment ? buildFuelDayLedger(date) : null;
+  const closeout = readDailyCloseout(date);
+  const pending = canonicalPendingWriteState();
+  let contractSigned = context.signed === true;
+  if (!contractSigned) {
+    try { contractSigned = Boolean(contract && typeof DominionContractExperience !== "undefined" && DominionContractExperience.signatureStatus(contract).valid); }
+    catch (_) {}
+  }
+  const report = DominionRealAccountJourney.evaluate({
+    date,
+    authority: {
+      contractSigned,
+      contractRevision: Number(context.operatingContractRevision || week?.contractRevision || contract?.revision || 0),
+      programContractRevision: Number(week?.contractRevision || context.operatingContractRevision || 0),
+      weekContractRevision: Number(week?.contractRevision || 0),
+      programId: week?.programId || canonical?.program?.id || null,
+      weekId: week?.id || canonical?.week?.id || week?.weekStart || null,
+      todayId: canonical?.id || null
+    },
+    assignments,
+    surfaces: {
+      calendar: calendarSurface,
+      today: todayAssignments,
+      activeExecutionId
+    },
+    evidence: evidenceItems,
+    fuel: nutritionAssignment ? {
+      recordId: fuelLedger?.record?.id || (fuelLedger?.record ? `manual-day:${date}` : null),
+      receiptId: fuelReceipt?.id || null,
+      confirmed: fuelReceipt?.verificationStatus === "VERIFIED" && Boolean(fuelReceipt?.accountConfirmedAt),
+      accountConfirmedAt: fuelReceipt?.accountConfirmedAt || null,
+      pending: Boolean(fuelLedger?.record && !fuelReceipt?.accountConfirmedAt)
+    } : null,
+    closeout,
+    review: { operatingDate: closeout ? dailyCloseoutDate(closeout.date || closeout.operatingDate || date) : null },
+    account: {
+      serverConfirmed: accountTruthState.serverConfirmed === true,
+      lastVerifiedAt: accountTruthState.lastVerifiedAt,
+      confirmedMutationId: accountTruthState.confirmedMutationId,
+      confirmedFingerprint: accountTruthState.confirmedFingerprint,
+      pendingWrites: pending.count,
+      online: navigator.onLine !== false
+    },
+    localReceipts: readRealAccountJourneyReceipts(),
+    accountReceipts: accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || []
+  });
+  scheduleRealAccountJourneyReceipt(report);
+  if (document?.body) {
+    document.body.dataset.realAccountJourney = String(report.state || "checking").toLowerCase().replaceAll("_", "-");
+    document.body.dataset.realAccountJourneyReceipt = report.candidate?.id || "";
+  }
+  return report;
 }
 
 function buildCurrentTrustLayerReport(options = {}) {
@@ -1300,13 +1416,18 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   const readiness = report.readiness || null;
   const journey = report.journey || null;
   const journeyContinuity = journey?.continuity || currentJourneyContinuity || null;
+  const realAccountJourney = journey?.realAccount || currentRealAccountJourney || null;
   const journeyProblem = journey && ["ACTION_REQUIRED", "INCONSISTENT"].includes(journey.state);
-  const governing = journeyProblem ? journey : readiness;
+  const realJourneyProblem = realAccountJourney?.state === "ACTION_REQUIRED";
+  const governing = realJourneyProblem
+    ? { ...realAccountJourney, headline: realAccountJourney.detail }
+    : journeyProblem ? journey : readiness;
   const root = document.getElementById("account-truth-health");
   if (root) {
     root.dataset.truthTone = governing?.tone || report.tone;
     root.dataset.readiness = readiness?.state || report.status;
     root.dataset.journey = journey?.state || "CHECKING";
+    root.dataset.realAccountJourney = realAccountJourney?.state || "CHECKING";
   }
   const stage = (id) => journey?.stages?.find((item) => item.id === id)?.state || null;
   setText("account-truth-status", governing?.label || report.status.replaceAll("_", " "));
@@ -1315,7 +1436,10 @@ function renderTrustLayerHealth(report = trustLayerState.report || buildCurrentT
   setText("account-truth-calendar", stage("calendar") || readiness?.checks?.calendar || report.checks.calendar);
   setText("account-truth-today", stage("today") || readiness?.checks?.today || report.checks.today);
   setText("account-truth-evidence", stage("evidence") || readiness?.checks?.evidence || report.checks.evidence);
-  setText("account-truth-continuity", journeyContinuity?.label || "CHECKING");
+  const continuityLabel = realAccountJourney && ["VERIFIED", "PROTECTED", "ACTION_REQUIRED", "READY_TO_SAVE"].includes(realAccountJourney.state)
+    ? realAccountJourney.label
+    : journeyContinuity?.label || "CHECKING";
+  setText("account-truth-continuity", continuityLabel);
   const action = document.getElementById("account-truth-action");
   const primaryAction = governing?.primaryAction || (journeyContinuity?.tone === "red" ? journeyContinuity.action : null) || report.primaryAction;
   if (action) {
@@ -14643,7 +14767,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=029o", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030z", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031a", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031a", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

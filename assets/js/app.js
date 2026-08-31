@@ -77,6 +77,7 @@ let currentAtlasWeekAutopilot = null;
 let currentAtlasAdaptiveWeek = null;
 let currentAtlasWeeklyReconciliation = null;
 let currentWeeklyRolloverCertification = null;
+let currentWeeklyVerdictLaunch = null;
 let currentWeekExecutionCertification = null;
 let currentDailyLoopCertification = null;
 let currentNextDayCommandHandoff = null;
@@ -139,6 +140,7 @@ let currentRealAccountJourney = null;
 let realAccountJourneySaveTimer = null;
 let currentRecruitProofWeek = null;
 let recruitProofWeekSaveTimer = null;
+let weeklyVerdictLaunchSaveTimer = null;
 const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
@@ -870,6 +872,23 @@ function scheduleRecruitProofWeekReceipt(report = null) {
   recruitProofWeekSaveTimer = window.setTimeout(() => {
     recruitProofWeekSaveTimer = null;
     if (saveJourneyCertificationReceipt(report.candidate)) scheduleAccountTruthSync(50);
+  }, 0);
+}
+
+function readWeeklyVerdictLaunchReceipts() {
+  if (typeof DominionWeeklyVerdictLaunch === "undefined") return [];
+  return readJourneyCertificationReceipts().filter((item) => item?.type === DominionWeeklyVerdictLaunch.RECEIPT_TYPE);
+}
+
+function scheduleWeeklyVerdictLaunchReceipt(report = null) {
+  if (!report?.shouldSave || !report?.candidate || weeklyVerdictLaunchSaveTimer) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
+  weeklyVerdictLaunchSaveTimer = window.setTimeout(() => {
+    weeklyVerdictLaunchSaveTimer = null;
+    if (saveJourneyCertificationReceipt(report.candidate)) {
+      scheduleAccountTruthSync(50);
+      if (weeklyInspection) renderWeeklyVerdictLaunch(weeklyInspection);
+    }
   }, 0);
 }
 
@@ -14899,7 +14918,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=030z", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -17048,6 +17068,103 @@ function renderAtlasWeeklyReconciliation(inspection = weeklyInspection) {
   root.innerHTML = atlasWeeklyReconciliationMarkup(record);
   renderAtlasWeeklyReconciliationSignals(record);
   return record;
+}
+
+function buildWeeklyVerdictLaunch(inspection = weeklyInspection, options = {}) {
+  if (!inspection?.weekStartDate || typeof DominionWeeklyVerdictLaunch === "undefined") return null;
+  const context = options.context || buildAtlasWeeklyReconciliationContext(inspection);
+  const proofWeek = options.proofWeek || buildRecruitProofWeekForInspection(inspection);
+  const reconciliation = options.reconciliation
+    || currentAtlasWeeklyReconciliation
+    || buildAtlasWeeklyReconciliation(inspection);
+  const sourceWeek = options.sourceWeek
+    || context?.activeWeek
+    || readCommittedUnifiedWeekByStart(inspection.weekStartDate);
+  const targetWeekStart = reconciliation?.verdict?.targetWeekStart || DominionWeeklyVerdictLaunch.addDays(inspection.weekEndDate, 1);
+  const targetWeek = options.targetWeek || readCommittedUnifiedWeekByStart(targetWeekStart);
+  const rollover = options.rollover || (targetWeek && reconciliation
+    ? buildCurrentWeeklyRolloverCertification({ reconciliation, sourceWeek, targetWeek })
+    : null);
+  const pending = canonicalPendingWriteState();
+  const report = DominionWeeklyVerdictLaunch.evaluate({
+    proofWeek,
+    inspection,
+    reconciliation,
+    command: context?.command,
+    sourceWeek,
+    targetWeek,
+    rollover,
+    calendarReceipt: targetWeek ? matchingCalendarCommitReceipt(targetWeek) : null,
+    localReceipts: readWeeklyVerdictLaunchReceipts(),
+    accountReceipts: (accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || [])
+      .filter((item) => item?.type === DominionWeeklyVerdictLaunch.RECEIPT_TYPE),
+    account: {
+      serverConfirmed: accountTruthState.serverConfirmed === true,
+      lastVerifiedAt: accountTruthState.lastVerifiedAt,
+      confirmedMutationId: accountTruthState.confirmedMutationId,
+      confirmedFingerprint: accountTruthState.confirmedFingerprint,
+      pendingWrites: pending.count,
+      online: navigator.onLine !== false
+    }
+  });
+  currentWeeklyVerdictLaunch = report;
+  scheduleWeeklyVerdictLaunchReceipt(report);
+  if (document?.body) {
+    document.body.dataset.weeklyVerdictLaunch = String(report.state || "checking").toLowerCase().replaceAll("_", "-");
+    document.body.dataset.weeklyVerdictDecision = String(report.decision || "maintain").toLowerCase();
+  }
+  return report;
+}
+
+function weeklyVerdictLaunchActionMarkup(report = null) {
+  const action = report?.primaryAction || null;
+  if (!action || action.code === "FINALIZE_WEEK") return "";
+  if (action.code === "APPROVE_NEXT_WEEK") return `<button type="button" data-weekly-verdict-launch-action="approve">${escapeHtml(action.label)}</button>`;
+  if (action.code === "REVIEW_PRIOR_DAY") return `<button type="button" data-recruit-proof-week-action="REVIEW_PRIOR_DAY" data-recruit-proof-week-section="today" data-recruit-proof-week-date="${escapeHtml(action.operatingDate || "")}">${escapeHtml(action.label)}</button>`;
+  if (["WAIT_FOR_ACCOUNT", "SAVE_LAUNCH"].includes(action.code)) return `<span class="weekly-verdict-launch-wait">${escapeHtml(action.label)}</span>`;
+  const date = action.operatingDate ? ` data-operating-date="${escapeHtml(action.operatingDate)}"` : "";
+  return `<a href="#${escapeHtml(action.section || "inspection")}" data-section="${escapeHtml(action.section || "inspection")}" data-weekly-verdict-launch-action="route"${date}>${escapeHtml(action.label)}</a>`;
+}
+
+function weeklyVerdictLaunchMarkup(report = null) {
+  if (!report) return '<div class="weekly-verdict-launch-loading"><span>WEEKLY REVIEW</span><strong>Checking the saved week</strong></div>';
+  const start = report.targetWeekStart ? `Starts ${escapeHtml(report.targetWeekStart)}` : "Next week waits for a final verdict";
+  return `<article class="weekly-verdict-launch-card ${escapeHtml(report.tone || "neutral")}" data-launch-state="${escapeHtml(report.state)}" data-launch-decision="${escapeHtml(report.decision)}">
+    <header><div><span>WEEKLY VERDICT</span><h3>${escapeHtml(report.label)}</h3><p>${escapeHtml(report.detail)}</p></div><strong>${escapeHtml(report.decision)}</strong></header>
+    <div class="weekly-verdict-launch-lines"><p><span>WIN</span>${escapeHtml(report.lines.win)}</p><p><span>CONSTRAINT</span>${escapeHtml(report.lines.constraint)}</p><p><span>NEXT WEEK</span>${escapeHtml(report.lines.next)}</p></div>
+    <footer><small>${start}</small>${weeklyVerdictLaunchActionMarkup(report)}</footer>
+  </article>`;
+}
+
+function renderWeeklyVerdictLaunch(inspection = weeklyInspection, options = {}) {
+  const root = document.getElementById("weekly-verdict-launch");
+  if (!root) return null;
+  const report = buildWeeklyVerdictLaunch(inspection, options);
+  root.hidden = !report;
+  root.dataset.launchTone = report?.tone || "neutral";
+  root.dataset.launchState = report?.state || "CHECKING";
+  root.innerHTML = weeklyVerdictLaunchMarkup(report);
+  return report;
+}
+
+async function launchNextWeekFromWeeklyVerdict(inspection = weeklyInspection) {
+  const preview = buildWeeklyVerdictLaunch(inspection);
+  if (preview?.primaryAction?.code !== "APPROVE_NEXT_WEEK") throw new Error(preview?.detail || "The next week is not ready to approve.");
+  const result = await commitAtlasWeeklyReconciliation(inspection);
+  let report = buildWeeklyVerdictLaunch(inspection, {
+    reconciliation: result.reconciliation,
+    targetWeek: result.committedWeek,
+    rollover: result.rollover
+  });
+  if (report?.candidate && !report.localExact) saveJourneyCertificationReceipt(report.candidate);
+  scheduleAccountTruthSync(0);
+  await drainAccountPersistence({ reason: "weekly_verdict_launch", force: true });
+  report = renderWeeklyVerdictLaunch(inspection, {
+    reconciliation: result.reconciliation,
+    targetWeek: result.committedWeek,
+    rollover: result.rollover
+  });
+  return { ...result, launch: report };
 }
 
 function renderAtlasWeeklyReconciliationSignals(record = null) {
@@ -28225,6 +28342,22 @@ if (typeof document !== "undefined") {
       renderRankSection();
       return;
     }
+    const launchButton = event.target.closest("button[data-weekly-verdict-launch-action]");
+    if (launchButton) {
+      launchButton.disabled = true;
+      try {
+        const result = await launchNextWeekFromWeeklyVerdict(weeklyInspection);
+        const verified = result.launch?.state === "VERIFIED";
+        setText("weekly-warning", verified
+          ? `Next week is approved and confirmed for ${result.committedWeek.weekStart}.`
+          : `Next week is approved for ${result.committedWeek.weekStart}; account confirmation is finishing.`);
+      } catch (error) {
+        setText("weekly-warning", error?.message || "The next week could not be approved.");
+      } finally {
+        launchButton.disabled = false;
+      }
+      return;
+    }
     const reconciliationButton = event.target.closest("button[data-weekly-reconciliation-action]");
     if (reconciliationButton) {
       reconciliationButton.disabled = true;
@@ -30856,7 +30989,8 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const proofReady = finalized || proofWeek?.canFinalize === true;
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderWeeklyAdaptationOutcomes({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
-  renderAtlasWeeklyReconciliation(aggregate);
+  const weeklyReconciliation = renderAtlasWeeklyReconciliation(aggregate);
+  renderWeeklyVerdictLaunch(aggregate, { proofWeek, reconciliation: weeklyReconciliation });
   const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`

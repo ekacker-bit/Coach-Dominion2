@@ -102,8 +102,9 @@ test("the experience installer replaces the dormant split UI", () => {
   };
   assert.equal(installExperience(doc), true);
   assert.equal(section.dataset.weeklyAdvancement, VERSION);
-  assert.match(section.innerHTML, /Did you earn the week\?/);
-  assert.match(section.innerHTML, /Execution\. Evidence\. Standards\./);
+  assert.match(section.innerHTML, /Earn the week\. Launch the next\./);
+  assert.match(section.innerHTML, /Evidence &amp; rank/);
+  assert.match(section.innerHTML, /id="weekly-verdict-launch"/);
   assert.equal(rank.removed, true);
   assert.equal(links[0].removed, true);
 });

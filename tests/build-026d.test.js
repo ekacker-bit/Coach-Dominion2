@@ -17,7 +17,7 @@ test("Build 026D installs one Weekly Judgment before app bindings", () => {
   assert.match(engine, /const VERSION = "(?:026D|030C|030E|030K|030M|030N|030O)\.1"/);
   assert.ok(html.indexOf("weekly-advancement.js?v=026d") < html.indexOf("app.js?v="));
   assert.match(app, /DominionWeeklyAdvancement\.installExperience\(document\)/);
-  assert.match(engine, /Did you earn the week\?/);
+  assert.match(engine, /Earn the week\. Launch the next\./);
   assert.match(engine, /doc\.getElementById\("rank"\)\?\.remove\(\)/);
   assert.match(engine, /a\[data-section="rank"\], a\[href="#rank"\]/);
 });

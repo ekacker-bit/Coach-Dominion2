@@ -1,5 +1,6 @@
-const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1-030g1-030h1-030i1-030j1-030k1-030l1-030m1-030n1-030o1-030p1-030q1-030r1-030s1-030t1-030u1-030v1-030w1-030x1-030y1-030z1-review-yesterday-031a-beta-integrity-031b-real-account-journey-031c-recruit-proof-week";
-// Current release marker: coach-dominion-031c-recruit-proof-week
+const CACHE_NAME = "coach-dominion-025c-v1-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e1-030f1-030g1-030h1-030i1-030j1-030k1-030l1-030m1-030n1-030o1-030p1-030q1-030r1-030s1-030t1-030u1-030v1-030w1-030x1-030y1-030z1-review-yesterday-031a-beta-integrity-031b-real-account-journey-031c-recruit-proof-week-031d-weekly-verdict-launch";
+// Current release marker: coach-dominion-031d-weekly-verdict-launch
+// Prior release marker: coach-dominion-031c-recruit-proof-week
 // Prior release marker: coach-dominion-031b-real-account-journey
 // Prior release marker: coach-dominion-031a-beta-integrity
 // Prior release marker: coach-dominion-030z-field-verified-command-closure
@@ -41,7 +42,7 @@ const APP_SHELL = [
   "/app.html",
   "/manifest.webmanifest",
   "/assets/styles.css?v=025q",
-  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u-030v-030w-030y-030z-031a-031c",
+  "/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u-030v-030w-030y-030z-031a-031c-031d",
   "/assets/icons/dominion-mark.svg",
   "/assets/js/connected.js?v=027d",
   "/assets/js/connected-evidence.js?v=027d",
@@ -132,7 +133,7 @@ const APP_SHELL = [
   "/assets/js/atlas-live-adaptation.js?v=026c-029g",
   "/assets/js/atlas-adaptive-horizon.js?v=026g",
   "/assets/js/atlas-adaptation-outcomes.js?v=026h",
-  "/assets/js/weekly-advancement.js?v=026d-030c-030e-030k-030m-030n-030o",
+  "/assets/js/weekly-advancement.js?v=026d-030c-030e-030k-030m-030n-030o-031d",
   "/assets/js/unified-blocker-resolution.js?v=025p-029n",
   "/assets/js/dominion-continuity.js?v=031a",
   "/assets/js/contract-reconciliation.js?v=029n",
@@ -145,6 +146,7 @@ const APP_SHELL = [
   "/assets/js/journey-continuity.js?v=030d",
   "/assets/js/real-account-journey.js?v=031b",
   "/assets/js/recruit-proof-week.js?v=031c",
+  "/assets/js/weekly-verdict-launch.js?v=031d",
   "/assets/js/startup-authority.js?v=031a",
   "/assets/js/week-progress.js?v=031a",
   "/assets/js/assignment-evidence-state.js?v=030e",
@@ -181,7 +183,7 @@ const APP_SHELL = [
   "/assets/js/atlas-progression-engine.js?v=027b",
   "/assets/js/recovery-command.js?v=027c",
   "/assets/js/first-week-orientation.js?v=025q",
-  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u-030v-030w-030x-030y-030z-031a-031b-031c"
+  "/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u-030v-030w-030x-030y-030z-031a-031b-031c-031d"
 ];
 
 self.addEventListener("install", (event) => {

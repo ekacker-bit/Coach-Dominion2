@@ -1,5 +1,14 @@
 # Changelog
 
+## 031D - Weekly Verdict and Next-Week Launch
+
+- Replaces the dense Weekly Review stack with one word-light verdict: the win, the constraint, the next prescription, and one action.
+- Maps Atlas evidence into four recruit-facing outcomes: Advance, Maintain, Reduce, or Recover.
+- Keeps evidence, campaign, and rank detail available behind one optional disclosure instead of competing with the weekly decision.
+- Binds the seven-day proof, finalized inspection, Atlas reconciliation, exact committed Calendar revision, and rollover certification into one immutable account receipt.
+- Calls next week confirmed only after that exact receipt restores from the account; pending and offline work remains protected without being overstated.
+- Adds deterministic lineage, blocker, cross-session, responsive, cache, release, and production-canary gates.
+
 ## 031C - Recruit Proof Week
 
 - Extends the account-backed daily journey receipt into one seven-day chain tied to the signed Contract and committed week.

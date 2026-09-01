@@ -1343,9 +1343,12 @@ function buildCurrentRealAccountJourney(context = {}) {
   const todayAssignments = withNutrition(Array.isArray(canonical?.schedule?.sessions) ? canonical.schedule.sessions : []);
   const calendarSurface = withNutrition(calendarAssignments);
   const activeStrength = readActiveStrengthExecution();
+  const activeStrengthDate = typeof DominionBetaStateIntegrity === "undefined"
+    ? String(activeStrength?.operationalDate || activeStrength?.date || "").slice(0, 10)
+    : DominionBetaStateIntegrity.executionDate(activeStrength || {});
   const activeExecutionId = typeof DominionBetaStateIntegrity === "undefined"
-    ? String(activeStrength?.assignmentId || activeStrength?.calendarAssignmentId || "")
-    : DominionBetaStateIntegrity.assignmentId(activeStrength || {});
+    ? (activeStrengthDate === date ? String(activeStrength?.assignmentId || activeStrength?.calendarAssignmentId || "") : "")
+    : (activeStrengthDate === date ? DominionBetaStateIntegrity.assignmentId(activeStrength || {}) : "");
   const completionReceipts = readCommandCompletionHistory().filter((item) => String(item?.operationalDate || item?.date || "").slice(0, 10) === date);
   const evidenceItems = [
     ...(context.evidenceItems || journeyEvidenceItemsForDate(date)),
@@ -1400,7 +1403,7 @@ function buildCurrentRealAccountJourney(context = {}) {
     localReceipts: readRealAccountJourneyReceipts(),
     accountReceipts: accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || []
   });
-  scheduleRealAccountJourneyReceipt(report);
+  if (context.deferReceipt !== true) scheduleRealAccountJourneyReceipt(report);
   if (document?.body) {
     document.body.dataset.realAccountJourney = String(report.state || "checking").toLowerCase().replaceAll("_", "-");
     document.body.dataset.realAccountJourneyReceipt = report.candidate?.id || "";
@@ -14927,7 +14930,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031e2", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031e2", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031f", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -17399,6 +17403,41 @@ async function saveDailyCloseoutState(record) {
   return true;
 }
 
+async function confirmRealAccountJourneyForDate(value = dailyCloseoutDate()) {
+  const operatingDate = dailyCloseoutDate(value);
+  let report = buildCurrentRealAccountJourney({ date: operatingDate, deferReceipt: true });
+  let localSaved = false;
+  let accountSaved = false;
+  if (report?.candidate && (report.shouldSave || !report.localExact)) {
+    localSaved = saveJourneyCertificationReceipt(report.candidate);
+    report = buildCurrentRealAccountJourney({ date: operatingDate, deferReceipt: true });
+  }
+  if (report?.candidate && (report.localExact || localSaved) && session?.user?.id && navigator.onLine !== false) {
+    accountSaved = await syncDominionAccountTruth({ force: true, reason: "review_yesterday" });
+    report = buildCurrentRealAccountJourney({ date: operatingDate, deferReceipt: true });
+  }
+  const todayJourney = operatingDate === todayISODate()
+    ? report
+    : buildCurrentRealAccountJourney({ date: todayISODate(), deferReceipt: true });
+  currentRealAccountJourney = todayJourney;
+  const proofWeek = buildCurrentRecruitProofWeek({
+    date: todayISODate(),
+    week: readCommittedUnifiedWeek(todayISODate()),
+    contract: readApprovedRecruitContract(),
+    realAccountJourney: todayJourney
+  });
+  currentRecruitProofWeek = proofWeek;
+  renderRecruitProofWeek(proofWeek);
+  return Object.freeze({
+    operatingDate,
+    report,
+    proofWeek,
+    localSaved: localSaved || report?.localExact === true,
+    accountSaved,
+    verified: report?.state === "VERIFIED"
+  });
+}
+
 async function applyCloseoutSteps(record) {
   if (record?.steps?.selfReported === null || record?.steps?.selfReported === undefined) return false;
   const sourceState = dailyState?.date === record.date ? dailyState : readinessHistory.find((item) => item?.date === record.date) || null;
@@ -17468,6 +17507,82 @@ function closeoutResponseValue(value, notApplicable = false) {
   return "";
 }
 
+function buildReviewYesterdayPresentation(value = dailyCloseoutDate(), options = {}) {
+  if (typeof DominionReviewYesterday === "undefined") return null;
+  const operatingDate = dailyCloseoutDate(value);
+  if (operatingDate >= todayISODate()) return null;
+  const closeout = Object.prototype.hasOwnProperty.call(options, "closeout")
+    ? options.closeout
+    : readDailyCloseout(operatingDate);
+  const journey = Object.prototype.hasOwnProperty.call(options, "journey")
+    ? options.journey
+    : buildCurrentRealAccountJourney({ date: operatingDate, deferReceipt: true });
+  return DominionReviewYesterday.presentation({
+    date: operatingDate,
+    today: todayISODate(),
+    closeout,
+    connectedSteps: connectedStepsForCloseout(closeout, operatingDate),
+    online: navigator.onLine !== false,
+    journey
+  });
+}
+
+function renderReviewYesterdayPresentation(value = dailyCloseoutDate(), options = {}) {
+  const form = document.getElementById("daily-closeout-form");
+  const root = document.getElementById("review-yesterday-context");
+  if (!form || !root) return null;
+  const operatingDate = dailyCloseoutDate(value);
+  const model = buildReviewYesterdayPresentation(operatingDate, options);
+  const active = Boolean(model);
+  root.hidden = !active;
+  form.dataset.reviewYesterday = active ? operatingDate : "";
+  document.querySelectorAll("#daily-closeout-form [data-review-field]").forEach((host) => { host.hidden = false; });
+  const discipline = form.querySelector(".daily-closeout-discipline");
+  const reflection = form.querySelector(".daily-closeout-reflection");
+  if (!active) {
+    if (discipline) discipline.hidden = false;
+    if (reflection) reflection.hidden = false;
+    return null;
+  }
+
+  setText("review-yesterday-date", model.dateLabel.toUpperCase());
+  setText("review-yesterday-heading", model.headline);
+  setText("review-yesterday-state", model.state.replaceAll("_", " "));
+  setText("review-yesterday-detail", model.detail);
+  root.dataset.reviewState = model.state;
+  const known = document.getElementById("review-yesterday-known");
+  if (known) {
+    const facts = [...model.fields.known];
+    if (model.fields.connectedDetail && !facts.some((item) => item.id === "steps")) {
+      facts.unshift({ id: "connected_steps", label: "Connected steps", display: Number(model.fields.connectedSteps).toLocaleString() });
+    }
+    known.hidden = !facts.length;
+    known.innerHTML = facts.length
+      ? `<span>Already saved</span>${facts.map((item) => `<i><strong>${escapeHtml(item.label)}</strong>${escapeHtml(item.display)}</i>`).join("")}`
+      : "";
+  }
+  model.fields.known.forEach((item) => {
+    const host = form.querySelector(`[data-review-field="${item.id}"]`);
+    if (host) host.hidden = true;
+  });
+  const processedList = document.getElementById("daily-closeout-processed-list");
+  if (processedList && model.fields.known.some((item) => item.id === "processed_food")) processedList.hidden = true;
+  const visibleDiscipline = [...form.querySelectorAll(".daily-closeout-discipline [data-review-field]")].some((host) => !host.hidden);
+  if (discipline) discipline.hidden = !visibleDiscipline;
+  if (reflection) reflection.hidden = true;
+  const blocker = document.getElementById("review-yesterday-blocker");
+  if (blocker) {
+    blocker.hidden = !model.blocker;
+    blocker.textContent = model.blocker ? `Blocked: ${model.blocker.detail}` : "";
+  }
+  const save = document.getElementById("daily-closeout-save");
+  if (save) {
+    save.textContent = model.saveLabel;
+    save.disabled = !model.canSave;
+  }
+  return model;
+}
+
 function updateDailyCloseoutPreview() {
   if (typeof DominionDailyCloseout === "undefined") return;
   try {
@@ -17526,6 +17641,7 @@ function renderDailyCloseout(queue = buildCurrentDailyExecutionQueue(), ritual =
     receipt.hidden = !closeout;
     receipt.innerHTML = closeout ? `<div><span>FINAL STEPS</span><strong>${Number(closeout.steps.effective || 0).toLocaleString()}</strong></div><div><span>DISCIPLINE</span><strong>${closeout.discipline.score === null ? "UNSCORED" : `${closeout.discipline.score}%`}</strong></div><div><span>COVERAGE</span><strong>${closeout.discipline.answered}/5</strong></div><p>Sealed ${escapeHtml(new Date(closeout.updatedAt).toLocaleString())}. You can amend this closeout without creating a duplicate day.</p>` : "";
   }
+  renderReviewYesterdayPresentation(operatingDate, { closeout });
   updateDailyCloseoutPreview();
   renderAtlasClosedLoopDecision();
   renderDailyLoopCertification(buildCurrentDailyLoopCertification(operatingDate));
@@ -17540,17 +17656,28 @@ async function submitDailyCloseout(event) {
   button.textContent = "Saving…";
   const operatingDate = dailyCloseoutDate();
   const isToday = operatingDate === todayISODate();
+  const isPriorDayRepair = operatingDate < todayISODate();
   setText("daily-closeout-feedback", `Saving ${isToday ? "today" : "yesterday"}…`);
   try {
     const previous = readDailyCloseout(operatingDate);
+    const repairPresentation = isPriorDayRepair
+      ? buildReviewYesterdayPresentation(operatingDate, { closeout: previous })
+      : null;
+    if (repairPresentation?.state === "BLOCKED") throw new Error(repairPresentation.detail);
     if (!fieldCommandDayTerminal(operatingDate) && !previous?.accountConfirmedAt) {
       throw new Error(isToday
         ? "Finish and save every assigned item before closing the day."
         : "Finish and save every item assigned yesterday before closing the day.");
     }
-    const record = DominionDailyCloseout.buildCloseout(closeoutFormInput(operatingDate), { previous, now: new Date().toISOString() });
-    const accountSaved = await saveDailyCloseoutState(record);
-    const stepsSynced = await applyCloseoutSteps(record);
+    const form = document.getElementById("daily-closeout-form");
+    const closeoutChanged = !previous || form?.dataset.dirty === "true";
+    const record = closeoutChanged
+      ? DominionDailyCloseout.buildCloseout(closeoutFormInput(operatingDate), { previous, now: new Date().toISOString() })
+      : previous;
+    const accountSaved = !closeoutChanged && previous?.accountConfirmedAt
+      ? true
+      : await saveDailyCloseoutState(record);
+    const stepsSynced = closeoutChanged ? await applyCloseoutSteps(record) : true;
     const verdict = await reconcileAtlasClosedLoopDecision(record);
     await reconcileAtlasDecisionProofs({ persist: true });
     const dailyLoop = accountSaved
@@ -17562,7 +17689,6 @@ async function submitDailyCloseout(event) {
     if (isToday) await clearFrictionlessDraft("closeout");
     await runAtlasAdaptiveHorizon();
     await runAtlasAdaptationOutcomes();
-    const form = document.getElementById("daily-closeout-form");
     if (form) form.dataset.dirty = "false";
     renderDailyCoachingLoop();
     renderAtlasClosedLoopDecision();
@@ -17570,28 +17696,50 @@ async function submitDailyCloseout(event) {
     renderWeekExecutionCertification();
     await reconcileRecruitLoopCertification({ persist: true, restoreDurationMs: startupRestoreDurationMs, startupIssues: startupRestoreIssues });
     await reconcileRecruitContinuityRecovery({ persist: true, automatic: false });
-    const repairedJourney = buildCurrentRealAccountJourney({ date: operatingDate });
-    currentRealAccountJourney = operatingDate === todayISODate()
-      ? repairedJourney
-      : buildCurrentRealAccountJourney({ date: todayISODate() });
-    const proofWeek = buildCurrentRecruitProofWeek({
-      date: todayISODate(),
-      week: readCommittedUnifiedWeek(todayISODate()),
-      contract: readApprovedRecruitContract(),
-      realAccountJourney: currentRealAccountJourney
-    });
-    renderRecruitProofWeek(proofWeek);
+    const repairResult = isPriorDayRepair
+      ? await confirmRealAccountJourneyForDate(operatingDate)
+      : null;
+    const repairedJourney = repairResult?.report || buildCurrentRealAccountJourney({ date: operatingDate });
+    if (!repairResult) {
+      currentRealAccountJourney = operatingDate === todayISODate()
+        ? repairedJourney
+        : buildCurrentRealAccountJourney({ date: todayISODate() });
+      const proofWeek = buildCurrentRecruitProofWeek({
+        date: todayISODate(),
+        week: readCommittedUnifiedWeek(todayISODate()),
+        contract: readApprovedRecruitContract(),
+        realAccountJourney: currentRealAccountJourney
+      });
+      renderRecruitProofWeek(proofWeek);
+    }
     const panel = document.getElementById("daily-closeout-panel");
     if (panel) panel.open = true;
-    setText("daily-closeout-feedback", dailyLoop?.view?.headline === "Day secured"
-      ? `${dailyLoop.view.headline}. ${dailyLoop.view.detail}`
-      : `${isToday ? "Closeout" : "Yesterday"} sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${dailyLoop?.view?.detail || verdict?.headline || "The next coaching call is ready"}.`);
+    if (isPriorDayRepair) {
+      const secureCount = Number(repairResult?.proofWeek?.counts?.secure || 0);
+      const repairDetail = repairResult?.verified
+        ? `${typeof DominionReviewYesterday === "undefined" ? operatingDate : DominionReviewYesterday.friendlyDate(operatingDate)} secured. Week now ${secureCount} of 7.`
+        : repairedJourney?.state === "ACTION_REQUIRED"
+          ? `Yesterday is saved, but proof is blocked: ${repairedJourney.detail}`
+          : `Yesterday is protected on this device. Account confirmation will retry automatically.`;
+      renderDailyCloseout(null, null, { operatingDate, force: true });
+      setText("daily-closeout-feedback", repairDetail);
+    } else {
+      setText("daily-closeout-feedback", dailyLoop?.view?.headline === "Day secured"
+        ? `${dailyLoop.view.headline}. ${dailyLoop.view.detail}`
+        : `${isToday ? "Closeout" : "Yesterday"} sealed${accountSaved && stepsSynced ? " to your account" : " on this device; sync will retry"}. ${dailyLoop?.view?.detail || verdict?.headline || "The next coaching call is ready"}.`);
+    }
     document.getElementById("daily-ritual-action")?.focus({ preventScroll: true });
   } catch (error) {
     setText("daily-closeout-feedback", error.message || "The closeout could not be saved.");
   } finally {
-    button.disabled = false;
-    button.textContent = readDailyCloseout(operatingDate) ? "Update Closeout" : "Seal Closeout";
+    if (isPriorDayRepair) {
+      const model = renderReviewYesterdayPresentation(operatingDate);
+      button.disabled = model ? !model.canSave : false;
+      button.textContent = model?.saveLabel || "Save Yesterday";
+    } else {
+      button.disabled = false;
+      button.textContent = readDailyCloseout(operatingDate) ? "Update Closeout" : "Seal Closeout";
+    }
   }
 }
 

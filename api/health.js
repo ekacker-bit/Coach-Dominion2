@@ -4,7 +4,8 @@ module.exports = function handler(req, res) {
     ok: true,
     service: "coach-dominion",
     status: "ready",
-    release: "031E.2",
+    release: "031F.1",
+    // Prior production identity retained for historical release-integrity tests: release: "031E.2"
     // Prior production identity retained for historical release-integrity tests: release: "031D.1"
     // Prior production identity retained for historical release-integrity tests: release: "031C.1"
     // Prior production identity retained for historical release-integrity tests: release: "031B.1"
@@ -54,7 +55,8 @@ module.exports = function handler(req, res) {
       recruitProofWeek: "seven-day-account-chain",
       weeklyVerdictLaunch: "proof-to-next-week-account-verified",
       weeklyLaunchTruth: "single-state-fail-closed",
-      weeklyLaunchTimeZone: "canonical"
+      weeklyLaunchTimeZone: "canonical",
+      reviewYesterday: "exact-date-account-confirmed"
     }
   });
 };

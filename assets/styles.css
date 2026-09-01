@@ -13745,8 +13745,29 @@ body:not([data-dominion-section="today"]) .secondary-daily-state { display: bloc
 .weekly-verdict-launch-lines p + p { border-left: 1px solid var(--line); }
 .weekly-verdict-launch-card > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .weekly-verdict-launch-card > footer small { color: var(--muted); }
+.weekly-verdict-launch-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .weekly-verdict-launch-card > footer a,
 .weekly-verdict-launch-card > footer button { flex: 0 0 auto; }
+.weekly-verdict-launch-actions .ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+.weekly-verdict-launch-actions > a:not(.ghost) {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 17px;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: #0a0a0a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 .weekly-verdict-launch-wait {
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -13755,6 +13776,25 @@ body:not([data-dominion-section="today"]) .secondary-daily-state { display: bloc
   letter-spacing: .08em;
   text-transform: uppercase;
 }
+.weekly-verdict-launch-loading {
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  align-content: center;
+  padding: clamp(20px, 4vw, 36px);
+  border: 1px solid var(--line);
+  background: rgba(8, 12, 12, .58);
+}
+.weekly-verdict-launch-loading > span {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: .16em;
+}
+.weekly-verdict-launch-loading > strong { font-size: clamp(26px, 4vw, 40px); }
+.weekly-verdict-launch-loading > small { max-width: 680px; color: var(--muted); }
+.weekly-verdict-launch-loading.red { border-color: rgba(255, 102, 102, .46); }
+.weekly-verdict-primary-action:has(#finalize-week[hidden]) { display: none; }
 .weekly-verdict-primary-action { margin-top: -2px; }
 .weekly-review-diagnostics {
   border: 1px solid var(--line);
@@ -13774,12 +13814,18 @@ body:not([data-dominion-section="today"]) .secondary-daily-state { display: bloc
 @media (max-width: 720px) {
   .weekly-verdict-launch-card { padding: 16px; }
   .weekly-verdict-launch-card > header { grid-template-columns: 1fr; gap: 12px; }
-  .weekly-verdict-launch-card > header h3 { font-size: clamp(34px, 11vw, 46px); }
+  .weekly-verdict-launch-card > header h3 {
+    max-width: 100%;
+    font-size: clamp(28px, 9vw, 38px);
+    letter-spacing: .045em;
+    overflow-wrap: anywhere;
+  }
   .weekly-verdict-launch-card > header > strong { justify-self: start; }
   .weekly-verdict-launch-lines { grid-template-columns: 1fr; margin: 16px 0; }
   .weekly-verdict-launch-lines p { min-height: 0; padding: 14px 0; }
   .weekly-verdict-launch-lines p + p { border-left: 0; border-top: 1px solid var(--line); }
   .weekly-verdict-launch-card > footer { align-items: stretch; flex-direction: column; }
+  .weekly-verdict-launch-actions { align-items: stretch; flex-direction: column-reverse; }
   .weekly-verdict-launch-card > footer a,
   .weekly-verdict-launch-card > footer button { width: 100%; text-align: center; }
   .weekly-review-diagnostics > :not(summary) { margin: 12px; }

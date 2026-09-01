@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "031D.1";
+  const VERSION = "031E.1";
   const RECEIPT_TYPE = "WEEKLY_VERDICT_LAUNCH";
   const DAY_MS = 86400000;
 
@@ -71,6 +71,19 @@
 
   function receiptFor(receipts = [], id = "") {
     return values(receipts).find((item) => item?.type === RECEIPT_TYPE && item.id === id) || null;
+  }
+
+  function firstMission(targetWeek = null) {
+    const day = values(targetWeek?.days).find((item) => values(item?.activities).length);
+    const activity = values(day?.activities)[0] || null;
+    if (!day || !activity) return null;
+    return Object.freeze({
+      date: isoDate(day.date),
+      assignmentId: clean(activity.assignmentId || activity.id),
+      module: upper(activity.module || activity.type || "TRAINING"),
+      label: concise(activity.title || activity.sessionName || activity.label, "First scheduled mission"),
+      activityCount: values(day.activities).length
+    });
   }
 
   function buildReceipt(input = {}) {
@@ -139,6 +152,8 @@
     const accountReceipts = values(input.accountReceipts);
     const account = input.account || {};
     const pendingWrites = Math.max(0, Number(account.pendingWrites || input.pendingWrites || 0));
+    const operatingDate = isoDate(input.asOfDate || new Date().toISOString());
+    const mission = firstMission(targetWeek);
     const candidate = buildReceipt(input);
     const localExact = Boolean(candidate && receiptFor(localReceipts, candidate.id));
     const accountExact = Boolean(candidate && receiptFor(accountReceipts, candidate.id));
@@ -169,11 +184,19 @@
       detail = proofWeek?.detail || "All seven days must be confirmed before judgment.";
       primaryAction = action("OPEN_TODAY", state === "PROTECTED" ? "Proof is securing" : "Continue the week", "today", detail);
     } else if (!inspection?.finalizedAt) {
-      state = "READY_TO_FINALIZE";
-      tone = "yellow";
-      label = "WEEK READY";
-      detail = "Seven days are secure. Lock the result before Atlas changes next week.";
-      primaryAction = action("FINALIZE_WEEK", "Finalize week", "inspection", detail);
+      if (input.finalization?.allowed === false) {
+        state = "BLOCKED";
+        tone = "red";
+        label = "WEEK NEEDS REVIEW";
+        detail = input.finalization.detail || "One weekly result still needs an honest resolution.";
+        primaryAction = action(input.finalization.code || "RESOLVE_WEEK", input.finalization.label || "Resolve week", input.finalization.section || "inspection", detail, input.finalization.operatingDate);
+      } else {
+        state = "READY_TO_FINALIZE";
+        tone = "yellow";
+        label = "WEEK READY";
+        detail = "Seven days are secure. Lock the result before Atlas changes next week.";
+        primaryAction = action("FINALIZE_WEEK", "Finalize week", "inspection", detail);
+      }
     } else if (!reconciliation?.id || ["BLOCKED", "UNSCORED"].includes(upper(verdict.position))) {
       state = "BLOCKED";
       tone = "red";
@@ -196,7 +219,7 @@
       state = "VERIFIED";
       tone = "green";
       label = `${decision} CONFIRMED`;
-      detail = `Next week is saved to this account and begins ${candidate.targetWeekStart}.`;
+      detail = `Next week is saved to this account and begins ${candidate.targetWeekStart}${mission ? `. First order: ${mission.label}.` : "."}`;
       primaryAction = action("OPEN_NEXT_WEEK", "Open next week", "calendar", detail);
     } else if (candidate && (localExact || pendingWrites || account.online === false)) {
       state = "PROTECTED";
@@ -213,6 +236,8 @@
       shouldSave = true;
     }
 
+    const draftOpen = input.draftOpen === true;
+    const canReopen = state === "VERIFIED" && Boolean(operatingDate && targetWeek?.weekStart && operatingDate < targetWeek.weekStart);
     return Object.freeze({
       version: VERSION,
       state,
@@ -229,7 +254,62 @@
       accountExact,
       pendingWrites,
       primaryAction,
+      secondaryAction: canReopen
+        ? action(draftOpen ? "OPEN_NEXT_WEEK_DRAFT" : "REOPEN_NEXT_WEEK", draftOpen ? "Continue editing" : "Reopen before it starts", "calendar")
+        : null,
+      firstMission: mission,
+      canReopen,
+      draftOpen,
       verified: state === "VERIFIED"
+    });
+  }
+
+  function presentation(report = null, options = {}) {
+    if (options.loading) return Object.freeze({
+      state: "CHECKING",
+      status: "CHECKING",
+      tone: "neutral",
+      message: options.message || "Checking the saved week…",
+      finalizeVisible: false,
+      finalizeEnabled: false,
+      retryVisible: false
+    });
+    if (options.saving) return Object.freeze({
+      state: "SAVING",
+      status: "SAVING",
+      tone: "yellow",
+      message: options.message || "Securing the weekly decision on your account…",
+      finalizeVisible: false,
+      finalizeEnabled: false,
+      retryVisible: false
+    });
+    if (options.error || !report) return Object.freeze({
+      state: "ACTION_REQUIRED",
+      status: "ACTION REQUIRED",
+      tone: "red",
+      message: concise(options.error?.message || options.error || "Weekly Review could not be restored.", "Weekly Review could not be restored."),
+      finalizeVisible: false,
+      finalizeEnabled: false,
+      retryVisible: true
+    });
+    const status = ({
+      EARNING: "EARNING",
+      ACTION_REQUIRED: "ACTION REQUIRED",
+      READY_TO_FINALIZE: "READY",
+      VERDICT_READY: "READY",
+      BLOCKED: "ACTION REQUIRED",
+      READY_TO_SAVE: "SAVING",
+      PROTECTED: "SAVING",
+      VERIFIED: "LAUNCHED"
+    })[report.state] || "CHECKING";
+    return Object.freeze({
+      state: report.state,
+      status,
+      tone: report.tone || "neutral",
+      message: options.message || "",
+      finalizeVisible: report.state === "READY_TO_FINALIZE" && report.primaryAction?.code === "FINALIZE_WEEK",
+      finalizeEnabled: report.state === "READY_TO_FINALIZE" && report.primaryAction?.code === "FINALIZE_WEEK",
+      retryVisible: false
     });
   }
 
@@ -241,8 +321,10 @@
     stableSerialize,
     stableHash,
     decisionCode,
+    firstMission,
     receiptFor,
     buildReceipt,
-    evaluate
+    evaluate,
+    presentation
   });
 });

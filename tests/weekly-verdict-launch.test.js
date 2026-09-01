@@ -33,7 +33,11 @@ const targetWeek = {
   weekEnd: "2026-09-06",
   contractRevision: 14,
   programId: "program-r14",
-  programRevision: 3
+  programRevision: 3,
+  days: [
+    { date: "2026-08-31", activities: [{ id: "strength-upper-a", assignmentId: "strength-upper-a", module: "STRENGTH", title: "Upper A" }] },
+    { date: "2026-09-01", activities: [] }
+  ]
 };
 const reconciliation = {
   id: "atlas-result-1",
@@ -79,6 +83,7 @@ function complete(overrides = {}) {
     rollover,
     calendarReceipt: { id: "calendar-commit:1", contentHash: "calendar-proof" },
     account: { serverConfirmed: true, lastVerifiedAt: "2026-08-31T00:05:00.000Z", online: true },
+    asOfDate: "2026-08-30",
     ...overrides
   };
 }
@@ -143,6 +148,51 @@ test("confirms launch only after the exact receipt restores from the account", (
   assert.equal(restored.verified, true);
   assert.equal(restored.candidate.id, first.candidate.id);
   assert.equal(restored.primaryAction.section, "calendar");
+  assert.equal(restored.firstMission.label, "Upper A");
+  assert.equal(restored.firstMission.date, "2026-08-31");
+  assert.equal(restored.canReopen, true);
+  assert.equal(restored.secondaryAction.code, "REOPEN_NEXT_WEEK");
+});
+
+test("keeps loading, failure, ready, and launched controls mutually exclusive", () => {
+  const loading = Launch.presentation(null, { loading: true });
+  assert.equal(loading.status, "CHECKING");
+  assert.equal(loading.finalizeVisible, false);
+  assert.equal(loading.retryVisible, false);
+
+  const failed = Launch.presentation(null, { error: new Error("Account evidence unavailable") });
+  assert.equal(failed.status, "ACTION REQUIRED");
+  assert.equal(failed.finalizeVisible, false);
+  assert.equal(failed.retryVisible, true);
+
+  const readyReport = Launch.evaluate(complete({ inspection: { ...inspection, finalizedAt: null }, reconciliation: null, targetWeek: null, rollover: null }));
+  const ready = Launch.presentation(readyReport);
+  assert.equal(ready.status, "READY");
+  assert.equal(ready.finalizeVisible, true);
+  assert.equal(ready.finalizeEnabled, true);
+});
+
+test("blocks finalization when execution certification still needs repair", () => {
+  const report = Launch.evaluate(complete({
+    inspection: { ...inspection, finalizedAt: null },
+    reconciliation: null,
+    targetWeek: null,
+    rollover: null,
+    finalization: { allowed: false, code: "RESOLVE_ASSIGNMENT", label: "Resolve Saturday", section: "today", detail: "Saturday still needs a result." }
+  }));
+  assert.equal(report.state, "BLOCKED");
+  assert.equal(report.primaryAction.code, "RESOLVE_ASSIGNMENT");
+  assert.equal(Launch.presentation(report).finalizeVisible, false);
+});
+
+test("reopen is available only before the committed week begins", () => {
+  const first = Launch.evaluate(complete());
+  const verifiedBeforeStart = Launch.evaluate(complete({ accountReceipts: [first.candidate], localReceipts: [first.candidate] }));
+  assert.equal(verifiedBeforeStart.canReopen, true);
+
+  const verifiedOnStart = Launch.evaluate(complete({ asOfDate: "2026-08-31", accountReceipts: [first.candidate], localReceipts: [first.candidate] }));
+  assert.equal(verifiedOnStart.canReopen, false);
+  assert.equal(verifiedOnStart.secondaryAction, null);
 });
 
 test("blocks a committed week when its rollover lineage is invalid", () => {

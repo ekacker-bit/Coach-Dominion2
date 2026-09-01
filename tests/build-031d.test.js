@@ -17,12 +17,12 @@ test("031D wires one account-verified weekly verdict and next-week launch", () =
   const health = read("api/health.js");
   const workflow = read(".github/workflows/release-integrity.yml");
 
-  assert.match(html, /coach-dominion-release" content="031D\.1"/);
-  assert.match(html, /weekly-verdict-launch\.js\?v=031d/);
+  assert.match(html, /coach-dominion-release" content="031E\.1"/);
+  assert.match(html, /weekly-verdict-launch\.js\?v=031e/);
   assert.match(weekly, /id="weekly-verdict-launch"/);
   assert.match(weekly, /Earn the week\. Launch the next\./);
   assert.match(weekly, /<summary>Evidence &amp; rank<\/summary>/);
-  assert.match(engine, /const VERSION = "031D\.1"/);
+  assert.match(engine, /const VERSION = "031E\.1"/);
   assert.match(engine, /const RECEIPT_TYPE = "WEEKLY_VERDICT_LAUNCH"/);
   assert.match(engine, /return "ADVANCE"/);
   assert.match(engine, /return "MAINTAIN"/);
@@ -33,13 +33,13 @@ test("031D wires one account-verified weekly verdict and next-week launch", () =
   assert.match(app, /function launchNextWeekFromWeeklyVerdict/);
   assert.match(app, /function scheduleWeeklyVerdictLaunchReceipt/);
   assert.match(app, /data-weekly-verdict-launch-action="approve"/);
-  assert.match(worker, /031d-weekly-verdict-launch/);
-  assert.match(worker, /weekly-verdict-launch\.js\?v=031d/);
-  assert.match(app, /\/sw\.js\?v=031d/);
-  assert.match(health, /release: "031D\.1"/);
+  assert.match(worker, /031e-weekly-launch-truth/);
+  assert.match(worker, /weekly-verdict-launch\.js\?v=031e/);
+  assert.match(app, /\/sw\.js\?v=031e/);
+  assert.match(health, /release: "031E\.1"/);
   assert.match(health, /weeklyVerdictLaunch: "proof-to-next-week-account-verified"/);
   assert.match(workflow, /npm run test:031d/);
-  assert.match(workflow, /--expected-release 031D\.1/);
+  assert.match(workflow, /--expected-release 031E\.1/);
 });
 
 test("031D stays word-light and responsive", () => {

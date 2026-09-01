@@ -2,6 +2,7 @@
 
 ## 031E - Weekly Launch Truth-State Hardening
 
+- 031E.2 hotfix resolves the recruit's canonical operating timezone before Weekly Review calculates elapsed proof days.
 - Makes Weekly Review fail closed: Checking, Action Required, Ready, Saving, and Launched are mutually exclusive visible states.
 - Keeps Finalize hidden until the seven-day account proof and week-execution certification both authorize it.
 - Replaces stranded loading copy with a recoverable saved-device fallback or one explicit retry action.

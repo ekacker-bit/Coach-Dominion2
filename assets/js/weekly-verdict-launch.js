@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "031E.1";
+  const VERSION = "031E.2";
   const RECEIPT_TYPE = "WEEKLY_VERDICT_LAUNCH";
   const DAY_MS = 86400000;
 

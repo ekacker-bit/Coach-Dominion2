@@ -13,11 +13,13 @@ test("031E makes Weekly Review fail closed with one visible lifecycle", () => {
   const app = read("assets/js/app.js");
   const weekly = read("assets/js/weekly-advancement.js");
 
-  assert.match(engine, /const VERSION = "031E\.1"/);
+  assert.match(engine, /const VERSION = "031E\.2"/);
   assert.match(engine, /function presentation/);
   assert.match(engine, /finalizeVisible: false/);
   assert.match(engine, /retryVisible: true/);
   assert.match(app, /function applyWeeklyReviewLifecycle/);
+  assert.match(app, /function operationalTimeZone/);
+  assert.match(app, /timeZone: operationalTimeZone\(\)/);
   assert.match(app, /renderWeeklyVerdictLaunch\(null, \{ loading: true \}\)/);
   assert.match(app, /renderWeeklyVerdictLaunch\(null, \{ error:/);
   assert.match(app, /Weekly Review could not render safely/);
@@ -46,15 +48,16 @@ test("031E ships a fresh responsive production shell", () => {
   const workflow = read(".github/workflows/release-integrity.yml");
   const pkg = read("package.json");
 
-  assert.match(html, /coach-dominion-release" content="031E\.1"/);
-  assert.match(html, /weekly-verdict-launch\.js\?v=031e/);
-  assert.match(worker, /031e-weekly-launch-truth/);
-  assert.match(worker, /weekly-verdict-launch\.js\?v=031e/);
-  assert.match(app, /\/sw\.js\?v=031e/);
-  assert.match(health, /release: "031E\.1"/);
+  assert.match(html, /coach-dominion-release" content="031E\.2"/);
+  assert.match(html, /weekly-verdict-launch\.js\?v=031e2/);
+  assert.match(worker, /031e2-timezone-hotfix/);
+  assert.match(worker, /weekly-verdict-launch\.js\?v=031e2/);
+  assert.match(app, /\/sw\.js\?v=031e2/);
+  assert.match(health, /release: "031E\.2"/);
   assert.match(health, /weeklyLaunchTruth: "single-state-fail-closed"/);
+  assert.match(health, /weeklyLaunchTimeZone: "canonical"/);
   assert.match(workflow, /npm run test:031e/);
-  assert.match(workflow, /--expected-release 031E\.1/);
+  assert.match(workflow, /--expected-release 031E\.2/);
   assert.match(pkg, /"test:031e"/);
   assert.match(css, /\.weekly-verdict-launch-loading/);
   assert.match(css, /@media \(max-width: 720px\)/);

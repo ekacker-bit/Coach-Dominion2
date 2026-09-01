@@ -1,5 +1,14 @@
 # Changelog
 
+## 031F - Review Yesterday Resolution Loop
+
+- Opens the exact missing day and preloads its saved steps, discipline answers, assignment evidence, and account state.
+- Hides duplicate questions, shows only missing evidence, and keeps unanswered optional discipline items unscored.
+- Replaces the generic closeout save with one `Save Yesterday` action and one stable canonical daily receipt.
+- Waits for the exact account acknowledgment before calling the day secure, then refreshes the seven-day proof count immediately.
+- Restores the same secured state after reload or a second session and names the first exact blocker when the day cannot be repaired from Closeout.
+- Adds deterministic input, idempotency, restore, responsive, cache, release, and production-canary gates without requiring a database migration.
+
 ## 031E - Weekly Launch Truth-State Hardening
 
 - 031E.2 hotfix resolves the recruit's canonical operating timezone before Weekly Review calculates elapsed proof days.
@@ -43,12 +52,6 @@
 - Confirms Fuel writes against the exact account row before reporting success and protects unsynced edits without duplicating them during hydration.
 - Separates Account, Program, Evidence, and Connections health while giving secondary routes one compact daily-state strip instead of repeating the full Today context.
 - Adds one canonical next-week lifecycle from not generated through finalized, with deterministic integrity gates for startup, Contract, Fuel, Review, status, and responsive wiring.
-
-## Unreleased - Review Yesterday Repair
-
-- Routes the recovery action to yesterday's exact operating date instead of reopening today's closeout.
-- Keeps connected steps, assignment validation, readiness writes, and account receipts bound to the reviewed date.
-- Isolates today's unfinished closeout draft while yesterday is being reviewed, then refreshes the continuity chain after the prior day is secured.
 
 ## Unreleased - Field-Verified Command Closure
 

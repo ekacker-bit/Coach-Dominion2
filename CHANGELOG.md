@@ -1,5 +1,14 @@
 # Changelog
 
+## 031E - Weekly Launch Truth-State Hardening
+
+- Makes Weekly Review fail closed: Checking, Action Required, Ready, Saving, and Launched are mutually exclusive visible states.
+- Keeps Finalize hidden until the seven-day account proof and week-execution certification both authorize it.
+- Replaces stranded loading copy with a recoverable saved-device fallback or one explicit retry action.
+- Shows the exact first mission from the committed next week and confirms launch only from the matching account receipt.
+- Lets a future approved week reopen as an editable draft while preserving the approved version until a replacement is deliberately committed.
+- Adds deterministic state, restore, failure, responsive, cache, release, and production-canary gates.
+
 ## 031D - Weekly Verdict and Next-Week Launch
 
 - Replaces the dense Weekly Review stack with one word-light verdict: the win, the constraint, the next prescription, and one action.

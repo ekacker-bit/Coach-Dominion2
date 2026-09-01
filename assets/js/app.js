@@ -14919,7 +14919,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031a", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031e", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -17086,6 +17087,7 @@ function buildWeeklyVerdictLaunch(inspection = weeklyInspection, options = {}) {
     ? buildCurrentWeeklyRolloverCertification({ reconciliation, sourceWeek, targetWeek })
     : null);
   const pending = canonicalPendingWriteState();
+  const draft = readUnifiedWeekDraft();
   const report = DominionWeeklyVerdictLaunch.evaluate({
     proofWeek,
     inspection,
@@ -17094,6 +17096,9 @@ function buildWeeklyVerdictLaunch(inspection = weeklyInspection, options = {}) {
     sourceWeek,
     targetWeek,
     rollover,
+    finalization: options.finalization,
+    asOfDate: options.asOfDate || todayISODate(),
+    draftOpen: Boolean(draft?.weekStart && draft.weekStart === targetWeekStart),
     calendarReceipt: targetWeek ? matchingCalendarCommitReceipt(targetWeek) : null,
     localReceipts: readWeeklyVerdictLaunchReceipts(),
     accountReceipts: (accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || [])
@@ -17126,24 +17131,61 @@ function weeklyVerdictLaunchActionMarkup(report = null) {
   return `<a href="#${escapeHtml(action.section || "inspection")}" data-section="${escapeHtml(action.section || "inspection")}" data-weekly-verdict-launch-action="route"${date}>${escapeHtml(action.label)}</a>`;
 }
 
-function weeklyVerdictLaunchMarkup(report = null) {
-  if (!report) return '<div class="weekly-verdict-launch-loading"><span>WEEKLY REVIEW</span><strong>Checking the saved week</strong></div>';
-  const start = report.targetWeekStart ? `Starts ${escapeHtml(report.targetWeekStart)}` : "Next week waits for a final verdict";
+function weeklyVerdictLaunchSecondaryActionMarkup(report = null) {
+  const action = report?.secondaryAction || null;
+  if (!action) return "";
+  if (action.code === "REOPEN_NEXT_WEEK") return `<button type="button" class="ghost" data-weekly-verdict-launch-action="reopen">${escapeHtml(action.label)}</button>`;
+  return `<a class="ghost" href="#${escapeHtml(action.section || "calendar")}" data-section="${escapeHtml(action.section || "calendar")}" data-weekly-verdict-launch-action="route">${escapeHtml(action.label)}</a>`;
+}
+
+function applyWeeklyReviewLifecycle(report = null, options = {}) {
+  if (typeof DominionWeeklyVerdictLaunch === "undefined") return null;
+  const lifecycle = DominionWeeklyVerdictLaunch.presentation(report, options);
+  const status = document.getElementById("weekly-status");
+  if (status) {
+    status.textContent = lifecycle.status;
+    status.className = `state-pill ${lifecycle.tone || "neutral"}`;
+  }
+  const warning = document.getElementById("weekly-warning");
+  if (warning) warning.textContent = lifecycle.message || "";
+  const finalizeButton = document.getElementById("finalize-week");
+  if (finalizeButton) {
+    finalizeButton.hidden = !lifecycle.finalizeVisible;
+    finalizeButton.disabled = !lifecycle.finalizeEnabled;
+    finalizeButton.classList.toggle("is-unavailable", !lifecycle.finalizeEnabled);
+    finalizeButton.textContent = "Finalize week";
+    finalizeButton.setAttribute("aria-disabled", lifecycle.finalizeEnabled ? "false" : "true");
+  }
+  const section = document.getElementById("inspection");
+  if (section) section.dataset.weeklyLaunchLifecycle = String(lifecycle.state || "CHECKING").toLowerCase().replaceAll("_", "-");
+  return lifecycle;
+}
+
+function weeklyVerdictLaunchMarkup(report = null, options = {}) {
+  if (!report) {
+    const lifecycle = DominionWeeklyVerdictLaunch.presentation(null, options);
+    const retry = lifecycle.retryVisible ? '<button type="button" data-weekly-verdict-launch-action="retry">Try again</button>' : "";
+    return `<div class="weekly-verdict-launch-loading ${escapeHtml(lifecycle.tone || "neutral")}" data-launch-state="${escapeHtml(lifecycle.state)}"><span>WEEKLY REVIEW</span><strong>${escapeHtml(lifecycle.status)}</strong><small>${escapeHtml(lifecycle.message)}</small>${retry}</div>`;
+  }
+  const first = report.firstMission ? ` · First: ${escapeHtml(report.firstMission.label)} on ${escapeHtml(report.firstMission.date)}` : "";
+  const start = report.targetWeekStart ? `Starts ${escapeHtml(report.targetWeekStart)}${first}` : "Next week waits for a final verdict";
   return `<article class="weekly-verdict-launch-card ${escapeHtml(report.tone || "neutral")}" data-launch-state="${escapeHtml(report.state)}" data-launch-decision="${escapeHtml(report.decision)}">
     <header><div><span>WEEKLY VERDICT</span><h3>${escapeHtml(report.label)}</h3><p>${escapeHtml(report.detail)}</p></div><strong>${escapeHtml(report.decision)}</strong></header>
     <div class="weekly-verdict-launch-lines"><p><span>WIN</span>${escapeHtml(report.lines.win)}</p><p><span>CONSTRAINT</span>${escapeHtml(report.lines.constraint)}</p><p><span>NEXT WEEK</span>${escapeHtml(report.lines.next)}</p></div>
-    <footer><small>${start}</small>${weeklyVerdictLaunchActionMarkup(report)}</footer>
+    <footer><small>${start}</small><div class="weekly-verdict-launch-actions">${weeklyVerdictLaunchSecondaryActionMarkup(report)}${weeklyVerdictLaunchActionMarkup(report)}</div></footer>
   </article>`;
 }
 
 function renderWeeklyVerdictLaunch(inspection = weeklyInspection, options = {}) {
   const root = document.getElementById("weekly-verdict-launch");
   if (!root) return null;
-  const report = buildWeeklyVerdictLaunch(inspection, options);
-  root.hidden = !report;
-  root.dataset.launchTone = report?.tone || "neutral";
-  root.dataset.launchState = report?.state || "CHECKING";
-  root.innerHTML = weeklyVerdictLaunchMarkup(report);
+  const transient = options.loading || options.saving || options.error;
+  const report = transient ? null : (options.report || buildWeeklyVerdictLaunch(inspection, options));
+  const lifecycle = applyWeeklyReviewLifecycle(report, options);
+  root.hidden = false;
+  root.dataset.launchTone = report?.tone || lifecycle?.tone || "neutral";
+  root.dataset.launchState = report?.state || lifecycle?.state || "CHECKING";
+  root.innerHTML = weeklyVerdictLaunchMarkup(report, options);
   return report;
 }
 
@@ -17165,6 +17207,20 @@ async function launchNextWeekFromWeeklyVerdict(inspection = weeklyInspection) {
     rollover: result.rollover
   });
   return { ...result, launch: report };
+}
+
+async function reopenNextWeekFromWeeklyVerdict(inspection = weeklyInspection) {
+  const report = buildWeeklyVerdictLaunch(inspection);
+  if (!report?.canReopen || report.secondaryAction?.code !== "REOPEN_NEXT_WEEK") throw new Error("This week can no longer be reopened safely.");
+  const draft = buildUnifiedWeekDraft(report.targetWeekStart);
+  if (!draft) throw new Error("Atlas could not reopen the coordinated week.");
+  saveWeeklyOrchestrationLocal("DRAFT", "current", draft);
+  await persistWeeklyOrchestrationState("DRAFT", "current", draft);
+  await drainAccountPersistence({ reason: "weekly_launch_reopened", force: true });
+  refreshProgramActivationSurfaces();
+  renderWeeklyVerdictLaunch(inspection);
+  setText("weekly-orchestrator-feedback", "Next week is open for edits. The approved version remains protected until you approve a replacement.");
+  return draft;
 }
 
 function renderAtlasWeeklyReconciliationSignals(record = null) {
@@ -28344,17 +28400,30 @@ if (typeof document !== "undefined") {
     }
     const launchButton = event.target.closest("button[data-weekly-verdict-launch-action]");
     if (launchButton) {
+      const action = launchButton.dataset.weeklyVerdictLaunchAction;
+      if (action === "retry") {
+        await loadWeeklyInspection();
+        return;
+      }
+      if (action === "reopen") {
+        launchButton.disabled = true;
+        try {
+          await reopenNextWeekFromWeeklyVerdict(weeklyInspection);
+          setActiveSection("calendar");
+        } catch (error) {
+          renderWeeklyVerdictLaunch(weeklyInspection, { error });
+        }
+        return;
+      }
+      if (action !== "approve") return;
       launchButton.disabled = true;
+      renderWeeklyVerdictLaunch(null, { saving: true, message: "Approving the coordinated week and confirming it on your account…" });
       try {
         const result = await launchNextWeekFromWeeklyVerdict(weeklyInspection);
         const verified = result.launch?.state === "VERIFIED";
-        setText("weekly-warning", verified
-          ? `Next week is approved and confirmed for ${result.committedWeek.weekStart}.`
-          : `Next week is approved for ${result.committedWeek.weekStart}; account confirmation is finishing.`);
+        applyWeeklyReviewLifecycle(result.launch, { message: verified ? "" : `Next week is approved for ${result.committedWeek.weekStart}; account confirmation is finishing.` });
       } catch (error) {
-        setText("weekly-warning", error?.message || "The next week could not be approved.");
-      } finally {
-        launchButton.disabled = false;
+        renderWeeklyVerdictLaunch(weeklyInspection, { error: error?.message || "The next week could not be approved." });
       }
       return;
     }
@@ -30989,8 +31058,13 @@ function renderWeeklyJudgment(aggregate, storageMode) {
   const proofReady = finalized || proofWeek?.canFinalize === true;
   renderWeeklyCloseoutEvidence({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
   renderWeeklyAdaptationOutcomes({ weekStartDate: aggregate.weekStartDate, weekEndDate: aggregate.weekEndDate });
-  const weeklyReconciliation = renderAtlasWeeklyReconciliation(aggregate);
-  renderWeeklyVerdictLaunch(aggregate, { proofWeek, reconciliation: weeklyReconciliation });
+  let weeklyReconciliation = null;
+  try {
+    weeklyReconciliation = renderAtlasWeeklyReconciliation(aggregate);
+  } catch (error) {
+    console.warn("Weekly reconciliation detail could not render; the launch decision remains fail-closed.", error);
+    weeklyReconciliation = buildAtlasWeeklyReconciliation(aggregate);
+  }
   const missingLabels = (aggregate.missingRequiredDomains || []).map(label);
   const warning = finalized
     ? `Finalized ${new Date(aggregate.finalizedAt).toLocaleString()}. This judgment is locked.`
@@ -31003,15 +31077,16 @@ function renderWeeklyJudgment(aggregate, storageMode) {
     : aggregate.scoreIsProvisional
       ? `${evidenceSummary.headline || "Evidence is incomplete"}. ${evidenceSummary.unscoredDays} day${evidenceSummary.unscoredDays === 1 ? " remains" : "s remain"} unscored${missingLabels.length ? `; missing ${missingLabels.join(", ")}` : ""}. Scores describe assessed observations only.`
       : "";
-  setText("weekly-warning", warning);
-  const finalizeButton = document.getElementById("finalize-week");
-  if (finalizeButton) {
-    finalizeButton.hidden = finalized;
-    finalizeButton.disabled = !aggregate.canFinalize || !executionReady || !proofReady;
-    finalizeButton.classList.toggle("is-unavailable", finalizeButton.disabled);
-    finalizeButton.textContent = aggregate.canFinalize && executionReady && proofReady ? "Finalize week" : proofWeek?.repair ? proofWeek.repair.label : executionCertification?.status === "BLOCKED" ? "Resolve week first" : "Week not ready";
-    finalizeButton.setAttribute("aria-disabled", finalizeButton.disabled ? "true" : "false");
-  }
+  const finalizationAllowed = Boolean(aggregate.canFinalize && executionReady && proofReady);
+  const finalization = finalized ? null : {
+    allowed: finalizationAllowed,
+    code: proofWeek?.repair?.code || executionCertification?.repair?.code || "RESOLVE_WEEK",
+    label: proofWeek?.repair?.label || executionCertification?.repair?.label || "Resolve week",
+    section: proofWeek?.repair?.section || executionCertification?.repair?.section || "inspection",
+    operatingDate: proofWeek?.repair?.operatingDate || executionCertification?.repair?.operatingDate || null,
+    detail: warning || "One weekly result still needs an honest resolution."
+  };
+  renderWeeklyVerdictLaunch(aggregate, { proofWeek, reconciliation: weeklyReconciliation, finalization, message: warning });
   setText("weekly-next-action-title", judgment.nextAction.label);
   setText("weekly-next-action-detail", judgment.nextAction.detail);
   const nextAction = document.getElementById("weekly-next-action-link");
@@ -31029,8 +31104,14 @@ function renderWeeklyJudgment(aggregate, storageMode) {
 }
 
 function renderWeeklyInspection(aggregate, storageMode) {
-  renderWeeklyJudgment(aggregate, storageMode);
-  return;
+  try {
+    renderWeeklyJudgment(aggregate, storageMode);
+    return aggregate;
+  } catch (error) {
+    console.error("Weekly Review could not render safely.", error);
+    renderWeeklyVerdictLaunch(null, { error: error?.message || "Weekly Review could not be restored." });
+    return null;
+  }
   weeklyInspection = aggregate;
   const finalized = Boolean(aggregate.finalizedAt);
   const finalizeState = deriveFinalizeConfirmationState(finalized, aggregate.evidenceCoverage);
@@ -31131,36 +31212,54 @@ async function loadWeeklyInspectionLegacy() {
 async function loadWeeklyInspection() {
   const selectedDate = document.getElementById("weekly-date").value || todayISODate();
   const range = getInspectionWeekRange(selectedDate);
-  setText("weekly-warning", "Calculating weekly evidence…");
-  const supabase = await getClient();
-  const inspectionResult = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
-  if (inspectionResult.data?.finalized_at && !inspectionResult.error) {
-    renderWeeklyInspection(aggregateFromStoredInspection(inspectionResult.data), "SUPABASE");
-    return;
-  }
+  renderWeeklyVerdictLaunch(null, { loading: true });
+  try {
+    const supabase = await getClient();
+    const inspectionResult = await supabase.from("weekly_inspections").select("*").eq("user_id", session.user.id).eq("week_start_date", range.weekStartDate).maybeSingle();
+    if (inspectionResult.data?.finalized_at && !inspectionResult.error) {
+      renderWeeklyInspection(aggregateFromStoredInspection(inspectionResult.data), "SUPABASE");
+      return;
+    }
 
-  const recordsResult = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
-
-  const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
-  const outcome = resolveWeeklyInspectionLoadOutcome({
-    savedInspection: inspectionResult.data || localSaved,
-    inspectionReadError: inspectionResult.error,
-    remoteRecords: recordsResult.data,
-    recordsReadError: recordsResult.error,
-    draftWriteError: null,
-    localRecords: loadLocalWeekRecords(range)
-  });
-  if (outcome.mode === "FINALIZED_LOCAL") {
-    renderWeeklyInspection(aggregateFromStoredInspection(outcome.inspection), outcome.storageMode);
-    setText("weekly-warning", outcome.warning);
-    return;
+    const recordsResult = await supabase.from("daily_compliance").select(COMPLIANCE_COLUMNS).eq("user_id", session.user.id).gte("compliance_date", range.weekStartDate).lte("compliance_date", range.weekEndDate);
+    const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
+    const outcome = resolveWeeklyInspectionLoadOutcome({
+      savedInspection: inspectionResult.data || localSaved,
+      inspectionReadError: inspectionResult.error,
+      remoteRecords: recordsResult.data,
+      recordsReadError: recordsResult.error,
+      draftWriteError: null,
+      localRecords: loadLocalWeekRecords(range)
+    });
+    if (outcome.mode === "FINALIZED_LOCAL") {
+      renderWeeklyInspection(aggregateFromStoredInspection(outcome.inspection), outcome.storageMode);
+      if (outcome.warning) applyWeeklyReviewLifecycle(currentWeeklyVerdictLaunch, { message: outcome.warning });
+      return;
+    }
+    weeklyDailyRecords = outcome.records;
+    const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
+    aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+    if (outcome.storageMode === "LOCAL") saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
+    renderWeeklyInspection(aggregate, outcome.storageMode);
+    if (outcome.warning) applyWeeklyReviewLifecycle(currentWeeklyVerdictLaunch, { message: outcome.warning });
+  } catch (error) {
+    const localSaved = loadLocalWeeklyInspection(range.weekStartDate);
+    const localRecords = loadLocalWeekRecords(range);
+    if (localSaved?.finalized_at) {
+      renderWeeklyInspection(aggregateFromStoredInspection(localSaved), "LOCAL");
+      applyWeeklyReviewLifecycle(currentWeeklyVerdictLaunch, { message: "Showing the saved week from this device while the account reconnects." });
+      return;
+    }
+    try {
+      weeklyDailyRecords = localRecords;
+      const aggregate = aggregateWeeklyCompliance(localRecords, range.weekStartDate);
+      aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
+      renderWeeklyInspection(aggregate, "LOCAL");
+      applyWeeklyReviewLifecycle(currentWeeklyVerdictLaunch, { message: "Showing this device’s saved evidence while the account reconnects." });
+    } catch (_) {
+      renderWeeklyVerdictLaunch(null, { error: error?.message || "Weekly Review could not be restored." });
+    }
   }
-  weeklyDailyRecords = outcome.records;
-  const aggregate = aggregateWeeklyCompliance(weeklyDailyRecords, range.weekStartDate);
-  aggregate.atlasReport = generateWeeklyAfterActionReport(aggregate);
-  if (outcome.storageMode === "LOCAL") saveLocalWeeklyInspection(weeklyPersistencePayload(aggregate));
-  renderWeeklyInspection(aggregate, outcome.storageMode);
-  if (outcome.warning) setText("weekly-warning", outcome.warning);
 }
 
 async function finalizeWeeklyInspection() {

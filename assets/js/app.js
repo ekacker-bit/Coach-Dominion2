@@ -4028,12 +4028,19 @@ function buildStandardsPersistencePayload(item = {}) {
   };
 }
 
-function todayISODate() {
-  if (typeof DominionOperationalTime === "undefined") return new Date().toLocaleDateString("en-CA");
+function operationalTimeZone() {
   const configuredZone = session?.user?.user_metadata?.time_zone
     || session?.user?.user_metadata?.timezone
     || window.localStorage.getItem("coach-dominion:time-zone");
-  return DominionOperationalTime.dateInZone(new Date(), DominionOperationalTime.resolveZone(configuredZone));
+  if (typeof DominionOperationalTime !== "undefined") {
+    return DominionOperationalTime.resolveZone(configuredZone);
+  }
+  return configuredZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function todayISODate() {
+  if (typeof DominionOperationalTime === "undefined") return new Date().toLocaleDateString("en-CA");
+  return DominionOperationalTime.dateInZone(new Date(), operationalTimeZone());
 }
 
 const READINESS_EVIDENCE_WEIGHTS = {
@@ -14920,7 +14927,7 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031b", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031e", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031e2", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

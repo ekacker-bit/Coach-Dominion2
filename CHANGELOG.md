@@ -1,5 +1,13 @@
 # Changelog
 
+## 031G - Recruit Week Certification
+
+- Binds the signed Contract, committed source week, seven account-confirmed days, finalized weekly result, Atlas verdict, and exact next-week Calendar into one deterministic receipt.
+- Restores that receipt from the account before calling the week secure; offline or pending work remains protected without overstating completion.
+- Replaces competing Weekly Review controls with one compact status and the first exact repair action.
+- Keeps bounded support diagnostics behind an optional disclosure and excludes personal data from the diagnostic code.
+- Adds desktop, mobile, cache, release, and production-canary gates without requiring a database migration.
+
 ## 031F - Review Yesterday Resolution Loop
 
 - Opens the exact missing day and preloads its saved steps, discipline answers, assignment evidence, and account state.

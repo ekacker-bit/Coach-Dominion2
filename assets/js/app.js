@@ -141,6 +141,8 @@ let realAccountJourneySaveTimer = null;
 let currentRecruitProofWeek = null;
 let recruitProofWeekSaveTimer = null;
 let weeklyVerdictLaunchSaveTimer = null;
+let currentRecruitWeekCertification = null;
+let recruitWeekCertificationSaveTimer = null;
 const trustSignalLedger = new Map();
 let evidenceAutopilotTimer = null;
 let evidenceAutopilotState = {
@@ -892,6 +894,23 @@ function scheduleWeeklyVerdictLaunchReceipt(report = null) {
   }, 0);
 }
 
+function readRecruitWeekCertificationReceipts() {
+  if (typeof DominionRecruitWeekCertification === "undefined") return [];
+  return readJourneyCertificationReceipts().filter((item) => item?.type === DominionRecruitWeekCertification.RECEIPT_TYPE);
+}
+
+function scheduleRecruitWeekCertificationReceipt(report = null) {
+  if (!report?.shouldSave || !report?.candidate || recruitWeekCertificationSaveTimer) return;
+  if (typeof DominionStartupAuthority !== "undefined" && !DominionStartupAuthority.permitsAccountWrite(startupAuthorityState, "state_change")) return;
+  recruitWeekCertificationSaveTimer = window.setTimeout(() => {
+    recruitWeekCertificationSaveTimer = null;
+    if (saveJourneyCertificationReceipt(report.candidate)) {
+      scheduleAccountTruthSync(50);
+      if (weeklyInspection) renderRecruitWeekCertification(weeklyInspection);
+    }
+  }, 0);
+}
+
 function readCalendarCommitReceipts() {
   const receipts = readClosedLoopState("HISTORY", "calendar-commit-receipts", []);
   return Array.isArray(receipts) ? receipts : [];
@@ -1501,6 +1520,80 @@ function renderRecruitProofWeek(report = currentRecruitProofWeek || buildCurrent
   return report;
 }
 
+function buildRecruitWeekCertification(inspection = weeklyInspection, options = {}) {
+  if (!inspection?.weekStartDate || typeof DominionRecruitWeekCertification === "undefined") return null;
+  const sourceWeek = options.sourceWeek || readCommittedUnifiedWeekByStart(inspection.weekStartDate);
+  if (!sourceWeek) return null;
+  const proofWeek = options.proofWeek || buildRecruitProofWeekForInspection(inspection);
+  const weeklyLaunch = Object.prototype.hasOwnProperty.call(options, "weeklyLaunch")
+    ? options.weeklyLaunch
+    : buildWeeklyVerdictLaunch(inspection, { proofWeek });
+  const targetWeekStart = weeklyLaunch?.targetWeekStart || DominionRecruitWeekCertification.addDays(inspection.weekEndDate, 1);
+  const targetWeek = options.targetWeek || readCommittedUnifiedWeekByStart(targetWeekStart);
+  const pending = canonicalPendingWriteState();
+  const report = DominionRecruitWeekCertification.evaluate({
+    userId: session?.user?.id || null,
+    authority: {
+      contractRevision: Number(sourceWeek.contractRevision || 0),
+      programId: sourceWeek.programId || "",
+      weekId: sourceWeek.id || sourceWeek.weekStart,
+      weekStartDate: sourceWeek.weekStart,
+      weekEndDate: sourceWeek.weekEnd
+    },
+    proofWeek,
+    inspection,
+    weeklyLaunch,
+    targetWeek,
+    localReceipts: readRecruitWeekCertificationReceipts(),
+    accountReceipts: (accountTruthState.accountSnapshot?.domains?.evidence?.payload?.journeyReceipts || [])
+      .filter((item) => item?.type === DominionRecruitWeekCertification.RECEIPT_TYPE),
+    account: {
+      serverConfirmed: accountTruthState.serverConfirmed === true,
+      lastVerifiedAt: accountTruthState.lastVerifiedAt,
+      confirmedMutationId: accountTruthState.confirmedMutationId,
+      confirmedFingerprint: accountTruthState.confirmedFingerprint,
+      pendingWrites: pending.count,
+      online: navigator.onLine !== false
+    }
+  });
+  currentRecruitWeekCertification = report;
+  scheduleRecruitWeekCertificationReceipt(report);
+  return report;
+}
+
+function recruitWeekCertificationActionMarkup(report = null) {
+  const action = report?.primaryAction;
+  if (!action) return '<span class="recruit-week-certification-wait">Account confirmation in progress</span>';
+  return `<button type="button" data-recruit-week-action="${escapeHtml(action.code)}" data-recruit-week-section="${escapeHtml(action.section || "inspection")}" data-recruit-week-date="${escapeHtml(action.operatingDate || "")}">${escapeHtml(action.label || "Continue")}</button>`;
+}
+
+function recruitWeekCertificationMarkup(report = null) {
+  if (!report) return '<div><span>WEEK STATUS</span><strong>Checking saved proof</strong><small>Your verified week is being restored.</small></div>';
+  const stageSummary = (report.stages || []).map((item) => `<li><span>${escapeHtml(item.id)}</span><strong>${escapeHtml(item.state.replaceAll("_", " "))}</strong></li>`).join("");
+  return `<div class="recruit-week-certification-copy"><span>WEEK STATUS</span><strong>${escapeHtml(report.label)}</strong><small>${escapeHtml(report.detail)}</small></div>
+    <div class="recruit-week-certification-mark" aria-hidden="true"><span>${report.verified ? "7/7" : "→"}</span></div>
+    <div class="recruit-week-certification-action">${recruitWeekCertificationActionMarkup(report)}</div>
+    <details class="recruit-week-certification-support"><summary>Support details</summary><code>${escapeHtml(report.diagnostic?.code || "CHECKING")}</code><ul>${stageSummary}</ul></details>`;
+}
+
+function renderRecruitWeekCertification(inspection = weeklyInspection, options = {}) {
+  const host = document.getElementById("recruit-week-certification");
+  if (!host) return null;
+  const report = options.error ? null : (options.report || buildRecruitWeekCertification(inspection, options));
+  host.hidden = false;
+  host.dataset.weekTone = report?.tone || (options.error ? "red" : "neutral");
+  host.dataset.weekState = report?.state || (options.error ? "ERROR" : "CHECKING");
+  host.innerHTML = options.error
+    ? `<div class="recruit-week-certification-copy"><span>WEEK STATUS</span><strong>Review unavailable</strong><small>${escapeHtml(options.error)}</small></div><div class="recruit-week-certification-action"><button type="button" data-recruit-week-action="RETRY_ACCOUNT" data-recruit-week-section="inspection">Try again</button></div>`
+    : recruitWeekCertificationMarkup(report);
+  document.getElementById("inspection")?.setAttribute("data-week-certification", report?.state || "CHECKING");
+  if (document?.body) {
+    document.body.dataset.recruitWeekCertification = String(report?.state || "checking").toLowerCase().replaceAll("_", "-");
+    document.body.dataset.recruitWeekCertificationReceipt = report?.candidate?.id || "";
+  }
+  return report;
+}
+
 function buildCurrentTrustLayerReport(options = {}) {
   if (typeof DominionTrustLayer === "undefined") return null;
   const manifest = continuityState.manifest || buildCurrentContinuityManifest();
@@ -1805,6 +1898,7 @@ function confirmAccountTruthReceipt(receipt, envelope, restored = 0) {
     recovered: restored > 0
   };
   renderAccountTruthHealth();
+  if (weeklyInspection) renderRecruitWeekCertification(weeklyInspection);
   return snapshot;
 }
 
@@ -14931,7 +15025,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031c", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031e2", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031f", { updateViaCache: "none" })
+    // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031f", { updateViaCache: "none" })
+    navigator.serviceWorker.register("/sw.js?v=031g", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -17216,6 +17311,10 @@ async function launchNextWeekFromWeeklyVerdict(inspection = weeklyInspection) {
     reconciliation: result.reconciliation,
     targetWeek: result.committedWeek,
     rollover: result.rollover
+  });
+  renderRecruitWeekCertification(inspection, {
+    weeklyLaunch: report,
+    targetWeek: result.committedWeek
   });
   return { ...result, launch: report };
 }
@@ -26653,6 +26752,43 @@ if (typeof document !== "undefined") {
       window.location.reload();
       return;
     }
+    const weekAction = event.target.closest("[data-recruit-week-action]");
+    if (weekAction) {
+      event.preventDefault();
+      const action = weekAction.dataset.recruitWeekAction;
+      const section = weekAction.dataset.recruitWeekSection || "inspection";
+      if (action === "REVIEW_PRIOR_DAY") {
+        setActiveSection("today");
+        window.history.replaceState(null, "", "#today");
+        openDailyCloseoutForDate(weekAction.dataset.recruitWeekDate, { force: true });
+      } else if (action === "FINALIZE_WEEK") {
+        document.getElementById("finalize-week")?.click();
+      } else if (action === "APPROVE_NEXT_WEEK") {
+        weekAction.disabled = true;
+        const copy = document.querySelector("#recruit-week-certification .recruit-week-certification-copy");
+        if (copy) copy.innerHTML = "<span>WEEK STATUS</span><strong>APPROVING NEXT WEEK</strong><small>Securing the exact Calendar revision to your account.</small>";
+        try {
+          await launchNextWeekFromWeeklyVerdict(weeklyInspection);
+        } catch (error) {
+          renderRecruitWeekCertification(weeklyInspection, { error: error?.message || "The next week could not be approved." });
+        } finally {
+          weekAction.disabled = false;
+        }
+      } else if (action === "RETRY_ACCOUNT") {
+        weekAction.disabled = true;
+        try {
+          await syncDominionAccountTruth({ reason: "recruit_week_certification", force: true });
+          renderRecruitWeekCertification(weeklyInspection);
+        } finally {
+          weekAction.disabled = false;
+        }
+      } else {
+        setActiveSection(section);
+        window.history.replaceState(null, "", `#${section}`);
+        document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
     const proofWeekAction = event.target.closest("[data-recruit-proof-week-action]");
     if (proofWeekAction) {
       event.preventDefault();
@@ -31241,7 +31377,8 @@ function renderWeeklyJudgment(aggregate, storageMode) {
     operatingDate: proofWeek?.repair?.operatingDate || executionCertification?.repair?.operatingDate || null,
     detail: warning || "One weekly result still needs an honest resolution."
   };
-  renderWeeklyVerdictLaunch(aggregate, { proofWeek, reconciliation: weeklyReconciliation, finalization, message: warning });
+  const weeklyLaunch = renderWeeklyVerdictLaunch(aggregate, { proofWeek, reconciliation: weeklyReconciliation, finalization, message: warning });
+  renderRecruitWeekCertification(aggregate, { proofWeek, weeklyLaunch });
   setText("weekly-next-action-title", judgment.nextAction.label);
   setText("weekly-next-action-detail", judgment.nextAction.detail);
   const nextAction = document.getElementById("weekly-next-action-link");
@@ -31265,6 +31402,7 @@ function renderWeeklyInspection(aggregate, storageMode) {
   } catch (error) {
     console.error("Weekly Review could not render safely.", error);
     renderWeeklyVerdictLaunch(null, { error: error?.message || "Weekly Review could not be restored." });
+    renderRecruitWeekCertification(null, { error: error?.message || "Weekly Review could not be restored." });
     return null;
   }
   weeklyInspection = aggregate;

@@ -13849,6 +13849,48 @@ body:not([data-dominion-section="today"]) .secondary-daily-state { display: bloc
 .weekly-review-diagnostics[open] > summary { border-bottom: 1px solid var(--line); }
 .weekly-review-diagnostics > :not(summary) { margin: 18px; }
 
+.recruit-week-certification {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 17px 18px;
+  border: 1px solid var(--line);
+  background: linear-gradient(110deg, rgba(212, 175, 55, .08), rgba(7, 11, 14, .96) 46%);
+}
+.recruit-week-certification[hidden] { display: none !important; }
+.recruit-week-certification[data-week-tone="green"] { border-color: rgba(46, 228, 132, .46); background: linear-gradient(110deg, rgba(46, 228, 132, .09), rgba(7, 11, 14, .96) 46%); }
+.recruit-week-certification[data-week-tone="red"] { border-color: rgba(255, 102, 102, .5); background: linear-gradient(110deg, rgba(255, 102, 102, .1), rgba(7, 11, 14, .96) 46%); }
+.recruit-week-certification-copy { min-width: 0; display: grid; gap: 4px; }
+.recruit-week-certification-copy > span { color: var(--gold); font: 700 12px/1 var(--font-command); letter-spacing: .12em; }
+.recruit-week-certification-copy > strong { color: var(--text); font: 700 clamp(22px, 3vw, 30px)/1 var(--font-display); letter-spacing: .04em; }
+.recruit-week-certification-copy > small { max-width: 720px; color: var(--muted); line-height: 1.4; }
+.recruit-week-certification-mark {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font: 700 19px/1 var(--font-display);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.recruit-week-certification[data-week-tone="green"] .recruit-week-certification-mark { border-color: var(--green); color: var(--green); }
+.recruit-week-certification[data-week-tone="red"] .recruit-week-certification-mark { border-color: var(--red); color: var(--red); }
+.recruit-week-certification-action { justify-self: end; }
+.recruit-week-certification-action button { min-height: 44px; white-space: nowrap; }
+.recruit-week-certification-wait { color: var(--muted); font: 700 11px/1.3 var(--font-command); letter-spacing: .07em; text-transform: uppercase; }
+.recruit-week-certification-support { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted); }
+.recruit-week-certification-support > summary { width: fit-content; cursor: pointer; font-size: 12px; }
+.recruit-week-certification-support > code { display: inline-block; margin-top: 10px; color: var(--gold); }
+.recruit-week-certification-support > ul { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.recruit-week-certification-support li { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; border: 1px solid var(--line); font-size: 10px; }
+.recruit-week-certification-support li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.recruit-week-certification-support li strong { color: var(--stone); font-size: 9px; }
+#inspection[data-week-certification] #recruit-proof-week-review,
+#inspection[data-week-certification] #weekly-verdict-launch,
+#inspection[data-week-certification] .weekly-verdict-primary-action { display: none !important; }
+
 @media (max-width: 720px) {
   .weekly-verdict-launch-card { padding: 16px; }
   .weekly-verdict-launch-card > header { grid-template-columns: 1fr; gap: 12px; }
@@ -13867,6 +13909,11 @@ body:not([data-dominion-section="today"]) .secondary-daily-state { display: bloc
   .weekly-verdict-launch-card > footer a,
   .weekly-verdict-launch-card > footer button { width: 100%; text-align: center; }
   .weekly-review-diagnostics > :not(summary) { margin: 12px; }
+  .recruit-week-certification { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 14px; }
+  .recruit-week-certification-mark { width: 42px; height: 42px; }
+  .recruit-week-certification-action { grid-column: 1 / -1; justify-self: stretch; }
+  .recruit-week-certification-action button { width: 100%; }
+  .recruit-week-certification-support > ul { grid-template-columns: 1fr 1fr; }
 }
 .integrity-status-channels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
 .integrity-status-channel { min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.025); }

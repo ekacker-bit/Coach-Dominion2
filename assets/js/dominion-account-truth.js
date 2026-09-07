@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030X.1";
+  const VERSION = "031H.1";
   const SCHEMA_VERSION = 1;
   const TRUTH_DOMAINS = Object.freeze(["profile", "readiness", "evidence", "coaching"]);
   const COLLECTION_LIMITS = Object.freeze({
@@ -216,6 +216,11 @@
       schemaVersion: SCHEMA_VERSION,
       userId: options.userId || null,
       deviceId: options.deviceId || null,
+      lifecycle: {
+        campaignId: options.campaignId || options.lifecycle?.campaignId || null,
+        resetEpoch: Math.max(0, Number(options.resetEpoch ?? options.lifecycle?.resetEpoch ?? 0)),
+        accountRevision: Math.max(0, Number(options.accountRevision ?? options.lifecycle?.accountRevision ?? 0))
+      },
       capturedAt: options.capturedAt || new Date().toISOString(),
       programFingerprint: options.programFingerprint || null,
       domains
@@ -225,6 +230,7 @@
       fingerprint: fingerprint({
         schemaVersion: body.schemaVersion,
         userId: body.userId,
+        lifecycle: body.lifecycle,
         programFingerprint: body.programFingerprint,
         domains: Object.fromEntries(TRUTH_DOMAINS.map((domain) => [domain, body.domains[domain].fingerprint]))
       })
@@ -236,6 +242,10 @@
     return buildSnapshot(Object.fromEntries(TRUTH_DOMAINS.map((domain) => [domain, rawDomains?.[domain]?.payload || rawDomains?.[domain] || {}])), {
       userId: value?.userId || options.userId || null,
       deviceId: value?.deviceId || options.deviceId || null,
+      lifecycle: value?.lifecycle || options.lifecycle || null,
+      campaignId: value?.lifecycle?.campaignId || value?.campaignId || options.campaignId || null,
+      resetEpoch: value?.lifecycle?.resetEpoch ?? value?.resetEpoch ?? options.resetEpoch ?? 0,
+      accountRevision: value?.lifecycle?.accountRevision ?? value?.accountRevision ?? options.accountRevision ?? 0,
       capturedAt: value?.capturedAt || options.capturedAt || new Date(0).toISOString(),
       programFingerprint: value?.programFingerprint || options.programFingerprint || null
     });
@@ -285,6 +295,17 @@
     const account = normalizeSnapshot(accountValue, options);
     if (!accountValue || !Object.keys(accountValue).length) return { state: "DEVICE_NEWER", snapshot: device, deviceWins: 1, accountWins: 0 };
     if (!deviceValue || !Object.keys(deviceValue).length) return { state: "ACCOUNT_NEWER", snapshot: account, deviceWins: 0, accountWins: 1 };
+    const lifecycleMismatch = Number(device.lifecycle?.resetEpoch || 0) !== Number(account.lifecycle?.resetEpoch || 0)
+      || Boolean(device.lifecycle?.campaignId && account.lifecycle?.campaignId && device.lifecycle.campaignId !== account.lifecycle.campaignId);
+    if (lifecycleMismatch) {
+      const accountIsCurrent = Number(account.lifecycle?.resetEpoch || 0) >= Number(device.lifecycle?.resetEpoch || 0);
+      return {
+        state: accountIsCurrent ? "STALE_DEVICE" : "STALE_ACCOUNT",
+        snapshot: accountIsCurrent ? account : device,
+        deviceWins: accountIsCurrent ? 0 : 1,
+        accountWins: accountIsCurrent ? 1 : 0
+      };
+    }
     if (device.fingerprint === account.fingerprint) return { state: "MATCHED", snapshot: device, deviceWins: 0, accountWins: 0 };
     let deviceWins = 0;
     let accountWins = 0;
@@ -303,6 +324,7 @@
     const snapshot = buildSnapshot(mergedInput, {
       userId: device.userId || account.userId,
       deviceId: device.deviceId || account.deviceId,
+      lifecycle: device.lifecycle?.campaignId ? device.lifecycle : account.lifecycle,
       capturedAt: new Date(Math.max(parsedTime(device.capturedAt), parsedTime(account.capturedAt), Date.now())).toISOString(),
       programFingerprint: options.programFingerprint || device.programFingerprint || account.programFingerprint
     });

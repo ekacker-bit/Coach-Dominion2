@@ -12773,6 +12773,84 @@ body[data-startup-authority="blocked"] .startup-restore-mark { animation: none; 
   .frictionless-execution-modules button { min-height: 54px; }
 }
 
+/* Account and campaign lifecycle */
+.nav-more-menu .nav-account-link {
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  letter-spacing: .08em;
+  text-transform: none;
+}
+.nav-more-menu .nav-account-link:hover { color: var(--text); background: var(--panel2); }
+.account-dialog {
+  width: min(760px, calc(100vw - 28px));
+  max-height: min(880px, calc(100vh - 28px));
+  padding: 0;
+  border: 1px solid rgba(212, 175, 55, .42);
+  background: #080b0d;
+  color: var(--text);
+}
+.account-dialog::backdrop { background: rgba(0, 0, 0, .78); backdrop-filter: blur(4px); }
+.account-dialog-shell { display: grid; gap: 18px; padding: clamp(18px, 4vw, 34px); }
+.account-dialog-shell > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.account-dialog-shell > header span,
+.account-reset-zone > span,
+.account-summary span {
+  color: var(--gold);
+  font: 700 11px/1 var(--font-command);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.account-dialog-shell > header h2 { margin: 6px 0 4px; font-size: clamp(34px, 6vw, 52px); }
+.account-dialog-shell > header p { max-width: 520px; margin: 0; color: var(--muted); }
+.account-summary { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); background: rgba(255, 255, 255, .018); }
+.account-summary > div { display: grid; gap: 7px; min-width: 0; padding: 16px; }
+.account-summary > div + div { border-left: 1px solid var(--line); }
+.account-summary strong { overflow-wrap: anywhere; }
+.account-summary small { color: var(--muted); }
+.account-campaign-history-panel { border: 1px solid var(--line); }
+.account-campaign-history-panel > summary { display: flex; justify-content: space-between; padding: 14px 16px; cursor: pointer; font-weight: 800; }
+.account-campaign-history-panel > summary span { color: var(--muted); font: 700 10px/1 var(--font-command); letter-spacing: .1em; }
+.account-campaign-history { display: grid; gap: 7px; padding: 0 12px 12px; }
+.account-campaign-history article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .02); }
+.account-campaign-history article > div { display: grid; gap: 4px; }
+.account-campaign-history article span,
+.account-campaign-history article small { color: var(--muted); font-size: 11px; }
+.account-campaign-history article b { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--gold); font: 700 10px/1 var(--font-command); letter-spacing: .08em; }
+.account-reset-zone { display: grid; gap: 13px; padding: clamp(16px, 3vw, 24px); border: 1px solid rgba(221, 83, 83, .5); background: linear-gradient(135deg, rgba(132, 29, 29, .13), rgba(7, 10, 12, .96) 52%); }
+.account-reset-zone h3 { margin: -4px 0 0; font-size: clamp(26px, 4vw, 38px); }
+.account-reset-zone p { margin: 0; color: var(--muted); line-height: 1.55; }
+.account-reset-zone ul { display: grid; gap: 7px; margin: 0; padding-left: 20px; color: var(--muted); }
+.account-reset-zone label { display: grid; gap: 8px; color: var(--text); font-weight: 800; }
+.account-reset-zone input { text-transform: uppercase; letter-spacing: .16em; }
+.account-reset-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.mobile-more-grid button[data-account-action="open"] {
+  display: grid;
+  min-height: 76px;
+  align-content: center;
+  justify-items: start;
+  gap: 7px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .018);
+  color: var(--text);
+  text-align: left;
+}
+.mobile-more-grid button[data-account-action="open"] small { color: var(--muted); font-size: 10px; }
+@media (max-width: 620px) {
+  .account-dialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+  .account-dialog-shell { gap: 14px; padding: 15px; }
+  .account-summary { grid-template-columns: 1fr; }
+  .account-summary > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .account-reset-actions { align-items: stretch; flex-direction: column-reverse; }
+  .account-reset-actions button { width: 100%; }
+  .account-campaign-history article { grid-template-columns: 1fr; }
+  .account-campaign-history article b { grid-column: 1; grid-row: auto; justify-self: start; }
+}
+
 @media (max-width: 430px) {
   .today-quick-log { gap: 8px; padding: 10px; }
   .today-quick-log > header { gap: 2px; }

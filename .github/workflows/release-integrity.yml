@@ -30,6 +30,7 @@ jobs:
           npm run test:031e
           npm run test:031f
           npm run test:031g
+          npm run test:031h
 
   production-canary:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -53,4 +54,5 @@ jobs:
         # Prior canary identity retained for historical release-integrity tests: --expected-release 031E.1
         # Prior canary identity retained for historical release-integrity tests: --expected-release 031E.2
         # Prior canary identity retained for historical release-integrity tests: --expected-release 031F.1
-        run: node scripts/production-canary.js --base-url https://coach-dominion2.vercel.app --expected-release 031G.1 --expected-commit ${{ github.sha }} --attempts 30 --interval-ms 10000
+        # Prior canary identity retained for historical release-integrity tests: --expected-release 031G.1
+        run: node scripts/production-canary.js --base-url https://coach-dominion2.vercel.app --expected-release 031H.1 --expected-commit ${{ github.sha }} --attempts 30 --interval-ms 10000

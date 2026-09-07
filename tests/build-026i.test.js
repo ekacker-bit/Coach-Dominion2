@@ -17,7 +17,7 @@ const pkg = JSON.parse(read("package.json"));
 const preview = read("tests/fixtures/account-truth-preview.html");
 
 test("Build 026I installs one versioned Account Truth engine before app bindings", () => {
-  assert.match(engine, /const VERSION = "(?:026I|029N|030D|030E|030K|030L|030M|030N|030O|030V|030W|030X)\.1"/);
+  assert.match(engine, /const VERSION = "(?:026I|029N|030D|030E|030K|030L|030M|030N|030O|030V|030W|030X|031H)\.1"/);
   assert.match(engine, /const TRUTH_DOMAINS/);
   assert.match(engine, /function reconcileSnapshots/);
   assert.ok(html.indexOf("dominion-account-truth.js?v=026i") < html.indexOf("app.js?v="));
@@ -41,7 +41,10 @@ test("profile, readiness, evidence, and coaching memory reconcile at startup", (
   assert.match(app, /startupAccountLedger = navigator\.onLine === false \? null : await loadAccountTruthLedger\(\)/);
   assert.match(app, /const accountLedgerPromise = readStartupAccountLedger\(\)/);
   assert.match(app, /DominionStartupAuthority\.verifiedDevicePreview/);
-  assert.ok(app.indexOf("DominionStartupAuthority.verifiedDevicePreview") < app.indexOf("await accountLedgerPromise"));
+  const initSource = app.slice(app.indexOf("async function init()"));
+  assert.ok(initSource.indexOf("await accountLedgerPromise") < initSource.indexOf("const verifiedDeviceSnapshot"));
+  assert.ok(initSource.indexOf("const verifiedDeviceSnapshot") < initSource.indexOf("DominionStartupAuthority.verifiedDevicePreview"));
+  assert.match(app, /applyCampaignLifecycleFromLedger/);
   assert.match(app, /let authoritativeStartup = reconcileStartupAccountState\(\{ hydrationComplete: false \}\)/);
   assert.match(app, /function applyAccountTruthSnapshot/);
 });

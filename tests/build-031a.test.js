@@ -24,7 +24,9 @@ test("031A wires early protected restore, canonical identity, date-safe Review, 
   assert.match(html, /id="integrity-status-channels"/);
   assert.match(app, /reconcileStartupAccountState\(\{ hydrationComplete: false \}\)/);
   assert.match(app, /DominionStartupAuthority\.verifiedDevicePreview/);
-  assert.ok(app.indexOf("DominionStartupAuthority.verifiedDevicePreview") < app.indexOf("await accountLedgerPromise"), "verified device content must render before the account request completes");
+  const initSource = app.slice(app.indexOf("async function init()"));
+  assert.ok(initSource.indexOf("await accountLedgerPromise") < initSource.indexOf("const verifiedDeviceSnapshot"), "campaign generation must be verified before any device preview can render");
+  assert.match(app, /applyCampaignLifecycleFromLedger/);
   assert.match(app, /markStartupRestorePhase\("usable"\)/);
   assert.match(app, /DominionStartupAuthority\.completeHydration/);
   assert.match(app, /DominionWeekProgress\.resolve/);

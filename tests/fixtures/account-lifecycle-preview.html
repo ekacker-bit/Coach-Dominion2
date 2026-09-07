@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Account preview</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=031h">
+</head>
+<body>
+  <button id="open-account" type="button">Open Account</button>
+  <script>
+    fetch('/app.html').then(response => response.text()).then(html => {
+      const source = new DOMParser().parseFromString(html, 'text/html');
+      const dialog = source.getElementById('account-dialog');
+      document.body.append(dialog);
+      document.getElementById('account-email').textContent = 'recruit@example.com';
+      document.getElementById('account-access').textContent = 'Active access';
+      document.getElementById('account-campaign').textContent = 'Campaign 1';
+      document.getElementById('account-sync').textContent = 'All work saved';
+      document.getElementById('account-campaign-history').textContent = 'No prior campaigns.';
+      document.querySelectorAll('[data-account-action="close"]').forEach(button => button.addEventListener('click', () => dialog.close()));
+      document.getElementById('open-account').addEventListener('click', () => dialog.showModal());
+      dialog.showModal();
+    });
+  </script>
+</body>
+</html>

@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
-  <meta name="coach-dominion-release" content="031G.1">
+  <meta name="coach-dominion-release" content="031H.1">
+  <!-- Prior production identity retained for historical release-integrity tests: <meta name="coach-dominion-release" content="031G.1"> -->
   <!-- Prior production identity retained for historical release-integrity tests: <meta name="coach-dominion-release" content="031F.1"> -->
   <!-- Prior production identity retained for historical release-integrity tests: <meta name="coach-dominion-release" content="031E.2"> -->
   <!-- Prior production identity retained for historical release-integrity tests: <meta name="coach-dominion-release" content="031C.1"> -->
@@ -20,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u-030v-030w-030y-030z-031a-031c-031d-031e-031g">
+<link rel="stylesheet" href="/assets/styles.css?v=025c3-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029d-029f-029g-029n-030b-030c-030d1-030e1-030k-030l-030m-030n-030o-030p-030r-030s-030t-030u-030v-030w-030y-030z-031a-031c-031d-031e-031g-031h">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body data-brand-system="021A" data-app-loading="true" data-startup-authority="authenticating" data-startup-mode="protected_loading">
@@ -60,6 +61,7 @@
               <a class="nav-link" href="#standards" data-section="standards">Standards</a>
               <a class="nav-link" href="#record" data-section="record">Daily Record</a>
               <a class="nav-link" href="#connected" data-section="connected">Connections &amp; Data</a>
+              <button class="nav-link nav-account-link" type="button" data-account-action="open">Account</button>
             </div>
           </details>
         </nav>
@@ -537,6 +539,7 @@
           <span id="connected-storage" class="state-pill neutral">LOADING</span>
         </div>
         <div class="connected-mobile-account-actions" aria-label="Account actions">
+          <button class="ghost" type="button" data-account-action="open">Account</button>
           <button id="mobile-logout" class="ghost" type="button">Sign out</button>
         </div>
         <div id="connected-feedback" class="connected-notice" role="status" aria-live="polite">Loading Connected Dominion state…</div>
@@ -2441,6 +2444,40 @@
       <p id="atlas-decision-feedback-status" class="muted" role="status" aria-live="polite"></p>
     </form>
   </dialog>
+  <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-dialog-heading">
+    <div class="account-dialog-shell">
+      <header>
+        <div><span>ACCOUNT</span><h2 id="account-dialog-heading">Your account</h2><p>Manage access and campaigns without risking saved work.</p></div>
+        <button type="button" class="ghost" data-account-action="close" aria-label="Close account">Close</button>
+      </header>
+      <section class="account-summary" aria-label="Account summary">
+        <div><span>SIGNED IN</span><strong id="account-email">Checking…</strong><small id="account-access">Checking access</small></div>
+        <div><span>ACTIVE CAMPAIGN</span><strong id="account-campaign">Checking…</strong><small id="account-sync">Checking saved work</small></div>
+      </section>
+      <details class="account-campaign-history-panel">
+        <summary>Past campaigns <span>Read only</span></summary>
+        <div id="account-campaign-history" class="account-campaign-history"><div class="performance-empty">Checking campaign history…</div></div>
+      </details>
+      <section class="account-reset-zone" aria-labelledby="account-reset-heading">
+        <span>START A NEW CAMPAIGN</span>
+        <h3 id="account-reset-heading">Archive this campaign and start over</h3>
+        <p>Your sign-in, account access, connected sources, progress photos, and archived campaign stay. The active Contract, plans, Calendar, sessions, daily records, review state, and orientation restart.</p>
+        <ul>
+          <li>The current campaign becomes read only.</li>
+          <li>Atlas returns you to a clean Contract.</li>
+          <li>Nothing changes unless the account confirms the full reset.</li>
+        </ul>
+        <label>Type START OVER to confirm
+          <input id="account-reset-confirmation" autocomplete="off" spellcheck="false" placeholder="START OVER">
+        </label>
+        <div class="account-reset-actions">
+          <button type="button" class="ghost" data-account-action="close">Keep this campaign</button>
+          <button id="account-reset-confirm" type="button" class="danger" data-account-action="reset" disabled>Archive and start over</button>
+        </div>
+        <p id="account-reset-status" class="muted" role="status" aria-live="polite">Type START OVER exactly to confirm.</p>
+      </section>
+    </div>
+  </dialog>
   <dialog id="mobile-more-dialog" class="mobile-more-dialog" aria-labelledby="mobile-more-heading">
     <div class="mobile-more-shell">
       <header>
@@ -2456,6 +2493,7 @@
         <a href="#inspection" data-section="inspection"><strong>Rank &amp; advancement</strong><small>See what you earned</small></a>
         <a href="#record" data-section="record"><strong>Record</strong><small>Log evidence</small></a>
         <a href="#connected" data-section="connected"><strong>Connections</strong><small>Manage data</small></a>
+        <button type="button" data-account-action="open"><strong>Account</strong><small>Access and campaigns</small></button>
       </nav>
       <button type="button" class="ghost mobile-more-signout" data-mobile-more-action="signout">Sign out</button>
     </div>
@@ -2584,8 +2622,9 @@
   <!-- Legacy release-integrity marker: /assets/js/dominion-continuity.js?v=025n -->
   <script src="/assets/js/dominion-continuity.js?v=031a"></script>
 <script src="/assets/js/contract-reconciliation.js?v=029n"></script>
-<script src="/assets/js/dominion-account-truth.js?v=026i-029n-030d-030e-030j-030k-030l-030m-030n-030o-030t-030u-030v-030w-030x"></script>
-<script src="/assets/js/account-persistence.js?v=029c-029g-029n-030c-030e"></script>
+<script src="/assets/js/dominion-account-truth.js?v=026i-029n-030d-030e-030j-030k-030l-030m-030n-030o-030t-030u-030v-030w-030x-031h"></script>
+<script src="/assets/js/account-persistence.js?v=029c-029g-029n-030c-030e-031h"></script>
+<script src="/assets/js/campaign-lifecycle.js?v=031h"></script>
 <script src="/assets/js/command-first-today.js?v=029d"></script>
 <script src="/assets/js/trust-layer.js?v=028a-029l"></script>
 <script src="/assets/js/beta-readiness-gate.js?v=029h"></script>
@@ -2632,6 +2671,6 @@
 <script src="/assets/js/atlas-progression-engine.js?v=027b"></script>
 <script src="/assets/js/recovery-command.js?v=027c"></script>
   <!-- Legacy release-integrity marker: <script src="/assets/js/app.js?v=-030r-030s-030t-030u-030v-030w-030x-030y-030z"></script> -->
-  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u-030v-030w-030x-030y-030z-031a-031b-031c-031d-031e-031e2-031f-031g"></script>
+  <script src="/assets/js/app.js?v=025c7-025h-025i-025j-025k-025l-025m-025n-025o-025p-025q-025r-025s-025t-025u-025v-025w-025x-025y-025z-026a-026bc-026d-026e-026g-026h-026i-026j-026k-026l-027a-027b-027c-027d-027e-027f-028a-028b-028c-028d-028e-028f-029a-029b-029c-029d-029e-029f-029g2-029h-029l-029n-029o-030a-030b-030c-030d-030e-030f-030g-030h-030i-030j-030k-030l-030m-030n-030o-030p-030q-030r-030s-030t-030u-030v-030w-030x-030y-030z-031a-031b-031c-031d-031e-031e2-031f-031g-031h"></script>
 </body>
 </html>

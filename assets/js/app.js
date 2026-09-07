@@ -93,6 +93,10 @@ let continuityState = {
   mode: "CHECKING",
   initialized: false,
   accountRevision: 0,
+  campaignId: null,
+  resetEpoch: 0,
+  lastResetId: null,
+  lastResetAt: null,
   manifest: null,
   accountManifest: null,
   manifestConflicts: [],
@@ -109,11 +113,16 @@ let accountTruthRetryTimer = null;
 let accountTruthSyncPromise = null;
 let accountTruthAuthSubscription = null;
 let accountPersistenceWarningState = null;
+let campaignArchives = [];
+let accountResetCommand = null;
+let accountResetInFlight = false;
 let accountTruthState = {
   mode: "CHECKING",
   initialized: false,
   applying: false,
   accountRevision: 0,
+  campaignId: null,
+  resetEpoch: 0,
   truthSchemaVersion: 0,
   snapshot: null,
   accountSnapshot: null,
@@ -451,6 +460,67 @@ function readContinuityRetryQueue() {
   }
 }
 
+function currentCampaignLifecycle() {
+  if (typeof DominionCampaignLifecycle === "undefined") {
+    return {
+      campaignId: continuityState.campaignId || null,
+      resetEpoch: Number(continuityState.resetEpoch || 0),
+      accountRevision: Number(continuityState.accountRevision || 0)
+    };
+  }
+  return DominionCampaignLifecycle.normalizeLifecycle(continuityState);
+}
+
+function campaignLifecycleStorageKey() {
+  return typeof DominionCampaignLifecycle === "undefined"
+    ? `coach-dominion:campaign-lifecycle:${session?.user?.id || "local"}`
+    : DominionCampaignLifecycle.markerKey(session?.user?.id || "local");
+}
+
+function readCampaignLifecycleMarker() {
+  try { return JSON.parse(window.localStorage.getItem(campaignLifecycleStorageKey()) || "null"); }
+  catch (_) { return null; }
+}
+
+function saveCampaignLifecycleMarker(lifecycle = currentCampaignLifecycle()) {
+  if (!lifecycle?.campaignId && Number(lifecycle?.resetEpoch || 0) === 0) return null;
+  const value = typeof DominionCampaignLifecycle === "undefined"
+    ? lifecycle
+    : DominionCampaignLifecycle.normalizeLifecycle(lifecycle);
+  try { window.localStorage.setItem(campaignLifecycleStorageKey(), JSON.stringify(value)); }
+  catch (_) {}
+  return value;
+}
+
+function clearLocalCampaignStorage(userId = session?.user?.id) {
+  if (!userId) return [];
+  const keys = Array.from({ length: window.localStorage.length }, (_, index) => window.localStorage.key(index)).filter(Boolean);
+  const remove = typeof DominionCampaignLifecycle === "undefined"
+    ? keys.filter((key) => key.startsWith("coach-dominion:") && key.includes(`:${userId}`))
+    : DominionCampaignLifecycle.storageKeysToRemove(keys, userId);
+  remove.forEach((key) => window.localStorage.removeItem(key));
+  return remove;
+}
+
+function applyCampaignLifecycleFromLedger(ledger = null) {
+  if (!ledger) return { current: true, state: "UNINITIALIZED" };
+  const lifecycle = typeof DominionCampaignLifecycle === "undefined"
+    ? { campaignId: ledger.campaign_id || null, resetEpoch: Number(ledger.reset_epoch || 0), accountRevision: Number(ledger.revision || 0) }
+    : DominionCampaignLifecycle.normalizeLifecycle(ledger);
+  const marker = readCampaignLifecycleMarker();
+  const snapshot = readAccountTruthLocalSnapshot();
+  const device = typeof DominionCampaignLifecycle === "undefined"
+    ? { current: true, state: "LEGACY_CURRENT" }
+    : DominionCampaignLifecycle.deviceState({ server: lifecycle, marker, snapshot });
+  continuityState.campaignId = lifecycle.campaignId;
+  continuityState.resetEpoch = lifecycle.resetEpoch;
+  continuityState.lastResetId = lifecycle.lastResetId;
+  continuityState.lastResetAt = lifecycle.lastResetAt;
+  if (!device.current) clearLocalCampaignStorage(session?.user?.id);
+  saveCampaignLifecycleMarker(lifecycle);
+  return device;
+}
+
 function saveContinuityRetryQueue(items = []) {
   const queue = Array.isArray(items) ? items.slice(-50) : [];
   window.localStorage.setItem(continuityRetryStorageKey(), JSON.stringify(queue));
@@ -637,7 +707,16 @@ function accountTruthQueueStorageKey() {
 }
 
 function readAccountTruthLocalSnapshot() {
-  try { return JSON.parse(window.localStorage.getItem(accountTruthSnapshotStorageKey()) || "null"); }
+  try {
+    const snapshot = JSON.parse(window.localStorage.getItem(accountTruthSnapshotStorageKey()) || "null");
+    if (!snapshot || typeof DominionCampaignLifecycle === "undefined" || !continuityState.campaignId) return snapshot;
+    const guard = DominionCampaignLifecycle.deviceState({
+      server: currentCampaignLifecycle(),
+      marker: readCampaignLifecycleMarker(),
+      snapshot
+    });
+    return guard.current ? snapshot : null;
+  }
   catch (_) { return null; }
 }
 
@@ -659,7 +738,9 @@ function readAccountTruthQueue() {
       manifest: fallbackManifest,
       userId: session?.user?.id || null,
       deviceId: continuityDeviceId(),
-      expectedRevision: continuityState.accountRevision
+      expectedRevision: continuityState.accountRevision,
+      campaignId: continuityState.campaignId,
+      resetEpoch: continuityState.resetEpoch
     })).filter(Boolean);
   } catch (_) {
     return [];
@@ -756,6 +837,8 @@ function buildAccountTruthWriteEnvelope(manifest, snapshot, expectedRevision, op
     userId: session?.user?.id || null,
     deviceId: continuityDeviceId(),
     expectedRevision,
+    campaignId: continuityState.campaignId,
+    resetEpoch: continuityState.resetEpoch,
     manifest,
     snapshot,
     mutationId: options.mutationId,
@@ -1015,6 +1098,10 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
   }, {
     userId: session?.user?.id || null,
     deviceId: continuityDeviceId(),
+    lifecycle: currentCampaignLifecycle(),
+    campaignId: continuityState.campaignId,
+    resetEpoch: continuityState.resetEpoch,
+    accountRevision: continuityState.accountRevision,
     capturedAt: new Date().toISOString(),
     programFingerprint: manifest?.fingerprint || null
   });
@@ -1022,6 +1109,14 @@ function buildCurrentAccountTruthSnapshot(manifest = continuityState.manifest ||
 
 function applyAccountTruthSnapshot(snapshot = null) {
   if (!snapshot || typeof DominionAccountTruth === "undefined") return 0;
+  if (typeof DominionCampaignLifecycle !== "undefined" && continuityState.campaignId) {
+    const guard = DominionCampaignLifecycle.deviceState({
+      server: currentCampaignLifecycle(),
+      marker: readCampaignLifecycleMarker(),
+      snapshot
+    });
+    if (!guard.current) return 0;
+  }
   const normalized = DominionAccountTruth.normalizeSnapshot(snapshot, {
     userId: session?.user?.id || null,
     deviceId: continuityDeviceId()
@@ -1813,14 +1908,27 @@ function accountPersistenceMigrationMissing(error = null) {
     || /last_mutation_id|last_mutation_fingerprint|sync_dominion_account_truth_v2/i.test(error?.message || "");
 }
 
+function campaignLifecycleMigrationMissing(error = null) {
+  return ["42703", "42883", "PGRST202", "PGRST204"].includes(error?.code)
+    || /campaign_id|reset_epoch|sync_dominion_account_truth_v3/i.test(error?.message || "");
+}
+
 async function loadAccountTruthLedger() {
   const supabase = await getClient();
   const baseColumns = "revision,schema_version,truth_schema_version,device_id,manifest,truth_snapshot,integrity_status,last_verified_at,client_updated_at,updated_at";
   const receiptColumns = `${baseColumns},last_mutation_id,last_mutation_fingerprint,last_acknowledged_at`;
+  const lifecycleColumns = `${receiptColumns},campaign_id,reset_epoch,last_reset_id,last_reset_at`;
   let result = await supabase.from("dominion_continuity_state")
-    .select(receiptColumns)
+    .select(lifecycleColumns)
     .eq("user_id", session.user.id)
     .maybeSingle();
+  if (result.error && campaignLifecycleMigrationMissing(result.error)) {
+    result = await supabase.from("dominion_continuity_state")
+      .select(receiptColumns)
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (!result.error && result.data) result.data.__legacyLifecycle = true;
+  }
   if (result.error && accountPersistenceMigrationMissing(result.error)) {
     result = await supabase.from("dominion_continuity_state")
       .select(baseColumns)
@@ -1844,11 +1952,24 @@ async function saveAccountTruthLedger(envelope, integrityStatus = "VERIFIED") {
     next_integrity_status: integrityStatus,
     next_client_updated_at: envelope.clientUpdatedAt || new Date().toISOString()
   };
-  let { data, error } = await supabase.rpc("sync_dominion_account_truth_v2", {
+  let { data, error } = await supabase.rpc("sync_dominion_account_truth_v3", {
     ...common,
     next_mutation_id: envelope.mutationId,
-    next_mutation_fingerprint: envelope.mutationFingerprint
+    next_mutation_fingerprint: envelope.mutationFingerprint,
+    expected_campaign_id: envelope.campaignId,
+    expected_reset_epoch: Number(envelope.resetEpoch || 0)
   });
+  if (error && campaignLifecycleMigrationMissing(error)) {
+    ({ data, error } = await supabase.rpc("sync_dominion_account_truth_v2", {
+      ...common,
+      next_mutation_id: envelope.mutationId,
+      next_mutation_fingerprint: envelope.mutationFingerprint
+    }));
+    if (!error) {
+      const legacyLifecycle = Array.isArray(data) ? data[0] : data;
+      return legacyLifecycle ? { ...legacyLifecycle, __legacyLifecycle: true } : legacyLifecycle;
+    }
+  }
   if (error && accountPersistenceMigrationMissing(error)) {
     ({ data, error } = await supabase.rpc("sync_dominion_account_truth", common));
     if (!error) {
@@ -1877,14 +1998,21 @@ function confirmAccountTruthReceipt(receipt, envelope, restored = 0) {
   saveAccountTruthQueue([]);
   window.clearTimeout(accountTruthRetryTimer);
   continuityState.accountRevision = Number(receipt?.revision || envelope.expectedRevision + 1);
+  continuityState.campaignId = receipt?.campaign_id || envelope.campaignId || continuityState.campaignId || null;
+  continuityState.resetEpoch = Number(receipt?.reset_epoch ?? envelope.resetEpoch ?? continuityState.resetEpoch ?? 0);
+  continuityState.lastResetId = receipt?.last_reset_id || continuityState.lastResetId || null;
+  continuityState.lastResetAt = receipt?.last_reset_at || continuityState.lastResetAt || null;
   continuityState.accountManifest = receipt?.manifest || envelope.manifest;
   continuityState.lastSyncedAt = receipt?.last_acknowledged_at || receipt?.last_verified_at || receipt?.updated_at || new Date().toISOString();
   if (receipt?.manifest) saveContinuityManifestLocal(receipt.manifest);
+  saveCampaignLifecycleMarker(currentCampaignLifecycle());
   accountTruthState = {
     ...accountTruthState,
     mode: restored ? "RECOVERED" : "VERIFIED",
     initialized: true,
     accountRevision: continuityState.accountRevision,
+    campaignId: continuityState.campaignId,
+    resetEpoch: continuityState.resetEpoch,
     truthSchemaVersion: Number(receipt?.truth_schema_version || DominionAccountTruth.SCHEMA_VERSION),
     snapshot,
     accountSnapshot: snapshot,
@@ -15026,7 +15154,8 @@ function registerMobileServiceWorker() {
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031d", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031e2", { updateViaCache: "none" })
     // Prior shell signature retained for release audit: navigator.serviceWorker.register("/sw.js?v=031f", { updateViaCache: "none" })
-    navigator.serviceWorker.register("/sw.js?v=031g", { updateViaCache: "none" })
+    // Prior cache identity retained for historical release-integrity tests: /sw.js?v=031g
+    navigator.serviceWorker.register("/sw.js?v=031h", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -23500,6 +23629,137 @@ async function signOutUser() {
   window.location.replace("/");
 }
 
+function accountAccessSummary() {
+  if (typeof DominionAccountEntry === "undefined") return "Coach Dominion account";
+  const access = DominionAccountEntry.accountAccess(session?.user || {});
+  return access.status === "CLOSED_ALPHA" ? "Closed alpha access" : `${String(access.status || "ACTIVE").replaceAll("_", " ").toLowerCase()} access`;
+}
+
+function accountCampaignLabel(lifecycle = currentCampaignLifecycle()) {
+  if (!lifecycle.campaignId) return "No campaign established";
+  return `Campaign ${lifecycle.campaignId.slice(0, 8).toUpperCase()} · generation ${Number(lifecycle.resetEpoch || 0) + 1}`;
+}
+
+async function loadCampaignArchives() {
+  if (!session?.user?.id) return [];
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.from("dominion_campaign_archive")
+      .select("archive_id,campaign_id,continuity_revision,summary,archived_at")
+      .eq("user_id", session.user.id)
+      .order("archived_at", { ascending: false })
+      .limit(12);
+    if (error) {
+      if (campaignLifecycleMigrationMissing(error) || /dominion_campaign_archive/i.test(error?.message || "")) return [];
+      throw error;
+    }
+    campaignArchives = (data || []).map((row) => typeof DominionCampaignLifecycle === "undefined" ? row : DominionCampaignLifecycle.archiveSummary(row));
+  } catch (_) {
+    campaignArchives = [];
+  }
+  return campaignArchives;
+}
+
+function renderCampaignArchives() {
+  const root = document.getElementById("account-campaign-history");
+  if (!root) return;
+  if (!campaignArchives.length) {
+    root.innerHTML = '<div class="performance-empty">No prior campaigns.</div>';
+    return;
+  }
+  root.innerHTML = campaignArchives.map((item) => {
+    const archivedAt = item.archivedAt || item.archived_at;
+    const label = archivedAt ? new Date(archivedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "Archived";
+    const goal = item.goal || item.summary?.goal || "Campaign archived";
+    const days = Number(item.recordedDays ?? item.summary?.recorded_days ?? 0);
+    const sessions = Number(item.completedSessions ?? item.summary?.completed_sessions ?? 0);
+    return `<article><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(goal)}</strong></div><small>${days} recorded day${days === 1 ? "" : "s"} · ${sessions} session${sessions === 1 ? "" : "s"}</small><b>READ ONLY</b></article>`;
+  }).join("");
+}
+
+function refreshAccountResetState() {
+  if (typeof DominionCampaignLifecycle === "undefined") return null;
+  const input = document.getElementById("account-reset-confirmation");
+  accountResetCommand = DominionCampaignLifecycle.buildResetCommand({
+    userId: session?.user?.id || null,
+    authenticated: Boolean(session?.user?.id),
+    online: navigator.onLine !== false,
+    pendingWrites: canonicalPendingWriteState().count,
+    lifecycle: currentCampaignLifecycle(),
+    confirmation: input?.value || "",
+    resetId: accountResetCommand?.resetId,
+    nextCampaignId: accountResetCommand?.nextCampaignId
+  });
+  const button = document.getElementById("account-reset-confirm");
+  const status = document.getElementById("account-reset-status");
+  if (button) button.disabled = !accountResetCommand.ready || accountResetInFlight;
+  if (status) status.textContent = accountResetInFlight ? "Archiving this campaign and opening a clean one…" : accountResetCommand.detail;
+  return accountResetCommand;
+}
+
+async function renderAccountDialog(options = {}) {
+  setText("account-email", session?.user?.email || "Signed-in recruit");
+  setText("account-access", accountAccessSummary());
+  setText("account-campaign", accountCampaignLabel());
+  setText("account-sync", canonicalPendingWriteState().count ? canonicalPendingWriteDetail() : "Every protected save is current.");
+  if (options.reloadArchives !== false) await loadCampaignArchives();
+  renderCampaignArchives();
+  refreshAccountResetState();
+}
+
+async function openAccountDialog() {
+  const dialog = document.getElementById("account-dialog");
+  if (!dialog) return;
+  const input = document.getElementById("account-reset-confirmation");
+  if (input) input.value = "";
+  accountResetCommand = null;
+  await renderAccountDialog();
+  dialog.showModal();
+}
+
+async function resetAccountCampaign() {
+  if (accountResetInFlight || typeof DominionCampaignLifecycle === "undefined") return false;
+  const command = refreshAccountResetState();
+  if (!command?.ready) return false;
+  accountResetInFlight = true;
+  refreshAccountResetState();
+  try {
+    const supabase = await getClient();
+    const { data, error } = await supabase.rpc("reset_dominion_campaign", DominionCampaignLifecycle.rpcArgs(command));
+    if (error) throw error;
+    const receipt = Array.isArray(data) ? data[0] : data;
+    if (!DominionCampaignLifecycle.receiptMatches(receipt, command)) {
+      throw Object.assign(new Error("The account did not return an exact new-campaign receipt."), { code: "RESET_NOT_ACKNOWLEDGED" });
+    }
+    continuityState = {
+      ...continuityState,
+      accountRevision: Number(receipt.revision),
+      campaignId: receipt.campaign_id,
+      resetEpoch: Number(receipt.reset_epoch),
+      lastResetId: receipt.reset_id,
+      lastResetAt: receipt.archived_at,
+      manifest: null,
+      accountManifest: null,
+      manifestConflicts: [],
+      pendingWrites: 0
+    };
+    clearLocalCampaignStorage(session.user.id);
+    saveCampaignLifecycleMarker(currentCampaignLifecycle());
+    window.location.replace(`/app?campaign=${encodeURIComponent(String(receipt.reset_epoch))}#contract`);
+    return true;
+  } catch (error) {
+    const status = document.getElementById("account-reset-status");
+    if (status) status.textContent = campaignLifecycleMigrationMissing(error)
+      ? "Account reset is not active yet. The campaign was not changed."
+      : error?.message || "The campaign was not changed. Try again.";
+    return false;
+  } finally {
+    accountResetInFlight = false;
+    const button = document.getElementById("account-reset-confirm");
+    if (button) button.disabled = !accountResetCommand?.ready;
+  }
+}
+
 function handleSectionNavigation(link) {
   const nextSection = link?.dataset?.section || normalizeSectionKey(link?.hash?.replace("#", ""));
   if (shouldWarnBeforeNavigation(nextSection, complianceDirtyState)) {
@@ -26416,6 +26676,7 @@ async function readStartupAccountLedger() {
   }
   try {
     startupAccountLedger = navigator.onLine === false ? null : await loadAccountTruthLedger();
+    if (startupAccountLedger) applyCampaignLifecycleFromLedger(startupAccountLedger);
     startupAccountError = navigator.onLine === false ? Object.assign(new Error("Account unavailable while offline."), { code: "OFFLINE" }) : null;
   } catch (error) {
     startupAccountLedger = null;
@@ -26516,6 +26777,7 @@ async function init() {
     setStartupRestoreProgress("Restoring account snapshot.");
     const startupIssues = [];
     const accountLedgerPromise = readStartupAccountLedger();
+    await accountLedgerPromise;
     const verifiedDeviceSnapshot = readAccountTruthLocalSnapshot();
     let earlyStateRevealed = false;
     const revealEarlySignedState = async () => {
@@ -26540,7 +26802,6 @@ async function init() {
       markStartupRestorePhase("device-snapshot");
       await revealEarlySignedState();
     }
-    await accountLedgerPromise;
     markStartupRestorePhase("account-ledger");
     let authoritativeStartup = reconcileStartupAccountState({ hydrationComplete: false });
     setStartupAuthority(authoritativeStartup);
@@ -27599,6 +27860,25 @@ if (typeof document !== "undefined") {
     }
     if (event.target === dialog) dialog.close();
     if (event.target.closest('a[data-section][href^="#"]')) dialog.close();
+  });
+  document.querySelectorAll('[data-account-action="open"]').forEach((button) => button.addEventListener("click", async () => {
+    const mobileMenu = document.getElementById("mobile-more-dialog");
+    if (mobileMenu?.open) mobileMenu.close();
+    await openAccountDialog();
+  }));
+  document.getElementById("account-reset-confirmation")?.addEventListener("input", refreshAccountResetState);
+  document.getElementById("account-dialog")?.addEventListener("click", async (event) => {
+    const dialog = event.currentTarget;
+    const action = event.target.closest("[data-account-action]")?.dataset.accountAction;
+    if (action === "close") return dialog.close();
+    if (action === "reset") return resetAccountCampaign();
+    if (event.target === dialog) dialog.close();
+  });
+  window.addEventListener("online", () => {
+    if (document.getElementById("account-dialog")?.open) renderAccountDialog({ reloadArchives: false });
+  });
+  window.addEventListener("offline", () => {
+    if (document.getElementById("account-dialog")?.open) renderAccountDialog({ reloadArchives: false });
   });
   document.getElementById("mobile-install")?.addEventListener("click", requestMobileInstall);
   initializeComplianceForm();

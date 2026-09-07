@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "030H.1";
+  const VERSION = "031H.1";
   const STABILIZATION_VERSION = "029N.1";
   const SCHEMA_VERSION = 1;
   const AUTH_DRAIN_EVENTS = Object.freeze(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
@@ -72,6 +72,8 @@
     const truthFingerprint = recordFingerprint(input.snapshot);
     const mutationFingerprint = fingerprint({
       userId: input.userId || null,
+      campaignId: input.campaignId || null,
+      resetEpoch: Math.max(0, Number(input.resetEpoch || 0)),
       manifestFingerprint,
       truthFingerprint
     });
@@ -95,6 +97,8 @@
       userId: input.userId || options.userId || null,
       deviceId: input.deviceId || options.deviceId || null,
       expectedRevision: Math.max(0, Number(input.expectedRevision ?? options.expectedRevision ?? 0)),
+      campaignId: input.campaignId || options.campaignId || null,
+      resetEpoch: Math.max(0, Number(input.resetEpoch ?? options.resetEpoch ?? 0)),
       manifest,
       snapshot,
       ...identity,
@@ -161,11 +165,13 @@
     const truthMatches = recordFingerprint(receipt.truth_snapshot || receipt.snapshot) === expected.truthFingerprint;
     const mutationMatches = receipt.last_mutation_id === expected.mutationId
       && receipt.last_mutation_fingerprint === expected.mutationFingerprint;
+    const lifecycleMatches = (!expected.campaignId || receipt.campaign_id === expected.campaignId)
+      && Number(receipt.reset_epoch || 0) === Number(expected.resetEpoch || 0);
     const minimumRevision = options.acceptExactState === true
       ? Math.max(1, expected.expectedRevision)
       : Math.max(1, expected.expectedRevision + 1);
     const revisionAdvanced = Number(receipt.revision || 0) >= minimumRevision;
-    return manifestMatches && truthMatches && (mutationMatches || options.acceptExactState === true) && revisionAdvanced;
+    return lifecycleMatches && manifestMatches && truthMatches && (mutationMatches || options.acceptExactState === true) && revisionAdvanced;
   }
 
   function status(input = {}) {

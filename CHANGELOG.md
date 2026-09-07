@@ -1,5 +1,13 @@
 # Changelog
 
+## 031H - New Campaign
+
+- Adds Account under More with one deliberate Start Over flow and an exact typed confirmation.
+- Archives the outgoing campaign as read-only while preserving sign-in, access, connections, progress photos, and auditability.
+- Resets the active Contract, coordinated plans, Calendar, sessions, daily evidence, review state, rank state, and orientation in one server transaction.
+- Adds campaign identity and reset-generation receipts to every account save so an older tab or device cannot restore the prior campaign.
+- Blocks reset while offline or while protected saves are pending, and accepts success only after an exact account receipt.
+
 ## 031G - Recruit Week Certification
 
 - Binds the signed Contract, committed source week, seven account-confirmed days, finalized weekly result, Atlas verdict, and exact next-week Calendar into one deterministic receipt.

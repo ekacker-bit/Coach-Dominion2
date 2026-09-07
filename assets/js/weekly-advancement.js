@@ -156,6 +156,7 @@
       <p id="weekly-warning" class="status" aria-live="polite"></p>
       <section id="recruit-proof-week-review" class="recruit-proof-week recruit-proof-week-review" data-proof-tone="neutral" aria-label="This week's saved proof" aria-live="polite" hidden></section>
       <section id="weekly-verdict-launch" class="weekly-verdict-launch" data-launch-tone="neutral" aria-label="Weekly verdict and next-week launch" aria-live="polite"></section>
+      <section id="recruit-week-certification" class="recruit-week-certification" data-week-tone="neutral" aria-label="Saved week status" aria-live="polite" hidden></section>
       <div class="weekly-judgment-actions weekly-verdict-primary-action"><button id="finalize-week" type="button" hidden disabled aria-disabled="true">Finalize week</button><p id="rank-promotion-feedback" role="status" aria-live="polite"></p></div>
       <details class="weekly-review-diagnostics">
         <summary>Evidence &amp; rank</summary>

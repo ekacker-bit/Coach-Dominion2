@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Week status visual fixture</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=031g">
+</head>
+<body>
+  <main class="war-room-shell" style="max-width:1100px;margin:0 auto;padding:32px 18px">
+    <section id="inspection" class="panel active" data-week-certification="ACTION_REQUIRED">
+      <header class="section-heading">
+        <div><span class="kicker">WEEKLY REVIEW</span><h1>Earn the week. Launch the next.</h1></div>
+      </header>
+      <section id="recruit-week-certification" class="recruit-week-certification" data-week-tone="red" data-week-state="ACTION_REQUIRED" aria-label="Saved week status" aria-live="polite">
+        <div class="recruit-week-certification-copy"><span>WEEK STATUS</span><strong>ONE STEP LEFT</strong><small>Saturday is missing its account-backed daily proof.</small></div>
+        <div class="recruit-week-certification-mark" aria-hidden="true"><span>→</span></div>
+        <div class="recruit-week-certification-action"><button type="button">Review Saturday</button></div>
+        <details class="recruit-week-certification-support"><summary>Support details</summary><code>WG-1A2B3C4D</code><ul><li><span>account</span><strong>CURRENT</strong></li><li><span>authority</span><strong>CURRENT</strong></li><li><span>daily proof</span><strong>ACTION REQUIRED</strong></li><li><span>inspection</span><strong>WAITING</strong></li></ul></details>
+      </section>
+      <details class="weekly-review-diagnostics" style="margin-top:20px"><summary>Evidence &amp; rank</summary></details>
+    </section>
+  </main>
+</body>
+</html>
